@@ -1,380 +1,84 @@
-# Huntable CTI Studio Testing Documentation
+# Testing
 
-**Welcome to the Huntable CTI Studio testing suite.** This is your starting point for understanding and running all tests.
+This is the entry point for understanding how tests are organized and how they should be run.
 
-## 📋 Quick Navigation
+## Start Here
 
-### 🚀 Getting Started
-- **[Quick Start Guide](QUICK_START.md)** - Run your first test in 5 minutes
-- **[Comprehensive Testing Guide](TESTING.md)** - Full testing documentation
+Read these in order:
 
-### 📊 Test Status & Inventory
-- **[Test Index](TEST_INDEX.md)** - Complete inventory and status
-- **[Skipped Tests](SKIPPED_TESTS.md)** - Track tests needing fixes
-- **[Root Test Summary](../../TEST_COVERAGE_SUMMARY.md)** - Coverage analysis
+1. [`../docs/development/testing.md`](../docs/development/testing.md)
+2. [`../run_tests.py`](../run_tests.py)
+3. [`pytest.ini`](pytest.ini)
+4. The suite directory you are changing
 
-### 🔬 Specialized Testing
-- **[AI Testing](AI_TESTS_README.md)** - AI Assistant and multi-model testing
-- **[Smoke Tests](smoke/README.md)** - Quick health checks (~15s)
-- **[E2E Tests](e2e/README.md)** - End-to-end workflow testing
-- **[Integration Tests](integration/README.md)** - System integration testing
+## Safety Rules
 
-## No production data changes
+Tests must not mutate the primary development database.
 
-**Tests must never change production data.** Safeguards:
+Key safeguards:
 
 | Guard | Purpose |
-|-------|---------|
-| **APP_ENV=test** | Required; `assert_test_environment` enforces at pytest bootstrap |
-| **TEST_DATABASE_URL** | Required; must contain `test` in DB name. Never use `DATABASE_URL` for tests |
-| **Integration DB** | `tests/integration/conftest.py` uses `TEST_DATABASE_URL` only (default: `cti_scraper_test` on port 5433) |
-| **Redis** | Integration uses `REDIS_TEST_DB` (default 15). `flushdb` is never run on db 0 |
-| **run_tests.py** | For integration/API/UI/E2E, run via `python3 run_tests.py <type>` so `APP_ENV=test` and `TEST_DATABASE_URL` are set. Do not run API/UI/E2E against an app using production `DATABASE_URL` |
+|---|---|
+| `APP_ENV=test` | Required for stateful suites |
+| `TEST_DATABASE_URL` | Required for stateful suites; must reference a test DB |
+| `run_tests.py` | Canonical entrypoint; sets up `.venv`, env vars, and test containers |
+| `docker-compose.test.yml` | Isolated Postgres/Redis stack for stateful tests |
 
-## 🎯 Start Here
+Stateful tests do **not** run against the main development containers.
 
-### First Time? (5 minutes)
+## Canonical Commands
+
 ```bash
-# 1. Start the application
-docker-compose up -d
-
-# 2. Run health check
 python3 run_tests.py smoke
-
-# 3. Read Quick Start
-cat tests/QUICK_START.md
+python3 run_tests.py unit
+python3 run_tests.py api
+python3 run_tests.py integration
+python3 run_tests.py ui
+python3 run_tests.py e2e
+python3 run_tests.py all
 ```
 
-### Ready for More?
-```bash
-# Full test suite
-python3 run_tests.py all --coverage
-
-# Read comprehensive guide
-cat tests/TESTING.md
-```
-
-## 📁 Documentation Structure
-
-```
-tests/
-├── README.md                    ← YOU ARE HERE (entry point)
-├── QUICK_START.md               ← 5-minute onboarding
-├── TESTING.md                   ← Comprehensive guide
-│
-├── TEST_INDEX.md                ← Complete test inventory
-├── SKIPPED_TESTS.md             ← Tests needing fixes
-│
-├── AI_TESTS_README.md           ← AI-specific testing
-│
-├── smoke/                       ← Quick health checks
-│   ├── README.md
-│   └── test_critical_smoke_tests.py
-│
-├── e2e/                         ← Browser automation
-│   ├── README.md
-│   └── test_*.py (20+ files)
-│
-├── integration/                 ← System integration
-│   ├── conftest.py
-│   └── test_*.py (24+ files)
-│
-├── api/                         ← API endpoint tests
-├── cli/                         ← CLI command tests
-├── services/                    ← Service layer tests (28+ files)
-├── ui/                          ← UI component tests
-├── workflows/                   ← Workflow tests
-└── utils/                       ← Test utilities
-```
-
-## 🎯 Documentation by Audience
-
-### 👩‍💻 Developers (New to Project)
-**Start with:** `QUICK_START.md` → `TESTING.md`
-
-**Essential reading:**
-1. Quick Start (5 min)
-2. Test Index (overview)
-3. Comprehensive Guide (as needed)
-
-### 🧪 Test Engineers
-**Start with:** `TEST_INDEX.md` → `SKIPPED_TESTS.md` → `TESTING.md`
-
-**Essential reading:**
-1. Test Index (inventory)
-2. Skipped Tests (fixes needed)
-3. Comprehensive Guide (full details)
-4. Specialized testing guides
-
-### 🏗️ Maintainers
-**Start with:** `SKIPPED_TESTS.md` → Specialized guides
-
-**Essential reading:**
-1. Skipped Tests (fix priorities)
-2. Specialized guides (AI, ML Feedback)
-3. Test infrastructure (conftest files)
-
-## 📊 Test Suite Overview
-
-### Statistics
-- **Total Tests**: 685+
-- **Active**: 457 (66.7%)
-- **Skipped**: 205 (29.9%)
-- **Failing**: 32 (4.7%)
-- **Test Files**: 42
-
-### Test Categories
-| Category | Files | Tests | Status | Duration |
-|----------|-------|-------|--------|----------|
-| **Smoke** | 1 | 26 | ✅ Passing | ~30s |
-| **Unit** | 24 | 580+ | Mixed | ~1m |
-| **API** | 3 | 30+ | ✅ Passing | ~2m |
-| **Integration** | 6 | 50+ | ✅ Passing | ~3m |
-| **Integration Workflow** | 8 | 60+ | ✅ Passing | ~5m |
-| **UI** | 6 | 80+ | ✅ Passing | ~5m |
-| **E2E** | 1 | 13 | ✅ Passing | ~5m |
-| **ML Feedback** | 3 | 11 | ✅ Passing | ~1m |
-
-## 🚀 Quick Commands
-
-### Test Infrastructure (New)
-
-**Start test containers:**
-```bash
-make test-up
-# or
-./scripts/test_setup.sh
-```
-
-**Run tests (auto-configures env vars):**
-```bash
-make test
-# or
-./scripts/run_tests.sh
-```
-
-**Stop test containers:**
-```bash
-make test-down
-# or
-./scripts/test_teardown.sh
-```
-
-### Health Check
-```bash
-python3 run_tests.py smoke          # 26 tests, ~30s
-```
-
-### Full Suite
-```bash
-python3 run_tests.py all --coverage  # 685+ tests, ~8m
-```
-
-### New Test Categories
-
-**Stateless tests (no containers):**
-```bash
-make test-unit
-# or
-./scripts/run_tests.sh tests/services/ tests/utils/ -m "not integration"
-```
-
-**Stateful tests (requires containers):**
-```bash
-make test-integration
-# or
-make test-up && ./scripts/run_tests.sh tests/integration/ -m integration && make test-down
-```
-
-**UI tests:**
-```bash
-make test-ui
-# or
-./scripts/run_tests.sh tests/ui/ -m ui
-```
-
-**E2E tests:**
-```bash
-make test-e2e
-# or
-npm test -- tests/playwright/workflow_full.spec.ts tests/playwright/eval_workflow.spec.ts
-```
-
-### Specialized
-```bash
-python3 run_tests.py unit            # Unit tests only
-python3 run_tests.py api             # API tests only
-python3 run_tests.py integration    # Integration tests
-python3 run_tests.py e2e             # End-to-end tests
-./scripts/run_ml_feedback_tests.sh   # ML feedback regression
-```
-
-## 📚 Documentation Details
-
-### Core Guides
-- **QUICK_START.md** - Fast onboarding for new users
-- **TESTING.md** - Comprehensive testing documentation
-- **TEST_INDEX.md** - Complete test inventory with status
-- **SKIPPED_TESTS.md** - Tests needing async mock fixes
-
-### Specialized Testing
-- **AI_TESTS_README.md** - AI Assistant, multi-model, API integration tests
-- **smoke/README.md** - Health check tests (~15s)
-- **e2e/README.md** - Browser automation with Playwright
-
-### Test Infrastructure
-- **Integration conftest** - Celery workers, test DB, rollback
-- **Utils** - Performance profiler, failure analyzer, async debug
-
-## 🔧 Test Execution
-
-### Runners
-- `run_tests.py` - Unified Python test runner
-- `run_integration_tests.sh` - Integration-specific runner
-
-### Configuration
-- `pytest.ini` - Pytest configuration with 38+ markers
-- Tests run against production containers (no separate test infrastructure)
-
-## 📖 Reading Order
-
-### Day 1: Get Started (30 min)
-1. README.md (this file) - 5 min
-2. QUICK_START.md - 10 min
-3. Run `python3 run_tests.py smoke` - 5 min
-4. Run `python3 run_tests.py unit` - 5 min
-5. TEST_INDEX.md (browse) - 5 min
-
-### Day 2: Deep Dive (1 hour)
-1. TESTING.md (sections 1-5) - 30 min
-2. SKIPPED_TESTS.md - 10 min
-3. AI_TESTS_README.md - 10 min
-
-### Day 3: Specialized (as needed)
-1. smoke/README.md
-2. e2e/README.md
-3. Specialized guides
-4. Test source code exploration
-
-## 🎯 Test Types
-
-### Smoke Tests ⚡
-**Purpose**: Quick health check in ~30 seconds
-**File**: `smoke/test_critical_smoke_tests.py`
-**Coverage**: 26 critical endpoint tests
-**Run**: `python3 run_tests.py smoke`
-
-### Unit Tests 🔬
-**Purpose**: Component-level testing with mocks
-**Files**: 24 files in `tests/`
-**Coverage**: 580+ tests, mixed status
-**Run**: `python3 run_tests.py unit`
-
-### Integration Tests 🔗
-**Purpose**: Cross-component testing
-**Files**: 14 files in `integration/`
-**Coverage**: 110+ tests, all passing
-**Run**: `python3 run_tests.py integration`
-
-### UI Tests 🖥️
-**Purpose**: Web interface testing (Playwright)
-**Files**: 28 files in `ui/` (includes TypeScript Playwright test wrapper)
-**Coverage**: 383+ tests, all passing
-**Run**: `python3 run_tests.py ui`
-
-### E2E Tests 🎭
-**Purpose**: Complete user workflow testing
-**Files**: 19 files in `e2e/`
-**Coverage**: 120+ tests, all passing
-**Run**: `python3 run_tests.py e2e`
-
-### API Tests 🔌
-**Purpose**: REST API endpoint testing
-**Files**: 12 files in `api/`
-**Coverage**: 123+ tests, all passing
-**Run**: `pytest tests/api/ -v`
-
-### Integration Tests 🔗
-**Purpose**: Cross-component testing with real dependencies
-**Files**: 25 files in `integration/`
-**Coverage**: 200+ tests, all passing
-**Run**: `pytest tests/integration/ -v`
-
-### CLI Tests 💻
-**Purpose**: Command-line interface testing
-**Files**: 3 files in `cli/`
-**Coverage**: 20+ tests, all passing
-**Run**: `pytest tests/cli/ -v`
-
-### Utils Tests 🛠️
-**Purpose**: Test utility and helper testing
-**Files**: 4 files in `utils/`
-**Coverage**: 10+ tests, all passing
-**Run**: `pytest tests/utils/ -v`
-
-### Workflows Tests 🔄
-**Purpose**: Workflow and LangGraph testing
-**Files**: 1 file in `workflows/`
-**Coverage**: 10+ tests, all passing
-**Run**: `pytest tests/workflows/ -v`
-
-## 🚧 Known Issues
-
-### Skipped Tests (205 tests)
-Tests requiring async mock configuration fixes:
-- **RSS Parser** (46 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
-- **Content Processor** (47 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
-- **Deduplication Service** (35 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
-- **Database Operations** (33 tests) - Tracked in `SKIPPED_TESTS.md` with quarantine markers
-- See `SKIPPED_TESTS.md` for details and tracking
-
-### Failing Tests
-- **HTTP Client** - Fixed in Phase 0 (retry test mock updated)
-
-## 🆕 New Test Infrastructure
-
-### Test Environment Safety
-
-All tests now include safety guards:
-- **Database Safety**: Prevents tests from targeting production database
-- **API Key Safety**: Prevents accidental cloud LLM API usage (requires `ALLOW_CLOUD_LLM_IN_TESTS=true`)
-
-### Test Containers
-
-Ephemeral test containers use different ports to avoid conflicts:
-- PostgreSQL: 5433 (production: 5432)
-- Redis: 6380 (production: 6379)
-- Web: 8002 (production: 8001)
-
-### Fixtures and Factories
-
-- **Fixtures**: Reusable test data in `tests/fixtures/`
-- **Factories**: Test data generators in `tests/factories/`
-- **Golden Files**: Deterministic test outputs in `tests/fixtures/similarity/`
-
-See `docs/TESTING_STRATEGY.md` and `docs/TEST_PLAN.md` for details.
-
-## 📞 Support
-
-### Getting Help
-1. Read this README
-2. Check QUICK_START.md
-3. Review TESTING.md
-4. Check test code comments
-5. See GitHub Issues
-
-### Contributing
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for testing guidelines.
-
-## 🔗 External Resources
-
-- [Pytest Documentation](https://docs.pytest.org/)
-- [Playwright Documentation](https://playwright.dev/)
-- [Allure Reports](https://docs.qameta.io/allure/)
-- [Docker Testing](../../docs/deployment/DOCKER_ARCHITECTURE.md)
-
----
-
-**Last Updated**: February 2026  
-**Maintainer**: Test Engineering Team  
-**Questions**: Open a GitHub Issue
+Use `run_tests.py` unless you have a very specific reason not to.
+
+## Suite Layout
+
+| Path | Purpose |
+|---|---|
+| `tests/api/` | API contract and route tests |
+| `tests/config/` | Workflow config schema, import/export, migration tests |
+| `tests/core/` | Ingestion and scraper behavior |
+| `tests/database/` | Database manager and persistence-layer tests |
+| `tests/integration/` | Cross-component and stateful workflow tests |
+| `tests/playwright/` | TypeScript Playwright browser tests |
+| `tests/services/` | Service-layer unit tests |
+| `tests/smoke/` | Fast health and confidence checks |
+| `tests/ui/` | Pytest-driven browser/UI tests |
+| `tests/workflows/` | Workflow unit tests |
+
+## Which Suite To Run
+
+| If you changed… | Minimum suite |
+|---|---|
+| Route or API behavior | `python3 run_tests.py api` |
+| Workflow logic or persistence | `python3 run_tests.py integration` |
+| Browser-visible UI | `python3 run_tests.py ui` or `python3 run_tests.py e2e` |
+| Workflow config schema/presets | config tests plus integration, and UI if applicable |
+| General service logic | `python3 run_tests.py unit` |
+| Docs only | `python3 -m pytest tests/docs/test_mkdocs_build.py -q` |
+
+## Useful Supporting Files
+
+- [`TEST_INDEX.md`](TEST_INDEX.md)
+- [`TEST_DATABASE_SETUP.md`](TEST_DATABASE_SETUP.md)
+- [`smoke/README.md`](smoke/README.md)
+- [`e2e/README.md`](e2e/README.md)
+
+## Orientation Note
+
+The canonical runtime and contract files for understanding failures are outside `tests/`:
+
+- [`../src/web/modern_main.py`](../src/web/modern_main.py)
+- [`../src/web/routes/__init__.py`](../src/web/routes/__init__.py)
+- [`../src/workflows/agentic_workflow.py`](../src/workflows/agentic_workflow.py)
+- [`../src/config/workflow_config_schema.py`](../src/config/workflow_config_schema.py)
+- [`../src/database/models.py`](../src/database/models.py)

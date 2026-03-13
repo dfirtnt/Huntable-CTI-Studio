@@ -2,23 +2,24 @@
 
 **Turn threat intelligence into Sigma detections; faster.**
 
-Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No AI magic or black box—everything operates through explicit pipelines, visible decisions, advanced tracing, evals, and tooling you can tune for your organization and debug when things go sideways.
+Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No black box required: the system exposes explicit workflows, stored execution state, versioned configuration, and testable interfaces.
 
-## Who is this for?
+## Who Is This For?
 
 | Role | What you get |
 |------|--------------|
-| **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated with pySigma and de-duplicated against SigmaHQ |
+| **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated and de-duplicated against SigmaHQ |
 | **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
 | **SOC Analysts** | Curated, scored intelligence feed with RAG-powered search |
+| **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
 
 ## Highlights
 
-- **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension. Multiple threat intelligence inputs feed the pipeline
-- **Agentic workflows** — OS detection → junk filter → LLM ranking → Extract Agent (command-lines, process trees, hunt queries) → Sigma generation → similarity search → Promote to Queue
-- **Detection support** — PySigma validation, SigmaHQ similarity matching, coverage classification with embeddings
+- **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension
+- **Agentic workflows** — OS detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion
+- **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
-- **Chat & search** — RAG-powered search across collected intelligence, observable-aware annotations
+- **Chat & search** — RAG-powered search across collected intelligence
 
 ## Quick Start
 
@@ -28,53 +29,54 @@ cd Huntable-CTI-Studio
 ./setup.sh --no-backups
 ./start.sh
 ```
-If prompted, you can run the MkDocs docs server in the background (**y**); logs go to `logs/mkdocs.log`.
 
-**Health check**: `curl http://localhost:8001/health`
+If prompted, you can run the MkDocs docs server in the background; logs go to `logs/mkdocs.log`.
+
+**Health check**: `curl http://localhost:8001/health`  
 **Web UI**: http://localhost:8001
 
-## Where to Go Next
+## Where To Go Next
 
 **I want to…**
 
-- **Run it now** → [Quickstart](quickstart.md) — ingest an article, run the workflow, see Sigma rules in 5 minutes
-- **Understand the concepts** → [Huntables](concepts/huntables.md) | [Agents](concepts/agents.md) | [Pipelines](concepts/pipelines.md) | [Observables](concepts/observables.md)
-- **Configure and operate** → [Installation](getting-started/installation.md) | [Configuration](getting-started/configuration.md) | [First Workflow](getting-started/first-workflow.md) — load a [workflow baseline preset](getting-started/configuration.md#workflow-baseline-presets-getting-started) to get started with prompts and models
-- **Add feeds and extract data** → [Add a Feed](guides/add-feed.md) | [Extract Observables](guides/extract-observables.md) | [Generate Sigma Rules](guides/generate-sigma.md)
-- **Understand the architecture** → [Architecture Overview](architecture/overview.md) | [Workflow Data Flow](architecture/workflow-data-flow.md) | [Scoring](architecture/scoring.md)
-- **Extend or integrate** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md) | [Schemas](reference/schemas.md)
-- **Develop and contribute** → [Development Setup](development/setup.md) | [Testing](development/testing.md) | [Contributing](CONTRIBUTING.md)
+- **Run it now** → [Quickstart](quickstart.md)
+- **Understand the workflow** → [Agents](concepts/agents.md) | [Workflow Data Flow](architecture/workflow-data-flow.md)
+- **Understand the architecture** → [Architecture Overview](architecture/overview.md) | [Scoring](architecture/scoring.md)
+- **Configure workflow models and prompts** → [Configuration](getting-started/configuration.md) | [Schemas](reference/schemas.md)
+- **Develop or debug the app** → [Agent Orientation](development/agent-orientation.md) | [Development Setup](development/setup.md) | [Testing](development/testing.md)
+- **Integrate with the API** → [API Reference](reference/api.md) | [CLI Reference](reference/cli.md)
 
 ## Features
 
 ### Sigma Detection Rules
-Automatically generate Sigma detection rules from CTI content. See [Sigma Detection Rules](features/sigma-rules.md) for details.
+
+Automatically generate Sigma detection rules from CTI content. See [Sigma Detection Rules](features/sigma-rules.md).
 
 ### Content Filtering
+
 ML-based classification to filter low-quality content. See [Content Filtering](features/content-filtering.md).
 
 ### OS Detection
+
 Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection](features/os-detection.md).
 
 ### RAG Search
+
 Semantic search across your CTI corpus using embeddings. See [RAG Search](features/rag-search.md).
 
 ## LLM Support
 
 Huntable CTI Studio works with multiple LLM providers:
-- OpenAI (GPT-4, GPT-3.5)
-- Anthropic (Claude 3)
-- Google (Gemini)
-- LM Studio (local models)
+
+- OpenAI
+- Anthropic
+- Google Gemini
+- LM Studio
 
 See [Model Selection Guide](llm/model-selection.md) for recommendations.
 
 ## Getting Help
 
-- **Documentation**: You're reading it! Navigate using the sidebar
-- **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
+- **Documentation**: Navigate using the docs sidebar
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
-
----
-
-_Automate observables extraction and Sigma rule generation with transparent, tunable AI._
+- **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)

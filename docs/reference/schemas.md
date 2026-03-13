@@ -1,151 +1,126 @@
 # Data Schemas
 
-Key persisted structures for Huntable CTI Studio. All payloads live in PostgreSQL and are also exposed by the REST API.
+This document summarizes the most important persisted and structured contracts in the application.
 
-## Articles (`articles` table)
-- `id`, `title`, `canonical_url`, `source_id`, `published_at`, `content`, `summary`
-- `article_metadata` (JSONB) commonly includes:
-  - `threat_hunting_score` and keyword match lists (see `../architecture/scoring.md`)
-  - `ml_hunt_score` and `ml_hunt_score_details` (see `../ml-training/hunt-scoring.md`)
-  - `simhash`, `simhash_bucket`, `content_hash`
-  - `processing_status`, `scraped_manually`, timestamps
-- `content_hash` and `canonical_url` enforce deduplication.
+## Source Of Truth
 
-## Workflow executions (`agentic_workflow_executions`)
-Primary fields exposed by `GET /api/workflow/executions/{id}`:
-- `id`, `article_id`, `status` (`pending`, `running`, `completed`, `failed`)
-- `current_step`, `ranking_score`, `retry_count`
-- `config_snapshot`: JSON of workflow settings at trigger time
-- `started_at`, `completed_at`, `created_at`, `updated_at`
-- `error_message`, `error_log`, `termination_reason`, `termination_details`
-- `extraction_counts`: derived per-agent counts (`cmdline`, `process_lineage`, `sigma_queries`/`hunt_queries`; legacy: `registry_keys`, `event_ids` from deprecated RegExtract/EventCodeExtract)
+Use these files as canonical:
 
-Detail payloads:
-- `junk_filter_result`: filtering decisions before ranking
-- `extraction_result`: merged observables, `discrete_huntables_count`, per-agent `subresults`, and synthesized `content`
-- `sigma_rules`: generated rules with validation logs and pySigma errors
-- `similarity_results`: matches against indexed SigmaHQ rules (behavioral novelty score — Atom Jaccard + Logic Shapecosine similarity)
-- `queued_rules_count` / `queued_rule_ids`: rules promoted to queue
-- `article_content` / `article_content_preview`: content snapshots used by the workflow
+- Database tables and stored JSON fields: `src/database/models.py`
+- Workflow config schema: `src/config/workflow_config_schema.py`
+- Workflow execution behavior: `src/workflows/agentic_workflow.py`
 
-## Sigma rules (`sigma_rules` table)
-Indexed from SigmaHQ via `./run_cli.sh sigma sync` + `./run_cli.sh sigma index`:
-- `rule_id` (Sigma UUID), `title`, `status`, `description`, `references`, `tags`
-- `logsource` and `detection` stored as JSONB
-- `embedding`: pgvector field for similarity search
-- `file_path`, `repo_commit_sha` for provenance
+If this document and code disagree, trust the code.
 
-## Extraction result schema (JSON)
-Each workflow execution stores the Extract Agent output in JSONB:
-- `discrete_huntables_count` (int)
-- `observables` (list of `{type, value, source}`)
-- `subresults`: per-agent objects with `items`, `count`, and optional `raw` payloads. When an LLM API call fails, the subresult may also include:
-  - `error` (string): exception or API error message
-  - `error_type` (string): exception type name (e.g. `HTTPStatusError`, `TimeoutError`)
-  - `error_details` (object): structured debug info (`message`, `exception_type`, `attempt`, `agent_name`)
-- `summary`: includes `source_url`, `platforms_detected`, and other agent hints
-- `content`: newline-joined observables used by the Sigma agent when huntables exist
+## Articles
 
-## Chunk analysis (JSON)
-When chunk analysis runs, results are attached to articles and reused by ML hunt scoring:
-- Chunk size defaults: 1,000 characters with 200-character overlap
-- Stored fields: `ml_prediction`, `ml_confidence`, text snippets, and aggregate statistics in `ml_hunt_score_details`
+Backed by the `articles` table.
 
-## Additional Tables
+Important fields:
 
-### Sigma Rules (`sigma_rules`)
+- `id`
+- `source_id`
+- `canonical_url`
+- `title`
+- `published_at`
+- `content`
+- `summary`
+- `content_hash`
+- `article_metadata`
+- embedding-related fields
 
-Indexed SIGMA detection rules from the SigmaHQ repository.
+Operationally important notes:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer | Primary key |
-| `rule_id` | String (unique) | SIGMA rule identifier |
-| `title` | String | Rule title |
-| `logsource` | JSONB | Log source specification |
-| `detection` | JSONB | Detection logic |
-| `embedding` | Vector(768) | Rule embedding for similarity search |
-| `canonical_json` | JSONB | Canonical representation |
-| `exact_hash` | String | Exact duplicate hash |
-| `near_hash` | String | Near-duplicate hash |
-| `logsource_key` | String | Composite logsource key |
+- `content_hash` is used for deduplication
+- `article_metadata` stores scores, processing state, and supporting derived values
 
-### Article–Sigma Matches (`article_sigma_matches`)
+## Workflow Executions
 
-Matches between articles and existing SIGMA rules.
+Backed by the `agentic_workflow_executions` table.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `article_id` | Integer (FK → articles) | Matched article |
-| `sigma_rule_id` | Integer (FK → sigma_rules) | Matched rule |
-| `similarity_score` | Float | Behavioral novelty score (0-1) — higher means more similar |
-| `match_level` | String | Match confidence level |
-| `coverage_status` | String | Coverage classification |
-| `coverage_confidence` | Float | Coverage confidence |
+Key fields exposed via the workflow APIs:
 
-### Agentic Workflow Configurations (`agentic_workflow_configs`)
+- `id`
+- `article_id`
+- `status`
+- `current_step`
+- `ranking_score`
+- `config_snapshot`
+- `termination_reason`
+- `termination_details`
+- `error_log`
+- `junk_filter_result`
+- `extraction_result`
+- `sigma_rules`
+- `similarity_results`
 
-Active configuration for the agentic analysis workflow.
+These payloads are written by the workflow implementation in `src/workflows/agentic_workflow.py`.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer | Primary key |
-| `version` | Integer | Config version |
-| `is_active` | Boolean | Whether config is active |
-| `min_hunt_score` | Integer | Minimum hunt score to trigger |
-| `ranking_threshold` | Float | LLM ranking pass threshold |
-| `similarity_threshold` | Float | SIGMA similarity threshold |
-| `junk_filter_threshold` | Float | Content filter threshold |
-| `auto_trigger_hunt_score_threshold` | Integer | Auto-trigger threshold |
-| `agent_prompts` | JSONB | Per-agent prompt text |
-| `agent_models` | JSONB | Per-agent model configuration |
-| `qa_enabled` | JSONB | Per-agent QA toggle |
-| `qa_max_retries` | Integer | Max QA retry attempts |
+## Extraction Result JSON
 
-### Agentic Workflow Executions (`agentic_workflow_executions`)
+Each workflow execution stores the Extract Agent output in JSONB.
 
-Records of agentic workflow runs.
+Common fields:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer | Primary key |
-| `article_id` | Integer (FK → articles) | Target article |
-| `status` | String | Execution status |
-| `current_step` | String | Current workflow step |
-| `config_snapshot` | JSONB | Frozen config at execution time |
-| `ranking_score` | Float | LLM ranking score |
-| `extraction_result` | JSONB | Extraction output |
-| `sigma_rules` | JSONB | Generated SIGMA rules |
-| `similarity_results` | JSONB | Similarity search results |
-| `error_log` | JSONB | Error details |
+- `discrete_huntables_count`
+- `observables`
+- `subresults`
+- `summary`
+- `content`
 
-### Sigma Rule Queue (`sigma_rule_queue`)
+`subresults` usually contains per-agent objects with:
 
-Generated SIGMA rules pending human review.
+- `items`
+- `count`
+- optional `raw`
+- optional error fields when an agent call fails
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer | Primary key |
-| `article_id` | Integer (FK → articles) | Source article |
-| `workflow_execution_id` | Integer (FK) | Source execution |
-| `rule_yaml` | Text | Generated SIGMA rule YAML |
-| `status` | String | Review status |
-| `pr_submitted` | Boolean | Whether PR was submitted |
-| `pr_url` | String | GitHub PR URL |
-| `similarity_scores` | JSONB | Similarity check results |
+## Workflow Config V2
 
-### Application Settings (`app_settings`)
+The strict workflow config contract is defined by `src/config/workflow_config_schema.py`.
 
-Key-value store for application-wide settings.
+Top-level sections:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | Integer | Primary key |
-| `key` | String (unique) | Setting key |
-| `value` | Text | Setting value |
-| `category` | String | Setting category |
+- `Version`
+- `Metadata`
+- `Thresholds`
+- `Agents`
+- `Embeddings`
+- `QA`
+- `Features`
+- `Prompts`
+- `Execution`
 
-> **Note**: The database contains 28 total tables. This reference covers the primary user-facing tables. For the complete schema, see the Alembic migrations in `alembic/versions/`.
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbOTMzOTA2Ml19
--->
+Important invariants enforced by the schema:
+
+- enabled agents must have provider and model values
+- prompt keys must use canonical agent names
+- QA agent definitions must align with base agents
+- prompt blocks must exist for model-backed agents
+
+## Sigma Rules
+
+Backed by the `sigma_rules` table.
+
+Important fields:
+
+- `rule_id`
+- `title`
+- `status`
+- `description`
+- `logsource`
+- `detection`
+- `embedding`
+- provenance fields such as `file_path`
+
+These records are used by similarity and coverage logic in the Sigma services.
+
+## Queue And Settings
+
+Operationally important tables include:
+
+- `sigma_rule_queue`
+- `app_settings`
+- workflow config/version tables
+
+Use `src/database/models.py` when you need exact field names, nullability, or relationships.

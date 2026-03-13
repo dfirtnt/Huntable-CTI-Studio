@@ -1,457 +1,113 @@
-# Huntable CTI Studio API Endpoints
+# API Reference
 
-This document provides a comprehensive list of all API endpoints available in the Huntable CTI Studio application.
+This document is a task-oriented map of the API surface. It is intentionally not a generated endpoint inventory.
 
-## Overview
+## Source Of Truth
 
-Huntable CTI Studio provides **2170+ API endpoints** across multiple categories:
-- **Health & Monitoring**: 8 endpoints
-- **Web Pages**: 23 page19 endpoints
-- **Sources Management**: 10 endpoints  
-- **Articles Management**: 152 endpoints
-- **AI & Analysis**: 165 endpoints
-- **RAG Chat Interface & Presets**: 51 endpoints
-- **ML Feedback & Model Management**: 110 endpoints
-- **Annotations**: 8 endpoints
-- **Jobs & Tasks**: 7 endpoints
-- **Metrics & Dashboard**: 20 endpoints
-- **Backup Management**: 3 endpoints
-- **Workflow Execution**: 159 endpoints
-- **Workflow Configuration**: 149 endpoints
-- **ML vs Hunt Comparison**: 57 endpoints
-- **Embeddings & ML**: 23 endpoints
-- **Observable Evaluation**: 4 endpoints
-- **Observable Training**: 2 endpoints (inactive; planned for future release)
-- **Sigma Queue**: 11 endpoints
-- **Settings**: 53 endpoints
-- **File Upload**: 1 endpoint
+Use these sources in this order:
 
-## Health & Monitoring Endpoints
+1. Running OpenAPI UI at `http://localhost:8001/docs`
+2. Route registry in `src/web/routes/__init__.py`
+3. The individual route modules under `src/web/routes/`
 
-### Basic Health Checks
-- `GET /health` - Basic health check
-- `GET /api/health` - API health check
-- `GET /api/health/database` - Database health with statistics
-- `GET /api/health/deduplication` - Deduplication system health
-- `GET /api/health/services` - External services health (Redis)
-- `GET /api/health/celery` - Celery workers health
-- `GET /api/health/ingestion` - Ingestion analytics health
-- `GET /api/metrics/health` - Metrics health check
+If this document disagrees with code or OpenAPI, trust the runtime.
 
-## RAG Chat Interface Endpoints
+## Core Endpoint Groups
 
-### Conversational AI
-- `POST /api/chat/rag` - Interactive chat with threat intelligence database using semantic search
-  - **Parameters**: 
-    - `message` (string): User query
-    - `conversation_history` (array): Previous conversation context
-    - `use_llm_generation` (boolean): Enable LLM synthesis (default: true)
-    - `llm_provider` (string): LLM provider ("auto", "openai", "anthropic", "template")
-    - `max_results` (integer): Maximum results to retrieve (default: 10)
-    - `similarity_threshold` (float): Similarity threshold (default: 0.3)
-    - `use_chunks` (boolean): Use chunk-level search (default: false)
-    - `context_length` (integer): Context length per chunk (default: 2000)
-  - **Response**: Synthesized analysis with source citations and conversation history
-  - **Features**: Multi-turn conversations, context memory, LLM synthesis with fallback
+### Health
 
-### Chat Presets
-- `POST /api/chat/preset/save` - Save a RAG chat preset
-- `GET /api/chat/preset/list` - List all RAG chat presets
-- `GET /api/chat/preset/{id}` - Get a specific RAG chat preset
-- `DELETE /api/chat/preset/{id}` - Delete a RAG chat preset
+- `GET /health`
+- `GET /api/health`
+- `GET /api/health/database`
+- `GET /api/health/services`
+- `GET /api/health/celery`
 
-## ML Feedback & Model Management Endpoints
+Use these first when verifying the stack.
 
-### Model Versioning & Comparison
-- `GET /api/model/versions` - List all model versions with performance metrics
-- `GET /api/model/compare/{version_id}` - Compare model versions and get performance differences
-- `GET /api/model/feedback-comparison` - Get feedback impact analysis showing confidence changes
-- `GET /api/model/classification-timeline` - Get classification trends data across model versions
-- `GET /api/model/feedback-count` - Get count of available feedback samples for retraining
-- `GET /api/model/eval-chunk-count` - Get evaluation chunk count
-- `GET /api/model/retrain-status` - Get model retraining status
-- `POST /api/model/retrain` - Retrain model with user feedback data
-- `POST /api/model/evaluate` - Evaluate current model on test set with detailed metrics
-- `POST /api/feedback/chunk-classification` - Submit user feedback on chunk classifications
-- `GET /api/feedback/chunk-classification/{article_id}/{chunk_id}` - Get specific feedback
+### Sources And Ingestion
 
-## ML vs Hunt Comparison Endpoints
+- `GET /api/sources`
+- `GET /api/sources/{source_id}`
+- `POST /api/sources/{source_id}/collect`
+- `POST /api/scrape-url`
 
-### Comparison Operations
-- `GET /api/ml-hunt-comparison/summary` - Get dashboard summary statistics
-- `GET /api/ml-hunt-comparison/stats` - Get detailed comparison statistics
-- `GET /api/ml-hunt-comparison/eligible-count` - Get count of articles eligible for processing
-- `GET /api/ml-hunt-comparison/results` - Get comparison results
-- `GET /api/ml-hunt-comparison/model-versions` - Get model versions for comparison
+These endpoints control source state and manual collection.
 
-## Backup Management Endpoints
+### Articles
 
-### Backup Operations
-- `POST /api/backup/create` - Create a new system backup
-- `GET /api/backup/list` - List all available backups with sizes
-- `GET /api/backup/status` - Get backup system status and statistics
+- `GET /api/articles`
+- `GET /api/articles/{article_id}`
+- `GET /api/articles/{article_id}/similar`
+- `POST /api/articles/{article_id}/mark-reviewed`
+- `DELETE /api/articles/{article_id}`
 
-## Workflow Execution Endpoints
+These are the main article browsing and maintenance endpoints.
 
-### Agentic Workflow Operations
-- `GET /api/workflow/executions` - List workflow executions with filtering
-  - **Query Parameters**:
-    - `article_id` (optional): Filter by article ID
-    - `status` (optional): Filter by execution status
-    - `step` (optional): Filter by current step (e.g. `extract_agent`, `generate_sigma`)
-    - `sort_by` (optional): Sort column (`id`, `article_id`, `status`, `current_step`, `ranking_score`, `created_at`); default `created_at`
-    - `sort_order` (optional): `asc` or `desc`; default `desc`
-    - `limit` (default: 500): Maximum number of results
-- `GET /api/workflow/executions/{execution_id}` - Get detailed workflow execution information
-  - **Response**: Includes execution status, step results, ranking score, and error logs
-- `POST /api/workflow/executions/{execution_id}/retry` - Retry a failed workflow execution
-- `GET /api/workflow/executions/{execution_id}/stream` - SSE stream ofdebug-info` - Get debug information for workflow execution updates
-  - **Response**: Server-sent events with real-timeDetailed debug data and execution progressstate
-- `POST /api/workflow/articles/{article_id}/trigger` - Manually trigger agentic workflow for an article via Celery
-- `POST /api/workflow/executions/{execution_id}/cancel` - Cancel a running execution
-- `POST /api/workflow/executions/cancel-all-running` - Cancel all running executions
-- `POST /api/workflow/executions/cleanup-stale` - Clean up stale executions
-- `POST /api/workflow/executions/trigger-stuck` - Re-trigger stuck executions
-- `POST /api/workflow/executions/{execution_id}/export-bundle` - Export evaluation bundle
+### Chat And Search
+
+- `POST /api/chat/rag`
+- `POST /api/search/semantic`
+- `GET /api/search/help`
+
+These power the RAG and search workflows.
+
+### Workflow Execution
+
+- `GET /api/workflow/executions`
+- `GET /api/workflow/executions/{execution_id}`
+- `POST /api/workflow/articles/{article_id}/trigger`
+- `POST /api/workflow/executions/{execution_id}/retry`
+- `POST /api/workflow/executions/{execution_id}/cancel`
+- `POST /api/workflow/executions/cleanup-stale`
+- `POST /api/workflow/executions/trigger-stuck`
+
+The workflow engine writes its state into `agentic_workflow_executions` and exposes it through these endpoints.
 
 ### Workflow Configuration
-- `GET /api/workflow/config` - Get current workflow configuration (includes `agent_models` and prompts)
-- `PUT /api/workflow/config` - Update workflow configuration (including agent model assignments via `agent_models`)
-- `GET /api/workflow/config/prompts` - Get all agent prompts
-- `GET /api/workflow/config/prompts/{agent_name}` - Get single agent prompt
-- `PUT /api/workflow/config/prompts/{agent}` - Update agent prompts; body includes `agent_name`, `system_prompt`, `user_prompt` (per-agentbulk update)
-- `GET /api/workflow/config/prompts/{agent_name}/versions` - Get prompt version history
-- `POST /api/workflow/config/prompts/{agent_name}/rollback` - Rollback prompt to a prior version
-- `GET /api/workflow/config/preset/list`, `GET /api/workflow/config/versions`, `GET /api/workflow/config/version/{version_number}` - Presets and version history
-- `POST /api/workflow/config/preset/save` - Save workflow config preset
-- `POST /api/workflow/config/test-subagent` - Test extraction sub-agent
-- `POST /api/workflow/config/test-sigmaagent` - Test SIGMA generation agent
-- `POST /api/workflow/config/test-rankagent` - Test ranking agent
-- `POST /api/workflow/config/prompts/bootstrap` - Bootstrap prompts from template files
 
-## Sources Management Endpoints
+- `GET /api/workflow/config`
+- `PUT /api/workflow/config`
+- `GET /api/workflow/config/prompts`
+- `GET /api/workflow/config/prompts/{agent_name}`
+- `PUT /api/workflow/config/prompts/{agent}`
+- `GET /api/workflow/config/versions`
+- `GET /api/workflow/config/preset/list`
+- `POST /api/workflow/config/preset/save`
 
-### Source Operations
-- `GET /api/sources` - List all sources with filtering
-- `GET /api/sources/failing` - Get failing sources for dashboard
-- `GET /api/sources/{source_id}` - Get specific source details
-- `POST /api/sources/{source_id}/toggle` - Toggle source active status
-- `POST /api/sources/{source_id}/collect` - Manually trigger collection
-- `PUT /api/sources/{source_id}/min_content_length` - Update minimum content length
-- `PUT /api/sources/{source_id}/lookback` - Update source lookback window
-- `PUT /api/sources/{source_id}/check_frequency` - Update check frequency
-- `GET /api/sources/{source_id}/stats` - Get source statistics
-- `POST /api/scrape-url` - Scrape a single URL manually
-- `GET /api/test-route` - Test route for verification
+The strict configuration contract is defined in `src/config/workflow_config_schema.py`.
 
-## Articles Management Endpoints
+### Settings And Integrations
 
-### Article Operations
-- `GET /api/articles` - List articles with pagination and filtering
-- `GET /api/articles/{article_id}` - Get specific article details
-- `GET /api/articles/search` - Search articles with advanced queries
-- `GET /api/articles/next` - Get next article by ID
-- `GET /api/articles/previous` - Get previous article by ID
-- `GET /api/articles/top` - Get top-scoring articles for dashboard
-- `GET /api/articles/{article_id}/similar` - Get similar articles using embeddings
-- `POST /api/articles/bulk-action` - Bulk delete articles (action `delete` only)
-- `DELETE /api/articles/{article_id}` - Delete specific article
-- `POST /api/articles/{article_id}/mark-reviewed` - Mark article as reviewed
-- `GET /api/search/help` - Get search syntax help
+- `GET /api/settings/*`
+- `POST /api/test-openai-key`
+- `POST /api/test-anthropic-key`
+- `POST /api/test-gemini-key`
+- `POST /api/test-lmstudio`
 
-### Article Analysis
-- `GET /api/articles/{article_id}/ai-models` - Get AI model information for article analysis
-- `POST /api/articles/{article_id}/analyze` - Run AI analysis on articleGET /api/search/help` - Get search syntax help
+These endpoints manage runtime settings and provider connectivity.
 
-### Article Analysis
-- `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
-- `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
-- `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
-- `POST /api/articles/{article_id}/rank-with-gpt4o` - GPT4o huntability ranking
-- `POST /api/articles/{article_id}/gpt4o-rank-optimized` - Optimized GPT4o ranking
-- `POST /api/articles/{article_id}/embed` - Generate article embedding
-- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification (see detailed description below)
+### Sigma Queue And Evaluation
 
-## AI & Analysis Endpoints
+- `GET /api/sigma-queue/*`
+- `GET /api/evaluation/*`
+- `GET /api/evaluation-ui/*`
 
-### AI Services
-- `POST /api/chat/rag` - RAG chat interface
-- `POST /api/search/semantic` - Semantic search using embeddings
-- `POST /api/test-openai-key` - Test OpenAI API key validity
-- `POST /api/test-anthropic-key` - Test Anthropic API key validity
-- `POST /api/test-gemini-key` - Validate Gemini API key
-- `POST /api/test-lmstudio` - Test LMStudio connectivclaude-summary` - Test Claude summary functionality
-- `POST /api/articles/{article_id}/custom-prompt` - Custom AI prompt analysis
-- `POST /api/articles/{article_id}/generate-sigma` - Generate SIGMA detection rules
-- `POST /api/articles/{article_id}/extract-iocs` - Extract IOCs using hybrid approach
-- `POST /api/articles/{article_id}/rank-with-gpt4o` - GPT4o huntability ranking
-- `POST /api/articles/{article_id}/gpt4o-rank-optimized` - Optimized GPT4o ranking
-- `POST /api/articles/{article_id}/embed` - Generate article embedding
-- `GET /api/articles/{article_id}/chunk-debug` - Debug chunk classification (see detailed description below)
-- `GET /api/test-route` - Test route for verification
+These support Sigma review flows and evaluation tooling.
 
-#### `GET /api/articles/{article_id}/chunk-debug`
+## Finding The Right Route Module
 
-Debug endpoint returning the ML model’s per-chunk decisions and supporting metadata.
+Start in `src/web/routes/__init__.py`, then open the matching module:
 
-**Query Parameters**
+- `workflow_executions.py`
+- `workflow_config.py`
+- `articles.py`
+- `sources.py`
+- `chat.py`
+- `settings.py`
+- `sigma_queue.py`
 
-| Name | Default | Description |
-| --- | --- | --- |
-| `chunk_size` | `1000` | Maximum characters per chunk (trimmed to sentence boundaries) |
-| `overlap` | `200` | Characters overlapped between adjacent chunks |
-| `min_confidence` | `0.7` | Minimum ML confidence required to keep a chunk |
-| `full_analysis` | `false` | When `true`, bypasses the safety cap and processes every chunk |
+## Verification Guidance
 
-**Response Highlights**
-- `processing_summary` – counts processed vs total chunks, indicates whether the cap was hit, reports concurrency, timeout, and remaining chunks.
-- `chunk_analysis[]` – per-chunk metadata including ML predictions, feature breakdowns, timeout errors, and booleans for threat keywords/perfect discriminators.
-- `ml_stats` – aggregate model accuracy metrics over the processed chunks.
-- `filter_result` + `cost_estimate` – overall filtering and cost-savings information.
-
-Use `full_analysis=true` when analysts click **Finish Full Analysis** in the UI; this may take longer but guarantees full coverage. The initial pass respects environment caps (`CHUNK_DEBUG_MAX_CHUNKS`, `CHUNK_DEBUG_CONCURRENCY`, `CHUNK_DEBUG_CHUNK_TIMEOUT`) to keep the interface responsive.
-
-## Annotations Endpoints
-
-### Annotation Operations
-- `POST /api/articles/{article_id}/annotations` - Create new annotation
-- `GET /api/articles/{article_id}/annotations` - Get all annotations for article
-- `GET /api/annotations/{annotation_id}` - Get specific annotation
-- `PUT /api/annotations/{annotation_id}` - Update existing annotation
-- `DELETE /api/annotations/{annotation_id}` - Delete specific annotation
-- `DELETE /api/articles/{article_id}/annotations/{annotation_id}` - Delete annotation from article
-- `GET /api/annotations/stats` - Get annotation statistics
-- `GET /api/export/annotations` - Export annotations to CSV
-
-## Embeddings & ML Endpoints
-
-### Embedding Operations
-- `GET /api/embeddings/stats` - Get embedding statistics
-- `POST /api/embeddings/update` - Update embeddings for articles/annotations
-
-## Jobs & Tasks Endpoints
-
-### Task Management
-- `GET /api/tasks/{task_id}/status` - Get task status and result
-- `GET /api/jobs/status` - Get current job status
-- `GET /api/jobs/queues` - Get job queue information
-- `GET /api/jobs/history` - Get job execution history
-
-### Actions
-- `POST /api/actions/rescore-all` - Rescore all articles
-- `POST /api/actions/generate-report` - Generate system report
-- `POST /api/actions/health-check` - Trigger health check
-
-## Metrics & Dashboard Endpoints
-
-### Dashboard Data
-- `GET /api/dashboard/data` - Get dashboard data and statistics
-- `GET /api/metrics/volume` - Get volume metrics
-- `GET /api/search/help` - Get search syntax help
-
-### Analytics Endpoints
-- `GET /api/analytics/scraper/overview` - Scraper analytics overview
-- `GET /api/analytics/scraper/collection-rate` - Collection rate metrics
-- `GET /api/analytics/scraper/source-health` - Source health metrics
-- `GET /api/analytics/scraper/source-performance` - Source performance metrics
-- `GET /api/analytics/hunt/overview` - Hunt analytics overview
-- `GET /api/analytics/hunt/score-distribution` - Score distribution metrics
-- `GET /api/analytics/hunt/keyword-performance` - Keyword performance metrics
-- `GET /api/analytics/hunt/keyword-analysis` - Keyword analysis metrics
-- `GET /api/analytics/hunt/score-trends` - Score trends metrics
-- `GET /api/analytics/hunt/source-performance` - Hunt source performance
-- `GET /api/analytics/hunt/quality-distribution` - Quality distribution metrics
-- `GET /api/analytics/hunt/advanced-metrics` - Advanced hunt metrics
-- `GET /api/analytics/hunt/recent-high-scores` - Recent high scores
-- `GET /api/analytics/hunt/performance-insights` - Performance insights
-- `GET /api/analytics/hunt-demo/articles` - Hunt demo articles
-- `GET /api/analytics/hunt-demo/sources` - Hunt demo sources
-- `GET /api/analytics/hunt-demo/keywords` - Hunt demo keywords
-- `GET /api/analytics/hunt-demo/ml-models` - Hunt demo ML models
-
-## Web Pages
-
-### HTML Pages
-- `GET /` - Main dashboard page
-- `GET /dashboard` - Dashboard page (alias)
-- `GET /articles` - Articles listing page
-- `GET /articles/{article_id}` - Article detail page
-- `GET /sources` - Sources management page
-- `GET /settings` - Settings page
-- `GET /health-checks` - Health checks monitoring page
-- `GET /chat` - RAG chat interface page
-- `GET /jobs` - Jobs monitoring page
-- `GET /pdf-upload` - PDF upload page
-- `GET /analytics` - Analytics page
-- `GET /analytics/scraper-metrics` - Scraper metrics page
-- `GET /analytics/hunt-metrics` - Hunt metrics page
-- `GET /analytics/hunt-metrics-demo` - Hunt metrics demo page
-- `GET /ml-hunt-comparison` - ML vs Hunt comparison page
-- `GET /diags` - Diagnostics page
-- `GET /share/articles/{id}` - Public shareable article summary
-- `GET /mlops` - MLOps control center
-- `GET /mlops/agent-evals` - Agent evaluation comparison
-- `GET /observables-training` - Observable training dashboard
-- `GET /sigma-ab-test` - SIGMA A/B testing interface
-- `GET /sigma-similarity-test` - SIGMA similarity testing
-- `GET /workflow` - Unified workflow management
-
-## Sigma Queue Endpoints
-
-### Sigma Rule Management
-- `GET /api/sigma-queue/rules` - List sigma rules in queue
-- `GET /api/sigma-queue/rules/{id}` - Get specific sigma rule from queue
-- `PUT /api/sigma-queue/rules/{id}` - Update sigma rule in queue
-- `PUT /api/sigma-queue/rules/{id}/yaml` - Update rule YAML content
-- `POST /api/sigma-queue/rules/{id}/enrich` - Enrich rule using LLM
-- `POST /api/sigma-queue/rules/{id}/validate` - Validate rule syntax and structure
-- `POST /api/sigma-queue/rules/{id}/submit-pr` - Submit rule as GitHub PR
-- `POST /api/sigma-queue/prompts/save` - Save enrichment prompt version
-- `GET /api/sigma-queue/prompts/versions` - List enrichment prompt versions
-- `POST /api/sigma-queue/presets/save` - Save enrichment preset
-- `GET /api/sigma-queue/presets` - List enrichment presets
-
-## Settings Endpoints
-
-### Application Settings
-- `GET /api/settings` - Get all application settings
-- `GET /api/settings/{key}` - Get a specific setting by key
-- `POST /api/settings` - Create or update a setting
-- `POST /api/settings/bulk` - Bulk update multiple settings
-- `DELETE /api/settings/{key}` - Delete a setting
-
-## File Upload Endpoints
-
-### Document Processing
-- `POST /api/pdf/upload` - Upload and process PDF files
-  - **Parameters**: 
-    - `file`: PDF file (max 50MB)
-  - **Response**: 
-    - `article_id`: Created article ID
-    - `threat_hunting_score`: Article's threat score
-    - `page_count`: Number of pages processed
-  - **Features**: 
-    - Text extraction from PDF
-    - Automatic page separation
-    - Content deduplication
-    - Integration with manual source category
-    - Threat hunting score calculation
-
-## API Documentation
-
-### Interactive Documentation
-- **Swagger UI**: `http://localhost:8001/docs`
-- **ReDoc**: `http://localhost:8001/redoc`
-- **OpenAPI Schema**: `http://localhost:8001/openapi.json`
-
-### Authentication
-Currently, the API does not require authentication for local development. For production deployments, consider implementing:
-- API key authentication
-- JWT token authentication
-- OAuth2 integration
-
-### Rate Limiting
-- API endpoints: 30 requests per minute
-- Web traffic: 30 requests per minute
-- File uploads: 100MB maximum size
-
-### Error Handling
-All API endpoints return consistent error responses:
-```json
-{
-  "error": "Error message",
-  "detail": "Detailed error information",
-  "status_code": 400
-}
-```
-
-### Response Formats
-- **Success responses**: Return data in JSON format
-- **Error responses**: Return error information in JSON format
-- **File downloads**: Return appropriate content-type headers
-
-## Usage Examples
-
-### Get All Sources
-```bash
-curl -X GET "http://localhost:8001/api/sources" \
-  -H "Accept: application/json"
-```
-
-### Search Articles
-```bash
-curl -X GET "http://localhost:8001/api/articles/search?q=ransomware" \
-  -H "Accept: application/json"
-```
-
-### Generate SIGMA Rules
-```bash
-curl -X POST "http://localhost:8001/api/articles/123/generate-sigma" \
-  -H "Content-Type: application/json" \
-  -d '{"include_content": true, "max_rules": 3}'
-```
-
-### RAG Chat
-```bash
-curl -X POST "http://localhost:8001/api/chat/rag" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What are the latest ransomware trends?", "context": "recent"}'
-```
-
-## Monitoring and Health
-
-### Health Check Integration
-All health endpoints can be integrated with monitoring systems:
-- Prometheus metrics
-- Grafana dashboards
-- Alerting systems
-- Load balancer health checks
-
-### Performance Metrics
-The API provides metrics for:
-- Request latency
-- Error rates
-- Throughput
-- Resource utilization
-
-## Security Considerations
-
-### Input Validation
-- All inputs are validated using Pydantic models
-- SQL injection protection via SQLAlchemy ORM
-- XSS protection for web endpoints
-- File upload validation and sanitization
-
-### CORS Configuration
-CORS is configured for localhost development:
-```python
-CORS_ORIGINS = ["http://localhost:3000", "http://localhost:8001"]
-```
-
-### Rate Limiting
-Rate limiting is implemented to prevent abuse:
-- API endpoints: 30 requests per minute
-- Web traffic: 30 requests per minute
-
-## Future Enhancements
-
-### Planned API Improvements
-- GraphQL endpoint for flexible data querying
-- WebSocket support for real-time updates
-- Batch operations for bulk data processing
-- Advanced filtering and sorting options
-- API versioning support
-- Enhanced authentication and authorization
-
-### Integration Opportunities
-- SIEM platform integration
-- Threat intelligence platform integration
-- Security orchestration tools
-- Machine learning pipeline integration
-
----
-
-**Note**: This API documentation is automatically generated from the FastAPI application. For the most up-to-date information, visit the interactive documentation at `http://localhost:8001/docs`.
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTE4MDQ1NTA3NV19
--->
+- API behavior changes: run `python3 run_tests.py api`
+- Workflow API changes: run `python3 run_tests.py integration`
+- UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
