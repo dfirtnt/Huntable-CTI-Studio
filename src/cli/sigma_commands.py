@@ -171,6 +171,64 @@ def index_embeddings_cmd(force: bool):
         logger.error(f"Embedding generation failed: {e}")
 
 
+@sigma_group.command("recompute-semantics")
+def recompute_semantics_cmd():
+    """Recompute deterministic semantic fields (canonical_class, atoms, surface_score) for all indexed SigmaHQ rules."""
+    console.print("[bold blue]Recomputing Sigma semantic precompute fields...[/bold blue]")
+
+    try:
+        from src.services.sigma_semantic_precompute import is_sigma_similarity_available, precompute_semantic_fields
+
+        if not is_sigma_similarity_available():
+            console.print("[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_semantic_similarity")
+            return
+
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        rules = session.query(SigmaRuleTable).all()
+        total = len(rules)
+        console.print(f"Found {total} rules to process")
+
+        processed = 0
+        failures = 0
+        unsupported = 0
+
+        for rule in rules:
+            rule_data = {
+                "logsource": rule.logsource or {},
+                "detection": rule.detection or {},
+            }
+            sem = precompute_semantic_fields(rule_data)
+            if sem is None:
+                unsupported += 1
+                continue
+            try:
+                rule.canonical_class = sem["canonical_class"]
+                rule.positive_atoms = sem["positive_atoms"]
+                rule.negative_atoms = sem["negative_atoms"]
+                rule.surface_score = sem["surface_score"]
+                processed += 1
+                if processed % 100 == 0:
+                    session.commit()
+                    console.print(f"  Processed {processed}...")
+            except Exception as e:
+                logger.warning("Failed to update rule %s: %s", rule.rule_id, e)
+                failures += 1
+
+        session.commit()
+        session.close()
+
+        console.print(f"[bold green]✓[/bold green] Total processed: {processed}")
+        console.print(f"[yellow]  Unsupported (skipped): {unsupported}[/yellow]")
+        if failures > 0:
+            console.print(f"[red]  Failures: {failures}[/red]")
+
+    except Exception as e:
+        console.print(f"[bold red]✗[/bold red] Error: {e}")
+        logger.error("Recompute semantics failed: %s", e)
+
+
 @sigma_group.command("backfill-metadata")
 def backfill_metadata_cmd():
     """Backfill canonical metadata for existing rules (no file system needed)."""

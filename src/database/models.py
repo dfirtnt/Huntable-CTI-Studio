@@ -409,6 +409,12 @@ class SigmaRuleTable(Base):
     logsource_key = Column(String(100), nullable=True, index=True)
     near_hash = Column(String(64), nullable=True, index=True)  # Optional for candidate retrieval
 
+    # Deterministic semantic precompute (sigma_similarity) — eliminates recomputation during comparison
+    canonical_class = Column(String(100), nullable=True, index=True)
+    positive_atoms = Column(JSONB, nullable=True)  # Sorted list of atom identity strings
+    negative_atoms = Column(JSONB, nullable=True)  # Sorted list of negative atom identity strings
+    surface_score = Column(Integer, nullable=True)  # DNF branch count
+
     # Source tracking
     file_path = Column(Text, nullable=False)
     repo_commit_sha = Column(String(40), nullable=True)
