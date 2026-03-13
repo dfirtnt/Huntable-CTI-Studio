@@ -34,3 +34,31 @@ def test_ast_snapshot_or_condition(rule_with_or):
     ast = build_ast(norm)
     snap = ast_to_snapshot_string(ast)
     assert "OR(" in snap
+
+
+def test_ast_list_without_all_modifier_produces_or():
+    """List values without |all modifier -> OR of atoms (Sigma default)."""
+    detection = {
+        "selection": {"CommandLine|contains": ["net user", "net group"]},
+        "condition": "selection",
+    }
+    norm = normalize_detection(detection)
+    ast = build_ast(norm)
+    snap = ast_to_snapshot_string(ast)
+    assert "OR(" in snap
+    assert "net user" in snap
+    assert "net group" in snap
+
+
+def test_ast_list_with_all_modifier_produces_and():
+    """List values with |all modifier -> AND of atoms."""
+    detection = {
+        "selection": {"CommandLine|contains|all": ["net user", "net group"]},
+        "condition": "selection",
+    }
+    norm = normalize_detection(detection)
+    ast = build_ast(norm)
+    snap = ast_to_snapshot_string(ast)
+    assert "AND(" in snap
+    assert "net user" in snap
+    assert "net group" in snap

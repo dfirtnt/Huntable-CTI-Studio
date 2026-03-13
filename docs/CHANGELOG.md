@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- _(No unreleased changes.)_
+
+## [5.1.0 "Callisto"] - 2026-03-13
+
+### Key updates
+
+- **Similarity search — logic and UI**: The Sigma Queue and similarity comparison now use a deterministic semantic engine when the `sigma_semantic_similarity` package is installed. Logic: canonical telemetry class, DNF normalization, Jaccard overlap, containment factor, and filter penalties—no embeddings. Precomputed atoms (`canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score`) are stored during indexing for fast novelty checks. UI: clearer similarity display, improved contrast, and expandable panels for similar rules.
+- **Workflow config**: Slider controls for thresholds, temperature, and top_p; config display improvements.
+- **Settings**: Auto-trigger hunt score threshold control.
+- **Docs**: AGENTS.md, README, and reference docs overhaul for agent orientation and contributor onboarding.
+
+### Added
+- **Sigma tests integrated with run_tests.py** (2026-03-13): Moved `sigma_semantic_similarity/tests/` to `tests/sigma_semantic_similarity/`; unit tests now run via `python3 run_tests.py unit` and CI. Added `requirements-sigma.txt` to CI unit job. New tests for `|all` modifier (list values: `|all` → AND, else OR). Per pytest-run-tests-integration rule.
 - **Sigma deterministic semantic precompute** (2026-03-13): Precompute and persist `canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score` during SigmaHQ indexing. Eliminates recomputation during novelty comparison. New columns via `scripts/migrate_sigma_semantic_precompute.py`. Indexing pipeline and `sigma index-metadata` compute these when sigma_similarity is installed. CLI: `python3 -m src.cli.main sigma recompute-semantics` backfills existing rules. Novelty service uses precomputed atoms when available (pure set math); deterministic mode removes top_k limit and filters by canonical_class.
 - **Cron CLI and API** (2026-03-12): `cron` CLI subcommands (`show`, `replace`) to view and replace the current user's crontab; `/api/cron/*` endpoints for snapshot and replace; Settings UI for backup cron schedule. `BackupCronService` used by CLI and API. Tests: `tests/api/test_cron_api.py`, `tests/cli/test_cron_cli.py`; Playwright settings spec updated.
 - **Comprehensive test coverage improvements** (2026-03-10): Added 38 new tests across API, UI, and Playwright suites with full cleanup and restoration:

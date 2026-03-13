@@ -228,7 +228,6 @@ debug_*.log
 test_*.py
 !test_chunk_deduplication_simple.py
 !tests/**/test_*.py
-!sigma_semantic_similarity/tests/test_*.py
 !utils/temp/test_*.py
 
 # Downloaded PDF reports

@@ -275,7 +275,8 @@ def compare_similarity_methods(sample_rules: int = 5, rank_diff_threshold: int =
             old_ranking = {row[0]: (i + 1, float(row[2])) for i, row in enumerate(old_rows)}
 
             # Test NEW method (multi-vector)
-            new_matches = matching_service.compare_proposed_rule_to_embeddings(rule_data, threshold=0.0)
+            new_result = matching_service.compare_proposed_rule_to_embeddings(rule_data, threshold=0.0)
+            new_matches = new_result.get("matches", [])
 
             # Build new ranking
             new_ranking = {match["rule_id"]: (i + 1, match["similarity"]) for i, match in enumerate(new_matches)}
