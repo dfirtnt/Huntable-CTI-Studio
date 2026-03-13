@@ -390,10 +390,10 @@ class TestWorkflowConfigurationJunkFilter:
         toggle_button.click()
         page.wait_for_timeout(300)
 
-        # Verify threshold input exists
+        # Verify threshold input exists (slider)
         threshold_input = page.locator("#junkFilterThreshold")
         expect(threshold_input).to_be_visible()
-        expect(threshold_input).to_have_attribute("type", "number")
+        expect(threshold_input).to_have_attribute("type", "range")
         expect(threshold_input).to_have_attribute("min", "0")
         expect(threshold_input).to_have_attribute("max", "1")
         expect(threshold_input).to_have_attribute("step", "0.05")
@@ -416,13 +416,13 @@ class TestWorkflowConfigurationJunkFilter:
 
         threshold_input = page.locator("#junkFilterThreshold")
 
-        # Test invalid value (above max)
-        threshold_input.fill("1.5")
+        # Range slider constrains values; test that max (1.0) is accepted
+        threshold_input.fill("1.0")
         threshold_input.blur()
         page.wait_for_timeout(300)
 
-        # Check for error message
-        page.locator("#junkFilterThreshold-error")
+        # Value should be 1.0 (slider clamps to range)
+        expect(threshold_input).to_have_value("1")
         # Error message may or may not be visible depending on validation timing
 
     @pytest.mark.ui
@@ -535,10 +535,10 @@ class TestWorkflowConfigurationRankAgent:
         toggle_button.click()
         page.wait_for_timeout(500)
 
-        # Find threshold input
+        # Find threshold input (slider)
         threshold_input = page.locator("#rankingThreshold")
         expect(threshold_input).to_be_visible()
-        expect(threshold_input).to_have_attribute("type", "number")
+        expect(threshold_input).to_have_attribute("type", "range")
         expect(threshold_input).to_have_attribute("min", "0")
         expect(threshold_input).to_have_attribute("max", "10")
         expect(threshold_input).to_have_attribute("step", "0.1")
@@ -561,13 +561,13 @@ class TestWorkflowConfigurationRankAgent:
 
         threshold_input = page.locator("#rankingThreshold")
 
-        # Test invalid value
-        threshold_input.fill("15")
+        # Range slider constrains values; test that max (10) is accepted
+        threshold_input.fill("10")
         threshold_input.blur()
         page.wait_for_timeout(300)
 
-        # Check for error message
-        page.locator("#rankingThreshold-error")
+        # Value should be 10 (slider clamps to range)
+        expect(threshold_input).to_have_value("10")
         # Error may or may not be visible depending on validation
 
     @pytest.mark.ui
@@ -792,10 +792,10 @@ class TestWorkflowConfigurationExtractAgent:
         cmdline_toggle.click()
         page.wait_for_timeout(300)
 
-        # Find temperature input
+        # Find temperature input (slider)
         temp_input = page.locator("#cmdlineextract-temperature")
         expect(temp_input).to_be_visible()
-        expect(temp_input).to_have_attribute("type", "number")
+        expect(temp_input).to_have_attribute("type", "range")
         expect(temp_input).to_have_attribute("min", "0")
         expect(temp_input).to_have_attribute("max", "2")
         expect(temp_input).to_have_attribute("step", "0.1")
@@ -820,10 +820,10 @@ class TestWorkflowConfigurationExtractAgent:
         cmdline_toggle.click()
         page.wait_for_timeout(300)
 
-        # Find Top_P input
+        # Find Top_P input (slider)
         top_p_input = page.locator("#cmdlineextract-top-p")
         expect(top_p_input).to_be_visible()
-        expect(top_p_input).to_have_attribute("type", "number")
+        expect(top_p_input).to_have_attribute("type", "range")
         expect(top_p_input).to_have_attribute("name", "agent_models[CmdlineExtract_top_p]")
         expect(top_p_input).to_have_attribute("min", "0")
         expect(top_p_input).to_have_attribute("max", "1")
@@ -897,10 +897,10 @@ class TestWorkflowConfigurationSigmaAgent:
         toggle_button.click()
         page.wait_for_timeout(500)
 
-        # Find threshold input
+        # Find threshold input (slider)
         threshold_input = page.locator("#similarityThreshold")
         expect(threshold_input).to_be_visible()
-        expect(threshold_input).to_have_attribute("type", "number")
+        expect(threshold_input).to_have_attribute("type", "range")
         expect(threshold_input).to_have_attribute("min", "0")
         expect(threshold_input).to_have_attribute("max", "1")
         expect(threshold_input).to_have_attribute("step", "0.05")
