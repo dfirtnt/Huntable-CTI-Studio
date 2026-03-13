@@ -683,8 +683,39 @@
                          <span id="langfuseTestStatus" class="ml-3 text-sm"></span>
                      </div>
                      </form>
-                 </div>
-             </div>
+                  </div>
+
+                  <!-- Auto-Processing Thresholds -->
+                  <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">⚡ Auto-Processing Thresholds</h3>
+                      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                          Control which articles are automatically processed by the agentic workflow.
+                      </p>
+                      
+                      <div>
+                          <label for="autoTriggerHuntScoreThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                              Auto-Trigger Hunt Score Threshold
+                          </label>
+                          <div class="flex items-center gap-4">
+                              <input type="number" 
+                                     id="autoTriggerHuntScoreThreshold" 
+                                     value="60.0" 
+                                     min="0" 
+                                     max="100" 
+                                     step="1"
+                                     class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
+                              <span class="text-sm text-gray-500 dark:text-gray-400">
+                                  (0-100, default: 60.0)
+                              </span>
+                          </div>
+                          <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                              Articles with a hunt score at or above this threshold will be automatically processed. 
+                              Set to 0 to disable auto-processing, or 100 to require maximum confidence.
+                          </p>
+                          <p id="autoTriggerThresholdStatus" class="text-sm mt-2"></p>
+                      </div>
+                  </div>
+              </div>
         </div>
 
         <!-- GitHub PR Configuration -->
@@ -997,6 +1028,24 @@
 
         // Update workflow API key visibility
         updateWorkflowApiKeyVisibility();
+
+        // Load auto-trigger hunt score threshold from workflow config API
+        await loadAutoTriggerThreshold();
+    }
+    
+    // Load auto-trigger threshold from workflow config API
+    async function loadAutoTriggerThreshold() {
+        try {
+            const response = await fetch('/api/workflow/config');
+            if (response.ok) {
+                const config = await response.json();
+                if (config.auto_trigger_hunt_score_threshold !== undefined) {
+                    document.getElementById('autoTriggerHuntScoreThreshold').value = config.auto_trigger_hunt_score_threshold;
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load auto-trigger threshold:', error);
+        }
     }
     
     // Load Langfuse settings from database (with localStorage fallback)
@@ -1558,6 +1607,42 @@
             'LMSTUDIO_EMBEDDING_URL': settings.lmstudioEmbeddingUrl || ''
         };
         await persistWorkflowAppSettings(workflowSettingsPayload);
+
+        // Save auto-trigger hunt score threshold to workflow config API
+        const autoTriggerThresholdInput = document.getElementById('autoTriggerHuntScoreThreshold');
+        const autoTriggerThreshold = parseFloat(autoTriggerThresholdInput.value);
+        const statusElement = document.getElementById('autoTriggerThresholdStatus');
+        
+        if (!isNaN(autoTriggerThreshold) && autoTriggerThreshold >= 0 && autoTriggerThreshold <= 100) {
+            try {
+                const response = await fetch('/api/workflow/config', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        auto_trigger_hunt_score_threshold: autoTriggerThreshold
+                    })
+                });
+                if (response.ok) {
+                    statusElement.textContent = '✓ Saved';
+                    statusElement.className = 'text-sm mt-2 text-green-600 dark:text-green-400';
+                    setTimeout(() => {
+                        statusElement.textContent = '';
+                    }, 3000);
+                } else {
+                    const error = await response.json();
+                    statusElement.textContent = `Error: ${error.detail || 'Failed to save'}`;
+                    statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+                }
+            } catch (error) {
+                statusElement.textContent = `Error: ${error.message}`;
+                statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+            }
+        } else {
+            statusElement.textContent = 'Error: Threshold must be between 0 and 100';
+            statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+        }
 
         try {
             await persistBackupSettingsToServer(false);
