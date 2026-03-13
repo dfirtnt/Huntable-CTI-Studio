@@ -330,9 +330,18 @@ function renderRulePreview(rule, observablesData) {
             <div class="mt-4">
                 <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
                 <ul class="list-disc list-inside space-y-1">
-                    ${similarityScores.slice(0, 5).map(s => `
-                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
-                    `).join('')}
+                    ${similarityScores.slice(0, 5).map(s => {
+                        const pct = (s.similarity * 100).toFixed(1);
+                        let tip = '';
+                        if (s.similarity_engine === 'deterministic' && s.semantic_details) {
+                            const d = s.semantic_details;
+                            const j = d.jaccard != null ? (d.jaccard * 100).toFixed(1) + '%' : '—';
+                            const c = d.containment_factor != null ? (d.containment_factor * 100).toFixed(1) + '%' : '—';
+                            tip = 'Engine: Deterministic Semantic Engine | Canonical class: ' + (d.canonical_class || '—') + ' | Jaccard: ' + j + ' | Containment: ' + c;
+                        }
+                        const titleAttr = tip ? ' title="' + tip.replace(/"/g, '&quot;') + '"' : '';
+                        return '<li' + titleAttr + '>' + (s.title || s.rule_id).replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' (' + pct + '% similar)</li>';
+                    }).join('')}
                 </ul>
             </div>
         `;
@@ -1849,7 +1858,16 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(match.description || 'No description')}</p>
                         </div>
                         <div class="ml-4 flex flex-col items-end">
-                            <div class="text-2xl font-bold ${similarityColorClass}">${similarityPercent}%</div>
+                            ${(() => {
+                                let simTitle = '';
+                                if (match.similarity_engine === 'deterministic' && match.semantic_details) {
+                                    const d = match.semantic_details;
+                                    const j = d.jaccard != null ? (d.jaccard * 100).toFixed(1) + '%' : '—';
+                                    const c = d.containment_factor != null ? (d.containment_factor * 100).toFixed(1) + '%' : '—';
+                                    simTitle = ' title="' + ('Engine: Deterministic | Canonical class: ' + (d.canonical_class || '—') + ' | Jaccard: ' + j + ' | Containment: ' + c).replace(/"/g, '&quot;') + '"';
+                                }
+                                return '<div class="text-2xl font-bold ' + similarityColorClass + '"' + simTitle + '>' + similarityPercent + '%</div>';
+                            })()}
                             <div class="text-xs ${statusBadgeClass} px-2 py-1 rounded mt-1">
                                 ${statusIcon} ${coverageStatus.toUpperCase()}
                             </div>
@@ -1975,7 +1993,13 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
             </div>
             
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)
+                ${(() => {
+                    const maxSim = matches && matches.length > 0 ? Math.max(...matches.map(m => m.similarity ?? 0)) : 0;
+                    if (maxSim === 0) {
+                        return 'No behaviorally similar rules found in SigmaHQ (same telemetry class shown for reference)';
+                    }
+                    return `Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)`;
+                })()}
                 ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}

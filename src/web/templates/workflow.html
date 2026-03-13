@@ -14801,7 +14801,13 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
             </div>
             
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-Found ${matches ? matches.length : 0} most similar rules${assessmentMethod === 'behavioral_novelty' || (matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment') ? ' (behavioral novelty assessment)' : matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : ' (behavioral novelty assessment)'} (sorted by similarity)
+                ${(() => {
+                    const maxSim = matches && matches.length > 0 ? Math.max(...matches.map(m => m.similarity ?? 0)) : 0;
+                    if (maxSim === 0) {
+                        return 'No behaviorally similar rules found in SigmaHQ (same telemetry class shown for reference)';
+                    }
+                    return `Found ${matches ? matches.length : 0} most similar rules${assessmentMethod === 'behavioral_novelty' || (matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment') ? ' (behavioral novelty assessment)' : matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : ' (behavioral novelty assessment)'} (sorted by similarity)`;
+                })()}
                 ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}

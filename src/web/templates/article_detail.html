@@ -8279,7 +8279,13 @@ Please provide a detailed analysis based on the article content and the user's s
                 </div>
                 
                 <div class="mb-4 text-sm text-gray-600">
-                    Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)
+                    ${(() => {
+                        const maxSim = matches && matches.length > 0 ? Math.max(...matches.map(m => m.similarity ?? 0)) : 0;
+                        if (maxSim === 0) {
+                            return 'No behaviorally similar rules found in SigmaHQ (same telemetry class shown for reference)';
+                        }
+                        return `Found ${matches ? matches.length : 0} most similar rules${matches && matches.length > 0 && matches[0].similarity_method === 'llm_reranked' ? ' (LLM-reranked)' : matches && matches.length > 0 && matches[0].similarity_method === 'novelty_assessment' ? ' (behavioral novelty assessment)' : ' (behavioral novelty assessment)'} (sorted by similarity)`;
+                    })()}
                     ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                         <div class="mt-1 text-xs text-gray-500">
                             Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? ' — ' + matches[0].llm_model : ''}

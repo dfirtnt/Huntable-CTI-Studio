@@ -2130,7 +2130,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
 
             # Build JSON-safe list for JSONB storage (avoid numpy/custom types breaking commit)
             def _json_safe_match(m: dict) -> dict:
-                return {
+                out = {
                     "id": int(m["id"]) if m.get("id") is not None else None,
                     "rule_id": str(m.get("rule_id", "")),
                     "title": str(m.get("title", "")),
@@ -2142,6 +2142,11 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                     "level": str(m["level"]) if m.get("level") is not None else None,
                     "status": str(m["status"]) if m.get("status") is not None else None,
                 }
+                if m.get("similarity_engine") is not None:
+                    out["similarity_engine"] = str(m["similarity_engine"])
+                if m.get("semantic_details") is not None:
+                    out["semantic_details"] = m["semantic_details"]
+                return out
 
             to_store = [_json_safe_match(m) for m in similar_matches[:10]]
 

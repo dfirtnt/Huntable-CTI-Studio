@@ -5,6 +5,11 @@ Determines whether a newly submitted SIGMA rule is BEHAVIORALLY NOVEL
 relative to an existing SIGMA rule repository.
 
 Behavioral novelty answers: "Does this rule detect meaningfully new telemetry behavior?"
+
+When the standalone sigma_semantic_similarity package is installed, pairwise
+rule comparison uses its deterministic engine (canonical class, DNF, Jaccard,
+containment, filter penalty). Otherwise the in-app atom/jaccard + logic-shape
+similarity is used.
 """
 
 import hashlib
@@ -16,6 +21,12 @@ from enum import Enum
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# Optional: deterministic sigma similarity engine (install sigma_semantic_similarity)
+try:
+    from sigma_similarity import compare_rules as _sigma_compare_rules
+except ImportError:
+    _sigma_compare_rules = None
 
 
 class NoveltyLabel(str, Enum):
@@ -160,43 +171,62 @@ class SigmaNoveltyService:
                             "similarity": 1.0,
                             "atom_jaccard": 1.0,
                             "logic_shape_similarity": 1.0,
+                            "similarity_engine": "legacy",
+                            "semantic_details": None,
                         }
                     )
                     continue
 
-                # Compute metrics
-                atom_jaccard = self.compute_atom_jaccard(canonical_rule, candidate_canonical)
+                # Prefer deterministic sigma_semantic_similarity when available
+                used_deterministic = False
+                deterministic_result = None
+                if _sigma_compare_rules is not None and isinstance(candidate, dict):
+                    try:
+                        result = _sigma_compare_rules(proposed_rule, candidate)
+                        used_deterministic = True
+                        deterministic_result = result
+                        atom_jaccard = result.jaccard
+                        logic_similarity = result.containment_factor
+                        service_penalty = 0.0
+                        filter_penalty = result.filter_penalty
+                        weighted_sim = result.similarity
+                        weighted_before_penalties = weighted_sim + filter_penalty
+                    except Exception as e:
+                        logger.debug(
+                            "sigma_semantic_similarity comparison failed, using in-app metrics: %s",
+                            e,
+                        )
 
-                # Compute service penalty (v1.2)
-                candidate_service = None
-                if isinstance(candidate, dict):
-                    _, candidate_service = self.normalize_logsource(candidate.get("logsource", {}))
-                service_penalty = self._compute_service_penalty(proposed_service, candidate_service)
+                if not used_deterministic:
+                    # In-app metrics (original logic)
+                    atom_jaccard = self.compute_atom_jaccard(canonical_rule, candidate_canonical)
 
-                # Compute filter divergence penalty (v1.2)
-                filter_penalty = self._compute_filter_penalty(canonical_rule, candidate_canonical)
+                    candidate_service = None
+                    if isinstance(candidate, dict):
+                        _, candidate_service = self.normalize_logsource(candidate.get("logsource", {}))
+                    service_penalty = self._compute_service_penalty(proposed_service, candidate_service)
 
-                # Early exit for proven event equivalence (v1.2)
-                # If all atoms are identical, no service mismatch, and no filter divergence,
-                # the rules match the exact same EDR events - return 1.0 immediately
-                if atom_jaccard == 1.0 and service_penalty == 0.0 and filter_penalty == 0.0:
-                    weighted_sim = 1.0
-                    logic_similarity = None  # Not computed - N/A when atoms are identical
-                    weighted_before_penalties = 1.0
-                else:
-                    # Compute logic shape similarity only if needed
-                    logic_similarity = self.compute_logic_shape_similarity(canonical_rule, candidate_canonical)
+                    filter_penalty = self._compute_filter_penalty(canonical_rule, candidate_canonical)
 
-                    # Weighted similarity with penalties
-                    weighted_sim = self.compute_weighted_similarity(
-                        atom_jaccard, logic_similarity, service_penalty=service_penalty, filter_penalty=filter_penalty
-                    )
-                    logic_val = logic_similarity if logic_similarity is not None else 0.0
-                    weighted_before_penalties = 0.70 * atom_jaccard + 0.30 * logic_val
+                    if atom_jaccard == 1.0 and service_penalty == 0.0 and filter_penalty == 0.0:
+                        weighted_sim = 1.0
+                        logic_similarity = None
+                        weighted_before_penalties = 1.0
+                    else:
+                        logic_similarity = self.compute_logic_shape_similarity(
+                            canonical_rule, candidate_canonical
+                        )
+                        weighted_sim = self.compute_weighted_similarity(
+                            atom_jaccard, logic_similarity,
+                            service_penalty=service_penalty, filter_penalty=filter_penalty,
+                        )
+                        logic_val = logic_similarity if logic_similarity is not None else 0.0
+                        weighted_before_penalties = 0.70 * atom_jaccard + 0.30 * logic_val
 
                 if weighted_sim >= threshold:
-                    # Generate explainability
-                    explainability = self.generate_explainability(canonical_rule, candidate_canonical, candidate)
+                    explainability = self.generate_explainability(
+                        canonical_rule, candidate_canonical, candidate
+                    )
 
                     match_dict = {
                         "rule_id": candidate.get("rule_id", "") if isinstance(candidate, dict) else "",
@@ -206,6 +236,28 @@ class SigmaNoveltyService:
                         "service_penalty": service_penalty,
                         "filter_penalty": filter_penalty,
                         "weighted_before_penalties": weighted_before_penalties,
+                        "similarity_engine": "deterministic" if used_deterministic else "legacy",
+                        "semantic_details": (
+                            {
+                                "canonical_class": deterministic_result.canonical_class,
+                                "jaccard": deterministic_result.jaccard,
+                                "containment_factor": deterministic_result.containment_factor,
+                                "filter_penalty": deterministic_result.filter_penalty,
+                                "surface_score_a": deterministic_result.surface_score_a,
+                                "surface_score_b": deterministic_result.surface_score_b,
+                                "overlap_ratio_a": deterministic_result.explanation.get(
+                                    "overlap_ratio_a", 0.0
+                                ),
+                                "overlap_ratio_b": deterministic_result.explanation.get(
+                                    "overlap_ratio_b", 0.0
+                                ),
+                                "reason_flags": deterministic_result.explanation.get(
+                                    "reason_flags", []
+                                ),
+                            }
+                            if used_deterministic and deterministic_result is not None
+                            else None
+                        ),
                         **explainability,
                     }
 
