@@ -171,7 +171,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 app = FastAPI(
     title="Huntable CTI Studio - Modern Threat Intelligence Platform",
     description="Enterprise-grade threat intelligence aggregation and analysis platform",
-    version="5.0.0",
+    version="5.1.0",
     lifespan=lifespan,
 )
 

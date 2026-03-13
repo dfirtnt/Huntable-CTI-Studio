@@ -76,18 +76,24 @@ def _parse_field_spec(key: str) -> tuple[str, str, str]:
     return (field, operator, modifier_chain)
 
 
-def _dict_to_atoms(block: dict[str, Any]) -> list[AtomNode]:
-    """Convert a selection block (dict field->value) to list of AtomNodes. Canonical sort by key."""
-    atoms: list[AtomNode] = []
+def _dict_to_atoms(block: dict[str, Any]) -> list[ASTNode]:
+    """Convert a selection block to list of ASTNodes. List values: |all -> AND (separate atoms), else OR."""
+    nodes: list[ASTNode] = []
     for key in sorted(block.keys()):
         value = block[key]
         field, operator, modifier_chain = _parse_field_spec(key)
+        use_all = "all" in modifier_chain.lower().split("|")
         if isinstance(value, list):
-            for v in value:
-                atoms.append(AtomNode(field, operator, modifier_chain, v))
+            atom_list = [AtomNode(field, operator, modifier_chain, v) for v in value]
+            if not atom_list:
+                continue
+            if use_all:
+                nodes.extend(atom_list)
+            else:
+                nodes.append(OrNode(atom_list) if len(atom_list) > 1 else atom_list[0])
         else:
-            atoms.append(AtomNode(field, operator, modifier_chain, value))
-    return atoms
+            nodes.append(AtomNode(field, operator, modifier_chain, value))
+    return nodes
 
 
 def _selection_to_ast(selection: list[dict]) -> ASTNode:
@@ -95,16 +101,16 @@ def _selection_to_ast(selection: list[dict]) -> ASTNode:
     if not selection:
         return AndNode([])  # empty AND for empty selection
     if len(selection) == 1:
-        atoms = _dict_to_atoms(selection[0])
-        if len(atoms) <= 1:
-            return atoms[0] if atoms else AndNode([])
-        return AndNode(atoms)
+        nodes = _dict_to_atoms(selection[0])
+        if len(nodes) <= 1:
+            return nodes[0] if nodes else AndNode([])
+        return AndNode(nodes)
     # Multiple blocks: OR of ANDs
     branches = []
     for block in selection:
-        atoms = _dict_to_atoms(block)
-        if atoms:
-            branches.append(AndNode(atoms) if len(atoms) > 1 else atoms[0])
+        nodes = _dict_to_atoms(block)
+        if nodes:
+            branches.append(AndNode(nodes) if len(nodes) > 1 else nodes[0])
     if not branches:
         return AndNode([])
     return OrNode(branches) if len(branches) > 1 else branches[0]

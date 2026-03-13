@@ -390,7 +390,7 @@ class TestWorkflowConfigurationJunkFilter:
         toggle_button.click()
         page.wait_for_timeout(300)
 
-        # Verify threshold input exists (slider)
+        # Verify threshold input exists
         threshold_input = page.locator("#junkFilterThreshold")
         expect(threshold_input).to_be_visible()
         expect(threshold_input).to_have_attribute("type", "range")
@@ -416,14 +416,10 @@ class TestWorkflowConfigurationJunkFilter:
 
         threshold_input = page.locator("#junkFilterThreshold")
 
-        # Range slider constrains values; test that max (1.0) is accepted
-        threshold_input.fill("1.0")
+        threshold_input.fill("1")
         threshold_input.blur()
         page.wait_for_timeout(300)
-
-        # Value should be 1.0 (slider clamps to range)
         expect(threshold_input).to_have_value("1")
-        # Error message may or may not be visible depending on validation timing
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -535,7 +531,7 @@ class TestWorkflowConfigurationRankAgent:
         toggle_button.click()
         page.wait_for_timeout(500)
 
-        # Find threshold input (slider)
+        # Find threshold input
         threshold_input = page.locator("#rankingThreshold")
         expect(threshold_input).to_be_visible()
         expect(threshold_input).to_have_attribute("type", "range")
@@ -561,14 +557,10 @@ class TestWorkflowConfigurationRankAgent:
 
         threshold_input = page.locator("#rankingThreshold")
 
-        # Range slider constrains values; test that max (10) is accepted
         threshold_input.fill("10")
         threshold_input.blur()
         page.wait_for_timeout(300)
-
-        # Value should be 10 (slider clamps to range)
         expect(threshold_input).to_have_value("10")
-        # Error may or may not be visible depending on validation
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -783,25 +775,9 @@ class TestWorkflowConfigurationExtractAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand panels (use JS to ensure expand works even if element is off-screen)
-        page.evaluate("""() => {
-            const extractContent = document.getElementById('extract-agent-panel-content');
-            const extractToggle = document.getElementById('extract-agent-panel-toggle');
-            if (extractContent?.classList.contains('hidden') && extractToggle) {
-                extractContent.classList.remove('hidden');
-                extractToggle.textContent = '▲';
-            }
-            const cmdlineBtn = document.getElementById('cmdlineextract-panel-btn');
-            const cmdlineContent = document.getElementById('cmdlineextract-agent-panel-content');
-            if (cmdlineContent?.classList.contains('hidden') && cmdlineBtn) {
-                cmdlineContent.classList.remove('hidden');
-                const toggle = document.getElementById('cmdlineextract-agent-panel-toggle');
-                if (toggle) toggle.textContent = '▲';
-            }
-        }""")
-        page.wait_for_timeout(300)
+        self._expand_extract_subagent_panel(page, "cmdlineextract")
 
-        # Find temperature input (slider; max is provider-specific: 1 for Anthropic, 2 for OpenAI/LMStudio)
+        # Find temperature input
         temp_input = page.locator("#cmdlineextract-temperature")
         expect(temp_input).to_be_visible()
         expect(temp_input).to_have_attribute("type", "range")
@@ -821,25 +797,9 @@ class TestWorkflowConfigurationExtractAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand panels (use JS to ensure expand works even if element is off-screen)
-        page.evaluate("""() => {
-            const extractContent = document.getElementById('extract-agent-panel-content');
-            const extractToggle = document.getElementById('extract-agent-panel-toggle');
-            if (extractContent?.classList.contains('hidden') && extractToggle) {
-                extractContent.classList.remove('hidden');
-                extractToggle.textContent = '▲';
-            }
-            const cmdlineBtn = document.getElementById('cmdlineextract-panel-btn');
-            const cmdlineContent = document.getElementById('cmdlineextract-agent-panel-content');
-            if (cmdlineContent?.classList.contains('hidden') && cmdlineBtn) {
-                cmdlineContent.classList.remove('hidden');
-                const toggle = document.getElementById('cmdlineextract-agent-panel-toggle');
-                if (toggle) toggle.textContent = '▲';
-            }
-        }""")
-        page.wait_for_timeout(300)
+        self._expand_extract_subagent_panel(page, "cmdlineextract")
 
-        # Find Top_P input (slider)
+        # Find Top_P input
         top_p_input = page.locator("#cmdlineextract-top-p")
         expect(top_p_input).to_be_visible()
         expect(top_p_input).to_have_attribute("type", "range")
@@ -849,7 +809,7 @@ class TestWorkflowConfigurationExtractAgent:
         expect(top_p_input).to_have_attribute("step", "0.01")
 
     def _expand_extract_subagent_panel(self, page: Page, subagent: str) -> None:
-        """Expand Extract Agent and given sub-agent panel via JS (avoids off-screen visibility)."""
+        """Expand Extract Agent and sub-agent panel via JS."""
         content_id = f"{subagent}-agent-panel-content"
         toggle_id = f"{subagent}-agent-panel-toggle"
         page.evaluate(
@@ -970,12 +930,10 @@ class TestWorkflowConfigurationExtractAgent:
         temp_input = page.locator("#cmdlineextract-temperature")
         expect(temp_input).to_be_visible()
 
-        # Select Anthropic
         page.select_option("#cmdlineextract-provider", "anthropic")
         page.wait_for_timeout(800)
         expect(temp_input).to_have_attribute("max", "1")
 
-        # Switch to OpenAI
         page.select_option("#cmdlineextract-provider", "openai")
         page.wait_for_timeout(800)
         expect(temp_input).to_have_attribute("max", "2")
@@ -1048,7 +1006,7 @@ class TestWorkflowConfigurationSigmaAgent:
         toggle_button.click()
         page.wait_for_timeout(500)
 
-        # Find threshold input (slider)
+        # Find threshold input
         threshold_input = page.locator("#similarityThreshold")
         expect(threshold_input).to_be_visible()
         expect(threshold_input).to_have_attribute("type", "range")
