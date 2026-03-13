@@ -767,6 +767,9 @@ Return JSON array only, no markdown formatting."""
                                 "service_penalty": match.get("service_penalty", 0.0),
                                 "filter_penalty": match.get("filter_penalty", 0.0),
                                 "weighted_before_penalties": match.get("weighted_before_penalties"),
+                                # Deterministic engine metadata (when sigma_semantic_similarity used)
+                                "similarity_engine": match.get("similarity_engine", "legacy"),
+                                "semantic_details": match.get("semantic_details"),
                             }
                         )
 

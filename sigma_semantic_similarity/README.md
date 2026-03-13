@@ -54,3 +54,12 @@ Same input → identical byte-for-byte output. Canonical sort of atoms and DNF b
 - `UnsupportedSigmaFeatureError`: Unsupported condition/detection feature
 - `UnknownTelemetryClassError`: Rule cannot be mapped to a canonical telemetry class (raise; no result)
 - `DeterministicExpansionLimitError`: DNF expansion exceeds 64 branches (engine converts to result with `reason_flags=["dnf_expansion_limit"]`)
+
+## Integration with Huntable CTI Studio
+
+When this package is installed in the same environment as Huntable CTI Studio (e.g. `pip install -e sigma_semantic_similarity/` from the repo root), the app uses it for:
+
+- **Novelty assessment** (`SigmaNoveltyService`): Pairwise rule comparison uses the deterministic engine when available; otherwise the in-app atom/jaccard + logic-shape similarity is used.
+- **Eval semantic scoring** (`SigmaSemanticScorer`): When no LLM service is configured, the evaluator uses the deterministic engine for `similarity_score` (no missing/extraneous behavior details).
+
+The dependency is optional: if the package is not installed, the app falls back to existing (LLM/embedding or in-app) logic.
