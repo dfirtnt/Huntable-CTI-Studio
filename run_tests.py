@@ -458,6 +458,18 @@ class RunTestRunner:
             except Exception:
                 logger.warning("Test dependencies not installed, continuing without them")
 
+        # Add sigma_similarity (optional) for tests/sigma_semantic_similarity
+        if os.path.exists("requirements-sigma.txt"):
+            commands.append(
+                (
+                    f"{self.venv_pip} install -r requirements-sigma.txt",
+                    "Installing sigma similarity (optional)",
+                )
+            )
+
+        # Track which commands are optional
+        optional_commands = ["Installing test dependencies", "Installing sigma similarity (optional)"]
+
         # Install Playwright if it's installed
         result = subprocess.run(
             [self.venv_python, "-c", "import playwright"],
@@ -471,9 +483,6 @@ class RunTestRunner:
                     "Installing Playwright browser",
                 )
             )
-
-        # Track which commands are optional
-        optional_commands = ["Installing test dependencies"]
 
         for cmd, description in commands:
             result = self._run_command(cmd, description, capture_output=True)
