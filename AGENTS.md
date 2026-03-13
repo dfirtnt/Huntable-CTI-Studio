@@ -14,6 +14,76 @@ Autonomy is allowed only where explicitly defined below.
 
 ---
 
+## Start Here
+
+Before proposing or making changes, read in this order:
+
+1. `AGENTS.md`
+2. `README.md`
+3. `docs/index.md`
+4. `docs/development/agent-orientation.md`
+5. The code and docs directly tied to the change
+
+Minimum task-specific reading:
+
+| Change type | Read first | Verify with |
+|---|---|---|
+| UI or page behavior | `src/web/modern_main.py`, `src/web/routes/__init__.py`, relevant `src/web/routes/*.py`, relevant templates/static assets, `docs/development/testing.md` | `python3 run_tests.py ui` or `python3 run_tests.py e2e` |
+| API behavior | `src/web/routes/__init__.py`, relevant route module, `src/database/models.py`, `docs/reference/api.md` | `python3 run_tests.py api` |
+| Workflow execution | `src/workflows/agentic_workflow.py`, `src/services/workflow_trigger_service.py`, `src/worker/celery_app.py`, `docs/architecture/workflow-data-flow.md` | `python3 run_tests.py integration` plus browser verification if UI changed |
+| Workflow config / presets / prompts | `src/config/workflow_config_schema.py`, `src/config/workflow_config_loader.py`, `config/presets/AgentConfigs/README.md`, `src/prompts/` | relevant config/unit/integration tests plus UI verification if edited via UI |
+| Persistence / contracts | `src/database/models.py`, `docs/reference/schemas.md`, affected routes/services | targeted unit/integration/api tests |
+| Source ingestion / scraping | `src/core/fetcher.py`, `src/core/rss_parser.py`, `src/core/modern_scraper.py`, `src/services/source_sync.py`, `docs/guides/source-config.md` | unit/integration tests |
+| Scheduled jobs / workers | `src/worker/celery_app.py`, `src/services/scheduled_jobs_service.py`, `docs/reports/SCHEDULED_JOBS_REPORT.md` | integration tests |
+| Tests / test infrastructure | `run_tests.py`, `docs/development/testing.md`, `tests/README.md`, `tests/pytest.ini` | run the affected suites |
+
+---
+
+## Repo Map
+
+Use this map to orient before searching broadly:
+
+| Path | Purpose |
+|---|---|
+| `src/web/` | FastAPI app, page routes, API routes, templates, and static assets |
+| `src/workflows/` | LangGraph workflow execution and workflow state transitions |
+| `src/worker/` | Celery app, task queues, and periodic task registration |
+| `src/services/` | Core business logic for LLM calls, Sigma generation, similarity, scheduling, and orchestration |
+| `src/config/` | Workflow config schema, loaders, and migrations |
+| `src/database/` | SQLAlchemy models and database access layers |
+| `src/core/` | Ingestion, scraping, processing, and source management |
+| `src/prompts/` | Prompt source files used to build workflow presets and runtime prompt defaults |
+| `config/` | Versioned source YAML, workflow presets, eval article data, provider catalogs |
+| `tests/` | Pytest suites, Playwright specs, fixtures, and test infrastructure |
+| `docs/` | Human-facing docs; useful orientation aid but subordinate to code when they diverge |
+
+---
+
+## Canonical Sources Of Truth
+
+When artifacts disagree, trust them in this order:
+
+1. Runtime code and enforced schemas
+2. Executable tests
+3. Focused reference docs
+4. General overview docs
+
+Canonical files for common questions:
+
+- Runtime app entrypoint: `src/web/modern_main.py`
+- Route surface: `src/web/routes/__init__.py`
+- Workflow implementation: `src/workflows/agentic_workflow.py`
+- Worker and schedules: `src/worker/celery_app.py`
+- Workflow config contract: `src/config/workflow_config_schema.py`
+- Persistence contract: `src/database/models.py`
+- Test runner and environment policy: `run_tests.py`
+- Pytest markers and defaults: `tests/pytest.ini`
+- Workflow presets: `config/presets/AgentConfigs/README.md`
+
+Do NOT treat high-level counts, inventories, or generated endpoint summaries as authoritative if code disagrees.
+
+---
+
 ## Core Principles
 
 - Determinism over creativity
@@ -45,6 +115,7 @@ Skipping steps is prohibited.
 - Prefer existing patterns, schemas, and conventions
 - Do NOT invent new abstractions unless explicitly required
 - If intent cannot be inferred from artifacts, STOP and report a SPECIFICATION blocker
+- Read the nearest contract file before changing structured data or workflow behavior
 
 ---
 
@@ -66,7 +137,7 @@ The agent MAY act autonomously without user confirmation when ALL conditions are
 The agent MUST stop and report when ANY condition is met:
 
 - Schema, contract, or intent ambiguity exists
-- Multiple valid solutions are detected
+- Multiple materially different solutions exist and local precedent does not resolve the choice
 - A destructive or irreversible action is required
 - Verification cannot be automated
 
@@ -78,6 +149,42 @@ The agent MUST stop and report when ANY condition is met:
 - Do NOT “fix forward” by adding speculative behavior
 - Prefer deletions, tightening, or constraint enforcement over additions
 - All changes must be reviewable and diffable
+- Prefer the existing startup, CLI, and workflow entrypoints over ad-hoc scripts when validating behavior
+
+---
+
+## Canonical Commands
+
+Use these commands by default unless the task clearly requires something narrower:
+
+```bash
+./setup.sh --no-backups
+./start.sh
+curl http://localhost:8001/health
+python3 run_tests.py smoke
+python3 run_tests.py unit
+python3 run_tests.py api
+python3 run_tests.py integration
+python3 run_tests.py ui
+python3 run_tests.py e2e
+python3 run_tests.py all
+```
+
+Notes:
+
+- `run_tests.py` is the canonical test entrypoint.
+- `run_tests.py` ensures `.venv` exists and auto-starts isolated test containers for stateful suites.
+- API/UI/E2E tests must not be run against the primary development database.
+
+---
+
+## Common Traps
+
+- Source configuration precedence is **database first after initial seed**. `config/sources.yaml` seeds new installs, but existing installations use DB state unless manually synced.
+- Workflow config is a **v2 schema contract** enforced by `src/config/workflow_config_schema.py`. Preserve canonical key names and required prompt blocks.
+- Presets under `config/presets/AgentConfigs/` are full workflow snapshots, not partial overrides.
+- Startup performs data-shaping work such as source seeding checks, eval article seeding, and settings normalization. Consider startup side effects when debugging.
+- UI-visible changes require browser-level verification; API or unit tests alone are insufficient.
 
 ---
 
