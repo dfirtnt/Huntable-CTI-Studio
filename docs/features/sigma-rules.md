@@ -283,6 +283,10 @@ Enhances "Generate SIGMA Rules" by comparing proposed/generated rules against in
 3. **Improves Quality**: Helps understand coverage gaps
 4. **Saves Time**: Avoids recreating existing rules
 
+### Deterministic rule-vs-rule comparison (optional)
+
+When the **sigma_semantic_similarity** package is installed (`pip install -e sigma_semantic_similarity/` from the repo root), the app uses its deterministic engine for pairwise rule comparison in novelty assessment and (when no LLM is configured) in eval semantic scoring. It uses canonical telemetry class, DNF normalization, Jaccard, containment, and filter penalties—no embeddings. If the package is not installed, the app uses the existing in-app or LLM/embedding logic.
+
 ### How It Works
 
 ```

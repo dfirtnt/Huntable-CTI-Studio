@@ -1,14 +1,23 @@
 """
 SIGMA Semantic Equivalence Scorer.
 
-Compares generated SIGMA rules against reference rules using
-LLM-judge or embedding-based similarity.
+Compares generated SIGMA rules against reference rules using:
+- Deterministic engine (sigma_semantic_similarity) when use_deterministic=True and installed
+- LLM-judge when use_llm_judge=True and llm_service provided
+- Embedding-based similarity as fallback
 """
 
 import logging
 from dataclasses import dataclass
 
+import yaml
+
 logger = logging.getLogger(__name__)
+
+try:
+    from sigma_similarity import compare_rules as _sigma_compare_rules
+except ImportError:
+    _sigma_compare_rules = None
 
 
 @dataclass
@@ -20,27 +29,38 @@ class SemanticComparisonResult:
     extraneous_behaviors: int
     missing_behavior_details: list[str]
     extraneous_behavior_details: list[str]
+    # When deterministic engine was used:
+    similarity_engine: str | None = None  # "deterministic" | "legacy" (LLM/embedding)
+    semantic_details: dict | None = None  # canonical_class, jaccard, containment_factor, etc.
 
 
 class SigmaSemanticScorer:
     """
     Scores semantic equivalence between SIGMA rules.
 
-    Supports two methods:
-    1. LLM-judge: Uses LLM to compare rules
-    2. Embedding-based: Uses embeddings for similarity
+    Supports:
+    1. Deterministic (sigma_semantic_similarity) when use_deterministic=True and package installed
+    2. LLM-judge when use_llm_judge=True and llm_service provided
+    3. Embedding-based as fallback
     """
 
-    def __init__(self, use_llm_judge: bool = True, llm_service=None):
+    def __init__(
+        self,
+        use_llm_judge: bool = True,
+        llm_service=None,
+        use_deterministic: bool = False,
+    ):
         """
         Initialize semantic scorer.
 
         Args:
-            use_llm_judge: If True, use LLM-judge; otherwise use embeddings
+            use_llm_judge: If True, use LLM-judge when llm_service provided
             llm_service: LLM service instance (required if use_llm_judge=True)
+            use_deterministic: If True, prefer sigma_semantic_similarity when available
         """
         self.use_llm_judge = use_llm_judge
         self.llm_service = llm_service
+        self.use_deterministic = use_deterministic
 
         if use_llm_judge and not llm_service:
             logger.warning("LLM-judge requested but no LLM service provided. Will use embedding fallback.")
@@ -65,12 +85,68 @@ class SigmaSemanticScorer:
         Returns:
             SemanticComparisonResult with similarity and behavior differences
         """
+        if self.use_deterministic and _sigma_compare_rules is not None:
+            result = await self._compare_with_deterministic(
+                generated_rule, reference_rule, generated_rule_yaml, reference_rule_yaml
+            )
+            if result is not None:
+                return result
         if self.use_llm_judge and self.llm_service:
             return await self._compare_with_llm_judge(
                 generated_rule, reference_rule, generated_rule_yaml, reference_rule_yaml
             )
         return await self._compare_with_embeddings(
             generated_rule, reference_rule, generated_rule_yaml, reference_rule_yaml
+        )
+
+    async def _compare_with_deterministic(
+        self,
+        generated_rule: str,
+        reference_rule: str,
+        generated_rule_yaml: dict | None,
+        reference_rule_yaml: dict | None,
+    ) -> SemanticComparisonResult | None:
+        """Compare using sigma_semantic_similarity. Returns None if unavailable or error."""
+        import asyncio
+
+        def _run():
+            gen = generated_rule_yaml
+            ref = reference_rule_yaml
+            if gen is None:
+                gen = yaml.safe_load(generated_rule) if isinstance(generated_rule, str) else generated_rule
+            if ref is None:
+                ref = yaml.safe_load(reference_rule) if isinstance(reference_rule, str) else reference_rule
+            if not isinstance(gen, dict) or not isinstance(ref, dict):
+                return None
+            return _sigma_compare_rules(gen, ref)
+
+        try:
+            loop = asyncio.get_running_loop()
+            out = await loop.run_in_executor(None, _run)
+        except Exception as e:
+            logger.debug("Deterministic sigma comparison failed: %s", e)
+            return None
+        if out is None:
+            return None
+        explanation = getattr(out, "explanation", None) or {}
+        return SemanticComparisonResult(
+            similarity_score=out.similarity,
+            missing_behaviors=0,
+            extraneous_behaviors=0,
+            missing_behavior_details=[],
+            extraneous_behavior_details=[],
+            similarity_engine="deterministic",
+            semantic_details={
+                "canonical_class": out.canonical_class,
+                "jaccard": out.jaccard,
+                "containment_factor": out.containment_factor,
+                "filter_penalty": out.filter_penalty,
+                "surface_score_a": out.surface_score_a,
+                "surface_score_b": out.surface_score_b,
+                "overlap_ratio_a": explanation.get("overlap_ratio_a", 0.0),
+                "overlap_ratio_b": explanation.get("overlap_ratio_b", 0.0),
+                "reason_flags": explanation.get("reason_flags", []),
+            },
         )
 
     async def _compare_with_llm_judge(

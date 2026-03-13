@@ -60,7 +60,11 @@ class SigmaAgentEvaluator(BaseAgentEvaluator):
 
         self.extended_validator = SigmaExtendedValidator()
         self.normalizer = SigmaBehavioralNormalizer()
-        self.semantic_scorer = SigmaSemanticScorer(use_llm_judge=llm_service is not None, llm_service=llm_service)
+        self.semantic_scorer = SigmaSemanticScorer(
+            use_llm_judge=llm_service is not None,
+            llm_service=llm_service,
+            use_deterministic=llm_service is None,
+        )
         self.huntability_scorer = SigmaHuntabilityScorer()
         self.stability_tester = SigmaStabilityTester(num_runs=5)
         self.novelty_detector = SigmaNoveltyDetector()
@@ -216,6 +220,8 @@ class SigmaAgentEvaluator(BaseAgentEvaluator):
                 "similarity_score": semantic_comparison.similarity_score if semantic_comparison else None,
                 "missing_behaviors": semantic_comparison.missing_behaviors if semantic_comparison else None,
                 "extraneous_behaviors": semantic_comparison.extraneous_behaviors if semantic_comparison else None,
+                "similarity_engine": getattr(semantic_comparison, "similarity_engine", None),
+                "semantic_details": getattr(semantic_comparison, "semantic_details", None),
             }
             if semantic_comparison
             else None,
