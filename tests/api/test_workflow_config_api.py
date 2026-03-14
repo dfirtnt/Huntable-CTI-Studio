@@ -362,3 +362,56 @@ class TestWorkflowConfigVersions:
             assert "version" in version
             assert "is_active" in version
             assert "created_at" in version
+
+        # Pagination metadata
+        assert "total" in data
+        assert "page" in data
+        assert "total_pages" in data
+        assert isinstance(data["total"], int) and data["total"] >= 0
+        assert isinstance(data["page"], int) and data["page"] >= 1
+        assert isinstance(data["total_pages"], int) and data["total_pages"] >= 0
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_list_versions_pagination(self, async_client: httpx.AsyncClient):
+        """Test GET /api/workflow/config/versions with page and limit params."""
+        response = await async_client.get(
+            "/api/workflow/config/versions", params={"page": 1, "limit": 5}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert "versions" in data
+        assert "total" in data
+        assert "page" in data
+        assert "total_pages" in data
+        assert data["page"] == 1
+        assert len(data["versions"]) <= 5
+        assert data["total_pages"] == max(1, (data["total"] + 4) // 5)
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_list_versions_version_filter(self, async_client: httpx.AsyncClient):
+        """Test GET /api/workflow/config/versions with version filter; non-integer returns empty."""
+        # Non-integer version: returns empty list, no 500
+        response = await async_client.get(
+            "/api/workflow/config/versions", params={"version": "abc"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert data["versions"] == []
+        assert data["total"] == 0
+        assert data["total_pages"] == 0
+
+        # Non-existent version: returns empty list
+        response = await async_client.get(
+            "/api/workflow/config/versions", params={"version": "999999"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data.get("success") is True
+        assert data["versions"] == []
+        assert data["total"] == 0
