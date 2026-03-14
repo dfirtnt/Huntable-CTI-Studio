@@ -1502,8 +1502,27 @@
                         <button type="button" onclick="closeConfigVersionListModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">✕</button>
                     </div>
                     <p class="text-sm text-gray-400 mb-3">Load a full config (thresholds, models, QA, prompts) from a prior version into the form. Save to make it active.</p>
+                    <div class="flex gap-2 mb-3">
+                        <input id="configVersionSearch" type="number" min="1" step="1"
+                            placeholder="Search by version number…"
+                            class="flex-1 px-3 py-2 text-sm rounded-md border border-gray-600 bg-gray-900 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            onkeydown="if(event.key==='Enter') searchConfigVersions()" />
+                        <button type="button" onclick="searchConfigVersions()"
+                            class="px-4 py-2 text-sm bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Search</button>
+                        <button type="button" id="configVersionClearSearch" onclick="clearConfigVersionSearch()"
+                            class="hidden px-3 py-2 text-sm border border-gray-600 text-gray-300 hover:text-white rounded-md">Clear</button>
+                    </div>
                     <div id="configVersionList" class="space-y-3 max-h-[60vh] overflow-y-auto">
                         <!-- Version items will be populated here -->
+                    </div>
+                    <div id="configVersionPagination" class="mt-3 flex items-center justify-between text-sm text-gray-400 hidden">
+                        <span id="configVersionPageInfo"></span>
+                        <div class="flex gap-2">
+                            <button type="button" id="configVersionPrevBtn" onclick="changeConfigVersionPage(-1)"
+                                class="px-3 py-1 border border-gray-600 rounded-md disabled:opacity-40 hover:text-white">← Prev</button>
+                            <button type="button" id="configVersionNextBtn" onclick="changeConfigVersionPage(1)"
+                                class="px-3 py-1 border border-gray-600 rounded-md disabled:opacity-40 hover:text-white">Next →</button>
+                        </div>
                     </div>
                     <div class="mt-4 flex justify-end">
                         <button type="button" onclick="closeConfigVersionListModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">Close</button>
@@ -8010,9 +8029,17 @@ function closeConfigVersionListModal() {
     popModal();
 }
 
+let _cvPage = 1;
+let _cvSearch = '';
+
 async function refreshConfigVersionList() {
+    const listEl = document.getElementById('configVersionList');
+    if (!listEl) return;
+    listEl.innerHTML = '<p class="text-gray-500 text-center py-4">Loading…</p>';
     try {
-        const response = await fetch('/api/workflow/config/versions');
+        const params = new URLSearchParams({ page: _cvPage, limit: 20 });
+        if (_cvSearch) params.set('version', _cvSearch);
+        const response = await fetch(`/api/workflow/config/versions?${params}`);
         let data;
         try {
             data = await response.json();
@@ -8020,54 +8047,82 @@ async function refreshConfigVersionList() {
             throw new Error(`Server error (${response.status}): ${response.statusText || 'Failed to load versions'}`);
         }
         if (!response.ok) {
-            const errorMsg = extractErrorMessage(data, `Failed to load versions (${response.status})`);
+            const errorMsg = extractErrorMessage(data, 'Failed to load versions');
             throw new Error(errorMsg);
         }
-        const listEl = document.getElementById('configVersionList');
-        if (!listEl) return;
         listEl.innerHTML = '';
-        if (!data.versions || data.versions.length === 0) {
-            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No config versions found.</p>';
-            return;
-        }
-        data.versions.forEach(v => {
-            const item = document.createElement('div');
-            item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
-            const updatedStr = new Date(v.updated_at).toLocaleString();
-            const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
-            item.innerHTML = `
-                <div class="flex items-start justify-between">
-                    <div class="flex-1">
-                        <div class="flex items-center gap-2 mb-2">
-                            <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
-                            ${activeBadge}
+        if (!data.versions?.length) {
+            listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">No versions found.</p>';
+        } else {
+            data.versions.forEach(v => {
+                const item = document.createElement('div');
+                item.className = 'border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900';
+                const updatedStr = new Date(v.updated_at).toLocaleString();
+                const activeBadge = v.is_active ? '<span class="text-xs px-2 py-0.5 bg-green-600 text-white rounded">Active</span>' : '';
+                item.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="font-semibold text-gray-900 dark:text-white">Version ${v.version}</span>
+                                ${activeBadge}
+                            </div>
+                            ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
                         </div>
-                        ${v.description ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${escapeHtml(v.description)}</p>` : ''}
-                        <div class="text-xs text-gray-500 dark:text-gray-400">Updated: ${updatedStr}</div>
+                        <div class="flex space-x-2 ml-4">
+                            <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
+                        </div>
                     </div>
-                    <div class="flex space-x-2 ml-4">
-                        <button type="button" onclick="loadConfigByVersion(${v.version})" class="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">Load</button>
-                    </div>
-                </div>
-            `;
-            listEl.appendChild(item);
-        });
+                `;
+                listEl.appendChild(item);
+            });
+        }
+        const total = data.total ?? 0;
+        const totalPages = data.total_pages ?? 1;
+        const paginationEl = document.getElementById('configVersionPagination');
+        if (paginationEl) {
+            paginationEl.classList.toggle('hidden', total <= 20);
+            document.getElementById('configVersionPageInfo').textContent = `Page ${_cvPage} of ${totalPages} (${total} total)`;
+            document.getElementById('configVersionPrevBtn').disabled = _cvPage <= 1;
+            document.getElementById('configVersionNextBtn').disabled = _cvPage >= totalPages;
+        }
     } catch (error) {
         console.error('Error refreshing config version list:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
         showNotification('Error loading versions: ' + errorMessage, 'error');
+        listEl.innerHTML = '<p class="text-gray-500 dark:text-gray-400 text-center py-4">Failed to load versions.</p>';
     }
 }
 
+function searchConfigVersions() {
+    _cvSearch = document.getElementById('configVersionSearch')?.value.trim() ?? '';
+    _cvPage = 1;
+    document.getElementById('configVersionClearSearch')?.classList.toggle('hidden', !_cvSearch);
+    refreshConfigVersionList();
+}
+
+function clearConfigVersionSearch() {
+    const input = document.getElementById('configVersionSearch');
+    if (input) input.value = '';
+    _cvSearch = '';
+    _cvPage = 1;
+    document.getElementById('configVersionClearSearch')?.classList.add('hidden');
+    refreshConfigVersionList();
+}
+
+function changeConfigVersionPage(delta) {
+    _cvPage = Math.max(1, _cvPage + delta);
+    refreshConfigVersionList();
+}
+
 async function showConfigVersionList() {
-    try {
-        pushModal('configVersionListModal', true);
-        await refreshConfigVersionList();
-    } catch (error) {
-        console.error('Error showing config version list:', error);
-        const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
-        showNotification('Error loading versions: ' + errorMessage, 'error');
-    }
+    _cvPage = 1;
+    _cvSearch = '';
+    const input = document.getElementById('configVersionSearch');
+    if (input) input.value = '';
+    document.getElementById('configVersionClearSearch')?.classList.add('hidden');
+    pushModal('configVersionListModal', true);
+    await refreshConfigVersionList();
 }
 
 async function loadConfigByVersion(versionNumber) {

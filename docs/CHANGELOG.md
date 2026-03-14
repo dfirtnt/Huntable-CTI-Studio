@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- _(No unreleased changes.)_
+- **Config versions pagination and search** (2026-03-14): `GET /api/workflow/config/versions` now accepts `page`, `limit`, and `version` query params. Returns `total`, `page`, and `total_pages` for pagination. Version filter is exact integer match; non-integer input returns empty list (no 500). Restore-by-version modal: search input, Search/Clear buttons, Prev/Next pagination when total > 20.
 
 ## [5.1.0 "Callisto"] - 2026-03-13
 
