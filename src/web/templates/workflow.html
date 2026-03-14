@@ -1684,6 +1684,15 @@
                 </tbody>
             </table>
         </div>
+        <div id="executionPagination" class="mt-3 flex items-center justify-between text-sm text-gray-400 hidden">
+            <span id="executionPageInfo"></span>
+            <div class="flex gap-2">
+                <button type="button" id="executionPrevBtn" onclick="changeExecutionPage(-1)"
+                    class="px-3 py-1 border border-gray-600 rounded-md disabled:opacity-40 hover:text-white">← Prev</button>
+                <button type="button" id="executionNextBtn" onclick="changeExecutionPage(1)"
+                    class="px-3 py-1 border border-gray-600 rounded-md disabled:opacity-40 hover:text-white">Next →</button>
+            </div>
+        </div>
 
         <!-- Execution Detail Modal -->
         <div id="executionModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
@@ -9974,6 +9983,8 @@ function getExecutionTableColumnCount() {
 }
 
 const executionSortState = { sortBy: 'created_at', sortOrder: 'desc' };
+let _execPage = 1;
+const _execLimit = 50;
 
 function setExecutionSort(column) {
     if (executionSortState.sortBy === column) {
@@ -10039,6 +10050,8 @@ async function loadExecutions() {
         if (articleId && !isNaN(articleId)) params.set('article_id', articleId);
         params.set('sort_by', executionSortState.sortBy);
         params.set('sort_order', executionSortState.sortOrder);
+        params.set('page', _execPage);
+        params.set('limit', _execLimit);
         const url = `/api/workflow/executions?${params.toString()}`;
         
         const response = await fetch(url);
@@ -10048,6 +10061,14 @@ async function loadExecutions() {
             totalExecutions = data.total !== undefined ? data.total : executions.length;
             renderExecutions();
             updateStats(data); // Pass full data object to use API-provided stats
+            const totalPages = data.total_pages ?? 1;
+            const paginationEl = document.getElementById('executionPagination');
+            if (paginationEl) {
+                paginationEl.classList.toggle('hidden', totalExecutions <= _execLimit);
+                document.getElementById('executionPageInfo').textContent = `Page ${_execPage} of ${totalPages} (${totalExecutions} total)`;
+                document.getElementById('executionPrevBtn').disabled = _execPage <= 1;
+                document.getElementById('executionNextBtn').disabled = _execPage >= totalPages;
+            }
         } else {
             console.error('Failed to load executions:', response.status, response.statusText);
             const tbody = document.getElementById('executionsTableBody');
@@ -11656,6 +11677,12 @@ document.addEventListener('keydown', function(e) {
 });
 
 function filterExecutions() {
+    _execPage = 1;
+    loadExecutions();
+}
+
+function changeExecutionPage(delta) {
+    _execPage = Math.max(1, _execPage + delta);
     loadExecutions();
 }
 

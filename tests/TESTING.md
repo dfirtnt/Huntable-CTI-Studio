@@ -103,7 +103,8 @@ docker exec cti_web python -m pytest tests/integration/test_retraining_integrati
 | **Database**    | `pytest tests/database -v`                   | Schema and data validation             |
 | **ML Feedback** | `./scripts/run_ml_feedback_tests.sh`         | Regression and feedback loop stability |
 | **Integration** | `python run_tests.py integration` or `pytest tests/integration -m integration -v` | Full-stack integration (DB, Redis, web); see docs/development/testing.md for integration vs lightweight |
-| **Security**    | `pytest tests/security -v`                   | Bandit, safety, and dependency checks  |
+| **Security**    | `python run_tests.py security`             | Pytest tests with `@pytest.mark.security` |
+| **Dependency audit** | `pip-audit` then `safety scan`       | CVE scanning (pip-audit: PyPI/OSV; safety: Safety DB) |
 | **Grouped Execution** | `python scripts/run_tests_by_group.py` | Execute tests by group with failure reporting |
 | **Performance** | `pytest tests/performance -v`                | Load and profiling tests               |
 | **Allure Reports** | `python run_tests.py --all`                | Generate comprehensive test reports     |

@@ -11,7 +11,7 @@ pytest-xdist==3.5.0  # Parallel test execution
 
 # Browser automation testing
 pytest-playwright>=0.4.0
-playwright==1.55.0
+playwright==1.58.0
 
 # Test utilities
 factory-boy==3.3.3
@@ -29,11 +29,12 @@ memory-profiler==0.61.0
 pytest-benchmark==4.0.0
 
 # Security testing
-bandit==1.9.2
+bandit==1.9.4
+pip-audit>=2.9.0
 safety>=2.3.5
 
 # Code quality
-black>=24.1.0
+black==26.3.1
 isort==5.12.0
 flake8==6.1.0
 mypy==1.8.0

@@ -143,6 +143,9 @@ class ExecutionListResponse(BaseModel):
     completed: int
     failed: int
     pending: int
+    page: int = 1
+    total_pages: int = 1
+    limit: int = 50
 
 
 _SORT_COLUMNS = {
@@ -163,9 +166,10 @@ async def list_workflow_executions(
     step: str | None = None,
     sort_by: str = "created_at",
     sort_order: str = "desc",
-    limit: int = 500,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
 ):
-    """List workflow executions with accurate counts."""
+    """List workflow executions with pagination and accurate counts."""
     try:
         db_manager = get_db_manager()
         db_session = db_manager.get_session()
@@ -217,7 +221,9 @@ async def list_workflow_executions(
             if sort_by in ("ranking_score", "current_step"):
                 order_clause = order_clause.nullslast()
 
-            executions = query.order_by(order_clause).limit(limit).all()
+            total_pages = max(1, (total + limit - 1) // limit)
+            offset = (page - 1) * limit
+            executions = query.order_by(order_clause).offset(offset).limit(limit).all()
 
             result = []
             for execution in executions:
@@ -257,7 +263,15 @@ async def list_workflow_executions(
                 )
 
             return ExecutionListResponse(
-                executions=result, total=total, running=running, completed=completed, failed=failed, pending=pending
+                executions=result,
+                total=total,
+                running=running,
+                completed=completed,
+                failed=failed,
+                pending=pending,
+                page=page,
+                total_pages=total_pages,
+                limit=limit,
             )
         finally:
             db_session.close()

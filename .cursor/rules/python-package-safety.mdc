@@ -1,0 +1,31 @@
+---
+description: Use safety-mcp for Python package security and version selection
+alwaysApply: true
+---
+
+# Python Package Safety (safety-mcp)
+
+## When Adding or Importing Packages
+
+Whenever you:
+- Add a package to `requirements.txt`, `requirements-*.txt`, or `pyproject.toml`
+- Import a new Python package in code
+
+You **MUST**:
+1. Call **safety-mcp** `get_recommended_version` (or `check_package_security`) for the package.
+2. Use the **recommended / latest secure version** returned by safety-mcp—not an arbitrary or outdated version.
+3. If safety-mcp reports vulnerabilities for your chosen version, upgrade to the secure version before adding it.
+
+## When User Asks to Check Existing Package
+
+When a user asks you to check an existing package for vulnerabilities:
+1. Call **safety-mcp** `check_package_security` with the package name and current version.
+2. Evaluate whether there are **secure versions within the same major version** (e.g., 2.x → 2.y) and report these options.
+3. Inform the user of the **latest secure version** of the package (from `get_recommended_version`).
+4. For vulnerability details, use `list_vulnerabilities_affecting_version` only when the user asks for more detail.
+
+## Tool Usage
+
+- **get_recommended_version**: `packages: [{"name": "package-name", "ecosystem": "pypi"}]` — returns recommended secure version.
+- **check_package_security**: `packages: [{"name": "package-name", "version": "1.2.3", "ecosystem": "pypi"}]` — checks if version has vulnerabilities.
+- **list_vulnerabilities_affecting_version**: Use when user explicitly asks for vulnerability details.
