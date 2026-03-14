@@ -53,7 +53,7 @@ These power the RAG and search workflows.
 
 ### Workflow Execution
 
-- `GET /api/workflow/executions`
+- `GET /api/workflow/executions` — List executions with pagination. Query params: `page` (default 1), `limit` (default 50, max 200), `status`, `step`, `article_id`, `sort_by`, `sort_order`. Response: `executions`, `total`, `page`, `total_pages`, `limit`, `running`, `completed`, `failed`, `pending`.
 - `GET /api/workflow/executions/{execution_id}`
 - `POST /api/workflow/articles/{article_id}/trigger`
 - `POST /api/workflow/executions/{execution_id}/retry`
