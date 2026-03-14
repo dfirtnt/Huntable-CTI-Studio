@@ -6,7 +6,7 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
@@ -750,15 +750,36 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
 
 
 @router.get("/config/versions")
-async def list_config_versions(request: Request):
-    """List workflow config versions (version, is_active, description, created_at, updated_at, id)."""
+async def list_config_versions(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    version: str = Query(None),
+):
+    """List workflow config versions with pagination and optional version filter."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            rows = (
-                db_session.query(AgenticWorkflowConfigTable).order_by(AgenticWorkflowConfigTable.version.desc()).all()
+            query = db_session.query(AgenticWorkflowConfigTable).order_by(
+                AgenticWorkflowConfigTable.version.desc()
             )
+            if version is not None and version.strip():
+                try:
+                    query = query.filter(
+                        AgenticWorkflowConfigTable.version == int(version.strip())
+                    )
+                except ValueError:
+                    return {
+                        "success": True,
+                        "versions": [],
+                        "total": 0,
+                        "page": page,
+                        "total_pages": 0,
+                    }
+            total = query.count()
+            total_pages = max(1, (total + limit - 1) // limit)
+            rows = query.offset((page - 1) * limit).limit(limit).all()
             return {
                 "success": True,
                 "versions": [
@@ -772,6 +793,9 @@ async def list_config_versions(request: Request):
                     }
                     for r in rows
                 ],
+                "total": total,
+                "page": page,
+                "total_pages": total_pages,
             }
         finally:
             db_session.close()
