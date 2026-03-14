@@ -60,7 +60,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   });
 
   test('[SOURCES-003] Main heading display', async ({ page }) => {
-    await expect(page.getByRole('heading', { name: /Threat Intelligence Sources/i }).or(page.getByText(/Threat Intelligence Sources/i))).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Threat Intelligence Sources/i }).or(page.getByText(/Threat Intelligence Sources/i)).first()).toBeVisible();
   });
 
   test('[SOURCES-004] Breadcrumb navigation', async ({ page }) => {
