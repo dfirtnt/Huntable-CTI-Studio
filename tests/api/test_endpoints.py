@@ -690,6 +690,23 @@ class TestCriticalAPIs:
 
     @pytest.mark.api
     @pytest.mark.asyncio
+    async def test_workflow_executions_list_pagination(self, async_client: httpx.AsyncClient):
+        """Workflow executions list supports page and limit params."""
+        response = await async_client.get("/api/workflow/executions?page=1&limit=50")
+        assert response.status_code == 200
+        data = response.json()
+        assert "executions" in data
+        assert "total" in data
+        assert "page" in data
+        assert "total_pages" in data
+        assert "limit" in data
+        assert data["page"] == 1
+        assert data["limit"] == 50
+        assert len(data["executions"]) <= 50
+        assert data["total_pages"] == max(1, (data["total"] + 49) // 50)
+
+    @pytest.mark.api
+    @pytest.mark.asyncio
     async def test_workflow_execution_debug_info_uses_langfuse(
         self, async_client: httpx.AsyncClient, seed_workflow_execution
     ):

@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Dependency security pinning** (2026-03-14): Pinned `requirements.txt` and `requirements-test.txt` to safety-mcp recommended secure versions. Critical: pypdf 6.7.5→6.8.0 (insecure fix), black 26.3.0→26.3.1 (CVE-2026-32274). Also: beautifulsoup4, playwright, sqlalchemy, asyncpg, psycopg2-binary, alembic, fastapi, starlette, uvicorn, celery, redis, scikit-learn, joblib, click, rich, pydantic-settings, reportlab, python-dateutil, charset-normalizer, numpy, GitPython, bandit.
+- **CI: Node.js 24–compatible actions** (2026-03-14): Bumped `actions/checkout` to v6, `actions/setup-python` to v6, `actions/upload-artifact` to v6 to resolve Node.js 20 deprecation warnings and prepare for GitHub Actions' June 2026 Node 24 default.
+
 ### Added
+- **Security audit in CI and LG workflow** (2026-03-14): New `security-audit` CI job runs `pip-audit` and `safety check` on every push/PR. Added `pip-audit` to `requirements-test.txt`. LG workflow and skill now explicitly run both tools. `tests/TESTING.md` corrected: Security row documents `run_tests.py security` (pytest marker) vs dependency audit (`pip-audit`, `safety check`).
 - **Config versions pagination and search** (2026-03-14): `GET /api/workflow/config/versions` now accepts `page`, `limit`, and `version` query params. Returns `total`, `page`, and `total_pages` for pagination. Version filter is exact integer match; non-integer input returns empty list (no 500). Restore-by-version modal: search input, Search/Clear buttons, Prev/Next pagination when total > 20.
+- **Executions page pagination** (2026-03-14): `GET /api/workflow/executions` now supports `page` and `limit` (default 50, max 200). Response includes `page`, `total_pages`, `limit`. Executions tab: Prev/Next pagination when total > 50.
 
 ## [5.1.0 "Callisto"] - 2026-03-13
 

@@ -13,7 +13,7 @@ When the user says **lg** or **LG**, run the full workflow yourself from hygiene
    - **Changelog** — Update CHANGELOG (or `docs/CHANGELOG.md`) with this session's changes.
    - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
    - **Deps** — Verify dependency hygiene (e.g. `pip check`, lockfiles).
-   - **Security** — Run project security checks if defined (e.g. `npm audit`, safety).
+   - **Security** — Run `pip-audit` and `safety scan` (requires `pip install -r requirements-test.txt`).
    - **Vulture** — Run `.venv/bin/vulture src scripts` for dead-code detection. Fix or whitelist findings before commit.
 2. **Stage** — `git add` (or equivalent) so all changes are staged.
 3. **Commit** — Commit with a clear message (no auto-commit before user says LG).
