@@ -363,7 +363,6 @@ class TestWorkflowConfigVersions:
             assert "is_active" in version
             assert "created_at" in version
 
-        # Pagination metadata
         assert "total" in data
         assert "page" in data
         assert "total_pages" in data
@@ -395,7 +394,6 @@ class TestWorkflowConfigVersions:
     @pytest.mark.asyncio
     async def test_list_versions_version_filter(self, async_client: httpx.AsyncClient):
         """Test GET /api/workflow/config/versions with version filter; non-integer returns empty."""
-        # Non-integer version: returns empty list, no 500
         response = await async_client.get(
             "/api/workflow/config/versions", params={"version": "abc"}
         )
@@ -406,7 +404,6 @@ class TestWorkflowConfigVersions:
         assert data["total"] == 0
         assert data["total_pages"] == 0
 
-        # Non-existent version: returns empty list
         response = await async_client.get(
             "/api/workflow/config/versions", params={"version": "999999"}
         )

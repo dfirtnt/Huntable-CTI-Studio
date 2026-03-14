@@ -334,7 +334,6 @@ function renderRulePreview(rule, observablesData) {
                 </div>
             </div>
         `;
-        // Defer chip render until after innerHTML is set
         window.__pendingSimilarityChipConfig = chipConfig;
     } else {
         similarRulesHtml = `
@@ -1640,8 +1639,6 @@ setTimeout(() => {
 
 // Similar Rules functionality
 let currentQueueRule = null;
-let isSimilarRulesModalExpanded = false;
-
 async function checkSimilarRulesForQueue() {
     const rule = queue.find(r => r.id === currentRuleId);
     if (!rule) {
@@ -1941,15 +1938,11 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
     modal.id = 'similarRulesModal';
     modal.className = 'fixed inset-0 z-[60] flex items-center justify-center';
     modal.style.background = 'rgba(0,0,0,0.55)';
-    
-    // Add click outside to close
     modal.addEventListener('click', function(e) {
         if (e.target === modal) {
             closeSimilarRulesModal();
         }
     });
-    
-    // Add ESC key to close
     const handleEsc = function(e) {
         if (e.key === 'Escape') {
             closeSimilarRulesModal();
@@ -1957,9 +1950,6 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
         }
     };
     document.addEventListener('keydown', handleEsc);
-    
-    
-    // Build matches HTML
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
         const emptyTitle = (hasMetadata && totalCandidatesEvaluated === 0)
@@ -2011,6 +2001,17 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
     document.body.appendChild(modal);
     document.body.style.overflow = 'hidden';
 
+    function bindYamlToggles(container) {
+        (container || modal).querySelectorAll('.simYamlToggle').forEach(tog => {
+            tog.onclick = () => {
+                const b = tog.closest('#simDetailPane')?.querySelector('.simYamlBlock');
+                const ar = tog.querySelector('.simYamlArrow');
+                if (b) b.classList.toggle('hidden');
+                if (ar) ar.style.transform = b?.classList.contains('hidden') ? '' : 'rotate(90deg)';
+            };
+        });
+    }
+
     modal.querySelectorAll('.sim-match-item').forEach(el => {
         el.addEventListener('click', () => {
             selectedIndex = parseInt(el.dataset.index, 10);
@@ -2022,80 +2023,21 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
                 if (titleDiv) { titleDiv.classList.toggle('text-purple-400', i === selectedIndex); titleDiv.classList.toggle('text-gray-200', i !== selectedIndex); }
             });
             const pane = modal.querySelector('#simDetailPane');
-            if (pane) { pane.innerHTML = buildSimilarityDetailHtml(matches[selectedIndex]); pane.scrollTop = 0; }
-            pane?.querySelectorAll('.simYamlToggle').forEach(tog => {
-                tog.onclick = () => { const b = tog.closest('#simDetailPane')?.querySelector('.simYamlBlock'); const ar = tog.querySelector('.simYamlArrow'); if (b) b.classList.toggle('hidden'); if (ar) ar.style.transform = b?.classList.contains('hidden') ? '' : 'rotate(90deg)'; };
-            });
+            if (pane) {
+                pane.innerHTML = buildSimilarityDetailHtml(matches[selectedIndex]);
+                pane.scrollTop = 0;
+                bindYamlToggles(pane);
+            }
         });
     });
 
-    modal.querySelectorAll('.simYamlToggle').forEach(tog => {
-        tog.onclick = () => { const b = tog.closest('#simDetailPane')?.querySelector('.simYamlBlock'); const ar = tog.querySelector('.simYamlArrow'); if (b) b.classList.toggle('hidden'); if (ar) ar.style.transform = b?.classList.contains('hidden') ? '' : 'rotate(90deg)'; };
-    });
+    bindYamlToggles(modal);
 
-    // Register and open with ModalManager
     if (window.ModalManager) {
         setTimeout(() => {
-            window.ModalManager.register('similarRulesModal', {
-                isDynamic: true,
-                hasInput: false
-            });
+            window.ModalManager.register('similarRulesModal', { isDynamic: true, hasInput: false });
             window.ModalManager.open('similarRulesModal');
-            modal.classList.remove('hidden');
         }, 50);
-    }
-}
-
-function toggleSimilarRulesModalExpand() {
-    const modalContent = document.getElementById('similarRulesModalContent');
-    const expandIcon = document.getElementById('expandIcon');
-    
-    if (!modalContent) return;
-    
-    isSimilarRulesModalExpanded = !isSimilarRulesModalExpanded;
-    
-    const matchesContainer = document.getElementById('similarRulesMatchesContainer');
-    
-    if (isSimilarRulesModalExpanded) {
-        // Expand to full screen
-        modalContent.className = 'fixed inset-4 p-5 border border-gray-700 shadow-lg rounded-xl bg-gray-800 transition-all duration-300 flex flex-col';
-        modalContent.style.top = '1rem';
-        modalContent.style.left = '1rem';
-        modalContent.style.right = '1rem';
-        modalContent.style.bottom = '1rem';
-        modalContent.style.width = 'auto';
-        modalContent.style.maxWidth = 'none';
-        modalContent.style.margin = '0';
-        
-        // Increase max height of matches container
-        if (matchesContainer) {
-            matchesContainer.className = 'space-y-3 flex-1 overflow-y-auto';
-        }
-        
-        // Update icon to show minimize
-        if (expandIcon) {
-            expandIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"></path>';
-        }
-    } else {
-        // Return to normal size
-        modalContent.className = 'relative top-10 mx-auto p-5 border border-gray-700 w-11/12 max-w-6xl shadow-lg rounded-xl bg-gray-800 transition-all duration-300';
-        modalContent.style.top = '';
-        modalContent.style.left = '';
-        modalContent.style.right = '';
-        modalContent.style.bottom = '';
-        modalContent.style.width = '';
-        modalContent.style.maxWidth = '';
-        modalContent.style.margin = '';
-        
-        // Reset max height of matches container
-        if (matchesContainer) {
-            matchesContainer.className = 'space-y-3 max-h-96 overflow-y-auto';
-        }
-        
-        // Update icon to show expand
-        if (expandIcon) {
-            expandIcon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path>';
-        }
     }
 }
 
@@ -2107,36 +2049,8 @@ function closeSimilarRulesModal() {
         if (modal) modal.remove();
     }
     document.body.style.overflow = '';
-    isSimilarRulesModalExpanded = false;
 }
 
-function toggleRuleDetails(detailsId, iconId) {
-    const detailsDiv = document.getElementById(detailsId);
-    const iconSvg = document.getElementById(iconId);
-    const button = iconSvg ? iconSvg.closest('button') : null;
-    
-    if (!detailsDiv || !iconSvg) {
-        return;
-    }
-    
-    const isHidden = detailsDiv.classList.contains('hidden');
-    
-    if (isHidden) {
-        detailsDiv.classList.remove('hidden');
-        iconSvg.style.transform = 'rotate(180deg)';
-        if (button) {
-            const span = button.querySelector('span');
-            if (span) span.textContent = 'Hide Logsource & Detection Comparison';
-        }
-    } else {
-        detailsDiv.classList.add('hidden');
-        iconSvg.style.transform = 'rotate(0deg)';
-        if (button) {
-            const span = button.querySelector('span');
-            if (span) span.textContent = 'Show Logsource & Detection Comparison';
-        }
-    }
-}
 </script>
 {% endblock %}
 
