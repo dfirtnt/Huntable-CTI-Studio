@@ -349,6 +349,300 @@
     accent-color: var(--purple-primary);
 }
 
+/* ═══════════════════════════════════════════════════
+   OPERATOR CONSOLE — Config Tab Layout
+   ═══════════════════════════════════════════════════ */
+
+/* ─── Layout Shell ─────────────────────────────────── */
+.oc-shell {
+  display: flex;
+  height: calc(100vh - 148px);
+  min-height: 580px;
+  background: var(--panel-bg-0);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.oc-rail {
+  width: 200px;
+  flex-shrink: 0;
+  background: var(--panel-bg-0);
+  border-right: 1px solid rgba(255,255,255,0.07);
+  padding: 20px 0 20px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.oc-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--panel-bg-1);
+}
+
+#config-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 12px;
+  scroll-behavior: smooth;
+}
+
+.oc-footer {
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  background: var(--panel-bg-0);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* ─── Rail Items ────────────────────────────────────── */
+.rail-connector {
+  width: 2px;
+  height: 20px;
+  margin: 0 auto;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.18) 0px,
+    rgba(255,255,255,0.18) 4px,
+    transparent 4px,
+    transparent 9px
+  );
+  background-size: 2px 9px;
+  animation: oc-rail-flow 1.4s linear infinite;
+}
+
+@keyframes oc-rail-flow {
+  from { background-position: 0 0; }
+  to   { background-position: 0 9px; }
+}
+
+.rail-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  border-radius: 7px;
+  margin: 0 6px;
+  text-decoration: none;
+}
+.rail-item:hover { background: rgba(255,255,255,0.05); }
+.rail-item.active { background: rgba(255,255,255,0.07); }
+
+.rail-node {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  transition: box-shadow 0.25s;
+  background: var(--panel-bg-1);
+  flex-shrink: 0;
+}
+.rail-item.active .rail-node {
+  box-shadow: 0 0 12px currentColor, 0 0 4px currentColor;
+}
+
+.rail-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+  margin-top: 4px;
+  line-height: 1.25;
+}
+.rail-item.active .rail-label { color: var(--text-primary); }
+
+.rail-sublabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.3);
+  text-align: center;
+  margin-top: 1px;
+}
+
+/* Step color utilities */
+.c0 { color: var(--step-0); }
+.c1 { color: var(--step-1); }
+.c2 { color: var(--step-2); }
+.c3 { color: var(--step-3); }
+.c4 { color: var(--step-4); }
+.c5 { color: var(--step-5); }
+.c6 { color: var(--step-6); }
+
+/* ─── Step Sections ─────────────────────────────────── */
+/* Scope --sc to section's accent color */
+#s0 { --sc: var(--step-0); }
+#s1 { --sc: var(--step-1); }
+#s2 { --sc: var(--step-2); }
+#s3 { --sc: var(--step-3); }
+#s4 { --sc: var(--step-4); }
+#s5 { --sc: var(--step-5); }
+#s6 { --sc: var(--step-6); }
+
+.step-section {
+  position: relative;
+  border-left: 3px solid var(--sc);
+  border-radius: 0 8px 8px 0;
+  background: var(--panel-bg-1);
+  margin-bottom: 10px;
+  overflow: hidden;
+  transition: border-left-width 0.15s, box-shadow 0.2s;
+}
+.step-section.open {
+  border-left-width: 4px;
+  box-shadow: -3px 0 10px var(--sc);
+}
+
+.section-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--sc), transparent);
+  opacity: 0.035;
+  pointer-events: none;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+}
+.section-header:hover { background: rgba(255,255,255,0.02); }
+
+.step-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--sc);
+  border: 1px solid var(--sc);
+  border-radius: 3px;
+  padding: 1px 5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  opacity: 0.9;
+}
+
+.section-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.section-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.35);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.section-chevron {
+  font-size: 10px;
+  color: var(--text-secondary);
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.step-section.open .section-chevron { transform: rotate(180deg); }
+
+.section-body {
+  display: none;
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  position: relative;
+  z-index: 1;
+}
+.step-section.open .section-body { display: block; }
+
+/* ─── Form Field Typography ─────────────────────────── */
+.oc-label {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.055em;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 4px;
+}
+
+.oc-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--sc, var(--text-primary));
+}
+
+/* Slider value displays use step accent color */
+.step-section .threshold-slider .text-purple-400 {
+  color: var(--sc) !important;
+}
+
+/* ─── Sub-Agent Accordion ───────────────────────────── */
+.sa-item {
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  overflow: hidden;
+}
+
+.sa-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.02);
+  user-select: none;
+}
+.sa-header:hover { background: rgba(255,255,255,0.04); }
+.sa-item.open > .sa-header { background: rgba(255,255,255,0.05); }
+
+.sa-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.sa-body {
+  display: none;
+  padding: 12px 13px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.01);
+}
+.sa-item.open .sa-body { display: block; }
+.sa-item.open .sa-chevron { transform: rotate(180deg); }
+.sa-chevron { transition: transform 0.2s; font-size: 10px; color: var(--text-secondary); }
+
+/* ─── Footer label + version display ───────────────── */
+.oc-footer-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  color: rgba(255,255,255,0.35);
+}
+
 </style>
 <script>
     window.initialCommercialModelCatalog = {{ provider_model_catalog | tojson | safe }};
