@@ -86,7 +86,7 @@ Key differences from the old version: sibling-close sweep replaces the condition
 
 `s0` has `class="step-section open"` hardcoded in the HTML. This satisfies rule 1 ("one section open at all times") on first load without any JS.
 
-**Fragility note:** if the hardcoded `open` is ever removed (e.g. for a saved-state restore feature), `toggle()`'s early-return guard (`if … el.classList.contains('open')) return`) would prevent any section from ever opening, since no section starts open. To guard against this, a `DOMContentLoaded` safety net should be added if the hardcoded `open` is ever removed:
+**Fragility note:** if the hardcoded `open` is ever removed (e.g. for a saved-state restore feature), the page would load with all sections collapsed — violating Rule 1 ("one section open at all times") at load time. The early-return guard in `toggle()` does not cause this; it only fires on sections that are *already* open, so a fully-collapsed initial state would not block user interaction. The UX problem is simply that no section is visible until the user clicks one. To prevent this load-time violation, a `DOMContentLoaded` safety net should be added if the hardcoded `open` is ever removed:
 
 ```js
 // Safety net — only needed if hardcoded open on s0 is removed in future
