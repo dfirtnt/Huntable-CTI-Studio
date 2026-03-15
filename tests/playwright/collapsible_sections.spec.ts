@@ -276,6 +276,78 @@ test.describe('Collapsible Sections', () => {
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
+
+    test('accordion: only one step section open at a time', async ({ page }) => {
+      const s0 = page.locator('#s0.step-section');
+      const s2 = page.locator('#s2.step-section');
+      const s3 = page.locator('#s3.step-section');
+      const header0 = page.locator('#s0 .section-header');
+      const header2 = page.locator('#s2 .section-header');
+      const header3 = page.locator('#s3 .section-header');
+
+      await expect(s0).toHaveClass(/open/);
+      await expect(s2).not.toHaveClass(/open/);
+      await expect(s3).not.toHaveClass(/open/);
+
+      await header2.click();
+      await page.waitForTimeout(300);
+      await expect(s0).not.toHaveClass(/open/);
+      await expect(s2).toHaveClass(/open/);
+      await expect(s3).not.toHaveClass(/open/);
+
+      await header3.click();
+      await page.waitForTimeout(300);
+      await expect(s0).not.toHaveClass(/open/);
+      await expect(s2).not.toHaveClass(/open/);
+      await expect(s3).toHaveClass(/open/);
+
+      await header0.click();
+      await page.waitForTimeout(300);
+      await expect(s0).toHaveClass(/open/);
+      await expect(s2).not.toHaveClass(/open/);
+      await expect(s3).not.toHaveClass(/open/);
+    });
+
+    test('accordion: only one agent panel open at a time', async ({ page }) => {
+      // Ensure step sections s0 (OS Detection) and s2 (Rank Agent) are expanded so prompt panels are visible
+      await page.evaluate(() => {
+        ['s0', 's2'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.add('open');
+        });
+      });
+      await page.waitForTimeout(200);
+
+      const panelA = 'os-detection-prompt-panel';
+      const panelB = 'rank-agent-prompt-panel';
+      const contentA = page.locator(`#${panelA}-content`);
+      const contentB = page.locator(`#${panelB}-content`);
+      const headerA = page.locator(`[data-collapsible-panel="${panelA}"]`);
+      const headerB = page.locator(`[data-collapsible-panel="${panelB}"]`);
+
+      await expect(headerA).toBeVisible({ timeout: 10000 });
+      await expect(headerB).toBeVisible({ timeout: 10000 });
+      await expect(contentA).toHaveClass(/hidden/);
+      await expect(contentB).toHaveClass(/hidden/);
+
+      // Expand A
+      await headerA.click();
+      await page.waitForTimeout(300);
+      await expect(contentA).toBeVisible();
+      await expect(contentB).toHaveClass(/hidden/);
+
+      // Expand B — A should collapse (accordion)
+      await headerB.click();
+      await page.waitForTimeout(300);
+      await expect(contentB).toBeVisible();
+      await expect(contentA).toHaveClass(/hidden/);
+
+      // Expand A again — B should collapse
+      await headerA.click();
+      await page.waitForTimeout(300);
+      await expect(contentA).toBeVisible();
+      await expect(contentB).toHaveClass(/hidden/);
+    });
   });
 });
 
