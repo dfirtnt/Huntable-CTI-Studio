@@ -24,7 +24,7 @@ Huntable CTI Studio implements a comprehensive RAG system that combines semantic
    - **Similarity**: Cosine similarity using pgvector `<=>` operator (used for RAG retrieval)
    - **Chunk Strategy**: Uses `article_annotations` table for fine-grained retrieval
 
-Note: SIGMA rule similarity matching uses a behavioral novelty scoring algorithm (Atom Jaccard 70% + Logic Shape Similarity 30%). Cosine similarity is retained for RAG-style document retrieval only and is not used for final SIGMA similarity ranking.
+Note: RAG sigma retrieval uses embeddings (cosine similarity via pgvector) to find rules relevant to user queries. For workflow duplicate detection (comparing generated rules to SigmaHQ), the system uses a behavioral novelty engine: when `sigma_semantic_similarity` is installed, a deterministic engine (Jaccard × Containment − Filter); otherwise legacy (Atom Jaccard 70% + Logic Shape Similarity 30%). Cosine similarity is not used for workflow duplicate ranking.
 
 4. **LLM Generation Service** (`src/services/llm_generation_service.py`)
    - **Multi-Provider**: OpenAI GPT-4o, Anthropic Claude, LMStudio (local)

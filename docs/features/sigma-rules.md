@@ -179,8 +179,9 @@ A three-layer pipeline that matches CTI articles to existing Sigma detection rul
 **Features:**
 - Article-level semantic search using existing embeddings
 - Chunk-level semantic search with on-the-fly embedding generation
-- Behavioral novelty scoring for final SIGMA similarity assessment (Atom Jaccard 70% + Logic Shape Similarity 30%)
-- Configurable candidate retrieval limits and matching thresholdPgvector cosine similarity queries
+- Behavioral novelty scoring for final SIGMA similarity assessment: deterministic engine (Jaccard × Containment − Filter) when sigma_semantic_similarity is installed; otherwise legacy (Atom Jaccard 70% + Logic Shape Similarity 30%)
+- Configurable candidate retrieval limits and matching threshold
+- pgvector cosine similarity for candidate retrieval
 - Configurable threshold and limits
 - Match storage with full metadata
 
@@ -195,17 +196,14 @@ A three-layer pipeline that matches CTI articles to existing Sigma detection rul
 The system first retrieves a shortlist of candidate rules using pgvector nearest-neighbors, then computes the behavioral novelty score in application code to rank final matches.
 
 ```sql
--- Retrieve top N candidate rules by embedding distance (pgvector)
-SELECT sr.*SQL Query Pattern:**
-```sql
 SELECT sr.*, 1 - (sr.embedding <=> :embedding::vector) AS similarity
 FROM sigma_rules sr
 WHERE sr.embedding IS NOT NULL
-ORDER BY   AND 1 - (sr.embedding <-=> :embedding::vector
-LIMIT :candidate_limit; -- e.g. 50
+ORDER BY 1 - (sr.embedding <=> :embedding::vector)
+LIMIT :candidate_limit;  -- e.g. 50
 ```
 
-The behavioral novelty scorer (Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.
+The behavioral novelty scorer (deterministic: Jaccard × Containment − Filter when sigma_semantic_similarity is installed; else legacy: Atom Jaccard 70% + Logic Shape Similarity 30%) is applied to these candidates to produce the final similarity ranking.
 
 #### 4. Coverage Classification Service
 
@@ -292,23 +290,21 @@ When the **sigma_semantic_similarity** package is installed (`pip install -e sig
 ```
 User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
   1. Extract title + description
-  2. Generate embedding
-  3. Retrieve candidate rules via pgvector nearest-neighbors
-  4. Compute behavioral novelty score for each candidate (Atom Jaccard 70% + Logic Shape 30%Query sigma_rules table (cosine similarity)
-  54. Return top 5 matches by behavioral novelty (threshold configurable(≥70% similarity)
+  2. Generate embedding (or use precomputed atoms when deterministic engine)
+  3. Retrieve candidate rules via pgvector nearest-neighbors (or by canonical_class when deterministic)
+  4. Compute behavioral novelty score for each candidate
+  5. Return top matches by behavioral novelty (threshold configurable, default ≥70%)
 → Return Response with similar_rules field
 ```
 
 ### Embedding Details
 
-- **Model**: intfloat/e5-base-v2 via LM Studio (768 dimensions)
-- **Provider**: LM Studio local API server
+- **Model**: intfloat/e5-base-v2 via local sentence-transformers (768 dimensions)
 - **Input**: Enriched rule text (title, description, logsource, detection)
--- **Similarity Metric (SIGMA rules)**: Behavioral novelty score — weighted combination:
-   - Atom Jaccard (70%): predicate overlap of detection fields
-   - Logic Shape Similarity (30%): structural similarity of detection logic (AND/OR/NOT**: Cosine similarity (1 - cosine distance)
--- **Threshold**: Configurable (default 0.7 on normalized behavioral novelty score0.7 (70% similarity minimum)
--- **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (typical overhead ~100-300ms overhead per generated rule)
+- **Similarity Metric (workflow duplicate detection)**: Behavioral novelty — deterministic (Jaccard × Containment − Filter) when sigma_semantic_similarity is installed; else legacy (Atom Jaccard 70% + Logic Shape 30%)
+- **RAG sigma retrieval**: Uses cosine similarity (embeddings) to find rules relevant to user queries
+- **Threshold**: Configurable (default 0.7)
+- **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (~100–300ms per generated rule)
 
 ### Similarity Interpretation
 
@@ -323,7 +319,7 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 ### Technology Stack
 
 - **Database**: PostgreSQL with pgvector extension
-- **Embeddings**: intfloat/e5-base-v2 via LM Studio API
+- **Embeddings**: intfloat/e5-base-v2 via local sentence-transformers
 - **Rule Format**: SIGMA YAML specification
 - **Validation**: pySIGMA library
 - **Repository**: SigmaHQ official repository
@@ -568,9 +564,7 @@ GITHUB_TOKEN=ghp_xxx   # Add in Settings → GitHub (repo scope)
 # Similarity matching
 SIGMA_MATCH_THRESHOLD=0.7
 
-# LM Studio embedding configuration (required for SIGMA embeddings)
-LMSTUDIO_EMBEDDING_URL=http://localhost:1234/v1/embeddings
-LMSTUDIO_EMBEDDING_MODEL=intfloat/e5-base-v2
+# Sigma embeddings use local sentence-transformers (intfloat/e5-base-v2); no LM Studio required
 ```
 
 ### GitHub PR Setup
@@ -595,16 +589,10 @@ Submit approved rules from the Sigma Queue to your GitHub repo:
 - Temperature: 0.2 (for consistent output)
 - Best for: Local processing, privacy, cost savings
 
-**LM Studio for Embeddings** (SIGMA Rule Similarity Search)
-- Endpoint: http://localhost:1234/v1/embeddings
-- Model: intfloat/e5-base-v2 (must be loaded in LM Studio)
-- Dimension: 768
-- Purpose: Generate embeddings for SIGMA rule similarity search
-- Setup:
-  1. Open LM Studio
-  2. Download and load model: `intfloat/e5-base-v2`
-  3. Start local server
-  4. Verify endpoint is accessible
+**SIGMA Rule Embeddings** (RAG retrieval and candidate retrieval)
+- Model: intfloat/e5-base-v2 via local sentence-transformers (768 dimensions)
+- Purpose: Generate embeddings for RAG sigma retrieval and for candidate retrieval in workflow similarity search
+- Indexing: Run `sigma index-metadata` then `sigma index-embeddings` (no LM Studio required)
 
 ### Similarity Thresholds
 
@@ -637,11 +625,9 @@ Submit approved rules from the Sigma Queue to your GitHub repo:
 - LMStudio requires no API key, verify local server running
 
 #### Embedding Generation Failures
-- **LM Studio not running**: Ensure LM Studio server is running at configured URL
-- **Model not loaded**: Verify intfloat/e5-base-v2 is loaded in LM Studio
-- **Connection timeout**: Check `LMSTUDIO_EMBEDDING_URL` environment variable
-- **Invalid model**: Ensure `LMSTUDIO_EMBEDDING_MODEL` is set to `intfloat/e5-base-v2`
-- **HTTP errors**: Check LM Studio server logs and network connectivity
+- **sentence-transformers not installed**: Sigma embeddings use local `intfloat/e5-base-v2`; ensure `sentence-transformers` is in requirements
+- **Out of memory**: Embedding model loads on first use; ensure sufficient RAM
+- **Indexing errors**: Run `sigma index-metadata` first, then `sigma index-embeddings`
 
 #### pySIGMA Validation Failures
 - Ensure pySIGMA properly installed
@@ -662,7 +648,7 @@ When Similarity Search finds no matches, the UI shows a **diagnostic** and setup
    ./run_cli.sh sigma sync
    ./run_cli.sh sigma index
    ```
-   Or without Docker: `python3 -m src.cli.main sigma sync` then `sigma index`. The CLI container needs `LMSTUDIO_EMBEDDING_URL` (e.g. `http://host.docker.internal:1234/v1/embeddings`) and the embedding model loaded in LM Studio for indexing.
+   Or without Docker: `python3 -m src.cli.main sigma sync` then `sigma index`. Sigma embeddings use local sentence-transformers; no LM Studio required.
 
 2. **If rules were synced before `logsource_key` existed**, backfill so similarity can filter by logsource:
    ```bash
@@ -673,7 +659,7 @@ When Similarity Search finds no matches, the UI shows a **diagnostic** and setup
    ```bash
    ./run_cli.sh sigma stats
    ```
-   Check that LM Studio is reachable and the embedding model (e.g. text-embedding-e5-base-v2) is loaded. You can set `LMSTUDIO_EMBEDDING_URL` in Settings or `.env` if the host/IP changes.
+   Sigma embeddings use local sentence-transformers (intfloat/e5-base-v2). Ensure `sigma index-embeddings` has completed successfully.
 
 #### Slow Performance
 1. Rebuild vector index:
