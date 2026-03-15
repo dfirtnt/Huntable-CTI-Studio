@@ -1,11 +1,11 @@
 # Generate Sigma Rules
 
-Sigma generation is baked into the agentic workflow. It uses extracted observables when available, validates with pySigma, and compares output to SigmaHQ embeddings.
+Sigma generation is baked into the agentic workflow. It uses extracted observables when available, validates with pySigma, and compares output to SigmaHQ rules (behavioral novelty; embeddings used for candidate retrieval). See [Sigma Detection Rules](../features/sigma-rules.md).
 
 ## Prerequisites
 - Stack running (`./start.sh`)
 - Article ingested and processed by the workflow (extraction complete)
- - Optional similarity search: LM Studio embeddings configured (`LMSTUDIO_EMBEDDING_URL` and `LMSTUDIO_EMBEDDING_MODEL`) per `../features/SIGMA_DETECTION_RULES.md`
+- Optional similarity search: Run `sigma index-metadata` then `sigma index-embeddings` (local sentence-transformers; no LM Studio required)
 
 ## 1) Make sure Sigma rules are indexed
 Clone/pull the SigmaHQ repository and index rules into PostgreSQL:
@@ -68,4 +68,4 @@ Configure in **Settings → GitHub**:
 ## Troubleshooting
 - If validation fails, the Sigma agent retries up to three times with pySigma error feedback.
 - No rules are generated when extraction produces zero huntables and the filtered content toggle is disabled.
-- Similarity search requires embeddings; confirm LM Studio is reachable and `LMSTUDIO_EMBEDDING_*` settings are set in `.env` or docker-compose.
+- Similarity search requires embeddings; run `sigma index-embeddings` (uses local sentence-transformers). Use `capabilities check` to verify status.
