@@ -3,11 +3,57 @@
 {% block title %}Settings - Huntable CTI Studio{% endblock %}
 
 {% block content %}
+<style>
+/* ── Settings page: workflow/sources UX patterns ── */
+.settings-card {
+  background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);
+  border-radius:10px; padding:1.25rem 1.5rem; margin-bottom:1rem;
+  transition:box-shadow 0.15s, border-color 0.15s; position:relative; overflow:visible;
+}
+.settings-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.2); border-color:var(--border-subtle); }
+.settings-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:3px; border-radius:10px 0 0 10px;
+}
+.settings-card.acc-doc::before { background:var(--step-0,#22d3ee); }
+.settings-card.acc-backup::before { background:var(--step-1,#60a5fa); }
+.settings-card.acc-jobs::before { background:var(--step-2,#4ade80); }
+.settings-card.acc-workflow::before { background:var(--purple-primary); }
+.settings-card.acc-github::before { background:var(--step-4,#fb923c); }
+.settings-card.acc-langfuse::before { background:var(--step-5,#f472b6); }
+.settings-section-header { font-family:'DM Sans',sans-serif; font-size:1.05rem; font-weight:600; color:var(--text-primary); }
+.settings-inner-panel {
+  background:var(--panel-bg-4); border:1px solid var(--border-muted);
+  border-radius:6px; padding:0.75rem 1rem;
+}
+.settings-btn-primary {
+  display:inline-flex; align-items:center; gap:0.3rem;
+  padding:0.4rem 0.9rem; background:var(--purple-primary); color:#fff;
+  border:none; border-radius:6px; font-size:0.8rem; font-weight:600;
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s;
+}
+.settings-btn-primary:hover { background:var(--purple-hover); }
+.settings-btn-secondary {
+  display:inline-flex; align-items:center; gap:0.3rem;
+  padding:0.4rem 0.9rem; background:var(--panel-bg-4); color:var(--text-primary);
+  border:1px solid var(--border-muted); border-radius:6px; font-size:0.8rem; font-weight:500;
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:border-color 0.15s, background 0.15s;
+}
+.settings-btn-secondary:hover { background:var(--panel-bg-5); border-color:var(--border-subtle); }
+.settings-btn-danger {
+  padding:0.4rem 0.9rem; background:var(--action-danger); color:#fff;
+  border:none; border-radius:6px; font-size:0.8rem; font-weight:600;
+  cursor:pointer; transition:background 0.15s;
+}
+.settings-btn-danger:hover { background:var(--action-danger-hover); }
+.settings-muted { color:var(--text-muted-slate); }
+.settings-code { background:var(--panel-bg-5); padding:0.15rem 0.4rem; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:0.8em; }
+</style>
 <div class="container mx-auto px-4 py-8">
     <nav class="flex mb-8" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
-                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                <a href="/" class="inline-flex items-center text-sm font-medium" style="color:var(--color-text-secondary);">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
                     </svg>
@@ -19,26 +65,26 @@
                     <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Settings</span>
+                    <span class="ml-1 text-sm font-medium" style="color:var(--text-secondary);">Settings</span>
                 </div>
             </li>
         </ol>
     </nav>
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
-            <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[63px] h-[63px]" />
+        <h1 class="text-3xl font-bold mb-2 flex items-center gap-3 settings-section-header" style="font-size:1.75rem;">
+            <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[54px] h-[54px]" />
             Settings
         </h1>
-        <p class="text-gray-600 dark:text-gray-400">Configure your Huntable CTI Studio preferences</p>
+        <p class="text-sm settings-muted">Configure your Huntable CTI Studio preferences</p>
     </div>
 
     <!-- Settings Sections -->
     <div class="space-y-8">
 
         <!-- Documentation -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="settings-card acc-doc">
             <div id="documentation-header" data-collapsible-panel="documentation" class="flex items-center justify-between cursor-pointer">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📚 Documentation</h2>
+                <h2 class="text-xl font-semibold settings-section-header">📚 Documentation</h2>
                 <span id="documentation-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -53,7 +99,7 @@
                    href="http://127.0.0.1:8000"
                    target="_blank"
                    rel="noopener noreferrer"
-                   class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                   class="settings-btn-primary">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-4L10 14"></path>
                     </svg>
@@ -63,9 +109,9 @@
         </div>
 
         <!-- Backup Configuration -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="settings-card acc-backup">
             <div id="backupConfig-header" data-collapsible-panel="backupConfig" class="flex items-center justify-between cursor-pointer">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">💾 Backup Configuration</h2>
+                <h2 class="text-xl font-semibold settings-section-header">💾 Backup Configuration</h2>
                 <span id="backupConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -271,22 +317,10 @@
                 <div>
                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🚀 Backup Actions</h3>
                     <div class="flex flex-wrap gap-3">
-                        <button id="createBackupBtn" 
-                                class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Create Backup Now
-                        </button>
-                        <button id="listBackupsBtn" 
-                                class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            List Backups
-                        </button>
-                        <button id="backupStatusBtn" 
-                                class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Check Status
-                        </button>
-                        <button id="restoreBackupBtn" 
-                                class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Restore from Backup
-                        </button>
+                        <button id="createBackupBtn" class="settings-btn-primary">Create Backup Now</button>
+                        <button id="listBackupsBtn" class="settings-btn-secondary">List Backups</button>
+                        <button id="backupStatusBtn" class="settings-btn-secondary">Check Status</button>
+                        <button id="restoreBackupBtn" class="settings-btn-danger">Restore from Backup</button>
                     </div>
                 </div>
 
@@ -324,8 +358,8 @@
 
                  <!-- Backup Status Display -->
                  <div id="backupStatusDisplay" class="hidden">
-                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Backup Status</h3>
-                     <div id="backupStatusContent" class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                     <h3 class="text-lg font-medium settings-section-header mb-3">📊 Backup Status</h3>
+                     <div id="backupStatusContent" class="settings-inner-panel">
                          <!-- Status content will be populated here -->
                      </div>
                  </div>
@@ -335,8 +369,7 @@
                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📤 Data Export</h3>
                      <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
 
-                     <button id="exportAnnotationsBtn"
-                             class="inline-flex items-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                     <button id="exportAnnotationsBtn" class="settings-btn-primary">
                          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                          </svg>
@@ -354,9 +387,9 @@
         </div>
 
         <!-- Scheduled Jobs -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="settings-card acc-jobs">
             <div id="scheduledJobs-header" data-collapsible-panel="scheduledJobs" class="flex items-center justify-between cursor-pointer">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🗓️ Scheduled Jobs</h2>
+                <h2 class="text-xl font-semibold settings-section-header">🗓️ Scheduled Jobs</h2>
                 <span id="scheduledJobs-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -375,28 +408,22 @@
                         </p>
                     </div>
                     <div class="flex flex-wrap gap-3">
-                        <button id="refreshScheduledJobsBtn"
-                                class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Refresh Scheduled Jobs
-                        </button>
-                        <button id="saveScheduledJobsBtn"
-                                class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                            Save Scheduled Jobs
-                        </button>
+                        <button id="refreshScheduledJobsBtn" class="settings-btn-secondary">Refresh Scheduled Jobs</button>
+                        <button id="saveScheduledJobsBtn" class="settings-btn-primary">Save Scheduled Jobs</button>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Managed Jobs</div>
+                    <div class="settings-inner-panel">
+                        <div class="text-sm settings-muted">Managed Jobs</div>
                         <div id="scheduledJobsCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
                     </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Enabled</div>
+                    <div class="settings-inner-panel">
+                        <div class="text-sm settings-muted">Enabled</div>
                         <div id="scheduledJobsEnabledCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
                     </div>
-                    <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                        <div class="text-sm text-gray-500 dark:text-gray-400">Scheduler Reload</div>
+                    <div class="settings-inner-panel">
+                        <div class="text-sm settings-muted">Scheduler Reload</div>
                         <div id="scheduledJobsReloadStatus" class="mt-1 text-sm font-medium text-gray-200">Not reloaded yet</div>
                     </div>
                 </div>
@@ -408,9 +435,9 @@
         </div>
 
         <!-- Agentic Workflow Configuration -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="settings-card acc-workflow">
             <div data-collapsible-panel="agenticWorkflowConfig" class="flex items-center justify-between cursor-pointer">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🤖 Agentic Workflow Configuration</h2>
+                <h2 class="text-xl font-semibold settings-section-header">🤖 Agentic Workflow Configuration</h2>
                 <span id="agenticWorkflowConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -676,8 +703,7 @@
 
                      <!-- Langfuse Test Button -->
                      <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                         <button type="button" id="testLangfuseConnection"
-                                 class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                         <button type="button" id="testLangfuseConnection" class="settings-btn-secondary">
                              🧪 Test Langfuse Connection
                          </button>
                          <span id="langfuseTestStatus" class="ml-3 text-sm"></span>
@@ -719,9 +745,9 @@
         </div>
 
         <!-- GitHub PR Configuration -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="settings-card acc-github">
             <div data-collapsible-panel="githubPRConfig" class="flex items-center justify-between cursor-pointer">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📤 GitHub PR Configuration</h2>
+                <h2 class="text-xl font-semibold settings-section-header">📤 GitHub PR Configuration</h2>
                 <span id="githubPRConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -821,8 +847,7 @@
 
                 <!-- Test Connection Button -->
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <button type="button" id="testGitHubConnection"
-                            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                    <button type="button" id="testGitHubConnection" class="settings-btn-secondary">
                         🧪 Test GitHub Connection
                     </button>
                     <span id="githubTestStatus" class="ml-3 text-sm"></span>
@@ -833,8 +858,7 @@
 
         <!-- Save Button -->
         <div class="flex justify-end">
-            <button id="saveSettings" 
-                    class="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+            <button id="saveSettings" class="settings-btn-primary px-6 py-3 text-base">
                 💾 Save Settings
             </button>
         </div>
@@ -851,7 +875,7 @@
 
 <!-- Restore Backup Modal -->
 <div id="restoreBackupModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div class="rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" style="background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🔄 Restore from Backup</h3>
