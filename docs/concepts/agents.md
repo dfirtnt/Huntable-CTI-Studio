@@ -9,7 +9,7 @@ The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and 
 2. **LLM ranking**: Scores article quality (1–10) and gates the rest of the workflow.
 3. **Extract Agent supervisor**: Orchestrates sub-agents and merges their observables into `extraction_result`.
 4. **Sigma generator**: Builds Sigma rules from extracted content (prefers aggregated observables) and validates with pySigma.
-5. **Similarity matcher**: Compares generated rules against SigmaHQ embeddings to avoid duplicates and classify coverage.
+5. **Similarity matcher**: Compares generated rules against SigmaHQ using behavioral novelty (deterministic or legacy); embeddings used for candidate retrieval.
 6. **Promote to Queue**: Queues novel SIGMA rules for human review based on similarity threshold.
 
 ## Extract Agent sub-agents
