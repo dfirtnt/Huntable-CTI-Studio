@@ -3172,16 +3172,17 @@ def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict
 @router.get("/{article_id}/sigma-matches")
 async def api_get_sigma_matches(article_id: int, force: bool = False):
     """
-    Get Sigma rule matches by comparing generated SIGMA rules to embedded SigmaHQ rules
+    Get Sigma rule matches by comparing generated SIGMA rules to SigmaHQ rules
     using behavioral novelty assessment.
 
-    Uses behavioral novelty assessment (per build spec):
+    When sigma_semantic_similarity is installed: deterministic engine
+    (Jaccard × Containment − Filter penalty). Otherwise legacy:
     - Canonicalization of detection logic
     - Atomic predicate extraction (field+operator+value)
     - Structural similarity metrics (AST comparison)
     - Weighted similarity: 0.70 × atom_jaccard + 0.30 × logic_shape
 
-    No LLM reranking - purely algorithmic as per specification.
+    No LLM reranking - purely algorithmic.
     """
     try:
         from src.database.async_manager import AsyncDatabaseManager
