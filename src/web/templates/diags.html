@@ -4,166 +4,312 @@
 
 {% block content %}
 <style>
-/* Diags page: theme vars only (ui-designer.mdc) */
-.diags-card { background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border); border-radius: 0.5rem; box-shadow: 0 1px 3px var(--shadow-card); }
-.diags-heading { color: var(--text-primary); }
-.diags-muted { color: var(--text-muted-slate); }
-.diags-btn-secondary { background-color: var(--panel-bg-4); color: var(--text-primary); border: 1px solid var(--border-muted); }
-.diags-btn-secondary:hover { background-color: var(--panel-bg-5); border-color: var(--border-subtle); }
-.diags-pulse { background-color: var(--border-muted); }
-.diags-panel-hover:hover { background-color: var(--panel-bg-4); }
-.diags-status-success { color: var(--action-success-light); }
-.diags-status-warning { color: var(--action-warning); }
-.diags-status-error { color: var(--action-danger); }
-.diags-status-info { color: var(--action-info); }
-.diags-panel-success { background-color: var(--action-success-bg); border: 1px solid var(--action-success); color: var(--action-success-dark); }
-.diags-panel-warning { background-color: var(--action-warning-bg-light); border: 1px solid var(--border-warning); color: var(--action-warning-dark); }
-.diags-panel-error { background-color: var(--action-danger-bg); border: 1px solid var(--action-danger); color: var(--action-danger-hover); }
-.diags-panel-info { background-color: var(--action-info-bg); border: 1px solid var(--action-info); color: var(--action-info-dark); }
-.diags-panel-neutral { background-color: var(--panel-bg-4); border: 1px solid var(--mlops-card-border); color: var(--text-muted-slate); }
-.diags-overlay-bg { background-color: var(--shadow-overlay); }
-.diags-loading-spinner-bg { background-color: var(--action-info-fill); }
-.diags-loading-spinner { color: var(--action-info); }
-.diags-checkbox:focus { border-color: var(--border-focus); box-shadow: 0 0 0 2px var(--purple-border-15); }
+/* ── Diags page: workflow/sources UX patterns + industrial ops aesthetic ── */
+
+/* Stats bar (sources pattern) */
+.diag-stats-bar { display:flex; gap:0.625rem; flex-wrap:wrap; margin-bottom:1.25rem; }
+.diag-stat-chip {
+  display:inline-flex; align-items:center; gap:0.4rem;
+  padding:0.3rem 0.75rem; border-radius:999px;
+  font-size:0.75rem; font-weight:600; border:1px solid;
+  font-family:'DM Sans',sans-serif;
+}
+.diag-stat-chip.ok    { background:rgba(34,197,94,0.15);  color:#86efac; border-color:rgba(34,197,94,0.3); }
+.diag-stat-chip.warn  { background:rgba(234,179,8,0.15);  color:#fde047; border-color:rgba(234,179,8,0.3); }
+.diag-stat-chip.err   { background:rgba(239,68,68,0.15);  color:#fca5a5; border-color:rgba(239,68,68,0.3); }
+.diag-stat-chip.info  { background:rgba(59,130,246,0.15);  color:#93c5fd; border-color:rgba(59,130,246,0.3); }
+.diag-stat-chip.neutral { background:rgba(71,85,105,0.4);   color:var(--text-muted-slate); border-color:var(--border-subtle); }
+.diag-stat-dot { width:7px; height:7px; border-radius:50%; display:inline-block; flex-shrink:0; }
+
+/* Action bar (sources filter-bar pattern) */
+.diag-action-bar {
+  display:flex; gap:0.625rem; align-items:center; flex-wrap:wrap;
+  margin-bottom:1.25rem; padding:0.75rem 1rem;
+  background:var(--panel-bg-3); border:1px solid var(--mlops-card-border);
+  border-radius:10px;
+}
+.diag-action-bar .btn-primary {
+  display:inline-flex; align-items:center; gap:0.3rem;
+  padding:0.4rem 0.9rem; background:var(--purple-primary); color:#fff;
+  border:none; border-radius:6px; font-size:0.8rem; font-weight:600;
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s;
+}
+.diag-action-bar .btn-primary:hover { background:var(--purple-hover); }
+.diag-action-bar .btn-secondary {
+  display:inline-flex; align-items:center; gap:0.3rem;
+  padding:0.4rem 0.9rem; background:var(--panel-bg-4); color:var(--text-primary);
+  border:1px solid var(--border-muted); border-radius:6px; font-size:0.8rem; font-weight:500;
+  cursor:pointer; font-family:'DM Sans',sans-serif; transition:border-color 0.15s, background 0.15s;
+}
+.diag-action-bar .btn-secondary:hover { background:var(--panel-bg-5); border-color:var(--border-subtle); }
+.diag-action-bar .last-updated {
+  font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-muted-slate);
+  margin-left:auto;
+}
+.diag-action-bar .checkbox-wrap { display:flex; align-items:center; gap:0.4rem; }
+.diag-action-bar input[type="checkbox"] { accent-color:var(--purple-primary); }
+.diag-action-bar .checkbox-wrap span { font-size:0.78rem; color:var(--text-muted-slate); }
+
+/* Card grid (sources source-grid pattern) */
+.diag-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(420px,1fr)); gap:0.875rem; }
+
+/* Card (source-card pattern with left accent) */
+.diag-card {
+  background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);
+  border-radius:10px; padding:1rem 1.1rem;
+  transition:box-shadow 0.15s, border-color 0.15s;
+  position:relative; overflow:visible;
+  animation:diag-card-reveal 0.4s ease-out backwards;
+}
+.diag-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.25); border-color:var(--border-subtle); }
+.diag-card::before {
+  content:''; position:absolute; left:0; top:0; bottom:0;
+  width:3px; border-radius:10px 0 0 10px;
+}
+.diag-card.health-ok::before    { background:var(--action-success-light,#22c55e); }
+.diag-card.health-warn::before  { background:var(--action-warning,#eab308); }
+.diag-card.health-bad::before  { background:var(--action-danger,#dc2626); }
+.diag-card.health-neutral::before { background:var(--border-subtle,#4b5563); }
+
+@keyframes diag-card-reveal {
+  from { opacity:0; transform:translateY(8px); }
+  to { opacity:1; transform:translateY(0); }
+}
+
+/* Staggered reveal */
+.diag-card:nth-child(1) { animation-delay:0.02s; }
+.diag-card:nth-child(2) { animation-delay:0.05s; }
+.diag-card:nth-child(3) { animation-delay:0.08s; }
+.diag-card:nth-child(4) { animation-delay:0.11s; }
+.diag-card:nth-child(5) { animation-delay:0.14s; }
+.diag-card:nth-child(6) { animation-delay:0.17s; }
+.diag-card:nth-child(7) { animation-delay:0.2s; }
+.diag-card:nth-child(8) { animation-delay:0.23s; }
+.diag-card:nth-child(9) { animation-delay:0.26s; }
+
+/* Card header (section-header pattern) */
+.diag-card-title {
+  font-family:'DM Sans',sans-serif; font-size:0.95rem; font-weight:600;
+  color:var(--text-primary); margin-bottom:0.5rem;
+}
+.diag-card-meta {
+  font-family:'JetBrains Mono',monospace; font-size:0.7rem;
+  color:var(--text-muted-slate); margin-bottom:0.75rem;
+}
+
+/* Inner panels (workflow panel-bg hierarchy) */
+.diag-inner-panel {
+  background:var(--panel-bg-4); border:1px solid var(--border-muted);
+  border-radius:6px; padding:0.6rem 0.8rem; margin-top:0.5rem;
+}
+.diag-status-success { color:var(--action-success-light); }
+.diag-status-warning { color:var(--action-warning); }
+.diag-status-error { color:var(--action-danger); }
+.diag-status-info { color:var(--action-info); }
+.diag-muted { color:var(--text-muted-slate); }
+
+/* Collapsible panel (global initCollapsiblePanels convention) */
+.diag-collapsible-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0.75rem 0; user-select:none;
+  transition:background 0.15s; border-radius:6px; margin:-0.25rem -0.5rem; padding-left:0.5rem; padding-right:0.5rem;
+}
+.diag-collapsible-header:hover { background:rgba(255,255,255,0.03); }
+.diag-collapsible-header .chevron { transition:transform 0.2s; color:var(--text-muted-slate); font-size:0.8rem; }
+
+/* Loading overlay */
+.diag-overlay { background-color:var(--shadow-overlay); }
+.diag-spinner-bg { background-color:var(--action-info-fill); }
+.diag-spinner { color:var(--action-info); }
+.diag-checkbox:focus { border-color:var(--border-focus); box-shadow:0 0 0 2px var(--purple-border-15); }
 </style>
+
 <div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold diags-heading mb-2 flex items-center gap-3">
-            <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[63px] h-[63px]" />
+    <!-- Breadcrumb -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/" style="color:var(--color-text-secondary);" class="text-sm">Home</a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
+                    </svg>
+                    <span class="ml-1 text-sm" style="color:var(--text-secondary);">Diagnostics</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Page header -->
+    <div class="mb-4">
+        <h1 class="text-3xl font-bold mb-2 flex items-center gap-3" style="color:var(--text-primary); font-family:'DM Sans',sans-serif;">
+            <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[54px] h-[54px]" />
             System Diagnostics & Health
         </h1>
-        <p class="diags-muted">Monitor system health, background jobs, service status, and analytics</p>
+        <p class="text-sm" style="color:var(--text-muted-slate);">Monitor system health, background jobs, service status, and analytics</p>
     </div>
 
-    <!-- Quick Actions -->
-    <div class="diags-card p-6 mb-8">
-        <h2 class="text-xl font-semibold diags-heading mb-4">⚡ Quick Actions</h2>
-        <div class="flex flex-wrap gap-4">
-            <button id="runAllHealthChecks" type="button" class="btn-analyze inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--action-info)] transition-colors">
-                🏥 Run All Health Checks
-            </button>
-            <button id="refreshJobData" type="button" class="diags-btn-secondary inline-flex items-center px-4 py-2 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--border-focus)] transition-colors">
-                🔄 Refresh Job Data
-            </button>
-            <label class="flex items-center">
-                <input type="checkbox" id="autoRefresh" class="diags-checkbox rounded border-[var(--border-muted)] shadow-sm" style="accent-color: var(--action-info);" checked>
-                <span class="ml-2 text-sm diags-muted">Auto-refresh (5s)</span>
-            </label>
-            <div class="text-sm diags-muted">
-                Last updated: <span id="lastUpdated">Never</span>
-            </div>
-        </div>
+    <!-- Stats bar (dynamic) -->
+    <div class="diag-stats-bar" id="diagStatsBar">
+        <span class="diag-stat-chip neutral" id="statWorkers">
+            <span class="diag-stat-dot" style="background:var(--text-muted-slate);"></span>
+            <span id="statWorkersVal">—</span> Workers
+        </span>
+        <span class="diag-stat-chip neutral" id="statQueues">
+            <span class="diag-stat-dot" style="background:var(--text-muted-slate);"></span>
+            <span id="statQueuesVal">—</span> Queues
+        </span>
+        <span class="diag-stat-chip neutral" id="statActive">
+            <span class="diag-stat-dot" style="background:var(--text-muted-slate);"></span>
+            <span id="statActiveVal">—</span> Active
+        </span>
+        <span class="diag-stat-chip info" id="statHealth" style="display:none;">
+            <span class="diag-stat-dot" style="background:var(--action-info);"></span>
+            <span id="statHealthVal">Run health checks</span>
+        </span>
     </div>
 
-    <!-- System Status Overview -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">🏥 System Health</h2>
-            <div id="overallHealthStatus" class="diags-muted">
+    <!-- Action bar (Quick Actions) -->
+    <div class="diag-action-bar" data-testid="quick-actions">
+        <span class="text-sm font-medium" style="color:var(--text-secondary);">⚡ Quick Actions</span>
+        <button id="runAllHealthChecks" type="button" class="btn-primary">
+            Run All Health Checks
+        </button>
+        <button id="refreshJobData" type="button" class="btn-secondary">
+            Refresh Job Data
+        </button>
+        <label class="checkbox-wrap">
+            <input type="checkbox" id="autoRefresh" class="diag-checkbox rounded border-[var(--border-muted)]" checked>
+            <span>Auto-refresh (5s)</span>
+        </label>
+        <span class="last-updated">Last updated: <span id="lastUpdated">Never</span></span>
+    </div>
+
+    <!-- Section label -->
+    <div class="flex items-center justify-between mb-3">
+        <span class="text-sm font-medium" style="color:var(--text-secondary);">System Status</span>
+    </div>
+
+    <!-- Card grid -->
+    <div class="diag-grid mb-8">
+        <!-- System Health -->
+        <div class="diag-card health-neutral" id="cardSystemHealth">
+            <h2 class="diag-card-title">System Health</h2>
+            <p class="diag-card-meta">Overall status · version</p>
+            <div id="overallHealthStatus" class="diag-muted text-sm">
                 Click "Run All Health Checks" to get system status
             </div>
         </div>
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">👥 Worker Status</h2>
+
+        <!-- Worker Status -->
+        <div class="diag-card health-neutral" id="cardWorkerStatus">
+            <h2 class="diag-card-title">Worker Status</h2>
+            <p class="diag-card-meta">Celery workers · pool</p>
             <div id="workerStatus" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 diags-pulse rounded w-3/4"></div>
-                    <div class="h-4 diags-pulse rounded w-1/2 mt-2"></div>
+                    <div class="h-4 rounded w-3/4" style="background:var(--border-muted);"></div>
+                    <div class="h-4 rounded w-1/2 mt-2" style="background:var(--border-muted);"></div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Detailed Health Checks -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">🗄️ Database Health</h2>
-            <div id="databaseHealthContent" class="diags-muted">
+        <!-- Database Health -->
+        <div class="diag-card health-neutral" id="cardDatabase">
+            <h2 class="diag-card-title">Database Health</h2>
+            <p class="diag-card-meta">Connection · integrity</p>
+            <div id="databaseHealthContent" class="diag-muted text-sm">
                 Click "Run All Health Checks" to check database status
             </div>
         </div>
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">🔧 External Services</h2>
-            <div id="servicesHealthContent" class="diags-muted">
+
+        <!-- External Services -->
+        <div class="diag-card health-neutral" id="cardServices">
+            <h2 class="diag-card-title">External Services</h2>
+            <p class="diag-card-meta">Redis · LMStudio · Langfuse</p>
+            <div id="servicesHealthContent" class="diag-muted text-sm">
                 Click "Run All Health Checks" to check external services
             </div>
         </div>
-    </div>
 
-    <!-- Job Monitoring -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">📊 Queue Status</h2>
-            <p class="text-xs diags-muted mb-3">Shows pending tasks per queue and which worker(s) consume each queue</p>
+        <!-- Queue Status -->
+        <div class="diag-card health-neutral" id="cardQueues">
+            <h2 class="diag-card-title">Queue Status</h2>
+            <p class="diag-card-meta">Pending tasks · consumers</p>
+            <p class="text-xs diag-muted mb-3">Shows pending tasks per queue and which worker(s) consume each queue</p>
             <div id="queueStatus" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 diags-pulse rounded w-3/4"></div>
-                    <div class="h-4 diags-pulse rounded w-1/2 mt-2"></div>
+                    <div class="h-4 rounded w-3/4" style="background:var(--border-muted);"></div>
+                    <div class="h-4 rounded w-1/2 mt-2" style="background:var(--border-muted);"></div>
                 </div>
             </div>
         </div>
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">⚡ Active Tasks</h2>
-            <p class="text-xs diags-muted mb-3">Currently running tasks across all workers</p>
+
+        <!-- Active Tasks -->
+        <div class="diag-card health-neutral" id="cardActiveTasks">
+            <h2 class="diag-card-title">Active Tasks</h2>
+            <p class="diag-card-meta">Currently running</p>
+            <p class="text-xs diag-muted mb-3">Tasks in progress across all workers</p>
             <div id="activeTasks" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 diags-pulse rounded w-full"></div>
-                    <div class="h-4 diags-pulse rounded w-2/3 mt-2"></div>
+                    <div class="h-4 rounded w-full" style="background:var(--border-muted);"></div>
+                    <div class="h-4 rounded w-2/3 mt-2" style="background:var(--border-muted);"></div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Additional Health Checks -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">🔍 Deduplication System</h2>
-            <div id="deduplicationHealthContent" class="diags-muted">
+        <!-- Deduplication -->
+        <div class="diag-card health-neutral" id="cardDedup">
+            <h2 class="diag-card-title">Deduplication System</h2>
+            <p class="diag-card-meta">Exact · near-duplicates</p>
+            <div id="deduplicationHealthContent" class="diag-muted text-sm">
                 Click "Run All Health Checks" to check deduplication status
             </div>
         </div>
-        <div class="diags-card p-6">
-            <h2 class="text-xl font-semibold diags-heading mb-4">⚙️ Celery Workers</h2>
-            <div id="celeryHealthContent" class="diags-muted">
+
+        <!-- Celery Workers -->
+        <div class="diag-card health-neutral" id="cardCelery">
+            <h2 class="diag-card-title">Celery Workers</h2>
+            <p class="diag-card-meta">Broker · result backend</p>
+            <div id="celeryHealthContent" class="diag-muted text-sm">
                 Click "Run All Health Checks" to check background task processing
             </div>
         </div>
     </div>
 
-    <!-- Job History -->
-    <div class="diags-card p-6 mb-8">
-        <div data-collapsible-panel="job-history" class="diags-panel-hover flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg transition-colors cursor-pointer">
-            <h2 class="text-xl font-semibold diags-heading">📋 Recent Job History</h2>
-            <p class="text-xs diags-muted mt-1">Completed tasks with inferred worker/queue assignment</p>
-            <span id="job-history-toggle" class="diags-muted transition-transform duration-200" aria-hidden="true">
-                <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                </svg>
-            </span>
+    <!-- Job History (collapsible, global initCollapsiblePanels) -->
+    <div class="diag-card health-neutral" id="cardJobHistory">
+        <div class="diag-collapsible-header" data-collapsible-panel="job-history">
+            <div>
+                <h2 class="diag-card-title" style="margin-bottom:0.15rem;">Recent Job History</h2>
+                <p class="diag-card-meta" style="margin-bottom:0;">Completed tasks with inferred worker/queue assignment</p>
+            </div>
+            <span id="job-history-toggle" class="chevron">▼</span>
         </div>
-        <div id="job-history-content" class="space-y-3 hidden">
+        <div id="job-history-content" class="space-y-3 pt-4">
             <div class="animate-pulse">
-                <div class="h-4 diags-pulse rounded w-full"></div>
-                <div class="h-4 diags-pulse rounded w-3/4 mt-2"></div>
-                <div class="h-4 diags-pulse rounded w-1/2 mt-2"></div>
+                <div class="h-4 rounded w-full" style="background:var(--border-muted);"></div>
+                <div class="h-4 rounded w-3/4 mt-2" style="background:var(--border-muted);"></div>
+                <div class="h-4 rounded w-1/2 mt-2" style="background:var(--border-muted);"></div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Loading Overlay -->
-<div id="loadingOverlay" class="fixed inset-0 diags-overlay-bg backdrop-blur-sm overflow-y-auto h-full w-full z-50 hidden flex items-center justify-center">
-    <div class="diags-card rounded-xl p-6 max-w-md w-full mx-4">
+<div id="loadingOverlay" class="fixed inset-0 diag-overlay backdrop-blur-sm overflow-y-auto h-full w-full z-50 hidden flex items-center justify-center">
+    <div class="rounded-xl p-6 max-w-md w-full mx-4" style="background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
         <div class="mt-3 text-center">
-            <div class="diags-loading-spinner-bg mx-auto flex items-center justify-center h-12 w-12 rounded-full">
-                <svg class="animate-spin h-6 w-6 diags-loading-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <div class="diag-spinner-bg mx-auto flex items-center justify-center h-12 w-12 rounded-full">
+                <svg class="animate-spin h-6 w-6 diag-spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
             </div>
-            <h3 class="text-lg font-medium diags-heading mt-4">Running Diagnostics</h3>
+            <h3 class="text-lg font-medium mt-4" style="color:var(--text-primary);">Running Diagnostics</h3>
             <div class="mt-2 px-7 py-3">
-                <p class="text-sm diags-muted" id="loadingMessage">Please wait...</p>
+                <p class="text-sm diag-muted" id="loadingMessage">Please wait...</p>
             </div>
         </div>
     </div>
@@ -175,23 +321,12 @@
 let autoRefreshInterval;
 let isAutoRefresh = true;
 
-// Initialize
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing diagnostics...');
-    
-    // Test if elements exist
     const workerStatus = document.getElementById('workerStatus');
     const queueStatus = document.getElementById('queueStatus');
     const activeTasks = document.getElementById('activeTasks');
     const jobHistoryContent = document.getElementById('job-history-content');
-    
-    console.log('Elements found:', {
-        workerStatus: !!workerStatus,
-        queueStatus: !!queueStatus,
-        activeTasks: !!activeTasks,
-        jobHistoryContent: !!jobHistoryContent
-    });
-    
+
     if (workerStatus && queueStatus && activeTasks && jobHistoryContent) {
         loadJobData();
         setupAutoRefresh();
@@ -206,24 +341,15 @@ function setupEventListeners() {
     const autoRefreshEl = document.getElementById('autoRefresh');
     const refreshBtn = document.getElementById('refreshJobData');
     const runAllHealthBtn = document.getElementById('runAllHealthChecks');
-    
+
     if (autoRefreshEl) {
         autoRefreshEl.addEventListener('change', function(e) {
             isAutoRefresh = e.target.checked;
-            if (isAutoRefresh) {
-                setupAutoRefresh();
-            } else {
-                clearInterval(autoRefreshInterval);
-            }
+            if (isAutoRefresh) setupAutoRefresh();
+            else clearInterval(autoRefreshInterval);
         });
     }
-
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', function() {
-            loadJobData();
-        });
-    }
-
+    if (refreshBtn) refreshBtn.addEventListener('click', loadJobData);
     if (runAllHealthBtn) {
         runAllHealthBtn.addEventListener('click', async () => {
             await updateOverallHealthStatus();
@@ -235,48 +361,57 @@ function setupEventListeners() {
     }
 }
 
-// setupJobHistoryToggle removed - now handled by global initCollapsiblePanels()
-
 function setupAutoRefresh() {
-    if (autoRefreshInterval) {
-        clearInterval(autoRefreshInterval);
+    if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+    if (isAutoRefresh) autoRefreshInterval = setInterval(loadJobData, 5000);
+}
+
+function updateStatsBar(data) {
+    const workers = data.worker_stats ? Object.keys(data.worker_stats).length : 0;
+    const queues = data.queues ? Object.keys(data.queues).length : 0;
+    let active = 0;
+    if (data.active_tasks) {
+        Object.values(data.active_tasks).forEach(tasks => {
+            if (Array.isArray(tasks)) active += tasks.length;
+        });
     }
-    
-    if (isAutoRefresh) {
-        autoRefreshInterval = setInterval(loadJobData, 5000);
+    const statWorkersVal = document.getElementById('statWorkersVal');
+    const statQueuesVal = document.getElementById('statQueuesVal');
+    const statActiveVal = document.getElementById('statActiveVal');
+    if (statWorkersVal) statWorkersVal.textContent = workers;
+    if (statQueuesVal) statQueuesVal.textContent = queues;
+    if (statActiveVal) statActiveVal.textContent = active;
+    const chipWorkers = document.getElementById('statWorkers');
+    const chipActive = document.getElementById('statActive');
+    if (chipWorkers) {
+        chipWorkers.className = workers > 0 ? 'diag-stat-chip ok' : 'diag-stat-chip err';
+        const dot = chipWorkers.querySelector('.diag-stat-dot');
+        if (dot) dot.style.background = workers > 0 ? 'var(--action-success-light)' : 'var(--action-danger)';
+    }
+    if (chipActive) {
+        chipActive.className = active >= 0 ? 'diag-stat-chip info' : 'diag-stat-chip neutral';
     }
 }
 
-// Job monitoring functions
 async function loadJobData() {
     try {
-        console.log('Loading job data...');
-        
-        // Load all data in parallel
         const [statusResponse, queueResponse, historyResponse] = await Promise.all([
             fetch('/api/jobs/status'),
             fetch('/api/jobs/queues'),
             fetch('/api/jobs/history?limit=20')
         ]);
-
         const statusData = await statusResponse.json();
         const queueData = await queueResponse.json();
         const historyData = await historyResponse.json();
 
-        console.log('Status data:', statusData);
-        console.log('Queue data:', queueData);
-        console.log('History data:', historyData);
-
         updateWorkerStatus(statusData);
-        // Pass worker info to queue status for queue-to-worker mapping
         updateQueueStatus({...queueData, worker_stats: statusData.worker_stats, active_queues: statusData.active_queues});
         updateActiveTasks(statusData);
         updateJobHistory(historyData);
-        
+        updateStatsBar({...statusData, ...queueData});
+
         const lastUpdatedEl = document.getElementById('lastUpdated');
-        if (lastUpdatedEl) {
-            lastUpdatedEl.textContent = new Date().toLocaleTimeString();
-        }
+        if (lastUpdatedEl) lastUpdatedEl.textContent = new Date().toLocaleTimeString();
     } catch (error) {
         console.error('Failed to load job data:', error);
         showError('Failed to load job data: ' + error.message);
@@ -285,623 +420,311 @@ async function loadJobData() {
 
 function updateWorkerStatus(data) {
     const container = document.getElementById('workerStatus');
-    console.log('Updating worker status with data:', data);
-    
     if (data.status === 'error') {
-        container.innerHTML = '<div class="diags-status-error">❌ Error loading worker status</div>';
+        container.innerHTML = '<div class="diag-status-error text-sm">Error loading worker status</div>';
         return;
     }
-    
     if (data.status === 'timeout') {
-        container.innerHTML = '<div class="diags-status-warning">⚠️ Worker status timeout - workers may be unresponsive</div>';
+        container.innerHTML = '<div class="diag-status-warning text-sm">Worker status timeout — workers may be unresponsive</div>';
         return;
     }
-
     const workerStats = data.worker_stats || {};
     const activeQueues = data.active_queues || {};
     const activeWorkers = Object.keys(workerStats);
-    
-    console.log('Active workers:', activeWorkers);
-    console.log('Worker stats:', workerStats);
-    console.log('Active queues:', activeQueues);
-    
     if (activeWorkers.length === 0) {
-        container.innerHTML = '<div class="diags-status-warning">⚠️ No active workers</div>';
+        container.innerHTML = '<div class="diag-status-warning text-sm">No active workers</div>';
         return;
     }
-
     let html = '';
     activeWorkers.forEach(worker => {
         const stats = workerStats[worker];
         const processCount = Array.isArray(stats.pool?.processes) ? stats.pool.processes.length : 'N/A';
         const totalTasks = stats.total ? Object.values(stats.total).reduce((a, b) => a + b, 0) : 0;
-        
-        // Get queues this worker is consuming
         const workerQueues = activeQueues[worker] || [];
         let queueNames = 'all queues';
         if (workerQueues.length > 0) {
-            queueNames = workerQueues.map(q => {
-                if (typeof q === 'string') return q;
-                if (typeof q === 'object' && q.name) return q.name;
-                return String(q);
-            }).join(', ');
+            queueNames = workerQueues.map(q => typeof q === 'string' ? q : (q?.name || String(q))).join(', ');
         }
-        
-        // Identify worker type based on name or queues
         const isWorkflowWorker = worker.includes('workflow') || queueNames.includes('workflows');
-        const workerType = isWorkflowWorker ? '🔄 Workflow' : '⚙️ General';
-        
-        html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
-                <div>
-                    <div class="font-medium diags-heading">${workerType} Worker</div>
-                    <div class="text-sm diags-muted">${worker}</div>
-                    <div class="text-xs diags-muted mt-1">Queues: ${queueNames} | Pool: ${processCount} processes</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm diags-status-success">✅ Active</div>
-                    <div class="text-xs diags-muted">Tasks: ${totalTasks}</div>
-                </div>
+        const workerType = isWorkflowWorker ? 'Workflow' : 'General';
+        html += `<div class="diag-inner-panel flex items-center justify-between">
+            <div>
+                <div class="font-medium text-sm" style="color:var(--text-primary);">${workerType} Worker</div>
+                <div class="text-xs diag-muted font-mono">${worker}</div>
+                <div class="text-xs diag-muted mt-0.5">Queues: ${queueNames} · Pool: ${processCount}</div>
             </div>
-        `;
+            <div class="text-right">
+                <div class="text-sm diag-status-success">Active</div>
+                <div class="text-xs diag-muted font-mono">${totalTasks} tasks</div>
+            </div>
+        </div>`;
     });
-    
     container.innerHTML = html;
 }
 
 function updateQueueStatus(data) {
     const container = document.getElementById('queueStatus');
-    console.log('Updating queue status with data:', data);
-    
     if (data.status === 'error') {
-        container.innerHTML = '<div class="diags-status-error">❌ Error loading queue status</div>';
+        container.innerHTML = '<div class="diag-status-error text-sm">Error loading queue status</div>';
         return;
     }
-
     const queues = data.queues || {};
-    console.log('Queues:', queues);
-    
-    let html = '';
-    
-    // Map queues to workers (from worker status data if available)
     const queueToWorkers = {};
     if (data.worker_stats && data.active_queues) {
-        Object.entries(data.active_queues).forEach(([worker, queues]) => {
-            queues.forEach(queue => {
-                const queueName = typeof queue === 'string' ? queue : (queue.name || String(queue));
-                if (!queueToWorkers[queueName]) {
-                    queueToWorkers[queueName] = [];
-                }
-                const isWorkflowWorker = worker.includes('workflow') || queueName === 'workflows';
-                queueToWorkers[queueName].push({
-                    worker: worker,
-                    type: isWorkflowWorker ? '🔄 Workflow' : '⚙️ General'
-                });
+        Object.entries(data.active_queues).forEach(([worker, qs]) => {
+            qs.forEach(q => {
+                const name = typeof q === 'string' ? q : (q?.name || String(q));
+                if (!queueToWorkers[name]) queueToWorkers[name] = [];
+                queueToWorkers[name].push(worker.includes('workflow') ? 'Workflow' : 'General');
             });
         });
     }
-    
+    let html = '';
     Object.entries(queues).forEach(([queueName, length]) => {
-        const statusClass = length > 0 ? 'diags-status-warning' : 'diags-status-success';
-        const statusIcon = length > 0 ? '⏳' : '✅';
-        const workers = queueToWorkers[queueName] || [];
-        const workerInfo = workers.length > 0 
-            ? workers.map(w => w.type).join(', ')
-            : 'No active consumers';
-        
-        html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
-                <div>
-                    <div class="font-medium diags-heading">${queueName}</div>
-                    <div class="text-sm diags-muted">Queue length</div>
-                    <div class="text-xs diags-muted mt-1">Consumed by: ${workerInfo}</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-lg font-bold ${statusClass}">${length}</div>
-                    <div class="text-xs diags-muted">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
-                </div>
+        const statusClass = length > 0 ? 'diag-status-warning' : 'diag-status-success';
+        const workers = (queueToWorkers[queueName] || []).join(', ') || 'No consumers';
+        html += `<div class="diag-inner-panel flex items-center justify-between">
+            <div>
+                <div class="font-medium text-sm" style="color:var(--text-primary);">${queueName}</div>
+                <div class="text-xs diag-muted">${workers}</div>
             </div>
-        `;
+            <div class="text-right">
+                <div class="text-lg font-bold font-mono ${statusClass}">${length}</div>
+                <div class="text-xs diag-muted">${length > 0 ? 'Pending' : 'Empty'}</div>
+            </div>
+        </div>`;
     });
-    
     container.innerHTML = html;
 }
 
 function updateActiveTasks(data) {
     const container = document.getElementById('activeTasks');
-    console.log('Updating active tasks with data:', data);
-    
     if (data.status === 'error') {
-        container.innerHTML = '<div class="diags-status-error">❌ Error loading active tasks</div>';
+        container.innerHTML = '<div class="diag-status-error text-sm">Error loading active tasks</div>';
         return;
     }
-    
     if (data.status === 'timeout') {
-        container.innerHTML = '<div class="diags-status-warning">⚠️ Active tasks timeout - workers may be unresponsive</div>';
+        container.innerHTML = '<div class="diag-status-warning text-sm">Active tasks timeout</div>';
         return;
     }
-
     const activeTasks = data.active_tasks || {};
-    console.log('Active tasks:', activeTasks);
-    
     const allTasks = [];
-    
     Object.entries(activeTasks).forEach(([worker, tasks]) => {
-        if (Array.isArray(tasks)) {
-            tasks.forEach(task => {
-                allTasks.push({...task, worker});
-            });
-        }
+        if (Array.isArray(tasks)) tasks.forEach(t => allTasks.push({...t, worker}));
     });
-    
-    console.log('All tasks:', allTasks);
-    
     if (allTasks.length === 0) {
-        container.innerHTML = '<div class="diags-muted text-center py-8">No active tasks</div>';
+        container.innerHTML = '<div class="diag-muted text-center py-6 text-sm">No active tasks</div>';
         return;
     }
-
-    // Get worker info for context
-    const workerStats = data.worker_stats || {};
     const activeQueues = data.active_queues || {};
-    
     let html = '';
     allTasks.forEach(task => {
         const startTime = new Date(task.time_start * 1000).toLocaleTimeString();
-        const taskName = task.name ? task.name.split('.').pop() : 'Unknown Task';
-        const sourceId = task.args && task.args[0] ? `Source ${task.args[0]}` : 'Unknown Source';
-        
-        // Determine worker type
-        const worker = task.worker || '';
-        const isWorkflowWorker = worker.includes('workflow');
-        const workerType = isWorkflowWorker ? '🔄 Workflow' : '⚙️ General';
-        const workerQueues = activeQueues[worker] || [];
-        const queueNames = workerQueues.length > 0 
-            ? workerQueues.map(q => typeof q === 'string' ? q : (q.name || String(q))).join(', ')
-            : '';
-        
-        html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
-                <div>
-                    <div class="font-medium diags-heading">${taskName}</div>
-                    <div class="text-sm diags-muted">${sourceId} | Started: ${startTime}</div>
-                    <div class="text-xs diags-muted mt-1">${workerType} Worker${queueNames ? ` (${queueNames})` : ''}</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm diags-status-info">🔄 Running</div>
-                    <div class="text-xs diags-muted">ID: ${task.id.substring(0, 8)}...</div>
-                </div>
+        const taskName = task.name ? task.name.split('.').pop() : 'Unknown';
+        const workerQueues = activeQueues[task.worker] || [];
+        const queueNames = workerQueues.map(q => typeof q === 'string' ? q : (q?.name || String(q))).join(', ');
+        html += `<div class="diag-inner-panel flex items-center justify-between">
+            <div>
+                <div class="font-medium text-sm" style="color:var(--text-primary);">${taskName}</div>
+                <div class="text-xs diag-muted font-mono">Started ${startTime}${queueNames ? ' · ' + queueNames : ''}</div>
             </div>
-        `;
+            <div class="text-right">
+                <div class="text-sm diag-status-info">Running</div>
+                <div class="text-xs diag-muted font-mono">${task.id?.substring(0, 8) || '—'}…</div>
+            </div>
+        </div>`;
     });
-    
     container.innerHTML = html;
 }
 
 function updateJobHistory(data) {
     const container = document.getElementById('job-history-content');
-    console.log('Updating job history with data:', data);
-    
     if (data.status === 'error') {
-        container.innerHTML = '<div class="diags-status-error">❌ Error loading job history</div>';
+        container.innerHTML = '<div class="diag-status-error text-sm">Error loading job history</div>';
         return;
     }
-
     const tasks = data.recent_tasks || [];
-    console.log('Recent tasks:', tasks);
-    
     if (tasks.length === 0) {
-        container.innerHTML = '<div class="diags-muted text-center py-8">No recent tasks</div>';
+        container.innerHTML = '<div class="diag-muted text-center py-6 text-sm">No recent tasks</div>';
         return;
     }
-
-    // Helper to determine likely queue/worker from task name
     function getTaskQueueInfo(taskName) {
-        if (!taskName) return { queue: 'unknown', workerType: '⚙️ General' };
-        
-        const taskLower = taskName.toLowerCase();
-        if (taskLower.includes('trigger_agentic_workflow') || taskLower.includes('workflow')) {
-            return { queue: 'workflows', workerType: '🔄 Workflow' };
-        }
-        if (taskLower.includes('check_all_sources') || taskLower.includes('check_source')) {
-            return { queue: 'source_checks', workerType: '⚙️ General' };
-        }
-        if (taskLower.includes('collect_from_source')) {
-            return { queue: 'collection', workerType: '⚙️ General' };
-        }
-        if (taskLower.includes('cleanup') || taskLower.includes('maintenance')) {
-            return { queue: 'maintenance', workerType: '⚙️ General' };
-        }
-        if (taskLower.includes('report')) {
-            return { queue: 'reports', workerType: '⚙️ General' };
-        }
-        return { queue: 'default', workerType: '⚙️ General' };
+        if (!taskName) return { queue: 'unknown', workerType: 'General' };
+        const t = String(taskName).toLowerCase();
+        if (t.includes('workflow')) return { queue: 'workflows', workerType: 'Workflow' };
+        if (t.includes('check_all_sources') || t.includes('check_source')) return { queue: 'source_checks', workerType: 'General' };
+        if (t.includes('collect_from_source')) return { queue: 'collection', workerType: 'General' };
+        if (t.includes('cleanup') || t.includes('maintenance')) return { queue: 'maintenance', workerType: 'General' };
+        return { queue: 'default', workerType: 'General' };
     }
-    
     let html = '';
     tasks.forEach(task => {
-        const statusColor = getStatusColor(task.status);
-        const statusIcon = getStatusIcon(task.status);
+        const statusColor = task.status === 'SUCCESS' ? 'diag-status-success' : task.status === 'FAILURE' ? 'diag-status-error' : 'diag-status-warning';
+        const statusIcon = task.status === 'SUCCESS' ? '✓' : task.status === 'FAILURE' ? '✗' : '◐';
         const dateDone = task.date_done ? new Date(task.date_done).toLocaleString() : 'N/A';
-        const resultText = task.result ? JSON.stringify(task.result).substring(0, 50) + '...' : 'No result';
-        
-        // Extract task name from result or use task_id
-        const taskName = task.result?.task_name || task.task_id;
-        const queueInfo = getTaskQueueInfo(taskName);
-        
-        html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-4);">
-                <div>
-                    <div class="font-medium diags-heading">${task.task_id.substring(0, 8)}...</div>
-                    <div class="text-sm diags-muted">Completed: ${dateDone}</div>
-                    <div class="text-xs diags-muted mt-1">${queueInfo.workerType} Worker (${queueInfo.queue} queue)</div>
-                </div>
-                <div class="text-right">
-                    <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
-                    <div class="text-xs diags-muted">${resultText}</div>
-                </div>
+        const queueInfo = getTaskQueueInfo(task.result?.task_name || task.task_id);
+        html += `<div class="diag-inner-panel flex items-center justify-between">
+            <div>
+                <div class="font-mono text-xs" style="color:var(--text-primary);">${task.task_id?.substring(0, 8) || '—'}…</div>
+                <div class="text-xs diag-muted">${dateDone}</div>
+                <div class="text-xs diag-muted mt-0.5">${queueInfo.workerType} · ${queueInfo.queue}</div>
             </div>
-        `;
+            <div class="text-right">
+                <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
+            </div>
+        </div>`;
     });
-    
     container.innerHTML = html;
 }
 
-function getStatusColor(status) {
-    switch (status) {
-        case 'SUCCESS': return 'diags-status-success';
-        case 'FAILURE': return 'diags-status-error';
-        case 'PENDING': return 'diags-status-warning';
-        case 'RETRY': return 'diags-status-warning';
-        default: return 'diags-muted';
-    }
-}
-
-function getStatusIcon(status) {
-    switch (status) {
-        case 'SUCCESS': return '✅';
-        case 'FAILURE': return '❌';
-        case 'PENDING': return '⏳';
-        case 'RETRY': return '🔄';
-        default: return '❓';
-    }
-}
-
-// Health check functions
 async function runHealthCheck(endpoint, loadingMessage) {
-    showLoading(loadingMessage);
+    document.getElementById('loadingMessage').textContent = loadingMessage;
+    document.getElementById('loadingOverlay').classList.remove('hidden');
     try {
         const response = await fetch(`/api/health${endpoint}`);
         const data = await response.json();
-        hideLoading();
+        document.getElementById('loadingOverlay').classList.add('hidden');
         return data;
     } catch (error) {
-        hideLoading();
+        document.getElementById('loadingOverlay').classList.add('hidden');
         console.error(`Health check failed for ${endpoint}:`, error);
         return { status: 'error', error: error.message };
     }
 }
 
-function showLoading(message) {
-    document.getElementById('loadingMessage').textContent = message;
-    document.getElementById('loadingOverlay').classList.remove('hidden');
-}
+function formatTimestamp(ts) { return new Date(ts).toLocaleString(); }
+function getHealthIcon(s) { return s === 'healthy' ? '✓' : s === 'unhealthy' || s === 'error' ? '✗' : s === 'not_configured' ? '○' : '?'; }
+function getHealthColor(s) { return s === 'healthy' ? 'diag-status-success' : s === 'unhealthy' || s === 'error' ? 'diag-status-error' : 'diag-muted'; }
 
-function hideLoading() {
-    document.getElementById('loadingOverlay').classList.add('hidden');
-}
-
-function formatTimestamp(timestamp) {
-    return new Date(timestamp).toLocaleString();
-}
-
-function getHealthStatusColor(status) {
-    switch (status) {
-        case 'healthy': return 'diags-status-success';
-        case 'unhealthy': return 'diags-status-error';
-        case 'error': return 'diags-status-error';
-        default: return 'diags-muted';
-    }
-}
-
-function getHealthStatusIcon(status) {
-    switch (status) {
-        case 'healthy': return '✅';
-        case 'unhealthy': return '❌';
-        case 'error': return '⚠️';
-        case 'not_configured': return '⚪';
-        default: return '❓';
-    }
-}
-
-// Overall Health Status Check
 async function updateOverallHealthStatus() {
     const data = await runHealthCheck('', 'Checking overall system status...');
-    
     const content = document.getElementById('overallHealthStatus');
-    content.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="p-4 diags-panel-info rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">${getHealthStatusIcon(data.status)}</span>
-                    <div>
-                        <h3 class="font-medium">System Status</h3>
-                        <p class="text-sm font-bold ${getHealthStatusColor(data.status)}">${data.status.toUpperCase()}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="p-4 diags-panel-success rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">🕒</span>
-                    <div>
-                        <h3 class="font-medium">Last Check</h3>
-                        <p class="text-sm font-bold">${formatTimestamp(data.timestamp)}</p>
-                    </div>
-                </div>
-            </div>
-            <div class="p-4 rounded-lg" style="background-color: var(--action-execute-fill); border: 1px solid var(--action-execute); color: var(--action-execute-dark);">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">📦</span>
-                    <div>
-                        <h3 class="font-medium">Version</h3>
-                        <p class="text-sm font-bold">${data.version || '1.0.0'}</p>
-                    </div>
+    const card = document.getElementById('cardSystemHealth');
+    if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : data.status === 'unhealthy' || data.status === 'error' ? 'health-bad' : 'health-neutral');
+    content.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div class="diag-inner-panel">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">${getHealthIcon(data.status)}</span>
+                <div>
+                    <div class="text-xs diag-muted">System</div>
+                    <div class="font-semibold ${getHealthColor(data.status)}">${(data.status || 'unknown').toUpperCase()}</div>
                 </div>
             </div>
         </div>
-        ${data.error ? `<div class="mt-4 p-3 diags-panel-error rounded-md"><p class="text-sm">Error: ${data.error}</p></div>` : ''}
-    `;
+        <div class="diag-inner-panel">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">🕒</span>
+                <div>
+                    <div class="text-xs diag-muted">Last Check</div>
+                    <div class="font-mono text-sm" style="color:var(--text-secondary);">${formatTimestamp(data.timestamp)}</div>
+                </div>
+            </div>
+        </div>
+        <div class="diag-inner-panel">
+            <div class="flex items-center gap-2">
+                <span class="text-xl">📦</span>
+                <div>
+                    <div class="text-xs diag-muted">Version</div>
+                    <div class="font-mono text-sm" style="color:var(--text-secondary);">${data.version || '1.0.0'}</div>
+                </div>
+            </div>
+        </div>
+    </div>${data.error ? `<div class="mt-3 diag-inner-panel diag-status-error text-sm">${data.error}</div>` : ''}`;
 }
 
-// Database Health Check
 async function updateDatabaseHealth() {
     const data = await runHealthCheck('/database', 'Checking database health...');
-    
     const content = document.getElementById('databaseHealthContent');
+    const card = document.getElementById('cardDatabase');
+    if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
     if (data.status === 'healthy' && data.database) {
         const db = data.database;
-        content.innerHTML = `
-            <div class="space-y-4">
-                <div class="p-4 diags-panel-success rounded-lg">
-                    <div class="flex items-center">
-                        <span class="text-2xl mr-2">✅</span>
-                        <div>
-                            <h3 class="font-medium">Database Connection</h3>
-                            <p class="text-sm">${db.connection}</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="p-4 diags-panel-info rounded-lg">
-                        <h3 class="font-medium">Total Articles</h3>
-                        <p class="text-2xl font-bold">${db.total_articles}</p>
-                    </div>
-                    <div class="p-4 diags-panel-info rounded-lg">
-                        <h3 class="font-medium">Total Sources</h3>
-                        <p class="text-2xl font-bold">${db.total_sources}</p>
-                    </div>
-                    <div class="p-4 diags-panel-info rounded-lg">
-                        <h3 class="font-medium">SimHash Coverage</h3>
-                        <p class="text-2xl font-bold">${db.simhash.coverage}</p>
-                    </div>
-                </div>
-                <div class="p-4 border rounded-lg ${db.corruption && db.corruption.count === 0 ? 'diags-panel-success' : 'diags-panel-error'}">
-                    <div class="flex items-center mb-3">
-                        <span class="text-2xl mr-2">${db.corruption && db.corruption.count === 0 ? '✅' : '❌'}</span>
-                        <div>
-                            <h3 class="font-medium">Content Integrity</h3>
-                            <p class="text-sm">${db.corruption ? db.corruption.count : 0} corrupted articles found</p>
-                        </div>
-                    </div>
-                    ${db.corruption && db.corruption.count > 0 ? `
-                        <div class="mt-2 text-sm diags-muted">
-                            <p class="font-medium mb-1">Examples:</p>
-                            <ul class="list-disc list-inside pl-2">
-                                ${db.corruption.examples.map(ex => `<li>ID ${ex.id}: ${ex.title}</li>`).join('')}
-                            </ul>
-                            <p class="mt-2 text-xs italic">Run <code>python fix_corrupted_articles.py --all</code> to fix.</p>
-                        </div>
-                    ` : ''}
-                </div>
+        const corrupt = db.corruption?.count ?? 0;
+        content.innerHTML = `<div class="space-y-3">
+            <div class="diag-inner-panel diag-status-success">✓ ${db.connection}</div>
+            <div class="grid grid-cols-3 gap-2">
+                <div class="diag-inner-panel text-center"><div class="text-xs diag-muted">Articles</div><div class="font-mono font-bold" style="color:var(--text-primary);">${db.total_articles}</div></div>
+                <div class="diag-inner-panel text-center"><div class="text-xs diag-muted">Sources</div><div class="font-mono font-bold" style="color:var(--text-primary);">${db.total_sources}</div></div>
+                <div class="diag-inner-panel text-center"><div class="text-xs diag-muted">SimHash</div><div class="font-mono font-bold" style="color:var(--text-primary);">${db.simhash?.coverage ?? '—'}</div></div>
             </div>
-        `;
-        
+            <div class="diag-inner-panel ${corrupt === 0 ? 'diag-status-success' : 'diag-status-error'}">${corrupt === 0 ? '✓' : '✗'} Content integrity: ${corrupt} corrupted</div>
+        </div>`;
     } else {
-        content.innerHTML = `
-            <div class="p-4 diags-panel-error rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">❌</span>
-                    <div>
-                        <h3 class="font-medium">Database Health Check Failed</h3>
-                        <p class="text-sm">${data.error || 'Unknown error'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
+        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
     }
 }
 
-// Deduplication Health Check
 async function updateDeduplicationHealth() {
     const data = await runHealthCheck('/deduplication', 'Checking deduplication system...');
-    
     const content = document.getElementById('deduplicationHealthContent');
+    const card = document.getElementById('cardDedup');
+    if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
     if (data.status === 'healthy' && data.deduplication) {
-        const dedup = data.deduplication;
-        content.innerHTML = `
-            <div class="space-y-4">
-                <div class="p-4 border rounded-lg ${dedup.exact_duplicates.content_hash_duplicates === 0 ? 'diags-panel-success' : 'diags-panel-error'}">
-                    <div class="flex items-center mb-3">
-                        <span class="text-2xl mr-2">${dedup.exact_duplicates.content_hash_duplicates === 0 ? '✅' : '❌'}</span>
-                        <div>
-                            <h3 class="font-medium">Exact Duplicates</h3>
-                            <p class="text-sm">${dedup.exact_duplicates.content_hash_duplicates} content hash duplicates found</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="p-4 border rounded-lg ${dedup.near_duplicates.potential_near_duplicates === 0 ? 'diags-panel-success' : 'diags-panel-warning'}">
-                    <div class="flex items-center mb-3">
-                        <span class="text-2xl mr-2">${dedup.near_duplicates.potential_near_duplicates === 0 ? '✅' : '⚠️'}</span>
-                        <div>
-                            <h3 class="font-medium">Near Duplicates</h3>
-                            <p class="text-sm">${dedup.near_duplicates.potential_near_duplicates} potential near-duplicates found</p>
-                        </div>
-                    </div>
-                    <p class="text-sm diags-muted">SimHash Coverage: ${dedup.near_duplicates.simhash_coverage}</p>
-                </div>
-            </div>
-        `;
+        const d = data.deduplication;
+        const exact = d.exact_duplicates?.content_hash_duplicates ?? 0;
+        const near = d.near_duplicates?.potential_near_duplicates ?? 0;
+        content.innerHTML = `<div class="space-y-3">
+            <div class="diag-inner-panel ${exact === 0 ? 'diag-status-success' : 'diag-status-error'}">${exact === 0 ? '✓' : '✗'} Exact duplicates: ${exact}</div>
+            <div class="diag-inner-panel ${near === 0 ? 'diag-status-success' : 'diag-status-warning'}">${near === 0 ? '✓' : '⚠'} Near duplicates: ${near}</div>
+        </div>`;
     } else {
-        content.innerHTML = `
-            <div class="p-4 diags-panel-error rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">❌</span>
-                    <div>
-                        <h3 class="font-medium">Deduplication Health Check Failed</h3>
-                        <p class="text-sm">${data.error || 'Unknown error'}</p>
-                    </div>
-                </div>
-            </div>
-        `;
+        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
     }
 }
 
-// Services Health Check
 async function updateServicesHealth() {
     const data = await runHealthCheck('/services', 'Checking external services...');
-    
     const content = document.getElementById('servicesHealthContent');
+    const card = document.getElementById('cardServices');
+    if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
     if (data.status === 'healthy' && data.services) {
-        const services = data.services;
-        content.innerHTML = `
-            <div class="space-y-4">
-                ${Object.entries(services).map(([serviceName, serviceData]) => `
-                    <div class="p-4 border rounded-lg ${serviceData.status === 'healthy' ? 'diags-panel-success' : serviceData.status === 'not_configured' ? 'diags-panel-neutral' : 'diags-panel-error'}">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <span class="text-2xl mr-2">${getHealthStatusIcon(serviceData.status)}</span>
-                                <div>
-                                    <h3 class="font-medium">${serviceName.toUpperCase()}</h3>
-                                    <p class="text-sm">${serviceData.status}</p>
-                                </div>
-                            </div>
-                            ${serviceData.status === 'healthy' ? `
-                                <div class="text-right text-sm diags-muted">
-                                    ${serviceName === 'lmstudio' ? `
-                                        <p class="font-medium">${serviceData.models_available} models available</p>
-                                        <p class="text-xs">${serviceData.models.slice(0, 3).join(', ')}${serviceData.models.length > 3 ? '...' : ''}</p>
-                                    ` : serviceName === 'langfuse' ? `
-                                        <p class="font-medium">${serviceData.configured ? 'Configured' : 'Not configured'}</p>
-                                        ${serviceData.message ? `<p class="text-xs">${serviceData.message}</p>` : ''}
-                                    ` : serviceName === 'redis' ? `
-                                        <p class="font-medium">Memory: ${Math.round(serviceData.info.used_memory / 1024 / 1024)}MB</p>
-                                    ` : ''}
-                                </div>
-                            ` : serviceData.status === 'not_configured' ? `
-                                <div class="text-right text-sm diags-muted">
-                                    <p class="font-medium">Not Configured</p>
-                                    ${serviceData.message ? `<p class="text-xs">${serviceData.message}</p>` : ''}
-                                </div>
-                            ` : `
-                                <div class="text-right text-sm diags-status-error">
-                                    <p class="font-medium">Error</p>
-                                    <p class="text-xs">${serviceData.error || 'Unknown error'}</p>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else {
-        content.innerHTML = `
-            <div class="p-4 diags-panel-error rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">❌</span>
-                    <div>
-                        <h3 class="font-medium">Services Health Check Failed</h3>
-                        <p class="text-sm">${data.error || 'Unknown error'}</p>
-                    </div>
+        content.innerHTML = Object.entries(data.services).map(([name, svc]) => {
+            const ok = svc.status === 'healthy';
+            let extra = '';
+            if (ok && name === 'lmstudio' && svc.models_available != null) extra = `<span class="text-xs diag-muted">${svc.models_available} models</span>`;
+            else if (ok && name === 'redis' && svc.info?.used_memory != null) extra = `<span class="text-xs font-mono diag-muted">${Math.round(svc.info.used_memory/1024/1024)}MB</span>`;
+            else if (name === 'langfuse' && svc.configured != null) extra = `<span class="text-xs diag-muted">${svc.configured ? 'Configured' : 'Not configured'}</span>`;
+            return `<div class="diag-inner-panel flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <span>${getHealthIcon(svc.status)}</span>
+                    <div><div class="font-medium text-sm" style="color:var(--text-primary);">${name.toUpperCase()}</div><div class="text-xs diag-muted">${svc.status}${svc.message ? ' · ' + svc.message : ''}${svc.error ? ' · ' + svc.error : ''}</div></div>
                 </div>
-            </div>
-        `;
+                ${extra ? `<div>${extra}</div>` : ''}
+            </div>`;
+        }).join('');
+    } else {
+        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
     }
 }
 
-// Celery Health Check
 async function updateCeleryHealth() {
     const data = await runHealthCheck('/celery', 'Checking Celery workers...');
-
     const content = document.getElementById('celeryHealthContent');
+    const card = document.getElementById('cardCelery');
+    if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : 'health-bad');
     if (data.status === 'healthy' && data.celery) {
-        const celery = data.celery;
-        content.innerHTML = `
-            <div class="space-y-4">
-                ${Object.entries(celery).map(([component, componentData]) => `
-                    <div class="p-4 border rounded-lg ${componentData.status === 'healthy' ? 'diags-panel-success' : 'diags-panel-error'}">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                <span class="text-2xl mr-2">${getHealthStatusIcon(componentData.status)}</span>
-                                <div>
-                                    <h3 class="font-medium">${component.toUpperCase()}</h3>
-                                    <p class="text-sm">${componentData.status}</p>
-                                </div>
-                            </div>
-                            ${componentData.status === 'healthy' ? `
-                                <div class="text-right text-sm diags-muted">
-                                    ${component === 'workers' ? `
-                                        <p class="font-medium">${componentData.active_workers} active workers</p>
-                                    ` : component === 'broker' ? `
-                                        <p class="font-medium">${componentData.url}</p>
-                                    ` : component === 'result_backend' ? `
-                                        <p class="font-medium">${componentData.backend}</p>
-                                    ` : ''}
-                                </div>
-                            ` : `
-                                <div class="text-right text-sm diags-status-error">
-                                    <p class="font-medium">${componentData.error}</p>
-                                </div>
-                            `}
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    } else {
-        content.innerHTML = `
-            <div class="p-4 diags-panel-error rounded-lg">
-                <div class="flex items-center">
-                    <span class="text-2xl mr-2">❌</span>
-                    <div>
-                        <h3 class="font-medium">Celery Health Check Failed</h3>
-                        <p class="text-sm">${data.error || 'Unknown error'}</p>
-                    </div>
+        content.innerHTML = Object.entries(data.celery).map(([comp, compData]) => {
+            const ok = compData.status === 'healthy';
+            return `<div class="diag-inner-panel flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2">
+                    <span>${getHealthIcon(compData.status)}</span>
+                    <div><div class="font-medium text-sm" style="color:var(--text-primary);">${comp.toUpperCase()}</div><div class="text-xs diag-muted">${compData.active_workers ?? compData.url ?? compData.backend ?? compData.status}</div></div>
                 </div>
-            </div>
-        `;
+            </div>`;
+        }).join('');
+    } else {
+        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
     }
 }
 
-
-
 function showError(message) {
-    // Simple error display - could be enhanced with a toast notification
     console.error(message);
-
-    // Show error in the UI
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50';
-    errorDiv.style.backgroundColor = 'var(--action-danger)';
-    errorDiv.style.color = 'var(--text-emphasis)';
-    errorDiv.textContent = message;
-    document.body.appendChild(errorDiv);
-
-    // Remove after 5 seconds
-    setTimeout(() => {
-        if (errorDiv.parentNode) {
-            errorDiv.parentNode.removeChild(errorDiv);
-        }
-    }, 5000);
+    const el = document.createElement('div');
+    el.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50';
+    el.style.cssText = 'background:var(--action-danger);color:var(--text-emphasis);';
+    el.textContent = message;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 5000);
 }
 </script>
 {% endblock %}

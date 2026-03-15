@@ -5,6 +5,7 @@ Tests report generation, export, history, filtering, and related features.
 
 import json
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -23,10 +24,10 @@ class TestDiagnosticsPageLoad:
         page.wait_for_timeout(2000)  # Wait for JavaScript initialization
 
         # Verify page title
-        expect(page).to_have_title("System Diagnostics - Huntable CTI Scraper")
+        expect(page).to_have_title(re.compile(r"System Diagnostics.*Huntable CTI"))
 
         # Verify main heading
-        heading = page.locator("h1:has-text('🔧 System Diagnostics')").first
+        heading = page.locator("h1:has-text('System Diagnostics')").first
         expect(heading).to_be_visible()
 
     @pytest.mark.ui
