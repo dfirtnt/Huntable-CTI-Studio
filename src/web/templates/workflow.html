@@ -482,7 +482,6 @@
 .c3 { color: var(--step-3); }
 .c4 { color: var(--step-4); }
 .c5 { color: var(--step-5); }
-.c6 { color: var(--step-6); }
 
 /* ─── Step Sections ─────────────────────────────────── */
 /* Scope --sc to section's accent color */
@@ -492,7 +491,6 @@
 #s3 { --sc: var(--step-3); }
 #s4 { --sc: var(--step-4); }
 #s5 { --sc: var(--step-5); }
-#s6 { --sc: var(--step-6); }
 
 .step-section {
   position: relative;
@@ -745,13 +743,6 @@
               <div class="rail-node">5</div>
               <div class="rail-label">Similarity Search</div>
               <div class="rail-sublabel">dedup</div>
-            </div>
-            <div class="rail-connector"></div>
-
-            <div class="rail-item c6" onclick="scrollToStep(6)" role="button" tabindex="0">
-              <div class="rail-node">6</div>
-              <div class="rail-label">Queue</div>
-              <div class="rail-sublabel">terminal</div>
             </div>
           </nav>
 
@@ -1277,24 +1268,6 @@
                 </div>
               </section>
 
-              <!-- ══ STEP 6: QUEUE (terminal) ════════════════ -->
-              <section id="s6" class="step-section">
-                <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s6')">
-                  <span class="step-badge">STEP 6</span>
-                  <span class="section-title">Queue</span>
-                  <span class="section-meta">terminal</span>
-                  <span class="section-chevron">▼</span>
-                </div>
-                <div class="section-body">
-                  <div class="mt-3">
-                    <p style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-secondary);">
-                      No configurable parameters. Rules passing the similarity check are automatically queued for review.
-                    </p>
-                  </div>
-                </div>
-              </section>
-
               <!-- ── Config Display ────────────────────────── -->
               {% include 'components/workflow_config_snippet.html' %}
 
@@ -1331,7 +1304,13 @@
 
         function toggle(id) {
           var el = document.getElementById(id);
-          if (el) el.classList.toggle('open');
+          if (!el) return;
+          if (/^s\d$/.test(id) && el.classList.contains('step-section')) {
+            document.querySelectorAll('.step-section').forEach(function(s) {
+              if (s.id !== id) s.classList.remove('open');
+            });
+          }
+          el.classList.toggle('open');
         }
 
         function toggleSA(id) {
@@ -1343,7 +1322,10 @@
           var section = document.getElementById('s' + n);
           var content = document.getElementById('config-content');
           if (!section || !content) return;
-          if (!section.classList.contains('open')) section.classList.add('open');
+          if (!section.classList.contains('open')) {
+            document.querySelectorAll('.step-section').forEach(function(s) { s.classList.remove('open'); });
+            section.classList.add('open');
+          }
           content.scrollTo({ top: section.offsetTop - 16, behavior: 'smooth' });
           document.querySelectorAll('.rail-item').forEach(function(el, i) {
             el.classList.toggle('active', i === n);
@@ -1466,10 +1448,6 @@
                     <div class="text-center p-4 rounded-lg border" style="background: var(--step-5-bg) !important; border-color: var(--step-5-border) !important;">
                         <div class="text-2xl font-bold" style="color: var(--step-5) !important;">5</div>
                         <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">Similarity Search</div>
-                    </div>
-                    <div class="text-center p-4 rounded-lg border" style="background: var(--step-6-bg) !important; border-color: var(--step-6-border) !important;">
-                        <div class="text-2xl font-bold" style="color: var(--step-6) !important;">6</div>
-                        <div class="text-xs mt-1" style="color: var(--text-secondary) !important;">Queue</div>
                     </div>
                 </div>
                 
@@ -6979,6 +6957,12 @@ function renderAgentPrompts() {
     if (typeof normalizeWorkflowConfigControlBindings === 'function') {
         normalizeWorkflowConfigControlBindings();
     }
+    // Ensure accordion runs after panels exist (panels are rendered async via setTimeout above)
+    setTimeout(function () {
+        if (typeof initWorkflowConfigAgentAccordion === 'function') {
+            initWorkflowConfigAgentAccordion();
+        }
+    }, 50);
 }
 
 function getCurrentModelForAgent(agentName) {
@@ -15890,6 +15874,57 @@ function startLiveExecutionStream(executionId) {
     };
 }
 
+/**
+ * Accordion behavior for workflow config agent panels: only one agent panel open at a time.
+ * Uses capturing listeners so they run before initCollapsiblePanels' toggle (click and keydown).
+ */
+function initWorkflowConfigAgentAccordion() {
+    const container = document.getElementById('workflowConfigForm');
+    if (!container) return;
+    // Abort previous controller so we can re-init when panels are re-rendered (no duplicate listeners)
+    if (container._accordionAbort) {
+        container._accordionAbort.abort();
+    }
+    const ac = new AbortController();
+    container._accordionAbort = ac;
+    const signal = ac.signal;
+    function isAgentPanel(panelId) {
+        return panelId && (panelId.endsWith('-prompt-panel') || panelId.endsWith('-qa-prompt-panel'));
+    }
+    function collapseOthersExcept(header) {
+        const agentPanels = container.querySelectorAll('[data-collapsible-panel$="-prompt-panel"], [data-collapsible-panel$="-qa-prompt-panel"]');
+        agentPanels.forEach(function(other) {
+            if (other === header) return;
+            const otherId = other.dataset.collapsiblePanel;
+            const otherContent = document.getElementById(otherId + '-content');
+            const otherToggle = document.getElementById(otherId + '-toggle');
+            if (!otherContent || otherContent.classList.contains('hidden')) return;
+            otherContent.classList.add('hidden');
+            if (otherToggle) {
+                if (otherToggle.tagName === 'svg' || otherToggle.querySelector('svg')) {
+                    const svg = otherToggle.tagName === 'svg' ? otherToggle : otherToggle.querySelector('svg');
+                    if (svg) svg.style.transform = 'rotate(0deg)';
+                } else {
+                    otherToggle.textContent = '▼';
+                }
+            }
+            other.setAttribute('aria-expanded', 'false');
+        });
+    }
+    function maybeCollapseOthers(e) {
+        const header = e.target.closest('[data-collapsible-panel]');
+        if (!header || !container.contains(header)) return;
+        const panelId = header.dataset.collapsiblePanel;
+        if (!isAgentPanel(panelId)) return;
+        collapseOthersExcept(header);
+    }
+    container.addEventListener('click', maybeCollapseOthers, { capture: true, signal });
+    container.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        maybeCollapseOthers(e);
+    }, { capture: true, signal });
+}
+
 // Initialize on page load
 function initializeTabs() {
     // Hide all tabs initially
@@ -15940,6 +15975,7 @@ function initializeTabs() {
     } else {
         switchTab('config');
     }
+    initWorkflowConfigAgentAccordion();
     // Prevent hash-driven scroll: we use hash only for tab state. Reset scroll so the page
     // opens at the top. Also set flag so loadConfig can scroll after it finishes (async).
     function scrollWorkflowToTop() {
