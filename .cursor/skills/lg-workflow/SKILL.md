@@ -10,6 +10,7 @@ When the user says **lg** or **LG**, run the full workflow yourself from hygiene
 ## Order
 
 1. **Full hygiene** (so the commit includes these updates):
+   - **Deslop** — Check diff against main and remove AI-generated slop (unnecessary comments, defensive checks, any casts, inconsistent patterns). Keep behavior unchanged.
    - **Changelog** — Update CHANGELOG (or `docs/CHANGELOG.md`) with this session's changes.
    - **Docs** — Ensure docs reflect changes (README, GETTING_STARTED, or touched features).
    - **Deps** — Verify dependency hygiene (e.g. `pip check`, lockfiles).

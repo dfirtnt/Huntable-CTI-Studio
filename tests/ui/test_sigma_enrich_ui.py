@@ -41,7 +41,7 @@ class TestSigmaEnrichUI:
             if "/api/sigma-queue/list" in route.request.url:
                 route.fulfill(
                     status=200,
-                    body=json.dumps(_SIGMA_QUEUE_LIST_MOCK),
+                    body=json.dumps({"items": _SIGMA_QUEUE_LIST_MOCK, "total": len(_SIGMA_QUEUE_LIST_MOCK), "limit": 50, "offset": 0}),
                     headers={"Content-Type": "application/json"},
                 )
             else:
@@ -57,6 +57,14 @@ class TestSigmaEnrichUI:
         page.goto(f"{base_url}/sigma-queue")
         page.wait_for_load_state("networkidle")
         page.wait_for_timeout(2000)  # Wait for page initialization
+
+    def test_sigma_queue_page_shows_pagination_bar(self, page: Page):
+        """Standalone sigma-queue page shows pagination bar with Showing X–Y of Z."""
+        page.wait_for_selector("#queueTableBody", timeout=10000)
+        bar = page.locator("#queuePaginationBar")
+        expect(bar).to_be_visible(timeout=5000)
+        expect(bar).to_contain_text("Showing", timeout=10000)
+        expect(bar).to_contain_text("of ")
 
     def test_enrich_button_visible_in_rule_modal(self, page: Page):
         """Test that Enrich button is visible in rule preview modal."""
