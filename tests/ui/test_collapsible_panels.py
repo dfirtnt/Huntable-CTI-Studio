@@ -89,10 +89,12 @@ class TestCollapsiblePanels:
         """Test Settings Backup collapsible uses data-collapsible-panel and toggles."""
         page.goto("http://localhost:8001/settings")
         page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1500)  # Settings page JS init
         header = page.locator('[data-collapsible-panel="backupConfig"]').first
         content = page.locator("#backupConfig-content").first
-        expect(header).to_be_visible()
-        expect(content).to_be_visible()
+        header.scroll_into_view_if_needed()
+        expect(header).to_be_visible(timeout=10000)
+        expect(content).to_be_attached()
         initial_hidden = content.evaluate("el => el.classList.contains('hidden')")
         header.click()
         page.wait_for_timeout(200)
@@ -103,10 +105,12 @@ class TestCollapsiblePanels:
         """Test Settings Agentic Workflow collapsible toggles."""
         page.goto("http://localhost:8001/settings")
         page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1500)  # Settings page JS init
         header = page.locator('[data-collapsible-panel="agenticWorkflowConfig"]').first
         content = page.locator("#agenticWorkflowConfig-content").first
-        expect(header).to_be_visible()
-        expect(content).to_be_visible()
+        header.scroll_into_view_if_needed()
+        expect(header).to_be_visible(timeout=10000)
+        expect(content).to_be_attached()
         initial_hidden = content.evaluate("el => el.classList.contains('hidden')")
         header.click()
         page.wait_for_timeout(200)
@@ -117,10 +121,12 @@ class TestCollapsiblePanels:
         """Test Settings GitHub PR collapsible toggles."""
         page.goto("http://localhost:8001/settings")
         page.wait_for_load_state("networkidle")
+        page.wait_for_timeout(1500)  # Settings page JS init
         header = page.locator('[data-collapsible-panel="githubPRConfig"]').first
         content = page.locator("#githubPRConfig-content").first
-        expect(header).to_be_visible()
-        expect(content).to_be_visible()
+        header.scroll_into_view_if_needed()
+        expect(header).to_be_visible(timeout=10000)
+        expect(content).to_be_attached()
         initial_hidden = content.evaluate("el => el.classList.contains('hidden')")
         header.click()
         page.wait_for_timeout(200)

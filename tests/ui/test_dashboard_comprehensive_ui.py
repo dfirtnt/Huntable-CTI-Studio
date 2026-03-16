@@ -4,6 +4,7 @@ Tests dashboard widgets, charts, failing sources, high-score articles, quick act
 """
 
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -20,12 +21,12 @@ class TestDashboardPageLoad:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("networkidle")
 
-        # Verify page title
-        expect(page).to_have_title("Dashboard - CTI Scraper")
+        # Verify page title (Huntable CTI Studio branding)
+        expect(page).to_have_title(re.compile(r"Dashboard.*Huntable CTI Studio"))
 
-        # Verify main heading
-        heading = page.locator("h1:has-text('Huntable - CTI Scraper & Workbench')").first
-        expect(heading).to_be_visible()
+        # Verify dashboard root or header visible
+        dash = page.locator(".dash-root, .dash-header, #last-updated").first
+        expect(dash).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.dashboard
@@ -55,8 +56,8 @@ class TestHealthMetricsCard:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("networkidle")
 
-        # Verify health card exists
-        health_card = page.locator("text=Article Ingestion Health")
+        # Verify health card exists (redesigned dashboard uses "Ingestion Health")
+        health_card = page.locator("text=Ingestion Health")
         expect(health_card).to_be_visible()
 
     @pytest.mark.ui
@@ -72,8 +73,8 @@ class TestHealthMetricsCard:
         uptime_value = page.locator("#uptime-value")
         expect(uptime_value).to_be_visible()
 
-        # Verify uptime label exists
-        uptime_label = page.locator("text=Uptime")
+        # Verify uptime label exists (redesigned dashboard uses lowercase "uptime")
+        uptime_label = page.locator("text=uptime")
         expect(uptime_label).to_be_visible()
 
     @pytest.mark.ui
@@ -655,5 +656,5 @@ class TestDataLoading:
         page.wait_for_timeout(2000)
 
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('Huntable - CTI Scraper & Workbench')").first
-        expect(heading).to_be_visible()
+        page_content = page.locator(".dash-root, .dash-header, #last-updated").first
+        expect(page_content).to_be_visible()

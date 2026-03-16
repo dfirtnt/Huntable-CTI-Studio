@@ -71,208 +71,156 @@ test.describe('Collapsible Sections', () => {
       });
     });
 
-    test('should expand and collapse Junk Filter panel', async ({ page }) => {
-      const panelId = 'other-thresholds-panel';
+    // other-thresholds-panel: removed - Junk Filter (s1) has no such collapsible panel in current UI
+
+    test('should expand and collapse OS Detection prompt panel', async ({ page }) => {
+      // s0 is open by default; os-detection-prompt-panel is in s0
+      const panelId = 'os-detection-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
       const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-      // Initially should be hidden
+      await expect(header).toBeVisible({ timeout: 10000 });
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
-      // Click to expand
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be visible now
       await expect(content).toBeVisible();
       await expect(toggle).toHaveText('▲');
 
-      // Click to collapse
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse OS Detection Agent panel', async ({ page }) => {
-      const panelId = 'os-detection-panel';
+    test('should expand and collapse Rank Agent prompt panel', async ({ page }) => {
+      // Expand s2 first so rank-agent-prompt-panel is in DOM
+      await page.locator('#s2 .section-header').click();
+      await page.waitForTimeout(500);
+      await expect(page.locator('#s2')).toHaveClass(/open/);
+
+      const panelId = 'rank-agent-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
       const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-      // Initially should be hidden
+      await expect(header).toBeVisible({ timeout: 10000 });
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
-      // Click to expand
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be visible now
       await expect(content).toBeVisible();
       await expect(toggle).toHaveText('▲');
 
-      // Click to collapse
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse Rank Agent Configs panel', async ({ page }) => {
-      const panelId = 'rank-agent-configs-panel';
+    test('should expand and collapse Extract Agent prompt panel', async ({ page }) => {
+      // Expand s3 first so extract-agent-prompt-panel is in DOM
+      await page.locator('#s3 .section-header').click();
+      await page.waitForTimeout(500);
+      await expect(page.locator('#s3')).toHaveClass(/open/);
+
+      const panelId = 'extract-agent-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
       const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-      // Initially should be hidden
+      await expect(header).toBeVisible({ timeout: 10000 });
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
-      // Click to expand
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be visible now
       await expect(content).toBeVisible();
       await expect(toggle).toHaveText('▲');
 
-      // Click to collapse
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse Extract Agent panel', async ({ page }) => {
-      const panelId = 'extract-agent-panel';
+    test('should expand and collapse CmdlineExtract Sub-Agent prompt panel', async ({ page }) => {
+      // Expand s3 first, then expand sa-cmdline (CmdlineExtract sub-agent) so prompt container is rendered
+      await page.locator('#s3 .section-header').click();
+      await page.waitForTimeout(500);
+      await page.locator('#sa-cmdline .sa-header').click();
+      await page.waitForTimeout(500);
+
+      const panelId = 'cmdlineextract-agent-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
       const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-      // Initially should be hidden
+      await expect(header).toBeVisible({ timeout: 10000 });
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
-      // Click to expand
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be visible now
       await expect(content).toBeVisible();
       await expect(toggle).toHaveText('▲');
 
-      // Click to collapse
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse CmdlineExtract Sub-Agent panel', async ({ page }) => {
-      // First expand Extract Agent panel
-      const extractPanelId = 'extract-agent-panel';
-      const extractHeader = page.locator(`[data-collapsible-panel="${extractPanelId}"]`);
-      await extractHeader.click();
-      await page.waitForTimeout(300);
+    test('should expand and collapse ProcTreeExtract Sub-Agent prompt panel', async ({ page }) => {
+      await page.locator('#s3 .section-header').click();
+      await page.waitForTimeout(500);
+      await page.locator('#sa-proctree .sa-header').click();
+      await page.waitForTimeout(500);
 
-      // Now test CmdlineExtract sub-panel
-      const panelId = 'cmdlineextract-agent-panel';
+      const panelId = 'proctreeextract-agent-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
       const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-      // Initially should be hidden
+      await expect(header).toBeVisible({ timeout: 10000 });
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
-      // Click to expand
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be visible now
       await expect(content).toBeVisible();
       await expect(toggle).toHaveText('▲');
 
-      // Click to collapse
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
 
 
+    test('should expand and collapse Sigma Agent prompt panel', async ({ page }) => {
+      await page.locator('#s4 .section-header').click();
+      await page.waitForTimeout(500);
 
-    test('should expand and collapse ProcTreeExtract Sub-Agent panel', async ({ page }) => {
-      // First expand Extract Agent panel
-      const extractPanelId = 'extract-agent-panel';
-      const extractHeader = page.locator(`[data-collapsible-panel="${extractPanelId}"]`);
-      await extractHeader.click();
-      await page.waitForTimeout(300);
-
-      // Now test ProcTreeExtract sub-panel
-      const panelId = 'proctreeextract-agent-panel';
+      const panelId = 'sigma-agent-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
       const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
 
-      // Initially should be hidden
+      await expect(header).toBeVisible({ timeout: 10000 });
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
 
-      // Click to expand
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be visible now
       await expect(content).toBeVisible();
       await expect(toggle).toHaveText('▲');
 
-      // Click to collapse
       await header.click();
       await page.waitForTimeout(300);
-
-      // Should be hidden again
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-    });
-
-
-    test('should expand and collapse Sigma Agent panel', async ({ page }) => {
-      const panelId = 'sigma-agent-panel';
-      const content = page.locator(`#${panelId}-content`);
-      const toggle = page.locator(`#${panelId}-toggle`);
-      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
-
-      // Initially should be hidden
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-
-      // Click to expand
-      await header.click();
-      await page.waitForTimeout(300);
-
-      // Should be visible now
-      await expect(content).toBeVisible();
-      await expect(toggle).toHaveText('▲');
-
-      // Click to collapse
-      await header.click();
-      await page.waitForTimeout(300);
-
-      // Should be hidden again
       await expect(content).toHaveClass(/hidden/);
       await expect(toggle).toHaveText('▼');
     });
@@ -306,6 +254,21 @@ test.describe('Collapsible Sections', () => {
       await expect(s0).toHaveClass(/open/);
       await expect(s2).not.toHaveClass(/open/);
       await expect(s3).not.toHaveClass(/open/);
+    });
+
+    test('accordion: rail nav expands target step and closes others', async ({ page }) => {
+      const s0 = page.locator('#s0.step-section');
+      const s3 = page.locator('#s3.step-section');
+      const railStep3 = page.locator('.rail-item').filter({ has: page.locator('.rail-node', { hasText: '3' }) });
+
+      await expect(s0).toHaveClass(/open/);
+      await expect(s3).not.toHaveClass(/open/);
+
+      await railStep3.click();
+      await page.waitForTimeout(300);
+
+      await expect(s0).not.toHaveClass(/open/);
+      await expect(s3).toHaveClass(/open/);
     });
 
     test('accordion: only one agent panel open at a time', async ({ page }) => {

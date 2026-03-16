@@ -18,13 +18,12 @@ class TestCollectNowButton:
         page.goto(f"{base_url}/sources")
 
         # Check that Collect Now button is visible (use first to avoid strict mode violation)
-        collect_button = page.locator("button:has-text('Collect Now')").first
-        expect(collect_button).to_be_visible()
+        collect_button = page.locator("button.btn-collect, button:has-text('Collect Now')").first
+        expect(collect_button).to_be_visible(timeout=10000)
 
-        # Check button styling (contains these classes)
-        button_class = collect_button.get_attribute("class")
-        assert "text-white" in button_class
-        assert "rounded" in button_class
+        # Check button has collect styling (btn-collect class)
+        button_class = collect_button.get_attribute("class") or ""
+        assert "btn-collect" in button_class
 
     @pytest.mark.ui
     def test_collect_now_button_click_triggers_api_call(self, page: Page):
