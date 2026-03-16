@@ -71,10 +71,7 @@ test.describe('Collapsible Sections', () => {
       });
     });
 
-    // other-thresholds-panel: removed - Junk Filter (s1) has no such collapsible panel in current UI
-
     test('should expand and collapse OS Detection prompt panel', async ({ page }) => {
-      // s0 is open by default; os-detection-prompt-panel is in s0
       const panelId = 'os-detection-prompt-panel';
       const content = page.locator(`#${panelId}-content`);
       const toggle = page.locator(`#${panelId}-toggle`);
@@ -96,7 +93,6 @@ test.describe('Collapsible Sections', () => {
     });
 
     test('should expand and collapse Rank Agent prompt panel', async ({ page }) => {
-      // Expand s2 first so rank-agent-prompt-panel is in DOM
       await page.locator('#s2 .section-header').click();
       await page.waitForTimeout(500);
       await expect(page.locator('#s2')).toHaveClass(/open/);
@@ -122,7 +118,6 @@ test.describe('Collapsible Sections', () => {
     });
 
     test('should expand and collapse Extract Agent prompt panel', async ({ page }) => {
-      // Expand s3 first so extract-agent-prompt-panel is in DOM
       await page.locator('#s3 .section-header').click();
       await page.waitForTimeout(500);
       await expect(page.locator('#s3')).toHaveClass(/open/);
@@ -148,7 +143,6 @@ test.describe('Collapsible Sections', () => {
     });
 
     test('should expand and collapse CmdlineExtract Sub-Agent prompt panel', async ({ page }) => {
-      // Expand s3 first, then expand sa-cmdline (CmdlineExtract sub-agent) so prompt container is rendered
       await page.locator('#s3 .section-header').click();
       await page.waitForTimeout(500);
       await page.locator('#sa-cmdline .sa-header').click();

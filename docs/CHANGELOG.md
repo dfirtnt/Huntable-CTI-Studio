@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- **UI test comment cleanup** (2026-03-16): Removed redundant and verbose comments from health page, collapsible sections, dashboard, and error-handling UI tests. Fixed duplicate docstring in `test_health_check_navigation`.
 - **Workflow config: step-section accordion** (2026-03-15): Only one step section (OS Detection, Junk Filter, LLM Rank, Extract Agent, Generate SIGMA, Similarity Search) can be expanded at a time. Clicking a section header or rail item closes others. Queue step removed from config tab (no configurable parameters).
 - **Docs: RAG vs workflow sigma similarity** (2026-03-13): Clarified in `rag-search.md` and `sigma-rules.md` that RAG sigma retrieval uses embeddings (cosine similarity); workflow duplicate detection uses deterministic engine (Jaccard × Containment − Filter) when sigma_semantic_similarity is installed, else legacy (70/30). Fixed malformed SQL and embedding sections in sigma-rules.md; updated LM Studio references to local sentence-transformers for sigma embeddings.
 - **Docs: generate-sigma, agents** (2026-03-13): Updated `generate-sigma.md` and `concepts/agents.md` to describe behavioral novelty for similarity (not embeddings-only), local sentence-transformers for sigma indexing, and `capabilities check` for troubleshooting.
