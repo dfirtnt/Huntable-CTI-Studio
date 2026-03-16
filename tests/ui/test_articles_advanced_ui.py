@@ -694,10 +694,10 @@ class TestArticlesBulkSelection:
             checkboxes.first.click()
             page.wait_for_timeout(500)
 
-            # Navigate to next page
-            next_link = page.locator("a:has-text('Next')")
+            # Navigate to next page (pagination link only; article titles may contain "Next")
+            next_link = page.locator("a[href*='page=']:has-text('Next')")
             if next_link.count() > 0:
-                next_link.click()
+                next_link.first.click()
                 page.wait_for_load_state("networkidle")
 
                 # Verify selection is cleared (new page)

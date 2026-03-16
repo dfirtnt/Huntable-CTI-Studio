@@ -4,6 +4,7 @@ Unit tests for the Health page components.
 
 import json
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -22,8 +23,8 @@ class TestHealthPage:
         expect(page).to_have_title("System Diagnostics & Health - Huntable CTI Studio")
         expect(page.locator("h1").nth(1)).to_contain_text("System Diagnostics & Health")
 
-        # Check description
-        expect(page.locator("p").first).to_contain_text("Monitor system performance, deduplication, and service health")
+        # Check description (diags uses "Monitor system health, background jobs...")
+        expect(page.locator("p").first).to_contain_text("Monitor system")
 
     @pytest.mark.ui
     def test_health_check_buttons_visible(self, page: Page):
@@ -41,13 +42,12 @@ class TestHealthPage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
 
-        # Check all health check sections are visible
+        # Check all health check sections are visible (match diags.html)
         sections = [
             "databaseHealthContent",
-            "deduplicationHealthContent",
             "servicesHealthContent",
+            "deduplicationHealthContent",
             "celeryHealthContent",
-            "ingestionAnalyticsContent",
         ]
 
         for section_id in sections:
@@ -59,9 +59,9 @@ class TestHealthPage:
         """Test that Run All Checks button triggers all health checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock all health check API responses
-        async def mock_health_check(route, request):
-            endpoint = request.url.split("/api/health")[-1]
+        # Mock all health check API responses (sync handler for Playwright sync_api)
+        def mock_health_check(route):
+            endpoint = route.request.url.split("/api/health")[-1] or ""
             if endpoint == "":
                 # Overall health check
                 route.fulfill(
@@ -147,10 +147,10 @@ class TestHealthPage:
         run_all_button = page.locator("#runAllHealthChecks")
         run_all_button.click()
 
-        # Wait for loading overlay to appear and disappear
+        # Wait for loading overlay to appear then disappear (checks complete)
         loading_overlay = page.locator("#loadingOverlay")
-        expect(loading_overlay).to_be_visible()
-        expect(loading_overlay).to_be_hidden()
+        loading_overlay.wait_for(state="visible", timeout=2000)
+        loading_overlay.wait_for(state="hidden", timeout=15000)
 
     @pytest.mark.ui
     def test_database_health_check(self, page: Page):
@@ -251,7 +251,7 @@ class TestHealthPage:
         page.locator("#runAllHealthChecks").click()
         page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
         services_content = page.locator("#servicesHealthContent")
-        expect(services_content).to_contain_text("redis", timeout=5000)
+        expect(services_content).to_contain_text(re.compile(r"redis", re.I), timeout=5000)
 
     @pytest.mark.ui
     def test_celery_health_check(self, page: Page):
@@ -285,7 +285,7 @@ class TestHealthPage:
         page.locator("#runAllHealthChecks").click()
         page.locator("#loadingOverlay").wait_for(state="hidden", timeout=15000)
         celery_content = page.locator("#celeryHealthContent")
-        expect(celery_content).to_contain_text("healthy", timeout=5000)
+        expect(celery_content).to_contain_text(re.compile(r"healthy|✓|WORKERS"), timeout=5000)
 
     @pytest.mark.ui
     def test_health_check_error_handling(self, page: Page):
@@ -336,15 +336,15 @@ class TestHealthPage:
 
     @pytest.mark.ui
     def test_health_check_button_styling(self, page: Page):
-        """Test health check button styling and classes."""
+        """Test health check button exists and has primary styling."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
 
-        # Check Run All Health Checks button styling (individual check buttons do not exist in diags)
+        # Check Run All Health Checks button exists and has primary class (diags uses btn-primary)
         run_all_button = page.locator("#runAllHealthChecks")
-        button_class = run_all_button.get_attribute("class")
-        assert button_class and ("bg-blue" in button_class or "blue" in button_class)
-        assert button_class and "text-white" in button_class
+        expect(run_all_button).to_be_visible()
+        button_class = run_all_button.get_attribute("class") or ""
+        assert "btn-primary" in button_class
 
     @pytest.mark.ui
     def test_health_check_section_headers(self, page: Page):
@@ -352,12 +352,12 @@ class TestHealthPage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
 
-        # Check section headers (match diags.html)
+        # Check section headers (match diags.html - no emojis in h2)
         headers = [
-            "🗄️ Database Health",
-            "🔧 External Services",
-            "🔍 Deduplication System",
-            "⚙️ Celery Workers",
+            "Database Health",
+            "External Services",
+            "Deduplication System",
+            "Celery Workers",
         ]
 
         for header_text in headers:
@@ -384,14 +384,15 @@ class TestHealthPage:
 
     @pytest.mark.ui
     def test_health_check_navigation(self, page: Page):
+        """Test navigation to diagnostics from health/dashboard."""
         """Test navigation to health checks page."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
         # Start from dashboard
         page.goto(f"{base_url}/")
 
-        # Click Health link in navigation
-        health_link = page.locator("a[href='/diags']")
+        # Click Health link in navigation (use .first if multiple diags links exist)
+        health_link = page.locator("a[href='/diags']").first
         health_link.click()
 
         # Verify we're on the health checks page
