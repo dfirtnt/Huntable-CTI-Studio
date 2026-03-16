@@ -21,7 +21,7 @@ class TestDashboardPageLoad:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("networkidle")
 
-        # Verify page title (Huntable CTI Studio branding)
+        # Verify page title
         expect(page).to_have_title(re.compile(r"Dashboard.*Huntable CTI Studio"))
 
         # Verify dashboard root or header visible
@@ -56,7 +56,7 @@ class TestHealthMetricsCard:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("networkidle")
 
-        # Verify health card exists (redesigned dashboard uses "Ingestion Health")
+        # Verify health card exists
         health_card = page.locator("text=Ingestion Health")
         expect(health_card).to_be_visible()
 
@@ -73,7 +73,7 @@ class TestHealthMetricsCard:
         uptime_value = page.locator("#uptime-value")
         expect(uptime_value).to_be_visible()
 
-        # Verify uptime label exists (redesigned dashboard uses lowercase "uptime")
+        # Verify uptime label exists
         uptime_label = page.locator("text=uptime")
         expect(uptime_label).to_be_visible()
 

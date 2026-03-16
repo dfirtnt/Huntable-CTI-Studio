@@ -23,7 +23,7 @@ class TestHealthPage:
         expect(page).to_have_title("System Diagnostics & Health - Huntable CTI Studio")
         expect(page.locator("h1").nth(1)).to_contain_text("System Diagnostics & Health")
 
-        # Check description (diags uses "Monitor system health, background jobs...")
+        # Check description
         expect(page.locator("p").first).to_contain_text("Monitor system")
 
     @pytest.mark.ui
@@ -42,7 +42,7 @@ class TestHealthPage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
 
-        # Check all health check sections are visible (match diags.html)
+        # Check all health check sections are visible
         sections = [
             "databaseHealthContent",
             "servicesHealthContent",
@@ -59,7 +59,7 @@ class TestHealthPage:
         """Test that Run All Checks button triggers all health checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Mock all health check API responses (sync handler for Playwright sync_api)
+        # Mock all health check API responses
         def mock_health_check(route):
             endpoint = route.request.url.split("/api/health")[-1] or ""
             if endpoint == "":
@@ -147,7 +147,7 @@ class TestHealthPage:
         run_all_button = page.locator("#runAllHealthChecks")
         run_all_button.click()
 
-        # Wait for loading overlay to appear then disappear (checks complete)
+        # Wait for loading overlay to appear then disappear
         loading_overlay = page.locator("#loadingOverlay")
         loading_overlay.wait_for(state="visible", timeout=2000)
         loading_overlay.wait_for(state="hidden", timeout=15000)
@@ -340,7 +340,7 @@ class TestHealthPage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
 
-        # Check Run All Health Checks button exists and has primary class (diags uses btn-primary)
+        # Check Run All Health Checks button has primary styling
         run_all_button = page.locator("#runAllHealthChecks")
         expect(run_all_button).to_be_visible()
         button_class = run_all_button.get_attribute("class") or ""
@@ -352,7 +352,7 @@ class TestHealthPage:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
 
-        # Check section headers (match diags.html - no emojis in h2)
+        # Check section headers
         headers = [
             "Database Health",
             "External Services",
@@ -384,14 +384,13 @@ class TestHealthPage:
 
     @pytest.mark.ui
     def test_health_check_navigation(self, page: Page):
-        """Test navigation to diagnostics from health/dashboard."""
         """Test navigation to health checks page."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
         # Start from dashboard
         page.goto(f"{base_url}/")
 
-        # Click Health link in navigation (use .first if multiple diags links exist)
+        # Click Health link in navigation
         health_link = page.locator("a[href='/diags']").first
         health_link.click()
 
