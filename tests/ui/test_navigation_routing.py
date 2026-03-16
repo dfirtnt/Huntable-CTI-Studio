@@ -1,6 +1,7 @@
 """Tests for navigation and routing behavior."""
 
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -24,8 +25,8 @@ class TestNavigationRouting:
         articles_link.click()
 
         # Assert we're on articles page
-        expect(page).to_have_url(f"{base_url}/articles")
-        expect(page.locator("h1, .page-title")).to_contain_text("Articles", timeout=5000)
+        expect(page).to_have_url(re.compile(rf"{re.escape(base_url)}/articles"))
+        expect(page.locator("h1, .page-title, h2")).to_contain_text("Articles", timeout=5000)
 
     def test_navigation_to_workflow(self, page: Page):
         """Test navigation to workflow page."""

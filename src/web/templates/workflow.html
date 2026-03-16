@@ -6957,7 +6957,6 @@ function renderAgentPrompts() {
     if (typeof normalizeWorkflowConfigControlBindings === 'function') {
         normalizeWorkflowConfigControlBindings();
     }
-    // Ensure accordion runs after panels exist (panels are rendered async via setTimeout above)
     setTimeout(function () {
         if (typeof initWorkflowConfigAgentAccordion === 'function') {
             initWorkflowConfigAgentAccordion();

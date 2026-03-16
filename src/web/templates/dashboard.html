@@ -1,341 +1,913 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard - Huntable CTI Studio{% endblock %}
+{% block title %}Dashboard — Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="min-h-screen">
-    <!-- Page Header -->
-    <div class="mb-8">
-        <p class="text-gray-600 dark:text-gray-400">Real-time threat intelligence monitoring and analysis</p>
-        <div class="mt-2 text-sm text-gray-500 dark:text-gray-500">
-            Last updated: <span id="last-updated">{{ current_time }}</span>
+<link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+    /* ─── Dashboard Color System ─── */
+    :root {
+        --d-bg:        #070c12;
+        --d-surface:   #0d1520;
+        --d-raised:    #111d2e;
+        --d-border:    rgba(34, 211, 238, 0.10);
+        --d-border-hi: rgba(34, 211, 238, 0.32);
+        --d-cyan:      #22d3ee;
+        --d-amber:     #fbbf24;
+        --d-red:       #f87171;
+        --d-green:     #34d399;
+        --d-purple:    #a78bfa;
+        --d-text:      #e2e8f0;
+        --d-sub:       #64748b;
+        --d-muted:     #1e2d40;
+    }
+
+    /* ─── Root wrapper ─── */
+    .dash-root {
+        max-width: 90rem;
+        margin: 0 auto;
+        padding: 1.5rem 1.75rem;
+        position: relative;
+    }
+
+    /* Subtle scanline texture */
+    .dash-root::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background: repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 3px,
+            rgba(0, 0, 0, 0.025) 3px,
+            rgba(0, 0, 0, 0.025) 4px
+        );
+        pointer-events: none;
+        z-index: 0;
+    }
+
+    /* ─── Page header ─── */
+    .dash-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--d-border);
+    }
+
+    .dash-header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .live-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--d-green);
+        border: 1px solid rgba(52, 211, 153, 0.35);
+        padding: 2px 8px 2px 5px;
+        border-radius: 2px;
+    }
+
+    .live-badge-dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--d-green);
+        box-shadow: 0 0 6px var(--d-green);
+        animation: live-pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes live-pulse {
+        0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--d-green); }
+        50%       { opacity: 0.5; box-shadow: 0 0 2px var(--d-green); }
+    }
+
+    .dash-title {
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--d-sub);
+    }
+
+    .dash-timestamp {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.68rem;
+        color: var(--d-muted);
+        letter-spacing: 0.03em;
+    }
+
+    /* ─── Cards ─── */
+    .intel-card {
+        background: var(--d-surface);
+        border: 1px solid var(--d-border);
+        border-radius: 3px;
+        padding: 1.25rem 1.375rem;
+        position: relative;
+        transition: border-color 0.25s ease;
+        animation: card-in 0.4s ease both;
+    }
+
+    .intel-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 10%, var(--d-cyan) 50%, transparent 90%);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .intel-card:hover { border-color: var(--d-border-hi); }
+    .intel-card:hover::before { opacity: 0.5; }
+
+    /* Staggered reveal */
+    .intel-card:nth-child(1) { animation-delay: 0.04s; }
+    .intel-card:nth-child(2) { animation-delay: 0.09s; }
+    .intel-card:nth-child(3) { animation-delay: 0.14s; }
+    .intel-card:nth-child(4) { animation-delay: 0.19s; }
+    .intel-card:nth-child(5) { animation-delay: 0.24s; }
+    .intel-card:nth-child(6) { animation-delay: 0.29s; }
+    .intel-card:nth-child(7) { animation-delay: 0.34s; }
+
+    @keyframes card-in {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Card title ─── */
+    .card-title {
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--d-sub);
+        margin-bottom: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .card-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--d-border);
+    }
+
+    .card-title-tag {
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        padding: 1px 5px;
+        border-radius: 2px;
+        background: rgba(251, 191, 36, 0.15);
+        color: var(--d-amber);
+        border: 1px solid rgba(251, 191, 36, 0.25);
+    }
+
+    /* ─── Uptime ring ─── */
+    .uptime-wrap {
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+        margin-bottom: 1.1rem;
+    }
+
+    .uptime-ring-svg {
+        flex-shrink: 0;
+        transform: rotate(-90deg);
+    }
+
+    .uptime-ring-track { fill: none; stroke: rgba(34,211,238,0.08); stroke-width: 5; }
+    .uptime-ring-bar {
+        fill: none;
+        stroke: var(--d-green);
+        stroke-width: 5;
+        stroke-dasharray: 220;
+        stroke-dashoffset: 22;
+        stroke-linecap: round;
+        transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1), stroke 0.5s ease;
+    }
+
+    .uptime-text-wrap {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .uptime-ring-container {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        flex-shrink: 0;
+    }
+
+    .uptime-pct {
+        font-family: 'Teko', sans-serif;
+        font-size: 1.35rem;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--d-green);
+        transition: color 0.5s ease;
+    }
+
+    .uptime-sublabel {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.5rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--d-sub);
+        margin-top: 1px;
+    }
+
+    /* ─── Metric rows ─── */
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        padding: 0.45rem 0;
+        border-bottom: 1px solid var(--d-border);
+    }
+    .metric-row:last-child { border-bottom: none; }
+
+    .metric-label {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.78rem;
+        color: var(--d-sub);
+        font-weight: 400;
+    }
+
+    .metric-val {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--d-text);
+    }
+    .metric-val.cyan   { color: var(--d-cyan); }
+    .metric-val.amber  { color: var(--d-amber); }
+    .metric-val.red    { color: var(--d-red); }
+    .metric-val.green  { color: var(--d-green); }
+
+    .health-dot {
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--d-green);
+        box-shadow: 0 0 7px var(--d-green);
+        animation: live-pulse 2s ease-in-out infinite;
+        vertical-align: middle;
+        margin-right: 6px;
+    }
+
+    /* ─── Big stat ─── */
+    .big-stat-val {
+        font-family: 'Teko', sans-serif;
+        font-weight: 600;
+        font-size: 3.25rem;
+        line-height: 1;
+        color: var(--d-cyan);
+        letter-spacing: -0.01em;
+    }
+
+    .big-stat-label {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.7rem;
+        color: var(--d-sub);
+        margin-top: 2px;
+        letter-spacing: 0.04em;
+    }
+
+    /* ─── Failing sources ─── */
+    .fail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.45rem 0.7rem;
+        margin-bottom: 0.35rem;
+        border-radius: 2px;
+        border-left: 2px solid var(--d-red);
+        background: rgba(248, 113, 113, 0.04);
+    }
+
+    .fail-row.medium {
+        border-color: var(--d-amber);
+        background: rgba(251, 191, 36, 0.04);
+    }
+
+    .fail-name {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.78rem;
+        color: var(--d-text);
+        font-weight: 500;
+    }
+
+    .fail-count {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.72rem;
+        color: var(--d-red);
+        font-weight: 600;
+    }
+
+    .fail-row.medium .fail-count { color: var(--d-amber); }
+
+    .fail-date {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.65rem;
+        color: var(--d-sub);
+        margin-left: 0.5rem;
+    }
+
+    /* ─── Article feed items ─── */
+    .article-item {
+        display: block;
+        padding: 0.7rem 0.75rem 0.7rem 1rem;
+        background: var(--d-raised);
+        border: 1px solid var(--d-border);
+        border-radius: 2px;
+        text-decoration: none;
+        position: relative;
+        overflow: hidden;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        margin-bottom: 0.4rem;
+    }
+
+    .article-item::before {
+        content: '';
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        width: 3px;
+        background: var(--score-color, var(--d-cyan));
+    }
+
+    .article-item:last-child { margin-bottom: 0; }
+
+    .article-item:hover {
+        border-color: var(--d-border-hi);
+        background: rgba(34, 211, 238, 0.03);
+    }
+
+    .article-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.75rem;
+        justify-content: space-between;
+    }
+
+    .article-headline {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.8rem;
+        color: var(--d-text);
+        line-height: 1.45;
+        flex: 1;
+    }
+
+    .article-score {
+        font-family: 'Teko', sans-serif;
+        font-size: 1.5rem;
+        font-weight: 600;
+        line-height: 1;
+        color: var(--score-color, var(--d-cyan));
+        flex-shrink: 0;
+        width: 2.5rem;
+        text-align: right;
+    }
+
+    /* ─── Activity feed ─── */
+    .activity-row {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.4rem 0;
+        border-bottom: 1px solid var(--d-border);
+    }
+
+    .activity-row:last-child { border-bottom: none; }
+
+    .activity-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .activity-ts {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.65rem;
+        color: var(--d-sub);
+        white-space: nowrap;
+        min-width: 3.5rem;
+    }
+
+    .activity-msg {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.78rem;
+        color: var(--d-text);
+        flex: 1;
+    }
+
+    /* ─── Quick action buttons ─── */
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        width: 100%;
+        padding: 0.55rem 0.875rem;
+        margin-bottom: 0.45rem;
+        border-radius: 2px;
+        border: 1px solid var(--btn-clr, rgba(34,211,238,0.25));
+        background: transparent;
+        color: var(--btn-clr, var(--d-cyan));
+        font-family: 'Barlow Condensed', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .action-btn:last-child { margin-bottom: 0; }
+
+    .action-btn:hover {
+        background: rgba(255,255,255,0.04);
+        box-shadow: 0 0 14px rgba(34,211,238,0.06), inset 0 0 8px rgba(34,211,238,0.03);
+    }
+
+    .action-btn svg {
+        width: 11px;
+        height: 11px;
+        flex-shrink: 0;
+        opacity: 0.9;
+    }
+
+    /* ─── Chart wrapper ─── */
+    .chart-wrap { position: relative; height: 8.5rem; }
+
+    .chart-sublabel {
+        font-family: 'Barlow', sans-serif;
+        font-size: 0.68rem;
+        color: var(--d-sub);
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.04em;
+    }
+
+    /* ─── Skeleton shimmer ─── */
+    @keyframes shimmer {
+        0%   { background-position: -200% 0; }
+        100% { background-position:  200% 0; }
+    }
+
+    .skeleton {
+        background: linear-gradient(90deg,
+            var(--d-surface)    25%,
+            var(--d-raised)     50%,
+            var(--d-surface)    75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.6s infinite;
+        border-radius: 2px;
+    }
+
+    /* ─── Scroll areas ─── */
+    .scroll-area {
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--d-border) transparent;
+    }
+
+    .scroll-area::-webkit-scrollbar        { width: 4px; }
+    .scroll-area::-webkit-scrollbar-track  { background: transparent; }
+    .scroll-area::-webkit-scrollbar-thumb  { background: var(--d-border-hi); border-radius: 2px; }
+</style>
+
+<div class="dash-root">
+
+    <!-- ─── Dashboard header ─── -->
+    <div class="dash-header">
+        <div class="dash-header-left">
+            <span class="live-badge">
+                <span class="live-badge-dot"></span>
+                Live
+            </span>
+            <span class="dash-title">Threat Intelligence Monitor</span>
         </div>
+        <span class="dash-timestamp" id="last-updated">{{ current_time }}</span>
     </div>
 
-    <!-- 3x3 Grid Layout -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        
-        <!-- 1. rticle Ingestion Health Card -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold">Article Ingestion Health</h3>
-                <div id="health-indicator" class="w-3 h-3 rounded-full bg-green-500"></div>
+    <!-- ─── Main grid (3 cols) ─── -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        <!-- 1 ── Ingestion Health -->
+        <div class="intel-card">
+            <div class="card-title"><span>Ingestion Health</span></div>
+
+            <div class="uptime-wrap">
+                <div class="uptime-ring-container">
+                    <svg class="uptime-ring-svg" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+                        <circle class="uptime-ring-track" cx="50" cy="50" r="35"/>
+                        <circle class="uptime-ring-bar" id="uptime-ring-bar" cx="50" cy="50" r="35"/>
+                    </svg>
+                    <div class="uptime-text-wrap">
+                        <span class="uptime-pct" id="uptime-value">—</span>
+                        <span class="uptime-sublabel">uptime</span>
+                    </div>
+                </div>
+                <div style="flex:1;">
+                    <div style="font-family:'Barlow Condensed',sans-serif; font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--d-sub); margin-bottom:0.3rem;">Source Health</div>
+                    <div style="display:flex; align-items:center;">
+                        <span class="health-dot" id="health-dot"></span>
+                        <span style="font-family:'Barlow',sans-serif; font-size:0.82rem; color:var(--d-green); font-weight:500;" id="health-status-text">Nominal</span>
+                    </div>
+                </div>
             </div>
-            <div class="space-y-3">
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Uptime</span>
-                    <span id="uptime-value" class="font-mono">98.7%</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Total Sources</span>
-                    <span id="total-sources" class="font-mono">135</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Avg Response</span>
-                    <span id="avg-response" class="font-mono">1.42s</span>
-                </div>
+
+            <div class="metric-row">
+                <span class="metric-label">Total Sources</span>
+                <span class="metric-val cyan" id="total-sources">—</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Avg Response</span>
+                <span class="metric-val" id="avg-response">—</span>
             </div>
         </div>
 
-        <!-- 2. Volume Chart Card -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg md:col-span-2">
-            <h3 class="text-lg font-semibold mb-4">Article Volume</h3>
-            <div id="top-articles-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- 2 ── Volume Charts (spans 2 cols) -->
+        <div class="intel-card md:col-span-2">
+            <div class="card-title"><span>Article Volume</span></div>
+            <div class="grid grid-cols-2 gap-6">
                 <div>
-                    <h4 class="text-sm text-gray-400 mb-3">Daily Volume</h4>
-                    <div class="h-40"><canvas id="dailyChart"></canvas></div>
+                    <div class="chart-sublabel">Daily · 10d</div>
+                    <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
                 </div>
                 <div>
-                    <h4 class="text-sm text-gray-400 mb-3">Hourly Volume</h4>
-                    <div class="h-40"><canvas id="hourlyChart"></canvas></div>
+                    <div class="chart-sublabel">Hourly · 24h</div>
+                    <div class="chart-wrap"><canvas id="hourlyChart"></canvas></div>
                 </div>
             </div>
         </div>
 
-        <!-- 3. Top Failing Sources -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
-            <h3 class="text-lg font-semibold mb-4">Failing Sources</h3>
-            <div class="space-y-2 max-h-64 overflow-y-auto">
-                <div class="flex justify-between items-center p-2 rounded bg-red-900 bg-opacity-50">
-                    <div>
-                        <div class="font-medium text-sm">CyberIntelBlog</div>
-                        <div class="text-sm text-gray-400 leading-relaxed">7 failures</div>
-                    </div>
-                    <div class="text-sm text-gray-400 leading-relaxed">2025-10-03</div>
+        <!-- 3 ── Failing Sources -->
+        <div class="intel-card">
+            <div class="card-title"><span>Failing Sources</span></div>
+            <div id="failing-sources-container" class="scroll-area" style="max-height: 13rem;">
+                <!-- Static fallback — overwritten by JS -->
+                <div class="fail-row">
+                    <span class="fail-name">CyberIntelBlog</span>
+                    <span style="display:flex;align-items:center;">
+                        <span class="fail-count">×7</span>
+                        <span class="fail-date">2025-10-03</span>
+                    </span>
                 </div>
-                <div class="flex justify-between items-center p-2 rounded bg-red-900 bg-opacity-30">
-                    <div>
-                        <div class="font-medium text-sm">APTTracker</div>
-                        <div class="text-sm text-gray-400 leading-relaxed">5 failures</div>
-                    </div>
-                    <div class="text-sm text-gray-400 leading-relaxed">2025-10-04</div>
+                <div class="fail-row">
+                    <span class="fail-name">APTTracker</span>
+                    <span style="display:flex;align-items:center;">
+                        <span class="fail-count">×5</span>
+                        <span class="fail-date">2025-10-04</span>
+                    </span>
                 </div>
-                <div class="flex justify-between items-center p-2 rounded bg-yellow-900 bg-opacity-30">
-                    <div>
-                        <div class="font-medium text-sm">ThreatIntelDaily</div>
-                        <div class="text-sm text-gray-400 leading-relaxed">3 failures</div>
-                    </div>
-                    <div class="text-sm text-gray-400 leading-relaxed">2025-10-04</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. High-Score Articles -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg md:col-span-2">
-            <h3 class="text-lg font-semibold mb-4">High-Score Articles</h3>
-            <div id="high-score-articles-container" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                
-                
-                
-            </div>
-        </div>
-
-        <!-- 5. System Stats -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
-            <h3 class="text-lg font-semibold mb-4">System Stats</h3>
-            <div class="space-y-3">
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Total Articles</span>
-                    <span class="font-mono">{{ stats.total_articles if stats else '0' }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Active Sources</span>
-                    <span class="font-mono">{{ sources|length if sources else '0' }}</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Processing Queue</span>
-                    <span class="font-mono">12</span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-gray-400">Avg Score</span>
-                    <span class="font-mono">7.2</span>
+                <div class="fail-row medium">
+                    <span class="fail-name">ThreatIntelDaily</span>
+                    <span style="display:flex;align-items:center;">
+                        <span class="fail-count">×3</span>
+                        <span class="fail-date">2025-10-04</span>
+                    </span>
                 </div>
             </div>
         </div>
 
-        <!-- 6. Recent Activity -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
-            <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
-            <div class="space-y-2 max-h-48 overflow-y-auto">
-                <div class="flex items-center space-x-3 text-sm">
-                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span class="text-gray-400">2m ago</span>
-                    <span>New article processed</span>
+        <!-- 4 ── Intelligence Feed / High-Score Articles (spans 2 cols) -->
+        <div class="intel-card md:col-span-2">
+            <div class="card-title">
+                <span>Intelligence Feed</span>
+                <span class="card-title-tag">High-Score</span>
+            </div>
+            <div id="high-score-articles-container" class="scroll-area" style="max-height: 14rem;">
+                <!-- Skeleton while loading -->
+                <div class="skeleton" style="height:3.25rem; margin-bottom:0.4rem;"></div>
+                <div class="skeleton" style="height:3.25rem; margin-bottom:0.4rem;"></div>
+                <div class="skeleton" style="height:3.25rem;"></div>
+            </div>
+        </div>
+
+        <!-- 5 ── System Stats -->
+        <div class="intel-card">
+            <div class="card-title"><span>System Stats</span></div>
+
+            <div style="text-align:center; margin-bottom:1rem;">
+                <div class="big-stat-val" id="total-articles-big">{{ stats.total_articles if stats else '—' }}</div>
+                <div class="big-stat-label">Articles Indexed</div>
+            </div>
+
+            <div class="metric-row">
+                <span class="metric-label">Active Sources</span>
+                <span class="metric-val cyan">{{ sources|length if sources else '0' }}</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Processing Queue</span>
+                <span class="metric-val" id="queue-depth">—</span>
+            </div>
+            <div class="metric-row">
+                <span class="metric-label">Avg Hunt Score</span>
+                <span class="metric-val amber" id="avg-score">—</span>
+            </div>
+        </div>
+
+        <!-- 6 ── Recent Activity -->
+        <div class="intel-card">
+            <div class="card-title"><span>Recent Activity</span></div>
+            <div id="activity-container">
+                <div class="activity-row">
+                    <span class="activity-dot" style="background:var(--d-green); box-shadow:0 0 5px var(--d-green);"></span>
+                    <span class="activity-ts">2m ago</span>
+                    <span class="activity-msg">New article processed</span>
                 </div>
-                <div class="flex items-center space-x-3 text-sm">
-                    <div class="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <span class="text-gray-400">5m ago</span>
-                    <span>Source health check</span>
+                <div class="activity-row">
+                    <span class="activity-dot" style="background:var(--d-amber);"></span>
+                    <span class="activity-ts">5m ago</span>
+                    <span class="activity-msg">Source health check</span>
                 </div>
-                <div class="flex items-center space-x-3 text-sm">
-                    <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span class="text-gray-400">8m ago</span>
-                    <span>Score regeneration</span>
+                <div class="activity-row">
+                    <span class="activity-dot" style="background:var(--d-cyan);"></span>
+                    <span class="activity-ts">8m ago</span>
+                    <span class="activity-msg">Score regeneration</span>
                 </div>
-                <div class="flex items-center space-x-3 text-sm">
-                    <div class="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <span class="text-gray-400">12m ago</span>
-                    <span>High-score article found</span>
+                <div class="activity-row">
+                    <span class="activity-dot" style="background:var(--d-green); box-shadow:0 0 5px var(--d-green);"></span>
+                    <span class="activity-ts">12m ago</span>
+                    <span class="activity-msg">High-score article found</span>
                 </div>
             </div>
         </div>
 
-        <!-- 7. Quick Actions -->
-        <div class="bg-gray-800 text-gray-100 p-6 rounded-2xl shadow-lg">
-            <h3 class="text-lg font-semibold mb-4">Quick Actions</h3>
-            <div class="space-y-3">
-                <button class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
-                    🔄 Rescore All Articles
-                </button>
-                <button class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
-                    📊 Generate Report
-                </button>
-                <button class="w-full bg-yellow-600 hover:bg-yellow-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
-                    🔍 Run Health Check
-                </button>
-                <button class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors text-sm">
-                    📈 View Analytics
-                </button>
-            </div>
+        <!-- 7 ── Quick Actions -->
+        <div class="intel-card">
+            <div class="card-title"><span>Quick Actions</span></div>
+
+            <button class="action-btn" style="--btn-clr: var(--d-cyan);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Rescore All Articles
+            </button>
+
+            <button class="action-btn" style="--btn-clr: var(--d-green);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Generate Report
+            </button>
+
+            <button class="action-btn" style="--btn-clr: var(--d-amber);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Run Health Check
+            </button>
+
+            <button class="action-btn" style="--btn-clr: var(--d-purple);">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                View Analytics
+            </button>
         </div>
-    </div>
-</div>
+
+    </div><!-- /grid -->
+</div><!-- /dash-root -->
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Chart.js configuration for dark theme
-    Chart.defaults.color = '#9CA3AF';
-    Chart.defaults.borderColor = '#374151';
-    Chart.defaults.backgroundColor = '#374151';
+    // ─── Guard against double-init (base.html auto-refresh) ───
+    if (!window.dashChartsDone) {
+    window.dashChartsDone = true;
 
-    // Global chart instances
+    // ─── Chart defaults ───
+    Chart.defaults.color = '#64748b';
+    Chart.defaults.borderColor = 'rgba(34,211,238,0.07)';
+
     let dailyChart = null;
     let hourlyChart = null;
 
-    // Load dashboard data and update charts
+    function makeChart(ctx, lineColor, fillColor) {
+        return new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [],
+                    borderColor: lineColor,
+                    backgroundColor: fillColor,
+                    borderWidth: 1.5,
+                    tension: 0.45,
+                    fill: true,
+                    pointRadius: 0,
+                    pointHoverRadius: 3,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        enabled: true,
+                        backgroundColor: '#0d1520',
+                        borderColor: 'rgba(34,211,238,0.2)',
+                        borderWidth: 1,
+                        titleColor: '#64748b',
+                        bodyColor: '#e2e8f0',
+                        titleFont: { family: 'JetBrains Mono', size: 10 },
+                        bodyFont:  { family: 'JetBrains Mono', size: 11 },
+                        padding: 8,
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { color: 'rgba(34,211,238,0.05)', drawBorder: false },
+                        ticks: {
+                            font: { family: 'JetBrains Mono', size: 9 },
+                            color: '#475569',
+                            maxTicksLimit: 5,
+                            maxRotation: 0,
+                        }
+                    },
+                    y: {
+                        grid: { color: 'rgba(34,211,238,0.05)', drawBorder: false },
+                        ticks: {
+                            font: { family: 'JetBrains Mono', size: 9 },
+                            color: '#475569',
+                            maxTicksLimit: 4,
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateUptimeRing(uptime) {
+        const bar = document.getElementById('uptime-ring-bar');
+        const pct = document.getElementById('uptime-value');
+        const dot = document.getElementById('health-dot');
+        const txt = document.getElementById('health-status-text');
+        if (!bar || !pct) return;
+
+        const circumference = 220; // 2π × r=35
+        const offset = circumference * (1 - Math.min(100, Math.max(0, uptime)) / 100);
+        bar.style.strokeDashoffset = offset;
+
+        const isHealthy = uptime > 95;
+        const isWarning = uptime > 80;
+        const color = isHealthy ? '#34d399' : isWarning ? '#fbbf24' : '#f87171';
+        const label = isHealthy ? 'Nominal' : isWarning ? 'Degraded' : 'Critical';
+
+        bar.style.stroke = color;
+        pct.style.color  = color;
+        pct.textContent  = uptime.toFixed(1) + '%';
+
+        if (dot) { dot.style.background = color; dot.style.boxShadow = `0 0 7px ${color}`; }
+        if (txt) { txt.textContent = label; txt.style.color = color; }
+    }
+
     async function loadDashboardData() {
         try {
-            const response = await fetch('/api/dashboard/data');
-            if (!response.ok) throw new Error('Failed to fetch dashboard data');
-            
-            const data = await response.json();
-            
-            // Update health metrics
-            document.getElementById('uptime-value').textContent = data.health.uptime + '%';
-            document.getElementById('total-sources').textContent = data.health.total_sources;
-            document.getElementById('avg-response').textContent = data.health.avg_response_time + 's';
-            
-            // Update health indicator color
-            const indicator = document.getElementById('health-indicator');
-            if (data.health.uptime > 95) {
-                indicator.className = 'w-3 h-3 rounded-full bg-green-500';
-            } else if (data.health.uptime > 80) {
-                indicator.className = 'w-3 h-3 rounded-full bg-yellow-500';
-            } else {
-                indicator.className = 'w-3 h-3 rounded-full bg-red-500';
+            const res = await fetch('/api/dashboard/data');
+            if (!res.ok) throw new Error('API error ' + res.status);
+            const data = await res.json();
+
+            // ── Health ──
+            const uptime = parseFloat(data.health?.uptime) || 0;
+            updateUptimeRing(uptime);
+
+            const srcEl = document.getElementById('total-sources');
+            const rspEl = document.getElementById('avg-response');
+            if (srcEl) srcEl.textContent = data.health?.total_sources ?? '—';
+            if (rspEl) {
+                const rt = data.health?.avg_response_time;
+                rspEl.textContent = rt != null ? rt + 's' : '—';
             }
-            
-            // Update charts if they exist
-            console.log('Updating charts...', data.volume);
-            if (dailyChart && data.volume.daily && dailyChart.data && dailyChart.data.datasets && dailyChart.data.datasets[0]) {
-                console.log('Daily chart data before:', dailyChart.data.datasets[0].data);
-                const dailyKeys = Object.keys(data.volume.daily).sort();
-                const dailyValues = dailyKeys.map(key => data.volume.daily[key]);
-                dailyChart.data.labels = dailyKeys;
-                dailyChart.data.datasets[0].data = dailyValues;
-                console.log('Daily chart data after:', dailyChart.data.datasets[0].data);
+
+            // ── Charts ──
+            if (dailyChart && data.volume?.daily) {
+                const keys = Object.keys(data.volume.daily).sort();
+                dailyChart.data.labels = keys.map(k => k.slice(5)); // strip year → MM-DD
+                dailyChart.data.datasets[0].data = keys.map(k => data.volume.daily[k]);
                 dailyChart.update('none');
-                setTimeout(() => dailyChart.resize(), 100);
-            } else {
-                console.log('Daily chart update failed:', {
-                    dailyChart: !!dailyChart,
-                    volumeData: !!data.volume.daily,
-                    chartData: !!dailyChart?.data,
-                    datasets: !!dailyChart?.data?.datasets,
-                    dataset0: !!dailyChart?.data?.datasets?.[0]
-                });
             }
-            
-            if (hourlyChart && data.volume.hourly && hourlyChart.data && hourlyChart.data.datasets && hourlyChart.data.datasets[0]) {
-                console.log('Hourly chart data before:', hourlyChart.data.datasets[0].data);
+            if (hourlyChart && data.volume?.hourly) {
                 hourlyChart.data.labels = Object.keys(data.volume.hourly);
                 hourlyChart.data.datasets[0].data = Object.values(data.volume.hourly);
-                console.log('Hourly chart data after:', hourlyChart.data.datasets[0].data);
                 hourlyChart.update('none');
-                setTimeout(() => hourlyChart.resize(), 100);
-            } else {
-                console.log('Hourly chart update failed:', {
-                    hourlyChart: !!hourlyChart,
-                    volumeData: !!data.volume.hourly,
-                    chartData: !!hourlyChart?.data,
-                    datasets: !!hourlyChart?.data?.datasets,
-                    dataset0: !!hourlyChart?.data?.datasets?.[0]
-                });
             }
-            
-            // Update timestamp
-            
-            // Update High-Score Articles
-            const topArticlesContainer = document.getElementById("high-score-articles-container");
-            if (topArticlesContainer && data.top_articles) {
-                topArticlesContainer.innerHTML = "";
-                data.top_articles.forEach(article => {
-                    let scoreColor = "text-yellow-400";
-                    if (article.classification === "Chosen") {
-                        scoreColor = "text-green-400";
-                    } else if (article.classification === "Rejected") {
-                        scoreColor = "text-red-400";
-                    }
-                    
-                    const card = document.createElement("a");
-                    card.href = `/articles/${article.id}`;
-                    card.className = "block p-5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors min-h-[120px]";
-                    card.innerHTML = `
-                        <div class="flex justify-end items-start mb-3">
-                            <span class="text-lg font-mono font-bold ${scoreColor}">${article.hunt_score || 0}</span>
-                        </div>
-                        <h4 class="font-semibold text-base mb-2 leading-tight">${article.title || "Untitled"}</h4>
-                        <p class="text-sm text-gray-400 leading-relaxed">Click to view article details</p>
+
+            // ── Failing Sources ──
+            const fsEl = document.getElementById('failing-sources-container');
+            if (fsEl && Array.isArray(data.failing_sources) && data.failing_sources.length > 0) {
+                fsEl.innerHTML = '';
+                data.failing_sources.forEach(s => {
+                    const fc  = s.failure_count || 0;
+                    const cls = fc >= 5 ? 'fail-row' : 'fail-row medium';
+                    const row = document.createElement('div');
+                    row.className = cls;
+                    row.innerHTML = `
+                        <span class="fail-name">${s.name || 'Unknown'}</span>
+                        <span style="display:flex;align-items:center;">
+                            <span class="fail-count">×${fc}</span>
+                            <span class="fail-date">${(s.last_failure || '').slice(0, 10)}</span>
+                        </span>
                     `;
-                    topArticlesContainer.appendChild(card);
+                    fsEl.appendChild(row);
                 });
             }
-                        document.getElementById('last-updated').textContent = new Date().toLocaleString();
-            
-        } catch (error) {
-            console.error('Failed to load dashboard data:', error);
+
+            // ── High-Score Articles ──
+            const feedEl = document.getElementById('high-score-articles-container');
+            if (feedEl && Array.isArray(data.top_articles)) {
+                feedEl.innerHTML = '';
+                data.top_articles.slice(0, 8).forEach(article => {
+                    const score = article.hunt_score || 0;
+                    let scoreColor = '#22d3ee';
+                    if (article.classification === 'Chosen')        scoreColor = '#34d399';
+                    else if (article.classification === 'Rejected') scoreColor = '#f87171';
+                    else if (score >= 75)                           scoreColor = '#fbbf24';
+
+                    const el = document.createElement('a');
+                    el.href      = `/articles/${article.id}`;
+                    el.className = 'article-item';
+                    el.style.setProperty('--score-color', scoreColor);
+                    el.innerHTML = `
+                        <div class="article-row">
+                            <span class="article-headline">${article.title || 'Untitled'}</span>
+                            <span class="article-score">${score}</span>
+                        </div>
+                    `;
+                    feedEl.appendChild(el);
+                });
+
+                if (data.top_articles.length === 0) {
+                    feedEl.innerHTML = '<div style="font-family:\'Barlow\',sans-serif; font-size:0.78rem; color:var(--d-sub); padding:0.5rem 0;">No high-score articles available.</div>';
+                }
+            }
+
+            // ── Recent Activity ──
+            const actEl = document.getElementById('activity-container');
+            if (actEl && Array.isArray(data.recent_activities) && data.recent_activities.length > 0) {
+                actEl.innerHTML = '';
+                data.recent_activities.forEach(act => {
+                    const dotColor = act.type === 'article' ? '#34d399'
+                                   : act.type === 'warning' ? '#fbbf24'
+                                   : '#22d3ee';
+                    const ts  = act.time_ago || act.timestamp || '';
+                    const msg = act.message  || act.title    || 'Event';
+                    const row = document.createElement('div');
+                    row.className = 'activity-row';
+                    row.innerHTML = `
+                        <span class="activity-dot" style="background:${dotColor}; box-shadow:0 0 5px ${dotColor};"></span>
+                        <span class="activity-ts">${ts}</span>
+                        <span class="activity-msg">${msg}</span>
+                    `;
+                    actEl.appendChild(row);
+                });
+            }
+
+            // ── Stats ──
+            const avgSc = document.getElementById('avg-score');
+            if (avgSc && data.stats?.avg_hunt_score != null) {
+                avgSc.textContent = Number(data.stats.avg_hunt_score).toFixed(1);
+            }
+
+            // ── Timestamp ──
+            const tsEl = document.getElementById('last-updated');
+            if (tsEl) tsEl.textContent = new Date().toLocaleString();
+
+        } catch (err) {
+            console.error('Dashboard refresh failed:', err);
         }
     }
 
-    // Initialize charts and start polling
-    if (window.chartsInitialized) return;
-    window.chartsInitialized = true;
-    document.addEventListener('DOMContentLoaded', function() {
-        // Get canvas contexts
-        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
-        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
-        
-        // Initialize charts
-        dailyChart = new Chart(dailyCtx, {
-            type: 'line',
-            data: {
-                labels: ['2025-10-01', '2025-10-02', '2025-10-03', '2025-10-04', '2025-10-05'],
-                datasets: [{
-                    label: 'Articles',
-                    data: [234, 287, 260, 312, 298],
-                    borderColor: '#10B981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: false }
-                },
-                scales: {
-                    x: { grid: { color: '#374151' } },
-                    y: { grid: { color: '#374151' } }
-                }
-            }
-        });
+    // Expose for base.html auto-refresh
+    window.loadDashboardData = loadDashboardData;
 
-        hourlyChart = new Chart(hourlyCtx, {
-            type: 'line',
-            data: {
-                labels: ['00', '01', '02', '03', '04', '05', '06', '07'],
-                datasets: [{
-                    label: 'Articles',
-                    data: [10, 15, 22, 19, 8, 12, 18, 25],
-                    borderColor: '#3B82F6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { enabled: false }
-                },
-                scales: {
-                    x: { grid: { color: '#374151' } },
-                    y: { grid: { color: '#374151' } }
-                }
-            }
-        });
-        
-        // Load initial data
+    document.addEventListener('DOMContentLoaded', function () {
+        const dailyCtx  = document.getElementById('dailyChart').getContext('2d');
+        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+
+        dailyChart  = makeChart(dailyCtx,  '#34d399', 'rgba(52,211,153,0.07)');
+        hourlyChart = makeChart(hourlyCtx, '#22d3ee', 'rgba(34,211,238,0.07)');
+
         loadDashboardData();
-        
-        // Start polling every 60 seconds
         setInterval(loadDashboardData, 60000);
     });
+
+    } // end guard
 </script>
 {% endblock %}
