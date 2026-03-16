@@ -2216,7 +2216,8 @@ class TestWorkflowQueueAPI:
 
         def handle_route(route):
             if "/api/sigma-queue/list" in route.request.url:
-                route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_queue))
+                payload = {"items": mock_queue, "total": len(mock_queue), "limit": 50, "offset": 0}
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
             else:
                 route.continue_()
 
@@ -2290,7 +2291,8 @@ class TestWorkflowQueueAPI:
 
         def handle_route(route):
             if "/api/sigma-queue/list" in route.request.url:
-                route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_queue))
+                payload = {"items": mock_queue, "total": len(mock_queue), "limit": 50, "offset": 0}
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
             elif f"/api/workflow/executions/{exec_id}/observables" in route.request.url:
                 route.fulfill(status=200, content_type="application/json", body=json.dumps(mock_observables))
             else:
@@ -2315,3 +2317,49 @@ class TestWorkflowQueueAPI:
         expect(rule_modal).to_contain_text("cmd0")
         expect(rule_modal).to_contain_text("cmd1")
         expect(rule_modal).not_to_contain_text("cmd2")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_queue_tab_shows_pagination_bar(self, page: Page):
+        """Queue tab shows pagination bar (Showing X–Y of Z) and Prev/Next when total > page size."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        mock_queue = [
+            {
+                "id": 99903,
+                "article_id": 1,
+                "article_title": "Test Article",
+                "workflow_execution_id": None,
+                "rule_yaml": "title: Test\nlogsource:\n  category: process_creation\ndetection:\n  condition: true\n",
+                "rule_metadata": {"title": "Test"},
+                "similarity_scores": [],
+                "max_similarity": 0.0,
+                "status": "pending",
+                "reviewed_by": None,
+                "review_notes": None,
+                "pr_submitted": False,
+                "pr_url": None,
+                "created_at": "2025-02-02T12:00:00",
+                "reviewed_at": None,
+            }
+        ]
+        total = 60
+        payload = {"items": mock_queue, "total": total, "limit": 50, "offset": 0}
+
+        def handle_route(route):
+            if "/api/sigma-queue/list" in route.request.url:
+                route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
+            else:
+                route.continue_()
+
+        page.route("**/api/sigma-queue/list*", handle_route)
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("networkidle")
+        page.locator("#tab-queue").click()
+        page.wait_for_timeout(2000)
+
+        bar = page.locator("#queuePaginationBar")
+        expect(bar).to_be_visible(timeout=5000)
+        expect(bar).to_contain_text("Showing")
+        expect(bar).to_contain_text("of 60")
+        expect(bar.locator('button:has-text("Prev")')).to_be_visible()
+        expect(bar.locator('button:has-text("Next")')).to_be_visible()

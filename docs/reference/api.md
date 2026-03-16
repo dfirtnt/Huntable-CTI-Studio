@@ -88,7 +88,8 @@ These endpoints manage runtime settings and provider connectivity.
 
 ### Sigma Queue And Evaluation
 
-- `GET /api/sigma-queue/*`
+- `GET /api/sigma-queue/list` — List queued SIGMA rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/evaluation/*`
 - `GET /api/evaluation-ui/*`
 

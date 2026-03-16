@@ -1848,13 +1848,13 @@ window.previewQueuedRule = async function previewQueuedRule(ruleId) {
     console.log('previewQueuedRule called with ruleId:', ruleId);
     try {
         // Fetch all queued rules and find the one with matching ID
-        const response = await fetch(`/api/sigma-queue/list?limit=1000`);
+        const response = await fetch(`/api/sigma-queue/list?limit=1000&offset=0`);
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
-        const rules = await response.json();
-        const rule = rules.find(r => r.id === ruleId);
+        const data = await response.json();
+        const rules = data.items ?? data;
+        const rule = Array.isArray(rules) ? rules.find(r => r.id === ruleId) : null;
         
         if (!rule) {
             showNotification('Rule #' + ruleId + ' not found in queue', 'error');

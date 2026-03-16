@@ -12,8 +12,9 @@ from typing import Any
 
 import httpx
 import yaml
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
+from sqlalchemy import func
 
 from src.database.manager import DatabaseManager
 from src.database.models import (
@@ -181,6 +182,15 @@ class QueuedRuleResponse(BaseModel):
     reviewed_at: str | None
 
 
+class QueuedRuleListResponse(BaseModel):
+    """Paginated list response for queued SIGMA rules."""
+
+    items: list[QueuedRuleResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class QueueUpdateRequest(BaseModel):
     """Request model for updating queue status."""
 
@@ -338,20 +348,34 @@ async def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.get("/list", response_model=list[QueuedRuleResponse])
-async def list_queued_rules(request: Request, status: str | None = None, limit: int = 50):
-    """List queued SIGMA rules."""
+@router.get("/list", response_model=QueuedRuleListResponse)
+async def list_queued_rules(
+    request: Request,
+    status: str | None = None,
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    """List queued SIGMA rules with pagination."""
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
         try:
-            query = db_session.query(SigmaRuleQueueTable)
-
+            base = db_session.query(SigmaRuleQueueTable)
             if status:
-                query = query.filter(SigmaRuleQueueTable.status == status)
+                base = base.filter(SigmaRuleQueueTable.status == status)
 
-            rules = query.order_by(SigmaRuleQueueTable.created_at.desc()).limit(limit).all()
+            total = base.with_entities(func.count(SigmaRuleQueueTable.id)).scalar() or 0
+
+            data_query = db_session.query(SigmaRuleQueueTable)
+            if status:
+                data_query = data_query.filter(SigmaRuleQueueTable.status == status)
+            rules = (
+                data_query.order_by(SigmaRuleQueueTable.created_at.desc())
+                .offset(offset)
+                .limit(limit)
+                .all()
+            )
 
             result = []
             matching_service = None  # Lazy initialization
@@ -428,7 +452,7 @@ async def list_queued_rules(request: Request, status: str | None = None, limit: 
                     )
                 )
 
-            return result
+            return QueuedRuleListResponse(items=result, total=total, limit=limit, offset=offset)
         finally:
             db_session.close()
 
