@@ -1696,6 +1696,9 @@
                 </tbody>
             </table>
         </div>
+        <div id="queuePaginationBar" class="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-gray-800 rounded-b-lg">
+            <span class="text-sm text-gray-600 dark:text-gray-400">Loading...</span>
+        </div>
 
         <!-- Rule Preview Modal -->
         <div id="ruleModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -11689,6 +11692,9 @@ let enrichIteration = 0; // Track number of enrichment iterations
 let originalYaml = '';
 let editedYaml = '';
 let pendingPreviewId = null; // Track previewId from URL while data loads
+let queuePage = 1;
+let queueTotal = 0;
+let queueLimit = 50;
 
 function getQueueStatusBadge(status) {
     const badges = {
@@ -11704,13 +11710,20 @@ async function loadQueue() {
     try {
         const statusFilterEl = document.getElementById('queueStatusFilter');
         const statusFilter = statusFilterEl ? statusFilterEl.value : '';
-        const url = statusFilter ? `/api/sigma-queue/list?status=${statusFilter}` : '/api/sigma-queue/list';
-        
+        const offset = (queuePage - 1) * queueLimit;
+        const params = new URLSearchParams({ limit: String(queueLimit), offset: String(offset) });
+        if (statusFilter) params.set('status', statusFilter);
+        const url = `/api/sigma-queue/list?${params.toString()}`;
+
         const response = await fetch(url);
         if (response.ok) {
-            queue = await response.json();
+            const data = await response.json();
+            queue = data.items || [];
+            queueTotal = data.total != null ? data.total : queue.length;
+            if (data.limit != null) queueLimit = data.limit;
             renderQueue();
             updateQueueStats();
+            updateQueuePagination();
             // Check if we need to trigger preview from URL parameter
             checkAndTriggerPreview();
         } else {
@@ -11799,6 +11812,28 @@ function updateQueueStats() {
     if (approvedEl) approvedEl.textContent = stats.approved;
     if (rejectedEl) rejectedEl.textContent = stats.rejected;
     if (submittedEl) submittedEl.textContent = stats.submitted;
+}
+
+function updateQueuePagination() {
+    const bar = document.getElementById('queuePaginationBar');
+    if (!bar) return;
+    const start = queueTotal === 0 ? 0 : (queuePage - 1) * queueLimit + 1;
+    const end = Math.min(queuePage * queueLimit, queueTotal);
+    const totalPages = Math.max(1, Math.ceil(queueTotal / queueLimit));
+    bar.innerHTML = `
+        <span class="text-sm text-gray-600 dark:text-gray-400">Showing ${start}&ndash;${end} of ${queueTotal}</span>
+        <div class="flex gap-2">
+            <button type="button" onclick="goToQueuePage(${queuePage - 1})" ${queuePage <= 1 ? 'disabled' : ''} class="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">Prev</button>
+            <button type="button" onclick="goToQueuePage(${queuePage + 1})" ${queuePage >= totalPages ? 'disabled' : ''} class="px-3 py-1.5 text-sm rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+        </div>
+    `;
+}
+
+function goToQueuePage(pageNum) {
+    const totalPages = Math.max(1, Math.ceil(queueTotal / queueLimit));
+    if (pageNum < 1 || pageNum > totalPages) return;
+    queuePage = pageNum;
+    loadQueue();
 }
 
 var cachedObservablesForRulePreview = null;
@@ -14964,6 +14999,7 @@ function toggleRuleDetails(detailsId, iconId) {
 }
 
 function filterQueue() {
+    queuePage = 1;
     loadQueue();
 }
 

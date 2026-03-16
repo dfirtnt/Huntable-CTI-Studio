@@ -69,6 +69,9 @@
             </tbody>
         </table>
     </div>
+    <div id="queuePaginationBar" class="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-gray-800 rounded-b-lg">
+        <span class="text-sm text-gray-600 dark:text-gray-400">Loading...</span>
+    </div>
 
     <!-- Rule Preview Modal -->
     <div id="ruleModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
@@ -206,6 +209,9 @@ let editedYaml = '';
 let currentEnrichedYaml = null; // Track current enriched state for iterative enrichment
 let enrichIteration = 0; // Track number of enrichment iterations
 let pendingPreviewId = null; // Track previewId from URL while data loads
+let queuePage = 1;
+let queueTotal = 0;
+let queueLimit = 50;
 
 function getStatusBadge(status) {
     const badges = {
@@ -220,14 +226,20 @@ function getStatusBadge(status) {
 async function loadQueue() {
     try {
         const statusFilter = document.getElementById('statusFilter').value;
-        const url = statusFilter ? `/api/sigma-queue/list?status=${statusFilter}` : '/api/sigma-queue/list';
-        
+        const offset = (queuePage - 1) * queueLimit;
+        const params = new URLSearchParams({ limit: String(queueLimit), offset: String(offset) });
+        if (statusFilter) params.set('status', statusFilter);
+        const url = `/api/sigma-queue/list?${params.toString()}`;
+
         const response = await fetch(url);
         if (response.ok) {
-            queue = await response.json();
+            const data = await response.json();
+            queue = data.items || [];
+            queueTotal = data.total != null ? data.total : queue.length;
+            if (data.limit != null) queueLimit = data.limit;
             renderQueue();
             updateStats();
-            // Check if we need to trigger preview from URL parameter
+            updateQueuePagination();
             checkAndTriggerPreview();
         }
     } catch (error) {
@@ -281,17 +293,39 @@ function renderQueue() {
 }
 
 function updateStats() {
+    if (!queue || !Array.isArray(queue)) queue = [];
     const stats = {
         pending: queue.filter(r => r.status === 'pending').length,
         approved: queue.filter(r => r.status === 'approved').length,
         rejected: queue.filter(r => r.status === 'rejected').length,
         submitted: queue.filter(r => r.status === 'submitted').length
     };
-    
     document.getElementById('pendingCount').textContent = stats.pending;
     document.getElementById('approvedCount').textContent = stats.approved;
     document.getElementById('rejectedCount').textContent = stats.rejected;
     document.getElementById('submittedCount').textContent = stats.submitted;
+}
+
+function updateQueuePagination() {
+    const bar = document.getElementById('queuePaginationBar');
+    if (!bar) return;
+    const start = queueTotal === 0 ? 0 : (queuePage - 1) * queueLimit + 1;
+    const end = Math.min(queuePage * queueLimit, queueTotal);
+    const totalPages = Math.max(1, Math.ceil(queueTotal / queueLimit));
+    bar.innerHTML = `
+        <span class="text-sm text-gray-600 dark:text-gray-400">Showing ${start}&ndash;${end} of ${queueTotal}</span>
+        <div class="flex gap-2">
+            <button type="button" onclick="goToQueuePage(${queuePage - 1})" ${queuePage <= 1 ? 'disabled' : ''} class="px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-700 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">Prev</button>
+            <button type="button" onclick="goToQueuePage(${queuePage + 1})" ${queuePage >= totalPages ? 'disabled' : ''} class="px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-700 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+        </div>
+    `;
+}
+
+function goToQueuePage(pageNum) {
+    const totalPages = Math.max(1, Math.ceil(queueTotal / queueLimit));
+    if (pageNum < 1 || pageNum > totalPages) return;
+    queuePage = pageNum;
+    loadQueue();
 }
 
 var cachedObservablesForRulePreview = null;
@@ -1569,6 +1603,7 @@ document.addEventListener('keydown', function(e) {
 });
 
 function filterQueue() {
+    queuePage = 1;
     loadQueue();
 }
 
