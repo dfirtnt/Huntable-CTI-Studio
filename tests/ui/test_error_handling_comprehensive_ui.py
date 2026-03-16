@@ -162,7 +162,7 @@ class TestInvalidInputHandling:
         page.goto(f"{base_url}/articles?invalid_param=value&another=test")
         page.wait_for_load_state("networkidle")
 
-        # Verify page loads (invalid params may be stripped or kept)
+        # Verify page loads
         expect(page).to_have_url(re.compile(rf"{re.escape(base_url)}/articles(\?.*)?$"))
 
     @pytest.mark.ui
