@@ -17,7 +17,7 @@ asttokens==3.0.0
 async-lru==2.0.5
 asyncpg==0.30.0
 attrs==25.3.0
-Authlib==1.6.7
+Authlib==1.6.9
 babel==2.17.0
 backoff==2.2.1
 backrefs==6.1
