@@ -938,13 +938,20 @@ async function viewExecution(executionId) {
                                                             const similarRules = Array.isArray(result.similar_rules) ? result.similar_rules : [];
                                                             return similarRules.length > 0 ? `
                                                             <div class="mt-2 space-y-2">
-                                                                ${similarRules.map((similarRule, ruleIdx) => `
+                                                                ${similarRules.map((similarRule, ruleIdx) => {
+                                                                    const fromRepo = (similarRule.rule_id && String(similarRule.rule_id).startsWith('cust-')) || (similarRule.file_path && String(similarRule.file_path).startsWith('customer/'));
+                                                                    const sourceLabel = fromRepo ? 'Your repo' : 'SigmaHQ';
+                                                                    const sourceCls = fromRepo ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+                                                                    return `
                                                                     <div class="border border-gray-300 dark:border-gray-600 rounded p-2 bg-gray-800 border border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer transition-colors" 
                                                                          onclick="showSimilarRuleDetails(${ruleIdx}, ${idx})" 
                                                                          data-rule-data='${JSON.stringify(similarRule).replace(/'/g, "&#39;")}'>
                                                                         <div class="flex items-start justify-between">
                                                                             <div class="flex-1">
-                                                                                <div class="font-medium text-blue-600 dark:text-blue-400 hover:underline">${similarRule.title || 'Untitled Rule'}</div>
+                                                                                <div class="flex items-center gap-2 flex-wrap">
+                                                                                    <div class="font-medium text-blue-600 dark:text-blue-400 hover:underline">${similarRule.title || 'Untitled Rule'}</div>
+                                                                                    <span class="text-xs px-2 py-0.5 rounded ${sourceCls}">${sourceLabel}</span>
+                                                                                </div>
                                                                                 ${similarRule.description ? `<div class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">${similarRule.description.substring(0, 150)}${similarRule.description.length > 150 ? '...' : ''}</div>` : ''}
                                                                                 <div class="flex flex-wrap gap-2 mt-2">
                                                                                     ${similarRule.rule_id ? `<span class="text-xs px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-gray-700 dark:text-gray-300">ID: ${similarRule.rule_id}</span>` : ''}
@@ -957,7 +964,7 @@ async function viewExecution(executionId) {
                                                                             </div>
                                                                         </div>
                                                                     </div>
-                                                                `).join('')}
+                                                                `; }).join('')}
                                                             </div>
                                                         ` : `
                                                             <div class="text-sm text-gray-500 dark:text-gray-400 italic mt-2">No similar rules found above threshold</div>

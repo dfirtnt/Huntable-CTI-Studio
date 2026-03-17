@@ -409,12 +409,13 @@ class SigmaSyncService:
             "signature": self.create_signature_embedding_text(rule_data),
         }
 
-    def get_existing_rule_ids(self, db_session) -> set:
+    def get_existing_rule_ids(self, db_session, rule_id_prefix: str | None = None) -> set:
         """
         Get set of existing rule IDs from database.
 
         Args:
             db_session: SQLAlchemy session
+            rule_id_prefix: If set, only return rule_ids that start with this prefix.
 
         Returns:
             Set of rule IDs
@@ -422,13 +423,21 @@ class SigmaSyncService:
         from src.database.models import SigmaRuleTable
 
         try:
-            existing_rules = db_session.query(SigmaRuleTable.rule_id).all()
+            q = db_session.query(SigmaRuleTable.rule_id)
+            if rule_id_prefix:
+                q = q.filter(SigmaRuleTable.rule_id.startswith(rule_id_prefix))
+            existing_rules = q.all()
             return {rule[0] for rule in existing_rules}
         except Exception as e:
             logger.error(f"Error getting existing rule IDs: {e}")
             return set()
 
-    def index_metadata(self, db_session, force_reindex: bool = False) -> dict[str, int]:
+    def index_metadata(
+        self,
+        db_session,
+        force_reindex: bool = False,
+        rule_id_prefix: str | None = None,
+    ) -> dict[str, int]:
         """
         Index metadata and canonical fields for all rules — no embeddings.
 
@@ -439,18 +448,23 @@ class SigmaSyncService:
         Args:
             db_session: SQLAlchemy session
             force_reindex: If True, reindex all rules even if they exist
+            rule_id_prefix: If set (e.g. "cust-"), prefix all rule_ids and file_paths
+                so customer-repo rules coexist with SigmaHQ in the same table.
 
         Returns:
             Dictionary with metadata_indexed, skipped, and errors counts
         """
         from src.database.models import SigmaRuleTable
 
-        logger.info("Starting Sigma rule metadata indexing...")
+        logger.info(
+            "Starting Sigma rule metadata indexing%s...",
+            f" (prefix={rule_id_prefix!r})" if rule_id_prefix else "",
+        )
 
-        # Get existing rule IDs if not forcing reindex
+        # Get existing rule IDs if not forcing reindex (scoped to prefix when set)
         existing_rule_ids = set()
         if not force_reindex:
-            existing_rule_ids = self.get_existing_rule_ids(db_session)
+            existing_rule_ids = self.get_existing_rule_ids(db_session, rule_id_prefix=rule_id_prefix)
             logger.info(f"Found {len(existing_rule_ids)} existing rules")
 
         # Find all rule files
@@ -503,7 +517,10 @@ class SigmaSyncService:
                     skipped_count += 1
                     continue
 
-                rule_id = rule_data["rule_id"]
+                raw_rule_id = rule_data["rule_id"]
+                rule_id = f"{rule_id_prefix}{raw_rule_id}" if rule_id_prefix else raw_rule_id
+                if rule_id_prefix:
+                    rule_data = {**rule_data, "file_path": f"{rule_id_prefix.rstrip('-')}/{rule_data['file_path']}"}
 
                 # Skip if already indexed (unless force reindex)
                 if not force_reindex and rule_id in existing_rule_ids:
@@ -579,7 +596,7 @@ class SigmaSyncService:
                             false_positives=rule_data["false_positives"],
                             fields=rule_data["fields"],
                             file_path=rule_data["file_path"],
-                            repo_commit_sha=commit_sha,
+                            repo_commit_sha=commit_sha or None,
                             # Canonical fields
                             canonical_json=canonical_json,
                             exact_hash=exact_hash,
@@ -618,7 +635,13 @@ class SigmaSyncService:
     _EMBED_RULES_PER_CHUNK = 64
     _EMBED_ENCODER_BATCH_SIZE = 64
 
-    def index_embeddings(self, db_session, force_reindex: bool = False, progress_callback=None) -> dict:
+    def index_embeddings(
+        self,
+        db_session,
+        force_reindex: bool = False,
+        progress_callback=None,
+        rule_id_prefix: str | None = None,
+    ) -> dict:
         """
         Generate embeddings for Sigma rules that lack them.
 
@@ -629,18 +652,25 @@ class SigmaSyncService:
             db_session: SQLAlchemy session
             force_reindex: If True, regenerate embeddings for all rules
             progress_callback: Optional callable(current, total) called after each chunk
+            rule_id_prefix: If set, only process rules whose rule_id starts with this prefix.
 
         Returns:
             Dict with embeddings_indexed, skipped, errors counts
         """
         from src.database.models import SigmaRuleTable
 
-        logger.info("Starting Sigma rule embedding generation (batched)...")
+        logger.info(
+            "Starting Sigma rule embedding generation (batched)%s...",
+            f" prefix={rule_id_prefix!r}" if rule_id_prefix else "",
+        )
 
+        q = db_session.query(SigmaRuleTable)
+        if rule_id_prefix:
+            q = q.filter(SigmaRuleTable.rule_id.startswith(rule_id_prefix))
         if force_reindex:
-            rules = db_session.query(SigmaRuleTable).all()
+            rules = q.all()
         else:
-            rules = db_session.query(SigmaRuleTable).filter(SigmaRuleTable.embedding.is_(None)).all()
+            rules = q.filter(SigmaRuleTable.embedding.is_(None)).all()
 
         logger.info(f"Found {len(rules)} rules needing embeddings")
 

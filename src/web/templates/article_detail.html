@@ -8148,13 +8148,19 @@ Please provide a detailed analysis based on the article content and the user's s
                 const newRuleLogsourceJson = newRuleLogsource ? JSON.stringify(newRuleLogsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
                 const newRuleDetectionJson = newRuleDetection ? JSON.stringify(newRuleDetection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
                 
+                const sourceFromRepo = (match.rule_id && String(match.rule_id).startsWith('cust-')) || (match.file_path && String(match.file_path).startsWith('customer/'));
+                const sourceLabel = sourceFromRepo ? 'Your repo' : 'SigmaHQ';
+                const sourceBadgeClass = sourceFromRepo ? 'bg-amber-100 text-amber-800' : 'bg-gray-200 text-gray-700';
                 return `
                     <div class="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors cursor-pointer" 
                          onclick="showFullSigmaRule('${escapedRuleId}')"
                          title="Click to view full rule details">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <h5 class="font-medium text-gray-900">${match.title || 'Untitled Rule'}</h5>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h5 class="font-medium text-gray-900">${match.title || 'Untitled Rule'}</h5>
+                                    <span class="text-xs px-2 py-0.5 rounded ${sourceBadgeClass}">${sourceLabel}</span>
+                                </div>
                                 <p class="text-sm text-gray-600 mt-1">${match.description || 'No description'}</p>
                             </div>
                             <div class="ml-4 flex flex-col items-end">
@@ -8268,7 +8274,7 @@ Please provide a detailed analysis based on the article content and the user's s
         modal.innerHTML = `
             <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900">🔍 Similar Rules in SigmaHQ Repository</h3>
+                    <h3 class="text-lg font-medium text-gray-900">🔍 Similar Rules (SigmaHQ &amp; your repo)</h3>
                     <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -8278,8 +8284,8 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="mb-4 text-sm text-gray-600">
                     ${matches && matches.length > 0
-                        ? `Found ${matches.length} rules with behavioral overlap (sorted by similarity)`
-                        : 'No SigmaHQ rules share detection logic with this rule.'}
+                        ? `Found ${matches.length} rules with behavioral overlap (sorted by similarity). Rules from SigmaHQ and from your indexed repo (run sigma index-customer-repo) are both included.`
+                        : 'No similar rules found in SigmaHQ or your indexed repo.'}
                     ${matches && matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                         <div class="mt-1 text-xs text-gray-500">
                             Analysis by: ${matches[0].llm_provider || 'unknown'}${matches[0].llm_model ? ' — ' + matches[0].llm_model : ''}

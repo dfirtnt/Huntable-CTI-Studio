@@ -45,6 +45,9 @@ def test_contract_capability_service_shape_is_stable(monkeypatch):
     monkeypatch.setattr(service, "_check_sigma_metadata_indexing", lambda: {"enabled": True, "reason": "ok"})
     monkeypatch.setattr(service, "_check_sigma_embedding_indexing", lambda: {"enabled": True, "reason": "ok"})
     monkeypatch.setattr(service, "_check_sigma_retrieval", lambda _session: {"enabled": False, "reason": "missing"})
+    monkeypatch.setattr(
+        service, "_check_sigma_customer_repo_indexed", lambda _session: {"enabled": False, "reason": "SigmaHQ only"}
+    )
     monkeypatch.setattr(service, "_check_sigma_novelty", lambda _session: {"enabled": True, "reason": "ok"})
     monkeypatch.setattr(
         service, "_check_llm_generation", lambda: {"enabled": False, "provider": "none", "reason": "unset"}
@@ -61,6 +64,7 @@ def test_contract_capability_service_shape_is_stable(monkeypatch):
         "sigma_metadata_indexing",
         "sigma_embedding_indexing",
         "sigma_retrieval",
+        "sigma_customer_repo_indexed",
         "sigma_novelty_comparison",
         "llm_generation",
     }
