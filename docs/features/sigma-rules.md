@@ -312,6 +312,20 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 - **Medium Similarity (0.7-0.9)**: Review for potential extension
 - **No Matches**: Novel detection opportunity
 
+### Customer repo rules in similarity search
+
+Similarity search uses the single `sigma_rules` table. By default it is populated from the **SigmaHQ** repository. To include **approved rules from your customer repo** (the repo at `SIGMA_REPO_PATH` used for PR submission), index them so they are stored in the same table with a distinct prefix:
+
+```bash
+# Index approved rules from customer repo (metadata + embeddings)
+./run_cli.sh sigma index-customer-repo
+
+# Metadata only (embeddings later via sigma index-embeddings)
+./run_cli.sh sigma index-customer-repo --no-embeddings
+```
+
+Customer rules are stored with `rule_id` prefix `cust-` and `file_path` prefix `customer/`, so they coexist with SigmaHQ rules and appear in similarity results. Re-run after adding or changing rules in the customer repo (optionally with `--force` to reindex all customer rules).
+
 ---
 
 ## Technical Architecture
@@ -356,6 +370,9 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 
 # 3. View statistics
 ./run_cli.sh sigma stats
+
+# 4. (Optional) Index customer repo so similarity search includes approved rules there
+./run_cli.sh sigma index-customer-repo
 ```
 
 **Expected Output:**

@@ -22,6 +22,7 @@ class TestCapabilityService:
             "sigma_metadata_indexing",
             "sigma_embedding_indexing",
             "sigma_retrieval",
+            "sigma_customer_repo_indexed",
             "sigma_novelty_comparison",
             "llm_generation",
         }
@@ -69,11 +70,12 @@ class TestCapabilityService:
 
     def test_sigma_retrieval_enabled_when_embedded_rules_exist(self, capability_service):
         mock_session = MagicMock()
-        # First count call: embedded rules (sigma_retrieval)
-        # Second count call: canonical rules (sigma_novelty)
+        # sigma_retrieval: count; sigma_customer_repo_indexed: scalar; sigma_novelty: count
         mock_session.query.return_value.filter.return_value.count.side_effect = [100, 100]
+        mock_session.query.return_value.filter.return_value.scalar.return_value = 0
 
         with patch.object(capability_service, "_get_db_session", return_value=mock_session):
             result = capability_service.compute_capabilities()
 
         assert result["sigma_retrieval"]["enabled"] is True
+        assert result["sigma_customer_repo_indexed"]["enabled"] is False

@@ -126,6 +126,81 @@ def index_metadata_cmd(force: bool):
         logger.error(f"Metadata indexing failed: {e}")
 
 
+@sigma_group.command("index-customer-repo")
+@click.option("--force", is_flag=True, help="Force re-index all customer rules")
+@click.option("--no-embeddings", is_flag=True, help="Skip embedding generation (metadata only)")
+def index_customer_repo_cmd(force: bool, no_embeddings: bool):
+    """Index approved Sigma rules from the customer repo (SIGMA_REPO_PATH) so similarity search includes them."""
+    from src.services.sigma_pr_service import SigmaPRService
+
+    console.print("[bold blue]Indexing customer Sigma repo...[/bold blue]")
+
+    try:
+        pr_service = SigmaPRService()
+        if not pr_service.repo_path.exists():
+            console.print(f"[bold red]✗[/bold red] Customer repo path does not exist: {pr_service.repo_path}")
+            return
+
+        db_manager = DatabaseManager()
+        session = db_manager.get_session()
+
+        sync_service = SigmaSyncService(repo_path=str(pr_service.repo_path))
+        prefix = "cust-"
+
+        with Progress(
+            SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
+        ) as progress:
+            task = progress.add_task("Indexing customer rules (metadata)...", total=None)
+            result = sync_service.index_metadata(
+                session, force_reindex=force, rule_id_prefix=prefix
+            )
+            progress.update(task, description="Metadata complete")
+
+        console.print(
+            f"[bold green]✓[/bold green] Customer metadata: indexed={result['metadata_indexed']}, "
+            f"skipped={result['skipped']}, errors={result['errors']}"
+        )
+
+        if not no_embeddings:
+            from rich.progress import BarColumn, MofNCompleteColumn, TimeElapsedColumn, TimeRemainingColumn
+
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                MofNCompleteColumn(),
+                TimeElapsedColumn(),
+                TimeRemainingColumn(),
+                console=console,
+            ) as prog:
+                emb_task = prog.add_task("Embedding customer rules...", total=None)
+
+                def on_progress(current, total):
+                    if prog.tasks[emb_task].total is None:
+                        prog.update(emb_task, total=total)
+                    prog.update(emb_task, completed=current)
+
+                emb_result = sync_service.index_embeddings(
+                    session,
+                    force_reindex=False,
+                    progress_callback=on_progress,
+                    rule_id_prefix=prefix,
+                )
+                prog.update(emb_task, description="Complete")
+            console.print(
+                f"[bold green]✓[/bold green] Embeddings: indexed={emb_result['embeddings_indexed']}, "
+                f"skipped={emb_result['skipped']}, errors={emb_result['errors']}"
+            )
+        else:
+            console.print("[dim]Skipped embeddings (--no-embeddings). Run 'sigma index-embeddings' to embed later.[/dim]")
+
+        session.close()
+
+    except Exception as e:
+        console.print(f"[bold red]✗[/bold red] Error: {e}")
+        logger.error("Customer repo indexing failed: %s", e)
+
+
 @sigma_group.command("index-embeddings")
 @click.option("--force", is_flag=True, help="Force regenerate all embeddings")
 def index_embeddings_cmd(force: bool):
@@ -379,6 +454,11 @@ def show_stats():
         # Count rules with embeddings
         embedded_rules = session.query(SigmaRuleTable).filter(SigmaRuleTable.embedding.isnot(None)).count()
 
+        # Count customer-repo rules (included in similarity search)
+        customer_rules = (
+            session.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id.startswith("cust-")).count()
+        )
+
         # Count by status
         from sqlalchemy import func
 
@@ -403,6 +483,7 @@ def show_stats():
 
         table.add_row("Total Rules", str(total_rules))
         table.add_row("Rules with Embeddings", str(embedded_rules))
+        table.add_row("From your repo (similarity search)", str(customer_rules))
         table.add_row("Total Matches", str(total_matches))
 
         console.print(table)
