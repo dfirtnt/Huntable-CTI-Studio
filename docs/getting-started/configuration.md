@@ -198,7 +198,7 @@ The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `SIGMA_REPO_PATH` | Path to SIGMA rules repo (PR submission) | `sigma-repo` |
+| `SIGMA_REPO_PATH` | Path to SIGMA rules repo (PR submission); also used by `sigma index-customer-repo` so similarity search includes approved rules from this repo | `sigma-repo` |
 | `GITHUB_TOKEN` | GitHub PAT for PR submission | — |
 | `GITHUB_REPO` | Target repo for SIGMA rule PRs | `owner/repo` (from setup) |
 

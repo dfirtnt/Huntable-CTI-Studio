@@ -45,6 +45,7 @@ class CapabilityService:
                 "sigma_metadata_indexing": self._check_sigma_metadata_indexing(),
                 "sigma_embedding_indexing": self._check_sigma_embedding_indexing(),
                 "sigma_retrieval": self._check_sigma_retrieval(session),
+                "sigma_customer_repo_indexed": self._check_sigma_customer_repo_indexed(session),
                 "sigma_novelty_comparison": self._check_sigma_novelty(session),
                 "llm_generation": self._check_llm_generation(),
             }
@@ -105,6 +106,34 @@ class CapabilityService:
                 "enabled": False,
                 "reason": "No Sigma rules with embeddings found",
                 "action": "Run sigma index-embeddings to enable Sigma rule retrieval in RAG",
+            }
+        except Exception as e:
+            return {"enabled": False, "reason": f"Check failed: {e}"}
+
+    def _check_sigma_customer_repo_indexed(self, session) -> dict:
+        """Whether approved rules from the customer repo are indexed for similarity search (rule_id like 'cust-%')."""
+        try:
+            from sqlalchemy import func
+
+            from src.database.models import SigmaRuleTable
+
+            count = (
+                session.query(func.count(SigmaRuleTable.id))
+                .filter(SigmaRuleTable.rule_id.startswith("cust-"))
+                .scalar()
+                or 0
+            )
+            if count > 0:
+                return {
+                    "enabled": True,
+                    "count": count,
+                    "reason": f"{count} rules from your repo included in similarity search",
+                }
+            return {
+                "enabled": False,
+                "count": 0,
+                "reason": "Similarity search uses SigmaHQ only",
+                "action": "Run sigma index-customer-repo to include your approved rules",
             }
         except Exception as e:
             return {"enabled": False, "reason": f"Check failed: {e}"}

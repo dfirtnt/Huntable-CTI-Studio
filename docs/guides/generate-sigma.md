@@ -14,6 +14,12 @@ Clone/pull the SigmaHQ repository and index rules into PostgreSQL:
 ./run_cli.sh sigma index            # add --force to re-index
 ```
 
+To include **approved rules from your customer repo** (the repo at `SIGMA_REPO_PATH` used for PR submission) in similarity search, index them so the workflow and RAG compare against both SigmaHQ and your repo:
+```bash
+./run_cli.sh sigma index-customer-repo   # metadata + embeddings; use --no-embeddings for metadata only
+```
+Re-run after adding or changing rules in the customer repo. See [Sigma Detection Rules — Customer repo rules in similarity search](../features/sigma-rules.md#customer-repo-rules-in-similarity-search).
+
 ## 2) Trigger workflow for the article
 Sigma runs automatically after extraction:
 ```bash
