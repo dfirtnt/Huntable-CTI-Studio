@@ -38,6 +38,9 @@ jobs:
         run: pip-audit
 
       - name: Run safety
+        if: ${{ secrets.SAFETY_API_KEY != '' }}
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
         run: safety scan
 
   smoke:
