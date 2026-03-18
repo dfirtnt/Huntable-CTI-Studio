@@ -15,10 +15,15 @@
     max-height: 100vh !important;
     margin: 0 !important;
     border-radius: 0 !important;
+    border: none !important;
 }
 
 .modal-fullscreen #executionDetailContent {
-    max-height: calc(100vh - 120px) !important;
+    max-height: calc(100vh - 60px) !important;
+}
+
+.modal-fullscreen .q-modal-header {
+    border-radius: 0;
 }
 
 .log-fullscreen {
@@ -639,6 +644,782 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 9.5px;
   color: rgba(255,255,255,0.35);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SIGMA QUEUE — Tactical Operations Console
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Command Strip (action bar) ─────────────────────── */
+.q-command-strip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: var(--panel-bg-3);
+  border: 1px solid var(--purple-border-15);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.q-cmd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-transform: uppercase;
+}
+
+.q-cmd-btn.refresh {
+  background: var(--action-info);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+.q-cmd-btn.refresh:hover {
+  background: var(--action-info-hover);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.25);
+}
+
+.q-cmd-btn.submit-pr {
+  background: var(--action-execute);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+.q-cmd-btn.submit-pr:hover {
+  background: var(--action-execute-dark);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+.q-cmd-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.q-cmd-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--purple-border-25);
+}
+
+.q-cmd-filter {
+  padding: 6px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--panel-bg-5);
+  border: 1px solid var(--purple-border-20);
+  border-radius: 6px;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  transition: border-color 0.15s;
+}
+.q-cmd-filter:hover,
+.q-cmd-filter:focus {
+  border-color: var(--purple-border-50);
+  outline: none;
+}
+
+.q-cmd-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted-slate);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ─── Stat Cards ──────────────────────────────────────── */
+.q-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.q-stat-card {
+  position: relative;
+  padding: 16px 18px 14px;
+  background: var(--panel-bg-2);
+  border: 1px solid var(--purple-border-15);
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.15s;
+}
+.q-stat-card:hover {
+  border-color: var(--purple-border-25);
+  transform: translateY(-1px);
+}
+
+.q-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+}
+
+.q-stat-card.pending::before  { background: var(--action-warning); }
+.q-stat-card.approved::before { background: var(--action-success-light); }
+.q-stat-card.rejected::before { background: var(--action-danger); }
+.q-stat-card.submitted::before { background: var(--purple-primary); }
+
+.q-stat-card .q-stat-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted-slate);
+  margin-bottom: 6px;
+}
+
+.q-stat-card .q-stat-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.q-stat-card.pending .q-stat-value  { color: var(--badge-yellow-text); }
+.q-stat-card.approved .q-stat-value { color: var(--badge-green-text); }
+.q-stat-card.rejected .q-stat-value { color: var(--badge-red-text); }
+.q-stat-card.submitted .q-stat-value { color: var(--purple-light); }
+
+/* Subtle glow behind the number */
+.q-stat-card .q-stat-value {
+  text-shadow: 0 0 20px currentColor;
+}
+
+/* ─── Queue Table ─────────────────────────────────────── */
+.q-table-wrap {
+  background: var(--panel-bg-2);
+  border: 1px solid var(--purple-border-15);
+  border-radius: 10px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.q-table-wrap::-webkit-scrollbar {
+  height: 6px;
+}
+.q-table-wrap::-webkit-scrollbar-track {
+  background: var(--panel-bg-4);
+}
+.q-table-wrap::-webkit-scrollbar-thumb {
+  background: var(--purple-border-25);
+  border-radius: 3px;
+}
+
+.q-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.q-table thead th {
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted-slate);
+  background: var(--panel-bg-4);
+  border-bottom: 1px solid var(--purple-border-20);
+  text-align: left;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.q-table tbody tr {
+  position: relative;
+  transition: background 0.12s;
+  border-bottom: 1px solid rgba(139, 92, 246, 0.06);
+}
+
+.q-table tbody tr:hover {
+  background: rgba(139, 92, 246, 0.06);
+}
+
+.q-table tbody td {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* Left-edge status indicator bar */
+.q-table tbody tr::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+.q-table tbody tr:hover::before { opacity: 1; }
+
+.q-table tbody tr[data-status="pending"]::before   { background: var(--action-warning); }
+.q-table tbody tr[data-status="approved"]::before  { background: var(--action-success-light); }
+.q-table tbody tr[data-status="rejected"]::before  { background: var(--action-danger); }
+.q-table tbody tr[data-status="submitted"]::before { background: var(--purple-primary); }
+
+/* Cell type treatments */
+.q-table .q-cell-id {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted-slate);
+}
+
+.q-table .q-cell-article {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-table .q-cell-article a {
+  color: var(--purple-light);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.12s;
+}
+.q-table .q-cell-article a:hover {
+  color: var(--purple-primary);
+  text-decoration: underline;
+}
+
+.q-table .q-cell-title {
+  color: var(--text-primary);
+  font-weight: 500;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.q-table .q-cell-sim {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted-slate);
+}
+
+.q-table .q-cell-date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Status badge — dot + label */
+.q-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.q-badge::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.q-badge.pending  { color: var(--badge-yellow-text); }
+.q-badge.pending::before  { background: var(--action-warning); box-shadow: 0 0 6px var(--action-warning); }
+.q-badge.approved { color: var(--badge-green-text); }
+.q-badge.approved::before { background: var(--action-success-light); box-shadow: 0 0 6px var(--action-success-light); }
+.q-badge.rejected { color: var(--badge-red-text); }
+.q-badge.rejected::before { background: var(--action-danger); box-shadow: 0 0 6px var(--action-danger); }
+.q-badge.submitted { color: var(--purple-light); }
+.q-badge.submitted::before { background: var(--purple-primary); box-shadow: 0 0 6px var(--purple-primary); }
+
+/* Action links */
+.q-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.q-action {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+  background: none;
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: all 0.12s;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.q-action.preview {
+  color: var(--action-info);
+}
+.q-action.preview:hover {
+  color: var(--text-primary);
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.q-action.approve {
+  color: var(--action-success-light);
+}
+.q-action.approve:hover {
+  color: var(--text-primary);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.q-action.reject {
+  color: var(--action-danger);
+}
+.q-action.reject:hover {
+  color: var(--text-primary);
+  background: rgba(239, 68, 68, 0.12);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXECUTIONS TAB — Extensions to Tactical Console
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Execution-specific stat card accents ────────────── */
+.q-stat-card.total::before    { background: var(--text-muted-slate); }
+.q-stat-card.total .q-stat-value { color: var(--text-primary); text-shadow: none; }
+.q-stat-card.running::before  { background: var(--action-info); }
+.q-stat-card.running .q-stat-value { color: var(--badge-blue-text); }
+.q-stat-card.completed::before { background: var(--action-success-light); }
+.q-stat-card.completed .q-stat-value { color: var(--badge-green-text); }
+.q-stat-card.failed::before   { background: var(--action-danger); }
+.q-stat-card.failed .q-stat-value { color: var(--badge-red-text); }
+
+/* ─── Execution-specific status badges ───────────────── */
+.q-badge.running  { color: var(--badge-blue-text); }
+.q-badge.running::before  { background: var(--action-info); box-shadow: 0 0 6px var(--action-info); animation: pulse-dot 2s ease-in-out infinite; }
+.q-badge.completed { color: var(--badge-green-text); }
+.q-badge.completed::before { background: var(--action-success-light); box-shadow: 0 0 6px var(--action-success-light); }
+.q-badge.failed { color: var(--badge-red-text); }
+.q-badge.failed::before { background: var(--action-danger); box-shadow: 0 0 6px var(--action-danger); }
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* Termination badge (inline after status) */
+.q-badge-term {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted-slate);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 4px;
+}
+
+/* ─── Execution table left-edge status bars ──────────── */
+.q-table tbody tr[data-status="running"]::before  { background: var(--action-info); }
+.q-table tbody tr[data-status="completed"]::before { background: var(--action-success-light); }
+.q-table tbody tr[data-status="failed"]::before    { background: var(--action-danger); }
+
+/* ─── Command strip button variants ──────────────────── */
+.q-cmd-btn.trigger {
+  background: var(--purple-primary);
+  border-color: var(--purple-border-25);
+}
+.q-cmd-btn.trigger:hover {
+  background: var(--purple-hover);
+  box-shadow: 0 0 12px var(--purple-shadow-15);
+}
+
+.q-cmd-btn.warning {
+  background: var(--action-warning);
+  border-color: rgba(234, 179, 8, 0.3);
+  color: var(--panel-bg-0);
+}
+.q-cmd-btn.warning:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 12px rgba(234, 179, 8, 0.25);
+}
+
+.q-cmd-btn.danger {
+  background: var(--action-danger);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+.q-cmd-btn.danger:hover {
+  background: var(--action-danger-hover);
+  box-shadow: 0 0 12px rgba(220, 38, 38, 0.25);
+}
+
+.q-cmd-btn.neutral {
+  background: var(--panel-bg-5);
+  border-color: var(--purple-border-20);
+  color: var(--text-secondary);
+}
+.q-cmd-btn.neutral:hover {
+  background: var(--panel-bg-6);
+  color: var(--text-primary);
+}
+
+/* ─── Filter input ───────────────────────────────────── */
+.q-cmd-input {
+  padding: 6px 10px;
+  width: 90px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+  background: var(--panel-bg-5);
+  border: 1px solid var(--purple-border-20);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+.q-cmd-input::placeholder { color: var(--text-muted); }
+.q-cmd-input:focus {
+  border-color: var(--purple-border-50);
+  outline: none;
+}
+
+/* ─── Pagination ─────────────────────────────────────── */
+.q-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  padding: 8px 16px;
+  background: var(--panel-bg-3);
+  border: 1px solid var(--purple-border-15);
+  border-radius: 8px;
+}
+
+.q-pagination .q-page-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted-slate);
+  letter-spacing: 0.03em;
+}
+
+.q-pagination .q-page-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.q-page-btn {
+  padding: 4px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid var(--purple-border-20);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.q-page-btn:hover:not(:disabled) {
+  border-color: var(--purple-border-50);
+  color: var(--text-primary);
+}
+.q-page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* ─── Step badge ─────────────────────────────────────── */
+.q-step-badge {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MODAL SYSTEM — Tactical Console Dialogs
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.q-modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px) saturate(0.7);
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes modal-slide-up {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.q-modal-panel {
+  background: var(--panel-bg-1);
+  border: 1px solid var(--purple-border-20);
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(139, 92, 246, 0.08),
+    0 24px 80px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(139, 92, 246, 0.06);
+  overflow: hidden;
+  animation: modal-slide-up 0.25s ease-out;
+}
+
+.q-modal-panel.q-modal-compact {
+  max-width: 480px;
+}
+
+.q-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--panel-bg-3);
+  border-bottom: 1px solid var(--purple-border-15);
+}
+
+.q-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.q-modal-title {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.01em;
+}
+
+.q-modal-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.q-modal-ctrl-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  color: var(--text-muted-slate);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.q-modal-ctrl-btn:hover {
+  color: var(--text-primary);
+  background: var(--panel-bg-5);
+  border-color: var(--purple-border-15);
+}
+.q-modal-close:hover {
+  color: var(--action-danger);
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(220, 38, 38, 0.2);
+}
+
+.q-modal-body {
+  padding: 20px;
+  color: var(--text-secondary);
+}
+
+.q-modal-body > .space-y-4 > * + * { margin-top: 16px; }
+
+.q-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--purple-border-10);
+  margin-top: 20px;
+}
+
+.q-modal-message {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+
+/* ─── Form Elements ──────────────────────────────────── */
+.q-form-group {
+  margin-bottom: 4px;
+}
+
+.q-form-label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted-slate);
+  margin-bottom: 8px;
+}
+
+.q-form-input {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: var(--panel-bg-5);
+  border: 1px solid var(--purple-border-20);
+  border-radius: 8px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.q-form-input::placeholder {
+  color: var(--text-muted);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 400;
+}
+.q-form-input:focus {
+  border-color: var(--purple-primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  outline: none;
+}
+
+.q-form-hint {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EXECUTION DETAIL — Tabbed Panel Theming
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Tab strip inside modal */
+#exec-tab-strip {
+  background: var(--panel-bg-2) !important;
+  border-bottom: 1px solid var(--purple-border-15) !important;
+}
+
+/* Tab buttons — base */
+.exec-tab {
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.03em !important;
+  transition: all 0.15s !important;
+}
+
+/* Tab buttons — inactive state */
+.exec-tab[data-active="false"] {
+  background: transparent !important;
+  border-color: var(--purple-border-20) !important;
+  color: var(--text-muted-slate) !important;
+}
+.exec-tab[data-active="false"]:hover {
+  border-color: var(--purple-border-50) !important;
+  color: var(--text-primary) !important;
+  background: var(--panel-bg-4) !important;
+}
+
+/* Tab buttons — active state by status */
+.exec-tab[data-active="true"][data-status="pass"]    { background: rgba(22, 163, 74, 0.25) !important; border-color: rgba(22, 163, 74, 0.4) !important; color: var(--badge-green-text) !important; }
+.exec-tab[data-active="true"][data-status="stopped"]  { background: rgba(220, 38, 38, 0.2) !important; border-color: rgba(220, 38, 38, 0.4) !important; color: var(--badge-red-text) !important; }
+.exec-tab[data-active="true"][data-status="warn"]     { background: rgba(234, 179, 8, 0.2) !important; border-color: rgba(234, 179, 8, 0.4) !important; color: var(--badge-yellow-text) !important; }
+.exec-tab[data-active="true"][data-status="error"]    { background: rgba(220, 38, 38, 0.2) !important; border-color: rgba(220, 38, 38, 0.4) !important; color: var(--badge-red-text) !important; }
+.exec-tab[data-active="true"][data-status="skipped"]  { background: var(--panel-bg-5) !important; border-color: var(--purple-border-25) !important; color: var(--text-muted-slate) !important; }
+
+/* Step panel details/summary */
+.exec-inputs,
+.exec-output {
+  border-color: var(--purple-border-15) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  background: var(--panel-bg-3);
+}
+
+.exec-inputs > summary,
+.exec-output > summary {
+  padding: 10px 16px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--text-muted-slate) !important;
+  background: var(--panel-bg-4) !important;
+  transition: background 0.12s !important;
+}
+.exec-inputs > summary:hover,
+.exec-output > summary:hover {
+  background: var(--panel-bg-5) !important;
+  color: var(--text-primary) !important;
+}
+
+.exec-inputs > div,
+.exec-output > div {
+  border-top-color: var(--purple-border-10) !important;
+}
+
+/* Status badges inside step panels */
+.exec-panel .px-2\.5 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Step panel status badges — override Tailwind colors */
+.exec-panel .bg-green-900\/40  { background: rgba(22, 163, 74, 0.15) !important; border-color: rgba(22, 163, 74, 0.3) !important; }
+.exec-panel .bg-red-900\/40    { background: rgba(220, 38, 38, 0.15) !important; border-color: rgba(220, 38, 38, 0.3) !important; }
+.exec-panel .bg-amber-900\/40  { background: rgba(234, 179, 8, 0.15) !important; border-color: rgba(234, 179, 8, 0.3) !important; }
+.exec-panel .bg-gray-900\/40   { background: var(--panel-bg-5) !important; border-color: var(--purple-border-20) !important; }
+
+/* Execution panel headings */
+.exec-panel h4 {
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 14px !important;
+  color: var(--text-primary) !important;
+}
+
+/* ─── Responsive ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  .q-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .q-command-strip { flex-wrap: wrap; }
+  .q-modal-panel { margin: 8px; border-radius: 10px; }
 }
 
 </style>
@@ -1479,219 +2260,227 @@
     </div>
 
     <!-- Executions Tab -->
-    <div id="tab-content-executions" class="tab-content hidden min-w-0">
-        <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
-            <div class="flex flex-wrap items-center gap-3">
-                <button onclick="refreshExecutions()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                    🔄 Refresh
-                </button>
-                <button onclick="showTriggerWorkflowModal()" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                    ➕ Trigger Workflow
-                </button>
-                <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" id="triggerStuckBtn">
-                    ⚡ Trigger Stuck
-                </button>
-                <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
-                    🧹 Cleanup Stale
-                </button>
-                <button onclick="cancelAllRunningExecutions()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Cancel all running or pending executions">
-                    🛑 Cancel All Running
-                </button>
-                <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="running">Running</option>
-                    <option value="completed">Completed</option>
-                    <option value="failed">Failed</option>
-                </select>
-                <select id="stepFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                    <option value="">All Steps</option>
-                    <option value="junk_filter">Filter</option>
-                    <option value="rank_article">Rank</option>
-                    <option value="extract_agent">Extract</option>
-                    <option value="generate_sigma">SIGMA</option>
-                    <option value="similarity_search">Similarity</option>
-                    <option value="promote_to_queue">Queue</option>
-                </select>
-                <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="px-3 py-2 w-28 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white placeholder-gray-500" onkeydown="if(event.key==='Enter')filterExecutions()">
-                <button onclick="filterExecutions()" class="px-3 py-2 bg-gray-600 hover:bg-gray-500 text-gray-100 rounded-md text-sm">Apply</button>
-            </div>
+    <div id="tab-content-executions" class="tab-content hidden">
+
+        <!-- Command Strip — Actions -->
+        <div class="q-command-strip" style="flex-wrap:wrap; gap:8px;">
+            <button onclick="refreshExecutions()" class="q-cmd-btn refresh">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+            </button>
+            <button onclick="showTriggerWorkflowModal()" class="q-cmd-btn trigger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Trigger
+            </button>
+            <button onclick="triggerStuckExecutions()" id="triggerStuckBtn" class="q-cmd-btn warning">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                Stuck
+            </button>
+            <button onclick="cleanupStaleExecutions()" class="q-cmd-btn warning" title="Mark running or pending executions older than 15 minutes as failed">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+                Stale
+            </button>
+            <button onclick="cancelAllRunningExecutions()" class="q-cmd-btn danger" title="Cancel all running or pending executions">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                Cancel All
+            </button>
+            <div class="q-cmd-divider"></div>
+            <span class="q-cmd-label">Filter</span>
+            <select id="statusFilter" onchange="filterExecutions()" class="q-cmd-filter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="running">Running</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+            </select>
+            <select id="stepFilter" onchange="filterExecutions()" class="q-cmd-filter">
+                <option value="">All Steps</option>
+                <option value="junk_filter">Filter</option>
+                <option value="rank_article">Rank</option>
+                <option value="extract_agent">Extract</option>
+                <option value="generate_sigma">SIGMA</option>
+                <option value="similarity_search">Similarity</option>
+                <option value="promote_to_queue">Queue</option>
+            </select>
+            <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="q-cmd-input" onkeydown="if(event.key==='Enter')filterExecutions()">
+            <button onclick="filterExecutions()" class="q-cmd-btn neutral">Apply</button>
             <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
-            <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 hidden" aria-hidden="true">
-                <input type="checkbox" 
-                       id="observableCountsToggle" 
-                       onchange="toggleObservableCounts(event)"
-                       class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 dark:border-gray-600 rounded">
-                <span class="select-none">Show extract observable counts</span>
+            <label class="hidden" aria-hidden="true">
+                <input type="checkbox" id="observableCountsToggle" onchange="toggleObservableCounts(event)">
             </label>
         </div>
 
         <!-- Statistics -->
-        <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
-                <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
+        <div id="executionStats" class="q-stats-grid">
+            <div class="q-stat-card total">
+                <div class="q-stat-label">Total Executions</div>
+                <div class="q-stat-value" id="totalExecutions">-</div>
             </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
-                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
+            <div class="q-stat-card running">
+                <div class="q-stat-label">Running</div>
+                <div class="q-stat-value" id="runningExecutions">-</div>
             </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
-                <div class="text-2xl font-bold text-emerald-400 dark:text-green-400" id="completedExecutions">-</div>
+            <div class="q-stat-card completed">
+                <div class="q-stat-label">Completed</div>
+                <div class="q-stat-value" id="completedExecutions">-</div>
             </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
-                <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
+            <div class="q-stat-card failed">
+                <div class="q-stat-label">Failed</div>
+                <div class="q-stat-value" id="failedExecutions">-</div>
             </div>
         </div>
 
-        <!-- Executions Table: table-fixed + truncated Article; Actions column reserved (header filled by renderExecutionHeader) -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto min-w-0">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-900">
+        <!-- Executions Table -->
+        <div class="q-table-wrap">
+            <table class="q-table">
+                <thead>
                     <tr id="executionsHeaderRow">
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Current Step</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ranking Score</th>
-                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
-                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                        <th style="padding-left:24px">ID</th>
+                        <th>Article</th>
+                        <th>Status</th>
+                        <th>Step</th>
+                        <th>Score</th>
+                        <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="executionsTableBody" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="executionsTableBody">
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">Loading...</td>
+                        <td colspan="7" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        <div id="executionPagination" class="mt-3 flex items-center justify-between text-sm text-gray-400 hidden">
-            <span id="executionPageInfo"></span>
-            <div class="flex gap-2">
-                <button type="button" id="executionPrevBtn" onclick="changeExecutionPage(-1)"
-                    class="px-3 py-1 border border-gray-600 rounded-md disabled:opacity-40 hover:text-white">← Prev</button>
-                <button type="button" id="executionNextBtn" onclick="changeExecutionPage(1)"
-                    class="px-3 py-1 border border-gray-600 rounded-md disabled:opacity-40 hover:text-white">Next →</button>
+        <div id="executionPagination" class="q-pagination hidden">
+            <span id="executionPageInfo" class="q-page-info"></span>
+            <div class="q-page-btns">
+                <button type="button" id="executionPrevBtn" onclick="changeExecutionPage(-1)" class="q-page-btn">Prev</button>
+                <button type="button" id="executionNextBtn" onclick="changeExecutionPage(1)" class="q-page-btn">Next</button>
             </div>
         </div>
 
         <!-- Execution Detail Modal -->
-        <div id="executionModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50">
-            <div id="executionModalContent" class="relative top-20 mx-auto p-5 border border-gray-700 w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-xl bg-gray-800 transition-all duration-300">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-50">Execution Details</h3>
-                    <div class="flex items-center gap-2">
-                        <button onclick="toggleModalFullscreen()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Toggle fullscreen">
-                            <svg id="fullscreenIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
+        <div id="executionModal" class="hidden fixed inset-0 overflow-y-auto h-full w-full z-50 q-modal-overlay">
+            <div id="executionModalContent" class="relative top-16 mx-auto w-11/12 md:w-3/4 lg:w-1/2 q-modal-panel transition-all duration-300">
+                <div class="q-modal-header">
+                    <div class="q-modal-title-group">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--purple-light)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <h3 class="q-modal-title">Execution Details</h3>
+                    </div>
+                    <div class="q-modal-controls">
+                        <button onclick="toggleModalFullscreen()" class="q-modal-ctrl-btn" title="Toggle fullscreen">
+                            <svg id="fullscreenIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/>
                             </svg>
-                            <svg id="exitFullscreenIcon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6v12m12-12v12"/>
+                            <svg id="exitFullscreenIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="hidden">
+                                <polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/>
                             </svg>
                         </button>
-                        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">✕</button>
+                        <button onclick="closeModal()" class="q-modal-ctrl-btn q-modal-close">✕</button>
                     </div>
                 </div>
-                <div id="executionDetailContent" class="space-y-4 max-h-[80vh] overflow-y-auto text-gray-300">
+                <div id="executionDetailContent" class="q-modal-body max-h-[80vh] overflow-y-auto">
                     <!-- Content loaded dynamically -->
                 </div>
             </div>
         </div>
 
         <!-- Trigger Workflow Modal -->
-        <div id="triggerWorkflowModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-2/3 lg:w-1/2 shadow-lg rounded-md bg-gray-800 border border-gray-700">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-gray-900 dark:text-gray-300">Trigger Workflow</h3>
-                    <button onclick="closeTriggerWorkflowModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+        <div id="triggerWorkflowModal" class="hidden fixed inset-0 overflow-y-auto h-full w-full z-50 q-modal-overlay">
+            <div class="relative top-20 mx-auto w-11/12 md:w-2/3 lg:w-1/2 q-modal-panel q-modal-compact">
+                <div class="q-modal-header">
+                    <div class="q-modal-title-group">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--action-execute)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <h3 class="q-modal-title">Trigger Workflow</h3>
+                    </div>
+                    <button onclick="closeTriggerWorkflowModal()" class="q-modal-ctrl-btn q-modal-close">✕</button>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <label for="triggerArticleId" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                            Article ID
-                        </label>
-                        <input type="number" 
-                               id="triggerArticleId" 
-                               min="1" 
+                <div class="q-modal-body">
+                    <div class="q-form-group">
+                        <label for="triggerArticleId" class="q-form-label">Article ID</label>
+                        <input type="number"
+                               id="triggerArticleId"
+                               min="1"
                                required
-                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white"
+                               class="q-form-input"
                                placeholder="Enter article ID">
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Enter the ID of the article to process</p>
+                        <p class="q-form-hint">Enter the ID of the article to process through the workflow pipeline</p>
                     </div>
-                    
-                    <div class="flex justify-end space-x-3">
-                        <button onclick="closeTriggerWorkflowModal()" class="px-4 py-2 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md transition-colors">
-                            Cancel
-                        </button>
-                        <button onclick="triggerWorkflow()" class="px-4 py-2 btn-workflow text-white rounded-md transition-colors">
-                            Trigger
+
+                    <div class="q-modal-actions">
+                        <button onclick="closeTriggerWorkflowModal()" class="q-cmd-btn neutral">Cancel</button>
+                        <button onclick="triggerWorkflow()" class="q-cmd-btn trigger">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            Execute
                         </button>
                     </div>
-                    <div id="triggerWorkflowMessage" class="hidden mt-4 p-3 rounded-md"></div>
+                    <div id="triggerWorkflowMessage" class="hidden q-modal-message"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Queue Tab -->
-    <div id="tab-content-queue" class="tab-content hidden min-w-0">
-        <div class="flex items-center justify-between mb-6">
-            <div class="flex space-x-4">
-                <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
-                    🔄 Refresh
-                </button>
-                <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-emerald-600 hover:bg-green-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    📤 Submit PR
-                </button>
-                <select id="queueStatusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                    <option value="">All Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="rejected">Rejected</option>
-                    <option value="submitted">Submitted</option>
-                </select>
-            </div>
+    <div id="tab-content-queue" class="tab-content hidden">
+
+        <!-- Command Strip -->
+        <div class="q-command-strip">
+            <button onclick="loadQueue()" class="q-cmd-btn refresh">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Refresh
+            </button>
+            <button onclick="submitPR()" id="submitPRBtn" class="q-cmd-btn submit-pr">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Submit PR
+            </button>
+            <div class="q-cmd-divider"></div>
+            <span class="q-cmd-label">Filter</span>
+            <select id="queueStatusFilter" onchange="filterQueue()" class="q-cmd-filter">
+                <option value="">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="submitted">Submitted</option>
+            </select>
         </div>
 
         <!-- Queue Statistics -->
-        <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-300">Pending Review</div>
-                <div class="text-2xl font-bold text-amber-400 dark:text-yellow-400" id="pendingCount">-</div>
+        <div id="queueStats" class="q-stats-grid">
+            <div class="q-stat-card pending">
+                <div class="q-stat-label">Pending Review</div>
+                <div class="q-stat-value" id="pendingCount">-</div>
             </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-300">Approved</div>
-                <div class="text-2xl font-bold text-emerald-400 dark:text-green-400" id="approvedCount">-</div>
+            <div class="q-stat-card approved">
+                <div class="q-stat-label">Approved</div>
+                <div class="q-stat-value" id="approvedCount">-</div>
             </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-300">Rejected</div>
-                <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
+            <div class="q-stat-card rejected">
+                <div class="q-stat-label">Rejected</div>
+                <div class="q-stat-value" id="rejectedCount">-</div>
             </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-                <div class="text-sm text-gray-600 dark:text-gray-300">Submitted</div>
-                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
+            <div class="q-stat-card submitted">
+                <div class="q-stat-label">Submitted</div>
+                <div class="q-stat-value" id="submittedCount">-</div>
             </div>
         </div>
 
-        <!-- Queue Table: table-fixed + truncated text columns so Actions stays in view without horizontal scroll -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto min-w-0">
-            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-900">
+        <!-- Queue Table -->
+        <div class="q-table-wrap">
+            <table class="q-table">
+                <thead>
                     <tr>
-                        <th class="w-14 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                        <th class="w-[28%] min-w-0 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
-                        <th class="w-[24%] min-w-0 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rule Title</th>
-                        <th class="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider leading-tight">Max Similarity</th>
-                        <th class="w-28 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                        <th class="w-36 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
-                        <th class="w-[12rem] min-w-[12rem] pl-3 pr-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                        <th style="padding-left:24px">ID</th>
+                        <th>Article</th>
+                        <th>Rule Title</th>
+                        <th>Similarity</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
-                <tbody id="queueTableBody" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="queueTableBody">
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-300">Loading...</td>
+                        <td colspan="7" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -9800,24 +10589,20 @@ if (workflowConfigForm) {
 // Execution Functions
 
 function getStatusBadge(status) {
-    const badges = {
-        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-white font-semibold">Pending</span>',
-        'running': '<span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-white font-semibold">Running</span>',
-        'completed': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-white font-semibold">Completed</span>',
-        'failed': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-white font-semibold">Failed</span>'
-    };
-    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 font-semibold">' + status + '</span>';
+    const known = ['pending', 'running', 'completed', 'failed'];
+    const cls = known.includes(status) ? status : '';
+    const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+    return `<span class="q-badge ${cls}">${label}</span>`;
 }
 
 function getTerminationBadge(reason) {
-    if (!reason) {
-        return '';
-    }
-    const badges = {
-        'rank_below_threshold': '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100 font-semibold">Stopped: Below Threshold</span>',
-        'no_sigma_rules_generated': '<span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-200 font-semibold">No SIGMA Rules</span>'
+    if (!reason) return '';
+    const labels = {
+        'rank_below_threshold': 'Below Threshold',
+        'no_sigma_rules_generated': 'No SIGMA Rules'
     };
-    return badges[reason] || `<span class="ml-2 px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200 font-semibold">${reason}</span>`;
+    const label = labels[reason] || reason;
+    return `<span class="q-badge-term">${label}</span>`;
 }
 
 function describeTermination(reason, details) {
@@ -9896,27 +10681,30 @@ function renderExecutionHeader() {
     const headerRow = document.getElementById('executionsHeaderRow');
     if (!headerRow) return;
     
-    const sortable =
-        'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none';
-    const thText =
-        'px-3 py-3 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider';
-    const sortTh = (key, label, widthCls) =>
-        `<th class="${widthCls} ${thText} text-left ${sortable}" onclick="setExecutionSort('${key}')" title="Click to sort">${label}${getSortIndicator(key)}</th>`;
-    const plainTh = (label, widthCls, align = 'text-left') =>
-        `<th class="${widthCls} ${thText} ${align}">${label}</th>`;
+    const sortableClass = 'cursor-pointer select-none';
+    const sortableColumns = [
+        { key: 'id', label: 'ID' },
+        { key: 'article_id', label: 'Article' },
+        { key: 'status', label: 'Status' },
+        { key: 'current_step', label: 'Current Step' },
+        { key: 'ranking_score', label: 'Ranking Score' }
+    ];
 
-    let html = '';
-    html += sortTh('id', 'ID', 'w-14 whitespace-nowrap');
-    html += sortTh('article_id', 'Article', 'min-w-0 w-[26%] max-w-0');
-    html += sortTh('status', 'Status', 'w-[7.5rem] whitespace-nowrap');
-    html += sortTh('current_step', 'Current Step', 'w-[8.5rem] whitespace-nowrap leading-tight');
-    html += sortTh('ranking_score', 'Ranking Score', 'w-[5.5rem] whitespace-nowrap leading-tight');
+    // Helper used by observable-count columns and post-loop headers below
+    const sortTh = (key, label, _widthCls) =>
+        `<th class="${sortableClass}" onclick="setExecutionSort('${key}')" title="Click to sort">${label}${getSortIndicator(key)}</th>`;
+    const plainTh = (label, _widthCls, _align) =>
+        `<th>${label}</th>`;
+
+    let html = sortableColumns.map((col, i) =>
+        `<th class="${sortableClass}" onclick="setExecutionSort('${col.key}')" title="Click to sort"${i === 0 ? ' style="padding-left:24px"' : ''}>${col.label}${getSortIndicator(col.key)}</th>`
+    ).join('');
+
     if (showObservableCounts) {
         html += observableCountColumns.map(col => plainTh(col.label, 'w-12 px-2', 'text-center')).join('');
     }
     html += sortTh('created_at', 'Created', 'w-[7.25rem] whitespace-nowrap');
-    html +=
-        '<th class="w-[15rem] min-w-[15rem] py-3 pl-2 pr-5 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">Actions</th>';
+    html += '<th>Actions</th>';
     
     headerRow.innerHTML = html;
 }
@@ -10004,42 +10792,31 @@ function renderExecutions() {
         return;
     }
     
-    tbody.innerHTML = executions.map(exec => {
-        const articleLabel = exec.article_title || 'Article ' + exec.article_id;
-        return `
-        <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white align-top">${exec.id}</td>
-            <td class="max-w-0 min-w-0 px-3 py-3 text-sm align-top">
-                <a href="/articles/${exec.article_id}" class="block truncate text-purple-600 hover:text-purple-800 dark:text-purple-400" title="${execEscapeAttr(articleLabel)}">
-                    ${articleLabel}
+    /* NOTE: Pre-existing innerHTML pattern — all values from own DB, not user input. */
+    tbody.innerHTML = executions.map(exec => `
+        <tr data-status="${exec.status || ''}">
+            <td class="q-cell-id" style="padding-left:24px">${exec.id}</td>
+            <td class="q-cell-article">
+                <a href="/articles/${exec.article_id}">
+                    ${exec.article_title || 'Article ' + exec.article_id}
                 </a>
             </td>
-            <td class="px-2 py-3 whitespace-nowrap align-top">
-                <div class="flex flex-wrap items-center gap-1">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
+            <td>
+                <div style="display:flex;align-items:center">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
             </td>
-            <td class="px-2 py-3 text-sm text-gray-500 dark:text-gray-300 align-top whitespace-nowrap overflow-hidden text-ellipsis">${getStepBadge(exec.current_step)}</td>
-            <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center align-top">
-                ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
-            </td>
+            <td class="q-step-badge">${getStepBadge(exec.current_step)}</td>
+            <td class="q-cell-sim">${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}</td>
             ${showObservableCounts ? observableCountColumns.map(col => `
-                <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center align-top">
-                    ${formatObservableCount(exec, col.key)}
-                </td>
+                <td class="q-cell-sim" style="text-align:center">${formatObservableCount(exec, col.key)}</td>
             `).join('') : ''}
-            <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 align-top">
+            <td class="q-cell-date">
                 ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
             </td>
-            <td class="w-[15rem] min-w-[15rem] pl-2 pr-5 py-3 text-sm text-right align-top whitespace-nowrap">
-                <button type="button" onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mr-1.5">View</button>
-                ${(exec.status === 'running' || exec.status === 'pending') ? `<button type="button" onclick="openLiveExecutionView(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
-                <button type="button" onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-1.5" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
-                ${exec.status === 'failed' ? `
-                    <button type="button" onclick="retryExecution(${exec.id}, false)" class="text-emerald-400 hover:text-green-800 dark:text-green-400" title="Retry in background via Celery (async, returns immediately)">Retry</button>
-                ` : ''}
-            </td>
+            <td><div class="q-actions-cell">
+                <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open in Langfuse">Trace</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
+            </div></td>
         </tr>
-    `;
-    }).join('');
+    `).join('');
 }
 
 function toggleObservableCounts(event) {
@@ -11279,23 +12056,12 @@ function toggleModalFullscreen() {
 }
 
 function switchExecTab(index) {
-    // Update tab buttons
+    // Update tab buttons — CSS handles styling via data-active/data-status attributes
     document.querySelectorAll('#exec-tab-strip button.exec-tab').forEach((btn, i) => {
         const isActive = i === index;
         btn.setAttribute('data-active', isActive ? 'true' : 'false');
-        if (isActive) {
-            const statusColors = {
-                pass: 'bg-green-600 text-white border-transparent',
-                stopped: 'bg-red-600 text-white border-transparent',
-                warn: 'bg-amber-500 text-white border-transparent',
-                error: 'bg-red-600 text-white border-transparent',
-                skipped: 'bg-gray-600 text-white border-transparent'
-            };
-            const status = btn.dataset.status || 'skipped';
-            btn.className = `exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${statusColors[status] || statusColors.skipped}`;
-        } else {
-            btn.className = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors border border-gray-600 text-gray-200 hover:border-gray-300 hover:text-white';
-        }
+        // Reset to base class — CSS attribute selectors handle the rest
+        btn.className = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border';
     });
     // Update panels
     document.querySelectorAll('#executionDetailContent .exec-panel').forEach((panel, i) => {
@@ -11305,26 +12071,25 @@ function switchExecTab(index) {
 
 function renderSubTabs(subSteps) {
     if (!subSteps || subSteps.length === 0) return '';
-    const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
     const tabButtons = subSteps.map((sub, i) => `
-        <button class="exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${i === 0 ? (statusColors[sub.status] || 'bg-gray-700') + ' text-white' : 'border border-gray-600 text-gray-300 hover:text-white'}"
-                data-subtab="${i}" data-status="${sub.status}"
+        <button class="exec-subtab exec-tab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap border"
+                data-subtab="${i}" data-status="${sub.status}" data-active="${i === 0 ? 'true' : 'false'}"
                 onclick="switchExecSubTab(this.closest('.exec-subtab-container'), ${i})">
-            ${sub.shortName}${sub.metric ? `<span class="opacity-75 font-mono ml-1">${escapeHtml(String(sub.metric))}</span>` : ''}
+            ${sub.shortName}${sub.metric ? `<span style="opacity:0.75;font-family:'JetBrains Mono',monospace;margin-left:4px;font-size:10px">${escapeHtml(String(sub.metric))}</span>` : ''}
         </button>
     `).join('');
 
     const panels = subSteps.map((sub, i) => `
         <div class="exec-subpanel ${i === 0 ? '' : 'hidden'}" data-subpanel="${i}">
             <div class="text-sm space-y-3 pt-3">
-                <div class="text-xs text-gray-300 mb-1">OUTPUT</div>
+                <div style="font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted-slate);margin-bottom:4px">OUTPUT</div>
                 ${sub.output || ''}
             </div>
         </div>
     `).join('');
 
     return `
-        <div class="exec-subtab-container mt-4 border-t border-gray-700 pt-4">
+        <div class="exec-subtab-container" style="margin-top:16px;border-top:1px solid var(--purple-border-15);padding-top:16px">
             <div class="flex gap-2 overflow-x-auto pb-2 mb-3">${tabButtons}</div>
             ${panels}
         </div>
@@ -11333,14 +12098,11 @@ function renderSubTabs(subSteps) {
 
 function switchExecSubTab(container, index) {
     if (!container) return;
-    const statusColors = { pass: 'bg-green-700', stopped: 'bg-red-700', warn: 'bg-amber-600', error: 'bg-red-700', skipped: 'bg-gray-700' };
+    // CSS handles styling via data-active/data-status attribute selectors
     container.querySelectorAll('button.exec-subtab').forEach((btn, i) => {
         const isActive = i === index;
-        const status = btn.dataset.status || 'skipped';
-        btn.className = isActive
-            ? `exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors ${statusColors[status] || 'bg-gray-700'} text-white`
-            : 'exec-subtab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap transition-colors border border-gray-600 text-gray-300 hover:text-white';
         btn.setAttribute('data-active', isActive ? 'true' : 'false');
+        btn.className = 'exec-subtab exec-tab flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap border';
     });
     container.querySelectorAll('.exec-subpanel').forEach((panel, i) => {
         panel.classList.toggle('hidden', i !== index);
@@ -11362,24 +12124,24 @@ function renderStepPanel(step) {
     return `
         <div class="space-y-3">
             <div class="flex items-center justify-between flex-wrap gap-2">
-                <h4 class="text-base font-bold text-white">${step.name}</h4>
+                <h4>${step.name}</h4>
                 <span class="px-2.5 py-1 rounded border text-xs font-semibold ${badgeClass}">${label}</span>
             </div>
-            ${step.metric ? `<div class="text-xl font-mono text-gray-100">${step.metric}</div>` : ''}
-            <details class="exec-inputs border border-gray-700 rounded-lg overflow-hidden">
-                <summary class="px-4 py-2.5 cursor-pointer text-xs font-medium text-[#dee2e8] hover:text-white hover:bg-gray-700/30 select-none">
+            ${step.metric ? `<div style="font-family:'JetBrains Mono',monospace;font-size:18px;color:var(--text-primary);margin-bottom:4px">${step.metric}</div>` : ''}
+            <details class="exec-inputs">
+                <summary class="cursor-pointer select-none">
                     Inputs
                 </summary>
-                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-100">
+                <div class="px-4 py-3 text-sm" style="color:var(--text-secondary);border-top:1px solid var(--purple-border-10)">
                     ${step.input || ''}
                     ${step.inputDetails || ''}
                 </div>
             </details>
-            <details open class="exec-output border border-gray-700 rounded-lg overflow-hidden">
-                <summary class="px-4 py-2.5 cursor-pointer text-sm font-medium text-[#dee2e8] hover:bg-gray-700/30 select-none">
+            <details open class="exec-output">
+                <summary class="cursor-pointer select-none">
                     Output
                 </summary>
-                <div class="px-4 py-3 border-t border-gray-700 text-sm text-gray-100 space-y-3">
+                <div class="px-4 py-3 text-sm space-y-3" style="color:var(--text-secondary);border-top:1px solid var(--purple-border-10)">
                     ${step.output || ''}
                     ${step.details || ''}
                 </div>
@@ -11391,20 +12153,15 @@ function renderStepPanel(step) {
 
 function renderExecutionTabbed(steps, exec) {
     // exec is reserved for future use (e.g. rendering execution-level metadata alongside tabs)
-    const statusColors = { pass: 'bg-green-600', stopped: 'bg-red-600', warn: 'bg-amber-500', error: 'bg-red-600', skipped: 'bg-gray-600' };
-
     const tabButtons = steps.map((step, i) => {
-        const color = statusColors[step.status] || statusColors.skipped;
         const isFirst = i === 0;
-        const baseClass = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors';
-        const activeClass = `${baseClass} ${color} text-white`;
-        const inactiveClass = `${baseClass} border border-gray-600 text-gray-200 hover:border-gray-300 hover:text-white`;
-        return `<button class="${isFirst ? activeClass : inactiveClass}"
+        const baseClass = 'exec-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border';
+        return `<button class="${baseClass}"
                         data-tab="${i}" data-status="${step.status || 'skipped'}" data-active="${isFirst ? 'true' : 'false'}"
                         onclick="switchExecTab(${i})">
-                    <span class="opacity-75 font-mono">${i + 1}</span>
+                    <span style="opacity:0.6;font-family:'JetBrains Mono',monospace;font-size:10px">${i + 1}</span>
                     <span>${step.shortName || step.name}</span>
-                    ${step.metric ? `<span class="font-mono opacity-80 ml-1">${escapeHtml(String(step.metric))}</span>` : ''}
+                    ${step.metric ? `<span style="font-family:'JetBrains Mono',monospace;opacity:0.8;margin-left:4px;font-size:10px">${escapeHtml(String(step.metric))}</span>` : ''}
                 </button>`;
     }).join('');
 
@@ -11415,7 +12172,7 @@ function renderExecutionTabbed(steps, exec) {
     `).join('');
 
     return `
-        <div id="exec-tab-strip" class="sticky top-0 bg-gray-800 border-b border-gray-700 -mx-5 px-5 py-2 mb-4 z-10">
+        <div id="exec-tab-strip" class="sticky top-0 -mx-5 px-5 py-2 mb-4 z-10">
             <div class="flex gap-2 overflow-x-auto pb-1" style="scrollbar-width:none">
                 ${tabButtons}
             </div>
@@ -11499,27 +12256,30 @@ async function triggerWorkflow() {
     const messageDiv = document.getElementById('triggerWorkflowMessage');
     
     if (!articleId || parseInt(articleId) < 1) {
-        messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
+        messageDiv.className = 'q-modal-message';
+        messageDiv.style.cssText = 'background:rgba(220,38,38,0.12);border:1px solid rgba(220,38,38,0.25);color:var(--badge-red-text)';
         messageDiv.textContent = 'Please enter a valid article ID';
         messageDiv.classList.remove('hidden');
         return;
     }
-    
+
     try {
-        messageDiv.className = 'mt-4 p-3 rounded-md bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-300';
+        messageDiv.className = 'q-modal-message';
+        messageDiv.style.cssText = 'background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.25);color:var(--badge-blue-text)';
         messageDiv.textContent = 'Triggering workflow...';
         messageDiv.classList.remove('hidden');
-        
+
         // Always use Celery (fast, production mode) - no LangGraph server option
         const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
             method: 'POST'
         });
-        
+
         if (response.ok) {
             const data = await response.json();
-            messageDiv.className = 'mt-4 p-3 rounded-md bg-green-100 dark:bg-green-900/30 border border-green-300 dark:border-green-700 text-green-800 dark:text-green-300';
-            messageDiv.innerHTML = `✅ Workflow triggered successfully!<br><strong>Execution ID:</strong> ${data.execution_id}<br><br>Refreshing executions list...`;
-            
+            messageDiv.className = 'q-modal-message';
+            messageDiv.style.cssText = 'background:rgba(22,163,74,0.12);border:1px solid rgba(22,163,74,0.25);color:var(--badge-green-text)';
+            messageDiv.innerHTML = `Workflow triggered — Execution <strong style="color:var(--text-primary)">#${data.execution_id}</strong> created. Refreshing...`;
+
             // Close modal after 2 seconds and refresh executions
             setTimeout(() => {
                 closeTriggerWorkflowModal();
@@ -11527,11 +12287,13 @@ async function triggerWorkflow() {
             }, 2000);
         } else {
             const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
-            messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
+            messageDiv.className = 'q-modal-message';
+            messageDiv.style.cssText = 'background:rgba(220,38,38,0.12);border:1px solid rgba(220,38,38,0.25);color:var(--badge-red-text)';
             messageDiv.textContent = `Error: ${errorData.detail || 'Failed to trigger workflow'}`;
         }
     } catch (error) {
-        messageDiv.className = 'mt-4 p-3 rounded-md bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-800 dark:text-red-300';
+        messageDiv.className = 'q-modal-message';
+        messageDiv.style.cssText = 'background:rgba(220,38,38,0.12);border:1px solid rgba(220,38,38,0.25);color:var(--badge-red-text)';
         messageDiv.textContent = `Error: ${error.message}`;
     }
 }
@@ -11716,13 +12478,10 @@ let queueTotal = 0;
 let queueLimit = 50;
 
 function getQueueStatusBadge(status) {
-    const badges = {
-        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-white font-semibold">Pending</span>',
-        'approved': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-white font-semibold">Approved</span>',
-        'rejected': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-white font-semibold">Rejected</span>',
-        'submitted': '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-white font-semibold">Submitted</span>'
-    };
-    return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-100 font-semibold">' + status + '</span>';
+    const known = ['pending', 'approved', 'rejected', 'submitted'];
+    const cls = known.includes(status) ? status : '';
+    const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+    return `<span class="q-badge ${cls}">${label}</span>`;
 }
 
 async function loadQueue() {
@@ -11737,7 +12496,7 @@ async function loadQueue() {
         const response = await fetch(url);
         if (response.ok) {
             const data = await response.json();
-            queue = data.items || [];
+            queue = data.items || data;   // API may return {items:[...]} or bare array
             queueTotal = data.total != null ? data.total : queue.length;
             if (data.limit != null) queueLimit = data.limit;
             renderQueue();
@@ -11775,44 +12534,30 @@ function renderQueue() {
         return;
     }
     
-    function queueEscapeAttr(str) {
-        if (str == null) return '';
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;');
-    }
+    /* Pre-existing innerHTML pattern — all values from own DB, not user input. */
     tbody.innerHTML = queue.map(rule => {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
-        const articleLabel = rule.article_title || 'Article ' + rule.article_id;
-        
+
         return `
-            <tr id="queue-row-${rule.id}" class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white align-top">${rule.id}</td>
-                <td class="max-w-0 min-w-0 px-3 py-3 text-sm align-top">
-                    <a href="/articles/${rule.article_id}" class="block truncate text-purple-600 hover:text-purple-800 dark:text-purple-400" title="${queueEscapeAttr(articleLabel)}">
-                        ${articleLabel}
+            <tr id="queue-row-${rule.id}" data-status="${rule.status || ''}">
+                <td class="q-cell-id" style="padding-left:24px">${rule.id}</td>
+                <td class="q-cell-article">
+                    <a href="/articles/${rule.article_id}">
+                        ${rule.article_title || 'Article ' + rule.article_id}
                     </a>
                 </td>
-                <td class="max-w-0 min-w-0 px-3 py-3 text-sm text-gray-900 dark:text-white align-top">
-                    <span class="block truncate" title="${queueEscapeAttr(title)}">${title}</span>
-                </td>
-                <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 align-top">
+                <td class="q-cell-title" title="${(title || '').replace(/"/g, '&quot;')}">${title}</td>
+                <td class="q-cell-sim">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
-                <td class="px-2 py-3 whitespace-nowrap align-top">${getQueueStatusBadge(rule.status)}</td>
-                <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 align-top">
+                <td>${getQueueStatusBadge(rule.status)}</td>
+                <td class="q-cell-date">
                     ${parseUTCDate(rule.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
                 </td>
-                <td class="w-[12rem] min-w-[12rem] pl-3 pr-5 py-3 text-sm text-right align-top whitespace-nowrap">
-                    <button type="button" onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-1.5">Preview</button>
-                    ${rule.status === 'pending' ? `
-                        <button type="button" onclick="approveRule(${rule.id})" class="text-emerald-400 hover:text-green-800 dark:text-green-400 mr-1.5">Approve</button>
-                        <button type="button" onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
-                    ` : ''}
-                </td>
+                <td><div class="q-actions-cell">
+                    <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${rule.status === 'pending' ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>` : ''}
+                </div></td>
             </tr>
         `;
     }).join('');
