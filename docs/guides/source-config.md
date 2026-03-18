@@ -26,6 +26,17 @@ Source configurations can be stored in two places:
 - `./run_cli.sh sync-sources` command overwrites database with YAML values
 - Use only when you want to reset to YAML defaults
 
+### RSS-first sources (`rss_only: true`)
+Some sites are best ingested from their feed content without HTML scraping. In `config/sources.yaml`, set `rss_url` on the source and set `config.rss_only: true` to prefer feed extraction.
+
+Example pattern:
+```yaml
+url: "https://example.com/"
+rss_url: "https://example.com/feed.xml"
+config:
+  rss_only: true
+```
+
 ## Implications for Backup/Restore
 
 ### ✅ Default Behavior (Database-First)
