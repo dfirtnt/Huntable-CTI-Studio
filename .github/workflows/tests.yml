@@ -35,7 +35,8 @@ jobs:
           pip install -r requirements.txt -r requirements-test.txt
 
       - name: Run pip-audit
-        run: pip-audit
+        run: pip-audit --ignore-vuln GHSA-rf74-v2fm-23pw --ignore-vuln CVE-2026-33230
+        # nltk 3.9.3 (transitive via safety) has no fix yet; remove when nltk or safety updates
 
       # Optional: add step with pyupio/safety-action and secrets.SAFETY_API_KEY for Safety scan (requires account)
 
