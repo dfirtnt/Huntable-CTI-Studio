@@ -746,6 +746,15 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "security: Security hardening and abuse-case tests")
     config.addinivalue_line("markers", "a11y: Accessibility baseline tests")
 
+    # pytest-playwright session fixture delete_output_dir rmtree(output_dir); with xdist,
+    # multiple workers default to the same dir and race → OSError: [Errno 66] Directory not empty.
+    worker = os.environ.get("PYTEST_XDIST_WORKER")
+    if worker and hasattr(config, "option"):
+        out = getattr(config.option, "output", None)
+        base = Path(out) if out else Path("test-results")
+        if base.name == "test-results" or "test-results" in base.parts:
+            config.option.output = str(Path("test-results") / f"playwright-{worker}")
+
 
 def pytest_sessionfinish(session, exitstatus):
     """Close huggingface_hub HTTP session before teardown to avoid 'I/O operation on closed file' logging errors."""

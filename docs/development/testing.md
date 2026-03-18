@@ -195,6 +195,8 @@ This excludes:
 - **Pytest (tests/ui/)**: tests marked `@pytest.mark.agent_config_mutation` (run evaluation, save settings, save workflow config).
 - **Playwright TypeScript (tests/playwright/)**: specs that change workflow/agent config are ignored via `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (e.g. `agent_config_*.spec.ts`, `workflow_save_button.spec.ts`, `workflow_config_persistence.spec.ts`, `workflow_config_versions.spec.ts`).
 
+**Agents → SIGMA Queue / Executions (layout + Enrich):** `tests/ui/test_workflow_enrich_original_rule_regression.py`, `test_workflow_queue_table_layout_ui.py`, `test_workflow_executions_table_layout_ui.py` (mocked APIs; Enrich “Original Rule” = YAML; tables avoid horizontal scroll for Actions). With `pytest-xdist`, Playwright output goes to `test-results/playwright-<worker>/` per worker (avoids teardown races on `test-results`).
+
 ## CI / GitHub Actions Coverage
 
 ### Current CI Jobs
