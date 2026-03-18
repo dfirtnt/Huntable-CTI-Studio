@@ -1479,7 +1479,7 @@
     </div>
 
     <!-- Executions Tab -->
-    <div id="tab-content-executions" class="tab-content hidden">
+    <div id="tab-content-executions" class="tab-content hidden min-w-0">
         <div class="mb-6 flex items-center justify-between gap-4 flex-wrap">
             <div class="flex flex-wrap items-center gap-3">
                 <button onclick="refreshExecutions()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -1546,18 +1546,18 @@
             </div>
         </div>
 
-        <!-- Executions Table -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <!-- Executions Table: table-fixed + truncated Article; Actions column reserved (header filled by renderExecutionHeader) -->
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto min-w-0">
+            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr id="executionsHeaderRow">
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Current Step</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ranking Score</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Current Step</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ranking Score</th>
+                        <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
+                        <th class="px-3 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="executionsTableBody" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
@@ -1636,7 +1636,7 @@
     </div>
 
     <!-- Queue Tab -->
-    <div id="tab-content-queue" class="tab-content hidden">
+    <div id="tab-content-queue" class="tab-content hidden min-w-0">
         <div class="flex items-center justify-between mb-6">
             <div class="flex space-x-4">
                 <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
@@ -1675,18 +1675,18 @@
             </div>
         </div>
 
-        <!-- Queue Table -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <!-- Queue Table: table-fixed + truncated text columns so Actions stays in view without horizontal scroll -->
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto min-w-0">
+            <table class="w-full table-fixed divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rule Title</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Max Similarity</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                        <th class="w-14 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID</th>
+                        <th class="w-[28%] min-w-0 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Article</th>
+                        <th class="w-[24%] min-w-0 px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Rule Title</th>
+                        <th class="w-24 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider leading-tight">Max Similarity</th>
+                        <th class="w-28 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="w-36 px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Created</th>
+                        <th class="w-[12rem] min-w-[12rem] pl-3 pr-5 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="queueTableBody" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
@@ -9896,26 +9896,27 @@ function renderExecutionHeader() {
     const headerRow = document.getElementById('executionsHeaderRow');
     if (!headerRow) return;
     
-    const headerClass = 'px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider';
-    const sortableClass = headerClass + ' cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none';
-    const sortableColumns = [
-        { key: 'id', label: 'ID' },
-        { key: 'article_id', label: 'Article' },
-        { key: 'status', label: 'Status' },
-        { key: 'current_step', label: 'Current Step' },
-        { key: 'ranking_score', label: 'Ranking Score' }
-    ];
-    
-    let html = sortableColumns.map(col =>
-        `<th class="${sortableClass}" onclick="setExecutionSort('${col.key}')" title="Click to sort">${col.label}${getSortIndicator(col.key)}</th>`
-    ).join('');
-    
+    const sortable =
+        'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 select-none';
+    const thText =
+        'px-3 py-3 text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider';
+    const sortTh = (key, label, widthCls) =>
+        `<th class="${widthCls} ${thText} text-left ${sortable}" onclick="setExecutionSort('${key}')" title="Click to sort">${label}${getSortIndicator(key)}</th>`;
+    const plainTh = (label, widthCls, align = 'text-left') =>
+        `<th class="${widthCls} ${thText} ${align}">${label}</th>`;
+
+    let html = '';
+    html += sortTh('id', 'ID', 'w-14 whitespace-nowrap');
+    html += sortTh('article_id', 'Article', 'min-w-0 w-[26%] max-w-0');
+    html += sortTh('status', 'Status', 'w-[7.5rem] whitespace-nowrap');
+    html += sortTh('current_step', 'Current Step', 'w-[8.5rem] whitespace-nowrap leading-tight');
+    html += sortTh('ranking_score', 'Ranking Score', 'w-[5.5rem] whitespace-nowrap leading-tight');
     if (showObservableCounts) {
-        html += observableCountColumns.map(col => `<th class="${headerClass}">${col.label}</th>`).join('');
+        html += observableCountColumns.map(col => plainTh(col.label, 'w-12 px-2', 'text-center')).join('');
     }
-    
-    html += `<th class="${sortableClass}" onclick="setExecutionSort('created_at')" title="Click to sort">Created${getSortIndicator('created_at')}</th>`;
-    html += `<th class="${headerClass}">Actions</th>`;
+    html += sortTh('created_at', 'Created', 'w-[7.25rem] whitespace-nowrap');
+    html +=
+        '<th class="w-[15rem] min-w-[15rem] py-3 pl-2 pr-5 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider whitespace-nowrap">Actions</th>';
     
     headerRow.innerHTML = html;
 }
@@ -9986,6 +9987,14 @@ function renderExecutions() {
         console.error('executionsTableBody element not found');
         return;
     }
+    function execEscapeAttr(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;');
+    }
     
     renderExecutionHeader();
     const columns = getExecutionTableColumnCount();
@@ -9995,39 +10004,42 @@ function renderExecutions() {
         return;
     }
     
-    tbody.innerHTML = executions.map(exec => `
+    tbody.innerHTML = executions.map(exec => {
+        const articleLabel = exec.article_title || 'Article ' + exec.article_id;
+        return `
         <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${exec.id}</td>
-            <td class="px-6 py-4 text-sm">
-                <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
-                    ${exec.article_title || 'Article ' + exec.article_id}
+            <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white align-top">${exec.id}</td>
+            <td class="max-w-0 min-w-0 px-3 py-3 text-sm align-top">
+                <a href="/articles/${exec.article_id}" class="block truncate text-purple-600 hover:text-purple-800 dark:text-purple-400" title="${execEscapeAttr(articleLabel)}">
+                    ${articleLabel}
                 </a>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <div class="flex items-center">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
+            <td class="px-2 py-3 whitespace-nowrap align-top">
+                <div class="flex flex-wrap items-center gap-1">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">${getStepBadge(exec.current_step)}</td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+            <td class="px-2 py-3 text-sm text-gray-500 dark:text-gray-300 align-top whitespace-nowrap overflow-hidden text-ellipsis">${getStepBadge(exec.current_step)}</td>
+            <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center align-top">
                 ${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}
             </td>
             ${showObservableCounts ? observableCountColumns.map(col => `
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center">
+                <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 text-center align-top">
                     ${formatObservableCount(exec, col.key)}
                 </td>
             `).join('') : ''}
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+            <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 align-top">
                 ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
             </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm">
-                <button onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mr-2">View</button>
-                ${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
-                <button onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-2" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
+            <td class="w-[15rem] min-w-[15rem] pl-2 pr-5 py-3 text-sm text-right align-top whitespace-nowrap">
+                <button type="button" onclick="viewExecution(${exec.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 mr-1.5">View</button>
+                ${(exec.status === 'running' || exec.status === 'pending') ? `<button type="button" onclick="openLiveExecutionView(${exec.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Live streaming view for execution ${exec.id}">📺 Live</button>` : ''}
+                <button type="button" onclick="debugInAgentChat(${exec.id})" class="text-purple-600 hover:text-purple-800 dark:text-purple-400 mr-1.5" title="Open in Langfuse. Note: Traces only exist if execution ran with Langfuse tracing enabled. Use 'View' for database details.">🔍 Trace</button>
                 ${exec.status === 'failed' ? `
-                    <button onclick="retryExecution(${exec.id}, false)" class="text-emerald-400 hover:text-green-800 dark:text-green-400 mr-2" title="Retry in background via Celery (async, returns immediately)">Retry</button>
+                    <button type="button" onclick="retryExecution(${exec.id}, false)" class="text-emerald-400 hover:text-green-800 dark:text-green-400" title="Retry in background via Celery (async, returns immediately)">Retry</button>
                 ` : ''}
             </td>
         </tr>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function toggleObservableCounts(event) {
@@ -11763,31 +11775,42 @@ function renderQueue() {
         return;
     }
     
+    function queueEscapeAttr(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;');
+    }
     tbody.innerHTML = queue.map(rule => {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
+        const articleLabel = rule.article_title || 'Article ' + rule.article_id;
         
         return `
             <tr id="queue-row-${rule.id}" class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
-                <td class="px-6 py-4 text-sm">
-                    <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
-                        ${rule.article_title || 'Article ' + rule.article_id}
+                <td class="px-3 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white align-top">${rule.id}</td>
+                <td class="max-w-0 min-w-0 px-3 py-3 text-sm align-top">
+                    <a href="/articles/${rule.article_id}" class="block truncate text-purple-600 hover:text-purple-800 dark:text-purple-400" title="${queueEscapeAttr(articleLabel)}">
+                        ${articleLabel}
                     </a>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                <td class="max-w-0 min-w-0 px-3 py-3 text-sm text-gray-900 dark:text-white align-top">
+                    <span class="block truncate" title="${queueEscapeAttr(title)}">${title}</span>
+                </td>
+                <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 align-top">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap">${getQueueStatusBadge(rule.status)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                <td class="px-2 py-3 whitespace-nowrap align-top">${getQueueStatusBadge(rule.status)}</td>
+                <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300 align-top">
                     ${parseUTCDate(rule.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
                 </td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm">
-                    <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
+                <td class="w-[12rem] min-w-[12rem] pl-3 pr-5 py-3 text-sm text-right align-top whitespace-nowrap">
+                    <button type="button" onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-1.5">Preview</button>
                     ${rule.status === 'pending' ? `
-                        <button onclick="approveRule(${rule.id})" class="text-emerald-400 hover:text-green-800 dark:text-green-400 mr-2">Approve</button>
-                        <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
+                        <button type="button" onclick="approveRule(${rule.id})" class="text-emerald-400 hover:text-green-800 dark:text-green-400 mr-1.5">Approve</button>
+                        <button type="button" onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
                     ` : ''}
                 </td>
             </tr>
@@ -12094,7 +12117,7 @@ function renderRulePreview(rule, observablesData) {
                     ✏️ Edit
                 </button>
             </div>
-            <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs text-gray-600 dark:text-gray-300"><code>${escapeHtml(editedYaml)}</code></pre>
+            <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs text-gray-600 dark:text-gray-300"><code id="ruleYamlCode">${escapeHtml(editedYaml)}</code></pre>
         </div>
     `;
     
@@ -12158,7 +12181,7 @@ function getCurrentRuleYamlFromModal() {
         return editor ? editor.value : editedYaml;
     }
     // View mode: prefer DOM content in case editedYaml is stale
-    const codeEl = document.querySelector('#rulePreviewContent code');
+    const codeEl = document.getElementById('ruleYamlCode');
     if (codeEl && codeEl.textContent && codeEl.textContent.trim()) {
         return codeEl.textContent;
     }
