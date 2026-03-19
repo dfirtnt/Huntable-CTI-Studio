@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Executions tab: tactical console redesign** (2026-03-18): Executions tab restyled with `q-command-strip`, `q-cmd-btn`, `q-table`, `q-cell-*`, and `q-actions-cell` CSS classes — matching the SIGMA Queue tactical operations console aesthetic. Replaces Tailwind utility classes with themed CSS variable system for buttons, filters, stat cards, table rows, and action buttons. Execution detail and trigger workflow modals use the `q-modal-*` / `q-form-*` class system.
+
 ### Fixed
 - **Agents workflow: SIGMA Enrich original rule** (2026-03-18): Enrich modal on `/workflow` queue preview now reads rule YAML from `#ruleYamlCode` instead of the first `<code>` in the modal (which could be an observable line). Restores correct “Original Rule” and downstream comparison/validation.
 - **Agents workflow: queue & executions tables** (2026-03-18): SIGMA Queue and Executions tables use `table-fixed`, truncated Article (and queue Rule Title) with full text on hover, and a reserved Actions column with right padding so Preview/Approve/Reject and View/Trace stay visible without horizontal scroll at typical viewport widths.
@@ -16,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UI tests** (2026-03-18): `test_workflow_enrich_original_rule_regression.py`, `test_workflow_queue_table_layout_ui.py`, `test_workflow_executions_table_layout_ui.py` for the above behaviors.
 
 - **Sources:** Add Ctrl-Alt-Intel Threat Research as an RSS-first ingestion source (`ctrl_alt_intel_blog`) (2026-03-18).
+- **AGENTS.md** (2026-03-19): User Request Playbooks — add source (`config/sources.yaml`, `sync-sources --no-remove`, ingestion health JSON), Postgres read-only queries (`docker exec … psql`), SQL snippets, `article_metadata.training_category` for training filters.
 
 ### Changed
 - **UI test comment cleanup** (2026-03-16): Removed redundant and verbose comments from health page, collapsible sections, dashboard, and error-handling UI tests. Fixed duplicate docstring in `test_health_check_navigation`.
