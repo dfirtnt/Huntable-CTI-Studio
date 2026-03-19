@@ -298,10 +298,25 @@ class AsyncDatabaseManager:
                 query = select(SourceTable)
 
                 if filter_params:
-                    if filter_params.active is not None:
-                        query = query.where(SourceTable.active == filter_params.active)
-                    if filter_params.name_contains:
-                        query = query.where(SourceTable.name.contains(filter_params.name_contains))
+                    # SourceFilter is intentionally minimal in the current schema (active, identifier).
+                    # Be defensive to avoid AttributeError when legacy/non-model filter objects are used.
+                    active = getattr(filter_params, "active", None)
+                    if active is not None:
+                        query = query.where(SourceTable.active == active)
+
+                    # Prefer the current field name `identifier`.
+                    identifier = getattr(filter_params, "identifier", None)
+                    if identifier:
+                        query = query.where(SourceTable.identifier.contains(identifier))
+
+                    # Backward-compatible legacy aliases (if present).
+                    identifier_contains = getattr(filter_params, "identifier_contains", None)
+                    if identifier_contains:
+                        query = query.where(SourceTable.identifier.contains(identifier_contains))
+
+                    name_contains = getattr(filter_params, "name_contains", None)
+                    if name_contains:
+                        query = query.where(SourceTable.name.contains(name_contains))
 
                 query = query.order_by(SourceTable.name)
                 result = await session.execute(query)

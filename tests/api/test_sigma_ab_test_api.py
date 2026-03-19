@@ -70,6 +70,56 @@ class TestSigmaAbTestCompareAPI:
         assert response.json()["success"] is True
         assert response.json()["similarity"] == 1.0
 
+    def test_compare_accepts_crlf_markdown_wrapped_yaml(self):
+        """CRLF fenced YAML with trailing prose still extracts and parses."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(_sigma_ab_test_router)
+        client = TestClient(app)
+
+        wrapped_a = "```yaml\r\n" + MINIMAL_RULE.strip() + "\r\n```\r\nSome prose after the code fence."
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": wrapped_a, "rule_b": MINIMAL_RULE},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+        assert response.json()["similarity"] == 1.0
+
+    def test_compare_rule_b_fenced_yaml_with_brace_inside_field(self):
+        """rule_b as fenced YAML containing ``}`` in a string must still parse (enrichment compare regression)."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(_sigma_ab_test_router)
+        client = TestClient(app)
+
+        rule_with_brace = """
+title: Test Rule
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection:
+    Image: cmd.exe
+    CommandLine: '*foo}bar*'
+  condition: selection
+"""
+        wrapped_b = "```yaml\n" + rule_with_brace.strip() + "\n```"
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": MINIMAL_RULE, "rule_b": wrapped_b},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["similarity"] < 1.0
+
     def test_compare_accepts_prose_before_yaml(self):
         """Content with leading prose then title:/detection: is parsed from first YAML key."""
         from fastapi import FastAPI
