@@ -188,6 +188,75 @@ Notes:
 
 ---
 
+## User Request Playbooks (Agent-Ready)
+
+- **Mutating work** (writes, `sync-sources`, disabling sources): get explicit user confirmation first; state what will change.
+- **Default**: prefer read-only (`SELECT`, health/ingestion endpoints).
+
+### Adding a new source
+
+1. Edit `config/sources.yaml`:
+   - Add an entry with a unique `id`.
+   - Keep `allow`, `post_url_regex`, and `title_filter_keywords` consistent with existing sources to avoid scraping noise.
+2. Sync YAML -> PostgreSQL (without deleting existing rows):
+   ```bash
+   ./run_cli.sh sync-sources --config config/sources.yaml --no-remove
+   ```
+3. Verify it is active:
+   ```bash
+   curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {name, total: .total_articles, active: .active}'
+   ```
+   - Confirm the new source appears with `active: true` (or update to `active: true` if needed).
+
+### Querying the database (read-only by default)
+
+1. Connect to Postgres:
+   ```bash
+   docker exec cti_postgres psql -U cti_user -d cti_scraper
+   ```
+2. Run `SELECT` with `LIMIT` (no `INSERT`/`UPDATE`/`DELETE` without explicit write approval).
+
+**Sources:**
+```sql
+SELECT id, name, url, rss_url, active, created_at
+FROM sources
+ORDER BY name;
+```
+
+**Recent articles:**
+```sql
+SELECT
+  a.id,
+  a.title,
+  s.name AS source_name,
+  a.published_at,
+  a.created_at
+FROM articles a
+JOIN sources s ON a.source_id = s.id
+ORDER BY a.created_at DESC
+LIMIT 20;
+```
+
+**Search title/content:**
+```sql
+SELECT
+  a.id,
+  a.title,
+  s.name AS source_name,
+  a.published_at
+FROM articles a
+JOIN sources s ON a.source_id = s.id
+WHERE
+  a.title ILIKE '%malware%'
+  OR a.content ILIKE '%malware%'
+ORDER BY a.published_at DESC
+LIMIT 10;
+```
+
+3. If the user asks for training/classification-specific filtering, ensure the query considers `article_metadata.training_category` (used for training gates).
+
+---
+
 ## Diff-Only Mode
 
 When modifying prompts, schemas, rules, or configuration files:
