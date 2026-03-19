@@ -43,14 +43,23 @@ def _extract_yaml_block(text: str) -> str:
     if not text or not text.strip():
         return text.strip() if text else ""
     text = text.strip()
-    match = re.search(r"```(?:yaml)?\s*\n(.*?)(?:\n```|$)", text, re.DOTALL)
+    # Handle markdown code fences with optional "yaml" and support CRLF/newline variants.
+    match = re.search(
+        r"```(?:yaml)?[ \t]*\r?\n(.*?)(?:\r?\n[ \t]*```|[ \t]*```|$)",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
     if match:
         return match.group(1).strip()
     for start in ("title:", "id:", "logsource:", "detection:"):
         idx = text.find(start)
         if idx != -1:
-            return text[idx:].strip()
-    return text
+            # If the YAML is followed by another code fence / prose, truncate at the next fence.
+            candidate = text[idx:].strip()
+            candidate = re.split(r"```", candidate, maxsplit=1)[0].strip()
+            return candidate
+    # No obvious YAML boundary markers; fall back to raw content.
+    return text.strip()
 
 
 def _load_workflow_provider_settings(db_session) -> dict[str, str | None]:
@@ -207,6 +216,18 @@ class RuleYamlUpdateRequest(BaseModel):
     rule_yaml: str
 
 
+DEFAULT_SIGMA_ENRICHMENT_TOGGLES: dict[str, bool] = {f"d{i}": True for i in range(1, 8)}
+DEFAULT_SIGMA_ENRICHMENT_AUTHOR = "Huntable CTI Studio User"
+
+
+def _sigma_author_from_db(db_session) -> str:
+    """Resolve sigma rule author string for enrichment (Settings → sigmaAuthor)."""
+    row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == "sigmaAuthor").first()
+    if row and row.value and str(row.value).strip():
+        return str(row.value).strip()
+    return DEFAULT_SIGMA_ENRICHMENT_AUTHOR
+
+
 class EnrichRuleRequest(BaseModel):
     """Request model for enriching a rule."""
 
@@ -216,6 +237,8 @@ class EnrichRuleRequest(BaseModel):
     provider: str | None = None  # LLM provider (openai, anthropic, gemini)
     model: str | None = None  # Model name
     include_article_content: bool | None = False  # Include junk-filtered article content
+    directive_toggles: dict[str, bool] | None = None  # Optional d1..d7; defaults all True
+    author_value: str | None = None  # Optional override; else Settings sigmaAuthor / default
 
 
 class ValidateRuleRequest(BaseModel):
@@ -580,6 +603,107 @@ def _sanitize_error_detail(detail: str) -> str:
     return sanitized.strip()
 
 
+def _strip_outer_markdown_fence(text: str) -> str:
+    """Remove a single leading ``` / ```yaml fence pair if present."""
+    t = text.strip()
+    if not t.startswith("```"):
+        return t
+    lines = t.split("\n")
+    if len(lines) < 2:
+        return t
+    rest = lines[1:]
+    if rest and rest[-1].strip().startswith("```"):
+        rest = rest[:-1]
+    return "\n".join(rest).strip()
+
+
+def _parse_first_json_object(text: str) -> dict[str, Any] | None:
+    """
+    Parse the first top-level JSON object from LLM output.
+
+    IMPORTANT: Do not use text[start:rfind('}')]; Sigma YAML inside
+    ``updated_sigma_yaml`` often contains ``}`` which truncates JSON and
+    forces a fallback to raw text (breaking /compare and validation).
+    """
+    s = _strip_outer_markdown_fence(text)
+    decoder = json.JSONDecoder()
+    for i, ch in enumerate(s):
+        if ch != "{":
+            continue
+        try:
+            obj, _end = decoder.raw_decode(s, i)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(obj, dict):
+            return obj
+    return None
+
+
+def _enrichment_payload_from_llm_response(
+    raw_response: str,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """
+    Decide enriched YAML string and optional enrichment metadata dict from LLM text.
+
+    Returns:
+        (enriched_yaml_or_none_for_legacy, enrichment_result_or_none)
+        If enrichment_result is None, caller should treat full raw_response as legacy YAML.
+    """
+    parsed = _parse_first_json_object(raw_response)
+    if parsed is None:
+        return None, None
+
+    status_raw = parsed.get("status", parsed.get("Status"))
+    status = str(status_raw).strip().lower() if status_raw is not None else ""
+
+    uy = parsed.get("updated_sigma_yaml")
+    if uy is None:
+        uy = parsed.get("updatedSigmaYaml")
+    if uy is not None and not isinstance(uy, str):
+        uy = str(uy)
+
+    if status == "fail":
+        issues = parsed.get("issues", [])
+        error_msg = parsed.get("summary", "Enrichment failed")
+        if issues:
+            error_details = "; ".join(
+                [f"{i.get('type', 'unknown')}: {i.get('message', '')}" for i in issues[:3]]
+            )
+            error_msg = f"{error_msg}. {error_details}"
+        error_msg = error_msg.replace("\n", " ").replace("\r", " ").strip()
+        raise HTTPException(status_code=400, detail=error_msg)
+
+    if uy is not None:
+        uy_stripped = uy.strip() if uy else ""
+        if uy_stripped:
+            return uy, parsed
+        # Empty YAML: only valid for explicit fail (handled above)
+        summary = (parsed.get("summary") or "").replace("\n", " ").strip()
+        issues = parsed.get("issues", [])
+        detail = (
+            "Enrichment returned empty updated_sigma_yaml. "
+            f"status={status_raw!r}. "
+            + (f"Summary: {summary}. " if summary else "")
+        )
+        if isinstance(issues, list) and issues:
+            detail += f"Issues: {issues[:2]!s}"
+        raise HTTPException(status_code=400, detail=detail.strip())
+
+    # JSON object without updated_sigma_yaml — avoid returning whole JSON as "YAML"
+    if status in ("pass", "needs_revision"):
+        summary = (parsed.get("summary") or "").replace("\n", " ").strip()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Enrichment JSON missing updated_sigma_yaml. "
+                f"status={status_raw!r}. " + (f"Summary: {summary}" if summary else "Fix the model output or retry.")
+            ),
+        )
+
+    # Unknown schema: legacy fallback (caller uses raw_response)
+    return None, None
+
+
 @router.post("/{queue_id}/enrich")
 async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRuleRequest):
     """Enrich a SIGMA rule using AI assistance."""
@@ -648,12 +772,23 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     logger.warning(f"Failed to filter article content: {e}, using original content")
                     article_content = article.content
 
+            # Directive toggles + author (prompt requires these; models otherwise return fail)
+            toggles_merged = dict(DEFAULT_SIGMA_ENRICHMENT_TOGGLES)
+            if enrich_request.directive_toggles:
+                for k, v in enrich_request.directive_toggles.items():
+                    if k in toggles_merged and isinstance(v, bool):
+                        toggles_merged[k] = v
+            toggles_json = json.dumps(toggles_merged, sort_keys=True)
+            author_for_enrich = (enrich_request.author_value or "").strip() or _sigma_author_from_db(db_session)
+
             # Build prompt with optional article content
             prompt_params = {
                 "rule_yaml": rule_yaml_to_enrich,
                 "article_title": article.title,
                 "article_url": article.canonical_url or "N/A",
                 "user_instruction": instruction_text,
+                "toggles_json": toggles_json,
+                "author_value": author_for_enrich,
             }
 
             if article_content:
@@ -962,97 +1097,36 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             detail=f"Empty response from {provider} API. Try again or use a different model.",
                         )
 
-                    # Try to parse as JSON first (new prompt format), fall back to YAML (legacy format)
+                    # JSON envelope (sigma_enrichment OUTPUT CONTRACT) or legacy plain YAML
                     enriched_yaml = None
                     enrichment_result = None
-
                     try:
-                        # Try parsing as JSON (new format with status/updated_sigma_yaml)
-                        # Remove markdown code blocks if present
-                        json_text = raw_response.strip()
-                        if json_text.startswith("```"):
-                            lines = json_text.split("\n")
-                            json_text = "\n".join(lines[1:-1]) if lines[-1].startswith("```") else "\n".join(lines[1:])
-                            json_text = json_text.strip()
-
-                        # Try to find JSON object in the text (in case there's extra text)
-                        if "{" in json_text:
-                            start_idx = json_text.find("{")
-                            end_idx = json_text.rfind("}") + 1
-                            if end_idx > start_idx:
-                                json_text = json_text[start_idx:end_idx]
-
-                        # Ensure json_text is not empty before parsing
-                        if not json_text or not json_text.strip():
-                            raise ValueError("Empty JSON text after cleaning")
-
-                        enrichment_result = json.loads(json_text)
-                        keys_preview = (
-                            list(enrichment_result.keys()) if isinstance(enrichment_result, dict) else "not a dict"
-                        )
-                        logger.debug(f"Parsed JSON response, keys: {keys_preview}")
-
-                        # Check if it's the new JSON format
-                        if isinstance(enrichment_result, dict) and "status" in enrichment_result:
-                            status = enrichment_result.get("status")
-                            logger.info(f"Parsed JSON enrichment response with status: {status}")
-                            # Validate status is a string
-                            if not isinstance(status, str):
-                                logger.warning(f"Invalid status type: {type(status)}, value: {status}")
-                                status = str(status) if status else "unknown"
-                            if status == "pass":
-                                enriched_yaml = enrichment_result.get("updated_sigma_yaml", "")
-                            elif status == "needs_revision":
-                                enriched_yaml = enrichment_result.get("updated_sigma_yaml", "")
-                                # Log issues if present
-                                issues = enrichment_result.get("issues", [])
+                        uy, meta = _enrichment_payload_from_llm_response(raw_response)
+                        if meta is not None:
+                            enriched_yaml = uy
+                            enrichment_result = meta
+                            st = meta.get("status")
+                            logger.info("Parsed JSON enrichment response with status: %s", st)
+                            logger.debug("Parsed enrichment JSON keys: %s", list(meta.keys()))
+                            if str(meta.get("status", "")).lower() == "needs_revision":
+                                issues = meta.get("issues", [])
                                 if issues:
-                                    logger.warning(f"Enrichment needs revision: {issues}")
-                            elif status == "fail":
-                                issues = enrichment_result.get("issues", [])
-                                error_msg = enrichment_result.get("summary", "Enrichment failed")
-                                if issues:
-                                    error_details = "; ".join(
-                                        [f"{i.get('type', 'unknown')}: {i.get('message', '')}" for i in issues[:3]]
-                                    )
-                                    error_msg = f"{error_msg}. {error_details}"
-                                # Clean error message
-                                error_msg = error_msg.replace("\n", " ").replace("\r", " ").strip()
-                                raise HTTPException(status_code=400, detail=error_msg)
-                            else:
-                                # Unknown status, try to extract YAML anyway
-                                enriched_yaml = enrichment_result.get("updated_sigma_yaml", "")
+                                    logger.warning("Enrichment needs revision: %s", issues)
                         else:
-                            # JSON parsed but doesn't have expected structure, treat as legacy
-                            logger.debug("JSON parsed but missing 'status' field, treating as legacy format")
                             enriched_yaml = raw_response
-                    except (json.JSONDecodeError, ValueError) as e:
-                        # Not JSON, treat as legacy YAML format
-                        error_msg = _sanitize_error_detail(str(e))
-                        # Log with repr to see exact content
-                        logger.warning(
-                            f"Response not valid JSON, treating as YAML. Error: {error_msg}, "
-                            f"len={len(raw_response)}, preview: {repr(raw_response[:500])}"
-                        )
-                        enriched_yaml = raw_response
-                        enrichment_result = None  # Ensure it's cleared on parse failure
-                    except KeyError as e:
-                        # Missing expected key in JSON, log and fall back to YAML
-                        logger.warning(
-                            f"JSON response missing expected key: {e}, Response preview: {raw_response[:200]}"
-                        )
-                        enriched_yaml = raw_response
-                        enrichment_result = None  # Ensure it's cleared on key error
+                            logger.debug("Enrichment response treated as legacy YAML (no JSON envelope)")
+                    except HTTPException:
+                        raise
                     except Exception as e:
-                        # Unexpected error during JSON parsing, log and fall back to YAML
                         error_msg = _sanitize_error_detail(str(e))
                         logger.error(
-                            f"Unexpected error parsing enrichment: {error_msg}, type={type(e)}, "
-                            f"preview: {raw_response[:200]}",
+                            "Unexpected error parsing enrichment envelope: %s, preview=%r",
+                            error_msg,
+                            raw_response[:200],
                             exc_info=True,
                         )
                         enriched_yaml = raw_response
-                        enrichment_result = None  # Ensure it's cleared on unexpected error
+                        enrichment_result = None
 
                     # Extract YAML from response (remove markdown code blocks if present)
                     if enriched_yaml and enriched_yaml.startswith("```"):

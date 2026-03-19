@@ -198,3 +198,188 @@ class TestSigmaEnrichAPI:
 
             # Should return error status
             assert exc_info.value.status_code >= 400
+
+    def test_parse_first_json_object_survives_brace_inside_sigma_yaml(self):
+        """Sigma strings often contain ``}``; slicing with rfind('}') must not truncate JSON."""
+        from src.web.routes.sigma_queue import _parse_first_json_object
+
+        yaml_part = "detection:\n  selection:\n    command_line: '*foo}bar*'\n  condition: selection"
+        payload = {"status": "pass", "updated_sigma_yaml": yaml_part, "summary": "ok"}
+        raw = "Here you go:\n" + json.dumps(payload)
+        parsed = _parse_first_json_object(raw)
+        assert parsed is not None
+        assert parsed.get("updated_sigma_yaml") == yaml_part
+
+    def test_enrichment_payload_empty_updated_yaml_raises_400(self):
+        from fastapi import HTTPException
+
+        from src.web.routes.sigma_queue import _enrichment_payload_from_llm_response
+
+        raw = json.dumps({"status": "pass", "updated_sigma_yaml": "", "summary": "incomplete"})
+        with pytest.raises(HTTPException) as exc_info:
+            _enrichment_payload_from_llm_response(raw)
+        assert exc_info.value.status_code == 400
+        assert "empty" in str(exc_info.value.detail).lower()
+
+    def test_enrichment_payload_returns_yaml_when_valid(self):
+        from src.web.routes.sigma_queue import _enrichment_payload_from_llm_response
+
+        yaml_part = "title: T\ndetection:\n  selection:\n    x: '*a}b*'\n  condition: selection"
+        raw = json.dumps({"status": "pass", "updated_sigma_yaml": yaml_part})
+        uy, meta = _enrichment_payload_from_llm_response(raw)
+        assert uy == yaml_part
+        assert meta is not None
+        assert meta.get("status") == "pass"
+
+    def test_sigma_enrichment_prompt_includes_toggles_and_author(self):
+        from src.utils.prompt_loader import format_prompt
+
+        toggles_json = json.dumps({f"d{i}": i == 1 for i in range(1, 8)}, sort_keys=True)
+        body = format_prompt(
+            "sigma_enrichment",
+            rule_yaml="title: T\ndetection:\n  x: y\n  condition: x",
+            article_title="AT",
+            article_url="https://example.test/x",
+            article_content_section="",
+            user_instruction="polish",
+            toggles_json=toggles_json,
+            author_value="Unit Test Author",
+        )
+        assert "Unit Test Author" in body
+        assert toggles_json in body
+        assert "do not fail claiming these are missing" in body.lower()
+
+    def test_sigma_author_from_db(self):
+        from unittest.mock import MagicMock
+
+        from src.web.routes.sigma_queue import DEFAULT_SIGMA_ENRICHMENT_AUTHOR, _sigma_author_from_db
+
+        sess = MagicMock()
+        sess.query.return_value.filter.return_value.first.return_value = None
+        assert _sigma_author_from_db(sess) == DEFAULT_SIGMA_ENRICHMENT_AUTHOR
+
+        row = MagicMock()
+        row.value = "  Custom Author  "
+        sess.query.return_value.filter.return_value.first.return_value = row
+        assert _sigma_author_from_db(sess) == "Custom Author"
+
+    @pytest.mark.asyncio
+    async def test_enrich_wires_toggles_and_author_into_prompt(self):
+        """enrich_rule passes toggles_json and author_value into sigma_enrichment template."""
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import DEFAULT_SIGMA_ENRICHMENT_TOGGLES, EnrichRuleRequest, enrich_rule
+
+        captured: dict = {}
+
+        def capture_format(_name: str, **kwargs):
+            captured.clear()
+            captured.update(kwargs)
+            return "formatted-prompt-body"
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {"X-OpenAI-API-Key": "test-key"}
+
+        enrich_request = EnrichRuleRequest(instruction="polish", author_value="Wire Test Author")
+
+        mock_rule = MagicMock()
+        mock_rule.id = 1
+        mock_rule.rule_yaml = "title: R\ndetection:\n  a: 1\n  condition: a"
+        mock_rule.article_id = 1
+        mock_article = MagicMock()
+        mock_article.title = "Article Title"
+        mock_article.canonical_url = "https://example.test/a"
+        mock_article.content = "body"
+        mock_article.article_metadata = None
+
+        mock_llm = AsyncMock(
+            return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml})
+        )
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch("src.web.routes.sigma_queue.format_prompt", side_effect=capture_format),
+            patch("src.services.openai_chat_client.openai_chat_completions", mock_llm),
+            patch("httpx.AsyncClient") as mock_httpx_client,
+        ):
+            mock_session = MagicMock()
+            mock_db_instance = MagicMock()
+            mock_db_instance.get_session.return_value = mock_session
+            mock_db_manager.return_value = mock_db_instance
+            mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
+
+            mock_httpx_client.return_value.__aenter__.return_value = MagicMock()
+            mock_httpx_client.return_value.__aexit__.return_value = None
+
+            result = await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+
+        assert captured.get("author_value") == "Wire Test Author"
+        toggles = json.loads(captured["toggles_json"])
+        assert toggles == DEFAULT_SIGMA_ENRICHMENT_TOGGLES
+        assert result["success"] is True
+        assert result["enriched_yaml"] == mock_rule.rule_yaml
+        mock_llm.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_enrich_merges_partial_directive_toggles(self):
+        """Partial directive_toggles overrides only known d1..d7 keys; others stay default True."""
+        from starlette.requests import Request
+
+        from src.web.routes.sigma_queue import EnrichRuleRequest, enrich_rule
+
+        captured: dict = {}
+
+        def capture_format(_name: str, **kwargs):
+            captured.clear()
+            captured.update(kwargs)
+            return "formatted-prompt-body"
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.headers = {"X-OpenAI-API-Key": "test-key"}
+
+        enrich_request = EnrichRuleRequest(
+            instruction="x",
+            directive_toggles={"d1": False, "d3": False, "d8": True},
+        )
+
+        mock_rule = MagicMock()
+        mock_rule.id = 1
+        mock_rule.rule_yaml = "title: R\ndetection:\n  a: 1\n  condition: a"
+        mock_rule.article_id = 1
+        mock_article = MagicMock()
+        mock_article.title = "T"
+        mock_article.canonical_url = None
+        mock_article.content = "c"
+        mock_article.article_metadata = None
+
+        mock_llm = AsyncMock(
+            return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml})
+        )
+
+        with (
+            patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
+            patch("src.web.routes.sigma_queue.format_prompt", side_effect=capture_format),
+            patch("src.services.openai_chat_client.openai_chat_completions", mock_llm),
+            patch("httpx.AsyncClient") as mock_httpx_client,
+        ):
+            mock_session = MagicMock()
+            mock_db_instance = MagicMock()
+            mock_db_instance.get_session.return_value = mock_session
+            mock_db_manager.return_value = mock_db_instance
+            mock_session.query.return_value.filter.return_value.first.side_effect = [
+                mock_rule,
+                mock_article,
+                None,
+            ]
+
+            mock_httpx_client.return_value.__aenter__.return_value = MagicMock()
+            mock_httpx_client.return_value.__aexit__.return_value = None
+
+            await enrich_rule(mock_request, queue_id=1, enrich_request=enrich_request)
+
+        toggles = json.loads(captured["toggles_json"])
+        assert toggles["d1"] is False
+        assert toggles["d3"] is False
+        assert toggles["d2"] is True
+        assert toggles["d7"] is True
+        assert "d8" not in toggles

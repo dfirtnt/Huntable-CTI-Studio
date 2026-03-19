@@ -145,23 +145,39 @@ class DatabaseManager:
             query = session.query(SourceTable)
 
             if filter_params:
-                if filter_params.active is not None:
-                    query = query.filter(SourceTable.active == filter_params.active)
+                active = getattr(filter_params, "active", None)
+                if active is not None:
+                    query = query.filter(SourceTable.active == active)
 
-                if filter_params.identifier_contains:
-                    query = query.filter(SourceTable.identifier.contains(filter_params.identifier_contains))
+                # Prefer current field name `identifier`.
+                identifier = getattr(filter_params, "identifier", None)
+                if identifier:
+                    query = query.filter(SourceTable.identifier.contains(identifier))
 
-                if filter_params.name_contains:
-                    query = query.filter(SourceTable.name.contains(filter_params.name_contains))
+                # Backward-compatible legacy aliases (if present).
+                identifier_contains = getattr(filter_params, "identifier_contains", None)
+                if identifier_contains:
+                    query = query.filter(SourceTable.identifier.contains(identifier_contains))
 
-                if filter_params.consecutive_failures_gte is not None:
-                    query = query.filter(SourceTable.consecutive_failures >= filter_params.consecutive_failures_gte)
+                name_contains = getattr(filter_params, "name_contains", None)
+                if name_contains:
+                    query = query.filter(SourceTable.name.contains(name_contains))
 
-                if filter_params.last_check_before:
-                    query = query.filter(SourceTable.last_check < filter_params.last_check_before)
+                consecutive_failures_gte = getattr(filter_params, "consecutive_failures_gte", None)
+                if consecutive_failures_gte is not None:
+                    query = query.filter(SourceTable.consecutive_failures >= consecutive_failures_gte)
 
-                # Apply pagination
-                query = query.offset(filter_params.offset).limit(filter_params.limit)
+                last_check_before = getattr(filter_params, "last_check_before", None)
+                if last_check_before:
+                    query = query.filter(SourceTable.last_check < last_check_before)
+
+                # Apply pagination only if those fields exist on the filter object.
+                offset = getattr(filter_params, "offset", None)
+                limit = getattr(filter_params, "limit", None)
+                if offset is not None:
+                    query = query.offset(offset)
+                if limit is not None:
+                    query = query.limit(limit)
 
             db_sources = query.all()
             return [self._db_source_to_model(db_source) for db_source in db_sources]

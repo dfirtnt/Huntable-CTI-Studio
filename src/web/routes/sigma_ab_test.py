@@ -26,14 +26,23 @@ def _extract_yaml_block(text: str) -> str:
     if not text or not text.strip():
         return text.strip() if text else ""
     text = text.strip()
-    match = re.search(r"```(?:yaml)?\s*\n(.*?)(?:\n```|$)", text, re.DOTALL)
+    # Handle markdown code fences with optional "yaml" and support CRLF/newline variants.
+    match = re.search(
+        r"```(?:yaml)?[ \t]*\r?\n(.*?)(?:\r?\n[ \t]*```|[ \t]*```|$)",
+        text,
+        re.DOTALL | re.IGNORECASE,
+    )
     if match:
         return match.group(1).strip()
     for start in ("title:", "id:", "logsource:", "detection:"):
         idx = text.find(start)
         if idx != -1:
-            return text[idx:].strip()
-    return text
+            # If the YAML is followed by another code fence / prose, truncate at the next fence.
+            candidate = text[idx:].strip()
+            candidate = re.split(r"```", candidate, maxsplit=1)[0].strip()
+            return candidate
+    # No obvious YAML boundary markers; fall back to raw content.
+    return text.strip()
 
 
 class CompareRequest(BaseModel):
