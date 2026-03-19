@@ -1424,6 +1424,9 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
     
     try {
         const ruleData = JSON.parse(ruleDataStr.replace(/&#39;/g, "'"));
+        const sourceFromRepo = (ruleData.rule_id && String(ruleData.rule_id).startsWith('cust-')) || (ruleData.file_path && String(ruleData.file_path).startsWith('customer/'));
+        const sourceLabel = sourceFromRepo ? 'Your repo' : 'SigmaHQ';
+        const sourceBadgeClass = sourceFromRepo ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200' : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
         
         // Remove any existing modal
         const existingModal = document.getElementById('similarRuleModal');
@@ -1485,7 +1488,10 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                 <div class="space-y-4 text-gray-700 dark:text-gray-300 max-h-96 overflow-y-auto">
                     <div>
                         <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Title:</h4>
-                        <div class="text-base">${ruleData.title || 'Untitled Rule'}</div>
+                        <div class="text-base flex items-center gap-2 flex-wrap">
+                            <span>${ruleData.title || 'Untitled Rule'}</span>
+                            <span class="text-xs px-2 py-0.5 rounded ${sourceBadgeClass}">${sourceLabel}</span>
+                        </div>
                     </div>
                     
                     ${ruleData.description ? `

@@ -592,6 +592,11 @@ function buildSimilarityDetailHtml(m) {
     };
     const detCur = m.detection_cur != null ? m.detection_cur : 'not available';
     const detCand = m.detection_cand != null ? m.detection_cand : 'not available';
+    const sourceFromRepo = (m.rule_id && String(m.rule_id).startsWith('cust-')) || (m.file_path && String(m.file_path).startsWith('customer/'));
+    const sourceLabel = sourceFromRepo ? 'Your repo' : 'SigmaHQ';
+    const sourceBadgeCls = sourceFromRepo
+        ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200'
+        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
     return `<div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">score summary</div>
     <div class="grid grid-cols-4 gap-2">
       <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">similarity</div><div class="text-lg font-medium text-purple-400">${simVal.toFixed(1)}%</div></div>
@@ -603,7 +608,7 @@ function buildSimilarityDetailHtml(m) {
     <div class="flex flex-col gap-1.5">${atomBlock('shared', m.shared_atoms || [], 'green')}${atomBlock('current only', m.unique_to_current || m.removed_atoms || [], 'amber')}${atomBlock('candidate only', m.unique_to_candidate || m.added_atoms || [], 'red')}</div>
     <div><div class="simYamlToggle flex items-center gap-2 cursor-pointer py-2 border-t border-gray-700 hover:opacity-80"><span class="simYamlArrow text-gray-500 text-xs">▶</span><span class="text-xs text-gray-400">logsource &amp; detection comparison</span></div>
     <div class="simYamlBlock hidden"><div class="grid grid-cols-2 gap-2 mt-1"><div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 bg-amber-950 text-amber-300">current rule</div><pre class="text-xs font-mono p-2 bg-gray-800 text-gray-400 overflow-x-auto leading-relaxed whitespace-pre">${_escHtml(detCur)}</pre></div><div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 bg-green-950 text-green-400">candidate</div><pre class="text-xs font-mono p-2 bg-gray-800 text-gray-400 overflow-x-auto leading-relaxed whitespace-pre">${_escHtml(detCand)}</pre></div></div></div></div>
-    <div class="flex flex-col gap-2 pb-2"><div class="flex flex-wrap items-center gap-2 text-xs font-mono text-gray-500"><span>${_escHtml(m.rule_id)}</span><span>·</span><span>status: ${_escHtml(m.status)}</span></div><div class="flex flex-wrap gap-1.5">${(m.tags || []).map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">${_escHtml(t)}</span>`).join('')}</div></div>`;
+    <div class="flex flex-col gap-2 pb-2"><div class="flex flex-wrap items-center gap-2 text-xs font-mono text-gray-500"><span>${_escHtml(m.rule_id)}</span><span>·</span><span>status: ${_escHtml(m.status)}</span><span class="text-xs px-2 py-0.5 rounded ${sourceBadgeCls}">${_escHtml(sourceLabel)}</span></div><div class="flex flex-wrap gap-1.5">${(m.tags || []).map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">${_escHtml(t)}</span>`).join('')}</div></div>`;
 }
 
 function _escHtml(str) {
