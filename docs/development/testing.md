@@ -190,6 +190,12 @@ Some UI tests mutate agent/workflow/settings config (run evaluations, save setti
 python3 run_tests.py ui --exclude-markers agent_config_mutation
 ```
 
+**Why `ui` feels slow:** `run_tests.py ui` runs **two** browser stacks in sequence: pytest `tests/ui/` (Python Playwright, with `pytest-xdist -n auto`) and then `npx playwright test tests/playwright/*.spec.ts` (often 200+ specs). For fast iteration on Python UI tests only:
+
+```bash
+python3 run_tests.py ui --skip-playwright-js --exclude-markers agent_config_mutation
+```
+
 This excludes:
 
 - **Pytest (tests/ui/)**: tests marked `@pytest.mark.agent_config_mutation` (run evaluation, save settings, save workflow config).
