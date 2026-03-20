@@ -1297,7 +1297,17 @@ class TestSettingsPanel:
         # Mock embedding stats API
         def handle_route(route):
             if "/api/embeddings/stats" in route.request.url:
-                mock_stats = {"embedded_count": 100, "total_articles": 200, "embedding_coverage_percent": 50.0}
+                mock_stats = {
+                    "embedded_count": 100,
+                    "total_articles": 200,
+                    "embedding_coverage_percent": 50.0,
+                    "sigma_corpus": {
+                        "total_sigma_rules": 50,
+                        "sigma_rules_with_rag_embedding": 40,
+                        "sigma_embedding_coverage_percent": 80.0,
+                        "sigma_rules_pending_rag_embedding": 10,
+                    },
+                }
                 route.fulfill(status=200, body=json.dumps(mock_stats), headers={"Content-Type": "application/json"})
             else:
                 route.continue_()
@@ -1309,12 +1319,15 @@ class TestSettingsPanel:
         page.wait_for_timeout(3000)
 
         # Verify embedding stats appear
-        embedding_stats = page.locator("text=Embeddings:")
+        embedding_stats = page.locator("text=Articles:")
         expect(embedding_stats).to_be_visible()
 
         # Verify stats values
         stats_text = page.locator("text=100/200")
         expect(stats_text).to_be_visible()
+
+        sigma_line = page.locator("text=SigmaHQ:")
+        expect(sigma_line).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.chat
@@ -1936,7 +1949,17 @@ class TestEmbeddingStats:
         # Mock embedding stats API
         def handle_route(route):
             if "/api/embeddings/stats" in route.request.url:
-                mock_stats = {"embedded_count": 150, "total_articles": 300, "embedding_coverage_percent": 50.0}
+                mock_stats = {
+                    "embedded_count": 150,
+                    "total_articles": 300,
+                    "embedding_coverage_percent": 50.0,
+                    "sigma_corpus": {
+                        "total_sigma_rules": 10,
+                        "sigma_rules_with_rag_embedding": 10,
+                        "sigma_embedding_coverage_percent": 100.0,
+                        "sigma_rules_pending_rag_embedding": 0,
+                    },
+                }
                 route.fulfill(status=200, body=json.dumps(mock_stats), headers={"Content-Type": "application/json"})
             else:
                 route.continue_()
@@ -1951,8 +1974,8 @@ class TestEmbeddingStats:
         stats_text = page.locator("text=150/300")
         expect(stats_text).to_be_visible()
 
-        # Verify coverage percentage
-        coverage = page.locator("text=50%")
+        # Verify coverage percentage (article line shows 50%)
+        coverage = page.locator("text=50%").first
         expect(coverage).to_be_visible()
 
     @pytest.mark.ui

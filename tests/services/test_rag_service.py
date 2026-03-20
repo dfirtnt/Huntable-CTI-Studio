@@ -3,7 +3,8 @@
 Uses mocked EmbeddingService and AsyncDatabaseManager; no real model loading.
 """
 
-from unittest.mock import AsyncMock, Mock, patch
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
@@ -169,3 +170,91 @@ class TestRAGService:
         # Should deduplicate by article_id
         article_ids = [r["article_id"] for r in results]
         assert len(set(article_ids)) == len(article_ids)  # All unique
+
+    @pytest.mark.asyncio
+    async def test_find_similar_sigma_rules_passes_bracket_string_vector(self, service, mock_db_manager):
+        """Sigma pgvector path must bind ``query_vector`` as a bracket string (asyncpg)."""
+        from contextlib import asynccontextmanager
+
+        service.sigma_embedding_service.generate_embedding = Mock(return_value=[0.25, 0.5, 0.75])
+
+        captured: dict[str, Any] = {}
+
+        @asynccontextmanager
+        async def fake_session():
+            sess = MagicMock()
+
+            async def _exec(_stmt, params=None):
+                captured["params"] = params
+                res = MagicMock()
+                res.mappings.return_value = [
+                    {
+                        "id": 1,
+                        "rule_id": "r-1",
+                        "title": "Test rule",
+                        "description": "d",
+                        "tags": [],
+                        "level": "high",
+                        "status": "stable",
+                        "file_path": "/x.yml",
+                        "signature_sim": 0.91,
+                    }
+                ]
+                return res
+
+            sess.execute = AsyncMock(side_effect=_exec)
+            yield sess
+
+        mock_db_manager.get_session = fake_session
+
+        rules = await service.find_similar_sigma_rules("malware", top_k=5, threshold=0.5)
+
+        assert len(rules) == 1
+        assert rules[0]["similarity"] == 0.91
+        assert rules[0]["meets_threshold"] is True
+        qv = captured["params"]["query_vector"]
+        assert isinstance(qv, str)
+        assert qv.startswith("[") and qv.endswith("]")
+        assert "0.25" in qv
+
+    @pytest.mark.asyncio
+    async def test_find_unified_partial_errors_when_article_leg_fails(self, service):
+        with (
+            patch.object(service, "find_similar_content", new_callable=AsyncMock, side_effect=RuntimeError("art boom")),
+            patch.object(
+                service,
+                "find_similar_sigma_rules",
+                new_callable=AsyncMock,
+                return_value=[{"id": 1, "title": "r"}],
+            ),
+        ):
+            out = await service.find_unified_results("q", threshold=0.5)
+
+        assert out["articles"] == []
+        assert out["total_articles"] == 0
+        assert len(out["rules"]) == 1
+        assert "partial_errors" in out
+        assert any("articles" in err for err in out["partial_errors"])
+
+    @pytest.mark.asyncio
+    async def test_find_unified_partial_errors_when_sigma_leg_fails(self, service):
+        with (
+            patch.object(
+                service,
+                "find_similar_content",
+                new_callable=AsyncMock,
+                return_value=[{"article_id": 9, "title": "a"}],
+            ),
+            patch.object(
+                service,
+                "find_similar_sigma_rules",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("sigma boom"),
+            ),
+        ):
+            out = await service.find_unified_results("q", threshold=0.5)
+
+        assert len(out["articles"]) == 1
+        assert out["rules"] == []
+        assert "partial_errors" in out
+        assert any("sigma" in err for err in out["partial_errors"])

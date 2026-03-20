@@ -36,6 +36,7 @@ from src.database.models import (
     ArticleAnnotationTable,
     ArticleTable,
     Base,
+    SigmaRuleTable,
     SourceCheckTable,
     SourceTable,
 )
@@ -2261,16 +2262,13 @@ class AsyncDatabaseManager:
             async with self.get_session() as session:
                 # Count total articles
                 total_result = await session.execute(
-                    select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
-                    .where(ArticleTable.archived == False)
+                    select(func.count(ArticleTable.id)).where(ArticleTable.archived == False)
                 )
                 total_articles = total_result.scalar() or 0
 
                 # Count articles with embeddings
                 embedded_result = await session.execute(
                     select(func.count(ArticleTable.id))
-                    .where(ArticleTable.archived == False)
                     .where(ArticleTable.archived == False)
                     .where(ArticleTable.embedding.is_not(None))
                 )
@@ -2325,6 +2323,46 @@ class AsyncDatabaseManager:
                 "embedding_coverage_percent": 0.0,
                 "pending_embeddings": 0,
                 "source_stats": [],
+            }
+
+    async def get_sigma_rule_embedding_stats(self) -> dict[str, Any]:
+        """SigmaHQ rule counts and RAG embedding coverage.
+
+        Semantic rule search (``find_similar_sigma_rules``) only considers rows where
+        ``logsource_embedding`` or ``embedding`` is non-null — same predicate as
+        ``rag_service.find_similar_sigma_rules``.
+        """
+        try:
+            async with self.get_session() as session:
+                total_result = await session.execute(select(func.count(SigmaRuleTable.id)))
+                total_rules = total_result.scalar() or 0
+
+                searchable_result = await session.execute(
+                    select(func.count(SigmaRuleTable.id)).where(
+                        or_(
+                            SigmaRuleTable.logsource_embedding.is_not(None),
+                            SigmaRuleTable.embedding.is_not(None),
+                        )
+                    )
+                )
+                searchable = searchable_result.scalar() or 0
+
+                coverage = (searchable / total_rules * 100) if total_rules > 0 else 0.0
+
+                return {
+                    "total_sigma_rules": total_rules,
+                    "sigma_rules_with_rag_embedding": searchable,
+                    "sigma_embedding_coverage_percent": round(coverage, 1),
+                    "sigma_rules_pending_rag_embedding": total_rules - searchable,
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to get sigma rule embedding stats: {e}")
+            return {
+                "total_sigma_rules": 0,
+                "sigma_rules_with_rag_embedding": 0,
+                "sigma_embedding_coverage_percent": 0.0,
+                "sigma_rules_pending_rag_embedding": 0,
             }
 
     async def close(self):

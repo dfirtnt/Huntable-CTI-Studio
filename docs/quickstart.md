@@ -79,6 +79,15 @@ docker-compose exec web python3 -m pytest tests/api/test_endpoints.py::TestHealt
 ```
 A zero exit code confirms the stack and core health endpoints are working.
 
+## 8) MCP server (optional)
+
+For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP server exposes article search, full article fetch, SIGMA search, sources, workflow executions, and the SIGMA review queue. It uses the same database as the web app. Tool listing and parameters: [MCP tools reference](reference/mcp-tools.md).
+
+```bash
+python3 run_mcp.py
+# or: python3 -m src.huntable_mcp
+```
+
 Stack shutdown (optional):
 ```bash
 docker-compose down

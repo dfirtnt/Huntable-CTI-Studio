@@ -4,7 +4,7 @@ import logging
 
 from mcp.server.fastmcp import FastMCP
 
-from src.mcp.tools.articles import _article_db_id
+from src.huntable_mcp.tools.articles import _article_db_id
 from src.services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,8 @@ def register(mcp: FastMCP, rag: RAGService) -> None:
         Args:
             query: Natural language description (e.g. "PowerShell download cradle execution")
             top_k: Maximum number of results (default 10)
-            threshold: Minimum similarity score 0.0-1.0 (default 0.5)
+            threshold: Similarity cutoff for labeling only; best matches are still returned below this
+                (semantic scores are often modest—use get_stats to confirm sigma_rules are loaded).
         """
         try:
             rules = await rag.find_similar_sigma_rules(
@@ -37,13 +38,26 @@ def register(mcp: FastMCP, rag: RAGService) -> None:
             )
 
             if not rules:
-                return "No SIGMA rules found matching your query."
+                return (
+                    "No SIGMA rules returned (no indexed rows with embeddings). "
+                    "Call **get_stats** — look for **Sigma rules:** total and RAG embedding count. "
+                    "If total is 0, run `./run_cli.sh sigma index` (or `index-metadata` then `index-embeddings`)."
+                )
 
-            lines = [f"Found {len(rules)} SIGMA rules:\n"]
+            n_meet = sum(1 for r in rules if r.get("meets_threshold", r.get("similarity", 0) >= threshold))
+            head = f"Found {len(rules)} SIGMA rules (best semantic matches; {n_meet} at or above threshold {threshold}):\n"
+            if n_meet == 0:
+                head += (
+                    f"(No rule reached {threshold}; scores below are still the closest in the corpus—"
+                    "try a narrower technique-focused query or lower threshold for labeling only.)\n"
+                )
+
+            lines = [head]
             for i, r in enumerate(rules, 1):
                 tags = ", ".join(r.get("tags", [])[:5]) or "none"
+                flag = " ✓" if r.get("meets_threshold") else ""
                 lines.append(
-                    f"{i}. **{r.get('title', 'Untitled')}**\n"
+                    f"{i}. **{r.get('title', 'Untitled')}**{flag}\n"
                     f"   Rule ID: {r.get('rule_id', 'N/A')} | "
                     f"Level: {r.get('level', 'N/A')} | "
                     f"Status: {r.get('status', 'N/A')}\n"
@@ -83,6 +97,10 @@ def register(mcp: FastMCP, rag: RAGService) -> None:
             )
 
             sections = []
+            if results.get("partial_errors"):
+                sections.append("## Search warnings\n" + "\n".join(results["partial_errors"]) + "\n")
+            if results.get("error"):
+                sections.append(f"## Error\n{results['error']}\n")
 
             # Articles section
             articles = results.get("articles", [])
@@ -120,7 +138,10 @@ def register(mcp: FastMCP, rag: RAGService) -> None:
                     )
                 sections.append("\n".join(lines))
             else:
-                sections.append("## SIGMA Rules\nNo matching rules found.\n")
+                sections.append(
+                    "## SIGMA Rules\nNo rules returned — `sigma_rules` may be empty or lack embeddings. "
+                    "See **get_stats** (Sigma rules line) and `./run_cli.sh sigma index` if needed.\n"
+                )
 
             return "\n".join(sections)
         except Exception as e:
