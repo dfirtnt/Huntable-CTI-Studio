@@ -51,6 +51,17 @@ cd Huntable-CTI-Studio
 - Health: `curl http://localhost:8001/health`
 - CLI: `./run_cli.sh <command>`
 
+### MCP (optional)
+
+Read-only MCP server for agents (articles, sources, SIGMA, workflow tools). Requires app env/DB as for the web app.
+
+**Tool reference:** [docs/reference/mcp-tools.md](docs/reference/mcp-tools.md) (nine tools; `get_article` uses **Article ID** from search output, not list position).
+
+```bash
+python3 run_mcp.py
+# or: python3 -m src.huntable_mcp
+```
+
 ## For Coding Agents And Contributors
 
 If you need to get oriented quickly, read these first:
@@ -78,7 +89,7 @@ The documentation is organized under `/docs` and is published with MkDocs Materi
 - **Quickstart**: `docs/quickstart.md`
 - **Architecture**: `docs/architecture/overview.md`, `docs/architecture/workflow-data-flow.md`
 - **Development**: `docs/development/setup.md`, `docs/development/testing.md`
-- **Reference**: `docs/reference/api.md`, `docs/reference/schemas.md`
+- **Reference**: `docs/reference/api.md`, `docs/reference/schemas.md`, `docs/reference/mcp-tools.md`
 
 ## License
 

@@ -15437,7 +15437,9 @@ async function checkSimilarRulesForQueue() {
             showSimilarRulesModal(data.matches, data.coverage_summary, generatedRules, data.assessment_method, data.diagnostic, {
                 totalCandidatesEvaluated: data.total_candidates_evaluated,
                 behavioralMatchesFound: data.behavioral_matches_found,
-                engineUsed: data.engine_used
+                engineUsed: data.engine_used,
+                canonicalClass: data.canonical_class ?? null,
+                logsourceKey: data.logsource_key ?? null
             });
         } else {
             showNotification('Failed to find similar rules: ' + (data.message || 'Unknown error'), 'error');
@@ -15456,6 +15458,18 @@ async function checkSimilarRulesForQueue() {
     }
 }
 
+function _workflowSimilarityCandidateFilterHint(metadata) {
+    const cc = metadata?.canonicalClass;
+    const lk = metadata?.logsourceKey;
+    if (cc) {
+        return ` <span class="text-gray-500 dark:text-gray-500">(canonical class: ${escapeHtml(String(cc))})</span>`;
+    }
+    if (lk && lk !== '|') {
+        return ` <span class="text-gray-500 dark:text-gray-500">(logsource: ${escapeHtml(String(lk))})</span>`;
+    }
+    return '';
+}
+
 async function showSimilarRulesModal(matches, coverageSummary, generatedRules = [], assessmentMethod = null, diagnostic = null, metadata = {}) {
     // Remove any existing modal
     closeSimilarRulesModal();
@@ -15465,6 +15479,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     const totalCandidatesEvaluated = metadata?.totalCandidatesEvaluated ?? -1;
     const behavioralMatchesFound = metadata?.behavioralMatchesFound ?? -1;
     const hasMetadata = totalCandidatesEvaluated >= 0;
+    const filterHintHtml = _workflowSimilarityCandidateFilterHint(metadata);
     
     // Clean up existing modal properly
     const existingModal = document.getElementById('similarRulesModal');
@@ -15524,7 +15539,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
             <div class="text-center py-8">
                 <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
                 <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${emptyTitle}</p>
-                ${hasMetadata ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${totalCandidatesEvaluated} candidates evaluated</p>` : ''}
+                ${hasMetadata ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${Number(totalCandidatesEvaluated).toLocaleString()} candidates evaluated${filterHintHtml}</p>` : ''}
                 <p class="text-gray-600 dark:text-gray-400">${emptySubtitle}</p>
             </div>
         `;
@@ -15697,7 +15712,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
             
             ${matches && matches.length > 0 ? `
             <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
-                ${hasMetadata ? totalCandidatesEvaluated + ' candidates evaluated · ' : ''}Found ${matches.length} rules with behavioral overlap (sorted by similarity)
+                ${hasMetadata ? Number(totalCandidatesEvaluated).toLocaleString() + ' candidates evaluated' + filterHintHtml + ' · ' : ''}Found ${matches.length} rules with behavioral overlap (sorted by similarity)
                 ${matches[0] && matches[0].similarity_method === 'llm_reranked' ? `
                     <div class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         Analysis by: ${escapeHtml(matches[0].llm_provider || 'unknown')}${matches[0].llm_model ? ' — ' + escapeHtml(matches[0].llm_model) : ''}

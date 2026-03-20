@@ -2205,6 +2205,8 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             total_candidates_evaluated = match_result.get("total_candidates_evaluated", 0)
             behavioral_matches_found = match_result.get("behavioral_matches_found", 0)
             engine_used = match_result.get("engine_used", "legacy")
+            match_canonical_class = match_result.get("canonical_class")
+            match_logsource_key = match_result.get("logsource_key", "") or ""
 
             # Calculate max similarity
             max_similarity = (
@@ -2274,6 +2276,8 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                 "total_candidates_evaluated": total_candidates_evaluated,
                 "behavioral_matches_found": behavioral_matches_found,
                 "engine_used": engine_used,
+                "canonical_class": match_canonical_class,
+                "logsource_key": match_logsource_key,
                 "coverage_summary": {
                     "covered": len([m for m in similar_matches if m.get("coverage_status") == "covered"]),
                     "extend": len([m for m in similar_matches if m.get("coverage_status") == "extend"]),

@@ -164,7 +164,41 @@ class RAGService:
                                 }
                             )
 
-                logger.info(f"Found {len(deduplicated_results)} unique articles from chunk search")
+                if not deduplicated_results:
+                    logger.info(
+                        "Chunk-level search returned no articles (threshold or sparse annotations); "
+                        "falling back to article-level embeddings (threshold=0 for recall; chunk leg already used caller threshold)"
+                    )
+                    # Article-level search filters by threshold in DB; use 0.0 here so we still return
+                    # the best cosine matches when chunk search was empty (e.g. LSASS phrasing vs article titles).
+                    articles_fb = await self.find_similar_articles(
+                        query=query, top_k=max(top_k * 4, 24), threshold=0.0, source_id=source_id
+                    )
+                    for a in articles_fb:
+                        if len(deduplicated_results) >= top_k:
+                            break
+                        aid = a["id"]
+                        hs = (a.get("metadata") or {}).get("threat_hunting_score", 0)
+                        if min_hunt_score is not None and hs < min_hunt_score:
+                            continue
+                        body = a.get("content") or a.get("summary") or ""
+                        deduplicated_results.append(
+                            {
+                                "id": aid,
+                                "article_id": aid,
+                                "title": a.get("title", "Unknown"),
+                                "url": a.get("canonical_url", ""),
+                                "source_name": a.get("source_name", "Unknown"),
+                                "published_at": a.get("published_at"),
+                                "content": body[:context_length] + ("..." if len(body) > context_length else ""),
+                                "similarity": a.get("similarity", 0),
+                                "annotation_type": "article_embedding",
+                                "confidence_score": a.get("similarity", 0),
+                                "hunt_score": hs,
+                            }
+                        )
+
+                logger.info(f"Found {len(deduplicated_results)} unique articles from chunk search (incl. fallback)")
                 return deduplicated_results[:top_k]
             # Fallback to article-level search
             articles = await self.find_similar_articles(
@@ -292,10 +326,11 @@ class RAGService:
         Args:
             query: Search query text
             top_k: Number of results to return
-            threshold: Minimum similarity threshold (0.0-1.0)
+            threshold: Cutoff for ``meets_threshold`` on each row; the top ``top_k``
+                matches are still returned even if all scores are below this (best-effort retrieval).
 
         Returns:
-            List of similar Sigma rules with metadata
+            List of similar Sigma rules with metadata (includes ``meets_threshold`` bool)
         """
         try:
             # For query-based search, we need to create a minimal rule structure
@@ -305,14 +340,14 @@ class RAGService:
 
             # Generate query embedding using SIGMA embedding model (e5-base-v2)
             query_embedding = self.sigma_embedding_service.generate_embedding(query)
-            zero_vector = [0.0] * 768
+            # pgvector + asyncpg: pass the same bracket string format as article search (not raw lists).
+            embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
             # Get database session
             async with self.db_manager.get_session() as session:
-                from pgvector.sqlalchemy import Vector
-                from sqlalchemy import Integer, bindparam, text
+                from sqlalchemy import text
 
-                # Cast params to vector in SQL so asyncpg text params are accepted (vector <=> text avoided)
+                # Same vector param style as search_similar_articles / search_similar_annotations.
                 stmt = text("""
                     SELECT
                         sr.id,
@@ -324,57 +359,63 @@ class RAGService:
                         sr.status,
                         sr.file_path,
                         CASE
-                            WHEN sr.logsource_embedding IS NOT NULL AND :embedding::vector != :zero_vec::vector
-                                THEN 1 - (sr.logsource_embedding <=> :embedding::vector)
-                            WHEN sr.embedding IS NOT NULL AND :embedding::vector != :zero_vec::vector
-                                THEN 1 - (sr.embedding <=> :embedding::vector)
+                            WHEN sr.logsource_embedding IS NOT NULL
+                                THEN 1 - (sr.logsource_embedding <=> :query_vector)
+                            WHEN sr.embedding IS NOT NULL
+                                THEN 1 - (sr.embedding <=> :query_vector)
                             ELSE 0.0
                         END AS signature_sim
                     FROM sigma_rules sr
                     WHERE sr.logsource_embedding IS NOT NULL OR sr.embedding IS NOT NULL
                     ORDER BY signature_sim DESC
                     LIMIT :limit
-                """).bindparams(
-                    bindparam("embedding", type_=Vector(768)),
-                    bindparam("zero_vec", type_=Vector(768)),
-                    bindparam("limit", type_=Integer),
-                )
+                """)
 
-                # Execute query with vector binding
                 result = await session.execute(
-                    stmt, {"embedding": query_embedding, "zero_vec": zero_vector, "limit": top_k}
+                    stmt,
+                    {"query_vector": embedding_str, "limit": top_k},
                 )
 
                 rules = []
                 all_results = []
-                for row in result:
-                    signature_sim = float(row[8]) if row[8] is not None else 0.0
-                    all_results.append((row[2], signature_sim))  # title and similarity
-                    if signature_sim >= threshold:
-                        rules.append(
-                            {
-                                "id": row[0],
-                                "rule_id": row[1],
-                                "title": row[2],
-                                "description": row[3],
-                                "tags": row[4] if row[4] else [],
-                                "level": row[5],
-                                "status": row[6],
-                                "file_path": row[7],
-                                "similarity": signature_sim,
-                                "novelty_label": "NOVEL",  # Query search doesn't support novelty assessment
-                                "novelty_score": 1.0 - signature_sim,
-                            }
-                        )
+                for row in result.mappings():
+                    signature_sim = float(row["signature_sim"] or 0.0)
+                    all_results.append((row["title"], signature_sim))
+                    meets = signature_sim >= threshold
+                    rules.append(
+                        {
+                            "id": row["id"],
+                            "rule_id": row["rule_id"],
+                            "title": row["title"],
+                            "description": row["description"],
+                            "tags": row["tags"] if row["tags"] else [],
+                            "level": row["level"],
+                            "status": row["status"],
+                            "file_path": row["file_path"],
+                            "similarity": signature_sim,
+                            "meets_threshold": meets,
+                            "novelty_label": "NOVEL",  # Query search doesn't support novelty assessment
+                            "novelty_score": 1.0 - signature_sim,
+                        }
+                    )
 
                 if all_results:
                     logger.info(f"Top SIGMA rule matches (threshold={threshold}): {all_results[:3]}")
-                logger.info(f"Found {len(rules)} similar Sigma rules for query: '{query[:50]}...'")
+                    n_meet = sum(1 for r in rules if r["meets_threshold"])
+                    if n_meet == 0 and rules:
+                        logger.info(
+                            "Sigma search: no rules >= threshold=%s; returning %s best matches anyway "
+                            "(best similarity=%.3f)",
+                            threshold,
+                            len(rules),
+                            rules[0]["similarity"],
+                        )
+                logger.info(f"Returning {len(rules)} Sigma rule rows for query: '{query[:50]}...'")
                 return rules
 
         except Exception as e:
-            logger.error(f"Failed to find similar Sigma rules: {e}")
-            return []
+            logger.exception("Failed to find similar Sigma rules")
+            raise RuntimeError(f"Sigma vector search failed: {e}") from e
 
     async def find_unified_results(
         self,
@@ -404,23 +445,39 @@ class RAGService:
             Dictionary with 'articles' and 'rules' keys
         """
         try:
-            # Search articles and Sigma rules in parallel
-            articles_task = self.find_similar_content(
-                query=query,
-                top_k=top_k_articles,
-                threshold=threshold,
-                source_id=source_id,
-                use_chunks=use_chunks,
-                context_length=context_length,
-                min_hunt_score=min_hunt_score,
+            articles, rules = await asyncio.gather(
+                self.find_similar_content(
+                    query=query,
+                    top_k=top_k_articles,
+                    threshold=threshold,
+                    source_id=source_id,
+                    use_chunks=use_chunks,
+                    context_length=context_length,
+                    min_hunt_score=min_hunt_score,
+                ),
+                self.find_similar_sigma_rules(query=query, top_k=top_k_rules, threshold=threshold),
+                return_exceptions=True,
             )
 
-            rules_task = self.find_similar_sigma_rules(query=query, top_k=top_k_rules, threshold=threshold)
+            partial_errors: list[str] = []
+            if isinstance(articles, BaseException):
+                logger.exception("Unified search: article leg failed")
+                partial_errors.append(f"articles: {articles}")
+                articles = []
+            if isinstance(rules, BaseException):
+                logger.exception("Unified search: sigma leg failed")
+                partial_errors.append(f"sigma_rules: {rules}")
+                rules = []
 
-            # Wait for both searches to complete
-            articles, rules = await asyncio.gather(articles_task, rules_task)
-
-            return {"articles": articles, "rules": rules, "total_articles": len(articles), "total_rules": len(rules)}
+            out: dict[str, Any] = {
+                "articles": articles,
+                "rules": rules,
+                "total_articles": len(articles),
+                "total_rules": len(rules),
+            }
+            if partial_errors:
+                out["partial_errors"] = partial_errors
+            return out
 
         except Exception as e:
             logger.error(f"Failed to find unified results: {e}")
@@ -475,13 +532,31 @@ class RAGService:
         Get statistics about embedding coverage.
 
         Returns:
-            Dictionary with embedding statistics
+            Article stats (total_articles, embedded_count, …) plus ``sigma_corpus``:
+            SigmaHQ ``sigma_rules`` row count and RAG-searchable embedding coverage
+            (same fields as ``AsyncDatabaseManager.get_sigma_rule_embedding_stats``).
+            AI-generated rules in ``sigma_rule_queue`` are not included here.
         """
         try:
-            return await self.db_manager.get_article_embedding_stats()
+            articles = await self.db_manager.get_article_embedding_stats()
+            sigma_corpus = await self.db_manager.get_sigma_rule_embedding_stats()
+            return {**articles, "sigma_corpus": sigma_corpus}
         except Exception as e:
             logger.error(f"Failed to get embedding coverage: {e}")
-            return {"total_articles": 0, "embedded_count": 0, "embedding_coverage_percent": 0.0, "error": str(e)}
+            return {
+                "total_articles": 0,
+                "embedded_count": 0,
+                "embedding_coverage_percent": 0.0,
+                "pending_embeddings": 0,
+                "source_stats": [],
+                "sigma_corpus": {
+                    "total_sigma_rules": 0,
+                    "sigma_rules_with_rag_embedding": 0,
+                    "sigma_embedding_coverage_percent": 0.0,
+                    "sigma_rules_pending_rag_embedding": 0,
+                },
+                "error": str(e),
+            }
 
     async def find_related_techniques(self, technique: str, top_k: int = 5) -> list[dict[str, Any]]:
         """

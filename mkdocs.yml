@@ -63,6 +63,7 @@ nav:
   - Reference:
       - CLI: reference/cli.md
       - API: reference/api.md
+      - MCP tools: reference/mcp-tools.md
       - Schemas: reference/schemas.md
       - Scheduled Jobs: reports/SCHEDULED_JOBS_REPORT.md
       - ML Feature Definitions: reference/ml-features.md

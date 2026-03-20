@@ -705,8 +705,15 @@
                             {/* Embedding Stats and Update Button */}
                             <div className="flex items-center space-x-2">
                                 {embeddingStats && (
-                                    <div className="text-xs text-gray-400">
-                                        Embeddings: {embeddingStats.embedded_count}/{embeddingStats.total_articles} ({embeddingStats.embedding_coverage_percent}%)
+                                    <div className="text-xs text-gray-400 flex flex-col gap-0.5">
+                                        <span>
+                                            Articles: {embeddingStats.embedded_count}/{embeddingStats.total_articles} ({embeddingStats.embedding_coverage_percent}%)
+                                        </span>
+                                        {embeddingStats.sigma_corpus && (
+                                            <span title="SigmaHQ reference rules in DB (search_sigma_rules / RAG); not the AI review queue">
+                                                SigmaHQ: {embeddingStats.sigma_corpus.sigma_rules_with_rag_embedding}/{embeddingStats.sigma_corpus.total_sigma_rules} RAG-ready ({embeddingStats.sigma_corpus.sigma_embedding_coverage_percent}%)
+                                            </span>
+                                        )}
                                     </div>
                                 )}
                                 <button
