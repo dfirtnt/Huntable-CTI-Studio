@@ -1657,6 +1657,9 @@ function checkAndTriggerPreview() {
         pendingPreviewId = null;
         // Use setTimeout to ensure modal can be opened (avoid race conditions)
         setTimeout(() => {
+            if (currentRuleId === ruleId && isEditMode) {
+                return;
+            }
             previewRule(ruleId);
         }, 100);
     } else {

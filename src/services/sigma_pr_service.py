@@ -247,6 +247,11 @@ class SigmaPRService:
         except Exception as e:
             logger.warning(f"Failed to configure remote auth: {e}")
 
+    def _resolve_default_base_branch(self) -> str:
+        """Prefer main when origin/main exists, otherwise master (legacy)."""
+        _, stdout, _ = self._run_git_command(["branch", "-r"], check=False)
+        return "main" if "origin/main" in stdout else "master"
+
     def _check_repo_status(self) -> dict[str, Any]:
         """
         Check repository status and validate it's ready for PR.
@@ -300,18 +305,27 @@ class SigmaPRService:
                     ),
                 }
 
-        # Ensure we're on main/master
-        _, stdout, _ = self._run_git_command(["branch", "--show-current"], check=False)
-        current_branch = stdout.strip()
-        if current_branch not in ["main", "master"]:
-            return {"valid": False, "error": f"Not on main/master branch (currently on {current_branch})"}
-
         # Configure remote URL with token if using HTTPS
         self._configure_remote_auth()
 
-        # Pull latest changes
+        base_branch = self._resolve_default_base_branch()
+        fetch_rc, _, fetch_err = self._run_git_command(["fetch", "origin"], check=False)
+        if fetch_rc != 0:
+            logger.warning(f"git fetch origin failed ({fetch_rc}): {(fetch_err or '').strip()}")
+
+        checkout_rc, _, checkout_err = self._run_git_command(["checkout", base_branch], check=False)
+        if checkout_rc != 0:
+            err_detail = (checkout_err or "").strip() or "git checkout failed"
+            return {
+                "valid": False,
+                "error": (
+                    f"Could not switch to default branch '{base_branch}' (currently on another branch). "
+                    f"{err_detail}. Commit or stash local changes, then try again."
+                ),
+            }
+
         try:
-            self._run_git_command(["pull", "origin", current_branch], check=False)
+            self._run_git_command(["pull", "origin", base_branch], check=False)
         except Exception as e:
             logger.warning(f"Failed to pull latest changes: {e}")
 
@@ -435,9 +449,7 @@ class SigmaPRService:
 
             if not files_added:
                 # No files to commit, cleanup branch
-                # Determine base branch first
-                _, stdout, _ = self._run_git_command(["branch", "-r"], check=False)
-                base_branch = "main" if "origin/main" in stdout else "master"
+                base_branch = self._resolve_default_base_branch()
                 self._run_git_command(["checkout", base_branch], check=False)
                 self._run_git_command(["branch", "-D", branch_name], check=False)
                 return {"success": False, "error": "No valid rules to submit"}
@@ -480,9 +492,7 @@ class SigmaPRService:
             logger.error(f"Error submitting PR: {e}")
             # Try to cleanup branch
             try:
-                # Determine base branch first
-                _, stdout, _ = self._run_git_command(["branch", "-r"], check=False)
-                base_branch = "main" if "origin/main" in stdout else "master"
+                base_branch = self._resolve_default_base_branch()
                 self._run_git_command(["checkout", base_branch], check=False)
                 self._run_git_command(["branch", "-D", branch_name], check=False)
             except (subprocess.SubprocessError, OSError):
@@ -536,9 +546,7 @@ class SigmaPRService:
                 "Content-Type": "application/json",
             }
 
-            # Determine base branch (main or master)
-            _, stdout, _ = self._run_git_command(["branch", "-r"], check=False)
-            base_branch = "main" if "origin/main" in stdout else "master"
+            base_branch = self._resolve_default_base_branch()
 
             payload = {"title": title, "body": body, "head": branch_name, "base": base_branch}
 
