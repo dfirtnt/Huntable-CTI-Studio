@@ -1,8 +1,4 @@
-"""Smoke checks for DB-backed embedding stats, lexical article search, and optional Sigma RAG.
-
-Skips cleanly when ``TEST_DATABASE_URL`` is unreachable (no test containers). Semantic Sigma
-search is ``slow``-marked and excluded from the default smoke marker expression.
-"""
+"""DB smoke: embedding stats, lexical search, sigma_rule_queue; optional slow Sigma semantic."""
 
 from __future__ import annotations
 
@@ -11,16 +7,12 @@ import asyncio
 import pytest
 from sqlalchemy import text
 
+from src.database.async_manager import AsyncDatabaseManager
+
 pytestmark = pytest.mark.smoke
 
 
 async def _smoke_db_manager():
-    """Return ``AsyncDatabaseManager`` if the test DB answers within a few seconds."""
-    try:
-        from src.database.async_manager import AsyncDatabaseManager
-    except ImportError:
-        return None
-
     mgr = AsyncDatabaseManager()
     try:
         async with asyncio.timeout(5):
@@ -35,7 +27,7 @@ async def _smoke_db_manager():
 async def test_article_and_sigma_embedding_stats_readable():
     mgr = await _smoke_db_manager()
     if mgr is None:
-        pytest.skip("Test database not reachable (start test Postgres or ignore for stateless smoke)")
+        pytest.skip("test database unreachable")
 
     art = await mgr.get_article_embedding_stats()
     assert "total_articles" in art

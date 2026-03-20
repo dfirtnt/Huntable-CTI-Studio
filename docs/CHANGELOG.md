@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Sources / DB managers** (2026-03-19): Listing sources tolerates minimal `SourceFilter`-style payloads without crashing `DatabaseManager` / `AsyncDatabaseManager`.
 
 ### Changed
+- **RAG / tests** (2026-03-20): Shorter docstrings and log lines for Sigma embedding search and chunk→article fallback; `sqlalchemy.text` imported at module scope in `rag_service.py`. Smoke/API/RAG/sigma-matching tests: less boilerplate (module docs, skip messages, fixture comments).
 - **Executions tab: tactical console redesign** (2026-03-18): Executions tab restyled with `q-command-strip`, `q-cmd-btn`, `q-table`, `q-cell-*`, and `q-actions-cell` CSS classes — matching the SIGMA Queue tactical operations console aesthetic. Replaces Tailwind utility classes with themed CSS variable system for buttons, filters, stat cards, table rows, and action buttons. Execution detail and trigger workflow modals use the `q-modal-*` / `q-form-*` class system.
 
 ### Fixed

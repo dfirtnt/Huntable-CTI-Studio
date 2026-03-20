@@ -10,6 +10,8 @@ import logging
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import text
+
 from src.database.async_manager import AsyncDatabaseManager
 from src.services.embedding_service import EmbeddingService, generate_query_embedding, get_embedding_service
 
@@ -165,12 +167,7 @@ class RAGService:
                             )
 
                 if not deduplicated_results:
-                    logger.info(
-                        "Chunk-level search returned no articles (threshold or sparse annotations); "
-                        "falling back to article-level embeddings (threshold=0 for recall; chunk leg already used caller threshold)"
-                    )
-                    # Article-level search filters by threshold in DB; use 0.0 here so we still return
-                    # the best cosine matches when chunk search was empty (e.g. LSASS phrasing vs article titles).
+                    logger.info("No chunk hits; falling back to article-level search (threshold=0)")
                     articles_fb = await self.find_similar_articles(
                         query=query, top_k=max(top_k * 4, 24), threshold=0.0, source_id=source_id
                     )
@@ -318,36 +315,23 @@ class RAGService:
         self, query: str, top_k: int = 10, threshold: float = 0.7
     ) -> list[dict[str, Any]]:
         """
-        Find similar Sigma detection rules using behavioral novelty assessment.
-
-        Note: Query-based search is not fully supported by novelty assessment.
-        This method converts the query to a minimal rule structure for comparison.
+        Embedding-based similarity search over Sigma rules (logsource_embedding / embedding).
 
         Args:
             query: Search query text
-            top_k: Number of results to return
-            threshold: Cutoff for ``meets_threshold`` on each row; the top ``top_k``
-                matches are still returned even if all scores are below this (best-effort retrieval).
+            top_k: Max rows to return (best matches first even if below threshold)
+            threshold: Cutoff for ``meets_threshold`` on each row
 
         Returns:
-            List of similar Sigma rules with metadata (includes ``meets_threshold`` bool)
+            Rule dicts with ``similarity``, ``meets_threshold``, etc.
         """
         try:
-            # For query-based search, we need to create a minimal rule structure
-            # This is a limitation: novelty assessment requires full rule structure
-            # For now, fall back to embedding-based search for queries
-            logger.warning("Query-based SIGMA search not fully supported by novelty assessment, using embeddings")
+            logger.warning("Sigma text query: embedding similarity only (not novelty engine)")
 
-            # Generate query embedding using SIGMA embedding model (e5-base-v2)
             query_embedding = self.sigma_embedding_service.generate_embedding(query)
-            # pgvector + asyncpg: pass the same bracket string format as article search (not raw lists).
             embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
 
-            # Get database session
             async with self.db_manager.get_session() as session:
-                from sqlalchemy import text
-
-                # Same vector param style as search_similar_articles / search_similar_annotations.
                 stmt = text("""
                     SELECT
                         sr.id,
@@ -394,7 +378,7 @@ class RAGService:
                             "file_path": row["file_path"],
                             "similarity": signature_sim,
                             "meets_threshold": meets,
-                            "novelty_label": "NOVEL",  # Query search doesn't support novelty assessment
+                            "novelty_label": "NOVEL",
                             "novelty_score": 1.0 - signature_sim,
                         }
                     )
@@ -529,13 +513,8 @@ class RAGService:
 
     async def get_embedding_coverage(self) -> dict[str, Any]:
         """
-        Get statistics about embedding coverage.
-
-        Returns:
-            Article stats (total_articles, embedded_count, …) plus ``sigma_corpus``:
-            SigmaHQ ``sigma_rules`` row count and RAG-searchable embedding coverage
-            (same fields as ``AsyncDatabaseManager.get_sigma_rule_embedding_stats``).
-            AI-generated rules in ``sigma_rule_queue`` are not included here.
+        Article embedding stats plus ``sigma_corpus`` (see ``get_sigma_rule_embedding_stats``).
+        Excludes ``sigma_rule_queue`` rows.
         """
         try:
             articles = await self.db_manager.get_article_embedding_stats()

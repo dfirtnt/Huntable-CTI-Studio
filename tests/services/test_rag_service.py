@@ -3,6 +3,7 @@
 Uses mocked EmbeddingService and AsyncDatabaseManager; no real model loading.
 """
 
+from contextlib import asynccontextmanager
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
@@ -173,8 +174,7 @@ class TestRAGService:
 
     @pytest.mark.asyncio
     async def test_find_similar_sigma_rules_passes_bracket_string_vector(self, service, mock_db_manager):
-        """Sigma pgvector path must bind ``query_vector`` as a bracket string (asyncpg)."""
-        from contextlib import asynccontextmanager
+        """Sigma search binds pgvector query as a bracket string for asyncpg."""
 
         service.sigma_embedding_service.generate_embedding = Mock(return_value=[0.25, 0.5, 0.75])
 
