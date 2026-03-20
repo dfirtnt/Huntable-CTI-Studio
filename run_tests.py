@@ -195,6 +195,7 @@ class RunTestConfig:
     exclude_markers: list[str] | None = None
     include_agent_config_tests: bool = False
     playwright_last_failed: bool = False
+    skip_playwright_js: bool = False
     config_file: str | None = None
     output_format: str = "progress"
     fail_fast: bool = False
@@ -970,7 +971,15 @@ class RunTestRunner:
 
             # Determine if we should run Playwright tests
             playwright_cmd = self._build_playwright_command()
-            run_playwright = playwright_cmd is not None
+            run_playwright = (
+                playwright_cmd is not None and not self.config.skip_playwright_js
+            )
+            if self.config.skip_playwright_js and playwright_cmd is not None:
+                print(
+                    "\n⚡ --skip-playwright-js: skipping npx Playwright (tests/playwright/*.spec.ts). "
+                    "Pytest UI tests still run.\n",
+                    flush=True,
+                )
 
             # Install Playwright dependencies if needed
             if run_playwright and not self._check_playwright_dependencies():
@@ -1937,6 +1946,11 @@ Manual Container Management:
         action="store_true",
         help="Rerun only Playwright tests that failed in the last run (skips pytest; use after 'ui' run with failures)",
     )
+    parser.add_argument(
+        "--skip-playwright-js",
+        action="store_true",
+        help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; skip npx Playwright tests/playwright (saves most UI wall time)",
+    )
     parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
 
     # Output and reporting
@@ -1983,6 +1997,7 @@ Manual Container Management:
         exclude_markers=args.exclude_markers,
         include_agent_config_tests=args.include_agent_config_tests,
         playwright_last_failed=args.playwright_last_failed,
+        skip_playwright_js=args.skip_playwright_js,
         config_file=args.config,
         output_format=args.output_format,
         fail_fast=args.fail_fast,

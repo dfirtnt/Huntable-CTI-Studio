@@ -84,6 +84,9 @@ langfuse>=3.11.2  # Langfuse for LLM observability and tracing
 # MCP server
 mcp[cli]>=1.0.0  # Model Context Protocol SDK for LLM tool integration
 
+# Security pins (transitive dependency floors)
+Authlib>=1.6.9  # CVE fix: JWS header injection, Bleichenbacher oracle, OIDC hash bypass
+
 # Documentation
 mkdocs>=1.5.0  # Static docs site generator
 mkdocs-material>=9.5.0  # MkDocs theme used for published docs

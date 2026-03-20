@@ -15877,6 +15877,11 @@ function checkAndTriggerPreview() {
         pendingPreviewId = null;
         // Use setTimeout to ensure modal can be opened (avoid race conditions)
         setTimeout(() => {
+            // Queue auto-refresh calls checkAndTriggerPreview(); previewRule() resets
+            // isEditMode and reloads YAML from the server — do not interrupt an active edit.
+            if (currentRuleId === ruleId && isEditMode) {
+                return;
+            }
             previewRule(ruleId);
         }, 100);
     } else {

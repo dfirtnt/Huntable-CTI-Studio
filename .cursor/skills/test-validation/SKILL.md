@@ -1,6 +1,6 @@
 ---
 name: test-validation
-description: Runs the standard test sequence (smoke, unit, api, integration, then ui). UI excludes agent/workflow config-mutating tests by default; parses pass counts and validates against expected baselines. Use when you need to confirm the suite is green with known-good counts; does not fix failures.
+description: Runs the standard test sequence (smoke, unit, api, integration, then ui). UI uses --skip-playwright-js (pytest tests/ui only; no npx tests/playwright). Agent/workflow config-mutating tests stay excluded by run_tests.py ui defaults. Parses pass counts; does not fix failures.
 ---
 
 # Test Validation
@@ -15,7 +15,7 @@ Executes in order:
 2. **unit** - Unit tests
 3. **api** - API endpoint tests
 4. **integration** - System integration tests
-5. **ui** - Web interface tests (agent/workflow config-mutating tests excluded by default)
+5. **ui** - `ui --skip-playwright-js` — pytest `tests/ui/` only (skips `npx playwright test tests/playwright/`; config-mutating tests still excluded by `run_tests.py ui` defaults). For full UI including TS Playwright, run `python3 run_tests.py ui` separately.
 6. **quality regression** - `regression --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 7. **quality contract** - `contract --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 8. **quality security** - `security --context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
@@ -29,7 +29,7 @@ Executes in order:
 
 When invoked, this skill:
 
-1. Runs each test group sequentially using `./run_tests.py`
+1. Runs each test group sequentially using `python3 run_tests.py` (ui step includes `--skip-playwright-js`)
 2. Captures pass/fail/skip counts from pytest output
 3. Reports results in a summary table
 4. Does NOT attempt to fix failures (read-only validation)
@@ -60,7 +60,7 @@ from pathlib import Path
 
 def run_test_group(group: str, exclude_markers: list[str] = None, extra_args: list[str] = None) -> dict:
     """Run a test group and parse results."""
-    cmd = ["./run_tests.py", group]
+    cmd = ["python3", "run_tests.py", group]
     if exclude_markers:
         cmd.extend(["--exclude-markers"] + exclude_markers)
     if extra_args:
@@ -103,7 +103,7 @@ test_groups = [
     ("unit", [], None, None),
     ("api", [], None, None),
     ("integration", [], None, None),
-    ("ui", [], None, None),
+    ("ui", [], ["--skip-playwright-js"], None),
     ("regression", [], quality_path_args, None),
     ("contract", [], quality_path_args, None),
     ("security", [], quality_path_args, None),
@@ -161,7 +161,8 @@ print()
 
 - This skill does NOT fix failures - it only reports them
 - For fixing failures, use the `test-runner-fix` skill instead
-- The `ui` group excludes agent/workflow config-mutating tests by default (run_tests.py ui default)
+- The `ui` step uses `--skip-playwright-js` so validation finishes in reasonable time; it does **not** run `tests/playwright/*.spec.ts`. Full browser parity: `python3 run_tests.py ui` (omit the flag).
+- Agent/workflow config-mutating tests stay excluded by `run_tests.py ui` defaults unless you pass `--include-agent-config-tests`
 - Quality runs (regression, contract, security, a11y) use `--context localhost --paths tests/quality/test_quality_categories_seed.py --output-format quiet`
 - Unit marker runs: `unit --markers regression|contract|security|a11y` (expected 1 passed each)
 - Each test group runs independently (no shared state)
