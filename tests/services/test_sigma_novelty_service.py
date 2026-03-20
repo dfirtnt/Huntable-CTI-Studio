@@ -45,6 +45,7 @@ class TestSigmaNoveltyService:
 
         assert "novelty_label" in result
         assert result["novelty_label"] == NoveltyLabel.NOVEL
+        assert "canonical_class" in result
 
     def test_assess_novelty_duplicate_rule(self, service, sample_rule):
         """Test novelty assessment for duplicate rule."""
@@ -57,6 +58,7 @@ class TestSigmaNoveltyService:
         result = service.assess_novelty(sample_rule, threshold=0.7)
 
         assert result["novelty_label"] == NoveltyLabel.DUPLICATE
+        assert "canonical_class" in result
 
     def test_build_canonical_rule(self, service, sample_rule):
         """Test canonical rule building."""

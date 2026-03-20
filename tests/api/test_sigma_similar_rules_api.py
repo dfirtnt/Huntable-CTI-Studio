@@ -98,6 +98,8 @@ class TestSigmaSimilarRulesAPI:
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
                 "engine_used": "legacy",
+                "canonical_class": "windows.process_creation",
+                "logsource_key": "windows|process_creation",
             }
 
             response = await get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
@@ -106,6 +108,8 @@ class TestSigmaSimilarRulesAPI:
         assert response["matches"] == []
         assert response.get("total_candidates_evaluated") == 0
         assert response.get("behavioral_matches_found") == 0
+        assert response.get("canonical_class") == "windows.process_creation"
+        assert response.get("logsource_key") == "windows|process_creation"
         assert "diagnostic" in response
         d = response["diagnostic"]
         assert "total_sigma_rules" in d
@@ -206,4 +210,6 @@ class TestSigmaSimilarRulesAPI:
 
         assert response["success"] is True
         assert response["matches"] == []
+        assert response.get("canonical_class") is None
+        assert response.get("logsource_key") == ""
         assert "diagnostic" in response
