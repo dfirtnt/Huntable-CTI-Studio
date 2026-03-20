@@ -26,7 +26,6 @@ class TestSigmaMatchingService:
     def mock_embedding_service(self):
         """Create mock embedding service."""
         service = Mock()
-        # EmbeddingService methods are synchronous in production code.
         service.generate_embedding = Mock(return_value=[0.1] * 768)
         service.generate_embeddings_batch = Mock(return_value=[[0.1] * 768] * 4)
         return service
@@ -42,14 +41,12 @@ class TestSigmaMatchingService:
     @pytest.fixture
     def service(self, mock_db_session, mock_embedding_service, mock_sigma_embedding_client):
         """Create SigmaMatchingService instance with mocked dependencies."""
-        # SigmaMatchingService uses EmbeddingService for both article and sigma embeddings.
-        # First call: article embeddings; second call: sigma embeddings (model_name="intfloat/e5-base-v2").
         with patch(
             "src.services.sigma_matching_service.EmbeddingService",
             side_effect=[mock_embedding_service, mock_sigma_embedding_client],
         ):
             service = SigmaMatchingService(mock_db_session)
-            service.db = mock_db_session  # Ensure db is set correctly
+            service.db = mock_db_session
             return service
 
     @pytest.fixture

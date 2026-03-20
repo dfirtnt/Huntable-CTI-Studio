@@ -1,5 +1,3 @@
-"""Contract tests for embedding stats JSON (unmocked RAG + DB via ASGI client)."""
-
 import pytest
 
 
