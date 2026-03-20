@@ -386,6 +386,7 @@ class SigmaNoveltyService:
                 "novelty_label": novelty_label,
                 "novelty_score": novelty_score,
                 "logsource_key": logsource_key,
+                "canonical_class": canonical_class,
                 "exact_hash": exact_hash,
                 "top_matches": matches[:10],  # Top 10 for explainability
                 "canonical_rule": asdict(canonical_rule),  # For debugging
@@ -403,6 +404,7 @@ class SigmaNoveltyService:
                 "novelty_label": NoveltyLabel.NOVEL,
                 "novelty_score": 1.0,
                 "logsource_key": "",
+                "canonical_class": None,
                 "error": str(e),
                 "top_matches": [],
                 "total_candidates_evaluated": 0,

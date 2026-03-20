@@ -205,7 +205,16 @@ class TestEmbeddingRouteCoverage:
 
         rag = MagicMock()
         rag.get_embedding_coverage = AsyncMock(
-            return_value={"embedding_coverage_percent": 88.5, "pending_embeddings": 2}
+            return_value={
+                "embedding_coverage_percent": 88.5,
+                "pending_embeddings": 2,
+                "sigma_corpus": {
+                    "total_sigma_rules": 3100,
+                    "sigma_rules_with_rag_embedding": 3100,
+                    "sigma_embedding_coverage_percent": 100.0,
+                    "sigma_rules_pending_rag_embedding": 0,
+                },
+            }
         )
         monkeypatch.setattr(rag_service_module, "get_rag_service", lambda: rag)
 
@@ -214,6 +223,8 @@ class TestEmbeddingRouteCoverage:
         data = response.json()
         assert data["embedding_coverage_percent"] == 88.5
         assert data["pending_embeddings"] == 2
+        assert data["sigma_corpus"]["total_sigma_rules"] == 3100
+        assert data["sigma_corpus"]["sigma_rules_with_rag_embedding"] == 3100
 
     @pytest.mark.asyncio
     async def test_embedding_update_starts_task(self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):

@@ -137,6 +137,34 @@ class TestAsyncDatabaseManager:
         assert "total_sources" in stats or "total_articles" in stats
 
     @pytest.mark.asyncio
+    async def test_get_sigma_rule_embedding_stats(self, manager, mock_session_factory):
+        """Sigma rule counts and RAG-searchable embedding coverage."""
+        from contextlib import asynccontextmanager
+
+        mock_session = AsyncMockSession()
+        mock_session.execute = AsyncMock(
+            side_effect=[
+                Mock(scalar=Mock(return_value=100)),
+                Mock(scalar=Mock(return_value=80)),
+            ]
+        )
+        mock_session_factory.return_value = mock_session
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_session
+
+        manager.get_session = mock_get_session
+
+        stats = await manager.get_sigma_rule_embedding_stats()
+
+        assert stats["total_sigma_rules"] == 100
+        assert stats["sigma_rules_with_rag_embedding"] == 80
+        assert stats["sigma_embedding_coverage_percent"] == 80.0
+        assert stats["sigma_rules_pending_rag_embedding"] == 20
+        assert mock_session.execute.await_count == 2
+
+    @pytest.mark.asyncio
     async def test_create_source(self, manager, mock_session_factory):
         """Test source creation."""
         from contextlib import asynccontextmanager

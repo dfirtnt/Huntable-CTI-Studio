@@ -12,7 +12,7 @@ def test_mcp_server_forces_non_test_app_env(monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
 
-    mod = import_module("src.mcp.server")
+    mod = import_module("src.huntable_mcp.stdio_server")
     reload(mod)
 
     assert mod.os.environ.get("APP_ENV") == "development"
@@ -25,7 +25,7 @@ def test_mcp_server_default_database_url_points_to_main_db(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
 
-    mod = import_module("src.mcp.server")
+    mod = import_module("src.huntable_mcp.stdio_server")
     reload(mod)
 
     assert mod.os.environ.get("DATABASE_URL") == "postgresql+asyncpg://cti_user:pw123@localhost:5432/cti_scraper"
@@ -39,7 +39,7 @@ def test_mcp_server_respects_explicit_database_url(monkeypatch):
     monkeypatch.setenv("APP_ENV", "development")
     monkeypatch.setenv("POSTGRES_PASSWORD", "pw123")
 
-    mod = import_module("src.mcp.server")
+    mod = import_module("src.huntable_mcp.stdio_server")
     reload(mod)
 
     assert mod.os.environ.get("DATABASE_URL") == explicit

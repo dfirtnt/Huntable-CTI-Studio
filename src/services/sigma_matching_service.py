@@ -695,6 +695,8 @@ Return JSON array only, no markdown formatting."""
             total_candidates_evaluated = novelty_result.get("total_candidates_evaluated", 0)
             behavioral_matches_found = novelty_result.get("behavioral_matches_found", 0)
             engine_used = novelty_result.get("engine_used", "legacy")
+            logsource_key_meta = novelty_result.get("logsource_key", "") or ""
+            canonical_class_meta = novelty_result.get("canonical_class")
 
             # Convert novelty results to backward-compatible similarity format
             matches = []
@@ -786,6 +788,8 @@ Return JSON array only, no markdown formatting."""
                 "total_candidates_evaluated": total_candidates_evaluated,
                 "behavioral_matches_found": behavioral_matches_found,
                 "engine_used": engine_used,
+                "logsource_key": logsource_key_meta,
+                "canonical_class": canonical_class_meta,
             }
 
         except Exception as e:
@@ -798,6 +802,8 @@ Return JSON array only, no markdown formatting."""
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
                 "engine_used": "legacy",
+                "logsource_key": "",
+                "canonical_class": None,
             }
 
     def _calculate_weighted_similarity(

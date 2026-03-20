@@ -135,6 +135,18 @@ def embedding_stats(ctx: CLIContext):
             click.echo(f"   Coverage: {stats['embedding_coverage_percent']}%")
             click.echo(f"   Pending: {stats['pending_embeddings']}")
 
+            sc = stats.get("sigma_corpus") or {}
+            if sc:
+                click.echo("\n📊 SigmaHQ corpus (sigma_rules table, RAG / similarity search):")
+                click.echo(f"   Total rules: {sc.get('total_sigma_rules', 0)}")
+                click.echo(f"   With RAG vectors: {sc.get('sigma_rules_with_rag_embedding', 0)}")
+                click.echo(f"   Coverage: {sc.get('sigma_embedding_coverage_percent', 0.0)}%")
+                click.echo(f"   Pending vectors: {sc.get('sigma_rules_pending_rag_embedding', 0)}")
+                if sc.get("total_sigma_rules", 0) == 0:
+                    click.echo("   💡 Run: ./run_cli.sh sigma index")
+                elif sc.get("sigma_rules_with_rag_embedding", 0) == 0:
+                    click.echo("   💡 Run: ./run_cli.sh sigma index-embeddings")
+
             if stats.get("source_stats"):
                 click.echo("\n📈 Source Coverage:")
                 for source_stat in stats["source_stats"]:

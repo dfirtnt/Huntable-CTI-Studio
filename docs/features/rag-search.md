@@ -187,6 +187,10 @@ You analyze retrieved CTI article content to answer user questions about threat 
 - Test LLM providers individually
 - Monitor conversation history in database
 
+## MCP (external agents)
+
+The optional **huntable-cti-studio** MCP server exposes read-only semantic article search (`search_articles`, `search_unified`) and full-article fetch (`get_article` by **Article ID** from tool output — not list rank). See [MCP tools reference](../reference/mcp-tools.md).
+
 ## Future Enhancements
 
 ### Planned Features
