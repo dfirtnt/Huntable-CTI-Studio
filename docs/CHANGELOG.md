@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Tests** (2026-03-20): SIGMA queue similar-rules **`canonical_class` / `logsource_key`** response contract (`tests/api/test_sigma_similar_rules_api.py`); `compare_proposed_rule_to_embeddings` filter metadata passthrough and failure empty-metadata (`tests/services/test_sigma_matching_service.py`); `assess_novelty` result includes **`canonical_class`** key (`tests/services/test_sigma_novelty_service.py`).
 - **Tests** (2026-03-20): Smoke DB checks `tests/smoke/test_mcp_rag_smoke.py` (embedding stats, lexical search, `sigma_rule_queue` count; optional slow Sigma semantic when vectors exist). RAG unit coverage for Sigma bracket-vector bindparams and `find_unified_results` `partial_errors`. API contract `tests/api/test_embeddings_stats_contract.py` for `sigma_corpus` on `GET /api/embeddings/stats`.
 - **API `GET /api/embeddings/stats`** (2026-03-19): Response now includes **`sigma_corpus`** (SigmaHQ `sigma_rules` totals and RAG embedding coverage), via `RAGService.get_embedding_coverage()`. Chat UI and `embed stats` CLI print the same block. Distinct from the AI **sigma_rule_queue**.
 - **MCP `get_stats`** (2026-03-19): Reports SigmaHQ rule row count and RAG embedding coverage (`get_sigma_rule_embedding_stats` on `AsyncDatabaseManager`); hints when `sigma_rules` is empty or embeddings are missing (`sigma index-metadata` / `sigma index-embeddings`). Tests: `tests/database/test_async_manager.py::test_get_sigma_rule_embedding_stats`.

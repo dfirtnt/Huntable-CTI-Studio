@@ -306,6 +306,10 @@ User Request → Generate Sigma Rules (AI) → For Each Generated Rule:
 - **Threshold**: Configurable (default 0.7)
 - **Performance**: Candidate retrieval via pgvector is fast; behavioral novelty scoring runs on the shortlist (~100–300ms per generated rule)
 
+### Queue API: similar-rules metadata
+
+`GET /api/sigma-queue/{id}/similar-rules` includes **`total_candidates_evaluated`** (rules compared after the canonical-class or logsource filter), plus **`canonical_class`** and **`logsource_key`** when the novelty layer supplies them so the UI can explain why the candidate count may be lower than total indexed rules.
+
 ### Similarity Interpretation
 
 - **High Similarity (>0.9)**: Consider using existing rule instead

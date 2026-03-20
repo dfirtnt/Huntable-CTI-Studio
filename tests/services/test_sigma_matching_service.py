@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.sigma_novelty_service import NoveltyLabel
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -326,3 +327,49 @@ class TestSigmaMatchingService:
         matches = service.match_article_to_rules(article_id=1, threshold=0.0, limit=3)
 
         assert len(matches) <= 3
+
+    def test_compare_proposed_rule_to_embeddings_includes_filter_metadata(self, service):
+        """Novelty layer passes canonical_class and logsource_key through for UI empty-state copy."""
+        proposed = {
+            "title": "T",
+            "description": "",
+            "tags": [],
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
+        }
+        novelty_payload = {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": "windows|process_creation",
+            "canonical_class": "windows.process_creation",
+            "exact_hash": "abc",
+            "top_matches": [],
+            "canonical_rule": {},
+            "total_candidates_evaluated": 1165,
+            "behavioral_matches_found": 0,
+            "engine_used": "deterministic",
+        }
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = novelty_payload
+            out = service.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+
+        assert out["canonical_class"] == "windows.process_creation"
+        assert out["logsource_key"] == "windows|process_creation"
+        assert out["total_candidates_evaluated"] == 1165
+        assert out["matches"] == []
+
+    def test_compare_proposed_rule_to_embeddings_on_failure_returns_empty_filter_metadata(self, service):
+        """On failure, matching service returns null/empty filter metadata (contract for API)."""
+        proposed = {
+            "title": "T",
+            "description": "",
+            "tags": [],
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
+        }
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService", side_effect=RuntimeError("init fail")):
+            out = service.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+
+        assert out["matches"] == []
+        assert out.get("canonical_class") is None
+        assert out.get("logsource_key") == ""
