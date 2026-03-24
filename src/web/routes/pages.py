@@ -105,7 +105,7 @@ async def dashboard(request: Request):
         show_first_launch_banner = force_first_launch or (total == 0)
 
         return templates.TemplateResponse(
-            "dashboard.html.orig",
+            "dashboard.html",
             {
                 "request": request,
                 "stats": stats,
