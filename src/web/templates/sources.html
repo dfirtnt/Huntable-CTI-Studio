@@ -152,6 +152,62 @@
 
 /* Empty filter state */
 .src-empty { text-align:center; padding:3rem; color:var(--text-muted-slate); font-size:0.88rem; display:none; }
+
+/* Heal / Reset buttons */
+.btn-heal {
+  display:inline-flex; align-items:center; gap:0.3rem;
+  padding:0.33rem 0.7rem; background:rgba(167,139,250,0.2); color:#c4b5fd;
+  border:1px solid rgba(167,139,250,0.3); border-radius:6px; font-size:0.73rem; font-weight:600;
+  cursor:pointer; font-family:inherit; transition:background 0.15s, border-color 0.15s;
+}
+.btn-heal:hover:not(:disabled) { background:rgba(167,139,250,0.35); border-color:rgba(167,139,250,0.5); }
+.btn-heal:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-heal.btn-reset { background:rgba(234,179,8,0.15); color:#fde047; border-color:rgba(234,179,8,0.25); }
+.btn-heal.btn-reset:hover:not(:disabled) { background:rgba(234,179,8,0.3); border-color:rgba(234,179,8,0.4); }
+.heal-exhausted-badge {
+  display:inline-flex; align-items:center; gap:0.2rem;
+  padding:0.1rem 0.4rem; border-radius:999px; font-size:0.62rem; font-weight:600;
+  background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3);
+}
+.healing-panel-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300;
+}
+.healing-panel-overlay.open { display:block; }
+.healing-panel {
+  position:fixed; top:0; right:-480px; width:480px; max-width:90vw; height:100vh;
+  background:var(--mlops-card-bg); border-left:1px solid var(--mlops-card-border);
+  box-shadow:-8px 0 32px rgba(0,0,0,0.4); z-index:301;
+  transition:right 0.25s ease; overflow-y:auto;
+}
+.healing-panel.open { right:0; }
+.healing-panel-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:1rem 1.2rem; border-bottom:1px solid var(--border-muted);
+  position:sticky; top:0; background:var(--mlops-card-bg); z-index:1;
+}
+.healing-panel-title { font-size:1rem; font-weight:600; color:var(--text-primary); }
+.healing-panel-close {
+  background:none; border:none; color:var(--text-muted-slate); cursor:pointer;
+  font-size:1.2rem; padding:0.3rem;
+}
+.healing-panel-close:hover { color:var(--text-primary); }
+.healing-panel-body { padding:1rem 1.2rem; }
+.heal-event {
+  padding:0.75rem; margin-bottom:0.6rem; border-radius:8px;
+  border:1px solid var(--border-muted); background:var(--panel-bg-3,#141c30);
+}
+.heal-event-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; }
+.heal-event-round { font-size:0.72rem; font-weight:600; color:var(--purple-light); }
+.heal-event-time { font-size:0.68rem; color:var(--text-muted-slate); }
+.heal-event-diagnosis { font-size:0.78rem; color:var(--text-secondary); margin-bottom:0.3rem; }
+.heal-event-actions { font-size:0.72rem; color:var(--text-muted-slate); }
+.heal-event-result {
+  display:inline-flex; padding:0.1rem 0.4rem; border-radius:999px;
+  font-size:0.65rem; font-weight:600;
+}
+.heal-event-result.pass { background:rgba(34,197,94,0.2); color:#86efac; }
+.heal-event-result.fail { background:rgba(239,68,68,0.2); color:#fca5a5; }
+.heal-event-result.pending { background:rgba(71,85,105,0.4); color:var(--text-muted-slate); }
 </style>
 
 <div class="container mx-auto px-4 py-8">
@@ -339,14 +395,34 @@
                         class="btn-collect"
                         {% if not source.active %}disabled{% endif %}
                         aria-label="Collect articles from {{ source.name }}">
-                    🚀 Collect Now
+                    Collect Now
+                </button>
+                {% if source.consecutive_failures and source.consecutive_failures >= 3 %}
+                <button onclick="healSource({{ source.id }})"
+                        class="btn-heal"
+                        aria-label="Heal {{ source.name }}">
+                    Heal
+                </button>
+                {% endif %}
+                {% if source.healing_exhausted %}
+                <button onclick="resetHealing({{ source.id }})"
+                        class="btn-heal btn-reset"
+                        aria-label="Reset healing for {{ source.name }}">
+                    Reset
+                </button>
+                <span class="heal-exhausted-badge">NEEDS ATTENTION</span>
+                {% endif %}
+                <button onclick="openHealingHistory({{ source.id }}, '{{ source.name|e }}')"
+                        class="btn-heal" style="background:transparent; border-color:var(--border-muted); color:var(--text-muted-slate);"
+                        aria-label="View healing history for {{ source.name }}">
+                    History
                 </button>
                 <div class="overflow-wrap">
-                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}">···</button>
+                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}">...</button>
                     <div class="src-dropdown">
-                        <button class="dd-item" onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">⚙️ Configure</button>
-                        <button class="dd-item" onclick="toggleSourceStatus({{ source.id }})">🔄 Toggle Status</button>
-                        <button class="dd-item" onclick="showSourceStats({{ source.id }})">📊 Stats</button>
+                        <button class="dd-item" onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">Configure</button>
+                        <button class="dd-item" onclick="toggleSourceStatus({{ source.id }})">Toggle Status</button>
+                        <button class="dd-item" onclick="showSourceStats({{ source.id }})">Stats</button>
                     </div>
                 </div>
             </div>
@@ -417,6 +493,18 @@
     <div class="src-footer">
         <a href="/pdf-upload">📄 Upload a PDF threat intelligence report →</a>
     </div>
+
+<!-- Healing History Slide-Out Panel -->
+<div id="healingPanelOverlay" class="healing-panel-overlay" onclick="closeHealingPanel()"></div>
+<div id="healingPanel" class="healing-panel">
+    <div class="healing-panel-header">
+        <span class="healing-panel-title" id="healingPanelTitle">Healing History</span>
+        <button class="healing-panel-close" onclick="closeHealingPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="healing-panel-body" id="healingPanelBody">
+        <div style="color:var(--text-muted-slate); font-size:0.85rem;">Loading...</div>
+    </div>
+</div>
 
 </div><!-- /container -->
 
@@ -703,6 +791,128 @@ function saveSourceConfig() {
     })
     .catch(error => { showNotification('Failed to update config: ' + error.message, 'error'); })
     .finally(() => { saveBtn.textContent = originalText; saveBtn.disabled = false; });
+}
+
+// ── Per-source healing ──
+async function healSource(sourceId) {
+    try {
+        showLoadingModal('Healing Source', 'Dispatching AI healing...');
+        var response = await fetch('/api/sources/' + sourceId + '/heal', { method: 'POST' });
+        var result = await response.json();
+        if (response.ok) {
+            showModal('Healing Dispatched', 'AI healing has been dispatched for this source. Check the healing history panel for results.');
+        } else {
+            showModal('Healing Failed', result.detail || 'Unknown error');
+        }
+    } catch (error) {
+        showModal('Healing Error', 'Error: ' + error.message);
+    }
+}
+
+async function resetHealing(sourceId) {
+    try {
+        showLoadingModal('Resetting Healing', 'Clearing exhausted state...');
+        var response = await fetch('/api/sources/' + sourceId + '/reset-healing', { method: 'POST' });
+        var result = await response.json();
+        if (response.ok) {
+            showModal('Healing Reset', 'Healing state has been reset. The source is eligible for healing again.');
+            setTimeout(function() { window.location.reload(); }, 1500);
+        } else {
+            showModal('Reset Failed', result.detail || 'Unknown error');
+        }
+    } catch (error) {
+        showModal('Reset Error', 'Error: ' + error.message);
+    }
+}
+
+async function openHealingHistory(sourceId, sourceName) {
+    var overlay = document.getElementById('healingPanelOverlay');
+    var panel = document.getElementById('healingPanel');
+    var title = document.getElementById('healingPanelTitle');
+    var body = document.getElementById('healingPanelBody');
+
+    title.textContent = 'Healing History \u2014 ' + sourceName;
+    body.textContent = 'Loading...';
+    overlay.classList.add('open');
+    panel.classList.add('open');
+
+    try {
+        var response = await fetch('/api/sources/' + sourceId + '/healing-history');
+        var data = await response.json();
+
+        if (!response.ok) {
+            body.textContent = 'Failed to load history';
+            return;
+        }
+
+        // Clear loading text
+        while (body.firstChild) body.removeChild(body.firstChild);
+
+        if (!data.events || data.events.length === 0) {
+            body.textContent = 'No healing events recorded yet.';
+            return;
+        }
+
+        data.events.forEach(function(ev) {
+            var card = document.createElement('div');
+            card.className = 'heal-event';
+
+            var header = document.createElement('div');
+            header.className = 'heal-event-header';
+
+            var roundEl = document.createElement('span');
+            roundEl.className = 'heal-event-round';
+            roundEl.textContent = 'Round ' + ev.round_number;
+            header.appendChild(roundEl);
+
+            var resultCls = ev.validation_success === true ? 'pass'
+                          : ev.validation_success === false ? 'fail' : 'pending';
+            var resultLabel = ev.validation_success === true ? 'PASS'
+                            : ev.validation_success === false ? 'FAIL' : 'N/A';
+            var resultEl = document.createElement('span');
+            resultEl.className = 'heal-event-result ' + resultCls;
+            resultEl.textContent = resultLabel;
+            header.appendChild(resultEl);
+
+            card.appendChild(header);
+
+            var diagEl = document.createElement('div');
+            diagEl.className = 'heal-event-diagnosis';
+            diagEl.textContent = ev.diagnosis;
+            card.appendChild(diagEl);
+
+            var actionsEl = document.createElement('div');
+            actionsEl.className = 'heal-event-actions';
+            if (ev.actions_applied.length > 0) {
+                ev.actions_applied.forEach(function(a) {
+                    var line = document.createElement('div');
+                    var fieldCode = document.createElement('code');
+                    fieldCode.textContent = a.field;
+                    line.appendChild(fieldCode);
+                    line.appendChild(document.createTextNode(' \u2192 ' + JSON.stringify(a.value)));
+                    actionsEl.appendChild(line);
+                });
+            } else {
+                actionsEl.textContent = 'No actions applied';
+            }
+            card.appendChild(actionsEl);
+
+            var timeEl = document.createElement('div');
+            timeEl.className = 'heal-event-time';
+            timeEl.textContent = new Date(ev.created_at).toLocaleString();
+            card.appendChild(timeEl);
+
+            body.appendChild(card);
+        });
+
+    } catch (error) {
+        body.textContent = 'Error: ' + error.message;
+    }
+}
+
+function closeHealingPanel() {
+    document.getElementById('healingPanelOverlay').classList.remove('open');
+    document.getElementById('healingPanel').classList.remove('open');
 }
 
 // Config modal buttons

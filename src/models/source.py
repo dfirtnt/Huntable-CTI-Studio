@@ -39,6 +39,8 @@ class SourceUpdate(BaseModel):
     config: SourceConfig | None = None
     check_frequency: int | None = None
     lookback_days: int | None = None
+    healing_exhausted: bool | None = None
+    healing_attempts: int | None = None
 
 
 class SourceFilter(BaseModel):
@@ -65,6 +67,8 @@ class Source(BaseModel):
     consecutive_failures: int
     total_articles: int
     average_response_time: float
+    healing_exhausted: bool = False
+    healing_attempts: int = 0
     created_at: datetime
     updated_at: datetime
 

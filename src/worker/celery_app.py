@@ -115,6 +115,7 @@ def register_configurable_periodic_tasks(sender, jobs, crontab_factory=crontab):
         "embed_new_articles": embed_new_articles.s,
         "sync_sigma_rules": sync_sigma_rules.s,
         "update_provider_model_catalogs": update_provider_model_catalogs.s,
+        "check_sources_for_healing": check_sources_for_healing.s,
     }
 
     for job in jobs:
@@ -303,6 +304,47 @@ def check_all_sources(self):
         logger.error(f"Source check task failed: {exc}")
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
+
+
+@celery_app.task(bind=True, max_retries=2)
+def check_sources_for_healing(self):
+    """Periodic task: scan for sources above the failure threshold and dispatch heal_source tasks."""
+    try:
+        import asyncio
+
+        async def run_scan():
+            from src.services.source_healing_coordinator import scan_and_trigger_healing
+            await scan_and_trigger_healing()
+
+        asyncio.run(run_scan())
+        return {"status": "success", "message": "Healing scan completed"}
+    except Exception as exc:
+        logger.error(f"[AutoHeal] check_sources_for_healing failed: {exc}")
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
+
+
+@celery_app.task(bind=True, max_retries=3)
+def heal_source(self, source_id: int):
+    """Invoke autonomous AI healing for a source that has exceeded the failure threshold."""
+    try:
+        import asyncio
+
+        async def run_healing():
+            # Re-load config at execution time so settings changes take effect
+            # even if the task was dispatched earlier.
+            from src.services.source_healing_config import SourceHealingConfig
+            from src.services.source_healing_service import SourceHealingService
+
+            config = SourceHealingConfig.load()
+            service = SourceHealingService(config)
+            await service.run(source_id)
+
+        asyncio.run(run_healing())
+        return {"status": "success", "source_id": source_id, "message": "Healing completed"}
+
+    except Exception as exc:
+        logger.error(f"[AutoHeal] heal_source task failed for source {source_id}: {exc}")
+        raise self.retry(exc=exc, countdown=120 * (2**self.request.retries)) from exc
 
 
 @celery_app.task(bind=True, max_retries=2)
