@@ -136,3 +136,34 @@ async def api_trigger_ingestion():
     except Exception as exc:  # noqa: BLE001
         logger.error("Trigger ingestion error: %s", exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post("/trigger-healing")
+async def api_trigger_healing():
+    """Manually trigger the AI source healing scan immediately."""
+    from src.services.source_healing_config import SourceHealingConfig
+
+    config = SourceHealingConfig.load()
+    if not config.enabled:
+        raise HTTPException(status_code=409, detail="Source auto-healing is disabled in settings.")
+
+    try:
+        from celery import Celery
+
+        celery_app = Celery("cti_scraper")
+        celery_app.config_from_object("src.worker.celeryconfig")
+
+        task = celery_app.send_task(
+            "src.worker.celery_app.check_sources_for_healing",
+            queue="maintenance",
+        )
+
+        return {
+            "success": True,
+            "message": "AI healing scan dispatched. Sources above the failure threshold will be healed.",
+            "task_id": task.id,
+        }
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Trigger healing error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc

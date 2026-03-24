@@ -96,15 +96,16 @@ async def api_dashboard_data():
             if getattr(source, "identifier", "") == "manual":
                 continue
 
-            if not getattr(source, "active", True):
+            consecutive_failures = getattr(source, "consecutive_failures", 0)
+            if getattr(source, "active", True) and consecutive_failures > 0:
                 last_success = getattr(source, "last_success", None)
-                consecutive_failures = getattr(source, "consecutive_failures", 0)
                 failing_sources.append(
                     {
                         "name": getattr(source, "name", "Unknown Source"),
                         "last_success": last_success.isoformat() if last_success else "Never",
                         "last_success_text": _format_time_ago(last_success),
                         "consecutive_failures": consecutive_failures,
+                        "healing_exhausted": getattr(source, "healing_exhausted", False),
                     }
                 )
 
@@ -250,6 +251,10 @@ async def api_dashboard_data():
                 }
             )
 
+        from src.services.source_healing_config import SourceHealingConfig
+
+        healing_config = SourceHealingConfig.load()
+
         return {
             "health": {
                 "uptime": round(uptime, 1),
@@ -266,6 +271,7 @@ async def api_dashboard_data():
                 "avg_hunt_score": round(float(avg_hunt_score), 1),
                 "filter_efficiency": filter_efficiency,
             },
+            "healing_enabled": healing_config.enabled,
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("Dashboard data error: %s", exc)
@@ -281,4 +287,5 @@ async def api_dashboard_data():
                 "avg_hunt_score": 0,
                 "filter_efficiency": 0,
             },
+            "healing_enabled": False,
         }
