@@ -5,6 +5,7 @@ Handles triggering the agentic workflow when articles with high hunt scores are 
 """
 
 import logging
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -62,39 +63,40 @@ class WorkflowTriggerService:
             logger.error(f"Error getting workflow config: {e}")
             return None
 
-    def should_trigger_workflow(self, article: ArticleTable) -> bool:
+    def _workflow_eligibility(self, article: ArticleTable, *, force: bool = False) -> tuple[bool, str | None]:
         """
-        Check if workflow should be triggered for an article.
+        Whether a workflow may be started for this article, with a user-visible reason if not.
 
-        Args:
-            article: Article to check
+        Mirrors the rules in legacy should_trigger_workflow (including stuck-pending recovery).
 
-        Returns:
-            True if workflow should be triggered
+        When ``force`` is True (explicit manual trigger), the RegexHunt auto-trigger threshold check
+        is skipped. Config and active-execution rules still apply.
         """
         try:
             config = self.get_active_config()
             if not config:
-                return False
+                return False, (
+                    "No active workflow configuration is available. "
+                    "Open Settings → Workflow or ensure the database is seeded."
+                )
 
-            # Get hunt score from article metadata
-            hunt_score = article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
+            if not force:
+                hunt_score = article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
 
-            # Get threshold from config
-            threshold = (
-                config.auto_trigger_hunt_score_threshold
-                if hasattr(config, "auto_trigger_hunt_score_threshold")
-                else 60.0
-            )
+                threshold = (
+                    config.auto_trigger_hunt_score_threshold
+                    if hasattr(config, "auto_trigger_hunt_score_threshold")
+                    else 60.0
+                )
 
-            # Only trigger if RegexHuntScore > threshold
-            if hunt_score <= threshold:
-                logger.debug(f"Article {article.id} hunt score {hunt_score} <= {threshold}, skipping workflow trigger")
-                return False
-
-            # Check if workflow already running or completed for this article
-            # Also check for stuck pending executions (older than 5 minutes)
-            from datetime import datetime, timedelta
+                if hunt_score <= threshold:
+                    logger.debug(
+                        f"Article {article.id} hunt score {hunt_score} <= {threshold}, skipping workflow trigger"
+                    )
+                    return False, (
+                        f"RegexHunt score ({hunt_score}) is not above the auto-trigger threshold ({threshold}). "
+                        "Lower the threshold in Settings → Workflow, or use an article with a higher RegexHunt score."
+                    )
 
             cutoff_time = datetime.now() - timedelta(minutes=5)
 
@@ -108,7 +110,6 @@ class WorkflowTriggerService:
             )
 
             if existing_execution:
-                # Check if it's a stuck pending execution (older than 5 minutes and never started)
                 if (
                     existing_execution.status == "pending"
                     and existing_execution.created_at < cutoff_time
@@ -125,36 +126,55 @@ class WorkflowTriggerService:
                     )
                     existing_execution.completed_at = datetime.now()
                     self.db.commit()
-                    # Allow new execution to be created
-                    return True
+                    return True, None
 
                 logger.debug(f"Article {article.id} already has active workflow execution {existing_execution.id}")
-                return False
+                return False, (
+                    f"Article already has an active workflow execution (ID: {existing_execution.id}). "
+                    "Open Workflow → Executions to monitor or retry when it finishes."
+                )
 
-            return True
+            return True, None
 
         except Exception as e:
             logger.error(f"Error checking if workflow should trigger for article {article.id}: {e}")
-            return False
+            return False, f"Could not verify workflow readiness: {e}"
 
-    def trigger_workflow(self, article_id: int) -> bool:
+    def should_trigger_workflow(self, article: ArticleTable) -> bool:
+        """
+        Check if workflow should be triggered for an article.
+
+        Args:
+            article: Article to check
+
+        Returns:
+            True if workflow should be triggered
+        """
+        ok, _ = self._workflow_eligibility(article, force=False)
+        return ok
+
+    def trigger_workflow(self, article_id: int, *, force: bool = False) -> tuple[bool, str | None]:
         """
         Trigger agentic workflow for an article.
 
         Args:
             article_id: ID of article to process
+            force: If True, skip RegexHunt auto-trigger threshold (manual / explicit runs).
 
         Returns:
-            True if workflow was triggered successfully
+            (True, None) if workflow was triggered successfully.
+            (False, None) if the article does not exist.
+            (False, reason) if the workflow was not started (eligibility, DB error, etc.).
         """
         try:
             article = self.db.query(ArticleTable).filter(ArticleTable.id == article_id).first()
             if not article:
                 logger.error(f"Article {article_id} not found")
-                return False
+                return False, None
 
-            if not self.should_trigger_workflow(article):
-                return False
+            ok, block_reason = self._workflow_eligibility(article, force=force)
+            if not ok:
+                return False, block_reason
 
             # Create execution record
             config = self.get_active_config()
@@ -189,8 +209,8 @@ class WorkflowTriggerService:
             # Dispatch Celery task
             trigger_agentic_workflow.delay(article_id)
 
-            return True
+            return True, None
 
         except Exception as e:
             logger.error(f"Error triggering workflow for article {article_id}: {e}")
-            return False
+            return False, str(e)

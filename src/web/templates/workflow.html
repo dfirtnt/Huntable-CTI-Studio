@@ -12311,7 +12311,7 @@ async function triggerWorkflow() {
         messageDiv.classList.remove('hidden');
 
         // Always use Celery (fast, production mode) - no LangGraph server option
-        const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false`, {
+        const response = await fetch(`/api/workflow/articles/${articleId}/trigger?use_langgraph_server=false&force=true`, {
             method: 'POST'
         });
 
