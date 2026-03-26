@@ -171,6 +171,20 @@ class TestIsValidOpenaiChatModel:
         # Base gpt-99 does not match VALID_CHAT_BASE_PATTERNS or whitelist; dated → conservative False
         assert is_valid_openai_chat_model("gpt-99-2025-01-01") is False
 
+    def test_codex_mini_whitelisted(self):
+        """codex-mini is explicitly whitelisted as a chat model."""
+        assert is_valid_openai_chat_model("codex-mini") is True
+        assert is_valid_openai_chat_model("codex-mini-latest") is True
+
+    def test_codex_prefix_fallback(self):
+        """codex- prefix models pass the fallback check (like gpt- and o)."""
+        assert is_valid_openai_chat_model("codex-future-model") is True
+
+    def test_gpt_codex_suffix_still_excluded(self):
+        """Models with -codex suffix (e.g. gpt-5-codex) remain non-chat."""
+        assert is_valid_openai_chat_model("gpt-5-codex") is False
+        assert is_valid_openai_chat_model("gpt-5.2-codex") is False
+
     def test_fallback_gpt_or_o_true(self):
         assert is_valid_openai_chat_model("gpt-some-new-model") is True
         assert is_valid_openai_chat_model("o2-custom") is True
