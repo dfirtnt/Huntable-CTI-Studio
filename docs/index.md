@@ -65,6 +65,10 @@ Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection]
 
 Semantic search across your CTI corpus using embeddings. See [RAG Search](features/rag-search.md).
 
+### Source Auto-Healing
+
+LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See [Source Healing Architecture](internals/source-healing.md).
+
 ## LLM Support
 
 Huntable CTI Studio works with multiple LLM providers:
