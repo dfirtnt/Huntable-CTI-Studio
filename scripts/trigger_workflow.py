@@ -5,7 +5,7 @@ Quick script to manually trigger agentic workflow for an article.
 Usage:
     python trigger_workflow.py <article_id>
 
-Uses the FastAPI endpoint, so no local dependencies required.
+Uses the FastAPI endpoint with ``force=true`` (bypasses RegexHunt auto-trigger threshold for manual runs).
 """
 
 import os
@@ -21,7 +21,7 @@ article_id = int(sys.argv[1])
 
 # Get API URL from environment or use default
 api_url = os.getenv("API_URL", "http://localhost:8001")
-endpoint = f"{api_url}/api/workflow/articles/{article_id}/trigger"
+endpoint = f"{api_url}/api/workflow/articles/{article_id}/trigger?force=true"
 
 print(f"Triggering workflow for article {article_id}...")
 
