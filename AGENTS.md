@@ -34,6 +34,7 @@ Minimum task-specific reading:
 | Workflow config / presets / prompts | `src/config/workflow_config_schema.py`, `src/config/workflow_config_loader.py`, `config/presets/AgentConfigs/README.md`, `src/prompts/` | relevant config/unit/integration tests plus UI verification if edited via UI |
 | Persistence / contracts | `src/database/models.py`, `docs/reference/schemas.md`, affected routes/services | targeted unit/integration/api tests |
 | Source ingestion / scraping | `src/core/fetcher.py`, `src/core/rss_parser.py`, `src/core/modern_scraper.py`, `src/services/source_sync.py`, `docs/guides/source-config.md` | unit/integration tests |
+| Source auto-healing | `src/services/source_healing_service.py`, `src/services/source_healing_coordinator.py`, `docs/internals/source-healing.md` | `tests/services/test_source_healing_service.py` |
 | Scheduled jobs / workers | `src/worker/celery_app.py`, `src/services/scheduled_jobs_service.py`, `docs/reports/SCHEDULED_JOBS_REPORT.md` | integration tests |
 | Tests / test infrastructure | `run_tests.py`, `docs/development/testing.md`, `tests/README.md`, `tests/pytest.ini` | run the affected suites |
 
@@ -48,7 +49,7 @@ Use this map to orient before searching broadly:
 | `src/web/` | FastAPI app, page routes, API routes, templates, and static assets |
 | `src/workflows/` | LangGraph workflow execution and workflow state transitions |
 | `src/worker/` | Celery app, task queues, and periodic task registration |
-| `src/services/` | Core business logic for LLM calls, Sigma generation, similarity, scheduling, and orchestration |
+| `src/services/` | Core business logic for LLM calls, Sigma generation, similarity, scheduling, healing, and orchestration |
 | `src/config/` | Workflow config schema, loaders, and migrations |
 | `src/database/` | SQLAlchemy models and database access layers |
 | `src/core/` | Ingestion, scraping, processing, and source management |

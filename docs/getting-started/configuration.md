@@ -216,6 +216,17 @@ See [Source Configuration Precedence](../guides/source-config.md) for details.
 
 Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh), and host backup cron are documented in [Scheduled Jobs](../reports/SCHEDULED_JOBS_REPORT.md). The provider model catalog is also refreshed at **setup** (`./setup.sh`) and **start** (`./start.sh`) so workflow model dropdowns show the current list immediately.
 
+## Source Auto-Healing
+
+Sources that accumulate consecutive failures are automatically diagnosed and repaired. The healing pipeline runs deep probes (RSS content, sitemaps, WP JSON API, JS-rendering detection) and uses an LLM to propose config fixes. Configure via the Settings page:
+
+- **Enable/disable**: Toggle auto-healing on or off
+- **Provider/model**: Which LLM to use for diagnosis
+- **Max attempts**: Rounds per healing session (default: 8)
+- **Failure threshold**: Consecutive failures before healing triggers (default: 3)
+
+For architecture details, see [Source Healing](../internals/source-healing.md).
+
 ## Health Checks and Diagnostics
 
 ### Application Health

@@ -66,6 +66,7 @@ Examples:
 | Workflow config or presets | `src/config/workflow_config_schema.py`, `src/config/workflow_config_loader.py`, `config/presets/AgentConfigs/README.md`, `tests/config/` |
 | A prompt-backed agent | `src/prompts/`, `src/services/llm_service.py`, the workflow/config schema, relevant prompt tests and UI specs |
 | Sources or scraping | `src/core/fetcher.py`, `src/core/rss_parser.py`, `src/core/modern_scraper.py`, `src/services/source_sync.py`, `docs/guides/source-config.md` |
+| Source auto-healing | `src/services/source_healing_service.py`, `src/services/source_healing_coordinator.py`, `docs/internals/source-healing.md` |
 | Sigma generation or matching | `src/services/sigma_generation_service.py`, `src/services/sigma_matching_service.py`, `src/services/sigma_*`, `docs/features/sigma-rules.md` |
 | MCP tools or agent DB read surface | `src/huntable_mcp/`, `run_mcp.py`, `docs/reference/mcp-tools.md` |
 

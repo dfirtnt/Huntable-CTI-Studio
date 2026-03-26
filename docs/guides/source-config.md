@@ -109,6 +109,14 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c \
 cat config/sources.yaml | grep -A 5 "active:"
 ```
 
+## Auto-Healing
+
+Sources that accumulate consecutive failures are automatically diagnosed and repaired by an LLM-powered healing pipeline. The healer runs deep diagnostic probes (RSS content inspection, sitemap sampling, JS-rendering detection, WP JSON API discovery) before proposing config changes.
+
+For full details on what the healer can and cannot fix, see [`docs/internals/source-healing.md`](../internals/source-healing.md).
+
+Key config fields the healer modifies: `url`, `rss_url`, and `config` (merged). It **cannot** change `active` status — that is operator-only.
+
 ## Best Practices
 
 1. **Always backup both** database and `config/sources.yaml`
