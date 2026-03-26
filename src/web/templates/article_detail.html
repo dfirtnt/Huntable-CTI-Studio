@@ -13,6 +13,26 @@
             document.body?.setAttribute('data-annotation-mode', mode);
         })();
         
+        /** Normalize FastAPI error payloads: detail may be a string or validation error list. */
+        function formatApiErrorDetail(detail) {
+            if (detail == null || detail === '') return '';
+            if (typeof detail === 'string') return detail;
+            if (Array.isArray(detail)) {
+                return detail
+                    .map((item) => {
+                        if (item && typeof item === 'object' && item.msg) return item.msg;
+                        try {
+                            return JSON.stringify(item);
+                        } catch (e) {
+                            return String(item);
+                        }
+                    })
+                    .filter(Boolean)
+                    .join('; ');
+            }
+            return String(detail);
+        }
+
         // Define triggerWorkflowForArticle early to ensure it's available for inline handlers
         async function triggerWorkflowForArticle(articleId) {
             const btn = document.getElementById('triggerWorkflowBtn');
@@ -33,7 +53,7 @@
                     showNotification('Triggering workflow...', 'info');
                 }
                 
-                const response = await fetch(`/api/workflow/articles/${articleId}/trigger`, {
+                const response = await fetch(`/api/workflow/articles/${articleId}/trigger?force=true`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -55,7 +75,10 @@
                         errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
                     }
                     
-                    const errorMessage = errorData.detail || errorData.message || 'Failed to trigger workflow';
+                    const errorMessage =
+                        formatApiErrorDetail(errorData.detail) ||
+                        errorData.message ||
+                        'Failed to trigger workflow';
                     showNotification(`Error: ${errorMessage}`, 'error');
                     
                     // If there's an existing execution, offer to view it

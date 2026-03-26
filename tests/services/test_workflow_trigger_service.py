@@ -202,7 +202,7 @@ class TestWorkflowTriggerService:
 
             result = service.trigger_workflow(article_id=1)
 
-            assert result is True
+            assert result == (True, None)
             mock_db_session.add.assert_called_once()
             mock_db_session.commit.assert_called()
             mock_trigger.delay.assert_called_once_with(1)
@@ -215,7 +215,7 @@ class TestWorkflowTriggerService:
 
         result = service.trigger_workflow(article_id=999)
 
-        assert result is False
+        assert result == (False, None)
 
     def test_trigger_workflow_should_not_trigger(self, service, mock_db_session, sample_article, sample_config):
         """Test workflow trigger when should_trigger returns False."""
@@ -243,7 +243,42 @@ class TestWorkflowTriggerService:
 
         result = service.trigger_workflow(article_id=1)
 
-        assert result is False
+        assert result[0] is False
+        assert result[1] is not None
+        assert "RegexHunt score" in result[1]
+        assert "threshold" in result[1]
+
+    def test_trigger_workflow_force_bypasses_low_score(self, service, mock_db_session, sample_article, sample_config):
+        """Manual force=True skips RegexHunt threshold; run still succeeds."""
+        sample_article.article_metadata = {"threat_hunting_score": 50.0}
+
+        mock_article_query = Mock()
+        mock_article_query.filter.return_value.first.return_value = sample_article
+
+        mock_config_query = Mock()
+        mock_config_query.filter.return_value.order_by.return_value.first.return_value = sample_config
+
+        mock_exec_query = Mock()
+        mock_exec_query.filter.return_value.first.return_value = None
+
+        def query_side_effect(model):
+            if model == ArticleTable:
+                return mock_article_query
+            if model == AgenticWorkflowConfigTable:
+                return mock_config_query
+            if model == AgenticWorkflowExecutionTable:
+                return mock_exec_query
+            return Mock()
+
+        mock_db_session.query.side_effect = query_side_effect
+
+        with patch("src.services.workflow_trigger_service.trigger_agentic_workflow") as mock_trigger:
+            mock_trigger.delay = Mock()
+
+            result = service.trigger_workflow(article_id=1, force=True)
+
+            assert result == (True, None)
+            mock_trigger.delay.assert_called_once_with(1)
 
     def test_get_active_config_error_handling(self, service, mock_db_session):
         """Test error handling in get_active_config."""

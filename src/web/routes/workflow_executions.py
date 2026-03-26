@@ -1242,9 +1242,19 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
 
 
 @router.post("/articles/{article_id}/trigger")
-async def trigger_workflow_for_article(request: Request, article_id: int):
+async def trigger_workflow_for_article(
+    request: Request,
+    article_id: int,
+    force: bool = Query(
+        False,
+        description="When true, skip RegexHunt auto-trigger threshold (use for explicit manual runs).",
+    ),
+):
     """
     Manually trigger agentic workflow for an article via Celery.
+
+    Set query parameter ``force=true`` to run even when RegexHunt score is below the configured
+    auto-trigger threshold (ingestion and auto-trigger behavior is unchanged).
     """
     try:
         from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -1299,7 +1309,8 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
                         detail=f"Article {article_id} already has an active workflow execution (ID: {existing_execution.id})",
                     )
 
-            if trigger_service.trigger_workflow(article_id):
+            triggered, fail_detail = trigger_service.trigger_workflow(article_id, force=force)
+            if triggered:
                 # Get the newly created execution
                 execution = (
                     db_session.query(AgenticWorkflowExecutionTable)
@@ -1314,16 +1325,13 @@ async def trigger_workflow_for_article(request: Request, article_id: int):
                     "execution_id": execution.id if execution else None,
                     "article_id": article_id,
                 }
-            # trigger_workflow returned False - this should not happen if we checked above
-            # But handle it gracefully
             article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
             if not article:
                 raise HTTPException(status_code=404, detail=f"Article {article_id} not found")
 
-            # Should not reach here if trigger_workflow logic is correct
-            # But if it does, it's not a hunt score issue (threshold check disabled)
             raise HTTPException(
-                status_code=400, detail=f"Failed to trigger workflow for article {article_id} (unknown reason)"
+                status_code=400,
+                detail=fail_detail or f"Failed to trigger workflow for article {article_id}.",
             )
         finally:
             db_session.close()
