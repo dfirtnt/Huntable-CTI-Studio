@@ -49,6 +49,7 @@
   transition:box-shadow 0.15s, border-color 0.15s;
   position:relative; overflow:visible;
 }
+.source-card[hidden] { display: none !important; }
 .source-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.25); border-color:var(--border-subtle); }
 .source-card::before {
   content:''; position:absolute; left:0; top:0; bottom:0;
@@ -196,11 +197,34 @@
   padding:0.75rem; margin-bottom:0.6rem; border-radius:8px;
   border:1px solid var(--border-muted); background:var(--panel-bg-3,#141c30);
 }
-.heal-event-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.4rem; }
+.heal-event-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
 .heal-event-round { font-size:0.72rem; font-weight:600; color:var(--purple-light); }
 .heal-event-time { font-size:0.68rem; color:var(--text-muted-slate); }
-.heal-event-diagnosis { font-size:0.78rem; color:var(--text-secondary); margin-bottom:0.3rem; }
-.heal-event-actions { font-size:0.72rem; color:var(--text-muted-slate); }
+.heal-event-summary { font-size:0.8rem; font-weight:500; color:var(--text-primary,#e2e8f0); margin-bottom:0.4rem; line-height:1.4; }
+.heal-event-actions { font-size:0.72rem; color:var(--text-muted-slate); margin-bottom:0.4rem; }
+.heal-event-actions code { font-size:0.68rem; background:rgba(139,92,246,0.12); color:var(--purple-light,#a78bfa); padding:0.1rem 0.35rem; border-radius:3px; }
+.heal-event-actions .action-line { padding:0.15rem 0; display:flex; align-items:baseline; gap:0.4rem; }
+.heal-event-actions .action-val { color:var(--text-secondary,#94a3b8); word-break:break-all; }
+.heal-event-validation {
+  font-size:0.72rem; color:var(--text-secondary,#94a3b8); margin-bottom:0.4rem;
+  padding:0.35rem 0.5rem; border-radius:4px; background:rgba(34,211,238,0.04);
+  border-left:2px solid var(--purple-light,#a78bfa); line-height:1.5;
+}
+.heal-event-val-label { font-weight:600; color:var(--text-muted-slate); }
+.heal-event-config-toggle {
+  font-size:0.68rem; color:var(--purple-light,#a78bfa); cursor:pointer; background:none; border:none;
+  padding:0.15rem 0; text-decoration:underline; text-underline-offset:2px; opacity:0.8;
+}
+.heal-event-config-toggle:hover { opacity:1; }
+.heal-event-config-block {
+  display:none; margin-top:0.35rem; padding:0.5rem; border-radius:4px;
+  background:rgba(0,0,0,0.25); border:1px solid var(--border-muted);
+  font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--text-muted-slate);
+  white-space:pre-wrap; word-break:break-all; max-height:10rem; overflow-y:auto;
+}
+.heal-event-config-block.open { display:block; }
+.heal-event-diagnosis { font-size:0.72rem; color:var(--text-muted-slate); margin-top:0.3rem; line-height:1.4; display:none; }
+.heal-event-diagnosis.open { display:block; }
 .heal-event-result {
   display:inline-flex; padding:0.1rem 0.4rem; border-radius:999px;
   font-size:0.65rem; font-weight:600;
@@ -239,7 +263,7 @@
         <!-- Stats bar -->
         {% set ns = namespace(active=0, inactive=0, failing=0, total=0) %}
         {% for source in sources %}
-            {% if source.name.lower() != 'manual' %}
+            {% if source.name.lower() != 'manual' and source.identifier != 'eval_articles' %}
                 {% set ns.total = ns.total + 1 %}
                 {% if source.active %}{% set ns.active = ns.active + 1 %}{% else %}{% set ns.inactive = ns.inactive + 1 %}{% endif %}
                 {% if source.consecutive_failures and source.consecutive_failures > 0 %}{% set ns.failing = ns.failing + 1 %}{% endif %}
@@ -289,6 +313,7 @@
             <option value="all">All status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
+            <option value="failing">Failing</option>
         </select>
         <select class="src-filter-select" id="methodFilter" onchange="filterSources()" aria-label="Filter by method">
             <option value="all">Any method</option>
@@ -310,7 +335,7 @@
     <div class="source-grid" id="sourceGrid">
 
         {% for source in sources %}
-        {% if source.name.lower() != 'manual' %}
+        {% if source.name.lower() != 'manual' and source.identifier != 'eval_articles' %}
 
         {# Derive method info #}
         {% set method_str = get_collection_method(source) %}
@@ -344,6 +369,7 @@
              data-source-name="{{ source.name }}"
              data-name="{{ source.name|lower }}"
              data-status="{{ 'active' if source.active else 'inactive' }}"
+             data-failing="{{ 'true' if source.consecutive_failures and source.consecutive_failures > 0 else 'false' }}"
              data-method="{{ method_data }}">
 
             <div class="card-header">
@@ -391,29 +417,35 @@
             </div>
 
             <div class="card-actions">
-                <button onclick="collectFromSource({{ source.id }})"
+                <button type="button" onclick="collectFromSource({{ source.id }})"
                         class="btn-collect"
                         {% if not source.active %}disabled{% endif %}
+                        title="Fetch new articles from this source now (runs a collection job)."
                         aria-label="Collect articles from {{ source.name }}">
                     Collect Now
                 </button>
-                {% if source.consecutive_failures and source.consecutive_failures >= 3 %}
-                <button onclick="healSource({{ source.id }})"
+                {% if source.consecutive_failures and source.consecutive_failures > 0 %}
+                <button type="button" onclick="healSource({{ source.id }})"
                         class="btn-heal"
+                        title="Dispatch AI source auto-healing in the background. Requires Source Auto-Healing enabled in Settings."
                         aria-label="Heal {{ source.name }}">
-                    Heal
+                    Heal Now
                 </button>
                 {% endif %}
                 {% if source.healing_exhausted %}
-                <button onclick="resetHealing({{ source.id }})"
+                <button type="button" onclick="resetHealing({{ source.id }})"
                         class="btn-heal btn-reset"
+                        title="Clear healing exhausted state and reset the attempt counter. Does not undo URL, RSS, or config edits from earlier heals."
                         aria-label="Reset healing for {{ source.name }}">
                     Reset
                 </button>
-                <span class="heal-exhausted-badge">NEEDS ATTENTION</span>
+                <span class="heal-exhausted-badge"
+                      role="status"
+                      title="Auto-healing used all allowed rounds without a successful validation. Check History for details, fix the source manually, or Reset to try healing again.">NEEDS ATTENTION</span>
                 {% endif %}
-                <button onclick="openHealingHistory({{ source.id }}, '{{ source.name|e }}')"
+                <button type="button" onclick="openHealingHistory({{ source.id }}, '{{ source.name|e }}')"
                         class="btn-heal" style="background:transparent; border-color:var(--border-muted); color:var(--text-muted-slate);"
+                        title="Open the healing audit log: each round’s diagnosis, actions applied, and pass/fail after validation."
                         aria-label="View healing history for {{ source.name }}">
                     History
                 </button>
@@ -431,14 +463,16 @@
         {% endif %}
         {% endfor %}
 
-        {# Manual source — integrated into grid #}
+        {# Manual source — integrated into grid (card hidden in UI; DB source unchanged) #}
         {% for source in sources %}
         {% if source.name.lower() == 'manual' %}
         <div class="source-card health-ok"
+             hidden
              data-source-id="{{ source.id }}"
              data-source-name="{{ source.name }}"
              data-name="manual"
              data-status="active"
+             data-failing="false"
              data-method="manual">
             <div class="card-header">
                 <div class="card-title-row">
@@ -495,11 +529,11 @@
     </div>
 
 <!-- Healing History Slide-Out Panel -->
-<div id="healingPanelOverlay" class="healing-panel-overlay" onclick="closeHealingPanel()"></div>
+<div id="healingPanelOverlay" class="healing-panel-overlay" title="Close panel" onclick="closeHealingPanel()"></div>
 <div id="healingPanel" class="healing-panel">
     <div class="healing-panel-header">
         <span class="healing-panel-title" id="healingPanelTitle">Healing History</span>
-        <button class="healing-panel-close" onclick="closeHealingPanel()" aria-label="Close">&times;</button>
+        <button type="button" class="healing-panel-close" onclick="closeHealingPanel()" title="Close healing history" aria-label="Close">&times;</button>
     </div>
     <div class="healing-panel-body" id="healingPanelBody">
         <div style="color:var(--text-muted-slate); font-size:0.85rem;">Loading...</div>
@@ -634,7 +668,8 @@ function filterSources() {
     let visible = 0;
     cards.forEach(card => {
         const matchName   = (card.dataset.name || '').includes(q);
-        const matchStatus = status === 'all' || card.dataset.status === status;
+        const matchStatus = status === 'all'
+            || (status === 'failing' ? card.dataset.failing === 'true' : card.dataset.status === status);
         const matchMethod = method === 'all' || card.dataset.method === method;
         const show = matchName && matchStatus && matchMethod;
         card.style.display = show ? '' : 'none';
@@ -853,10 +888,31 @@ async function openHealingHistory(sourceId, sourceName) {
             return;
         }
 
+        /* Translate a config field name into a human-readable action description */
+        function describeAction(field, value) {
+            var fieldMap = {
+                'rss_only':           function(v) { return v ? 'Switched to RSS-only discovery' : 'Disabled RSS-only mode (added HTML/sitemap fallback)'; },
+                'discovery':          function(v) {
+                    var strats = (v && v.strategies) ? v.strategies.join(', ') : JSON.stringify(v);
+                    return 'Changed discovery strategy to: ' + strats;
+                },
+                'post_url_regex':     function(v) { return 'Updated URL matching patterns (' + (Array.isArray(v) ? v.length : 1) + ' regex)'; },
+                'allow':              function(v) { return 'Broadened allowed domains to: ' + (Array.isArray(v) ? v.join(', ') : v); },
+                'robots':             function(v) { return 'Changed User-Agent string'; },
+                'min_content_length': function(v) { return 'Lowered minimum content threshold to ' + v + ' chars'; },
+                'extract':            function(v) { return 'Updated content extraction selectors'; },
+                'sitemap':            function(v) { return 'Configured sitemap URLs for discovery'; },
+                'wp_json':            function(v) { return 'Switched to WordPress JSON API discovery'; },
+            };
+            if (fieldMap[field]) return fieldMap[field](value);
+            return 'Set ' + field + ' to a new value';
+        }
+
         data.events.forEach(function(ev) {
             var card = document.createElement('div');
             card.className = 'heal-event';
 
+            // ── Header: round + result badge ──
             var header = document.createElement('div');
             header.className = 'heal-event-header';
 
@@ -876,27 +932,101 @@ async function openHealingHistory(sourceId, sourceName) {
 
             card.appendChild(header);
 
-            var diagEl = document.createElement('div');
-            diagEl.className = 'heal-event-diagnosis';
-            diagEl.textContent = ev.diagnosis;
-            card.appendChild(diagEl);
+            // ── Summary: human-readable description of what was attempted ──
+            var summaryEl = document.createElement('div');
+            summaryEl.className = 'heal-event-summary';
+            if (ev.actions_applied && ev.actions_applied.length > 0) {
+                var bullets = ev.actions_applied.map(function(a) { return describeAction(a.field, a.value); });
+                summaryEl.textContent = bullets.join(' · ');
+            } else {
+                summaryEl.textContent = 'No config changes applied';
+            }
+            card.appendChild(summaryEl);
 
+            // ── Actions: field → value details ──
             var actionsEl = document.createElement('div');
             actionsEl.className = 'heal-event-actions';
-            if (ev.actions_applied.length > 0) {
+            if (ev.actions_applied && ev.actions_applied.length > 0) {
                 ev.actions_applied.forEach(function(a) {
                     var line = document.createElement('div');
+                    line.className = 'action-line';
                     var fieldCode = document.createElement('code');
                     fieldCode.textContent = a.field;
+                    var valSpan = document.createElement('span');
+                    valSpan.className = 'action-val';
+                    var valStr = typeof a.value === 'string' ? a.value : JSON.stringify(a.value);
+                    valSpan.textContent = '\u2192 ' + (valStr.length > 80 ? valStr.slice(0, 80) + '\u2026' : valStr);
                     line.appendChild(fieldCode);
-                    line.appendChild(document.createTextNode(' \u2192 ' + JSON.stringify(a.value)));
+                    line.appendChild(valSpan);
                     actionsEl.appendChild(line);
                 });
-            } else {
-                actionsEl.textContent = 'No actions applied';
             }
             card.appendChild(actionsEl);
 
+            // ── Validation fetch log (from error_message field) ──
+            if (ev.error_message) {
+                var valEl = document.createElement('div');
+                valEl.className = 'heal-event-validation';
+                var valLabel = document.createElement('span');
+                valLabel.className = 'heal-event-val-label';
+                valLabel.textContent = 'Validation fetch: ';
+                valEl.appendChild(valLabel);
+
+                // Parse the pipe-delimited validation summary into readable parts
+                var valParts = ev.error_message.split(' | ');
+                valParts.forEach(function(part, idx) {
+                    if (idx > 0) valEl.appendChild(document.createTextNode(' · '));
+                    var span = document.createElement('span');
+                    // Highlight errors in red
+                    if (part.startsWith('error=')) {
+                        span.style.color = 'var(--action-danger, #f87171)';
+                    }
+                    span.textContent = part;
+                    valEl.appendChild(span);
+                });
+                card.appendChild(valEl);
+            }
+
+            // ── Expandable: full config + LLM diagnosis ──
+            var uid = 'heal-detail-' + ev.round_number + '-' + Date.now();
+            var toggleRow = document.createElement('div');
+            toggleRow.style.display = 'flex';
+            toggleRow.style.gap = '0.75rem';
+
+            var configToggle = document.createElement('button');
+            configToggle.type = 'button';
+            configToggle.className = 'heal-event-config-toggle';
+            configToggle.textContent = 'Show full config';
+            var configBlock = document.createElement('div');
+            configBlock.className = 'heal-event-config-block';
+            // Build the full config object from actions
+            var configObj = {};
+            (ev.actions_applied || []).forEach(function(a) { configObj[a.field] = a.value; });
+            configBlock.textContent = 'config \u2192 ' + JSON.stringify(configObj, null, 2);
+            configToggle.onclick = function() {
+                var isOpen = configBlock.classList.toggle('open');
+                configToggle.textContent = isOpen ? 'Hide full config' : 'Show full config';
+            };
+            toggleRow.appendChild(configToggle);
+
+            var diagToggle = document.createElement('button');
+            diagToggle.type = 'button';
+            diagToggle.className = 'heal-event-config-toggle';
+            diagToggle.textContent = 'Show LLM reasoning';
+            var diagEl = document.createElement('div');
+            diagEl.className = 'heal-event-diagnosis';
+            diagEl.textContent = ev.diagnosis;
+            diagToggle.onclick = function() {
+                var isOpen = diagEl.classList.toggle('open');
+                diagToggle.textContent = isOpen ? 'Hide LLM reasoning' : 'Show LLM reasoning';
+            };
+            toggleRow.appendChild(diagToggle);
+
+            card.appendChild(toggleRow);
+            card.appendChild(configBlock);
+            card.appendChild(diagEl);
+
+            // ── Timestamp ──
             var timeEl = document.createElement('div');
             timeEl.className = 'heal-event-time';
             timeEl.textContent = new Date(ev.created_at).toLocaleString();
