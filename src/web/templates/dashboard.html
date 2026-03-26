@@ -213,14 +213,14 @@
 
     .uptime-ring-container {
         position: relative;
-        width: 72px;
-        height: 72px;
+        width: 96px;
+        height: 96px;
         flex-shrink: 0;
     }
 
     .uptime-pct {
         font-family: 'Teko', sans-serif;
-        font-size: 1.35rem;
+        font-size: 1.25rem;
         font-weight: 600;
         line-height: 1;
         color: var(--d-green);
@@ -535,7 +535,7 @@
 
             <div class="uptime-wrap">
                 <div class="uptime-ring-container">
-                    <svg class="uptime-ring-svg" viewBox="0 0 100 100" width="72" height="72" aria-hidden="true">
+                    <svg class="uptime-ring-svg" viewBox="0 0 100 100" width="96" height="96" aria-hidden="true">
                         <circle class="uptime-ring-track" cx="50" cy="50" r="35"/>
                         <circle class="uptime-ring-bar" id="uptime-ring-bar" cx="50" cy="50" r="35"/>
                     </svg>
@@ -605,8 +605,7 @@
                     </span>
                 </div>
             </div>
-            <button id="ai-heal-btn" class="action-btn" style="--btn-clr: #a78bfa; display:none; margin-top:0.6rem;"
-                    onclick="triggerAIHealing(this)"
+            <button id="ai-heal-btn" type="button" class="action-btn" style="--btn-clr: #a78bfa; display:none; margin-top:0.6rem;"
                     data-healing-enabled="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                     <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" opacity="0.3"/>
@@ -685,22 +684,22 @@
         <div class="intel-card">
             <div class="card-title"><span>Quick Actions</span></div>
 
-            <button class="action-btn" style="--btn-clr: var(--d-cyan);">
+            <button id="btn-rescore" class="action-btn" style="--btn-clr: var(--d-cyan);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 Rescore All Articles
             </button>
 
-            <button class="action-btn" style="--btn-clr: var(--d-green);">
+            <button id="btn-report" class="action-btn" style="--btn-clr: var(--d-green);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                 Generate Report
             </button>
 
-            <button class="action-btn" style="--btn-clr: var(--d-amber);">
+            <button id="btn-health" class="action-btn" style="--btn-clr: var(--d-amber);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 Run Health Check
             </button>
 
-            <button class="action-btn" style="--btn-clr: var(--d-purple);">
+            <button id="btn-analytics" class="action-btn" style="--btn-clr: var(--d-purple);">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
                 View Analytics
             </button>
@@ -712,11 +711,7 @@
 
 {% block scripts %}
 <script>
-    // ─── Guard against double-init (base.html auto-refresh) ───
-    if (!window.dashChartsDone) {
-    window.dashChartsDone = true;
-
-    // ─── Chart defaults ───
+    // ─── Chart defaults (canvas init guarded separately for auto-refresh) ───
     Chart.defaults.color = '#64748b';
     Chart.defaults.borderColor = 'rgba(34,211,238,0.07)';
 
@@ -988,16 +983,58 @@
     window.triggerAIHealing = triggerAIHealing;
 
     document.addEventListener('DOMContentLoaded', function () {
-        const dailyCtx  = document.getElementById('dailyChart').getContext('2d');
-        const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+        const healBtn = document.getElementById('ai-heal-btn');
+        if (healBtn) {
+            healBtn.addEventListener('click', function () {
+                triggerAIHealing(healBtn);
+            });
+        }
 
-        dailyChart  = makeChart(dailyCtx,  '#34d399', 'rgba(52,211,153,0.07)');
-        hourlyChart = makeChart(hourlyCtx, '#22d3ee', 'rgba(34,211,238,0.07)');
+        if (!window.dashChartsDone) {
+            window.dashChartsDone = true;
+            const dailyEl = document.getElementById('dailyChart');
+            const hourlyEl = document.getElementById('hourlyChart');
+            if (dailyEl && hourlyEl) {
+                const dailyCtx  = dailyEl.getContext('2d');
+                const hourlyCtx = hourlyEl.getContext('2d');
+                dailyChart  = makeChart(dailyCtx,  '#34d399', 'rgba(52,211,153,0.07)');
+                hourlyChart = makeChart(hourlyCtx, '#22d3ee', 'rgba(34,211,238,0.07)');
+            }
+        }
 
         loadDashboardData();
         setInterval(loadDashboardData, 60000);
-    });
 
-    } // end guard
+        // ─── Quick Action button handlers ───
+        async function quickAction(url, btn) {
+            const origText = btn.textContent.trim();
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            try {
+                const res  = await fetch(url, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    showNotification(data.message, 'success');
+                } else {
+                    showNotification(data.detail || data.message || 'Action failed', 'error');
+                }
+            } catch (err) {
+                showNotification('Request failed: ' + err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '';
+            }
+        }
+
+        const btnRescore   = document.getElementById('btn-rescore');
+        const btnReport    = document.getElementById('btn-report');
+        const btnHealth    = document.getElementById('btn-health');
+        const btnAnalytics = document.getElementById('btn-analytics');
+
+        if (btnRescore)   btnRescore.addEventListener('click',   function() { quickAction('/api/actions/rescore-all', this); });
+        if (btnReport)    btnReport.addEventListener('click',    function() { quickAction('/api/actions/generate-report', this); });
+        if (btnHealth)    btnHealth.addEventListener('click',    function() { window.location.href = '/diags'; });
+        if (btnAnalytics) btnAnalytics.addEventListener('click', function() { window.location.href = '/analytics'; });
+    });
 </script>
 {% endblock %}

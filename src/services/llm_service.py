@@ -1026,11 +1026,24 @@ class LLMService:
 
         result = response.json()
         content = result.get("content", [])
-        text = ""
-        if isinstance(content, list) and len(content) > 0:
-            text = content[0].get("text", "")
+        text_parts: list[str] = []
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and block.get("type") == "text":
+                    t = block.get("text") or ""
+                    if t:
+                        text_parts.append(t)
+        text = "".join(text_parts)
 
-        return {"choices": [{"message": {"content": text}}], "usage": result.get("usage", {})}
+        normalized: dict[str, Any] = {
+            "choices": [{"message": {"content": text}}],
+            "usage": result.get("usage", {}),
+        }
+        if isinstance(result.get("stop_reason"), str):
+            normalized["stop_reason"] = result["stop_reason"]
+        if isinstance(result.get("model"), str):
+            normalized["model"] = result["model"]
+        return normalized
 
     async def _call_anthropic_with_retry(
         self,

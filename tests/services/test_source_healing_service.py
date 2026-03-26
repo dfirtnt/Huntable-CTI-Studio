@@ -85,13 +85,14 @@ class TestMultiRoundHealing:
 
         with patch.object(service, "_get_source_snapshot", return_value=snapshot), \
              patch.object(service, "_get_error_history", return_value=[]), \
+             patch.object(service, "_get_working_source_examples", return_value=[]), \
              patch.object(service, "_probe_urls", return_value=[]), \
              patch.object(service, "_analyze_with_llm", return_value={
                  "diagnosis": "Fixed URL",
                  "actions": [{"field": "url", "value": "https://fixed.com"}],
              }), \
              patch.object(service, "_apply_actions", return_value=[{"field": "url", "value": "https://fixed.com"}]), \
-             patch.object(service, "_validate_fix", return_value=True), \
+             patch.object(service, "_validate_fix", return_value={"success": True, "error": None, "method": "rss", "articles_found": 3, "response_time": 1.2, "rss_parsing_stats": {}}), \
              patch("src.services.source_healing_service.AsyncDatabaseManager") as mock_db_cls:
 
             mock_db = AsyncMock()
@@ -116,11 +117,15 @@ class TestMultiRoundHealing:
                     "last_check": None, "last_success": None}
 
         # First round: fail validation. Second round: succeed.
-        validate_results = [False, True]
+        validate_results = [
+            {"success": False, "error": "No articles extracted", "method": "rss", "articles_found": 0, "response_time": 2.1, "rss_parsing_stats": {}},
+            {"success": True, "error": None, "method": "rss", "articles_found": 5, "response_time": 1.0, "rss_parsing_stats": {}},
+        ]
         validate_iter = iter(validate_results)
 
         with patch.object(service, "_get_source_snapshot", return_value=snapshot), \
              patch.object(service, "_get_error_history", return_value=[]), \
+             patch.object(service, "_get_working_source_examples", return_value=[]), \
              patch.object(service, "_probe_urls", return_value=[]), \
              patch.object(service, "_analyze_with_llm", return_value={
                  "diagnosis": "Try this",
