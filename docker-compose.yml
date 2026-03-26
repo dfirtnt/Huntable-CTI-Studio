@@ -183,6 +183,7 @@ services:
           memory: ${WORKER_MEMORY_LIMIT:-2G}
         reservations:
           memory: ${WORKER_MEMORY_RESERVATION:-512M}
+    # Unlike web (uvicorn --reload), Celery loads code at startup — restart worker after src/ changes.
     command: celery -A src.worker.celery_app worker --loglevel=debug -Q default,source_checks,maintenance,reports,connectivity,collection --concurrency=${WORKER_CONCURRENCY:-2}
     healthcheck:
       test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping"]
@@ -247,6 +248,7 @@ services:
           memory: ${WORKFLOW_WORKER_MEMORY_LIMIT:-2G}
         reservations:
           memory: ${WORKFLOW_WORKER_MEMORY_RESERVATION:-512M}
+    # Restart after src/ changes (no autoreload).
     command: celery -A src.worker.celery_app worker --loglevel=debug -Q workflows --concurrency=${WORKFLOW_WORKER_CONCURRENCY:-2}
     healthcheck:
       test: ["CMD-SHELL", "celery -A src.worker.celery_app inspect ping"]

@@ -26,8 +26,8 @@ class TestDashboardEndpoints:
         response = await async_client.get("/")
         assert response.status_code == 200
 
-        # Check for key dashboard elements
-        assert "Total Articles" in response.text
+        # Check for key dashboard elements (label in dashboard.html)
+        assert "Articles Indexed" in response.text
         # Note: "Total Sources" and "Last Update" may not be present in current dashboard
 
 

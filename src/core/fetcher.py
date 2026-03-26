@@ -137,17 +137,21 @@ class ContentFetcher:
                         logger.info(
                             f"RSS fetch successful for {source.name}: {len(articles)} articles (RSS stats: {rss_stats})"
                         )
+                        return FetchResult(
+                            source=source,
+                            articles=articles,
+                            method="rss",
+                            success=True,
+                            response_time=response_time,
+                            rss_parsing_stats=rss_stats,
+                        )
                     else:
-                        logger.warning(f"RSS feed returned no articles for {source.name}")
-
-                    return FetchResult(
-                        source=source,
-                        articles=articles,
-                        method="rss",
-                        success=True,
-                        response_time=response_time,
-                        rss_parsing_stats=rss_stats,
-                    )
+                        # RSS was reachable but returned zero articles — fall through
+                        # to lower tiers instead of reporting a false success.
+                        logger.warning(
+                            f"RSS feed returned no articles for {source.name}, "
+                            f"falling through to next fetch tier"
+                        )
 
                 except Exception as e:
                     logger.warning(f"RSS fetch failed for {source.name}: {e}")
