@@ -319,6 +319,12 @@ class RunTestRunner:
                 postgres_port,
             )
 
+        # Use the test DB for DATABASE_URL in this process so the guard and any imports
+        # (e.g. celery_app) never see a leftover production URL from the shell or .env.
+        td = os.environ.get("TEST_DATABASE_URL")
+        if td:
+            os.environ["DATABASE_URL"] = td
+
         # Use test Redis port when using local test containers (docker-compose.test maps Redis to 6380)
         # In CI, GitHub Actions services use 6379 - do not override
         in_ci = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
@@ -1002,20 +1008,25 @@ class RunTestRunner:
                     f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:{postgres_port}/cti_scraper_test"
                 )
 
+            # Always pass test DATABASE_URL into pytest (validator module may be unavailable).
+            td_url = env.get("TEST_DATABASE_URL")
+            if td_url:
+                env["DATABASE_URL"] = td_url
+
             if ENVIRONMENT_UTILS_AVAILABLE:
                 try:
                     validator = TestEnvironmentValidator()
                     test_config = validator.load_test_config(self.config.config_file)
-                    # Only override if not already set (preserve TEST_DATABASE_URL)
-                    if "DATABASE_URL" not in env or env.get("DATABASE_URL") == test_config.database_url:
-                        env.update(
-                            {
-                                "DATABASE_URL": test_config.database_url,
-                                "REDIS_URL": test_config.redis_url,
-                                "TESTING": "true",
-                                "ENVIRONMENT": "test",
-                            }
-                        )
+                    # Always point DATABASE_URL at the test DB for the pytest subprocess.
+                    # A shell-.env production DATABASE_URL must not leak into tests (celery_app guard).
+                    env.update(
+                        {
+                            "DATABASE_URL": test_config.database_url,
+                            "REDIS_URL": test_config.redis_url,
+                            "TESTING": "true",
+                            "ENVIRONMENT": "test",
+                        }
+                    )
                 except Exception as e:
                     logger.warning(f"Could not set environment variables: {e}")
 

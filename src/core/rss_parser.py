@@ -40,7 +40,8 @@ class RSSParser:
 
         # Configure robots.txt settings if available
         if isinstance(source.config, dict) and "robots" in source.config:
-            self.http_client.configure_source_robots(source.identifier, source.config["robots"])
+            if hasattr(self.http_client, "configure_source_robots"):
+                self.http_client.configure_source_robots(source.identifier, source.config["robots"])
 
         try:
             # Fetch RSS feed with source-specific robots configuration
@@ -443,7 +444,7 @@ class RSSParser:
         1. Full content from feed
         2. Summary/description from feed
         3. If RSS content < 1000 chars, try modern scraping (unless rss_only is enabled)
-        4. Fetch full article from URL (with Red Canary protection) (unless rss_only is enabled)
+        4. Fetch full article from URL (unless rss_only is enabled)
         """
         # Check if RSS-only mode is enabled
         rss_only = False

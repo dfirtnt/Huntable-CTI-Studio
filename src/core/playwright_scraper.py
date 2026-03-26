@@ -129,14 +129,27 @@ class PlaywrightScraper:
             # Fallback: use base URL
             discovered_urls.add(source.url)
         else:
+            full_config = (
+                source.config if isinstance(source.config, dict) else {}
+            )
             page = await self._context.new_page()
             try:
                 for strategy in strategies:
                     try:
-                        if "listing" in strategy:
-                            urls = await self._discover_from_listing(page, strategy["listing"], source)
+                        # Normalise: accept both bare strings and dicts
+                        if isinstance(strategy, str):
+                            strategy_name = strategy
+                            strategy_config = full_config.get(strategy_name, {})
+                        elif isinstance(strategy, dict):
+                            strategy_name = next(iter(strategy))
+                            strategy_config = strategy[strategy_name]
+                        else:
+                            continue
+
+                        if strategy_name == "listing":
+                            urls = await self._discover_from_listing(page, strategy_config, source)
                             discovered_urls.update(urls)
-                        elif "sitemap" in strategy:
+                        elif strategy_name == "sitemap":
                             # Sitemap discovery doesn't need Playwright
                             logger.debug("Sitemap discovery not implemented for Playwright, skipping")
                     except Exception as e:

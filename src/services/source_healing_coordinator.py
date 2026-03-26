@@ -1,6 +1,7 @@
 """Periodic coordinator that scans for sources needing AI healing and dispatches tasks."""
 
 import logging
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
@@ -9,6 +10,11 @@ from src.database.models import SourceTable
 from src.services.source_healing_config import SourceHealingConfig
 
 logger = logging.getLogger(__name__)
+
+# Don't heal sources that succeeded recently — short failure streaks after
+# a recent success are likely transient (container restart, network blip),
+# not config problems that the healing LLM should rewrite.
+_RECENT_SUCCESS_GRACE_PERIOD = timedelta(hours=24)
 
 
 async def scan_and_trigger_healing() -> None:
@@ -51,7 +57,17 @@ async def scan_and_trigger_healing() -> None:
 
     from src.worker.celery_app import heal_source
 
+    now = datetime.now()
     for source in sources:
+        # Skip sources with a recent last_success — they likely have a transient
+        # issue (container restart, dependency unavailable) not a config problem.
+        if source.last_success and (now - source.last_success) < _RECENT_SUCCESS_GRACE_PERIOD:
+            logger.info(
+                "[AutoHeal] Skipping source '%s' (id=%s) — last success %s is within %s grace period",
+                source.name, source.id, source.last_success, _RECENT_SUCCESS_GRACE_PERIOD,
+            )
+            continue
+
         logger.info(
             "[AutoHeal] Dispatching heal task for source '%s' (id=%s), failures=%d",
             source.name, source.id, source.consecutive_failures,

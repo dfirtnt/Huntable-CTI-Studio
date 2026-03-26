@@ -433,12 +433,13 @@ class TestRSSParser:
             assert "Full article content from scraping" in content
 
     @pytest.mark.asyncio
-    async def test_extract_content_red_canary_skip(self, mock_http_client, sample_source, sample_feed_entry):
-        """Test content extraction for Red Canary URLs."""
-        # Note: Red Canary protection may not be implemented, so test that content is extracted normally
+    async def test_extract_content_vendor_blog_url(self, mock_http_client, sample_source, sample_feed_entry):
+        """Test content extraction for a representative vendor blog URL."""
         parser = RSSParser(mock_http_client)
 
-        content = await parser._extract_content(sample_feed_entry, "https://redcanary.com/article", sample_source)
+        content = await parser._extract_content(
+            sample_feed_entry, "https://www.zscaler.com/blogs/security-research/example", sample_source
+        )
 
         # Content should be extracted normally (RSS description is long enough)
         assert content is not None
