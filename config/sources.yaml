@@ -709,16 +709,17 @@ sources:
       min_content_length: 2000  # Microsoft Security requires 1000+ chars
 
 
-  # Red Canary Blog (existing)
-  - id: "red_canary_blog"
-    name: "Red Canary Blog"
-    url: "https://redcanary.com/blog/"
-    rss_url: "https://redcanary.com/blog/feed/"
+  # Zscaler ThreatLabz (author listing; JS-rendered — Playwright + paginated listing URLs)
+  - id: "zscaler_threatlabz"
+    name: "Zscaler ThreatLabz"
+    url: "https://www.zscaler.com/author/threatlabz"
+    rss_url: null
     check_frequency: 1800  # 30 minutes
     active: true
     config:
-      allow: ["redcanary.com"]
-      post_url_regex: ["^https://redcanary\\\\.com/blog/.*"]
+      allow: ["zscaler.com"]
+      post_url_regex: ["^https://www\\.zscaler\\.com/blogs/security-research/.*"]
+      use_playwright: true
       robots:
         enabled: true
         user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -727,8 +728,47 @@ sources:
         crawl_delay: 2.0
       min_content_length: 500
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "event"]
-      rss_only: true
-    description: "Detection-focused research with actionable hunting techniques and IOCs"
+      rss_only: false
+      discovery:
+        strategies:
+          - listing:
+              urls:
+                - "https://www.zscaler.com/author/threatlabz?current=n_1_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_2_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_3_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_4_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_5_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_6_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_7_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_8_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_9_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_10_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_11_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_12_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_13_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_14_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_15_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_16_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_17_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_18_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_19_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_20_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_21_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_22_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_23_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_24_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+                - "https://www.zscaler.com/author/threatlabz?current=n_25_n&size=n_8_n&sort%5B0%5D%5Bfield%5D=published_at&sort%5B0%5D%5Bdirection%5D=desc"
+              post_link_selector: "a[href*=\"/blogs/security-research/\"]"
+              max_pages: 1
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["main", "article", ".blog-detail-rich-text", ".text-rich-text"]
+        author_selectors: ["meta[name='author']::attr(content)"]
+    description: "Zscaler ThreatLabz security research (technical malware analysis and threat reports)"
 
 
   # CISA Analysis Reports - Uses comprehensive All Advisories feed with analysis reports filtering

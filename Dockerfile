@@ -70,8 +70,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY requirements-test.txt .
 RUN pip install --no-cache-dir -r requirements-test.txt
 
-# Install Playwright browsers (needed for JS-rendered content scraping)
-RUN playwright install chromium
+# Install Playwright system dependencies as root (needs apt-get)
 RUN playwright install-deps chromium || true
 
 # Ensure langgraph-cli is available system-wide
@@ -96,6 +95,10 @@ RUN useradd --create-home --shell /bin/bash cti_user \
     && usermod -aG root cti_user \
     && chown -R cti_user:cti_user /app
 USER cti_user
+
+# Install Playwright browsers as cti_user (must run after USER switch
+# so browsers land in /home/cti_user/.cache/ms-playwright/)
+RUN playwright install chromium
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data

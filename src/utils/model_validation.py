@@ -6,7 +6,7 @@ import re
 
 # Patterns for non-chat models that should be excluded
 NON_CHAT_MODEL_PATTERNS = [
-    re.compile(r"-codex", re.IGNORECASE),  # Codex models (gpt-5.2-codex, etc.)
+    re.compile(r"-codex", re.IGNORECASE),  # e.g. gpt-5-codex — completions/agentic, not chat UI
     re.compile(r"-audio", re.IGNORECASE),  # Audio models
     re.compile(r"-image", re.IGNORECASE),  # Image models
     re.compile(r"-realtime", re.IGNORECASE),  # Realtime models (unless chat-enabled)
@@ -35,7 +35,7 @@ VALID_CHAT_BASE_PATTERNS = [
 ]
 
 OPENAI_MODEL_PATTERN = re.compile(
-    r"^(gpt|o\d|o[1-9]|o-|o[a-z]|omni|text-davinci|davinci|curie|babbage|ada)",
+    r"^(gpt|o\d|o[1-9]|o-|o[a-z]|omni|codex|text-davinci|davinci|curie|babbage|ada)",
     re.IGNORECASE,
 )
 
@@ -121,6 +121,7 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
         "o4-mini",
         "o1",
         "o1-pro",
+        "codex-mini",
     ]:
         return True
 
@@ -130,9 +131,9 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
         # Dated version - only allow if base is explicitly known
         return False
 
-    # Fallback: if it starts with gpt- or o and doesn't match exclusion patterns, allow it
+    # Fallback: if it starts with gpt-, o, or codex- and doesn't match exclusion patterns, allow it
     # but this should be rare
-    return bool(model_id.lower().startswith(("gpt-", "o")))
+    return bool(model_id.lower().startswith(("gpt-", "o", "codex-")))
 
 
 # OpenAI: dated suffix is -YYYY-MM-DD or -YYYY-MM-DD-preview; keep only chat + no date (latest).

@@ -27,6 +27,7 @@ DEFAULT_CATALOG = {
         "o1-mini",
         "o1-preview",
         "o1-lite",
+        "codex-mini-latest",
     ],
     "anthropic": [
         "claude-3.7-sonnet-latest",

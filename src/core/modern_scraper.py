@@ -1,9 +1,10 @@
 """Web scraper with basic JSON-LD parsing and CSS selector extraction."""
 
 import asyncio
+import hashlib
 import logging
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -48,15 +49,42 @@ class URLDiscovery:
             urls = await self._discover_from_base_url(source)
             discovered_urls.update(urls)
         else:
+            # Resolve the full source config once for fallback lookups when
+            # strategies are given as bare strings (e.g. "sitemap") instead
+            # of dicts (e.g. {"sitemap": {"urls": [...]}}).
+            full_config = (
+                source.config if isinstance(source.config, dict) else {}
+            )
+
             for strategy in strategies:
                 try:
-                    if "listing" in strategy:
-                        urls = await self._discover_from_listing(strategy["listing"], source)
+                    # Normalise: accept both bare strings ("sitemap") and
+                    # dicts ({"sitemap": {…}}).
+                    if isinstance(strategy, str):
+                        strategy_name = strategy
+                        strategy_config = full_config.get(strategy_name, {})
+                    elif isinstance(strategy, dict):
+                        strategy_name = next(iter(strategy))
+                        strategy_config = strategy[strategy_name]
+                    else:
+                        logger.warning(
+                            f"Unknown strategy format for {source.name}: {type(strategy)}"
+                        )
+                        continue
+
+                    if strategy_name == "listing":
+                        urls = await self._discover_from_listing(strategy_config, source)
                         discovered_urls.update(urls)
 
-                    elif "sitemap" in strategy:
-                        urls = await self._discover_from_sitemap(strategy["sitemap"], source)
+                    elif strategy_name == "sitemap":
+                        urls = await self._discover_from_sitemap(strategy_config, source)
                         discovered_urls.update(urls)
+
+                    elif strategy_name == "wp_json":
+                        # wp_json is handled separately in scrape_source —
+                        # just mark that it was requested so discovery can
+                        # be skipped if wp_json yields articles directly.
+                        pass
 
                 except Exception as e:
                     logger.error(f"Discovery strategy failed for {source.name}: {e}")
@@ -488,6 +516,21 @@ class ModernScraper:
             if hasattr(self.http_client, "configure_source_robots"):
                 self.http_client.configure_source_robots(source.identifier, source.config["robots"])
 
+        # ── Fast-path: WP JSON API ────────────────────────────────────────
+        # If the source config has wp_json endpoints, try fetching articles
+        # directly from the WordPress REST API. This returns full rendered
+        # content without needing JS rendering or HTML scraping.
+        cfg = source.config if isinstance(source.config, dict) else {}
+        wp_json_cfg = cfg.get("wp_json", {})
+        if isinstance(wp_json_cfg, dict) and wp_json_cfg.get("endpoints"):
+            articles = await self._fetch_wp_json_articles(wp_json_cfg, source)
+            if articles:
+                logger.info(
+                    f"WP JSON API returned {len(articles)} articles for {source.name}, skipping HTML scraping"
+                )
+                return articles
+            logger.warning(f"WP JSON API returned 0 articles for {source.name}, falling through to URL discovery")
+
         # Phase 1: URL Discovery
         urls = await self.url_discovery.discover_urls(source)
 
@@ -814,6 +857,140 @@ class ModernScraper:
                 continue
 
         return None
+
+    # ── WP JSON API extraction ────────────────────────────────────────
+
+    async def _fetch_wp_json_articles(
+        self, wp_json_cfg: dict[str, Any], source: Source
+    ) -> list[ArticleCreate]:
+        """Fetch articles directly from WordPress REST API endpoints.
+
+        The WP JSON API returns rendered HTML content, titles, dates, and
+        canonical URLs — everything needed to create articles without
+        fetching and parsing each page individually.
+        """
+        articles: list[ArticleCreate] = []
+        endpoints = wp_json_cfg.get("endpoints", [])
+        url_field_priority = wp_json_cfg.get("url_field_priority", ["link", "guid.rendered"])
+
+        # Lookback filter
+        cfg = source.config if isinstance(source.config, dict) else {}
+        lookback_days = getattr(source, "lookback_days", None) or cfg.get("lookback_days", 180)
+        cutoff = datetime.now() - timedelta(days=int(lookback_days))
+
+        # URL filtering patterns
+        post_url_regex = cfg.get("post_url_regex", [])
+        compiled_patterns = []
+        for pat in post_url_regex:
+            try:
+                compiled_patterns.append(re.compile(pat))
+            except re.error:
+                logger.warning(f"Invalid post_url_regex pattern: {pat}")
+
+        for endpoint in endpoints:
+            try:
+                logger.info(f"Fetching WP JSON endpoint: {endpoint}")
+                response = await self.http_client.get(endpoint, source_id=source.identifier)
+                response.raise_for_status()
+
+                # httpx Response uses .json() as a method
+                import json as _json
+                posts = _json.loads(response.text)
+                if not isinstance(posts, list):
+                    logger.warning(f"WP JSON endpoint did not return a list: {endpoint}")
+                    continue
+
+                logger.info(f"WP JSON returned {len(posts)} posts from {endpoint}")
+
+                for post in posts:
+                    try:
+                        # Extract URL
+                        article_url = None
+                        for field_path in url_field_priority:
+                            parts = field_path.split(".")
+                            val = post
+                            for part in parts:
+                                if isinstance(val, dict):
+                                    val = val.get(part)
+                                else:
+                                    val = None
+                                    break
+                            if val and isinstance(val, str):
+                                article_url = val
+                                break
+
+                        if not article_url:
+                            continue
+
+                        # URL regex filter
+                        if compiled_patterns:
+                            if not any(p.match(article_url) for p in compiled_patterns):
+                                continue
+
+                        # Extract title
+                        title_obj = post.get("title", {})
+                        title = title_obj.get("rendered", "") if isinstance(title_obj, dict) else str(title_obj)
+                        title = BeautifulSoup(title, "html.parser").get_text().strip()
+
+                        if not title:
+                            continue
+
+                        # Extract date
+                        date_str = post.get("date_gmt") or post.get("date") or ""
+                        date_published = None
+                        if date_str:
+                            try:
+                                date_published = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+                            except (ValueError, TypeError):
+                                pass
+
+                        # Lookback filter
+                        if date_published and date_published.replace(tzinfo=None) < cutoff:
+                            continue
+
+                        # Extract content
+                        content_obj = post.get("content", {})
+                        raw_html = content_obj.get("rendered", "") if isinstance(content_obj, dict) else ""
+                        content = ContentCleaner.clean_html(raw_html) if raw_html else ""
+
+                        min_len = cfg.get("min_content_length", 200)
+                        if len(content) < min_len:
+                            # Try excerpt as fallback
+                            excerpt_obj = post.get("excerpt", {})
+                            excerpt = excerpt_obj.get("rendered", "") if isinstance(excerpt_obj, dict) else ""
+                            excerpt_clean = ContentCleaner.clean_html(excerpt) if excerpt else ""
+                            if len(excerpt_clean) > len(content):
+                                content = excerpt_clean
+                            if len(content) < min_len:
+                                logger.debug(
+                                    f"WP JSON post '{title}' content too short ({len(content)} chars), skipping"
+                                )
+                                continue
+
+                        # Build article
+                        src_id = source.id if hasattr(source, "id") and source.id else 0
+                        pub_at = date_published or datetime.now()
+                        articles.append(ArticleCreate(
+                            title=title,
+                            canonical_url=article_url,
+                            content=content,
+                            source_id=src_id,
+                            published_at=pub_at,
+                            article_metadata={
+                                "extraction_method": "wp_json",
+                                "wp_post_id": post.get("id"),
+                            },
+                        ))
+
+                    except Exception as e:
+                        logger.debug(f"Failed to parse WP JSON post: {e}")
+                        continue
+
+            except Exception as e:
+                logger.error(f"Failed to fetch WP JSON endpoint {endpoint}: {e}")
+                continue
+
+        return articles
 
 
 class LegacyScraper:

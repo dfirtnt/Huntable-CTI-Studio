@@ -9,7 +9,7 @@ import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
 from sqlalchemy import (
@@ -1270,6 +1270,10 @@ class AsyncDatabaseManager:
             # Nested structure: extract the inner config
             source_config = source_config.get("config", {})
 
+        now = datetime.now(timezone.utc)
+        created_at = db_source.created_at if db_source.created_at is not None else now
+        updated_at = db_source.updated_at if db_source.updated_at is not None else created_at
+
         return Source(
             id=db_source.id,
             identifier=db_source.identifier,
@@ -1285,8 +1289,10 @@ class AsyncDatabaseManager:
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
             average_response_time=db_source.average_response_time,
-            created_at=db_source.created_at,
-            updated_at=db_source.updated_at,
+            healing_exhausted=getattr(db_source, "healing_exhausted", False),
+            healing_attempts=getattr(db_source, "healing_attempts", 0),
+            created_at=created_at,
+            updated_at=updated_at,
         )
 
     def _db_article_to_model(self, db_article: ArticleTable, skip_content: bool = False) -> Article:

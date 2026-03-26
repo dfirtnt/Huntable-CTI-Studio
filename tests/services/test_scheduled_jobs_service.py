@@ -78,6 +78,7 @@ def test_get_periodic_jobs_uses_persisted_config(monkeypatch):
     jobs = service.get_periodic_jobs()
 
     assert {job["id"] for job in jobs} == {
+        "check_sources_for_healing",
         "cleanup_old_data",
         "embed_new_articles",
         "sync_sigma_rules",
@@ -108,6 +109,7 @@ def test_serialize_scheduled_jobs_state_reports_enabled_countable_jobs():
     """Serialized UI state should include each documented job with merged config."""
     state = serialize_scheduled_jobs_state(
         {
+            "check_sources_for_healing": {"enabled": True, "cron": "0 * * * *"},
             "cleanup_old_data": {"enabled": False, "cron": "15 1 * * *"},
             "embed_new_articles": {"enabled": True, "cron": "0 15 * * *"},
             "sync_sigma_rules": {"enabled": True, "cron": "0 4 * * 0"},
@@ -116,5 +118,5 @@ def test_serialize_scheduled_jobs_state_reports_enabled_countable_jobs():
     )
 
     assert state["timezone"] == "UTC"
-    assert len(state["jobs"]) == 4
+    assert len(state["jobs"]) == 5
     assert next(job for job in state["jobs"] if job["id"] == "cleanup_old_data")["enabled"] is False
