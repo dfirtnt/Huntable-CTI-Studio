@@ -59,6 +59,28 @@ def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) ->
     return default
 
 
+def get_langfuse_setting(key: str, env_key: str, default: str | None = None) -> str | None:
+    """Public alias: same resolution as the Langfuse client (Settings UI → env → default)."""
+    return _get_langfuse_setting(key, env_key, default)
+
+
+def reset_langfuse_client() -> None:
+    """Drop the cached Langfuse client so the next ``get_langfuse_client()`` reloads credentials.
+
+    Long-lived workers (e.g. Celery) may initialize the client once from environment before
+    operators save keys in Settings; without a reset, traces keep using the stale client.
+    """
+    global _langfuse_client, _langfuse_enabled
+    prev = _langfuse_client
+    _langfuse_client = None
+    _langfuse_enabled = False
+    if prev is not None:
+        try:
+            prev.flush()
+        except Exception:
+            logger.debug("Langfuse flush during client reset failed (non-critical)", exc_info=True)
+
+
 def get_langfuse_client():
     """Get or initialize LangFuse client."""
     global _langfuse_client, _langfuse_enabled
