@@ -145,7 +145,7 @@ mypy==1.18.2
 mypy_extensions==1.1.0
 nest-asyncio==1.6.0
 networkx==3.5
-nltk==3.9.3
+nltk==3.9.4
 nodeenv==1.10.0
 numpy==2.3.3
 openai==2.1.0
@@ -194,7 +194,7 @@ pyflakes==3.4.0
 Pygments==2.19.2
 pymdown-extensions==10.20.1
 pyparsing==3.2.5
-pypdf==6.9.1
+pypdf==6.9.2
 pyRdfa3==3.6.4
 pySigma==0.11.23
 pytest==8.4.2
