@@ -34,6 +34,14 @@ select = [
 [tool.ruff.format]
 # Use ruff as the formatter (enabled by default when ruff is installed)
 
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+
 [tool.vulture]
 min_confidence = 80
 paths = ["src", "scripts", "vulture_whitelist.py"]
