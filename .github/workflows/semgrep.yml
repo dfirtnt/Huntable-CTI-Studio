@@ -1,0 +1,32 @@
+name: Semgrep
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: semgrep-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    container:
+      image: semgrep/semgrep
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Run Semgrep
+        run: >-
+          semgrep scan
+          --config auto
+          --config p/python
+          --config p/owasp-top-ten
+          --config p/sqlalchemy
+          --error
+          --verbose
