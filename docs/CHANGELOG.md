@@ -7,7 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.2.0 "Ganymede"] - 2026-03-26
+
+### Key updates
+
+- **MCP and RAG observability**: Read-only `huntable_mcp` for articles, sources, SIGMA queue metadata, and workflow visibility; `get_stats` and `GET /api/embeddings/stats` expose SigmaHQ **`sigma_corpus`** embedding coverage; semantic search and MCP paths hardened (pgvector binds, thresholds, chunk→article fallback, stable Article IDs in search results).
+- **Source auto-healing and ingestion**: Multi-round healing with audit trail and per-source controls; Langfuse from Settings; **v3** deep probes (RSS, sitemap, WordPress API, JS-render cues); **Zscaler ThreatLabz** Playwright source (`zscaler_threatlabz`); Red Canary removed from default `config/sources.yaml`; coordinator, fetcher, and scraper improvements. See [`docs/internals/source-healing.md`](internals/source-healing.md).
+- **Operator console**: Executions tab tactical `q-*` styling; **MLOps** control center redesign; SIGMA **`/sigma-queue`**, enrich and edit ergonomics, table layouts, executions and config-version **pagination**; workflow **manual trigger `force`** bypasses auto-trigger threshold with clearer API errors.
+
 ### Added
+- **Source auto-healing v2** (2026-03-26): Multi-round healing, persisted audit trail, and per-source enable/run/stop controls in the Sources UI.
+- **Source auto-healing: Langfuse and coordinator** (2026-03-26): Langfuse host/project API keys from Settings for optional healing traces; healing coordinator and LLM robustness; extended fetcher, modern scraper, and Playwright URL discovery for healing probes.
+- **Sources: Zscaler ThreatLabz** (2026-03-26): Playwright-based source `zscaler_threatlabz` (paginated author listing); Red Canary entry removed from default `config/sources.yaml`.
+- **Workflow manual trigger `force`** (2026-03-26): `POST /articles/{id}/trigger` accepts `force=true` to skip RegexHunt auto-trigger threshold; API surfaces specific `WorkflowTriggerService` failure reasons; article detail Send-to-Workflow and workflow modals pass `force=true`; documented in API reference.
+- **MLOps control center** (2026-03-26): MLOps page redesigned for layout parity with the operator tactical console pattern.
+- **Documentation** (2026-03-26): Source auto-healing architecture reference and cross-doc updates; see `docs/internals/source-healing.md` and related guides.
+- **Tests** (2026-03-26): Unit coverage for WordPress JSON extraction, healing coordinator behavior, Langfuse reset path, and codex-mini validation.
 - **Source auto-healing v3: deep diagnostic probes** (2026-03-26): Healing LLM now receives rich probe data instead of bare HTTP status codes — RSS content analysis (item count, empty-feed detection), sitemap discovery with post-URL sampling, WordPress JSON API detection, JS-rendering detection (HTML size vs visible text), and blog page link extraction. Working source configs are included as reference examples. Validation fetches are recorded as source checks so subsequent rounds see what happened. Updated system prompt with diagnostic playbook and platform capability documentation. See [`docs/internals/source-healing.md`](internals/source-healing.md).
 - **Tests** (2026-03-20): SIGMA queue similar-rules **`canonical_class` / `logsource_key`** response contract (`tests/api/test_sigma_similar_rules_api.py`); `compare_proposed_rule_to_embeddings` filter metadata passthrough and failure empty-metadata (`tests/services/test_sigma_matching_service.py`); `assess_novelty` result includes **`canonical_class`** key (`tests/services/test_sigma_novelty_service.py`).
 - **Tests** (2026-03-20): Smoke DB checks `tests/smoke/test_mcp_rag_smoke.py` (embedding stats, lexical search, `sigma_rule_queue` count; optional slow Sigma semantic when vectors exist). RAG unit coverage for Sigma bracket-vector bindparams and `find_unified_results` `partial_errors`. API contract `tests/api/test_embeddings_stats_contract.py` for `sigma_corpus` on `GET /api/embeddings/stats`.
@@ -60,6 +75,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Security audit in CI and LG workflow** (2026-03-14): New `security-audit` CI job runs `pip-audit` and `safety check` on every push/PR. Added `pip-audit` to `requirements-test.txt`. LG workflow and skill now explicitly run both tools. `tests/TESTING.md` corrected: Security row documents `run_tests.py security` (pytest marker) vs dependency audit (`pip-audit`, `safety check`).
 - **Config versions pagination and search** (2026-03-14): `GET /api/workflow/config/versions` now accepts `page`, `limit`, and `version` query params. Returns `total`, `page`, and `total_pages` for pagination. Version filter is exact integer match; non-integer input returns empty list (no 500). Restore-by-version modal: search input, Search/Clear buttons, Prev/Next pagination when total > 20.
 - **Executions page pagination** (2026-03-14): `GET /api/workflow/executions` now supports `page` and `limit` (default 50, max 200). Response includes `page`, `total_pages`, `limit`. Executions tab: Prev/Next pagination when total > 50.
+
+### Changed
+- **Dependencies and pip-audit CI** (2026-03-26): `requests==2.33.0`, `pypdf==6.9.2` (CVE-2026-25645, CVE-2026-33699). `security-audit` job adds `pip-audit` ignores for CVE-2026-33231 (nltk) and CVE-2026-4539 (pygments) until fixed releases exist on PyPI.
 
 ## [5.1.0 "Callisto"] - 2026-03-13
 
