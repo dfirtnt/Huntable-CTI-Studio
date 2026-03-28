@@ -1,0 +1,45 @@
+# Gitleaks configuration for Huntable CTI Studio
+# https://github.com/gitleaks/gitleaks
+
+[extend]
+# Use the default ruleset as the base
+useDefault = true
+
+[allowlist]
+description = "Known false positives — dev/test credentials and placeholder values"
+
+# Matches on the secret value itself (regex)
+regexes = [
+    # Dev-only fallback DB password used in local docker-compose only
+    "cti_password",
+    # Test DB password committed in TEST_DATABASE_SETUP.md (localhost:5433, not production)
+    "K1LZXPsrF2uft4fNL6UB2C0u",
+    # Literal placeholder strings in docs and .env.example
+    "your_.*_here",
+    "YOUR_API_KEY",
+    "not_required",
+    # Placeholder OpenAI key in docs (too short/sequential to be real)
+    "sk-1234567890abcdef",
+    # Model name strings that trigger generic-api-key rule
+    "deepseek-r1-qwen3-8b",
+    # Sigma rule relationship syntax (e.g. "parent/child")
+    "parent/child",
+]
+
+# Allow entire files from scanning
+paths = [
+    # Example env file — intentionally contains placeholder patterns
+    ".env.example",
+    # Test setup documentation — contains example/localhost-only credentials
+    "tests/TEST_DATABASE_SETUP.md",
+    # Archived infrastructure — not deployed
+    "archived/",
+    # Eval fixture data — base64 simhash values and UUIDs, not credentials
+    "config/eval_articles_data/",
+    # Workshop/training data — hashes, UUIDs, and annotation data, not credentials
+    "Workshop/",
+    # High-score article cache — contains SHA256 hashes of IOCs, not credentials
+    "high_score_articles/",
+    # Stackedit trash / draft docs
+    "docs/.stackedit-trash/",
+]
