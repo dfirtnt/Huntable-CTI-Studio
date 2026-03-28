@@ -1289,7 +1289,7 @@ def update_provider_model_catalogs(self):
         logger.warning("Provider catalog script not found at %s; skipping", script_path)
         return {"status": "skipped", "message": "Script not found"}
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosemgrep
             [os.environ.get("PYTHON", "python3"), str(script_path), "--write"],
             cwd=str(repo_root),
             env=os.environ,

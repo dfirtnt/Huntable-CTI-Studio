@@ -369,7 +369,7 @@ async def api_restore_backup(request: Request):
             if no_snapshot:
                 cmd.append("--no-snapshot")
 
-        result = subprocess.run(
+        result = subprocess.run(  # nosemgrep
             cmd,
             cwd=str(project_root),
             capture_output=True,

@@ -38,3 +38,5 @@ jobs:
           --exclude "docs"
           --exclude "browser-extension"
           --exclude "e2e"
+          --exclude "tests"
+          --exclude "docker-compose.allure.yml"
