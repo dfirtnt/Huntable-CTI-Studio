@@ -1692,7 +1692,8 @@ async def validate_rule(request: Request, queue_id: int):
 
             for attempt in range(1, max_attempts + 1):
                 logger.info(
-                    f"Validation attempt {attempt}/{max_attempts} rule {queue_id} provider={provider} model={model}"  # lgtm[py/clear-text-logging-sensitive-data]
+                    "Validation attempt %d/%d rule %s provider=%s model=%s",
+                    attempt, max_attempts, queue_id, provider, model,
                 )
 
                 # Build validation prompt (first attempt) or feedback prompt (subsequent attempts)
@@ -2091,7 +2092,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 "error": str(e),
                             }
                         )
-                        logger.error(f"Error calling {provider} API: {e}")  # lgtm[py/clear-text-logging-sensitive-data]
+                        logger.error("Error calling %s API: %s", provider, type(e).__name__)
                         # Don't raise, continue to next attempt or return with conversation log
                         if attempt == max_attempts:
                             break  # Exit loop to return final result
