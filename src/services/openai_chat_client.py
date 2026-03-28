@@ -104,9 +104,8 @@ async def openai_chat_completions(
             if retry.status_code == 200:
                 result = retry.json()
                 logger.info(
-                    "OpenAI retry succeeded with %s params for %s",
+                    "OpenAI retry succeeded with %s params",
                     "reasoning" if not use_reasoning else "standard",
-                    model_name,
                 )
                 return result["choices"][0]["message"]["content"]
 

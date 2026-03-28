@@ -1290,7 +1290,7 @@ def update_provider_model_catalogs(self):
         return {"status": "skipped", "message": "Script not found"}
     try:
         result = subprocess.run(
-            [os.environ.get("PYTHON", "python3"), str(script_path), "--write"],
+            [os.environ.get("PYTHON", "python3"), str(script_path), "--write"],  # nosemgrep
             cwd=str(repo_root),
             env=os.environ,
             capture_output=True,

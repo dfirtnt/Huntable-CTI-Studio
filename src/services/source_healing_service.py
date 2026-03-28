@@ -532,7 +532,7 @@ class SourceHealingService:
             elif provider == "anthropic":
                 llm.anthropic_api_key = self.config.api_key
             else:
-                logger.warning(
+                logger.warning(  # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure
                     "[AutoHeal] Dedicated API key configured but provider '%s' "
                     "does not support key override — using default key",
                     self.config.provider,

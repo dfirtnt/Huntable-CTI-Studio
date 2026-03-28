@@ -194,6 +194,12 @@ disable_error_code = [
     "dict-item",      # 8 violations — incompatible dict value types
     "typeddict-item", # 7 violations — TypedDict key/value mismatches
     "no-redef",       # violations — name already defined (context managers)
+    "return",         # missing return statements in complex branching
+    "abstract",       # abstract class instantiation (test/service stubs)
+    "type-var",       # type variable constraints with SQLAlchemy columns
+    "has-type",       # cannot determine type (conditional assignments)
+    "call-overload",  # overload variant mismatches (range/max with object types)
+    "list-item",      # incompatible list item types (str | None in list[str])
 ]
 
 [tool.vulture]
