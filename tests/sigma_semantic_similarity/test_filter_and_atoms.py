@@ -1,13 +1,12 @@
 """Filter penalty; atom extraction; rejected grammar."""
 
 import pytest
-
+from sigma_similarity.ast_builder import AtomNode, build_ast
 from sigma_similarity.atom_extractor import (
     atom_identity,
     extract_negative_atoms,
     extract_positive_atoms,
 )
-from sigma_similarity.ast_builder import AtomNode, build_ast
 from sigma_similarity.detection_normalizer import normalize_detection
 from sigma_similarity.dnf_normalizer import ast_to_dnf
 from sigma_similarity.errors import UnsupportedSigmaFeatureError
@@ -16,7 +15,7 @@ from sigma_similarity.filter_analyzer import filter_penalty
 
 def test_filter_penalty_formula():
     F = filter_penalty({"a"}, {"b"}, 10, 10)
-    assert F == min(0.5, 2 / 10)
+    assert min(0.5, 2 / 10) == F
     assert F == 0.2
 
 

@@ -3,7 +3,6 @@ Similarity engine: orchestrate canonical class, normalization, DNF, atoms, surfa
 containment, filter penalty, and final similarity. No global state.
 """
 
-from typing import Any
 
 import yaml
 
@@ -15,7 +14,7 @@ from sigma_similarity.atom_extractor import (
 from sigma_similarity.canonical_logsource import resolve_canonical_class
 from sigma_similarity.containment_estimator import compute_containment
 from sigma_similarity.detection_normalizer import normalize_detection
-from sigma_similarity.dnf_normalizer import MAX_DNF_BRANCHES, ast_to_dnf
+from sigma_similarity.dnf_normalizer import ast_to_dnf
 from sigma_similarity.errors import DeterministicExpansionLimitError
 from sigma_similarity.filter_analyzer import filter_penalty
 from sigma_similarity.models import SimilarityResult

@@ -1,9 +1,10 @@
 """Tests for source healing service."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
-from src.models.healing_event import HealingEvent, HealingEventCreate
+import pytest
+
+from src.models.healing_event import HealingEventCreate
 
 
 class TestHealingEventModels:
@@ -107,7 +108,7 @@ class TestMultiRoundHealing:
     async def test_retries_on_validation_failure(self):
         """Service should retry with failure context when validation fails."""
         from src.services.source_healing_config import SourceHealingConfig
-        from src.services.source_healing_service import SourceHealingService, _RETRY_DELAY_SECONDS
+        from src.services.source_healing_service import _RETRY_DELAY_SECONDS, SourceHealingService
 
         config = SourceHealingConfig(enabled=True, max_attempts=3)
         service = SourceHealingService(config)

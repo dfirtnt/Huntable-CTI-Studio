@@ -1820,7 +1820,7 @@ class TestWorkflowExecutionsTableAdvanced:
         page.wait_for_timeout(2000)
 
         # Find Retry buttons (should only be visible for failed)
-        page.locator("button:has-text('Retry')").first
+        _ = page.locator("button:has-text('Retry')").first
         # Buttons may or may not exist depending on execution status
 
     @pytest.mark.ui

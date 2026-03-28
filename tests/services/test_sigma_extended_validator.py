@@ -128,7 +128,7 @@ level: medium
             "detection": {
                 "selection": {
                     "CommandLine|contains": "schtasks",
-                    "CommandLine|contains": "/create",
+                    "CommandLine|contains": "/create",  # noqa: F601
                 },
                 "condition": "selection",
             },

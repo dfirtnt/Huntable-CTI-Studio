@@ -1,7 +1,6 @@
 """Web scraper with basic JSON-LD parsing and CSS selector extraction."""
 
 import asyncio
-import hashlib
 import logging
 import re
 from datetime import datetime, timedelta

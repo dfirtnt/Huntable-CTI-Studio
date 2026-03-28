@@ -1961,7 +1961,8 @@ Manual Container Management:
     parser.add_argument(
         "--skip-playwright-js",
         action="store_true",
-        help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; skip npx Playwright tests/playwright (saves most UI wall time)",
+        help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; "
+        "skip npx Playwright tests/playwright (saves most UI wall time)",
     )
     parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
 

@@ -3,7 +3,7 @@
 import logging
 
 from mcp.server.fastmcp import FastMCP
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.database.models import (
@@ -66,7 +66,7 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                 created = r.created_at.isoformat() if r.created_at else "N/A"
                 error = f"\n   Error: {r.error_message[:100]}..." if r.error_message else ""
                 lines.append(
-                    f"- **Execution #{r.id}** — {(r.status or "unknown").upper()}\n"
+                    f"- **Execution #{r.id}** — {(r.status or 'unknown').upper()}\n"
                     f"  Article: [{r.article_id}] {r.article_title}\n"
                     f"  Step: {r.current_step or 'N/A'} | "
                     f"Ranking: {r.ranking_score or 'N/A'}\n"
@@ -129,7 +129,7 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
                 notes = f"\n   Notes: {r.review_notes}" if r.review_notes else ""
                 pr = f"\n   PR: {r.pr_url}" if r.pr_url else ""
                 lines.append(
-                    f"- **Queue #{r.id}** — {(r.status or "unknown").upper()}\n"
+                    f"- **Queue #{r.id}** — {(r.status or 'unknown').upper()}\n"
                     f"  Rule: {rule_title}\n"
                     f"  Source article: [{r.article_id}] {r.article_title}\n"
                     f"  Max similarity to existing: {similarity}\n"
