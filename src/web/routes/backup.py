@@ -4,7 +4,6 @@ Backup management API routes.
 
 from __future__ import annotations
 
-import re
 import subprocess
 import sys
 import tempfile

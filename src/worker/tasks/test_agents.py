@@ -57,11 +57,7 @@ def _filter_content(article, use_junk_filter: bool, junk_filter_threshold: float
         filter_result = content_filter.filter_content(
             article.content,
             min_confidence=junk_filter_threshold,
-            hunt_score=(
-                article.article_metadata.get("threat_hunting_score", 0)
-                if article.article_metadata
-                else 0
-            ),
+            hunt_score=(article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0),
             article_id=article.id,
         )
         return filter_result.filtered_content if filter_result.filtered_content else article.content

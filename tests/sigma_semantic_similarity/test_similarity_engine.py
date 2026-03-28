@@ -2,8 +2,6 @@
 
 import json
 
-import pytest
-
 from sigma_similarity.similarity_engine import compare_rules
 
 

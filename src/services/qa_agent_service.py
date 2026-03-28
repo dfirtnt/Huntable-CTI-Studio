@@ -170,7 +170,6 @@ Please provide your evaluation in the following JSON format:
             # Convert messages for model compatibility
             converted_messages = self.llm_service._convert_messages_for_model(messages, target_model)
 
-            generation = None
             # Call LLM API with provider-aware method and Langfuse tracing
             with trace_llm_call(
                 name=f"qa_{agent_name.lower()}",

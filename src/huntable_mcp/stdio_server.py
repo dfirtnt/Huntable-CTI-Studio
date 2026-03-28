@@ -31,9 +31,7 @@ if os.environ.get("APP_ENV") == "test":
 if not os.environ.get("DATABASE_URL"):
     _pw = os.environ.get("POSTGRES_PASSWORD", "")
     if _pw:
-        os.environ["DATABASE_URL"] = (
-            f"postgresql+asyncpg://cti_user:{_pw}@localhost:5432/cti_scraper"
-        )
+        os.environ["DATABASE_URL"] = f"postgresql+asyncpg://cti_user:{_pw}@localhost:5432/cti_scraper"
 
 # Stdio MCP: logs must go to stderr only — stdout is reserved for JSON-RPC.
 logging.basicConfig(

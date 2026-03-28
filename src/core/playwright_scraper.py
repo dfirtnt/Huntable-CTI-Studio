@@ -129,9 +129,7 @@ class PlaywrightScraper:
             # Fallback: use base URL
             discovered_urls.add(source.url)
         else:
-            full_config = (
-                source.config if isinstance(source.config, dict) else {}
-            )
+            full_config = source.config if isinstance(source.config, dict) else {}
             page = await self._context.new_page()
             try:
                 for strategy in strategies:

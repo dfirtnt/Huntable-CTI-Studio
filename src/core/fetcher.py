@@ -145,13 +145,11 @@ class ContentFetcher:
                             response_time=response_time,
                             rss_parsing_stats=rss_stats,
                         )
-                    else:
-                        # RSS was reachable but returned zero articles — fall through
-                        # to lower tiers instead of reporting a false success.
-                        logger.warning(
-                            f"RSS feed returned no articles for {source.name}, "
-                            f"falling through to next fetch tier"
-                        )
+                    # RSS was reachable but returned zero articles — fall through
+                    # to lower tiers instead of reporting a false success.
+                    logger.warning(
+                        f"RSS feed returned no articles for {source.name}, falling through to next fetch tier"
+                    )
 
                 except Exception as e:
                     logger.warning(f"RSS fetch failed for {source.name}: {e}")

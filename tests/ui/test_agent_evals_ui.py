@@ -154,8 +154,9 @@ def _click_load_previous_results_and_wait(page: Page) -> None:
     page.click("#loadPreviousResultsBtn")
     with contextlib.suppress(Exception):
         page.wait_for_response(
-            lambda r: "/api/evaluations/subagent-eval-results" in r.url
-            or "/api/evaluations/subagent-eval-aggregate" in r.url,
+            lambda r: (
+                "/api/evaluations/subagent-eval-results" in r.url or "/api/evaluations/subagent-eval-aggregate" in r.url
+            ),
             timeout=15000,
         )
     page.wait_for_timeout(1500)

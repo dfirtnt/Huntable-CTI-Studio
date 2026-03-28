@@ -11,6 +11,7 @@ async def _run_async(awaitable):
 
 def test_get_cron_returns_snapshot(monkeypatch):
     """GET /api/cron should return the current crontab snapshot."""
+
     class FakeService:
         def get_snapshot(self):
             return {
@@ -32,6 +33,7 @@ def test_get_cron_returns_snapshot(monkeypatch):
 
 def test_replace_cron_returns_updated_snapshot(monkeypatch):
     """PUT /api/cron should replace the crontab and return the updated snapshot."""
+
     class FakeService:
         def replace_crontab(self, content: str):
             assert content == "5 4 * * * echo updated"

@@ -11,7 +11,7 @@ import yaml
 
 from src.core.rss_parser import FeedValidator
 from src.database.manager import DatabaseManager
-from src.models.source import Source, SourceConfig, SourceCreate
+from src.models.source import Source, SourceCreate
 from src.utils.http import HTTPClient
 
 logger = logging.getLogger(__name__)
@@ -685,11 +685,7 @@ class SourceManager:
 
         # Check for invalid protocols
         invalid_protocols = ["ftp://", "javascript:", "data:", "file:"]
-        for protocol in invalid_protocols:
-            if url.startswith(protocol):
-                return False
-
-        return True
+        return all(not url.startswith(protocol) for protocol in invalid_protocols)
 
     def validate_rss_url(self, url: str) -> bool:
         """Validate RSS URL format."""

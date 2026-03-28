@@ -314,6 +314,7 @@ def check_sources_for_healing(self):
 
         async def run_scan():
             from src.services.source_healing_coordinator import scan_and_trigger_healing
+
             await scan_and_trigger_healing()
 
         asyncio.run(run_scan())

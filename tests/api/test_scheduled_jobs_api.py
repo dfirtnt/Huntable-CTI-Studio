@@ -88,6 +88,7 @@ async def test_update_scheduled_jobs_returns_updated_state(monkeypatch):
 @pytest.mark.asyncio
 async def test_update_scheduled_jobs_maps_validation_errors(monkeypatch):
     """Validation errors should become 422 responses."""
+
     class FakeService:
         async def update_state(self, jobs):
             raise ScheduledJobsConfigError("Invalid cron expression")
@@ -108,6 +109,7 @@ async def test_update_scheduled_jobs_maps_validation_errors(monkeypatch):
 @pytest.mark.asyncio
 async def test_update_scheduled_jobs_maps_reload_errors(monkeypatch):
     """Scheduler reload failures should become 500 responses."""
+
     class FakeService:
         async def update_state(self, jobs):
             raise SchedulerReloadError("restart failed")
