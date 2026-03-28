@@ -7,7 +7,6 @@ from click.testing import CliRunner
 
 from src.cli.main import cli
 
-
 pytestmark = pytest.mark.smoke
 
 

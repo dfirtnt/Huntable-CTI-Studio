@@ -72,7 +72,7 @@ COPY sigma_semantic_similarity/ ./sigma_semantic_similarity/
 RUN uv sync --frozen --group test
 
 # Install Playwright system dependencies as root (needs apt-get)
-RUN playwright install-deps chromium || true
+RUN python -m playwright install-deps chromium || true
 
 # Copy project
 COPY . .
@@ -87,7 +87,7 @@ USER cti_user
 
 # Install Playwright browsers as cti_user (must run after USER switch
 # so browsers land in /home/cti_user/.cache/ms-playwright/)
-RUN playwright install chromium
+RUN python -m playwright install chromium
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data

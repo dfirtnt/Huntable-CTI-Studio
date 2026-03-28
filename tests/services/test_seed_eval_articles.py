@@ -1,7 +1,6 @@
 """Unit tests for seed_eval_articles service (run return reason, _load_articles_by_url)."""
 
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest

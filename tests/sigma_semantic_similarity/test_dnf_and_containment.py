@@ -1,6 +1,5 @@
 """DNF expansion limit returns result; containment thresholds."""
 
-import pytest
 
 from sigma_similarity.containment_estimator import compute_containment
 from sigma_similarity.similarity_engine import compare_rules

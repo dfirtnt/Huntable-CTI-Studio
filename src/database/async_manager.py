@@ -9,7 +9,7 @@ import logging
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any, Optional
 
 from sqlalchemy import (
@@ -599,7 +599,6 @@ class AsyncDatabaseManager:
 
     async def create_healing_event(self, event_data) -> None:
         """Record a healing event in the audit trail."""
-        from src.database.models import HealingEventTable
 
         try:
             async with self.get_session() as session:
@@ -619,7 +618,6 @@ class AsyncDatabaseManager:
 
     async def get_healing_events(self, source_id: int, limit: int = 20) -> list:
         """Get recent healing events for a source, newest first."""
-        from src.database.models import HealingEventTable
         from src.models.healing_event import HealingEvent
 
         try:
@@ -1270,7 +1268,7 @@ class AsyncDatabaseManager:
             # Nested structure: extract the inner config
             source_config = source_config.get("config", {})
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         created_at = db_source.created_at if db_source.created_at is not None else now
         updated_at = db_source.updated_at if db_source.updated_at is not None else created_at
 

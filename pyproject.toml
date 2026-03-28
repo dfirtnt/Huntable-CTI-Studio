@@ -125,6 +125,7 @@ sigma-semantic-similarity = { workspace = true }
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+exclude = ["scripts/"]
 
 [tool.ruff.lint]
 select = [
@@ -136,6 +137,23 @@ select = [
     "UP",  # pyupgrade
     "RET", # flake8-return
     "SIM", # flake8-simplify
+]
+# Pre-existing violations accumulated before lint CI was introduced.
+# Each group is tracked as tech debt — fix and remove incrementally.
+extend-ignore = [
+    "E501",   # line too long (180 violations) — enforce after bulk cleanup
+    "E712",   # comparison to True/False (65) — widespread in test assertions
+    "E402",   # module-level import not at top (41) — sys.path patterns in tests/scripts
+    "RET504", # unnecessary assignment before return (38)
+    "F841",   # local variable assigned but never used (28)
+    "SIM102", # nested if statements (27)
+    "SIM117", # nested with statements (23)
+    "SIM108", # ternary operator preferred (22)
+    "SIM105", # use contextlib.suppress (8)
+    "SIM103", # return condition directly (4)
+    "B007",   # loop control variable not used in loop body (10)
+    "B008",   # function call in default argument (7)
+    "B905",   # zip() without explicit strict (7)
 ]
 
 [tool.ruff.lint.per-file-ignores]

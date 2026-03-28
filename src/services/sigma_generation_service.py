@@ -710,7 +710,7 @@ class SigmaGenerationService:
                 if items:
                     category_context.append(f"\n{category.upper()} observables ({obs_type}):")
                     for item in items[:5]:  # Limit to first 5 items
-                        if isinstance(item, str) or isinstance(item, dict):
+                        if isinstance(item, (str, dict)):
                             category_context.append(f"  - {item}")
 
         context_text = "\n".join(category_context) if category_context else ""

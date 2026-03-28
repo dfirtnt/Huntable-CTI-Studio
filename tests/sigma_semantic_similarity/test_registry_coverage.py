@@ -1,7 +1,6 @@
 """Registry coverage: every tuple in CANONICAL_CLASS_REGISTRY appears in exactly one class."""
 
 import pytest
-
 from sigma_similarity.canonical_logsource import CANONICAL_CLASS_REGISTRY
 
 

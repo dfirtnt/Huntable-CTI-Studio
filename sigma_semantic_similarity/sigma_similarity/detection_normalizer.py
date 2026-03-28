@@ -3,14 +3,13 @@ Detection normalizer: parse condition string with tokenizer + recursive descent,
 resolve selection references, reject unsupported features. Output for ast_builder.
 """
 
-from sigma_similarity.errors import UnsupportedSigmaFeatureError
-
 # -----------------------------------------------------------------------------
 # Tokenizer: explicit token types, no regex-based grammar shortcuts
 # -----------------------------------------------------------------------------
-
 from enum import Enum
 from typing import Any
+
+from sigma_similarity.errors import UnsupportedSigmaFeatureError
 
 
 class TokenType(Enum):

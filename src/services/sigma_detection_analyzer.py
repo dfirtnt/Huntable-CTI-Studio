@@ -209,7 +209,7 @@ def extract_modifiers(detection: dict[str, Any]) -> set[str]:
             continue
 
         if isinstance(value, dict):
-            for field_name in value.keys():
+            for field_name in value:
                 # Parse field name with modifiers: "CommandLine|contains|all"
                 _, field_modifiers = parse_field_with_modifiers(field_name)
                 modifiers.update(field_modifiers)

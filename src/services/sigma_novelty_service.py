@@ -17,7 +17,7 @@ import json
 import logging
 import re
 from dataclasses import asdict, dataclass
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -36,7 +36,7 @@ except ImportError:
     _sigma_compare_rules_available = False
 
 
-class NoveltyLabel(str, Enum):
+class NoveltyLabel(StrEnum):
     """Novelty classification labels."""
 
     DUPLICATE = "DUPLICATE"

@@ -3064,7 +3064,7 @@ def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict
         Dictionary with overlap metrics
     """
 
-    def extract_values_from_detection(detection: dict, field_name: str) -> Set[str]:
+    def extract_values_from_detection(detection: dict, field_name: str) -> set[str]:
         """Extract all values for a specific field from detection logic."""
         values = set()
         if not isinstance(detection, dict):

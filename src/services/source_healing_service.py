@@ -9,7 +9,6 @@ import json
 import logging
 import re
 import time
-from datetime import datetime
 
 import httpx
 from sqlalchemy import select
@@ -402,7 +401,7 @@ class SourceHealingService:
                     # Found a sitemap — extract sub-sitemaps or post URLs
                     locs = _re.findall(r"<loc>(.*?)</loc>", resp.text)
                     # Look for a post/blog-specific sitemap
-                    post_sitemaps = [l for l in locs if any(k in l.lower() for k in ["post", "blog", "article"])]
+                    post_sitemaps = [loc for loc in locs if any(k in loc.lower() for k in ["post", "blog", "article"])]
                     sitemap_info["sitemap_url"] = sm_url
                     sitemap_info["total_locs"] = len(locs)
                     sitemap_info["post_sitemaps"] = post_sitemaps[:5]
@@ -433,7 +432,7 @@ class SourceHealingService:
                             posts = _json.loads(resp.text)
                             if isinstance(posts, list) and posts:
                                 has_content = any(
-                                    len((p.get("content", {}).get("rendered", "") or "")) > 100
+                                    len(p.get("content", {}).get("rendered", "") or "") > 100
                                     for p in posts[:3]
                                 )
                                 wp_info["endpoint"] = wp_url

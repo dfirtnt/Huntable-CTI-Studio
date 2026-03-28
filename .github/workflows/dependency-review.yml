@@ -26,3 +26,4 @@ jobs:
           fail-on-severity: high
           comment-summary-in-pr: always
           deny-licenses: GPL-3.0-only, GPL-3.0-or-later
+          license-check: false

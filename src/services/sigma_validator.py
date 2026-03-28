@@ -462,7 +462,7 @@ class SigmaValidator:
             return
 
         # Check for at least one selection/filter
-        selections = [k for k in detection.keys() if k not in ["condition", "timeframe"]]
+        selections = [k for k in detection if k not in ["condition", "timeframe"]]
         if not selections:
             errors.append("Detection must have at least one selection or filter (e.g., 'selection:', 'filter:')")
             return
