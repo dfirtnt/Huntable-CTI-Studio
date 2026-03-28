@@ -265,7 +265,7 @@ class SigmaExtendedValidator:
             return False
 
         # Get all selection names
-        selections = {k for k in detection.keys() if k not in ["condition", "timeframe"]}
+        selections = {k for k in detection if k not in ["condition", "timeframe"]}
 
         # Parse condition to find referenced selections
         condition = detection.get("condition")

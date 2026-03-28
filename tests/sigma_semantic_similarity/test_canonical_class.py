@@ -1,7 +1,6 @@
 """Canonical class: same class comparable; different class similarity 0; unknown class raises."""
 
 import pytest
-
 from sigma_similarity.canonical_logsource import resolve_canonical_class
 from sigma_similarity.errors import UnknownTelemetryClassError
 from sigma_similarity.similarity_engine import compare_rules

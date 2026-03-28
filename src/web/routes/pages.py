@@ -8,12 +8,10 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.database.async_manager import async_db_manager
 from src.utils.search_parser import parse_boolean_search
-from fastapi.responses import RedirectResponse
-
 from src.web.dependencies import ENVIRONMENT, logger, rag_enabled, templates
 from src.web.routes.articles import SimpleFilter
 

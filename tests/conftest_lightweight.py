@@ -218,7 +218,7 @@ def sample_sources():
 
 
 @pytest.fixture
-def mock_content_processor():
+def mock_content_processor():  # noqa: F811
     """Mock content processor for lightweight integration tests."""
     mock_processor = AsyncMock()
 

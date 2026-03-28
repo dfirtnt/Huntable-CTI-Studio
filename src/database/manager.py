@@ -2,7 +2,7 @@
 
 import logging
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import create_engine, desc, func
@@ -706,7 +706,7 @@ class DatabaseManager:
             source_config = source_config.get("config", {})
 
         # Legacy rows or pre-migration DBs may lack timestamps; Pydantic Source requires datetimes.
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         created_at = db_source.created_at if db_source.created_at is not None else now
         updated_at = db_source.updated_at if db_source.updated_at is not None else created_at
 

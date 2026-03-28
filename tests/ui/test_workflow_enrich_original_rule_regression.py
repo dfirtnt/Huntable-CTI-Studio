@@ -92,4 +92,3 @@ def test_workflow_enrich_modal_original_rule_uses_yaml_not_observable_code(page:
     assert "title: Test Rule" in original_yaml
     assert "detection:" in original_yaml
     assert "cmd0" not in original_yaml
-

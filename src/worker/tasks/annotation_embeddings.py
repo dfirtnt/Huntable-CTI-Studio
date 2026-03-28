@@ -106,7 +106,7 @@ def generate_single_annotation_embedding(self, annotation_id: int):
                     return {"status": "success", "message": f"Annotation {annotation_id} already has embedding"}
 
                 # Generate embedding
-                embedding_service = get_embedding_service()
+                embedding_service = get_embedding_service()  # noqa: F821
                 embedding = embedding_service.generate_embedding(annotation.selected_text)
 
                 # Store embedding in database
@@ -176,7 +176,7 @@ def batch_generate_annotation_embeddings(self, annotation_ids: list[int], batch_
                         annotation_mapping.append(annotation.id)
 
                     # Generate embeddings in batch
-                    embedding_service = get_embedding_service()
+                    embedding_service = get_embedding_service()  # noqa: F821
                     embeddings = embedding_service.generate_embeddings_batch(texts_to_embed, batch_size)
 
                     # Store embeddings

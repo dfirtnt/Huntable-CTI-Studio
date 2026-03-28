@@ -761,14 +761,10 @@ async def list_config_versions(
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            query = db_session.query(AgenticWorkflowConfigTable).order_by(
-                AgenticWorkflowConfigTable.version.desc()
-            )
+            query = db_session.query(AgenticWorkflowConfigTable).order_by(AgenticWorkflowConfigTable.version.desc())
             if version is not None and version.strip():
                 try:
-                    query = query.filter(
-                        AgenticWorkflowConfigTable.version == int(version.strip())
-                    )
+                    query = query.filter(AgenticWorkflowConfigTable.version == int(version.strip()))
                 except ValueError:
                     return {
                         "success": True,

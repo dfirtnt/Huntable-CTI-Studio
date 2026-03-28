@@ -91,9 +91,7 @@ async def test_get_sigma_rule_by_id_returns_dict_for_existing_rule():
     from sqlalchemy import text as sa_text
 
     async with mgr.get_session() as session:
-        row = await session.execute(
-            sa_text("SELECT rule_id FROM sigma_rules ORDER BY id LIMIT 1")
-        )
+        row = await session.execute(sa_text("SELECT rule_id FROM sigma_rules ORDER BY id LIMIT 1"))
         first = row.scalar_one_or_none()
 
     if first is None:
@@ -119,9 +117,7 @@ async def test_get_sigma_rule_by_id_raw_yaml_populated_after_ingest():
 
     try:
         async with mgr.get_session() as session:
-            row = await session.execute(
-                sa_text("SELECT rule_id FROM sigma_rules WHERE raw_yaml IS NOT NULL LIMIT 1")
-            )
+            row = await session.execute(sa_text("SELECT rule_id FROM sigma_rules WHERE raw_yaml IS NOT NULL LIMIT 1"))
             rule_id = row.scalar_one_or_none()
     except ProgrammingError:
         pytest.skip("raw_yaml column not yet in this DB — run scripts/migrate_sigma_raw_yaml.py")

@@ -9,6 +9,7 @@ from typing import Any
 
 class ASTNode:
     """Base for AST nodes."""
+
     pass
 
 
@@ -44,6 +45,7 @@ class NotNode(ASTNode):
 
 class AtomNode(ASTNode):
     """Leaf: field + operator + modifier_chain + value. Value normalized later in atom_extractor."""
+
     __slots__ = ("field", "operator", "modifier_chain", "value")
 
     def __init__(self, field: str, operator: str, modifier_chain: str, value: Any):

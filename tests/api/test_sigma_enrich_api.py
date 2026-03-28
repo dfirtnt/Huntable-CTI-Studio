@@ -292,9 +292,7 @@ class TestSigmaEnrichAPI:
         mock_article.content = "body"
         mock_article.article_metadata = None
 
-        mock_llm = AsyncMock(
-            return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml})
-        )
+        mock_llm = AsyncMock(return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,
@@ -352,9 +350,7 @@ class TestSigmaEnrichAPI:
         mock_article.content = "c"
         mock_article.article_metadata = None
 
-        mock_llm = AsyncMock(
-            return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml})
-        )
+        mock_llm = AsyncMock(return_value=json.dumps({"status": "pass", "updated_sigma_yaml": mock_rule.rule_yaml}))
 
         with (
             patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db_manager,

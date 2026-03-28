@@ -52,7 +52,9 @@ def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager | None = No
                 )
 
             n_meet = sum(1 for r in rules if r.get("meets_threshold", r.get("similarity", 0) >= threshold))
-            head = f"Found {len(rules)} SIGMA rules (best semantic matches; {n_meet} at or above threshold {threshold}):\n"
+            head = (
+                f"Found {len(rules)} SIGMA rules (best semantic matches; {n_meet} at or above threshold {threshold}):\n"
+            )
             if n_meet == 0:
                 head += (
                     f"(No rule reached {threshold}; scores below are still the closest in the corpus—"
@@ -163,9 +165,7 @@ def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager | None = No
             articles = results.get("articles", [])
             if articles:
                 lines = [f"## Articles ({len(articles)} found)\n"]
-                lines.append(
-                    "(Article rank numbers are display-only; use **Article ID** with get_article.)\n"
-                )
+                lines.append("(Article rank numbers are display-only; use **Article ID** with get_article.)\n")
                 for i, r in enumerate(articles, 1):
                     db_id = _article_db_id(r)
                     id_line = f"   **Article ID:** {db_id}\n" if db_id is not None else ""

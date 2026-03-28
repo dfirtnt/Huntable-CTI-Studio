@@ -63,9 +63,7 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
             total = int(stats.get("total_articles", 0) or 0)
             embedded = int(stats.get("embedded_count", 0) or 0)
             coverage = float(stats.get("embedding_coverage_percent", 0) or 0)
-            lines.append(
-                f"**Articles:** {total} total, {embedded} with embeddings ({coverage:.1f}% coverage)"
-            )
+            lines.append(f"**Articles:** {total} total, {embedded} with embeddings ({coverage:.1f}% coverage)")
         except Exception as e:
             logger.exception("get_stats: article stats failed")
             lines.append(f"**Articles:** (unavailable: {e})")
@@ -100,9 +98,7 @@ def register(mcp: FastMCP, db: AsyncDatabaseManager) -> None:
         try:
             all_sources = await db.list_sources()
             active_sources = [s for s in all_sources if s.active]
-            lines.append(
-                f"**Sources:** {len(active_sources)} active / {len(all_sources)} total"
-            )
+            lines.append(f"**Sources:** {len(active_sources)} active / {len(all_sources)} total")
         except Exception as e:
             logger.exception("get_stats: list_sources failed")
             lines.append(f"**Sources:** (unavailable: {e})")

@@ -8,9 +8,7 @@ import sys
 from pathlib import Path
 
 import yaml
-
 from sigma_similarity.errors import (
-    DeterministicExpansionLimitError,
     UnknownTelemetryClassError,
     UnsupportedSigmaFeatureError,
 )

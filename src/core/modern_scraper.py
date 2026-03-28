@@ -1,7 +1,6 @@
 """Web scraper with basic JSON-LD parsing and CSS selector extraction."""
 
 import asyncio
-import hashlib
 import logging
 import re
 from datetime import datetime, timedelta
@@ -52,9 +51,7 @@ class URLDiscovery:
             # Resolve the full source config once for fallback lookups when
             # strategies are given as bare strings (e.g. "sitemap") instead
             # of dicts (e.g. {"sitemap": {"urls": [...]}}).
-            full_config = (
-                source.config if isinstance(source.config, dict) else {}
-            )
+            full_config = source.config if isinstance(source.config, dict) else {}
 
             for strategy in strategies:
                 try:
@@ -67,9 +64,7 @@ class URLDiscovery:
                         strategy_name = next(iter(strategy))
                         strategy_config = strategy[strategy_name]
                     else:
-                        logger.warning(
-                            f"Unknown strategy format for {source.name}: {type(strategy)}"
-                        )
+                        logger.warning(f"Unknown strategy format for {source.name}: {type(strategy)}")
                         continue
 
                     if strategy_name == "listing":
@@ -525,9 +520,7 @@ class ModernScraper:
         if isinstance(wp_json_cfg, dict) and wp_json_cfg.get("endpoints"):
             articles = await self._fetch_wp_json_articles(wp_json_cfg, source)
             if articles:
-                logger.info(
-                    f"WP JSON API returned {len(articles)} articles for {source.name}, skipping HTML scraping"
-                )
+                logger.info(f"WP JSON API returned {len(articles)} articles for {source.name}, skipping HTML scraping")
                 return articles
             logger.warning(f"WP JSON API returned 0 articles for {source.name}, falling through to URL discovery")
 
@@ -860,9 +853,7 @@ class ModernScraper:
 
     # ── WP JSON API extraction ────────────────────────────────────────
 
-    async def _fetch_wp_json_articles(
-        self, wp_json_cfg: dict[str, Any], source: Source
-    ) -> list[ArticleCreate]:
+    async def _fetch_wp_json_articles(self, wp_json_cfg: dict[str, Any], source: Source) -> list[ArticleCreate]:
         """Fetch articles directly from WordPress REST API endpoints.
 
         The WP JSON API returns rendered HTML content, titles, dates, and
@@ -895,6 +886,7 @@ class ModernScraper:
 
                 # httpx Response uses .json() as a method
                 import json as _json
+
                 posts = _json.loads(response.text)
                 if not isinstance(posts, list):
                     logger.warning(f"WP JSON endpoint did not return a list: {endpoint}")
@@ -970,17 +962,19 @@ class ModernScraper:
                         # Build article
                         src_id = source.id if hasattr(source, "id") and source.id else 0
                         pub_at = date_published or datetime.now()
-                        articles.append(ArticleCreate(
-                            title=title,
-                            canonical_url=article_url,
-                            content=content,
-                            source_id=src_id,
-                            published_at=pub_at,
-                            article_metadata={
-                                "extraction_method": "wp_json",
-                                "wp_post_id": post.get("id"),
-                            },
-                        ))
+                        articles.append(
+                            ArticleCreate(
+                                title=title,
+                                canonical_url=article_url,
+                                content=content,
+                                source_id=src_id,
+                                published_at=pub_at,
+                                article_metadata={
+                                    "extraction_method": "wp_json",
+                                    "wp_post_id": post.get("id"),
+                                },
+                            )
+                        )
 
                     except Exception as e:
                         logger.debug(f"Failed to parse WP JSON post: {e}")

@@ -16,6 +16,7 @@ BAD_UUID_EMPTY = ""
 
 # ── UUID regex ──────────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 def test_uuid_regex_accepts_lowercase():
     assert _UUID_RE.match(VALID_UUID) is not None
@@ -48,6 +49,7 @@ def test_uuid_regex_rejects_uuid_with_extra_chars():
 
 # ── helpers ─────────────────────────────────────────────────────────────────
 
+
 def _make_tool_fn(db_mock):
     """Register tools with a mock db and return the get_sigma_rule callable."""
     mcp = FastMCP("test-sigma")
@@ -79,6 +81,7 @@ def _sample_rule(rule_id: str = VALID_UUID, raw_yaml: str | None = "title: Test\
 
 # ── tool: invalid UUID ───────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_sigma_rule_rejects_malformed_uuid():
@@ -106,6 +109,7 @@ async def test_get_sigma_rule_rejects_partial_uuid():
 
 # ── tool: unknown ID ─────────────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_sigma_rule_returns_error_for_unknown_id():
@@ -121,6 +125,7 @@ async def test_get_sigma_rule_returns_error_for_unknown_id():
 
 
 # ── tool: success ────────────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
@@ -177,6 +182,7 @@ async def test_get_sigma_rule_includes_source_file():
 
 # ── tool: missing raw_yaml ───────────────────────────────────────────────────
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_sigma_rule_null_raw_yaml_shows_reindex_hint():
@@ -190,6 +196,7 @@ async def test_get_sigma_rule_null_raw_yaml_shows_reindex_hint():
 
 
 # ── tool: no db provided ─────────────────────────────────────────────────────
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio

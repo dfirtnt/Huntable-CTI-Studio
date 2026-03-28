@@ -3005,9 +3005,7 @@ async def api_generate_sigma(article_id: int, request: Request):
 
             # For each generated rule, find similar existing Sigma rules
             for rule in rules:
-                match_result = matching_service.compare_proposed_rule_to_embeddings(
-                    proposed_rule=rule, threshold=0.0
-                )
+                match_result = matching_service.compare_proposed_rule_to_embeddings(proposed_rule=rule, threshold=0.0)
                 similar_matches = match_result.get("matches", [])
                 if similar_matches:
                     similar_rules_by_generated.append(
@@ -3064,7 +3062,7 @@ def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict
         Dictionary with overlap metrics
     """
 
-    def extract_values_from_detection(detection: dict, field_name: str) -> Set[str]:
+    def extract_values_from_detection(detection: dict, field_name: str) -> set[str]:
         """Extract all values for a specific field from detection logic."""
         values = set()
         if not isinstance(detection, dict):

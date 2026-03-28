@@ -1,7 +1,8 @@
 """Tests for source healing API endpoints."""
 
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
 
 
 class TestHealEndpoint:
@@ -9,8 +10,9 @@ class TestHealEndpoint:
 
     @pytest.mark.asyncio
     async def test_heal_returns_404_for_missing_source(self):
-        from src.web.routes.sources import api_heal_source
         from fastapi import HTTPException
+
+        from src.web.routes.sources import api_heal_source
 
         with patch("src.web.routes.sources.async_db_manager") as mock_db:
             mock_db.get_source = AsyncMock(return_value=None)
