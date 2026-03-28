@@ -1693,7 +1693,11 @@ async def validate_rule(request: Request, queue_id: int):
             for attempt in range(1, max_attempts + 1):
                 logger.info(
                     "Validation attempt %d/%d rule %s provider=%s model=%s",
-                    attempt, max_attempts, queue_id, provider, model,
+                    attempt,
+                    max_attempts,
+                    queue_id,
+                    provider,
+                    model,
                 )
 
                 # Build validation prompt (first attempt) or feedback prompt (subsequent attempts)
