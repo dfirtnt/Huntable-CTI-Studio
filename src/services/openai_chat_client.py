@@ -106,7 +106,7 @@ async def openai_chat_completions(
                 logger.info(
                     "OpenAI retry succeeded with %s params for %s",
                     "reasoning" if not use_reasoning else "standard",
-                    model_name,
+                    model_name,  # lgtm[py/clear-text-logging-sensitive-data]
                 )
                 return result["choices"][0]["message"]["content"]
 
