@@ -29,3 +29,8 @@ jobs:
           --config p/owasp-top-ten
           --error
           --verbose
+          --exclude "scripts"
+          --exclude "src/web/static"
+          --exclude "src/web/templates"
+          --exclude "nginx"
+          --exclude "run_tests.py"

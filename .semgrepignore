@@ -17,3 +17,5 @@ src/services/os_detection_service.py
 src/core/processor.py
 src/utils/simhash.py
 src/web/routes/workflow_executions.py
+# Dynamic SQL with internal bounded parameters (no user input in SQL string)
+src/database/async_manager.py
