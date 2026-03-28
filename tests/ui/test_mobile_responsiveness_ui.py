@@ -21,7 +21,7 @@ class TestMobileLayout:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads and displays correctly
         heading = page.locator("h1").first
@@ -40,7 +40,7 @@ class TestMobileLayout:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads and displays correctly
         heading = page.locator("h1").first
@@ -55,7 +55,7 @@ class TestMobileLayout:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads and displays correctly
         heading = page.locator("h1").first
@@ -70,7 +70,7 @@ class TestMobileLayout:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads and displays correctly
         heading = page.locator("h1").first
@@ -85,7 +85,7 @@ class TestMobileLayout:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify page loads and displays correctly
@@ -101,7 +101,7 @@ class TestMobileLayout:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify page loads and displays correctly
@@ -121,7 +121,7 @@ class TestMobileTouchInteractions:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and tap a button
         buttons = page.locator("button")
@@ -142,7 +142,7 @@ class TestMobileTouchInteractions:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and tap a link
         links = page.locator("a")
@@ -163,7 +163,7 @@ class TestMobileTouchInteractions:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Scroll down
         page.evaluate("window.scrollTo(0, 500)")
@@ -182,7 +182,7 @@ class TestMobileTouchInteractions:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Tap on input
@@ -208,7 +208,7 @@ class TestMobileNavigation:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify navigation menu exists
         nav = page.locator("nav")
@@ -228,7 +228,7 @@ class TestMobileNavigation:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/analytics/scraper-metrics")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify breadcrumbs exist (if implemented)
         page.locator("[aria-label='Breadcrumb'], .breadcrumb, nav[aria-label='Breadcrumb']")
@@ -247,7 +247,7 @@ class TestMobileForms:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify form inputs are accessible
@@ -268,7 +268,7 @@ class TestMobileForms:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Fill and submit form
@@ -293,7 +293,7 @@ class TestMobileForms:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Find dropdowns
@@ -320,7 +320,7 @@ class TestMobileModals:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify modals can be displayed (if any exist)
         # Modals should be full-screen or properly sized on mobile
@@ -336,7 +336,7 @@ class TestMobileModals:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Test modal close button (if modal exists)
         page.locator("button:has-text('Close'), button[aria-label*='close'], .modal button")
@@ -351,7 +351,7 @@ class TestMobileModals:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Test backdrop tap (if modal exists)
         page.locator(".modal-backdrop, [role='dialog'] + .backdrop")
@@ -370,7 +370,7 @@ class TestMobileTables:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify tables are scrollable or responsive
         tables = page.locator("table")
@@ -394,7 +394,7 @@ class TestMobileTables:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find table container
         table_containers = page.locator("table, .table-container, [role='table']")
@@ -422,7 +422,7 @@ class TestMobileResponsiveBreakpoints:
         # Set small mobile viewport
         page.set_viewport_size({"width": 320, "height": 568})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         heading = page.locator("h1").first
@@ -437,7 +437,7 @@ class TestMobileResponsiveBreakpoints:
         # Set medium mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         heading = page.locator("h1").first
@@ -452,7 +452,7 @@ class TestMobileResponsiveBreakpoints:
         # Set large mobile viewport
         page.set_viewport_size({"width": 414, "height": 896})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         heading = page.locator("h1").first
@@ -467,7 +467,7 @@ class TestMobileResponsiveBreakpoints:
         # Set tablet viewport
         page.set_viewport_size({"width": 768, "height": 1024})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         heading = page.locator("h1").first
@@ -486,7 +486,7 @@ class TestMobileOrientation:
         # Set portrait orientation
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         heading = page.locator("h1").first
@@ -501,7 +501,7 @@ class TestMobileOrientation:
         # Set landscape orientation
         page.set_viewport_size({"width": 667, "height": 375})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         heading = page.locator("h1").first
@@ -516,7 +516,7 @@ class TestMobileOrientation:
         # Start in portrait
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Change to landscape
         page.set_viewport_size({"width": 667, "height": 375})
@@ -539,7 +539,7 @@ class TestMobileSpecificFeatures:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify viewport meta tag exists
         viewport_meta = page.locator("meta[name='viewport']")
@@ -554,7 +554,7 @@ class TestMobileSpecificFeatures:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify buttons are large enough for touch (44x44px minimum)
         buttons = page.locator("button")
@@ -575,7 +575,7 @@ class TestMobileSpecificFeatures:
         # Set mobile viewport
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify text is readable
         text_elements = page.locator("p, span, div")
@@ -597,7 +597,7 @@ class TestMobileNav:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         hamburger = page.locator("#mobile-nav-toggle")
         expect(hamburger).to_be_visible()
@@ -609,7 +609,7 @@ class TestMobileNav:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         menu = page.locator("#mobile-nav-menu")
         expect(menu).to_have_class("hidden")
@@ -630,7 +630,7 @@ class TestMobileNav:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#mobile-nav-toggle").click()
         page.wait_for_timeout(200)
@@ -650,7 +650,7 @@ class TestMobileNav:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#mobile-nav-toggle").click()
         page.wait_for_timeout(200)

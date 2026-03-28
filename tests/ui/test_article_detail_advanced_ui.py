@@ -18,13 +18,13 @@ class TestArticleDetailWorkflowExecution:
         """Test workflow execution status display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find workflow execution status section
             page.locator("text=Workflow Execution")
@@ -36,13 +36,13 @@ class TestArticleDetailWorkflowExecution:
         """Test workflow execution history display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find execution history section
             page.locator("text=Execution History")
@@ -54,13 +54,13 @@ class TestArticleDetailWorkflowExecution:
         """Test Send to Workflow button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
@@ -87,13 +87,13 @@ class TestArticleDetailWorkflowExecution:
         page.route("**/api/workflow/articles/*/trigger*", handle_route)
 
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Click trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
@@ -113,13 +113,13 @@ class TestArticleDetailSigmaGeneration:
         """Test SIGMA rule generation from article button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # DEPRECATED: AI Assistant button removed
             # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
@@ -132,13 +132,13 @@ class TestArticleDetailSigmaGeneration:
         """Test SIGMA rule queue integration display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find SIGMA rules section
             page.locator("text=SIGMA")
@@ -150,13 +150,13 @@ class TestArticleDetailSigmaGeneration:
         """Test SIGMA rules modal display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find SIGMA rules modal (may be dynamically created)
             page.locator("#sigmaRulesModal")
@@ -172,13 +172,13 @@ class TestArticleDetailEditing:
         """Test article metadata editing form."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find edit buttons or forms
             page.locator("button:has-text('Edit'), button:has-text('Update')")
@@ -190,13 +190,13 @@ class TestArticleDetailEditing:
         """Test article content editing form."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find content editing elements
             page.locator("textarea, [contenteditable='true']")
@@ -237,14 +237,14 @@ class TestArticleDetailObservables:
         page.route("**/api/articles/**", handle_article_routes)
 
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() == 0:
             pytest.skip("No articles available for testing")
 
         article_links.first.click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.click("#annotation-mode-observables")
         observable_picker = page.locator("#observable-type-picker")
@@ -273,13 +273,13 @@ class TestArticleDetailDeletion:
         """Test article deletion confirmation modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find delete button
             delete_btn = page.locator("button:has-text('Delete Article')")
@@ -306,13 +306,13 @@ class TestArticleDetailDuplicateDetection:
         """Test article duplicate detection display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find duplicate detection section
             page.locator("text=Duplicate, text=Similar")
@@ -328,13 +328,13 @@ class TestArticleDetailSimilaritySearch:
         """Test article similarity search functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find similarity search button
             page.locator("button:has-text('Similar'), button:has-text('Find Similar')")
@@ -350,13 +350,13 @@ class TestArticleDetailExport:
         """Test article export to PDF button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find export PDF button
             export_pdf_btn = page.locator("button:has-text('Export'), button[onclick*='exportArticleToPDF']")
@@ -373,13 +373,13 @@ class TestArticleDetailExport:
         """Test article export in JSON format."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find JSON export button or link
             page.locator("button:has-text('JSON'), a:has-text('JSON')")
@@ -391,13 +391,13 @@ class TestArticleDetailExport:
         """Test article export in CSV format."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find CSV export button or link
             page.locator("button:has-text('CSV'), a:has-text('CSV')")
@@ -409,13 +409,13 @@ class TestArticleDetailExport:
         """Test article export in Markdown format."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find Markdown export button or link
             page.locator("button:has-text('Markdown'), a:has-text('Markdown')")
@@ -431,13 +431,13 @@ class TestArticleDetailAdvancedFeatures:
         """Test workflow execution button state changes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find trigger workflow button
             trigger_btn = page.locator("#triggerWorkflowBtn")
@@ -454,13 +454,13 @@ class TestArticleDetailAdvancedFeatures:
         """Test article delete confirmation dialog."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Set up dialog handler
             dialog_handled = {"handled": False}
@@ -485,13 +485,13 @@ class TestArticleDetailAdvancedFeatures:
         """Test article export to PDF functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Find export PDF button
             export_pdf_btn = page.locator("button[onclick*='exportArticleToPDF']")
@@ -511,13 +511,13 @@ class TestArticleDetailAdvancedFeatures:
         """Test SIGMA generation modal functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click first article
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # DEPRECATED: AI Assistant button and modal removed
             # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
@@ -548,12 +548,12 @@ class TestArticleDetailAdvancedFeatures:
 
         page.route("**/workflow*", handle_route)
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         article_links = page.locator("a[href^='/articles/']")
         if article_links.count() > 0:
             article_links.first.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
             trigger_btn = page.locator("#triggerWorkflowBtn")
             trigger_btn.click()
             page.wait_for_timeout(3000)

@@ -22,7 +22,7 @@ class TestDashboardFlows:
         """Test navigation between dashboard sections."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify dashboard loads
         expect(page).to_have_title(re.compile(r"Dashboard - Huntable .* Studio"))
@@ -47,7 +47,7 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
 
         # Wait for dashboard to load and charts to initialize
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify Article Volume section is visible
         expect(page.locator("text=Article Volume")).to_be_visible()
@@ -80,7 +80,7 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
 
         # Wait for dashboard to load
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify High-Score Articles section is visible
         expect(page.locator("text=High-Score Articles")).to_be_visible()
@@ -116,7 +116,7 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
 
         # Wait for dashboard to load
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find the Copy URLs button in the High-Score Articles section
         # Look for button with text "Copy URLs" or similar copy functionality
@@ -226,7 +226,7 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
 
         # Wait for dashboard to load
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find the Run Health Checks button in Quick Actions
         health_check_button = page.locator(
@@ -243,7 +243,7 @@ class TestDashboardFlows:
         health_check_button.click()
 
         # Wait for navigation to diags page
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify we navigated to the diags page
         expect(page).to_have_url(f"{base_url}/diags")
@@ -286,7 +286,7 @@ class TestDashboardFlows:
         page.goto(f"{base_url}/")
 
         # Wait for dashboard to load
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find the Agents button in the navigation
         agents_button = page.locator("a:has-text('🤖 Agents'), a[href='/workflow']")
@@ -301,7 +301,7 @@ class TestDashboardFlows:
         agents_button.click()
 
         # Wait for navigation to workflow page
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify we navigated to the workflow page (may include URL fragments like #config)
         expect(page).to_have_url(re.compile(rf"{base_url}/workflow(#.*)?$"))
@@ -326,7 +326,7 @@ class TestArticlesFlows:
         """Test articles listing page functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads
         heading = page.get_by_role("heading", name=re.compile("Threat Intelligence Articles"))
@@ -386,7 +386,7 @@ class TestSourcesFlows:
         """Test source management functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads
         heading = page.get_by_role("heading", name=re.compile("Threat Intelligence Sources"))
@@ -501,7 +501,7 @@ class TestQuickActionsFlows:
         page.goto(f"{base_url}/")
 
         # Wait for page to load
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click the rescore button
         rescore_button = page.locator("button:has-text('Rescore All Articles')")
@@ -524,7 +524,7 @@ class TestQuickActionsFlows:
         page.goto(f"{base_url}/")
 
         # Wait for page to load
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Check if there are articles to rescore
         rescore_button = page.locator("button:has-text('Rescore All Articles')")
@@ -581,7 +581,7 @@ class TestPerformance:
 
         start_time = time.time()
         page.goto("http://localhost:8001/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         end_time = time.time()
 
         load_time = end_time - start_time

@@ -59,7 +59,7 @@ def test_workflow_executions_table_no_horizontal_overflow_actions_visible(page: 
 
     page.route("**/api/workflow/executions*", handle_route)
     page.goto(f"{base_url}/workflow")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.locator("#tab-executions").click()
     page.wait_for_timeout(1200)
 
@@ -140,7 +140,7 @@ def test_workflow_executions_table_header_alignment(page: Page):
 
     page.route("**/api/workflow/executions*", handle_route)
     page.goto(f"{base_url}/workflow")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.locator("#tab-executions").click()
     page.wait_for_timeout(1200)
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **UI tests / test runner** (2026-03-27): `test_workflow_queue_table_layout_ui` targets `#tab-content-queue .q-table-wrap` (queue scroll) instead of `.overflow-x-auto`, which matched hidden enrich `<pre>` nodes; assertions use `q-cell-article` / `q-cell-title` CSS ellipsis like executions tests; article links get a `title` attribute in `workflow.html`. `run_tests.py` no longer forces `pytest-xdist -n auto` for `ui` (opt in with **`--parallel`**). All `tests/ui` Playwright waits: **`networkidle` → `load`** (Diagnostics auto-refresh and similar pages never reach network idle). `test_diagnostics_advanced_ui` job history header/toggle assertions aligned with template; collapsible `hidden` checked via `classList` token.
+
+### Changed
+- **Documentation** (2026-03-27): MkDocs nav adds [Source healing (internals)](internals/source-healing.md). [API reference](reference/api.md) documents `GET /sigma-queue`, `GET /api/embeddings/stats` (`sigma_corpus`), and README clarifies seeded source count vs DB-first runtime. [Agent orientation](development/agent-orientation.md) links to repo-root `AGENTS.md` / `README.md` via GitHub URLs so `mkdocs build --strict` resolves. [Testing strategy](development/testing.md) documents serial-by-default pytest UI and `--parallel`.
+
 ## [5.2.0 "Ganymede"] - 2026-03-26
 
 ### Key updates

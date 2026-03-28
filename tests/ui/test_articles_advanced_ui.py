@@ -32,7 +32,7 @@ class TestArticlesSearchAndFilter:
         """Test search help button toggle and modal display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find search help button
@@ -57,7 +57,7 @@ class TestArticlesSearchAndFilter:
         """Test search help modal content display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open help panel
@@ -83,7 +83,7 @@ class TestArticlesSearchAndFilter:
         """Test predefined search pattern links (Playwright has no :near(); check panel content)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open help panel
@@ -105,7 +105,7 @@ class TestArticlesSearchAndFilter:
         """Test title-only checkbox toggle."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find title-only checkbox
@@ -129,7 +129,7 @@ class TestArticlesSearchAndFilter:
         """Test boolean search query parsing."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find search input
@@ -150,7 +150,7 @@ class TestArticlesSearchAndFilter:
         """Test source filter dropdown population and selection."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find source filter
@@ -172,7 +172,7 @@ class TestArticlesSearchAndFilter:
         """Test threat hunting score range filter."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find score range filter
@@ -194,7 +194,7 @@ class TestArticlesSearchAndFilter:
         """Test clear all filters link."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Apply a filter (e.g. score range)
@@ -209,7 +209,7 @@ class TestArticlesSearchAndFilter:
 
         # Click clear all
         clear_link.click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify URL is reset (no filter parameters)
         expect(page).to_have_url(re.compile(r".*/articles.*"))
@@ -221,7 +221,7 @@ class TestArticlesSearchAndFilter:
         """Test default filters save functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find save default filters button
@@ -238,7 +238,7 @@ class TestArticlesSearchAndFilter:
         """Test default filters clear functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find clear default filters button
@@ -255,7 +255,7 @@ class TestArticlesSearchAndFilter:
         """Test default filters indicator display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find default filters indicator (element exists; often has class "hidden" initially)
@@ -273,7 +273,7 @@ class TestArticlesSorting:
         """Test sort by dropdown has all options."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find sort by dropdown
@@ -300,7 +300,7 @@ class TestArticlesSorting:
         """Test sort order dropdown (asc/desc)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find sort order dropdown
@@ -315,7 +315,7 @@ class TestArticlesSorting:
         """Test dynamic sorting auto-submit on change."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Change sort by
@@ -332,7 +332,7 @@ class TestArticlesSorting:
         """Test sort parameter preservation in URL."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify sort parameters are preserved
         sort_by = page.locator("#sort-by")
@@ -347,7 +347,7 @@ class TestArticlesSorting:
         """Test sort with filter combination."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Apply a filter (score range)
@@ -371,11 +371,11 @@ class TestArticlesSorting:
         """Test sort reset functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Navigate to base URL (resets sort)
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Verify sort defaults are applied
@@ -394,7 +394,7 @@ class TestArticlesPagination:
         """Test per-page selector (20/50/100)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find per-page selector
@@ -410,7 +410,7 @@ class TestArticlesPagination:
         """Test changing per-page value."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Change per-page
@@ -427,7 +427,7 @@ class TestArticlesPagination:
         """Test page number links with ellipsis."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?per_page=20")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find pagination links
         page.locator("a:has-text('1'), a:has-text('2'), a:has-text('3')")
@@ -439,7 +439,7 @@ class TestArticlesPagination:
         """Test Previous/Next navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?per_page=20&page=2")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find Previous link
         previous_link = page.locator("a:has-text('Previous')")
@@ -448,7 +448,7 @@ class TestArticlesPagination:
 
             # Click Previous
             previous_link.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Verify page changed
             expect(page).to_have_url(re.compile(r".*page=1.*"))
@@ -459,7 +459,7 @@ class TestArticlesPagination:
         """Test page count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find page count text
@@ -473,7 +473,7 @@ class TestArticlesPagination:
         """Test results range display (start_idx-end_idx of total)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find results range text (e.g., "Articles (1-20 of 100)")
@@ -488,7 +488,7 @@ class TestArticlesPagination:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         # Navigate with filter that returns no results
         page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify empty state message
         empty_message = page.locator("text=No articles found")
@@ -504,7 +504,7 @@ class TestArticlesBulkSelection:
         """Test select all visible checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find select all checkbox
@@ -527,7 +527,7 @@ class TestArticlesBulkSelection:
         """Test individual article checkboxes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find article checkboxes
@@ -550,7 +550,7 @@ class TestArticlesBulkSelection:
         """Test bulk actions toolbar visibility toggle."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Initially toolbar should be hidden
@@ -573,7 +573,7 @@ class TestArticlesBulkSelection:
         """Test selected count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Select articles
@@ -595,7 +595,7 @@ class TestArticlesBulkSelection:
         """Test Select All Visible button in toolbar."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Select an article to show toolbar
@@ -618,7 +618,7 @@ class TestArticlesBulkSelection:
         """Test Clear Selection button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Select an article to show toolbar
@@ -645,7 +645,7 @@ class TestArticlesBulkSelection:
         """Test bulk action Delete button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Select an article
@@ -686,7 +686,7 @@ class TestArticlesBulkSelection:
         """Test bulk selection with pagination."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?per_page=20")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Select articles on first page
         checkboxes = page.locator(".bulk-select-checkbox")
@@ -698,7 +698,7 @@ class TestArticlesBulkSelection:
             next_link = page.locator("a[href*='page=']:has-text('Next')")
             if next_link.count() > 0:
                 next_link.first.click()
-                page.wait_for_load_state("networkidle")
+                page.wait_for_load_state("load")
 
                 # Verify selection is cleared (new page)
                 bulk_toolbar = page.locator("#bulk-actions-toolbar")
@@ -714,7 +714,7 @@ class TestArticlesCardFeatures:
         """Test article title link navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find article title link
@@ -725,7 +725,7 @@ class TestArticlesCardFeatures:
 
             # Click link
             first_link.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Verify navigation to article detail page
             expect(page).to_have_url(re.compile(r".*/articles/\d+.*"))
@@ -736,7 +736,7 @@ class TestArticlesCardFeatures:
         """Test Article ID badge display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find article ID badges
@@ -750,7 +750,7 @@ class TestArticlesCardFeatures:
         """Test source name display and link."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find source links
@@ -763,7 +763,7 @@ class TestArticlesCardFeatures:
         """Test published date display formatting."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find published date text
@@ -777,7 +777,7 @@ class TestArticlesCardFeatures:
         """Test content length display (Content: N characters) on article cards."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
         # Match article metadata "Content: N characters" (avoid hidden "High-Value Detection Content:" etc.)
         content_length = page.locator("text=/Content: \\d+ characters/")
@@ -790,7 +790,7 @@ class TestArticlesCardFeatures:
         """Test RegexHuntScore badge with color coding (80+, 60+, 40+, <40)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find score badges
@@ -803,7 +803,7 @@ class TestArticlesCardFeatures:
         """Test ML Hunt Score badge with color coding."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find ML score badges
@@ -816,7 +816,7 @@ class TestArticlesCardFeatures:
         """Test ML Hunt Score 'TBD' state with tooltip."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
         tbd_badges = page.locator("span:has-text('TBD')")
         n = tbd_badges.count()
@@ -830,7 +830,7 @@ class TestArticlesCardFeatures:
         """Test annotation count badge display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find annotation badges
@@ -843,7 +843,7 @@ class TestArticlesCardFeatures:
         """Test keyword matches display (perfect, good, LOLBAS)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find keyword match badges
@@ -858,7 +858,7 @@ class TestArticlesCardFeatures:
         """Test keyword match truncation (+N indicator)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find truncation indicators
@@ -871,7 +871,7 @@ class TestArticlesCardFeatures:
         """Test article content preview (first 300 chars)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find article content previews
@@ -888,7 +888,7 @@ class TestArticlesCardFeatures:
         """Test copy article content button functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find copy buttons
@@ -906,7 +906,7 @@ class TestArticlesCardFeatures:
         """Test original source link functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find original source links
@@ -926,7 +926,7 @@ class TestArticlesClassificationModal:
         """Test classification modal open functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Find classification button (may be in article cards)
@@ -946,7 +946,7 @@ class TestArticlesClassificationModal:
         """Test classification modal close functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal if possible
@@ -973,7 +973,7 @@ class TestArticlesClassificationModal:
         """Test classification modal loading state display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -992,7 +992,7 @@ class TestArticlesClassificationModal:
         """Test classification modal article data loading."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1012,7 +1012,7 @@ class TestArticlesClassificationModal:
         """Test article title display in modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1033,7 +1033,7 @@ class TestArticlesClassificationModal:
         """Test article content display in modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1052,7 +1052,7 @@ class TestArticlesClassificationModal:
         """Test classification buttons in modal (chosen/rejected/unclassified)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1076,7 +1076,7 @@ class TestArticlesClassificationModal:
         """Test modal navigation (Previous button)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1099,7 +1099,7 @@ class TestArticlesClassificationModal:
         """Test modal navigation (Next Unclassified button)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1122,7 +1122,7 @@ class TestArticlesClassificationModal:
         """Test modal keyboard shortcuts (Escape to close)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1145,7 +1145,7 @@ class TestArticlesClassificationModal:
         """Test modal click-away to close."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Open modal
@@ -1172,7 +1172,7 @@ class TestArticlesEmptyState:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         # Navigate with filter that returns no results
         page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify empty state message
         empty_message = page.locator("text=No articles found")
@@ -1184,7 +1184,7 @@ class TestArticlesEmptyState:
         """Test empty state with filters active message."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify message suggests adjusting filters
         adjust_message = page.locator("text=Try adjusting your filters")
@@ -1197,7 +1197,7 @@ class TestArticlesEmptyState:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         # Navigate to articles page (may or may not have articles)
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
         # Check if empty state appears

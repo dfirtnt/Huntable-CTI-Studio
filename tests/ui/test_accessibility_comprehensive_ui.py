@@ -18,7 +18,7 @@ class TestKeyboardNavigation:
         """Test Tab key navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Press Tab to navigate
         page.keyboard.press("Tab")
@@ -33,7 +33,7 @@ class TestKeyboardNavigation:
         """Test Enter key form submission."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Focus on input
@@ -55,7 +55,7 @@ class TestKeyboardNavigation:
         """Test Escape key closes modals."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click a button that opens a modal (if available)
         # This test verifies Escape key functionality
@@ -70,7 +70,7 @@ class TestKeyboardNavigation:
         """Test arrow key navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Focus on first article link
         article_links = page.locator("a[href^='/articles/']")
@@ -95,7 +95,7 @@ class TestARIALabels:
         """Test button ARIA labels."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find buttons and verify they have accessible labels
         buttons = page.locator("button")
@@ -117,7 +117,7 @@ class TestARIALabels:
         """Test input ARIA labels."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Find inputs and verify they have labels
@@ -148,7 +148,7 @@ class TestARIALabels:
         """Test modal ARIA labels."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find modals (if any are open)
         modals = page.locator("[role='dialog'], .modal")
@@ -168,7 +168,7 @@ class TestARIALabels:
         """Test main nav has aria-label for screen readers."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         nav = page.locator('nav[aria-label="Main navigation"]')
         expect(nav).to_be_visible()
 
@@ -178,7 +178,7 @@ class TestARIALabels:
         """Test articles search syntax help button has aria-label."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         # Filters panel is collapsed by default; expand it so the search help button is visible
         filters_toggle = page.locator("#filters-toggle").or_(page.locator("[data-collapsible-panel='filters']"))
         if filters_toggle.count() > 0:
@@ -198,7 +198,7 @@ class TestFocusManagement:
         """Test focus on page load."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify focus is managed appropriately
         focused_element = page.evaluate("document.activeElement")
@@ -211,7 +211,7 @@ class TestFocusManagement:
         """Test focus trap in modals."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # This test verifies focus trapping (if modals exist)
         # Focus should stay within modal when Tab is pressed
@@ -227,7 +227,7 @@ class TestFocusManagement:
         """Test focus returns after modal close."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Focus on a button
         buttons = page.locator("button")
@@ -253,7 +253,7 @@ class TestScreenReaderSupport:
         """Test heading hierarchy."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify h1 exists (use .first to avoid strict mode when multiple h1)
         h1 = page.locator("h1").first
@@ -274,7 +274,7 @@ class TestScreenReaderSupport:
         """Test alt text for images."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find images
         images = page.locator("img")
@@ -294,7 +294,7 @@ class TestScreenReaderSupport:
         """Test link descriptions."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find links
         links = page.locator("a")
@@ -320,7 +320,7 @@ class TestColorContrast:
         """Test text color contrast."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify text elements exist
         text_elements = page.locator("p, span, div")
@@ -335,7 +335,7 @@ class TestColorContrast:
         """Test button color contrast."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify buttons exist
         buttons = page.locator("button")
@@ -354,7 +354,7 @@ class TestTextScaling:
         """Test text scaling support."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Set larger font size
         page.add_style_tag(content="body { font-size: 150% !important; }")
@@ -370,7 +370,7 @@ class TestTextScaling:
         """Test responsive text layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Resize viewport
         page.set_viewport_size({"width": 375, "height": 667})
@@ -390,7 +390,7 @@ class TestFormAccessibility:
         """Test form label association."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Find form inputs
@@ -413,7 +413,7 @@ class TestFormAccessibility:
         """Test form error messages accessibility."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify error messages have proper ARIA attributes
@@ -430,7 +430,7 @@ class TestLandmarkRoles:
         """Test navigation landmark."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify navigation landmark exists
         nav = page.locator("nav, [role='navigation']")
@@ -442,7 +442,7 @@ class TestLandmarkRoles:
         """Test main content landmark."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify main content landmark exists
         page.locator("main, [role='main']")
@@ -454,7 +454,7 @@ class TestLandmarkRoles:
         """Test banner landmark."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify banner landmark exists
         page.locator("header, [role='banner']")

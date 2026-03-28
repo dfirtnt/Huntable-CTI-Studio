@@ -44,7 +44,7 @@ class TestNavigationRouting:
         """Test breadcrumb navigation: Dashboard link goes home."""
         base_url = _base_url()
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         breadcrumbs = page.locator('nav[aria-label="Breadcrumb"]')
         expect(breadcrumbs).to_be_visible()
@@ -57,7 +57,7 @@ class TestNavigationRouting:
         """Test breadcrumbs on articles list: Dashboard and Articles (current)."""
         base_url = _base_url()
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         nav = page.locator('nav[aria-label="Breadcrumb"]')
         expect(nav).to_be_visible()
@@ -68,7 +68,7 @@ class TestNavigationRouting:
         """Test breadcrumbs on workflow: Dashboard and Agents (current)."""
         base_url = _base_url()
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         nav = page.locator('nav[aria-label="Breadcrumb"]')
         expect(nav).to_be_visible()
@@ -79,7 +79,7 @@ class TestNavigationRouting:
         """Test breadcrumbs on settings: Dashboard and Settings (current)."""
         base_url = _base_url()
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         nav = page.locator('nav[aria-label="Breadcrumb"]')
         expect(nav).to_be_visible()
@@ -90,7 +90,7 @@ class TestNavigationRouting:
         """Test breadcrumbs on chat: Dashboard and RAG Search (current)."""
         base_url = _base_url()
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         nav = page.locator('nav[aria-label="Breadcrumb"]')
         expect(nav).to_be_visible()
@@ -101,7 +101,7 @@ class TestNavigationRouting:
         """Test breadcrumbs on MLOps: Dashboard and MLOps (current)."""
         base_url = _base_url()
         page.goto(f"{base_url}/mlops")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         nav = page.locator('nav[aria-label="Breadcrumb"]')
         expect(nav).to_be_visible()

@@ -67,7 +67,7 @@ def test_workflow_enrich_modal_original_rule_uses_yaml_not_observable_code(page:
     page.route(f"**/api/workflow/executions/{exec_id}/observables*", handle_route)
 
     page.goto(f"{base_url}/workflow")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.locator("#tab-queue").click()
     page.wait_for_timeout(1000)
 

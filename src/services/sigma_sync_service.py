@@ -129,7 +129,8 @@ class SigmaSyncService:
         """
         try:
             with open(file_path, encoding="utf-8") as f:
-                rule_data = yaml.safe_load(f)
+                raw_yaml_text = f.read()
+            rule_data = yaml.safe_load(raw_yaml_text)
 
             if not rule_data or not isinstance(rule_data, dict):
                 logger.debug(f"Invalid rule file: {file_path}")
@@ -151,6 +152,7 @@ class SigmaSyncService:
                 "false_positives": rule_data.get("falsepositives", []),
                 "fields": rule_data.get("fields", []),
                 "file_path": str(file_path.relative_to(self.repo_path)),
+                "raw_yaml": raw_yaml_text,
             }
 
             # Convert date to datetime if present
@@ -489,6 +491,7 @@ class SigmaSyncService:
                 "false_positives",
                 "fields",
                 "file_path",
+                "raw_yaml",
             }
         )
 
@@ -596,6 +599,7 @@ class SigmaSyncService:
                             false_positives=rule_data["false_positives"],
                             fields=rule_data["fields"],
                             file_path=rule_data["file_path"],
+                            raw_yaml=rule_data.get("raw_yaml"),
                             repo_commit_sha=commit_sha or None,
                             # Canonical fields
                             canonical_json=canonical_json,

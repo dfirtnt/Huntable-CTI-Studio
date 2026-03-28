@@ -97,3 +97,75 @@ class TestIndexMetadata:
 
         result = sync_service.index_metadata(mock_db_session, force_reindex=True)
         assert result["metadata_indexed"] >= 1
+
+    def test_metadata_stores_raw_yaml_on_new_rule(self, sync_service, mock_db_session):
+        """index_metadata must persist raw_yaml on newly created SigmaRuleTable rows."""
+        added_objects = []
+        mock_db_session.add.side_effect = lambda obj: added_objects.append(obj)
+
+        sync_service.index_metadata(mock_db_session)
+
+        assert len(added_objects) >= 1
+        rule = added_objects[0]
+        assert rule.raw_yaml is not None
+        assert len(rule.raw_yaml) > 0
+        # Verify it's valid YAML text (contains the rule title)
+        assert "Test Suspicious Process" in rule.raw_yaml
+
+    def test_metadata_raw_yaml_matches_file_on_disk(self, sync_service, sigma_repo):
+        """raw_yaml stored on the parsed object should equal the source file content."""
+        rule_file = sigma_repo / "rules" / "windows" / "test_rule.yml"
+        expected_text = rule_file.read_text(encoding="utf-8")
+
+        parsed = sync_service.parse_rule_file(rule_file)
+
+        assert parsed is not None
+        assert parsed["raw_yaml"] == expected_text
+
+
+class TestParseRuleFileRawYaml:
+    """Focused tests for parse_rule_file raw_yaml capture."""
+
+    @pytest.fixture
+    def rule_file(self, tmp_path):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        f = rules_dir / "sample.yml"
+        f.write_text(
+            "title: Sample\n"
+            "id: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n"
+            "status: experimental\n"
+            "description: A sample rule\n"
+            "logsource:\n"
+            "    category: process_creation\n"
+            "    product: windows\n"
+            "detection:\n"
+            "    selection:\n"
+            "        Image|endswith: '\\\\calc.exe'\n"
+            "    condition: selection\n"
+            "level: low\n",
+            encoding="utf-8",
+        )
+        return f, tmp_path
+
+    @pytest.fixture
+    def service(self, rule_file):
+        _, repo_path = rule_file
+        return SigmaSyncService(repo_path=str(repo_path))
+
+    def test_parse_rule_file_includes_raw_yaml_key(self, rule_file, service):
+        f, _ = rule_file
+        parsed = service.parse_rule_file(f)
+        assert parsed is not None
+        assert "raw_yaml" in parsed
+
+    def test_parse_rule_file_raw_yaml_is_original_text(self, rule_file, service):
+        f, _ = rule_file
+        expected = f.read_text(encoding="utf-8")
+        parsed = service.parse_rule_file(f)
+        assert parsed["raw_yaml"] == expected
+
+    def test_parse_rule_file_raw_yaml_nonempty(self, rule_file, service):
+        f, _ = rule_file
+        parsed = service.parse_rule_file(f)
+        assert parsed["raw_yaml"].strip() != ""

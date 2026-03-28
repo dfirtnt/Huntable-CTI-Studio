@@ -19,7 +19,7 @@ class TestCrossPageNavigation:
         """Test navigation from dashboard to articles."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Navigate to articles
         articles_link = page.locator("a:has-text('Articles')")
@@ -35,7 +35,7 @@ class TestCrossPageNavigation:
         """Test navigation from articles to dashboard."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Navigate to dashboard
         dashboard_link = page.locator("a[href='/']")
@@ -51,17 +51,17 @@ class TestCrossPageNavigation:
         """Test browser back button navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Navigate to articles
         articles_link = page.locator("a:has-text('Articles')")
         articles_link.click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         expect(page).to_have_url(f"{base_url}/articles")
 
         # Use browser back button
         page.go_back()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify back navigation
         expect(page).to_have_url(f"{base_url}/")
@@ -72,20 +72,20 @@ class TestCrossPageNavigation:
         """Test browser forward button navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Navigate to articles
         articles_link = page.locator("a:has-text('Articles')")
         articles_link.click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Go back
         page.go_back()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Go forward
         page.go_forward()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify forward navigation
         expect(page).to_have_url(f"{base_url}/articles")
@@ -98,7 +98,7 @@ class TestCrossPageNavigation:
 
         # Navigate directly to articles page
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/articles")
@@ -112,7 +112,7 @@ class TestCrossPageNavigation:
 
         # Navigate directly to sources page
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/sources")
@@ -126,7 +126,7 @@ class TestCrossPageNavigation:
 
         # Navigate directly to settings page
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/settings")
@@ -140,7 +140,7 @@ class TestCrossPageNavigation:
 
         # Navigate directly to workflow page
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/workflow")
@@ -154,7 +154,7 @@ class TestCrossPageNavigation:
 
         # Navigate to articles with query parameters (classification deprecated; use threat_hunting_range)
         page.goto(f"{base_url}/articles?source_id=1&threat_hunting_range=80-100")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify URL parameters are preserved
         expect(page).to_have_url(re.compile(r".*source_id=1.*threat_hunting_range=80-100.*"))
@@ -167,14 +167,14 @@ class TestCrossPageNavigation:
 
         # Navigate to a specific page
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Get current URL
         current_url = page.url
 
         # Reload page (simulating bookmark)
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify URL is preserved
         expect(page).to_have_url(current_url)
@@ -189,7 +189,7 @@ class TestCrossPageNavigation:
 
         for page_path in pages:
             page.goto(f"{base_url}{page_path}")
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Verify navigation menu exists
             nav_menu = page.locator("nav")
@@ -205,7 +205,7 @@ class TestCrossPageNavigation:
         """Test navigation to article detail page."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find first article link
         article_links = page.locator("a[href^='/articles/']")
@@ -215,7 +215,7 @@ class TestCrossPageNavigation:
 
             # Click article link
             first_article.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Verify navigation to article detail
             expect(page).to_have_url(f"{base_url}{article_href}")
@@ -228,13 +228,13 @@ class TestCrossPageNavigation:
 
         # Navigate to article detail
         page.goto(f"{base_url}/articles/1")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find back link or navigate via menu
         articles_link = page.locator("a:has-text('Articles')")
         if articles_link.count() > 0:
             articles_link.click()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Verify navigation back to list
             expect(page).to_have_url(f"{base_url}/articles")
@@ -247,7 +247,7 @@ class TestCrossPageNavigation:
 
         # Navigate to workflow page
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Click on Executions tab
@@ -267,18 +267,18 @@ class TestCrossPageNavigation:
 
         # Navigate to main analytics page
         page.goto(f"{base_url}/analytics")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Navigate to scraper metrics
         page.goto(f"{base_url}/analytics/scraper-metrics")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify navigation
         expect(page).to_have_url(f"{base_url}/analytics/scraper-metrics")
 
         # Navigate to hunt metrics
         page.goto(f"{base_url}/analytics/hunt-metrics")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify navigation
         expect(page).to_have_url(f"{base_url}/analytics/hunt-metrics")

@@ -58,6 +58,7 @@ mcp = FastMCP(
         "Search results label **Article ID** (database primary key); use that with get_article, "
         "not the 1-based rank in the list. "
         "Use get_article to retrieve full article content by ID. "
+        "Use get_sigma_rule to fetch the full YAML and metadata for a Sigma rule by its UUID (Rule ID from search results). "
         "All tools are read-only."
     ),
 )
@@ -81,8 +82,8 @@ def _get_services() -> tuple[RAGService, AsyncDatabaseManager]:
 # Register all tool modules
 _rag_svc, _db_svc = _get_services()
 articles.register(mcp, _rag_svc, _db_svc)
-sigma.register(mcp, _rag_svc)
+sigma.register(mcp, _rag_svc, _db_svc)
 sources.register(mcp, _db_svc)
 workflow.register(mcp, _db_svc)
 
-logger.info("Huntable CTI Studio MCP server ready — 9 tools registered.")
+logger.info("Huntable CTI Studio MCP server ready — 10 tools registered.")
