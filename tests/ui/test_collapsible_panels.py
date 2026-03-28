@@ -88,7 +88,7 @@ class TestCollapsiblePanels:
     def test_settings_backup_panel_toggles(self, page: Page):
         """Test Settings Backup collapsible uses data-collapsible-panel and toggles."""
         page.goto("http://localhost:8001/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(1500)  # Settings page JS init
         header = page.locator('[data-collapsible-panel="backupConfig"]').first
         content = page.locator("#backupConfig-content").first
@@ -104,7 +104,7 @@ class TestCollapsiblePanels:
     def test_settings_agentic_workflow_panel_toggles(self, page: Page):
         """Test Settings Agentic Workflow collapsible toggles."""
         page.goto("http://localhost:8001/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(1500)  # Settings page JS init
         header = page.locator('[data-collapsible-panel="agenticWorkflowConfig"]').first
         content = page.locator("#agenticWorkflowConfig-content").first
@@ -120,7 +120,7 @@ class TestCollapsiblePanels:
     def test_settings_github_pr_panel_toggles(self, page: Page):
         """Test Settings GitHub PR collapsible toggles."""
         page.goto("http://localhost:8001/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(1500)  # Settings page JS init
         header = page.locator('[data-collapsible-panel="githubPRConfig"]').first
         content = page.locator("#githubPRConfig-content").first

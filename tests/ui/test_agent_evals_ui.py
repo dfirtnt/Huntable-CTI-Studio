@@ -32,7 +32,7 @@ def _mock_eval_articles_api(page: Page, articles: list | None = None):
 def test_agent_evals_page_loads(page: Page):
     """Test that the agent evals page loads correctly."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
 
     # Check main heading (use role to avoid strict mode when multiple h1)
@@ -67,7 +67,7 @@ def test_load_dataset_articles(page: Page):
     """Test loading articles from dataset."""
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
@@ -90,7 +90,7 @@ def test_select_articles_and_presets(page: Page):
     """Test selecting articles (presets no longer exist on this page)."""
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
@@ -117,7 +117,7 @@ def test_run_evaluation_button(page: Page):
     """Test that run evaluation button works."""
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
@@ -165,7 +165,7 @@ def _click_load_previous_results_and_wait(page: Page) -> None:
 def test_export_bundles_button_visible_when_results_loaded(page: Page):
     """When Load Previous Results shows config version columns, export button (📦) is present."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.wait_for_timeout(1000)
     page.locator("#subagentSelect").select_option("cmdline")
     _click_load_previous_results_and_wait(page)
@@ -183,7 +183,7 @@ def test_select_all_deselect_all_buttons(page: Page):
     """Test select all and deselect all buttons."""
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 

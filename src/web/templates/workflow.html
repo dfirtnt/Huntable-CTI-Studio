@@ -12585,7 +12585,7 @@ function renderQueue() {
                 <td class="q-status-indicator-cell" aria-hidden="true"></td>
                 <td class="q-cell-id" style="padding-left:24px">${rule.id}</td>
                 <td class="q-cell-article">
-                    <a href="/articles/${rule.article_id}">
+                    <a href="/articles/${rule.article_id}" title="${((rule.article_title || 'Article ' + rule.article_id) + '').replace(/"/g, '&quot;')}">
                         ${rule.article_title || 'Article ' + rule.article_id}
                     </a>
                 </td>

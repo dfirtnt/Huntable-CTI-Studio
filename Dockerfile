@@ -5,8 +5,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_SYSTEM_PYTHON=1 \
+    UV_NO_CACHE=1
 
 # Set work directory
 WORKDIR /app
@@ -51,6 +51,10 @@ RUN apt-get update \
         libpangocairo-1.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /usr/local/bin/uv
+
 # Set timezone
 ENV TZ=America/New_York
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -62,31 +66,16 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /
     && apt-get install -y docker-ce-cli \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install test dependencies (for running tests in container)
-COPY requirements-test.txt .
-RUN pip install --no-cache-dir -r requirements-test.txt
+# Install Python dependencies via uv (locked, reproducible)
+COPY pyproject.toml uv.lock ./
+COPY sigma_semantic_similarity/ ./sigma_semantic_similarity/
+RUN uv sync --frozen --group test
 
 # Install Playwright system dependencies as root (needs apt-get)
 RUN playwright install-deps chromium || true
 
-# Ensure langgraph-cli is available system-wide
-RUN pip install --no-cache-dir "langgraph-cli[inmem]"
-
-# Update pip and setuptools to fix security vulnerabilities
-RUN pip install --upgrade pip==25.2 setuptools==78.1.1
-
-# Install security auditing tools
-RUN pip install --no-cache-dir pip-audit==2.9.0 safety==3.2.0
-
 # Copy project
 COPY . .
-
-# Deterministic Sigma similarity (required for sigma recompute-semantics)
-RUN pip install --no-cache-dir -r requirements-sigma.txt
 
 # Create non-root user and add to root group for socket access
 # Docker socket is root:root (GID 0) on macOS Docker Desktop

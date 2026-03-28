@@ -18,7 +18,7 @@ def test_workflow_tabs_navigation(page: Page):
     """Smoke: Configuration, Executions, and SIGMA Queue tabs are navigable and sync URL hash."""
     base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
     page.goto(f"{base_url}/workflow", wait_until="domcontentloaded")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
 
     expect(page).to_have_url(re.compile(r".*/workflow.*"))
     config_panel = page.locator("#tab-content-config")

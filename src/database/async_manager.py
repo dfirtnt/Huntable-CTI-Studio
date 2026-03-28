@@ -2377,6 +2377,37 @@ class AsyncDatabaseManager:
                 "source_stats": [],
             }
 
+    async def get_sigma_rule_by_id(self, rule_id: str) -> dict[str, Any] | None:
+        """Get a single Sigma rule by its SigmaHQ UUID (rule_id column)."""
+        try:
+            async with self.get_session() as session:
+                result = await session.execute(
+                    select(SigmaRuleTable).where(SigmaRuleTable.rule_id == rule_id)
+                )
+                rule = result.scalar_one_or_none()
+                if rule is None:
+                    return None
+                return {
+                    "rule_id": rule.rule_id,
+                    "title": rule.title,
+                    "description": rule.description,
+                    "status": rule.status,
+                    "level": rule.level,
+                    "author": rule.author,
+                    "date": rule.date,
+                    "tags": rule.tags or [],
+                    "rule_references": rule.rule_references or [],
+                    "false_positives": rule.false_positives or [],
+                    "logsource": rule.logsource,
+                    "detection": rule.detection,
+                    "file_path": rule.file_path,
+                    "raw_yaml": rule.raw_yaml,
+                    "repo_commit_sha": rule.repo_commit_sha,
+                }
+        except Exception as e:
+            logger.error(f"Failed to get sigma rule by ID: {e}")
+            return None
+
     async def get_sigma_rule_embedding_stats(self) -> dict[str, Any]:
         """SigmaHQ rule counts and RAG embedding coverage.
 

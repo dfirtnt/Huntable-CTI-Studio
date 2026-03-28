@@ -22,7 +22,7 @@ class TestObservableTrainingUI:
     def test_observable_training_page_loads(self, page: Page):
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/observables-training")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify inactive notice is present
         inactive_notice = page.locator("text=Feature Inactive - Planned for Future Release")

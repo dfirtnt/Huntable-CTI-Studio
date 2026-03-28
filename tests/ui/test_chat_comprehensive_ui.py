@@ -19,7 +19,7 @@ class TestChatPageLoad:
         """Test chat page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)  # Wait for React to render
 
         # Verify page title
@@ -35,7 +35,7 @@ class TestChatPageLoad:
         """Test chat container displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify chat container exists
@@ -52,7 +52,7 @@ class TestMessageDisplay:
         """Test initial greeting message displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         # Wait for React (Babel) to mount: chat input is a reliable signal the app has rendered
         page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
         # Greeting matches live UI: "What would you like to find?" / "Search across your threat intelligence articles"
@@ -65,7 +65,7 @@ class TestMessageDisplay:
         """Test user message bubbles display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Find input and send a message
@@ -102,7 +102,7 @@ class TestMessageDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -129,7 +129,7 @@ class TestMessageDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -149,7 +149,7 @@ class TestMessageDisplay:
         """Test message timestamps display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify timestamp exists (format may vary)
@@ -179,7 +179,7 @@ class TestMessageDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -199,7 +199,7 @@ class TestMessageDisplay:
         """Test message content whitespace preservation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message with whitespace
@@ -219,7 +219,7 @@ class TestMessageDisplay:
         """Test message scrolling to bottom on new messages."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send multiple messages
@@ -256,7 +256,7 @@ class TestMessageDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -304,7 +304,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -345,7 +345,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -390,7 +390,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -436,7 +436,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -484,7 +484,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -527,7 +527,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -565,7 +565,7 @@ class TestArticleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -615,7 +615,7 @@ class TestSigmaRuleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -658,7 +658,7 @@ class TestSigmaRuleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -702,7 +702,7 @@ class TestSigmaRuleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -751,7 +751,7 @@ class TestSigmaRuleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -793,7 +793,7 @@ class TestSigmaRuleResultsDisplay:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -854,7 +854,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -912,7 +912,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message and open modal
@@ -975,7 +975,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message and open modal
@@ -1037,7 +1037,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message and open modal
@@ -1100,7 +1100,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message and open modal
@@ -1159,7 +1159,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message and open modal
@@ -1226,7 +1226,7 @@ class TestYAMLModal:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.locator("#rag-chat-container").wait_for(state="visible", timeout=10000)
         page.wait_for_timeout(1000)
 
@@ -1260,7 +1260,7 @@ class TestSettingsPanel:
         """Test max results dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify max results dropdown exists
@@ -1277,7 +1277,7 @@ class TestSettingsPanel:
         """Test similarity threshold dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify similarity threshold dropdown exists
@@ -1315,7 +1315,7 @@ class TestSettingsPanel:
         page.route("**/api/embeddings/stats", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify embedding stats appear
@@ -1335,7 +1335,7 @@ class TestSettingsPanel:
         """Test Update Embeddings button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify update embeddings button exists
@@ -1362,7 +1362,7 @@ class TestSettingsPanel:
         page.route("**/api/embeddings/update", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Click update embeddings button
@@ -1393,7 +1393,7 @@ class TestSettingsPanel:
         page.route("**/api/embeddings/update", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Click update embeddings button
@@ -1411,7 +1411,7 @@ class TestSettingsPanel:
         """Test settings persistence (localStorage)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Change max results
@@ -1421,7 +1421,7 @@ class TestSettingsPanel:
 
         # Reload page
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify setting persisted (may be stored in component state)
@@ -1438,7 +1438,7 @@ class TestInputArea:
         """Test textarea input field."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify textarea exists
@@ -1452,7 +1452,7 @@ class TestInputArea:
         """Test input placeholder text."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify placeholder text
@@ -1485,7 +1485,7 @@ class TestInputArea:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -1504,7 +1504,7 @@ class TestInputArea:
         """Test send button functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify send button exists
@@ -1518,7 +1518,7 @@ class TestInputArea:
         """Test send button disabled state."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify send button is disabled when input is empty
@@ -1531,7 +1531,7 @@ class TestInputArea:
         """Test Enter key submission."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Type message and press Enter
@@ -1550,7 +1550,7 @@ class TestInputArea:
         """Test Shift+Enter creates newline."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Type message with Shift+Enter
@@ -1570,7 +1570,7 @@ class TestInputArea:
         """Test input value clearing after send."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -1589,7 +1589,7 @@ class TestInputArea:
         """Test input suggestions text."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify suggestions text exists
@@ -1627,7 +1627,7 @@ class TestAPIIntegration:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -1666,7 +1666,7 @@ class TestAPIIntegration:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Change settings
@@ -1712,7 +1712,7 @@ class TestAPIIntegration:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -1746,7 +1746,7 @@ class TestAPIIntegration:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -1785,7 +1785,7 @@ class TestAPIIntegration:
         page.route("**/api/chat/rag", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Send message
@@ -1825,7 +1825,7 @@ class TestModelSelection:
 
         # Reload page
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify model is loaded (checked via API call)
@@ -1876,7 +1876,7 @@ class TestModelSelection:
             """)
 
             page.reload()
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
             page.wait_for_timeout(3000)
 
             request_capture.clear()
@@ -1934,7 +1934,7 @@ class TestEmbeddingStats:
         page.route("**/api/embeddings/stats", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify API was called
@@ -1967,7 +1967,7 @@ class TestEmbeddingStats:
         page.route("**/api/embeddings/stats", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify stats are displayed
@@ -2001,7 +2001,7 @@ class TestEmbeddingStats:
         page.route("**/api/**", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Initial stats call
@@ -2031,7 +2031,7 @@ class TestEmbeddingStats:
         page.route("**/api/embeddings/stats", handle_route)
 
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify page still loads (graceful error handling)

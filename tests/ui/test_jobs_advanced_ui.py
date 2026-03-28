@@ -19,7 +19,7 @@ class TestJobsPageLoad:
         """Test jobs page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for JavaScript initialization
 
         # Verify page title
@@ -35,7 +35,7 @@ class TestJobsPageLoad:
         """Test auto-refresh toggle displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify auto-refresh checkbox exists
@@ -49,7 +49,7 @@ class TestJobsPageLoad:
         """Test refresh button displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify refresh button exists
@@ -67,7 +67,7 @@ class TestJobsAutoRefresh:
         """Test auto-refresh toggle functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify auto-refresh is checked by default
@@ -104,7 +104,7 @@ class TestJobsAutoRefresh:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify initial API calls
@@ -139,7 +139,7 @@ class TestJobsRefreshButton:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Get initial count
@@ -162,7 +162,7 @@ class TestJobsRefreshButton:
         """Test last updated timestamp updates."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify last updated timestamp exists
@@ -213,7 +213,7 @@ class TestJobsWorkerStatus:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify worker status section exists
@@ -243,7 +243,7 @@ class TestJobsWorkerStatus:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify empty state message appears
@@ -277,7 +277,7 @@ class TestJobsQueueStatus:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify queue status section exists
@@ -307,7 +307,7 @@ class TestJobsQueueStatus:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify queue status section exists (may show empty queues)
@@ -349,7 +349,7 @@ class TestJobsActiveTasks:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify active tasks section exists
@@ -379,7 +379,7 @@ class TestJobsActiveTasks:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify empty state message appears
@@ -422,7 +422,7 @@ class TestJobsHistory:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify job history section exists
@@ -452,7 +452,7 @@ class TestJobsHistory:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify empty state message appears
@@ -479,7 +479,7 @@ class TestJobsErrorHandling:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify page still loads (graceful error handling)
@@ -514,7 +514,7 @@ class TestJobsAPIIntegration:
         page.route("**/api/jobs/status", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify API was called
@@ -540,7 +540,7 @@ class TestJobsAPIIntegration:
         page.route("**/api/jobs/queues", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify API was called
@@ -566,7 +566,7 @@ class TestJobsAPIIntegration:
         page.route("**/api/jobs/history", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify API was called

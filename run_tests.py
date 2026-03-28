@@ -878,8 +878,9 @@ class RunTestRunner:
             else:
                 logger.info("Running tests on localhost")
 
-        # Add parallel execution (default for UI to reduce wall-clock time; requires pytest-xdist)
-        if self.config.parallel or self.config.test_type == RunTestType.UI:
+        # Parallel requires pytest-xdist. UI Playwright tests hit one shared live server (localhost:8001);
+        # default -n auto causes worker contention and mass timeouts — opt in with --parallel only.
+        if self.config.parallel:
             cmd.extend(["-n", "auto"])
 
         # Add coverage
