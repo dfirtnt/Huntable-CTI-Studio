@@ -1691,9 +1691,7 @@ async def validate_rule(request: Request, queue_id: int):
             previous_yaml_preview = current_rule_yaml[:500] if current_rule_yaml else ""
 
             for attempt in range(1, max_attempts + 1):
-                logger.info(
-                    f"Validation attempt {attempt}/{max_attempts} rule {queue_id} provider={provider} model={model}"
-                )
+                logger.info("Validation attempt %d/%d rule %d", attempt, max_attempts, queue_id)
 
                 # Build validation prompt (first attempt) or feedback prompt (subsequent attempts)
                 try:
@@ -2091,7 +2089,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 "error": str(e),
                             }
                         )
-                        logger.error(f"Error calling {provider} API: {e}")
+                        logger.error("Error calling provider API: %s", type(e).__name__)
                         # Don't raise, continue to next attempt or return with conversation log
                         if attempt == max_attempts:
                             break  # Exit loop to return final result
