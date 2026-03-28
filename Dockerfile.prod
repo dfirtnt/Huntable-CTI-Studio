@@ -7,8 +7,7 @@ FROM python:3.11-slim as builder
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_NO_CACHE=1
 
 # Install system dependencies
 RUN apt-get update \
@@ -19,16 +18,18 @@ RUN apt-get update \
         git \
     && rm -rf /var/lib/apt/lists/*
 
-# Create and activate virtual environment
+# Install uv and create venv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mv /root/.local/bin/uv /usr/local/bin/uv
 RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH" \
+    UV_SYSTEM_PYTHON=0 \
+    VIRTUAL_ENV=/opt/venv
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install security auditing tools
-RUN pip install --no-cache-dir pip-audit==2.9.0 safety==3.2.0
+# Install Python dependencies via uv (locked, reproducible)
+COPY pyproject.toml uv.lock ./
+COPY sigma_semantic_similarity/ ./sigma_semantic_similarity/
+RUN uv sync --frozen --no-group test --no-group dev
 
 # Production stage
 FROM python:3.11-slim
@@ -37,7 +38,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app \
-    PATH="/opt/venv/bin:$PATH"
+    PATH="/opt/venv/bin:$PATH" \
+    VIRTUAL_ENV=/opt/venv
 
 # Install runtime dependencies
 RUN apt-get update \
