@@ -1,16 +1,23 @@
 """MCP tools for searching SIGMA detection rules."""
 
 import logging
+import re
 
 from mcp.server.fastmcp import FastMCP
 
+from src.database.async_manager import AsyncDatabaseManager
 from src.huntable_mcp.tools.articles import _article_db_id
 from src.services.rag_service import RAGService
 
 logger = logging.getLogger(__name__)
 
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
 
-def register(mcp: FastMCP, rag: RAGService) -> None:
+
+def register(mcp: FastMCP, rag: RAGService, db: AsyncDatabaseManager | None = None) -> None:
     """Register SIGMA rule tools on the MCP server."""
 
     @mcp.tool()
@@ -69,6 +76,56 @@ def register(mcp: FastMCP, rag: RAGService) -> None:
         except Exception as e:
             logger.error(f"search_sigma_rules failed: {e}")
             return f"Error searching SIGMA rules: {e}"
+
+    @mcp.tool()
+    async def get_sigma_rule(rule_id: str) -> str:
+        """Get full YAML and metadata for a single Sigma rule by its SigmaHQ UUID.
+
+        Returns the complete rule definition including raw YAML, detection logic,
+        tags, level, status, author, and source file path.
+
+        Args:
+            rule_id: SigmaHQ rule UUID (e.g. "5f1abf38-60ab-4f20-b0e2-e373f...").
+                     Use the **Rule ID** value from search_sigma_rules results.
+        """
+        if not _UUID_RE.match(rule_id):
+            return '{"error": "Invalid rule_id format"}'
+
+        if db is None:
+            return "Error: database not available for get_sigma_rule."
+
+        try:
+            rule = await db.get_sigma_rule_by_id(rule_id)
+            if rule is None:
+                return f'{{"error": "No rule found with ID {rule_id}"}}'
+
+            tags = ", ".join(rule.get("tags", [])) or "none"
+            refs = "\n".join(f"  - {r}" for r in rule.get("rule_references", [])) or "  none"
+            fps = "\n".join(f"  - {f}" for f in rule.get("false_positives", [])) or "  none"
+
+            date_val = rule.get("date")
+            if date_val and hasattr(date_val, "strftime"):
+                date_val = date_val.strftime("%Y-%m-%d")
+
+            yaml_block = rule.get("raw_yaml") or "(raw YAML not stored — re-run `sigma index` to populate)"
+
+            return (
+                f"# {rule['title']}\n\n"
+                f"**Rule ID:** {rule['rule_id']}\n"
+                f"**Status:** {rule.get('status') or 'N/A'} | "
+                f"**Level:** {rule.get('level') or 'N/A'}\n"
+                f"**Author:** {rule.get('author') or 'N/A'}\n"
+                f"**Date:** {date_val or 'N/A'}\n"
+                f"**Tags:** {tags}\n"
+                f"**Source File:** {rule.get('file_path') or 'N/A'}\n\n"
+                f"## Description\n{rule.get('description') or 'No description.'}\n\n"
+                f"## References\n{refs}\n\n"
+                f"## False Positives\n{fps}\n\n"
+                f"## Detection Rule (YAML)\n```yaml\n{yaml_block}\n```\n"
+            )
+        except Exception as e:
+            logger.error(f"get_sigma_rule failed: {e}")
+            return f"Error retrieving sigma rule {rule_id}: {e}"
 
     @mcp.tool()
     async def search_unified(

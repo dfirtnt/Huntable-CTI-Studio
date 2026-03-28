@@ -55,7 +55,7 @@ class TestSigmaEnrichUI:
         """Setup: Navigate to sigma queue page (after list mock is applied)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sigma-queue")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for page initialization
 
     def test_sigma_queue_page_shows_pagination_bar(self, page: Page):

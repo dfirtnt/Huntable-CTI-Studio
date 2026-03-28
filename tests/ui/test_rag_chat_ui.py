@@ -19,7 +19,7 @@ class TestRAGChatUI:
         """Test that the chat page loads correctly."""
         try:
             page.goto("http://localhost:8001/chat", timeout=10000, wait_until="domcontentloaded")
-            page.wait_for_load_state("networkidle", timeout=5000)
+            page.wait_for_load_state("load", timeout=5000)
         except Exception as e:
             pytest.skip(f"Page load failed (browser/server issue): {e}")
 
@@ -99,7 +99,7 @@ class TestRAGChatUI:
         """Smoke: sending a prompt renders without errors."""
         try:
             page.goto("http://localhost:8001/chat", timeout=10000, wait_until="domcontentloaded")
-            page.wait_for_load_state("networkidle", timeout=5000)
+            page.wait_for_load_state("load", timeout=5000)
         except Exception as e:
             pytest.skip(f"Page load failed (browser/server issue): {e}")
 

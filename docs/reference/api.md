@@ -59,6 +59,10 @@ These are the main article browsing and maintenance endpoints.
 
 These power the RAG and search workflows.
 
+### Embeddings And RAG Coverage
+
+- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with RAG embeddings), distinct from the AI **sigma_rule_queue**. Used by the chat UI, CLI `embed stats`, and MCP `get_stats`.
+
 ### Workflow Execution
 
 - `GET /api/workflow/executions` — List executions with pagination. Query params: `page` (default 1), `limit` (default 50, max 200), `status`, `step`, `article_id`, `sort_by`, `sort_order`. Response: `executions`, `total`, `page`, `total_pages`, `limit`, `running`, `completed`, `failed`, `pending`.
@@ -96,6 +100,7 @@ These endpoints manage runtime settings and provider connectivity.
 
 ### Sigma Queue And Evaluation
 
+- `GET /sigma-queue` — HTML page for the standalone SIGMA queue (same console as Workflow → Queue; uses `/api/sigma-queue/*` for data).
 - `GET /api/sigma-queue/list` — List queued SIGMA rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/evaluation/*`

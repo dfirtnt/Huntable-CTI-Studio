@@ -19,7 +19,7 @@ class TestDashboardPageLoad:
         """Test dashboard page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page title
         expect(page).to_have_title(re.compile(r"Dashboard.*Huntable CTI Studio"))
@@ -34,7 +34,7 @@ class TestDashboardPageLoad:
         """Test last updated timestamp display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify last updated timestamp exists
         last_updated = page.locator("#last-updated")
@@ -54,7 +54,7 @@ class TestHealthMetricsCard:
         """Test health metrics card displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify health card exists
         health_card = page.locator("text=Ingestion Health")
@@ -66,7 +66,7 @@ class TestHealthMetricsCard:
         """Test uptime percentage display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for API data load
 
         # Verify uptime value exists
@@ -83,7 +83,7 @@ class TestHealthMetricsCard:
         """Test total sources count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify total sources value exists
@@ -100,7 +100,7 @@ class TestHealthMetricsCard:
         """Test average response time display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify avg response value exists
@@ -117,7 +117,7 @@ class TestHealthMetricsCard:
         """Test health indicator color coding."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify health indicator exists
@@ -138,7 +138,7 @@ class TestVolumeCharts:
         """Test daily volume chart display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)  # Wait for Chart.js to load
 
         # Verify daily chart canvas exists
@@ -155,7 +155,7 @@ class TestVolumeCharts:
         """Test hourly volume chart display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify hourly chart canvas exists
@@ -172,7 +172,7 @@ class TestVolumeCharts:
         """Test Chart.js library initialization."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify Chart.js is loaded
@@ -196,7 +196,7 @@ class TestVolumeCharts:
         page.route("**/api/dashboard/data", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify API was called
@@ -208,7 +208,7 @@ class TestVolumeCharts:
         """Test chart responsive behavior."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Resize viewport
@@ -233,7 +233,7 @@ class TestFailingSourcesWidget:
         """Test failing sources widget displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify failing sources section exists
         failing_sources_section = page.locator("text=Failing Sources")
@@ -260,7 +260,7 @@ class TestFailingSourcesWidget:
         page.route("**/api/sources/failing", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify API was called
@@ -282,7 +282,7 @@ class TestFailingSourcesWidget:
         page.route("**/api/sources/failing", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify empty state message
@@ -299,7 +299,7 @@ class TestHighScoreArticlesWidget:
         """Test high-score articles widget displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify high-score articles section exists
         high_score_section = page.locator("text=High-Score Articles")
@@ -315,7 +315,7 @@ class TestHighScoreArticlesWidget:
         """Test copy URLs button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify copy URLs button exists
@@ -332,7 +332,7 @@ class TestHighScoreArticlesWidget:
         """Test article cards display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Find article links
@@ -345,7 +345,7 @@ class TestHighScoreArticlesWidget:
         """Test article hunt score display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Look for score displays (numbers)
@@ -362,7 +362,7 @@ class TestSystemStatsWidget:
         """Test system stats widget displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify system stats section exists
         system_stats_section = page.locator("text=System Stats")
@@ -374,7 +374,7 @@ class TestSystemStatsWidget:
         """Test total articles count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify total articles label exists
         total_articles_label = page.locator("text=Total Articles")
@@ -386,7 +386,7 @@ class TestSystemStatsWidget:
         """Test active sources count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify active sources label exists
         active_sources_label = page.locator("text=Active Sources")
@@ -398,7 +398,7 @@ class TestSystemStatsWidget:
         """Test processing queue display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify processing queue label exists
         processing_queue_label = page.locator("text=Processing Queue")
@@ -410,7 +410,7 @@ class TestSystemStatsWidget:
         """Test average score display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify avg score label exists
         avg_score_label = page.locator("text=Avg Score")
@@ -426,7 +426,7 @@ class TestRecentActivityWidget:
         """Test recent activity widget displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify recent activity section exists
         recent_activity_section = page.locator("text=Recent Activity")
@@ -442,7 +442,7 @@ class TestRecentActivityWidget:
         """Test recent activity empty state."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Check for empty state message
@@ -459,7 +459,7 @@ class TestQuickActions:
         """Test quick actions section displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify quick actions section exists
         quick_actions_section = page.locator("text=Quick Actions")
@@ -471,7 +471,7 @@ class TestQuickActions:
         """Test Rescore All Articles button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify rescore button exists
         rescore_btn = page.locator("button:has-text('🔄 Rescore All Articles')")
@@ -498,7 +498,7 @@ class TestQuickActions:
         page.route("**/api/actions/rescore-all", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Wait for button to be visible and clickable
         rescore_btn = page.locator(
@@ -517,7 +517,7 @@ class TestQuickActions:
         """Test Run Health Check button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify health check button exists
         health_check_btn = page.locator("button:has-text('🔍 Run Health Check')")
@@ -533,7 +533,7 @@ class TestQuickActions:
         """Test Run Health Check navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click health check button
         health_check_btn = page.locator("button:has-text('🔍 Run Health Check')")
@@ -568,7 +568,7 @@ class TestDataLoading:
         page.route("**/api/dashboard/data", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify API was called
@@ -591,7 +591,7 @@ class TestDataLoading:
         page.route("**/api/dashboard/data", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify initial API call
@@ -606,7 +606,7 @@ class TestDataLoading:
         """Test last updated timestamp updates."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Get initial timestamp
@@ -625,7 +625,7 @@ class TestDataLoading:
         """Test chart initialization retry logic."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)
 
         # Verify charts are initialized
@@ -652,7 +652,7 @@ class TestDataLoading:
         page.route("**/api/dashboard/data", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify page still loads (graceful error handling)

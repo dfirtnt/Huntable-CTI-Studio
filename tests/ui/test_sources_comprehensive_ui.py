@@ -18,7 +18,7 @@ class TestSourcesListDisplay:
         """Test sources page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page title
         expect(page).to_have_title("Sources - Huntable CTI Scraper")
@@ -33,7 +33,7 @@ class TestSourcesListDisplay:
         """Test breadcrumb navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify breadcrumb exists
         breadcrumb = page.locator("nav[aria-label='Breadcrumb']")
@@ -45,7 +45,7 @@ class TestSourcesListDisplay:
 
         # Click Home link
         home_link.click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         expect(page).to_have_url(f"{base_url}/")
 
     @pytest.mark.ui
@@ -54,7 +54,7 @@ class TestSourcesListDisplay:
         """Test source cards display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify sources section exists
         sources_section = page.locator("text=🔗 Configured Sources")
@@ -70,7 +70,7 @@ class TestSourcesListDisplay:
         """Test source article count badge display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find article count badges (green circles with numbers)
         page.locator(".bg-green-100.text-green-800")
@@ -82,7 +82,7 @@ class TestSourcesListDisplay:
         """Test source name links to articles."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find source name links
         source_links = page.locator("a[href^='/articles?source_id=']")
@@ -100,7 +100,7 @@ class TestSourcesListDisplay:
         """Test source status badges (Active/Inactive)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find status badges
         page.locator("span:has-text('Active')")
@@ -113,7 +113,7 @@ class TestSourcesListDisplay:
         """Test source metadata display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify metadata fields exist
         page.locator("text=URL")
@@ -127,7 +127,7 @@ class TestSourcesListDisplay:
         """Test source quality metrics panel display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find quality metrics panels
         page.locator("text=📊 Quality Metrics")
@@ -139,7 +139,7 @@ class TestSourcesListDisplay:
         """Test manual source panel display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find manual source panel
         page.locator("text=📝 Manual Source")
@@ -151,7 +151,7 @@ class TestSourcesListDisplay:
         """Test empty state when no sources configured."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Check for empty state message
         page.locator("text=No sources configured")
@@ -163,7 +163,7 @@ class TestSourcesListDisplay:
         """Test source sorting by hunt score."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify sorting indicator
         sort_indicator = page.locator("text=Hunt Score (highest first)")
@@ -179,7 +179,7 @@ class TestSourceActions:
         """Test Collect Now button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find Collect Now buttons
         collect_buttons = page.locator("button:has-text('Collect Now')")
@@ -212,7 +212,7 @@ class TestSourceActions:
         page.route("**/api/sources/*/collect", handle_route)
 
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click Collect Now button
         collect_buttons = page.locator("button:has-text('Collect Now')")
@@ -229,7 +229,7 @@ class TestSourceActions:
         """Test collection status modal display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find collection status modal
         collection_status = page.locator("#collectionStatus")
@@ -244,7 +244,7 @@ class TestSourceActions:
         """Test Toggle Status button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find Toggle Status buttons
         toggle_buttons = page.locator("button:has-text('Toggle Status')")
@@ -277,7 +277,7 @@ class TestSourceActions:
         page.route("**/api/sources/*/toggle", handle_route)
 
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click Toggle Status button
         toggle_buttons = page.locator("button:has-text('Toggle Status')")
@@ -294,7 +294,7 @@ class TestSourceActions:
         """Test Configure button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find Configure buttons
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -312,7 +312,7 @@ class TestSourceActions:
         """Test Stats button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find Stats buttons
         stats_buttons = page.locator("button:has-text('Stats')")
@@ -341,7 +341,7 @@ class TestSourceActions:
         page.route("**/api/sources/*/stats", handle_route)
 
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find and click Stats button
         stats_buttons = page.locator("button:has-text('Stats')")
@@ -358,7 +358,7 @@ class TestSourceActions:
         """Test database status banner display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find database status banner
         banner = page.locator("#dbStatusBanner")
@@ -381,7 +381,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal opens."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find configuration modal
         config_modal = page.locator("#sourceConfigModal")
@@ -405,7 +405,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal form fields."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -429,7 +429,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal form validation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -456,7 +456,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal save button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -475,7 +475,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal cancel button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -501,7 +501,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal closes on click-away."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -525,7 +525,7 @@ class TestSourceConfigurationModal:
         """Test configuration modal closes on Escape key."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -563,7 +563,7 @@ class TestSourceConfigurationModal:
         page.route("**/api/sources/*/**", handle_route)
 
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open modal and fill form
         configure_buttons = page.locator("button:has-text('Configure')")
@@ -601,7 +601,7 @@ class TestAdhocUrlScraping:
         """Test adhoc URL form display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find adhoc URL form
         adhoc_form = page.locator("#adhocUrlForm")
@@ -623,7 +623,7 @@ class TestAdhocUrlScraping:
         """Test adhoc URL scrape button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find scrape button
         scrape_btn = page.locator("#scrapeUrlBtn")
@@ -647,7 +647,7 @@ class TestAdhocUrlScraping:
         page.route("**/api/scrape-url", handle_route)
 
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Fill form
         url_textarea = page.locator("#adhocUrl")
@@ -667,7 +667,7 @@ class TestAdhocUrlScraping:
         """Test adhoc scraping status display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find scraping status div
         scraping_status = page.locator("#scrapingStatus")
@@ -682,7 +682,7 @@ class TestAdhocUrlScraping:
         """Test adhoc URL form validation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify URL textarea is required
         url_textarea = page.locator("#adhocUrl")
@@ -699,7 +699,7 @@ class TestResultModal:
         """Test result modal display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find result modal
         result_modal = page.locator("#resultModal")
@@ -714,7 +714,7 @@ class TestResultModal:
         """Test result modal close button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find close button (via onclick handler)
         close_buttons = page.locator("button[onclick*='closeModal']")
@@ -727,7 +727,7 @@ class TestResultModal:
         """Test result modal closes on click-away."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Result modal should have click-away handler
         page.locator("#resultModal")
@@ -739,7 +739,7 @@ class TestResultModal:
         """Test result modal closes on Escape key."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Result modal should have Escape key handler
         page.locator("#resultModal")
@@ -755,7 +755,7 @@ class TestPDFUploadSection:
         """Test PDF upload card display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find PDF upload section
         pdf_section = page.locator("text=📄 Upload PDF Reports")
@@ -767,7 +767,7 @@ class TestPDFUploadSection:
         """Test PDF upload button/link."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find upload PDF link
         upload_link = page.locator("a[href='/pdf-upload']")
@@ -776,5 +776,5 @@ class TestPDFUploadSection:
 
         # Click link
         upload_link.click()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         expect(page).to_have_url(f"{base_url}/pdf-upload")

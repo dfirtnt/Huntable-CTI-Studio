@@ -74,7 +74,7 @@ class Test500ErrorHandling:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("h1").first
@@ -101,7 +101,7 @@ class TestNetworkErrorHandling:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("h1").first
@@ -145,7 +145,7 @@ class TestInvalidInputHandling:
 
         # Navigate to invalid article ID
         page.goto(f"{base_url}/articles/999999")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page handles invalid ID gracefully
         # May show error message or redirect
@@ -160,7 +160,7 @@ class TestInvalidInputHandling:
 
         # Navigate with invalid parameters
         page.goto(f"{base_url}/articles?invalid_param=value&another=test")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads
         expect(page).to_have_url(re.compile(rf"{re.escape(base_url)}/articles(\?.*)?$"))
@@ -171,7 +171,7 @@ class TestInvalidInputHandling:
         """Test empty form submission handling."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Try to submit empty form
@@ -204,7 +204,7 @@ class TestErrorDisplay:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error notification may appear
         # Error notifications may be displayed in various ways
@@ -232,7 +232,7 @@ class TestErrorDisplay:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error is handled (message may or may not be displayed)
         body = page.locator("body")
@@ -259,14 +259,14 @@ class TestErrorRecovery:
 
         # Navigate to page
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Remove route handler (simulate network restore)
         page.unroute("**/api/**")
 
         # Refresh page
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads successfully after recovery
         heading = page.locator("h1").first
@@ -304,12 +304,12 @@ class TestErrorRecovery:
 
         # Navigate to page
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         initial_api_calls = call_count["count"]
 
         # Refresh (retry)
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(1000)  # Wait for retry logic
 
         # Verify retry occurred (should have more calls after reload)
@@ -338,7 +338,7 @@ class TestPermissionErrorHandling:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error is handled gracefully
         body = page.locator("body")
@@ -367,7 +367,7 @@ class TestRateLimitHandling:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error is handled gracefully
         body = page.locator("body")
@@ -394,7 +394,7 @@ class TestMalformedDataHandling:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error is handled gracefully
         body = page.locator("body")
@@ -417,7 +417,7 @@ class TestMalformedDataHandling:
 
         # Navigate to a page that makes API calls
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error is handled gracefully
         body = page.locator("body")

@@ -230,6 +230,7 @@ test_*.py
 !test_chunk_deduplication_simple.py
 !tests/**/test_*.py
 !utils/temp/test_*.py
+!src/worker/tasks/test_agents.py
 
 # Downloaded PDF reports
 Downloaded_PDF_Reports/

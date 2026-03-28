@@ -21,7 +21,7 @@ class TestPageLoadTime:
 
         start_time = time.time()
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         load_time = time.time() - start_time
 
         # Verify page loads within reasonable time (5 seconds)
@@ -35,7 +35,7 @@ class TestPageLoadTime:
 
         start_time = time.time()
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         load_time = time.time() - start_time
 
         # Verify page loads within reasonable time (5 seconds)
@@ -49,7 +49,7 @@ class TestPageLoadTime:
 
         start_time = time.time()
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for React to render
         load_time = time.time() - start_time
 
@@ -64,7 +64,7 @@ class TestPageLoadTime:
 
         start_time = time.time()
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)  # Wait for React to render
         load_time = time.time() - start_time
 
@@ -91,7 +91,7 @@ class TestAPIPerformance:
         page.route("**/api/dashboard/data", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Verify page loads (API performance verified via page load time)
@@ -105,7 +105,7 @@ class TestAPIPerformance:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page loads (API performance verified via page load time)
         heading = page.locator("h1").first
@@ -129,7 +129,7 @@ class TestAPIPerformance:
 
         start_time = time.time()
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         load_time = time.time() - start_time
 
         # Verify multiple APIs called (parallel loading)
@@ -164,7 +164,7 @@ class TestRenderingPerformance:
 
         start_time = time.time()
         page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         render_time = time.time() - start_time
 
         # Verify large list renders within reasonable time (5 seconds)
@@ -178,7 +178,7 @@ class TestRenderingPerformance:
 
         start_time = time.time()
         page.goto(f"{base_url}/analytics/scraper-metrics")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(3000)  # Wait for Chart.js to render
         render_time = time.time() - start_time
 
@@ -197,7 +197,7 @@ class TestMemoryUsage:
 
         # Navigate to page
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Get memory usage (if available)
         page.evaluate("""
@@ -226,7 +226,7 @@ class TestMemoryUsage:
         # Navigate multiple times
         for _i in range(3):
             page.goto(f"{base_url}/")
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
             page.wait_for_timeout(1000)
 
         # Verify page still loads correctly
@@ -246,13 +246,13 @@ class TestCachingBehavior:
         # First load
         start_time = time.time()
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         first_load_time = time.time() - start_time
 
         # Second load (should be faster due to caching)
         start_time = time.time()
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         second_load_time = time.time() - start_time
 
         # Verify second load is faster or similar (caching helps)
@@ -277,12 +277,12 @@ class TestCachingBehavior:
 
         # First load
         page.goto(f"{base_url}/dashboard")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         first_count = api_call_count["count"]
 
         # Second load
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         second_count = api_call_count["count"]
 
         # Verify API calls occurred (caching may or may not be implemented)
@@ -308,7 +308,7 @@ class TestNetworkPerformance:
         page.route("**/*", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify reasonable number of requests
         assert request_count["count"] > 0, "Page should make network requests"
@@ -336,7 +336,7 @@ class TestNetworkPerformance:
         page.route("**/*", handle_route)
 
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify resources are loaded
         assert resource_types["js"] >= 0, "JavaScript resources should be loaded"
@@ -352,7 +352,7 @@ class TestInteractionPerformance:
         """Test button click response time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find a button
         buttons = page.locator("button")
@@ -374,7 +374,7 @@ class TestInteractionPerformance:
         """Test form submission performance."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Fill form and submit

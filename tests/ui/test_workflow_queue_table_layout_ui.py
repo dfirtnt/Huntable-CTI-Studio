@@ -52,7 +52,7 @@ def test_workflow_queue_table_no_horizontal_overflow_actions_visible(page: Page)
 
     page.route("**/api/sigma-queue/list*", handle_route)
     page.goto(f"{base_url}/workflow")
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
     page.locator("#tab-queue").click()
     page.wait_for_timeout(800)
 
@@ -60,20 +60,33 @@ def test_workflow_queue_table_no_horizontal_overflow_actions_visible(page: Page)
     expect(tbody.locator("tr")).to_have_count(1)
     expect(tbody).to_contain_text("90001")
 
-    scroll_wrap = page.locator("#tab-content-queue .overflow-x-auto").first
+    # Queue horizontal scroll is on .q-table-wrap (overflow-x in CSS), not Tailwind overflow-x-auto.
+    # Avoid #tab-content-queue .overflow-x-auto — enriches <pre> inside the same tab also use that class and sit in hidden modals.
+    scroll_wrap = page.locator("#tab-content-queue .q-table-wrap").first
     expect(scroll_wrap).to_be_visible()
     overflow_ok = scroll_wrap.evaluate(
         """(el) => el.scrollWidth <= el.clientWidth + 4"""
     )
     assert overflow_ok, "queue table should not require horizontal scroll at 1280px"
 
-    article_link = tbody.locator("tr").first.locator("td").nth(1).locator("a")
-    expect(article_link).to_have_class(re.compile(r"truncate"))
+    article_td = tbody.locator("tr").first.locator("td.q-cell-article")
+    article_link = article_td.locator("a").first
+    expect(article_link).to_be_visible()
+    overflow_a = article_td.evaluate("(el) => getComputedStyle(el).overflow")
+    text_overflow_a = article_td.evaluate("(el) => getComputedStyle(el).textOverflow")
+    assert overflow_a in ("hidden", "clip"), f"expected overflow hidden/clip on article cell, got {overflow_a}"
+    assert text_overflow_a == "ellipsis", f"expected text-overflow ellipsis on article cell, got {text_overflow_a}"
     title_attr = article_link.get_attribute("title") or ""
     assert long_article[:20] in title_attr or len(title_attr) >= len(long_article) - 5
 
-    rule_cell = tbody.locator("tr").first.locator("td").nth(2).locator("span")
-    expect(rule_cell).to_have_class(re.compile(r"truncate"))
+    rule_td = tbody.locator("tr").first.locator("td.q-cell-title")
+    expect(rule_td).to_be_visible()
+    overflow_r = rule_td.evaluate("(el) => getComputedStyle(el).overflow")
+    text_overflow_r = rule_td.evaluate("(el) => getComputedStyle(el).textOverflow")
+    assert overflow_r in ("hidden", "clip"), f"expected overflow hidden/clip on rule title cell, got {overflow_r}"
+    assert text_overflow_r == "ellipsis", f"expected text-overflow ellipsis on rule title cell, got {text_overflow_r}"
+    rule_title_attr = rule_td.get_attribute("title") or ""
+    assert long_rule[:20] in rule_title_attr or len(rule_title_attr) >= len(long_rule) - 5
 
     reject_btn = tbody.locator('button:has-text("Reject")').first
     expect(reject_btn).to_be_visible()

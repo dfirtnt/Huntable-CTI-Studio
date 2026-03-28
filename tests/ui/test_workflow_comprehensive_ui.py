@@ -10,6 +10,18 @@ import re
 import pytest
 from playwright.sync_api import Page, expect
 
+# Operator Console: steps use #sN + .section-header; Extract sub-agents use #sa-* + .sa-body
+_SUBAGENT_TO_SA_BLOCK = {
+    "cmdlineextract": "sa-cmdline",
+    "proctreeextract": "sa-proctree",
+    "huntqueriesextract": "sa-huntqueries",
+}
+
+
+def _open_operator_step(page: Page, step_id: str) -> None:
+    page.locator(f"#{step_id} .section-header").click()
+    page.wait_for_timeout(300)
+
 
 class TestWorkflowTabNavigation:
     """Test workflow tab navigation functionality."""
@@ -20,7 +32,7 @@ class TestWorkflowTabNavigation:
         """Test switching to Configuration tab."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click Configuration tab
         config_tab = page.locator("#tab-config")
@@ -45,7 +57,7 @@ class TestWorkflowTabNavigation:
         """Test switching to Executions tab."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click Executions tab
         executions_tab = page.locator("#tab-executions")
@@ -70,7 +82,7 @@ class TestWorkflowTabNavigation:
         """Test switching to Queue tab."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click Queue tab
         queue_tab = page.locator("#tab-queue")
@@ -95,7 +107,7 @@ class TestWorkflowTabNavigation:
         """Test that active tab has correct styling."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click Configuration tab
         config_tab = page.locator("#tab-config")
@@ -115,7 +127,7 @@ class TestWorkflowTabNavigation:
 
         # Navigate with tab parameter
         page.goto(f"{base_url}/workflow?tab=executions")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify Executions tab is active
         page.locator("#tab-content-executions")
@@ -132,7 +144,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test that workflow config form loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Switch to config tab
         page.locator("#tab-config").click()
@@ -148,7 +160,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test Junk Filter panel collapse/expand."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -176,7 +188,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test OS Detection panel collapse/expand."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -201,7 +213,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test Rank Agent panel collapse/expand."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -225,16 +237,15 @@ class TestWorkflowConfigurationTabGeneral:
         """Test Extract Agent panel collapse/expand."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        panel_id = "extract-agent-panel"
-        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        header = page.locator("#s3 .section-header")
         expect(header).to_be_visible()
 
-        panel_content = page.locator("#extract-agent-panel-content")
+        panel_content = page.locator("#s3 .section-body")
         initial_state = panel_content.is_visible()
 
         header.click()
@@ -249,16 +260,15 @@ class TestWorkflowConfigurationTabGeneral:
         """Test SIGMA Generator Agent panel collapse/expand."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        panel_id = "sigma-agent-panel"
-        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        header = page.locator("#s4 .section-header")
         expect(header).to_be_visible()
 
-        panel_content = page.locator("#sigma-agent-panel-content")
+        panel_content = page.locator("#s4 .section-body")
         initial_state = panel_content.is_visible()
 
         header.click()
@@ -273,7 +283,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test that panel chevron rotates on toggle."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -302,7 +312,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test that current config display loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(1000)  # Wait for config to load
@@ -321,7 +331,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test that Reset button exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -336,7 +346,7 @@ class TestWorkflowConfigurationTabGeneral:
         """Test that Save Configuration button exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -362,7 +372,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.route("**/api/workflow/config", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(3000)  # Wait for API call and tab content to load
@@ -380,7 +390,7 @@ class TestWorkflowConfigurationJunkFilter:
         """Test that Junk Filter Threshold input exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -404,7 +414,7 @@ class TestWorkflowConfigurationJunkFilter:
         """Test Junk Filter Threshold validation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -427,7 +437,7 @@ class TestWorkflowConfigurationJunkFilter:
         """Test Junk Filter help button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -458,7 +468,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test Rank Agent QA badge display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -477,7 +487,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test that Rank Agent model container exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -497,7 +507,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test Test Rank Agent button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -521,7 +531,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test Ranking Threshold input."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -545,7 +555,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test Ranking Threshold validation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -568,7 +578,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test Rank QA Agent toggle checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -604,7 +614,7 @@ class TestWorkflowConfigurationRankAgent:
         """Test Rank QA Model dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -629,15 +639,13 @@ class TestWorkflowConfigurationExtractAgent:
         """Test Extract Agent Supervisor badge display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        # Open Extract Agent step (Operator Console)
+        _open_operator_step(page, "s3")
 
         # Find Supervisor badge
         supervisor_badge = page.locator("span:has-text('Supervisor')")
@@ -649,15 +657,12 @@ class TestWorkflowConfigurationExtractAgent:
         """Test Extract Agent model container."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s3")
 
         # Verify model container exists
         model_container = page.locator("#extract-agent-model-container")
@@ -669,18 +674,15 @@ class TestWorkflowConfigurationExtractAgent:
         """Test Sub-Agents section header visibility."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s3")
 
         # Find Sub-Agents section
-        sub_agents_header = page.get_by_role("heading", name="Extract Agents Sub-Agents")
+        sub_agents_header = page.get_by_role("heading", name="SUB-AGENTS — Execution Order")
         expect(sub_agents_header).to_be_visible()
 
     @pytest.mark.ui
@@ -689,26 +691,19 @@ class TestWorkflowConfigurationExtractAgent:
         """Test CmdlineExtract sub-agent panel."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s3")
 
-        # Find CmdlineExtract panel
-        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
+        cmdline_toggle = page.locator("#sa-cmdline .sa-header")
         expect(cmdline_toggle).to_be_visible()
-
-        # Toggle sub-agent panel
         cmdline_toggle.click()
         page.wait_for_timeout(300)
 
-        # Verify panel content is visible
-        cmdline_content = page.locator("#cmdlineextract-agent-panel-content")
+        cmdline_content = page.locator("#sa-cmdline .sa-body")
         expect(cmdline_content).to_be_visible()
 
     @pytest.mark.ui
@@ -717,19 +712,14 @@ class TestWorkflowConfigurationExtractAgent:
         """Test sub-agent QA badge."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s3")
 
-        # Expand CmdlineExtract panel
-        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
-        cmdline_toggle.click()
+        page.locator("#sa-cmdline .sa-header").click()
         page.wait_for_timeout(300)
 
         # Find QA badge
@@ -742,25 +732,25 @@ class TestWorkflowConfigurationExtractAgent:
         """Test sub-agent model dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s3")
 
-        # Ensure LMStudio provider visible for dropdown check, then open CmdlineExtract panel
-        page.select_option("#cmdlineextract-provider", "lmstudio")
-        page.wait_for_timeout(200)
-        cmdline_toggle = page.locator("#cmdlineextract-panel-btn")
-        cmdline_toggle.click()
+        page.locator("#sa-cmdline .sa-header").click()
         page.wait_for_timeout(300)
 
-        # Find model dropdown
-        model_dropdown = page.locator("#cmdlineextract-model")
+        provider_sel = page.locator("#cmdlineextract-provider")
+        expect(provider_sel).to_be_visible()
+        # Settings may filter providers (e.g. LMStudio off) — assert model control for active provider
+        val = (provider_sel.input_value() or "").strip().lower()
+        assert val, "CmdlineExtract provider should be selected"
+        if val == "lmstudio":
+            model_dropdown = page.locator("#cmdlineextract-model")
+        else:
+            model_dropdown = page.locator(f"#cmdlineextract-model-{val}")
         expect(model_dropdown).to_be_visible()
         expect(model_dropdown).to_have_attribute("name", "agent_models[CmdlineExtract_model]")
 
@@ -770,7 +760,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test sub-agent temperature input."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -792,7 +782,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test sub-agent Top_P input."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -809,24 +799,21 @@ class TestWorkflowConfigurationExtractAgent:
         expect(top_p_input).to_have_attribute("step", "0.01")
 
     def _expand_extract_subagent_panel(self, page: Page, subagent: str) -> None:
-        """Expand Extract Agent and sub-agent panel via JS."""
-        content_id = f"{subagent}-agent-panel-content"
-        toggle_id = f"{subagent}-agent-panel-toggle"
+        """Open Extract Agent step (s3) and sub-agent block (.sa-item) via DOM (matches toggle/toggleSA)."""
+        sa_id = _SUBAGENT_TO_SA_BLOCK[subagent]
         page.evaluate(
-            f"""() => {{
-                const extractContent = document.getElementById('extract-agent-panel-content');
-                const extractToggle = document.getElementById('extract-agent-panel-toggle');
-                if (extractContent?.classList.contains('hidden') && extractToggle) {{
-                    extractContent.classList.remove('hidden');
-                    extractToggle.textContent = '▲';
-                }}
-                const subContent = document.getElementById('{content_id}');
-                const subToggle = document.getElementById('{toggle_id}');
-                if (subContent?.classList.contains('hidden') && subToggle) {{
-                    subContent.classList.remove('hidden');
-                    subToggle.textContent = '▲';
-                }}
-            }}"""
+            """(sid) => {
+                const step = document.getElementById('s3');
+                if (step) {
+                  document.querySelectorAll('.step-section').forEach((s) => {
+                    if (s.id !== 's3') s.classList.remove('open');
+                  });
+                  step.classList.add('open');
+                }
+                const sa = document.getElementById(sid);
+                if (sa) sa.classList.add('open');
+            }""",
+            sa_id,
         )
         page.wait_for_timeout(300)
 
@@ -836,7 +823,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test ProcTreeExtract temperature slider."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -857,7 +844,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test ProcTreeExtract Top_P slider."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -878,7 +865,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test HuntQueriesExtract temperature slider."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -899,7 +886,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test HuntQueriesExtract Top_P slider."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -920,7 +907,7 @@ class TestWorkflowConfigurationExtractAgent:
         """Test that provider switch updates CmdlineExtract temperature max (Anthropic 1, OpenAI 2)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -944,22 +931,16 @@ class TestWorkflowConfigurationExtractAgent:
         """Test sub-agent test button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand panels
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
-
-        cmdline_toggle = page.locator('[data-collapsible-panel="cmdlineextract-agent-panel"]')
-        cmdline_toggle.click()
+        _open_operator_step(page, "s3")
+        page.locator("#sa-cmdline .sa-header").click()
         page.wait_for_timeout(300)
 
-        # Find test button
-        test_button = page.locator("button:has-text('ArticleID'):near(#cmdlineextract-agent-panel-content)").first
+        test_button = page.locator("#sa-cmdline button:has-text('Test CmdlineExtract')").first
         expect(test_button).to_be_visible()
 
         # Verify onclick handler
@@ -973,22 +954,18 @@ class TestWorkflowConfigurationSigmaAgent:
     @pytest.mark.ui
     @pytest.mark.workflow
     def test_sigma_agent_qa_badge(self, page: Page):
-        """Test SIGMA Agent QA badge."""
+        """SIGMA step exposes model container (legacy QA badge id not in Operator Console)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand SIGMA Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s4")
 
-        # Find QA badge
-        qa_badge = page.locator("#sigma-agent-qa-badge")
-        expect(qa_badge).to_be_visible()
+        model_mount = page.locator("#sigma-agent-model-container")
+        expect(model_mount).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -996,15 +973,12 @@ class TestWorkflowConfigurationSigmaAgent:
         """Test Similarity Threshold input."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand SIGMA Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s5")
 
         # Find threshold input
         threshold_input = page.locator("#similarityThreshold")
@@ -1020,15 +994,12 @@ class TestWorkflowConfigurationSigmaAgent:
         """Test SIGMA content source toggle checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand SIGMA Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s4")
 
         # Find content source toggle
         fallback_toggle = page.locator("#sigma-fallback-enabled")
@@ -1044,15 +1015,12 @@ class TestWorkflowConfigurationSigmaAgent:
         """Test Embedding Model dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand SIGMA Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="sigma-agent-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s4")
 
         # Note: Embedding model selector removed - similarity search now uses behavioral novelty assessment
 
@@ -1066,7 +1034,7 @@ class TestWorkflowConfigurationWorkflowOverview:
         """Test that workflow overview displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -1081,7 +1049,7 @@ class TestWorkflowConfigurationWorkflowOverview:
         """Test workflow steps visualization."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
@@ -1113,7 +1081,7 @@ class TestWorkflowExecutionsTabActions:
         """Test Refresh button functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1132,7 +1100,7 @@ class TestWorkflowExecutionsTabActions:
         """Test Trigger Workflow button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1156,7 +1124,7 @@ class TestWorkflowExecutionsTabActions:
         """Test Trigger Stuck Executions button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1175,7 +1143,7 @@ class TestWorkflowExecutionsTabActions:
         """Test Cleanup Stale Executions button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1194,7 +1162,7 @@ class TestWorkflowExecutionsTabActions:
         """Test status filter dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1216,7 +1184,7 @@ class TestWorkflowExecutionsTabActions:
         """Test status filter functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)  # Wait for executions to load
@@ -1235,7 +1203,7 @@ class TestWorkflowExecutionsTabActions:
         """Test step filter dropdown is visible with options."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1255,7 +1223,7 @@ class TestWorkflowExecutionsTabActions:
         """Test article ID filter input is visible."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1273,7 +1241,7 @@ class TestWorkflowExecutionsTabStatistics:
         """Test Total Executions stat card."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1292,7 +1260,7 @@ class TestWorkflowExecutionsTabStatistics:
         """Test Running Executions stat card."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1306,7 +1274,7 @@ class TestWorkflowExecutionsTabStatistics:
         """Test Completed Executions stat card."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1320,7 +1288,7 @@ class TestWorkflowExecutionsTabStatistics:
         """Test Failed Executions stat card."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1334,7 +1302,7 @@ class TestWorkflowExecutionsTabStatistics:
         """Test that stats update when filter changes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1360,7 +1328,7 @@ class TestWorkflowExecutionsTabTable:
         """Test that executions table has correct columns."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1378,7 +1346,7 @@ class TestWorkflowExecutionsTabTable:
         """Test that executions table body exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
@@ -1393,7 +1361,7 @@ class TestWorkflowExecutionsTabTable:
         """Test executions table loading state."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
 
@@ -1407,7 +1375,7 @@ class TestWorkflowExecutionsTabTable:
         """Test executions table empty state."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1432,7 +1400,7 @@ class TestWorkflowExecutionsTabModal:
         """Test opening execution detail modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1454,7 +1422,7 @@ class TestWorkflowExecutionsTabModal:
         """Test closing execution detail modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1481,7 +1449,7 @@ class TestWorkflowExecutionsTabModal:
         """Test execution detail modal fullscreen toggle."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1511,7 +1479,7 @@ class TestWorkflowExecutionsTabModal:
         """Test that Escape key closes modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1536,7 +1504,7 @@ class TestWorkflowExecutionsTabModal:
         """Test that execution detail content loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1561,7 +1529,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         """Test opening trigger workflow modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1582,7 +1550,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         """Test Article ID input in trigger modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1605,7 +1573,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         """Test Cancel button in trigger modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1633,7 +1601,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         """Test Trigger button in trigger modal."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(500)
@@ -1661,7 +1629,7 @@ class TestWorkflowQueueTabActions:
         """Test Queue Refresh button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(500)
@@ -1680,7 +1648,7 @@ class TestWorkflowQueueTabActions:
         """Test Queue status filter dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(500)
@@ -1703,7 +1671,7 @@ class TestWorkflowQueueTabTable:
         """Test that queue table exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(1000)
@@ -1723,7 +1691,7 @@ class TestWorkflowQueueTabModal:
         """Test that queue detail modal exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(500)
@@ -1737,7 +1705,7 @@ class TestWorkflowQueueTabModal:
         """Test that queue table has correct columns."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(1000)
@@ -1755,7 +1723,7 @@ class TestWorkflowQueueTabModal:
         """Test that queue table body exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(1000)
@@ -1774,26 +1742,19 @@ class TestWorkflowSubAgentsAdditional:
         """Test ProcTreeExtract sub-agent panel."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(500)
 
-        # Expand Extract Agent panel
-        extract_toggle = page.locator('[data-collapsible-panel="extract-agent-panel"]')
-        extract_toggle.click()
-        page.wait_for_timeout(500)
+        _open_operator_step(page, "s3")
 
-        # Find ProcTreeExtract panel
-        proctree_toggle = page.locator('[data-collapsible-panel="proctreeextract-agent-panel"]')
+        proctree_toggle = page.locator("#sa-proctree .sa-header")
         expect(proctree_toggle).to_be_visible()
-
-        # Toggle sub-agent panel
         proctree_toggle.click()
         page.wait_for_timeout(300)
 
-        # Verify panel content is visible
-        proctree_content = page.locator("#proctreeextract-agent-panel-content")
+        proctree_content = page.locator("#sa-proctree .sa-body")
         expect(proctree_content).to_be_visible()
 
 
@@ -1806,7 +1767,7 @@ class TestWorkflowExecutionsTableAdvanced:
         """Test execution status badges display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1823,7 +1784,7 @@ class TestWorkflowExecutionsTableAdvanced:
         """Test execution step badges display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1838,7 +1799,7 @@ class TestWorkflowExecutionsTableAdvanced:
         """Test Live button visibility for running/pending executions."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1853,7 +1814,7 @@ class TestWorkflowExecutionsTableAdvanced:
         """Test Retry button visibility for failed executions."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1868,7 +1829,7 @@ class TestWorkflowExecutionsTableAdvanced:
         """Test ranking score display formatting."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -1906,7 +1867,7 @@ class TestWorkflowConfigurationAdvanced:
         page.route("**/api/workflow/config", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(1000)
@@ -1939,7 +1900,7 @@ class TestWorkflowConfigurationAdvanced:
         """Test that config load API response is handled."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(2000)  # Wait for config to load
@@ -1958,7 +1919,7 @@ class TestWorkflowConfigurationAdvanced:
         """Test that save button is disabled initially."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(1000)
@@ -1978,7 +1939,7 @@ class TestWorkflowConfigurationAdvanced:
         """Test Reset button functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
         page.wait_for_timeout(1000)
@@ -2012,7 +1973,7 @@ class TestWorkflowExecutionsAPI:
         page.route("**/api/workflow/executions*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -2037,7 +1998,7 @@ class TestWorkflowExecutionsAPI:
         page.route("**/api/workflow/executions*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(3000)  # Wait for initial load
@@ -2072,7 +2033,7 @@ class TestWorkflowExecutionsAPI:
         page.route("**/api/workflow/executions*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -2104,7 +2065,7 @@ class TestWorkflowExecutionsAPI:
         page.route("**/api/workflow/executions*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
         page.wait_for_timeout(2000)
@@ -2140,7 +2101,7 @@ class TestWorkflowQueueAPI:
         page.route("**/api/sigma-queue/list*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(2000)
@@ -2165,7 +2126,7 @@ class TestWorkflowQueueAPI:
         page.route("**/api/sigma-queue/list*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
         page.wait_for_timeout(3000)  # Wait for initial load
@@ -2224,7 +2185,7 @@ class TestWorkflowQueueAPI:
         page.route("**/api/sigma-queue/list*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
         page.wait_for_timeout(2000)
 
@@ -2302,7 +2263,7 @@ class TestWorkflowQueueAPI:
         page.route(f"**/api/workflow/executions/{exec_id}/observables*", handle_route)
 
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
         page.wait_for_timeout(2000)
 
@@ -2353,7 +2314,7 @@ class TestWorkflowQueueAPI:
 
         page.route("**/api/sigma-queue/list*", handle_route)
         page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.locator("#tab-queue").click()
         page.wait_for_timeout(2000)
 

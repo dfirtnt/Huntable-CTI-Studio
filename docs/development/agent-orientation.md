@@ -4,8 +4,8 @@ This guide is the fastest way for a coding agent or new contributor to get orien
 
 ## Read In This Order
 
-1. [`AGENTS.md`](../../AGENTS.md)
-2. [`README.md`](../../README.md)
+1. [`AGENTS.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/AGENTS.md) (repository root; not under `docs/`)
+2. [`README.md`](https://github.com/dfirtnt/Huntable-CTI-Studio/blob/main/README.md) (repository root)
 3. [`docs/index.md`](../index.md)
 4. This document
 5. The files tied to the change you are making

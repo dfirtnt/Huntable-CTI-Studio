@@ -19,7 +19,7 @@ class TestPDFUploadPageLoad:
         """Test PDF upload page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page title
         expect(page).to_have_title("PDF Upload - Huntable CTI Scraper")
@@ -34,7 +34,7 @@ class TestPDFUploadPageLoad:
         """Test file upload input displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify file input exists
         file_input = page.locator("#file-upload")
@@ -48,7 +48,7 @@ class TestPDFUploadPageLoad:
         """Test browse files button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify browse button exists
         browse_btn = page.locator("button:has-text('Browse Files')")
@@ -68,7 +68,7 @@ class TestPDFUploadValidation:
         """Test file type validation (PDF only)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify accept attribute restricts to PDF
         file_input = page.locator("#file-upload")
@@ -84,7 +84,7 @@ class TestPDFUploadValidation:
         """Test file size limit display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify size limit message exists
         size_limit = page.locator("text=Maximum file size: 50MB")
@@ -96,7 +96,7 @@ class TestPDFUploadValidation:
         """Test supported format display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify format message exists
         format_msg = page.locator("text=Supported format: PDF only")
@@ -112,7 +112,7 @@ class TestPDFUploadProgress:
         """Test upload status display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify upload status div exists
         upload_status = page.locator("#upload-status")
@@ -125,7 +125,7 @@ class TestPDFUploadProgress:
         """Test upload progress indicator."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify progress indicator exists
         page.locator("text=Processing PDF...")
@@ -137,7 +137,7 @@ class TestPDFUploadProgress:
         """Test upload success display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify success div exists
         upload_success = page.locator("#upload-success")
@@ -150,7 +150,7 @@ class TestPDFUploadProgress:
         """Test upload error display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error div exists
         upload_error = page.locator("#upload-error")
@@ -181,7 +181,7 @@ class TestPDFUploadAPI:
         page.route("**/api/pdf/upload", handle_route)
 
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Create a dummy file input (can't actually upload file in test)
         # This test verifies the API endpoint exists
@@ -205,7 +205,7 @@ class TestPDFUploadAPI:
         page.route("**/api/pdf/upload", handle_route)
 
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify success message appears
         page.locator("#upload-success")
@@ -231,7 +231,7 @@ class TestPDFUploadAPI:
         page.route("**/api/pdf/upload", handle_route)
 
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify error div exists
         upload_error = page.locator("#upload-error")
@@ -247,7 +247,7 @@ class TestPDFUploadDragAndDrop:
         """Test drag over visual feedback."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find drop zone
         drop_zone = page.locator(".border-dashed")
@@ -270,7 +270,7 @@ class TestPDFUploadMultipleFiles:
         """Test single file upload support."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify file input exists (single file upload)
         file_input = page.locator("#file-upload")
@@ -290,7 +290,7 @@ class TestPDFUploadQueue:
         """Test upload queue management."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify upload status exists (queue indicator)
         upload_status = page.locator("#upload-status")
@@ -308,7 +308,7 @@ class TestPDFUploadCancellation:
         """Test upload cancellation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify file input can be cleared
         file_input = page.locator("#file-upload")
@@ -327,7 +327,7 @@ class TestPDFUploadHistory:
         """Test upload history display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify success details exist (shows article ID)
         success_details = page.locator("#success-details")
@@ -345,7 +345,7 @@ class TestPDFUploadRetry:
         """Test upload retry functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/pdf-upload")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify file input can be used again after error
         file_input = page.locator("#file-upload")
