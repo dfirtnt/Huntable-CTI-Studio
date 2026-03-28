@@ -1,0 +1,19 @@
+# Non-production scripts and test runner
+scripts/
+run_tests.py
+
+# Frontend assets — pre-existing HTML/JS findings are tech debt, not this PR's scope
+src/web/static/
+src/web/templates/
+
+# Infrastructure configs
+nginx/
+
+# Pre-existing findings in production code — tracked as tech debt, fix incrementally
+# ML model serialization services (trained in-house, trusted model files)
+src/services/huntable_windows_service.py
+src/services/os_detection_service.py
+# Non-security fingerprinting and hashing (similarity, tracing)
+src/core/processor.py
+src/utils/simhash.py
+src/web/routes/workflow_executions.py

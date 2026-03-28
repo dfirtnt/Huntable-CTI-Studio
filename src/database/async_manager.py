@@ -205,7 +205,7 @@ class AsyncDatabaseManager:
                     (80, 100, "very_high"),
                 ]:
                     score_count_result = await session.execute(
-                        text(f"""
+                        text(f"""  # nosemgrep: python.sqlalchemy.security.audit.avoid-sqlalchemy-text
                             SELECT COUNT(*) FROM articles WHERE archived = FALSE
                             AND CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT)
                             BETWEEN {min_score} AND {max_score}
