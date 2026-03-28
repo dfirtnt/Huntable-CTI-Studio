@@ -438,6 +438,9 @@ class SigmaRuleTable(Base):
     negative_atoms = Column(JSONB, nullable=True)  # Sorted list of negative atom identity strings
     surface_score = Column(Integer, nullable=True)  # DNF branch count
 
+    # Raw rule content
+    raw_yaml = Column(Text, nullable=True)
+
     # Source tracking
     file_path = Column(Text, nullable=False)
     repo_commit_sha = Column(String(40), nullable=True)

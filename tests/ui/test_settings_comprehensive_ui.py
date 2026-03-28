@@ -18,7 +18,7 @@ class TestSettingsPageLoad:
         """Test settings page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page title
         expect(page).to_have_title("Settings - Huntable CTI Scraper")
@@ -37,7 +37,7 @@ class TestBackupConfiguration:
         """Test backup configuration section displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify section exists
         backup_section = page.locator("text=💾 Backup Configuration")
@@ -49,7 +49,7 @@ class TestBackupConfiguration:
         """Test backup configuration toggle."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find content (should be hidden initially)
         backup_content = page.locator("#backupConfigContent")
@@ -73,7 +73,7 @@ class TestBackupConfiguration:
         """Test backup schedule inputs."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -95,7 +95,7 @@ class TestBackupConfiguration:
         """Test backup retention policy inputs."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -129,7 +129,7 @@ class TestBackupConfiguration:
         """Test backup components checkboxes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -167,7 +167,7 @@ class TestBackupConfiguration:
         """Test backup settings inputs."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -190,7 +190,7 @@ class TestBackupConfiguration:
         """Test backup compression checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -208,7 +208,7 @@ class TestBackupConfiguration:
         """Test backup verification checkbox."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -226,7 +226,7 @@ class TestBackupConfiguration:
         """Test backup action buttons."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -252,7 +252,7 @@ class TestBackupConfiguration:
         """Test backup status display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
@@ -278,7 +278,7 @@ class TestLMStudioURLSettings:
         """With LM Studio enabled, LM Studio server URL and embedding URL inputs are visible and load/save."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Enable LM Studio so the URL section is shown
         lmstudio_checkbox = page.locator("#workflowLmstudioEnabled")
@@ -303,7 +303,7 @@ class TestLMStudioURLSettings:
         """Test LMStudio model dropdown."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Select LMStudio model
         ai_model = page.locator("#aiModel")
@@ -334,7 +334,7 @@ class TestLMStudioURLSettings:
         page.route("**/api/lmstudio-models", handle_route)
 
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for async load
 
         # Verify API was called
@@ -346,7 +346,7 @@ class TestLMStudioURLSettings:
         """Test AI temperature slider."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify temperature slider
         temperature_slider = page.locator("#aiTemperature")
@@ -365,7 +365,7 @@ class TestLMStudioURLSettings:
         """Test temperature slider value updates display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Get initial value
         temperature_slider = page.locator("#aiTemperature")
@@ -386,7 +386,7 @@ class TestLMStudioURLSettings:
         """Test model description panel."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify description panel exists
         description_panel = page.locator("text=Recommmended Models:")
@@ -402,7 +402,7 @@ class TestSIGMARuleConfiguration:
         """Test SIGMA author input."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify SIGMA author input
         sigma_author = page.locator("#sigmaAuthor")
@@ -420,7 +420,7 @@ class TestDataExport:
         """Test export annotations button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify export button
         export_btn = page.locator("#exportAnnotationsBtn")
@@ -433,7 +433,7 @@ class TestDataExport:
         """Test export progress indicator."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify progress indicator exists
         export_progress = page.locator("#exportProgress")
@@ -457,7 +457,7 @@ class TestDataExport:
         page.route("**/api/annotations/export", handle_route)
 
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click export button
         export_btn = page.locator("#exportAnnotationsBtn")
@@ -477,7 +477,7 @@ class TestAPIConfiguration:
         """Test API configuration section visibility."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Find API configuration section
         api_section = page.locator("#apiConfigurationSection")
@@ -502,7 +502,7 @@ class TestAPIConfiguration:
         """Test OpenAI API key input."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -521,7 +521,7 @@ class TestAPIConfiguration:
         """Test OpenAI API key toggle visibility button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -547,7 +547,7 @@ class TestAPIConfiguration:
         """Test Anthropic API key section visibility."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -576,7 +576,7 @@ class TestAPIConfiguration:
         """Test Anthropic API key toggle visibility button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section and select Anthropic
         ai_model = page.locator("#aiModel")
@@ -593,7 +593,7 @@ class TestAPIConfiguration:
         """Test Langfuse configuration section."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -623,7 +623,7 @@ class TestAPIConfiguration:
         """Test Langfuse toggle visibility buttons."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -643,7 +643,7 @@ class TestAPIConfiguration:
         """Test Langfuse connection test button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -665,7 +665,7 @@ class TestAPIConfiguration:
         """Test API key test button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Show API section
         ai_model = page.locator("#aiModel")
@@ -691,7 +691,7 @@ class TestSettingsPersistence:
         """Test save settings button."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify save button exists
         save_btn = page.locator("#saveSettings")
@@ -716,7 +716,7 @@ class TestSettingsPersistence:
 
         # Reload page
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(1000)  # Wait for settings to load
 
         # Verify settings were loaded
@@ -736,7 +736,7 @@ class TestSettingsPersistence:
         """Test settings save to localStorage."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Change settings
         ai_model = page.locator("#aiModel")
@@ -773,7 +773,7 @@ class TestSettingsPersistence:
         page.route("**/api/settings/**", handle_route)
 
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Click save button
         save_btn = page.locator("#saveSettings")
@@ -789,7 +789,7 @@ class TestSettingsPersistence:
         """Test global toast notification (showNotification) displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         # Global showNotification creates a toast with role=alert
         has_fn = page.evaluate("typeof window.showNotification === 'function'")
         assert has_fn, "Global showNotification should exist"
@@ -808,7 +808,7 @@ class TestSettingsLoading:
         """Test settings page load initialization."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for async initialization
 
         # Verify page loaded successfully
@@ -821,7 +821,7 @@ class TestSettingsLoading:
         """Test LMStudio models async loading."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)  # Wait for async load
 
         # Select LMStudio model
@@ -850,7 +850,7 @@ class TestSettingsLoading:
 
         # Reload page
         page.reload()
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         page.wait_for_timeout(2000)
 
         # Show API section

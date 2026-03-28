@@ -190,7 +190,7 @@ Some UI tests mutate agent/workflow/settings config (run evaluations, save setti
 python3 run_tests.py ui --exclude-markers agent_config_mutation
 ```
 
-**Why `ui` feels slow:** `run_tests.py ui` runs **two** browser stacks in sequence: pytest `tests/ui/` (Python Playwright, with `pytest-xdist -n auto`) and then `npx playwright test tests/playwright/*.spec.ts` (often 200+ specs). For fast iteration on Python UI tests only:
+**Why `ui` feels slow:** `run_tests.py ui` runs **two** browser stacks in sequence: pytest `tests/ui/` (Python Playwright; **serial by default** so workers do not hammer one `localhost:8001` stack) and then `npx playwright test tests/playwright/*.spec.ts` (often 200+ specs). Use **`--parallel`** to enable `pytest-xdist -n auto` for pytest UI (may flake against a single live app). For fast iteration on Python UI tests only:
 
 ```bash
 python3 run_tests.py ui --skip-playwright-js --exclude-markers agent_config_mutation
@@ -201,7 +201,7 @@ This excludes:
 - **Pytest (tests/ui/)**: tests marked `@pytest.mark.agent_config_mutation` (run evaluation, save settings, save workflow config).
 - **Playwright TypeScript (tests/playwright/)**: specs that change workflow/agent config are ignored via `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (e.g. `agent_config_*.spec.ts`, `workflow_save_button.spec.ts`, `workflow_config_persistence.spec.ts`, `workflow_config_versions.spec.ts`).
 
-**Agents → SIGMA Queue / Executions (layout + Enrich):** `tests/ui/test_workflow_enrich_original_rule_regression.py`, `test_workflow_queue_table_layout_ui.py`, `test_workflow_executions_table_layout_ui.py` (mocked APIs; Enrich “Original Rule” = YAML; tables avoid horizontal scroll for Actions). With `pytest-xdist`, Playwright output goes to `test-results/playwright-<worker>/` per worker (avoids teardown races on `test-results`).
+**Agents → SIGMA Queue / Executions (layout + Enrich):** `tests/ui/test_workflow_enrich_original_rule_regression.py`, `test_workflow_queue_table_layout_ui.py`, `test_workflow_executions_table_layout_ui.py` (mocked APIs; Enrich “Original Rule” = YAML; tables avoid horizontal scroll for Actions). With **`--parallel`** / `pytest-xdist`, Playwright output goes to `test-results/playwright-<worker>/` per worker (avoids teardown races on `test-results`).
 
 ## CI / GitHub Actions Coverage
 
@@ -654,7 +654,7 @@ python3 scripts/run_tests_by_group.py --group ui
 
 **Note**: UI tests are read-only and do not modify database or config files.
 
-**UI test speed**: Pytest UI runs with **parallel workers by default** (`-n auto`, pytest-xdist); each worker has its own browser. Also: `PLAYWRIGHT_SLOW_MO=0`, no video unless `PLAYWRIGHT_VIDEO=1` or `PLAYWRIGHT_VIDEO_DIR`. TypeScript Playwright: `fullyParallel: true`, 2 workers in CI. Cap pytest workers with `PYTEST_XDIST_WORKER_COUNT=4` if needed. For debugging: `PLAYWRIGHT_SLOW_MO=100`, optional `PLAYWRIGHT_VIDEO=1`. Quick feedback: run smoke or a single file; CI: Playwright sharding (`--shard=1/4`).
+**UI test speed**: Pytest `tests/ui/` runs **serially** by default (no `-n auto`) so parallel browsers do not contend on one live app. Pass **`--parallel`** for `pytest-xdist -n auto` if you accept possible flakes. Also: `PLAYWRIGHT_SLOW_MO=0`, no video unless `PLAYWRIGHT_VIDEO=1` or `PLAYWRIGHT_VIDEO_DIR`. TypeScript Playwright: `fullyParallel: true`, 2 workers in CI. Cap pytest workers with `PYTEST_XDIST_WORKER_COUNT=4` when using `--parallel`. For debugging: `PLAYWRIGHT_SLOW_MO=100`, optional `PLAYWRIGHT_VIDEO=1`. Quick feedback: run smoke or a single file; CI: Playwright sharding (`--shard=1/4`).
 
 ---
 
