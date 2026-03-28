@@ -29,11 +29,13 @@ class TestLoadArticlesByUrl:
         sub = tmp_path / "cmdline"
         sub.mkdir()
         (sub / "articles.json").write_text(
-            json.dumps([
-                {"url": "https://a.com/1", "title": "First", "content": "c1"},
-                {"url": "https://a.com/1", "title": "Second", "content": "c2"},
-                {"url": "https://b.com/2", "title": "B", "content": "c3"},
-            ])
+            json.dumps(
+                [
+                    {"url": "https://a.com/1", "title": "First", "content": "c1"},
+                    {"url": "https://a.com/1", "title": "Second", "content": "c2"},
+                    {"url": "https://b.com/2", "title": "B", "content": "c3"},
+                ]
+            )
         )
         by_url = _load_articles_by_url(tmp_path)
         assert len(by_url) == 2
@@ -44,9 +46,7 @@ class TestLoadArticlesByUrl:
         """Entries without url are skipped."""
         sub = tmp_path / "x"
         sub.mkdir()
-        (sub / "articles.json").write_text(
-            json.dumps([{"title": "No URL", "content": "x"}])
-        )
+        (sub / "articles.json").write_text(json.dumps([{"title": "No URL", "content": "x"}]))
         assert _load_articles_by_url(tmp_path) == {}
 
 
@@ -90,10 +90,12 @@ class TestRunReturnReason:
         data_dir.mkdir(parents=True)
         (data_dir / "cmdline").mkdir()
         (data_dir / "cmdline" / "articles.json").write_text(
-            json.dumps([
-                {"url": "https://a.com/1", "title": "A", "content": ""},
-                {"url": "https://b.com/2", "title": "B", "content": ""},
-            ])
+            json.dumps(
+                [
+                    {"url": "https://a.com/1", "title": "A", "content": ""},
+                    {"url": "https://b.com/2", "title": "B", "content": ""},
+                ]
+            )
         )
 
         with patch("src.services.seed_eval_articles.DatabaseManager", return_value=manager):
@@ -125,9 +127,11 @@ class TestRunReturnReason:
         data_dir.mkdir(parents=True)
         (data_dir / "cmdline").mkdir()
         (data_dir / "cmdline" / "articles.json").write_text(
-            json.dumps([
-                {"url": "https://new.com/1", "title": "New", "content": "body"},
-            ])
+            json.dumps(
+                [
+                    {"url": "https://new.com/1", "title": "New", "content": "body"},
+                ]
+            )
         )
 
         created_articles = [MagicMock(id=10)]

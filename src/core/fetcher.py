@@ -148,8 +148,7 @@ class ContentFetcher:
                     # RSS was reachable but returned zero articles — fall through
                     # to lower tiers instead of reporting a false success.
                     logger.warning(
-                        f"RSS feed returned no articles for {source.name}, "
-                        f"falling through to next fetch tier"
+                        f"RSS feed returned no articles for {source.name}, falling through to next fetch tier"
                     )
 
                 except Exception as e:

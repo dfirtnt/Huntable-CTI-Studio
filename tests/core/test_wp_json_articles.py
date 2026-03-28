@@ -80,7 +80,6 @@ def scraper():
 
 
 class TestFetchWpJsonArticlesHappyPath:
-
     @pytest.mark.asyncio
     async def test_single_endpoint_returns_articles(self, scraper):
         """A valid WP JSON response with one post should produce one ArticleCreate."""
@@ -142,7 +141,6 @@ class TestFetchWpJsonArticlesHappyPath:
 
 
 class TestFetchWpJsonArticlesFiltering:
-
     @pytest.mark.asyncio
     async def test_lookback_filter_skips_old_posts(self, scraper):
         """Posts older than lookback_days are excluded."""
@@ -163,9 +161,11 @@ class TestFetchWpJsonArticlesFiltering:
         post = _make_wp_post(link="https://example.com/about-us")
         scraper.http_client.get.return_value = _make_response(body=[post])
 
-        source = _make_source(config={
-            "post_url_regex": [r"^https://example\.com/blog/.*"],
-        })
+        source = _make_source(
+            config={
+                "post_url_regex": [r"^https://example\.com/blog/.*"],
+            }
+        )
         wp_cfg = {"endpoints": ["https://example.com/wp-json/wp/v2/posts"]}
 
         articles = await scraper._fetch_wp_json_articles(wp_cfg, source)
@@ -178,9 +178,11 @@ class TestFetchWpJsonArticlesFiltering:
         post = _make_wp_post(link="https://example.com/blog/real-article")
         scraper.http_client.get.return_value = _make_response(body=[post])
 
-        source = _make_source(config={
-            "post_url_regex": [r"^https://example\.com/blog/.*"],
-        })
+        source = _make_source(
+            config={
+                "post_url_regex": [r"^https://example\.com/blog/.*"],
+            }
+        )
         wp_cfg = {"endpoints": ["https://example.com/wp-json/wp/v2/posts"]}
 
         articles = await scraper._fetch_wp_json_articles(wp_cfg, source)
@@ -247,7 +249,6 @@ class TestFetchWpJsonArticlesFiltering:
 
 
 class TestFetchWpJsonArticlesErrors:
-
     @pytest.mark.asyncio
     async def test_http_error_continues_to_next_endpoint(self, scraper):
         """An HTTP error on one endpoint doesn't block the next."""
@@ -292,9 +293,11 @@ class TestFetchWpJsonArticlesErrors:
         post = _make_wp_post(link="https://example.com/blog/valid")
         scraper.http_client.get.return_value = _make_response(body=[post])
 
-        source = _make_source(config={
-            "post_url_regex": ["[invalid(regex", r"^https://example\.com/blog/.*"],
-        })
+        source = _make_source(
+            config={
+                "post_url_regex": ["[invalid(regex", r"^https://example\.com/blog/.*"],
+            }
+        )
         wp_cfg = {"endpoints": ["https://example.com/wp-json/wp/v2/posts"]}
 
         articles = await scraper._fetch_wp_json_articles(wp_cfg, source)
@@ -323,7 +326,6 @@ class TestFetchWpJsonArticlesErrors:
 
 
 class TestFetchWpJsonArticlesContentFallback:
-
     @pytest.mark.asyncio
     async def test_excerpt_used_when_content_too_short(self, scraper):
         """When content is below min_content_length, excerpt is used as fallback."""

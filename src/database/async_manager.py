@@ -592,7 +592,6 @@ class AsyncDatabaseManager:
 
                 await session.commit()
 
-
         except Exception as e:
             logger.error(f"Failed to update source health for {source_id}: {e}")
             raise
@@ -2379,9 +2378,7 @@ class AsyncDatabaseManager:
         """Get a single Sigma rule by its SigmaHQ UUID (rule_id column)."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(
-                    select(SigmaRuleTable).where(SigmaRuleTable.rule_id == rule_id)
-                )
+                result = await session.execute(select(SigmaRuleTable).where(SigmaRuleTable.rule_id == rule_id))
                 rule = result.scalar_one_or_none()
                 if rule is None:
                     return None

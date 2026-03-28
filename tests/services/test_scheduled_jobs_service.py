@@ -90,6 +90,7 @@ def test_get_periodic_jobs_uses_persisted_config(monkeypatch):
 
 def test_restart_scheduler_returns_reload_metadata(monkeypatch):
     """Scheduler reload should surface the container restart result."""
+
     def fake_run(cmd, **kwargs):
         assert cmd == ["docker", "restart", "cti_scheduler"]
         return subprocess.CompletedProcess(cmd, 0, stdout="cti_scheduler\n", stderr="")

@@ -96,6 +96,7 @@ def ast_to_dnf(node: OrNode | AndNode | NotNode | AtomNode) -> list[list[tuple[b
             f"DNF expansion would produce {len(branches)} branches (max {MAX_DNF_BRANCHES})"
         )
     canonical = [_canonicalize_branch(b) for b in branches]
+
     # Sort branches by canonical representation (tuple of (is_negated, atom_key) per literal)
     def branch_key(b: tuple) -> tuple:
         return tuple((neg, _atom_key(a)) for neg, a in b)

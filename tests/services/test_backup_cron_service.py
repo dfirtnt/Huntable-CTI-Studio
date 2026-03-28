@@ -85,7 +85,9 @@ def test_install_backup_schedule_preserves_external_jobs(monkeypatch):
 
     assert result["automated"] is True
     assert len(result["managed_jobs"]) == 2
-    assert any(job["command"].startswith("cd /repo && ./scripts/backup_restore.sh prune") for job in result["managed_jobs"])
+    assert any(
+        job["command"].startswith("cd /repo && ./scripts/backup_restore.sh prune") for job in result["managed_jobs"]
+    )
 
 
 def test_save_config_preserves_unknown_top_level_sections(tmp_path):

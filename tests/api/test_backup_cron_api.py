@@ -16,7 +16,16 @@ async def test_get_backup_cron_returns_state(monkeypatch):
     expected = {
         "cron_available": True,
         "automated": True,
-        "jobs": [{"schedule": "0 2 * * *", "command": "echo hi", "managed": False, "kind": "external", "comment": None, "raw": "0 2 * * * echo hi"}],
+        "jobs": [
+            {
+                "schedule": "0 2 * * *",
+                "command": "echo hi",
+                "managed": False,
+                "kind": "external",
+                "comment": None,
+                "raw": "0 2 * * * echo hi",
+            }
+        ],
         "managed_jobs": [],
         "config": {"backup_time": "02:00"},
     }
@@ -47,7 +56,13 @@ async def test_update_backup_cron_saves_config_and_applies_when_requested(monkey
 
     class FakeService:
         def get_state(self, cfg):
-            return {"cron_available": True, "automated": False, "jobs": [], "managed_jobs": [], "config": {"backup_time": cfg.backup_time}}
+            return {
+                "cron_available": True,
+                "automated": False,
+                "jobs": [],
+                "managed_jobs": [],
+                "config": {"backup_time": cfg.backup_time},
+            }
 
         def install_backup_schedule(self, cfg):
             return {

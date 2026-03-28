@@ -250,19 +250,23 @@ class SigmaNoveltyService:
 
                     used_deterministic = True
                     service_penalty = 0.0
-                    deterministic_result = type("Result", (), {
-                        "jaccard": atom_jaccard,
-                        "containment_factor": logic_similarity,
-                        "filter_penalty": filter_penalty,
-                        "surface_score_a": surface_a,
-                        "surface_score_b": surface_b,
-                        "canonical_class": proposed_sem["canonical_class"],
-                        "explanation": {
-                            "overlap_ratio_a": overlap_ratio_a,
-                            "overlap_ratio_b": overlap_ratio_b,
-                            "reason_flags": reason_flags,
+                    deterministic_result = type(
+                        "Result",
+                        (),
+                        {
+                            "jaccard": atom_jaccard,
+                            "containment_factor": logic_similarity,
+                            "filter_penalty": filter_penalty,
+                            "surface_score_a": surface_a,
+                            "surface_score_b": surface_b,
+                            "canonical_class": proposed_sem["canonical_class"],
+                            "explanation": {
+                                "overlap_ratio_a": overlap_ratio_a,
+                                "overlap_ratio_b": overlap_ratio_b,
+                                "reason_flags": reason_flags,
+                            },
                         },
-                    })()
+                    )()
 
                 elif _sigma_compare_rules is not None and isinstance(candidate, dict):
                     try:
@@ -297,12 +301,12 @@ class SigmaNoveltyService:
                         logic_similarity = None
                         weighted_before_penalties = 1.0
                     else:
-                        logic_similarity = self.compute_logic_shape_similarity(
-                            canonical_rule, candidate_canonical
-                        )
+                        logic_similarity = self.compute_logic_shape_similarity(canonical_rule, candidate_canonical)
                         weighted_sim = self.compute_weighted_similarity(
-                            atom_jaccard, logic_similarity,
-                            service_penalty=service_penalty, filter_penalty=filter_penalty,
+                            atom_jaccard,
+                            logic_similarity,
+                            service_penalty=service_penalty,
+                            filter_penalty=filter_penalty,
                         )
                         logic_val = logic_similarity if logic_similarity is not None else 0.0
                         weighted_before_penalties = 0.70 * atom_jaccard + 0.30 * logic_val
@@ -325,9 +329,7 @@ class SigmaNoveltyService:
                             "filter_differences": sorted(filter_diff),
                         }
                     else:
-                        explainability = self.generate_explainability(
-                            canonical_rule, candidate_canonical, candidate
-                        )
+                        explainability = self.generate_explainability(canonical_rule, candidate_canonical, candidate)
 
                     match_dict = {
                         "rule_id": candidate.get("rule_id", "") if isinstance(candidate, dict) else "",
@@ -346,15 +348,9 @@ class SigmaNoveltyService:
                                 "filter_penalty": deterministic_result.filter_penalty,
                                 "surface_score_a": deterministic_result.surface_score_a,
                                 "surface_score_b": deterministic_result.surface_score_b,
-                                "overlap_ratio_a": deterministic_result.explanation.get(
-                                    "overlap_ratio_a", 0.0
-                                ),
-                                "overlap_ratio_b": deterministic_result.explanation.get(
-                                    "overlap_ratio_b", 0.0
-                                ),
-                                "reason_flags": deterministic_result.explanation.get(
-                                    "reason_flags", []
-                                ),
+                                "overlap_ratio_a": deterministic_result.explanation.get("overlap_ratio_a", 0.0),
+                                "overlap_ratio_b": deterministic_result.explanation.get("overlap_ratio_b", 0.0),
+                                "reason_flags": deterministic_result.explanation.get("reason_flags", []),
                             }
                             if used_deterministic and deterministic_result is not None
                             else None
@@ -377,9 +373,7 @@ class SigmaNoveltyService:
 
             behavioral_matches_found = sum(1 for m in matches if _jaccard(m) > 0)
             engine_used = (
-                "deterministic"
-                if any(m.get("similarity_engine") == "deterministic" for m in matches)
-                else "legacy"
+                "deterministic" if any(m.get("similarity_engine") == "deterministic" for m in matches) else "legacy"
             )
 
             return {

@@ -43,9 +43,7 @@ class SourceHealingConfig:
         try:
             db_manager = DatabaseManager()
             db_session = db_manager.get_session()
-            query = db_session.query(AppSettingsTable).filter(
-                AppSettingsTable.key.in_(HEALING_KEYS.values())
-            )
+            query = db_session.query(AppSettingsTable).filter(AppSettingsTable.key.in_(HEALING_KEYS.values()))
             for row in query:
                 raw[row.key] = row.value
         except Exception as exc:

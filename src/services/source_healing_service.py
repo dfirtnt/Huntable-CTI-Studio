@@ -126,8 +126,10 @@ class SourceHealingService:
         for round_num in range(1, self.config.max_attempts + 1):
             logger.info(
                 "[AutoHeal] Source '%s' (id=%s) — round %d/%d",
-                source_snapshot.get("name", "?"), source_id,
-                round_num, self.config.max_attempts,
+                source_snapshot.get("name", "?"),
+                source_id,
+                round_num,
+                self.config.max_attempts,
             )
 
             # 2. Deep diagnostic probe (re-probe each round — state may have changed)
@@ -135,7 +137,9 @@ class SourceHealingService:
 
             # 3. Ask LLM (include previous attempt context if retrying)
             proposed_actions = await self._analyze_with_llm(
-                source_snapshot, error_history, probe_results,
+                source_snapshot,
+                error_history,
+                probe_results,
                 previous_attempts=previous_attempts,
                 working_examples=working_examples,
             )
@@ -214,10 +218,12 @@ class SourceHealingService:
         logger.warning(
             "[AutoHeal] Source '%s' (id=%s) exhausted %d healing rounds",
             source_snapshot.get("name", "?") if source_snapshot else "?",
-            source_id, self.config.max_attempts,
+            source_id,
+            self.config.max_attempts,
         )
         try:
             from src.models.source import SourceUpdate
+
             await db.update_source(source_id, SourceUpdate(healing_exhausted=True))
         except Exception:
             logger.exception("[AutoHeal] Failed to mark source %s as healing_exhausted", source_id)
@@ -228,9 +234,7 @@ class SourceHealingService:
     async def _get_source_snapshot(db: AsyncDatabaseManager, source_id: int) -> dict | None:
         try:
             async with db.get_session() as session:
-                result = await session.execute(
-                    select(SourceTable).where(SourceTable.id == source_id)
-                )
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
                 src = result.scalar_one_or_none()
                 if src is None:
                     return None
@@ -251,9 +255,7 @@ class SourceHealingService:
             return None
 
     @staticmethod
-    async def _get_error_history(
-        db: AsyncDatabaseManager, source_id: int, limit: int = 20
-    ) -> list[dict]:
+    async def _get_error_history(db: AsyncDatabaseManager, source_id: int, limit: int = 20) -> list[dict]:
         try:
             async with db.get_session() as session:
                 result = await session.execute(
@@ -303,6 +305,7 @@ class SourceHealingService:
         base_domain = ""
         if source_url:
             from urllib.parse import urlparse
+
             parsed = urlparse(source_url)
             base_domain = f"{parsed.scheme}://{parsed.netloc}"
 
@@ -311,7 +314,6 @@ class SourceHealingService:
             follow_redirects=True,
             max_redirects=5,
         ) as client:
-
             # ── 1. Basic HTTP probe for url and rss_url ──
             for label, url in [("url", source_url), ("rss_url", rss_url)]:
                 if not url or not url.startswith(("http://", "https://")):
@@ -323,12 +325,16 @@ class SourceHealingService:
                     results.append({"label": label, "url": url, "reachable": False, "error": "Connection failed"})
                 else:
                     final_url = str(resp.url)
-                    results.append({
-                        "label": label, "url": url, "reachable": True,
-                        "status_code": resp.status_code,
-                        "final_url": final_url if final_url != url else None,
-                        "content_type": resp.headers.get("content-type", ""),
-                    })
+                    results.append(
+                        {
+                            "label": label,
+                            "url": url,
+                            "reachable": True,
+                            "status_code": resp.status_code,
+                            "final_url": final_url if final_url != url else None,
+                            "content_type": resp.headers.get("content-type", ""),
+                        }
+                    )
 
             # ── 2. RSS content inspection ──
             if rss_url and rss_url.startswith(("http://", "https://")):
@@ -369,6 +375,7 @@ class SourceHealingService:
                     all_hrefs = href_pattern.findall(body)
                     # Heuristic: blog post links usually contain the source domain + /blog/ or similar
                     from urllib.parse import urljoin
+
                     post_links = set()
                     for href in all_hrefs:
                         full = urljoin(source_url, href)
@@ -429,11 +436,11 @@ class SourceHealingService:
                     if resp and resp.status_code == 200:
                         try:
                             import json as _json
+
                             posts = _json.loads(resp.text)
                             if isinstance(posts, list) and posts:
                                 has_content = any(
-                                    len(p.get("content", {}).get("rendered", "") or "") > 100
-                                    for p in posts[:3]
+                                    len(p.get("content", {}).get("rendered", "") or "") > 100 for p in posts[:3]
                                 )
                                 wp_info["endpoint"] = wp_url
                                 wp_info["post_count_sample"] = len(posts)
@@ -458,7 +465,9 @@ class SourceHealingService:
 
     @staticmethod
     async def _get_working_source_examples(
-        db: "AsyncDatabaseManager", source_id: int, limit: int = 3,
+        db: "AsyncDatabaseManager",
+        source_id: int,
+        limit: int = 3,
     ) -> list[dict]:
         """Return configs from similar working sources as reference examples."""
         try:
@@ -490,22 +499,27 @@ class SourceHealingService:
     # ── Step 3: LLM analysis ───────────────────────────────────────────
 
     async def _analyze_with_llm(
-        self, source_snapshot: dict, error_history: list[dict], probe_results: list[dict],
+        self,
+        source_snapshot: dict,
+        error_history: list[dict],
+        probe_results: list[dict],
         previous_attempts: list[dict] | None = None,
         working_examples: list[dict] | None = None,
     ) -> dict:
         """Call the configured LLM to diagnose and propose fixes."""
         user_message = self._build_user_prompt(
-            source_snapshot, error_history, probe_results,
-            previous_attempts, working_examples,
+            source_snapshot,
+            error_history,
+            probe_results,
+            previous_attempts,
+            working_examples,
         )
 
         try:
             llm = LLMService()
         except Exception:
             logger.exception(
-                "[AutoHeal] Failed to initialize LLMService for source %s — "
-                "check provider settings and API keys",
+                "[AutoHeal] Failed to initialize LLMService for source %s — check provider settings and API keys",
                 source_snapshot.get("id"),
             )
             return {"diagnosis": "LLM service initialization failed", "actions": []}
@@ -600,7 +614,9 @@ class SourceHealingService:
 
     @staticmethod
     def _build_user_prompt(
-        source_snapshot: dict, error_history: list[dict], probe_results: list[dict],
+        source_snapshot: dict,
+        error_history: list[dict],
+        probe_results: list[dict],
         previous_attempts: list[dict] | None = None,
         working_examples: list[dict] | None = None,
     ) -> str:
@@ -685,7 +701,7 @@ class SourceHealingService:
                     if probe.get("sample_posts"):
                         for sp in probe["sample_posts"]:
                             parts.append(
-                                f"    - \"{sp.get('title', '?')}\" → {sp.get('link', '?')} "
+                                f'    - "{sp.get("title", "?")}" → {sp.get("link", "?")} '
                                 f"(date={sp.get('date', '?')}, content={sp.get('content_length', 0)} chars)"
                             )
                 else:
@@ -711,9 +727,7 @@ class SourceHealingService:
             parts.append("")
             parts.append("## Previous Healing Attempts (this session)")
             for attempt in previous_attempts:
-                parts.append(
-                    f"### Round {attempt['round']} — {attempt['validation_result']}"
-                )
+                parts.append(f"### Round {attempt['round']} — {attempt['validation_result']}")
                 parts.append(f"Diagnosis: {attempt['diagnosis']}")
                 parts.append(f"Actions applied: {json.dumps(attempt['actions_applied'])}")
 

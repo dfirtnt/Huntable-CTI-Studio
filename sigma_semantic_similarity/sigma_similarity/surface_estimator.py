@@ -9,6 +9,7 @@ from sigma_similarity.errors import UnsupportedSigmaFeatureError
 # Lazy import to avoid cycle
 def _get_dnf(ast: ASTNode):
     from sigma_similarity.dnf_normalizer import ast_to_dnf
+
     return ast_to_dnf(ast)
 
 

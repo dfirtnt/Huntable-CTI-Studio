@@ -3,7 +3,6 @@ Similarity engine: orchestrate canonical class, normalization, DNF, atoms, surfa
 containment, filter penalty, and final similarity. No global state.
 """
 
-
 import yaml
 
 from sigma_similarity.ast_builder import build_ast
@@ -134,9 +133,7 @@ def compare_rules(rule_a: dict | str, rule_b: dict | str) -> SimilarityResult:
     J = len(intersection) / len(union) if union else 0.0
 
     # 8. Containment
-    B, overlap_ratio_a, overlap_ratio_b = compute_containment(
-        len(intersection), len(A1), len(A2), surface_a, surface_b
-    )
+    B, overlap_ratio_a, overlap_ratio_b = compute_containment(len(intersection), len(A1), len(A2), surface_a, surface_b)
 
     # 10. Final similarity
     sim = (J * B) - F

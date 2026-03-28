@@ -41,7 +41,14 @@ class TestSigmaEnrichUI:
             if "/api/sigma-queue/list" in route.request.url:
                 route.fulfill(
                     status=200,
-                    body=json.dumps({"items": _SIGMA_QUEUE_LIST_MOCK, "total": len(_SIGMA_QUEUE_LIST_MOCK), "limit": 50, "offset": 0}),
+                    body=json.dumps(
+                        {
+                            "items": _SIGMA_QUEUE_LIST_MOCK,
+                            "total": len(_SIGMA_QUEUE_LIST_MOCK),
+                            "limit": 50,
+                            "offset": 0,
+                        }
+                    ),
                     headers={"Content-Type": "application/json"},
                 )
             else:

@@ -38,6 +38,7 @@ def test_field_alias_applied():
 def test_positive_atoms_sorted(rule_with_and):
     norm = normalize_detection(rule_with_and["detection"])
     from sigma_similarity.ast_builder import build_ast
+
     ast = build_ast(norm)
     dnf = ast_to_dnf(ast)
     pos = extract_positive_atoms(dnf)

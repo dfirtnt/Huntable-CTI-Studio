@@ -17,8 +17,8 @@ class TokenType(Enum):
     AND = "and"
     OR = "or"
     NOT = "not"
-    ONE = "one"      # "1" in "1 of"
-    ALL = "all"      # "all" in "all of"
+    ONE = "one"  # "1" in "1 of"
+    ALL = "all"  # "all" in "all of"
     OF = "of"
     LPAREN = "lparen"
     RPAREN = "rparen"
@@ -112,6 +112,7 @@ def _reject_unsupported_condition(condition: str) -> None:
 
 class ConditionNode:
     """Base for parsed condition tree (before selection resolution)."""
+
     pass
 
 

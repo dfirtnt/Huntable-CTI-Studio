@@ -151,9 +151,7 @@ def index_customer_repo_cmd(force: bool, no_embeddings: bool):
             SpinnerColumn(), TextColumn("[progress.description]{task.description}"), console=console
         ) as progress:
             task = progress.add_task("Indexing customer rules (metadata)...", total=None)
-            result = sync_service.index_metadata(
-                session, force_reindex=force, rule_id_prefix=prefix
-            )
+            result = sync_service.index_metadata(session, force_reindex=force, rule_id_prefix=prefix)
             progress.update(task, description="Metadata complete")
 
         console.print(
@@ -192,7 +190,9 @@ def index_customer_repo_cmd(force: bool, no_embeddings: bool):
                 f"skipped={emb_result['skipped']}, errors={emb_result['errors']}"
             )
         else:
-            console.print("[dim]Skipped embeddings (--no-embeddings). Run 'sigma index-embeddings' to embed later.[/dim]")
+            console.print(
+                "[dim]Skipped embeddings (--no-embeddings). Run 'sigma index-embeddings' to embed later.[/dim]"
+            )
 
         session.close()
 
@@ -255,7 +255,9 @@ def recompute_semantics_cmd():
         from src.services.sigma_semantic_precompute import is_sigma_similarity_available, precompute_semantic_fields
 
         if not is_sigma_similarity_available():
-            console.print("[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_semantic_similarity")
+            console.print(
+                "[bold red]✗[/bold red] sigma_similarity package not installed. Run: pip install -e sigma_semantic_similarity"
+            )
             return
 
         db_manager = DatabaseManager()
@@ -455,9 +457,7 @@ def show_stats():
         embedded_rules = session.query(SigmaRuleTable).filter(SigmaRuleTable.embedding.isnot(None)).count()
 
         # Count customer-repo rules (included in similarity search)
-        customer_rules = (
-            session.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id.startswith("cust-")).count()
-        )
+        customer_rules = session.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id.startswith("cust-")).count()
 
         # Count by status
         from sqlalchemy import func

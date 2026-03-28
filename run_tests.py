@@ -978,9 +978,7 @@ class RunTestRunner:
 
             # Determine if we should run Playwright tests
             playwright_cmd = self._build_playwright_command()
-            run_playwright = (
-                playwright_cmd is not None and not self.config.skip_playwright_js
-            )
+            run_playwright = playwright_cmd is not None and not self.config.skip_playwright_js
             if self.config.skip_playwright_js and playwright_cmd is not None:
                 print(
                     "\n⚡ --skip-playwright-js: skipping npx Playwright (tests/playwright/*.spec.ts). "

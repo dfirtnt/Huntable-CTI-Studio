@@ -151,15 +151,27 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
     if provider == "openai":
         k = WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]
         val = workflow_settings.get(k)
-        api_key = (val if val and str(val).strip() else None) or os.getenv("WORKFLOW_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+        api_key = (
+            (val if val and str(val).strip() else None)
+            or os.getenv("WORKFLOW_OPENAI_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+        )
     elif provider == "anthropic":
         k = WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]
         val = workflow_settings.get(k)
-        api_key = (val if val and str(val).strip() else None) or os.getenv("WORKFLOW_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+        api_key = (
+            (val if val and str(val).strip() else None)
+            or os.getenv("WORKFLOW_ANTHROPIC_API_KEY")
+            or os.getenv("ANTHROPIC_API_KEY")
+        )
     elif provider == "gemini":
         k = WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]
         val = workflow_settings.get(k)
-        api_key = (val if val and str(val).strip() else None) or os.getenv("WORKFLOW_GEMINI_API_KEY") or os.getenv("GEMINI_API_KEY")
+        api_key = (
+            (val if val and str(val).strip() else None)
+            or os.getenv("WORKFLOW_GEMINI_API_KEY")
+            or os.getenv("GEMINI_API_KEY")
+        )
     elif provider == "lmstudio":
         api_key = "not_required"
 
@@ -393,12 +405,7 @@ async def list_queued_rules(
             data_query = db_session.query(SigmaRuleQueueTable)
             if status:
                 data_query = data_query.filter(SigmaRuleQueueTable.status == status)
-            rules = (
-                data_query.order_by(SigmaRuleQueueTable.created_at.desc())
-                .offset(offset)
-                .limit(limit)
-                .all()
-            )
+            rules = data_query.order_by(SigmaRuleQueueTable.created_at.desc()).offset(offset).limit(limit).all()
 
             result = []
             matching_service = None  # Lazy initialization
@@ -666,9 +673,7 @@ def _enrichment_payload_from_llm_response(
         issues = parsed.get("issues", [])
         error_msg = parsed.get("summary", "Enrichment failed")
         if issues:
-            error_details = "; ".join(
-                [f"{i.get('type', 'unknown')}: {i.get('message', '')}" for i in issues[:3]]
-            )
+            error_details = "; ".join([f"{i.get('type', 'unknown')}: {i.get('message', '')}" for i in issues[:3]])
             error_msg = f"{error_msg}. {error_details}"
         error_msg = error_msg.replace("\n", " ").replace("\r", " ").strip()
         raise HTTPException(status_code=400, detail=error_msg)
@@ -680,10 +685,8 @@ def _enrichment_payload_from_llm_response(
         # Empty YAML: only valid for explicit fail (handled above)
         summary = (parsed.get("summary") or "").replace("\n", " ").strip()
         issues = parsed.get("issues", [])
-        detail = (
-            "Enrichment returned empty updated_sigma_yaml. "
-            f"status={status_raw!r}. "
-            + (f"Summary: {summary}. " if summary else "")
+        detail = f"Enrichment returned empty updated_sigma_yaml. status={status_raw!r}. " + (
+            f"Summary: {summary}. " if summary else ""
         )
         if isinstance(issues, list) and issues:
             detail += f"Issues: {issues[:2]!s}"

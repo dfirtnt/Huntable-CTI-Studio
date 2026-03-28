@@ -41,9 +41,7 @@ class TestPrecomputeSemanticFields:
             result = precompute_semantic_fields({"logsource": {}, "detection": {}})
             assert result is None
 
-    def test_valid_rule_returns_dict_with_expected_keys(
-        self, valid_windows_process_rule
-    ):
+    def test_valid_rule_returns_dict_with_expected_keys(self, valid_windows_process_rule):
         """When sigma_similarity available, valid rule returns dict with expected keys."""
         result = precompute_semantic_fields(valid_windows_process_rule)
         if result is None:
