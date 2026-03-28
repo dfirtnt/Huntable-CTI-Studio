@@ -48,7 +48,7 @@ dependencies = [
     "urllib3==2.6.3",
     "charset-normalizer==3.4.5",
     "python-multipart==0.0.22",
-    "cryptography==46.0.5",
+    "cryptography==46.0.6",
     # PDF processing
     "pypdf==6.9.2",
     # SIGMA rule validation
