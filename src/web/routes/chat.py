@@ -19,6 +19,8 @@ def _require_rag() -> None:
     """Dependency: raise 403 if RAG is disabled."""
     if not rag_enabled():
         raise HTTPException(status_code=403, detail="RAG is disabled (ENABLE_RAG=0)")
+
+
 from src.utils.sentence_splitter import split_sentences
 from src.web.dependencies import logger
 

@@ -978,9 +978,7 @@ class RunTestRunner:
 
             # Determine if we should run Playwright tests
             playwright_cmd = self._build_playwright_command()
-            run_playwright = (
-                playwright_cmd is not None and not self.config.skip_playwright_js
-            )
+            run_playwright = playwright_cmd is not None and not self.config.skip_playwright_js
             if self.config.skip_playwright_js and playwright_cmd is not None:
                 print(
                     "\n⚡ --skip-playwright-js: skipping npx Playwright (tests/playwright/*.spec.ts). "
@@ -1961,7 +1959,8 @@ Manual Container Management:
     parser.add_argument(
         "--skip-playwright-js",
         action="store_true",
-        help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; skip npx Playwright tests/playwright (saves most UI wall time)",
+        help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; "
+        "skip npx Playwright tests/playwright (saves most UI wall time)",
     )
     parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
 

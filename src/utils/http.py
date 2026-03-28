@@ -333,6 +333,7 @@ class HTTPClient:
                     continue
                 self._error_count += 1
                 raise last_exception from e
+        raise RuntimeError("Retry loop exhausted without returning or raising")
 
     async def post(
         self, url: str, data: dict | None = None, json: dict | None = None, headers: dict[str, str] | None = None

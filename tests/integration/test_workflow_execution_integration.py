@@ -125,7 +125,12 @@ def test_workflow_execution_with_real_db_mocked_llm():
             return {"items": [], "count": 0, "cmdline_items": []}
 
         def mock_compare_proposed(*args, **kwargs):
-            return {"matches": [], "total_candidates_evaluated": 0, "behavioral_matches_found": 0, "engine_used": "legacy"}
+            return {
+                "matches": [],
+                "total_candidates_evaluated": 0,
+                "behavioral_matches_found": 0,
+                "engine_used": "legacy",
+            }
 
         # Patch Langfuse, LLM, Sigma generation, and similarity so workflow runs without real APIs
         with (

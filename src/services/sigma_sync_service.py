@@ -17,6 +17,7 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
+
 class SigmaSyncService:
     """Service for syncing and indexing Sigma rules from SigmaHQ repository."""
 
@@ -731,16 +732,19 @@ class SigmaSyncService:
             embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
         except Exception as e:
             logger.error(f"Failed to initialize embedding service: {e}")
-            return {"embeddings_indexed": 0, "skipped": len(rules) - error_count, "errors": error_count + 1, "error": str(e)}
+            return {
+                "embeddings_indexed": 0,
+                "skipped": len(rules) - error_count,
+                "errors": error_count + 1,
+                "error": str(e),
+            }
 
         embeddings_indexed = 0
         for chunk_start in range(0, len(payload_list), chunk_size):
             chunk_payloads = payload_list[chunk_start : chunk_start + chunk_size]
             flat_texts = [t for _, texts in chunk_payloads for t in texts]
             try:
-                all_embeddings = embedding_service.generate_embeddings_batch(
-                    flat_texts, batch_size=encoder_batch
-                )
+                all_embeddings = embedding_service.generate_embeddings_batch(flat_texts, batch_size=encoder_batch)
             except Exception as e:
                 logger.error(f"Encoder batch failed: {e}")
                 error_count += len(chunk_payloads)

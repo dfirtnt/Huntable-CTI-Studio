@@ -11,4 +11,15 @@ from .search import search
 from .stats import stats
 from .sync_sources import sync_sources
 
-__all__ = ["init", "collect", "search", "export", "stats", "backup", "cron", "sync_sources", "compare_sources", "archive"]
+__all__ = [
+    "init",
+    "collect",
+    "search",
+    "export",
+    "stats",
+    "backup",
+    "cron",
+    "sync_sources",
+    "compare_sources",
+    "archive",
+]

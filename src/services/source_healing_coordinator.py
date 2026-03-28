@@ -52,7 +52,8 @@ async def scan_and_trigger_healing() -> None:
 
     logger.info(
         "[AutoHeal] Found %d source(s) with consecutive_failures >= %d",
-        len(sources), config.threshold,
+        len(sources),
+        config.threshold,
     )
 
     from src.worker.celery_app import heal_source
@@ -64,13 +65,18 @@ async def scan_and_trigger_healing() -> None:
         if source.last_success and (now - source.last_success) < _RECENT_SUCCESS_GRACE_PERIOD:
             logger.info(
                 "[AutoHeal] Skipping source '%s' (id=%s) — last success %s is within %s grace period",
-                source.name, source.id, source.last_success, _RECENT_SUCCESS_GRACE_PERIOD,
+                source.name,
+                source.id,
+                source.last_success,
+                _RECENT_SUCCESS_GRACE_PERIOD,
             )
             continue
 
         logger.info(
             "[AutoHeal] Dispatching heal task for source '%s' (id=%s), failures=%d",
-            source.name, source.id, source.consecutive_failures,
+            source.name,
+            source.id,
+            source.consecutive_failures,
         )
         try:
             heal_source.delay(source.id)

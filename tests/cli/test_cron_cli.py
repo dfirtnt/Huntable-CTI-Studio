@@ -13,6 +13,7 @@ cron_module = importlib.import_module("src.cli.commands.cron")
 
 def test_cron_show_lists_jobs(monkeypatch):
     """cron show should list parsed cron jobs."""
+
     class FakeService:
         def get_snapshot(self):
             return {

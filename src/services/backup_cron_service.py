@@ -291,7 +291,11 @@ class BackupCronService:
         return "external"
 
     def _is_managed_line(self, line: str) -> bool:
-        return line.startswith(MANAGED_COMMENT_PREFIX) or BACKUP_COMMAND_FRAGMENT in line or CLEANUP_COMMAND_FRAGMENT in line
+        return (
+            line.startswith(MANAGED_COMMENT_PREFIX)
+            or BACKUP_COMMAND_FRAGMENT in line
+            or CLEANUP_COMMAND_FRAGMENT in line
+        )
 
     def _time_to_hour_minute(self, time_value: str) -> tuple[str, str]:
         hour, minute = time_value.split(":", 1)

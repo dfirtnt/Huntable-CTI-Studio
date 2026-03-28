@@ -14,6 +14,7 @@ backup_module = importlib.import_module("src.cli.commands.backup")
 
 def test_backup_cron_show_lists_jobs(monkeypatch):
     """backup cron show should print managed and external jobs."""
+
     class FakeManager:
         def get_config(self):
             return SimpleNamespace()

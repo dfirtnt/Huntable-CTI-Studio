@@ -4,6 +4,7 @@ Observable extraction model evaluation API endpoints.
 
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
 from fastapi import APIRouter, HTTPException

@@ -238,7 +238,7 @@ class TestResponse:
         response = Response(status_code=404, content="", headers={}, url="", encoding="")
 
         # Should raise exception
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             response.raise_for_status()
 
 

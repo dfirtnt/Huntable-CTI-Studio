@@ -124,12 +124,11 @@ class TestGracePeriodFiltering:
 
         dispatched_ids = [call.args[0] for call in _mock_heal_task.delay.call_args_list]
         assert 1 not in dispatched_ids  # recent — skipped
-        assert 2 in dispatched_ids      # stale — dispatched
-        assert 3 in dispatched_ids      # never — dispatched
+        assert 2 in dispatched_ids  # stale — dispatched
+        assert 3 in dispatched_ids  # never — dispatched
 
 
 class TestDisabledHealing:
-
     @pytest.mark.asyncio
     async def test_disabled_config_returns_early(self, _mock_db, _mock_heal_task):
         """When healing is disabled, no DB query or dispatch occurs."""

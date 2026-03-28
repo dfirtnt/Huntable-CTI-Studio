@@ -1,7 +1,5 @@
 """AST snapshot tests: stable string representation for given rules."""
 
-import pytest
-
 from sigma_similarity.ast_builder import ast_to_snapshot_string, build_ast
 from sigma_similarity.detection_normalizer import normalize_detection
 

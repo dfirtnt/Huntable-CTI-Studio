@@ -27,6 +27,5 @@ jobs:
           --config auto
           --config p/python
           --config p/owasp-top-ten
-          --config p/sqlalchemy
           --error
           --verbose

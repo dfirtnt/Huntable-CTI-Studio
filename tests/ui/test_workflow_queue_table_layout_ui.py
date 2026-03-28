@@ -2,7 +2,6 @@
 
 import json
 import os
-import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -43,9 +42,7 @@ def test_workflow_queue_table_no_horizontal_overflow_actions_visible(page: Page)
             route.fulfill(
                 status=200,
                 content_type="application/json",
-                body=json.dumps(
-                    {"items": mock_queue, "total": len(mock_queue), "limit": 50, "offset": 0}
-                ),
+                body=json.dumps({"items": mock_queue, "total": len(mock_queue), "limit": 50, "offset": 0}),
             )
         else:
             route.continue_()
@@ -64,9 +61,7 @@ def test_workflow_queue_table_no_horizontal_overflow_actions_visible(page: Page)
     # Avoid #tab-content-queue .overflow-x-auto — enriches <pre> inside the same tab also use that class and sit in hidden modals.
     scroll_wrap = page.locator("#tab-content-queue .q-table-wrap").first
     expect(scroll_wrap).to_be_visible()
-    overflow_ok = scroll_wrap.evaluate(
-        """(el) => el.scrollWidth <= el.clientWidth + 4"""
-    )
+    overflow_ok = scroll_wrap.evaluate("""(el) => el.scrollWidth <= el.clientWidth + 4""")
     assert overflow_ok, "queue table should not require horizontal scroll at 1280px"
 
     article_td = tbody.locator("tr").first.locator("td.q-cell-article")

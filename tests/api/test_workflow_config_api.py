@@ -375,9 +375,7 @@ class TestWorkflowConfigVersions:
     @pytest.mark.asyncio
     async def test_list_versions_pagination(self, async_client: httpx.AsyncClient):
         """Test GET /api/workflow/config/versions with page and limit params."""
-        response = await async_client.get(
-            "/api/workflow/config/versions", params={"page": 1, "limit": 5}
-        )
+        response = await async_client.get("/api/workflow/config/versions", params={"page": 1, "limit": 5})
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -394,9 +392,7 @@ class TestWorkflowConfigVersions:
     @pytest.mark.asyncio
     async def test_list_versions_version_filter(self, async_client: httpx.AsyncClient):
         """Test GET /api/workflow/config/versions with version filter; non-integer returns empty."""
-        response = await async_client.get(
-            "/api/workflow/config/versions", params={"version": "abc"}
-        )
+        response = await async_client.get("/api/workflow/config/versions", params={"version": "abc"})
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True
@@ -404,9 +400,7 @@ class TestWorkflowConfigVersions:
         assert data["total"] == 0
         assert data["total_pages"] == 0
 
-        response = await async_client.get(
-            "/api/workflow/config/versions", params={"version": "999999"}
-        )
+        response = await async_client.get("/api/workflow/config/versions", params={"version": "999999"})
         assert response.status_code == 200
         data = response.json()
         assert data.get("success") is True

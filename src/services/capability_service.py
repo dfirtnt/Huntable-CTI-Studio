@@ -118,9 +118,7 @@ class CapabilityService:
             from src.database.models import SigmaRuleTable
 
             count = (
-                session.query(func.count(SigmaRuleTable.id))
-                .filter(SigmaRuleTable.rule_id.startswith("cust-"))
-                .scalar()
+                session.query(func.count(SigmaRuleTable.id)).filter(SigmaRuleTable.rule_id.startswith("cust-")).scalar()
                 or 0
             )
             if count > 0:

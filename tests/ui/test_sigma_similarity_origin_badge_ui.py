@@ -105,7 +105,10 @@ def test_similar_rule_detail_shows_repo_origin_badge(page: Page):
                 content_type="application/json",
                 body=json.dumps({"agent_models": {}}),
             )
-        elif path.endswith(f"/api/workflow/executions/{execution_id}/observables") or path == f"/api/workflow/executions/{execution_id}/observables":
+        elif (
+            path.endswith(f"/api/workflow/executions/{execution_id}/observables")
+            or path == f"/api/workflow/executions/{execution_id}/observables"
+        ):
             route.fulfill(
                 status=200,
                 content_type="application/json",
@@ -171,4 +174,3 @@ def test_similar_rule_detail_shows_repo_origin_badge(page: Page):
     expect(similar_rule_modal).to_be_visible()
     expect(similar_rule_modal).to_contain_text("Your repo")
     expect(similar_rule_modal).not_to_contain_text("SigmaHQ")
-
