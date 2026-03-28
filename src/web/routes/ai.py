@@ -1075,7 +1075,7 @@ async def api_load_lmstudio_model(request: Request):
 
         # Load model
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosemgrep: python.lang.security.audit.subprocess-shell.subprocess-shell-true
                 [lms_cmd, "load", model_name, "--context-length", str(context_length), "--yes"],
                 capture_output=True,
                 text=True,

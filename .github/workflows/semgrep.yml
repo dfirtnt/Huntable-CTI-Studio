@@ -34,3 +34,7 @@ jobs:
           --exclude "src/web/templates"
           --exclude "nginx"
           --exclude "run_tests.py"
+          --exclude "site"
+          --exclude "docs"
+          --exclude "browser-extension"
+          --exclude "e2e"

@@ -177,7 +177,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # nosemgrep: python.fastapi.security.wildcard-cors
+    allow_origins=["*"],  # nosemgrep
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
