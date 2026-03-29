@@ -87,7 +87,7 @@ USER cti_user
 
 # Install Playwright browsers as cti_user (must run after USER switch
 # so browsers land in /home/cti_user/.cache/ms-playwright/)
-RUN python -m playwright install chromium
+RUN /app/.venv/bin/python -m playwright install chromium
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data
