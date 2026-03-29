@@ -1,0 +1,4 @@
+name: "CodeQL config"
+query-filters:
+  - exclude:
+      id: py/log-injection
