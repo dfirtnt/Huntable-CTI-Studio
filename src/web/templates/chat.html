@@ -273,8 +273,8 @@
                 clearInterval(window.embeddingLogPollInterval);
             }
             
-            // Start polling every 1 second
-            window.embeddingLogPollInterval = setInterval(pollEmbeddingLogs, 1000);
+            // Polling is intentionally throttled to reduce load on the web process.
+            window.embeddingLogPollInterval = setInterval(pollEmbeddingLogs, 4000);
             
             // Initial poll
             pollEmbeddingLogs();

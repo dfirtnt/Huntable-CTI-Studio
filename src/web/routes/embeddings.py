@@ -14,15 +14,18 @@ from src.web.dependencies import logger
 router = APIRouter(tags=["Embeddings"])
 
 
+async def _get_embedding_coverage_stats() -> dict[str, object]:
+    """Return article and Sigma embedding stats without instantiating RAG services."""
+    article_stats = await async_db_manager.get_article_embedding_stats()
+    sigma_corpus = await async_db_manager.get_sigma_rule_embedding_stats()
+    return {**article_stats, "sigma_corpus": sigma_corpus}
+
+
 @router.get("/api/embeddings/stats")
 async def api_embedding_stats():
     """Get statistics about embedding coverage and usage."""
     try:
-        from src.services.rag_service import get_rag_service
-
-        rag_service = get_rag_service()
-        stats = await rag_service.get_embedding_coverage()
-        return stats
+        return await _get_embedding_coverage_stats()
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Embedding stats error: %s", exc)
@@ -37,8 +40,6 @@ async def api_update_embeddings(request: Request):
     try:
         from celery import Celery
 
-        from src.services.rag_service import get_rag_service
-
         body = await request.json()
         batch_size = body.get("batch_size", 50)
 
@@ -51,8 +52,7 @@ async def api_update_embeddings(request: Request):
             queue="default",
         )
 
-        rag_service = get_rag_service()
-        stats = await rag_service.get_embedding_coverage()
+        stats = await _get_embedding_coverage_stats()
 
         return {
             "success": True,
@@ -75,6 +75,7 @@ async def get_embedding_logs():
         import subprocess
 
         log_file = "/tmp/embedding_logs.txt"
+        exec_timeout = float(os.getenv("EMBEDDING_LOGS_EXEC_TIMEOUT", "12"))
 
         # First, try reading from log file inside Docker container (most reliable)
         try:
@@ -82,7 +83,7 @@ async def get_embedding_logs():
                 ["docker", "exec", "cti_worker", "cat", log_file],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=exec_timeout,
             )
 
             if result.returncode == 0 and result.stdout:
@@ -111,7 +112,7 @@ async def get_embedding_logs():
                 ["docker", "exec", "cti_worker", "tail", "-n", "100", "/proc/1/fd/1"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=exec_timeout,
             )
 
             if result.returncode == 0 and result.stdout:

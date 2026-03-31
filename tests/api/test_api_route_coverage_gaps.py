@@ -201,22 +201,25 @@ class TestEmbeddingRouteCoverage:
     async def test_embedding_stats_returns_coverage(
         self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
     ):
-        import src.services.rag_service as rag_service_module
+        from src.web.routes import embeddings as embedding_routes
 
-        rag = MagicMock()
-        rag.get_embedding_coverage = AsyncMock(
-            return_value={
-                "embedding_coverage_percent": 88.5,
-                "pending_embeddings": 2,
-                "sigma_corpus": {
+        monkeypatch.setattr(
+            embedding_routes.async_db_manager,
+            "get_article_embedding_stats",
+            AsyncMock(return_value={"embedding_coverage_percent": 88.5, "pending_embeddings": 2}),
+        )
+        monkeypatch.setattr(
+            embedding_routes.async_db_manager,
+            "get_sigma_rule_embedding_stats",
+            AsyncMock(
+                return_value={
                     "total_sigma_rules": 3100,
                     "sigma_rules_with_rag_embedding": 3100,
                     "sigma_embedding_coverage_percent": 100.0,
                     "sigma_rules_pending_rag_embedding": 0,
-                },
-            }
+                }
+            ),
         )
-        monkeypatch.setattr(rag_service_module, "get_rag_service", lambda: rag)
 
         response = await async_client.get("/api/embeddings/stats")
         assert response.status_code == 200
@@ -230,7 +233,7 @@ class TestEmbeddingRouteCoverage:
     async def test_embedding_update_starts_task(self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
         import celery
 
-        import src.services.rag_service as rag_service_module
+        from src.web.routes import embeddings as embedding_routes
 
         class FakeCelery:
             def __init__(self, *_args, **_kwargs):
@@ -242,13 +245,24 @@ class TestEmbeddingRouteCoverage:
             def send_task(self, *_args, **_kwargs):
                 return SimpleNamespace(id="task-embed-1")
 
-        rag = MagicMock()
-        rag.get_embedding_coverage = AsyncMock(
-            return_value={"pending_embeddings": 12, "embedding_coverage_percent": 40}
-        )
-
         monkeypatch.setattr(celery, "Celery", FakeCelery)
-        monkeypatch.setattr(rag_service_module, "get_rag_service", lambda: rag)
+        monkeypatch.setattr(
+            embedding_routes.async_db_manager,
+            "get_article_embedding_stats",
+            AsyncMock(return_value={"pending_embeddings": 12, "embedding_coverage_percent": 40}),
+        )
+        monkeypatch.setattr(
+            embedding_routes.async_db_manager,
+            "get_sigma_rule_embedding_stats",
+            AsyncMock(
+                return_value={
+                    "total_sigma_rules": 3100,
+                    "sigma_rules_with_rag_embedding": 3100,
+                    "sigma_embedding_coverage_percent": 100.0,
+                    "sigma_rules_pending_rag_embedding": 0,
+                }
+            ),
+        )
 
         response = await async_client.post("/api/embeddings/update", json={"batch_size": 25})
         assert response.status_code == 200
@@ -256,6 +270,25 @@ class TestEmbeddingRouteCoverage:
         assert data["success"] is True
         assert data["task_id"] == "task-embed-1"
         assert data["batch_size"] == 25
+
+    @pytest.mark.asyncio
+    async def test_embedding_logs_uses_env_timeout(
+        self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ):
+        import subprocess
+
+        calls: list[float] = []
+
+        def fake_run(*_args, **kwargs):
+            calls.append(kwargs["timeout"])
+            return subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+
+        monkeypatch.setenv("EMBEDDING_LOGS_EXEC_TIMEOUT", "17")
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        response = await async_client.get("/api/embeddings/logs")
+        assert response.status_code == 200
+        assert calls == [17.0, 17.0]
 
     @pytest.mark.asyncio
     async def test_embed_article_returns_already_embedded(

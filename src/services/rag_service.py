@@ -23,10 +23,24 @@ class RAGService:
 
     def __init__(self):
         """Initialize the RAG service."""
-        self.embedding_service = get_embedding_service()  # For articles (all-mpnet-base-v2)
-        self.sigma_embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")  # For SIGMA rules
+        self._embedding_service: EmbeddingService | None = None
+        self._sigma_embedding_service: EmbeddingService | None = None
         self.db_manager = AsyncDatabaseManager()
-        logger.info("Initialized RAG service with separate embedding models for articles and SIGMA rules")
+        logger.info("Initialized RAG service with lazy embedding clients for articles and SIGMA rules")
+
+    @property
+    def embedding_service(self) -> EmbeddingService:
+        """Create the article embedding client only when needed."""
+        if self._embedding_service is None:
+            self._embedding_service = get_embedding_service()
+        return self._embedding_service
+
+    @property
+    def sigma_embedding_service(self) -> EmbeddingService:
+        """Create the SIGMA embedding client only when needed."""
+        if self._sigma_embedding_service is None:
+            self._sigma_embedding_service = EmbeddingService(model_name="intfloat/e5-base-v2")
+        return self._sigma_embedding_service
 
     async def embed_query(self, query_text: str) -> list[float]:
         """

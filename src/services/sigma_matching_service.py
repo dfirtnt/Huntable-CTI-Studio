@@ -40,9 +40,23 @@ class SigmaMatchingService:
             config_models: Optional dict of agent models from workflow config (unused, kept for API compatibility)
         """
         self.db = db_session
-        self.embedding_service = EmbeddingService()  # For article embeddings
-        # sigma_embedding_client uses same model as index_embeddings() for consistency
-        self.sigma_embedding_client = EmbeddingService(model_name="intfloat/e5-base-v2")
+        self._embedding_service: EmbeddingService | None = None
+        self._sigma_embedding_client: EmbeddingService | None = None
+
+    @property
+    def embedding_service(self) -> EmbeddingService:
+        """Create the article embedding client only when needed."""
+        if self._embedding_service is None:
+            self._embedding_service = EmbeddingService()
+        return self._embedding_service
+
+    @property
+    def sigma_embedding_client(self) -> EmbeddingService:
+        """Create the SIGMA embedding client only when needed."""
+        if self._sigma_embedding_client is None:
+            # sigma_embedding_client uses same model as index_embeddings() for consistency
+            self._sigma_embedding_client = EmbeddingService(model_name="intfloat/e5-base-v2")
+        return self._sigma_embedding_client
 
     def match_article_to_rules(self, article_id: int, threshold: float = 0.0, limit: int = 10) -> list[dict[str, Any]]:
         """

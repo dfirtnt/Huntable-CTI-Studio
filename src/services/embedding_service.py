@@ -16,6 +16,14 @@ from sentence_transformers import SentenceTransformer
 logger = logging.getLogger(__name__)
 
 
+def _env_flag(name: str, default: bool) -> bool:
+    """Parse a boolean environment flag with a deterministic default."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class EmbeddingService:
     """Service for generating embeddings using Sentence Transformers."""
 
@@ -135,7 +143,10 @@ class EmbeddingService:
 
             # Generate embeddings in batches
             embeddings = self.model.encode(
-                valid_texts, batch_size=batch_size, convert_to_tensor=False, show_progress_bar=len(valid_texts) > 100
+                valid_texts,
+                batch_size=batch_size,
+                convert_to_tensor=False,
+                show_progress_bar=_env_flag("EMBEDDING_SHOW_PROGRESS_BAR", False),
             )
 
             # Convert to list format

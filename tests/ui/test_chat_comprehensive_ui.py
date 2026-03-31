@@ -1407,6 +1407,55 @@ class TestSettingsPanel:
 
     @pytest.mark.ui
     @pytest.mark.chat
+    def test_update_embeddings_log_polling_is_throttled(self, page: Page):
+        """Embedding log polling should use the throttled 4 second interval."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+
+        page.add_init_script("""
+            (() => {
+                const originalSetInterval = window.setInterval.bind(window);
+                window.__intervalCalls = [];
+                window.setInterval = (fn, delay, ...args) => {
+                    window.__intervalCalls.push(delay);
+                    return originalSetInterval(fn, delay, ...args);
+                };
+            })();
+        """)
+
+        def handle_route(route):
+            if "/api/embeddings/update" in route.request.url:
+                mock_response = {"task_id": "test-task-123", "batch_size": 50, "estimated_articles": 100}
+                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
+            elif "/api/embeddings/logs" in route.request.url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"success": True, "logs": "still running"}),
+                    headers={"Content-Type": "application/json"},
+                )
+            elif "/api/embeddings/stats" in route.request.url:
+                route.fulfill(
+                    status=200,
+                    body=json.dumps({"embedded_count": 100, "total_articles": 200, "embedding_coverage_percent": 50.0}),
+                    headers={"Content-Type": "application/json"},
+                )
+            else:
+                route.continue_()
+
+        page.route("**/api/**", handle_route)
+
+        page.goto(f"{base_url}/chat")
+        page.wait_for_load_state("load")
+        page.wait_for_timeout(3000)
+
+        update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
+        update_btn.click()
+        page.wait_for_timeout(500)
+
+        interval_calls = page.evaluate("window.__intervalCalls")
+        assert 4000 in interval_calls
+
+    @pytest.mark.ui
+    @pytest.mark.chat
     def test_settings_persistence(self, page: Page):
         """Test settings persistence (localStorage)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

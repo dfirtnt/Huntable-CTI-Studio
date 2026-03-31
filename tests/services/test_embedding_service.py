@@ -170,3 +170,22 @@ class TestEmbeddingService:
 
         # Verify encode was called (may be called multiple times for batches)
         assert mock_sentence_transformer.encode.called
+
+    def test_generate_embeddings_batch_progress_bar_disabled_by_default(self, service, mock_sentence_transformer):
+        """Batch embedding should not show a progress bar unless explicitly enabled."""
+        texts = ["text"] * 150
+
+        service.generate_embeddings_batch(texts)
+
+        assert mock_sentence_transformer.encode.call_args.kwargs["show_progress_bar"] is False
+
+    def test_generate_embeddings_batch_progress_bar_enabled_from_env(
+        self, service, mock_sentence_transformer, monkeypatch: pytest.MonkeyPatch
+    ):
+        """Batch embedding should honor EMBEDDING_SHOW_PROGRESS_BAR=true."""
+        texts = ["text"] * 2
+        monkeypatch.setenv("EMBEDDING_SHOW_PROGRESS_BAR", "true")
+
+        service.generate_embeddings_batch(texts)
+
+        assert mock_sentence_transformer.encode.call_args.kwargs["show_progress_bar"] is True

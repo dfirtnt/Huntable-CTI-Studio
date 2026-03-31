@@ -18,6 +18,20 @@ pytestmark = pytest.mark.unit
 class TestRAGService:
     """Test RAGService functionality (mocked dependencies)."""
 
+    def test_init_does_not_create_embedding_clients(self):
+        """RAGService should not instantiate embedding clients until needed."""
+        with (
+            patch("src.services.rag_service.get_embedding_service") as mock_get_embedding_service,
+            patch("src.services.rag_service.EmbeddingService") as mock_sigma_embedding_cls,
+            patch("src.services.rag_service.AsyncDatabaseManager"),
+        ):
+            service = RAGService()
+
+        assert service._embedding_service is None
+        assert service._sigma_embedding_service is None
+        mock_get_embedding_service.assert_not_called()
+        mock_sigma_embedding_cls.assert_not_called()
+
     @pytest.fixture
     def mock_embedding_service(self):
         """Create mock embedding service."""

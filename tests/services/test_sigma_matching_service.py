@@ -14,6 +14,15 @@ pytestmark = pytest.mark.unit
 class TestSigmaMatchingService:
     """Test SigmaMatchingService functionality."""
 
+    def test_init_does_not_create_embedding_clients(self, mock_db_session):
+        """SigmaMatchingService should not instantiate embedding clients until needed."""
+        with patch("src.services.sigma_matching_service.EmbeddingService") as mock_embedding_cls:
+            service = SigmaMatchingService(mock_db_session)
+
+        assert service._embedding_service is None
+        assert service._sigma_embedding_client is None
+        mock_embedding_cls.assert_not_called()
+
     @pytest.fixture
     def mock_db_session(self):
         """Create mock database session."""
