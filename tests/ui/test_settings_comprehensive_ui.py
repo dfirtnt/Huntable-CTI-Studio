@@ -62,7 +62,7 @@ class TestBackupConfiguration:
         # Click toggle (header with onclick)
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify content is now visible
         expect(backup_content).not_to_have_class("hidden")
@@ -78,7 +78,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify schedule inputs
         backup_time = page.locator("#backupTime")
@@ -100,7 +100,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify retention inputs
         daily_retention = page.locator("#dailyRetention")
@@ -134,7 +134,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify component checkboxes
         backup_database = page.locator("#backupDatabase")
@@ -172,7 +172,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify backup directory input
         backup_directory = page.locator("#backupDirectory")
@@ -195,7 +195,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify compression checkbox
         enable_compression = page.locator("#enableCompression")
@@ -213,7 +213,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify verification checkbox
         enable_verification = page.locator("#enableVerification")
@@ -231,7 +231,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify action buttons
         create_backup_btn = page.locator("#createBackupBtn")
@@ -257,7 +257,7 @@ class TestBackupConfiguration:
         # Open backup config
         backup_header = page.locator("h2:has-text('💾 Backup Configuration')").locator("..")
         backup_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify status display exists
         backup_status_display = page.locator("#backupStatusDisplay")
@@ -335,7 +335,6 @@ class TestLMStudioURLSettings:
 
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for async load
 
         # Verify API was called
         assert api_called["called"], "LMStudio models API should be called"
@@ -535,7 +534,7 @@ class TestAPIConfiguration:
         # Click toggle
         openai_key = page.locator("#openaiApiKey")
         toggle_btn.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify input type changed to text
         input_type = openai_key.get_attribute("type")
@@ -717,7 +716,6 @@ class TestSettingsPersistence:
         # Reload page
         page.reload()
         page.wait_for_load_state("load")
-        page.wait_for_timeout(1000)  # Wait for settings to load
 
         # Verify settings were loaded
         ai_model = page.locator("#aiModel")
@@ -809,7 +807,6 @@ class TestSettingsLoading:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for async initialization
 
         # Verify page loaded successfully
         heading = page.locator("h1:has-text('⚙️ Settings')").first
@@ -822,7 +819,6 @@ class TestSettingsLoading:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/settings")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for async load
 
         # Select LMStudio model
         ai_model = page.locator("#aiModel")
@@ -851,7 +847,6 @@ class TestSettingsLoading:
         # Reload page
         page.reload()
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Show API section
         ai_model = page.locator("#aiModel")

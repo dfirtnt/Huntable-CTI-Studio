@@ -53,6 +53,50 @@ def check_playwright_browsers():
         raise
 
 
+@pytest.fixture(scope="class")
+def class_page(context):
+    """Class-scoped page for tests that navigate to the same URL in every test.
+
+    Opt in by replacing ``page`` with ``class_page`` in the test class.
+    The class is responsible for calling ``page.goto(...)`` once (e.g. in the
+    first test or in a ``@pytest.fixture(autouse=True)`` on the class).
+    Tests in the class share the same tab, so they must not mutate persistent
+    state that would break subsequent tests in the class.
+
+    Available from the root conftest (``context`` fixture is session-scoped).
+    """
+    try:
+        p = context.new_page()
+        yield p
+        p.close()
+    except Exception:
+        yield None
+
+
+# Per-test timeout (seconds). Prevents a single hung test from blocking the
+# entire serial UI run.  Requires pytest-timeout (in requirements-test.txt).
+# Override per-test with ``@pytest.mark.timeout(N)``.
+_UI_TEST_TIMEOUT_SECONDS = 60
+
+try:
+    import pytest_timeout  # noqa: F401
+
+    _TIMEOUT_PLUGIN_AVAILABLE = True
+except ImportError:
+    _TIMEOUT_PLUGIN_AVAILABLE = False
+
+
+def pytest_itemcollected(item):
+    """Apply a default timeout to every UI test that doesn't already have one."""
+    if not _TIMEOUT_PLUGIN_AVAILABLE:
+        return
+    if not item.get_closest_marker("ui") and not item.get_closest_marker("ui_smoke"):
+        return
+    if item.get_closest_marker("timeout"):
+        return
+    item.add_marker(pytest.mark.timeout(_UI_TEST_TIMEOUT_SECONDS))
+
+
 # Hook to skip tests at collection time if Playwright browsers aren't installed
 def pytest_collection_modifyitems(config, items):
     """Skip UI tests if Playwright browsers aren't installed"""

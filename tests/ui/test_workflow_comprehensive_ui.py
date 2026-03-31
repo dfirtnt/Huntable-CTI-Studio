@@ -38,7 +38,7 @@ class TestWorkflowTabNavigation:
         config_tab = page.locator("#tab-config")
         expect(config_tab).to_be_visible()
         config_tab.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify Configuration tab content is visible
         config_content = page.locator("#tab-content-config")
@@ -63,7 +63,7 @@ class TestWorkflowTabNavigation:
         executions_tab = page.locator("#tab-executions")
         expect(executions_tab).to_be_visible()
         executions_tab.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify Executions tab content is visible
         executions_content = page.locator("#tab-content-executions")
@@ -88,7 +88,7 @@ class TestWorkflowTabNavigation:
         queue_tab = page.locator("#tab-queue")
         expect(queue_tab).to_be_visible()
         queue_tab.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify Queue tab content is visible
         queue_content = page.locator("#tab-content-queue")
@@ -112,7 +112,7 @@ class TestWorkflowTabNavigation:
         # Click Configuration tab
         config_tab = page.locator("#tab-config")
         config_tab.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify active tab styling (should have border-b-2 and border-purple-500 or similar)
         # The exact classes may vary, but we can check that tab is clickable and content shows
@@ -148,7 +148,7 @@ class TestWorkflowConfigurationTabGeneral:
 
         # Switch to config tab
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify form exists
         config_form = page.locator("#workflowConfigForm")
@@ -163,7 +163,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Junk Filter panel header
         panel_id = "other-thresholds-panel"
@@ -191,7 +191,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find OS Detection panel header
         panel_id = "os-detection-panel"
@@ -216,7 +216,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         panel_id = "rank-agent-configs-panel"
         header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
@@ -240,7 +240,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         header = page.locator("#s3 .section-header")
         expect(header).to_be_visible()
@@ -263,7 +263,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         header = page.locator("#s4 .section-header")
         expect(header).to_be_visible()
@@ -286,7 +286,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Get chevron element
         panel_id = "other-thresholds-panel"
@@ -334,7 +334,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Reset button
         reset_button = page.get_by_role("button", name="Reset", exact=True)
@@ -349,7 +349,7 @@ class TestWorkflowConfigurationTabGeneral:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Save Configuration button
         save_button = page.locator("#save-config-button")
@@ -393,7 +393,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Junk Filter panel
         toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
@@ -417,7 +417,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Junk Filter panel
         toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
@@ -440,7 +440,7 @@ class TestWorkflowConfigurationJunkFilter:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Junk Filter panel
         toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
@@ -453,7 +453,7 @@ class TestWorkflowConfigurationJunkFilter:
 
         # Click help button
         help_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify help modal or tooltip appears
         # Help modal implementation may vary
@@ -471,7 +471,7 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find QA badge
         qa_badge = page.locator("#rank-agent-qa-badge")
@@ -490,12 +490,12 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Rank Agent panel
         toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify model container exists
         model_container = page.locator("#rank-agent-model-container")
@@ -510,12 +510,12 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Rank Agent panel
         toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find test button
         test_button = page.get_by_role("button", name=re.compile(r"Test with .* ArticleID"))
@@ -534,12 +534,12 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Rank Agent panel
         toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find threshold input
         threshold_input = page.locator("#rankingThreshold")
@@ -558,12 +558,12 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Rank Agent panel
         toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         threshold_input = page.locator("#rankingThreshold")
 
@@ -581,12 +581,12 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Rank Agent panel
         toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find QA toggle checkbox
         qa_toggle = page.locator("#qa-rankagent")
@@ -617,12 +617,12 @@ class TestWorkflowConfigurationRankAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Rank Agent panel
         toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
         toggle_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find QA model dropdown
         qa_model_dropdown = page.locator("#rankqa-model")
@@ -642,7 +642,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Open Extract Agent step (Operator Console)
         _open_operator_step(page, "s3")
@@ -660,7 +660,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
 
@@ -677,7 +677,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
 
@@ -694,7 +694,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
 
@@ -715,7 +715,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
 
@@ -735,7 +735,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
 
@@ -763,7 +763,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "cmdlineextract")
 
@@ -785,7 +785,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "cmdlineextract")
 
@@ -826,7 +826,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "proctreeextract")
 
@@ -847,7 +847,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "proctreeextract")
 
@@ -868,7 +868,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "huntqueriesextract")
 
@@ -889,7 +889,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "huntqueriesextract")
 
@@ -910,7 +910,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         self._expand_extract_subagent_panel(page, "cmdlineextract")
 
@@ -934,7 +934,7 @@ class TestWorkflowConfigurationExtractAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
         page.locator("#sa-cmdline .sa-header").click()
@@ -960,7 +960,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s4")
 
@@ -976,7 +976,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s5")
 
@@ -997,7 +997,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s4")
 
@@ -1018,7 +1018,7 @@ class TestWorkflowConfigurationSigmaAgent:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s4")
 
@@ -1037,7 +1037,7 @@ class TestWorkflowConfigurationWorkflowOverview:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find workflow overview section
         overview_section = page.locator("text=Workflow Overview")
@@ -1052,7 +1052,7 @@ class TestWorkflowConfigurationWorkflowOverview:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify workflow steps are displayed
         # Steps: OS Detection, Junk Filter, LLM Ranking, Extract Agent, Generate SIGMA, Similarity Search, Queue
@@ -1084,7 +1084,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Refresh button
         refresh_button = page.locator("button:has-text('🔄 Refresh')").first
@@ -1103,7 +1103,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Trigger Workflow button
         trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
@@ -1111,7 +1111,7 @@ class TestWorkflowExecutionsTabActions:
 
         # Click button
         trigger_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify modal opens
         modal = page.locator("#triggerWorkflowModal")
@@ -1127,7 +1127,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Trigger Stuck button
         stuck_button = page.locator("button:has-text('⚡ Trigger Stuck')")
@@ -1146,7 +1146,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Cleanup Stale button
         cleanup_button = page.locator("button:has-text('🧹 Cleanup Stale')")
@@ -1165,7 +1165,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find status filter
         status_filter = page.locator("#statusFilter")
@@ -1206,7 +1206,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         step_filter = page.locator("#stepFilter")
         expect(step_filter).to_be_visible()
@@ -1226,7 +1226,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         article_id_filter = page.locator("#articleIdFilter")
         expect(article_id_filter).to_be_visible()
@@ -1409,7 +1409,7 @@ class TestWorkflowExecutionsTabModal:
         view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify modal opens
             modal = page.locator("#executionModal")
@@ -1431,7 +1431,7 @@ class TestWorkflowExecutionsTabModal:
         view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find close button
             close_button = page.locator("#executionModal button:has-text('✕')").first
@@ -1458,7 +1458,7 @@ class TestWorkflowExecutionsTabModal:
         view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find fullscreen toggle button
             fullscreen_button = page.locator("button[onclick*='toggleModalFullscreen']")
@@ -1488,7 +1488,7 @@ class TestWorkflowExecutionsTabModal:
         view_buttons = page.locator("button:has-text('View')").first
         if view_buttons.count() > 0:
             view_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Press Escape key
             page.keyboard.press("Escape")
@@ -1532,12 +1532,12 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Click Trigger Workflow button
         trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify modal opens
         modal = page.locator("#triggerWorkflowModal")
@@ -1553,12 +1553,12 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Open modal
         trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Article ID input
         article_id_input = page.locator("#triggerArticleId")
@@ -1576,12 +1576,12 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Open modal
         trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Cancel button
         cancel_button = page.locator("#triggerWorkflowModal button:has-text('Cancel')").first
@@ -1604,12 +1604,12 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_load_state("load")
 
         page.locator("#tab-executions").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Open modal
         trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
         trigger_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Trigger button in modal
         modal_trigger_button = page.locator("#triggerWorkflowModal").get_by_role("button", name="Trigger", exact=True)
@@ -1632,7 +1632,7 @@ class TestWorkflowQueueTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find Refresh button
         refresh_button = page.locator("button:has-text('🔄 Refresh')").first
@@ -1651,7 +1651,7 @@ class TestWorkflowQueueTabActions:
         page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find status filter
         status_filter = page.locator("#queueStatusFilter")
@@ -1694,7 +1694,7 @@ class TestWorkflowQueueTabModal:
         page.wait_for_load_state("load")
 
         page.locator("#tab-queue").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Modal may be dynamically created, check for modal structure
         # This test verifies the page loads correctly
@@ -1745,7 +1745,7 @@ class TestWorkflowSubAgentsAdditional:
         page.wait_for_load_state("load")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         _open_operator_step(page, "s3")
 
@@ -2197,7 +2197,7 @@ class TestWorkflowQueueAPI:
 
         # Open rule preview
         page.locator('button:has-text("Preview")').first.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Modal: Max Similarity should show 0.0% not N/A
         rule_modal = page.locator("#ruleModal")

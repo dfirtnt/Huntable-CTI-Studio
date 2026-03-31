@@ -435,7 +435,6 @@ class TestHealthCheckAutoRefresh:
 
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify initial API call
         assert api_call_count["count"] >= 0, "Health check API may be called on load"
@@ -460,7 +459,6 @@ class TestHealthCheckSessionStorage:
         # Navigate to health checks page
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify diags page has overall health status element (diags: #overallHealthStatus)
         overall_status = page.locator("#overallHealthStatus")

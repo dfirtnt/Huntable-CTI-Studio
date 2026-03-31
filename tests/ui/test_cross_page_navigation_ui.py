@@ -248,7 +248,6 @@ class TestCrossPageNavigation:
         # Navigate to workflow page
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Click on Executions tab
         executions_tab = page.locator("button:has-text('Executions')")

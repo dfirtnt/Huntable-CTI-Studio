@@ -137,7 +137,7 @@ def test_similar_rule_detail_shows_repo_origin_badge(page: Page):
     page.on("console", on_console)
 
     page.locator("#tab-executions").click()
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(200)
 
     tbody = page.locator("#executionsTableBody")
     expect(tbody).to_be_visible()

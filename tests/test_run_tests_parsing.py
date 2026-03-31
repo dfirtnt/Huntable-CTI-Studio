@@ -145,3 +145,104 @@ class TestRunTestsSummaryOutput:
         assert "Test execution only:" in out, "Test execution only line missing"
         assert "Total (including setup):" in out, "Total (including setup) line missing"
         assert result.returncode == 0, f"run_tests exited {result.returncode}\n{out[-2000:]}"
+
+
+class TestUITestOptimizations:
+    """Regression tests that guard the UI test speed optimisations.
+
+    These verify *invariants of the test files* rather than runtime browser
+    behaviour, so they can run in the fast unit suite without Playwright.
+    """
+
+    _UI_DIR = PROJECT_ROOT / "tests" / "ui"
+
+    # ------------------------------------------------------------------ #
+    # 1. No redundant post-goto blanket sleeps
+    # ------------------------------------------------------------------ #
+
+    def _load_ui_lines(self) -> dict[str, list[str]]:
+        lines_by_file: dict[str, list[str]] = {}
+        for p in sorted(self._UI_DIR.glob("*.py")):
+            lines_by_file[p.name] = p.read_text().splitlines()
+        return lines_by_file
+
+    def test_no_redundant_post_goto_timeout(self):
+        """wait_for_load_state('load') must NOT be immediately followed by wait_for_timeout.
+
+        Playwright's expect() retries up to its own timeout; the extra sleep is
+        pure dead time.  Chat page uses element-specific waits instead.
+        """
+        violations: list[str] = []
+        files = self._load_ui_lines()
+        for fname, lines in files.items():
+            for i, line in enumerate(lines):
+                if "wait_for_load_state" in line and '"load"' in line:
+                    next_line = lines[i + 1] if i + 1 < len(lines) else ""
+                    if "wait_for_timeout" in next_line:
+                        violations.append(f"{fname}:{i + 2}: {next_line.strip()}")
+        assert not violations, (
+            "Redundant post-goto wait_for_timeout found (remove them — "
+            "expect() already retries):\n" + "\n".join(violations)
+        )
+
+    # ------------------------------------------------------------------ #
+    # 2. Chat page React-mount waits are element-specific, not blanket
+    # ------------------------------------------------------------------ #
+
+    def test_chat_react_waits_are_element_specific(self):
+        """After page.goto('/chat') + wait_for_load_state the chat tests must
+        wait for the React textarea, not a blanket timeout."""
+        chat_file = "test_chat_comprehensive_ui.py"
+        if chat_file not in self._load_ui_lines():
+            return  # File doesn't exist, skip
+        lines = self._load_ui_lines()[chat_file]
+        for i, line in enumerate(lines):
+            if "wait_for_load_state" in line and '"load"' in line:
+                next_line = lines[i + 1] if i + 1 < len(lines) else ""
+                assert "wait_for_timeout" not in next_line, (
+                    f"{chat_file}:{i + 2}: blanket wait_for_timeout after load_state — "
+                    f"use textarea.wait_for(state='visible') instead"
+                )
+
+    # ------------------------------------------------------------------ #
+    # 3. class_page fixture exists in conftest
+    # ------------------------------------------------------------------ #
+
+    def test_class_page_fixture_in_conftest(self):
+        conftest = (self._UI_DIR / "conftest.py").read_text()
+        assert "def class_page" in conftest, "class_page fixture missing from tests/ui/conftest.py"
+        assert 'scope="class"' in conftest, "class_page fixture must be scope='class'"
+
+    # ------------------------------------------------------------------ #
+    # 4. Timeout guard present in conftest
+    # ------------------------------------------------------------------ #
+
+    def test_timeout_guard_in_conftest(self):
+        conftest = (self._UI_DIR / "conftest.py").read_text()
+        assert "_UI_TEST_TIMEOUT_SECONDS" in conftest, (
+            "_UI_TEST_TIMEOUT_SECONDS constant missing from tests/ui/conftest.py"
+        )
+        assert "pytest_itemcollected" in conftest, (
+            "pytest_itemcollected hook missing — needed to apply per-test timeout"
+        )
+
+    # ------------------------------------------------------------------ #
+    # 5. run_tests.py passes --timeout to UI pytest run
+    # ------------------------------------------------------------------ #
+
+    def test_run_tests_adds_timeout_for_ui(self):
+        """_build_pytest_command for UI suite includes --timeout when pytest-timeout available."""
+        config = RunTestConfig(
+            test_type=RunTestType.UI,
+            context=ExecutionContext.LOCALHOST,
+            validate_env=False,
+        )
+        runner = RunTestRunner(config)
+        cmd = runner._build_pytest_command()
+        # The timeout flag is only added when pytest-timeout is importable.
+        try:
+            import pytest_timeout  # noqa: F401
+
+            assert "--timeout=60" in cmd, f"--timeout=60 not in pytest command: {cmd}"
+        except ImportError:
+            pass  # pytest-timeout not installed — timeout guard disabled, that's fine

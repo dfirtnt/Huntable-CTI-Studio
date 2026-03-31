@@ -67,7 +67,6 @@ class TestHealthMetricsCard:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for API data load
 
         # Verify uptime value exists
         uptime_value = page.locator("#uptime-value")
@@ -84,7 +83,6 @@ class TestHealthMetricsCard:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify total sources value exists
         total_sources = page.locator("#total-sources")
@@ -101,7 +99,6 @@ class TestHealthMetricsCard:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify avg response value exists
         avg_response = page.locator("#avg-response")
@@ -118,7 +115,6 @@ class TestHealthMetricsCard:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify health indicator exists
         health_indicator = page.locator("#health-indicator")
@@ -139,7 +135,6 @@ class TestVolumeCharts:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)  # Wait for Chart.js to load
 
         # Verify daily chart canvas exists
         daily_chart = page.locator("#dailyChart")
@@ -156,7 +151,6 @@ class TestVolumeCharts:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
 
         # Verify hourly chart canvas exists
         hourly_chart = page.locator("#hourlyChart")
@@ -173,7 +167,6 @@ class TestVolumeCharts:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
 
         # Verify Chart.js is loaded
         chart_exists = page.evaluate("typeof Chart !== 'undefined'")
@@ -197,7 +190,6 @@ class TestVolumeCharts:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
 
         # Verify API was called
         assert api_called["called"], "Dashboard data API should be called"
@@ -209,7 +201,6 @@ class TestVolumeCharts:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
 
         # Resize viewport
         page.set_viewport_size({"width": 375, "height": 667})  # Mobile
@@ -261,7 +252,6 @@ class TestFailingSourcesWidget:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "Failing sources API should be called"
@@ -283,7 +273,6 @@ class TestFailingSourcesWidget:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify empty state message
         page.locator("text=No failing sources")
@@ -316,7 +305,6 @@ class TestHighScoreArticlesWidget:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify copy URLs button exists
         copy_btn = page.locator("button:has-text('📋 Copy URLs')")
@@ -333,7 +321,6 @@ class TestHighScoreArticlesWidget:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Find article links
         page.locator("a[href^='/articles/']")
@@ -346,7 +333,6 @@ class TestHighScoreArticlesWidget:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Look for score displays (numbers)
         page.locator("text=/\\d{1,2}\\.\\d/")
@@ -443,7 +429,6 @@ class TestRecentActivityWidget:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Check for empty state message
         page.locator("text=No recent activity")
@@ -569,7 +554,6 @@ class TestDataLoading:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "Dashboard data API should be called"
@@ -592,7 +576,6 @@ class TestDataLoading:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify initial API call
         assert api_call_count["count"] >= 1, "Dashboard data API should be called on load"
@@ -607,7 +590,6 @@ class TestDataLoading:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Get initial timestamp
         last_updated = page.locator("#last-updated")
@@ -626,7 +608,6 @@ class TestDataLoading:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
 
         # Verify charts are initialized
         daily_chart = page.locator("#dailyChart")
@@ -653,7 +634,6 @@ class TestDataLoading:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify page still loads (graceful error handling)
         page_content = page.locator(".dash-root, .dash-header, #last-updated").first

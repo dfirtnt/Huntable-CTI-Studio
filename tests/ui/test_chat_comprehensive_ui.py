@@ -20,7 +20,7 @@ class TestChatPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)  # Wait for React to render
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify page title
         expect(page).to_have_title("RAG Chat - Huntable CTI Studio")
@@ -36,7 +36,7 @@ class TestChatPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify chat container exists
         chat_container = page.locator("#rag-chat-container")
@@ -66,7 +66,7 @@ class TestMessageDisplay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Find input and send a message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -103,7 +103,7 @@ class TestMessageDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -130,7 +130,7 @@ class TestMessageDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -150,7 +150,7 @@ class TestMessageDisplay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify timestamp exists (format may vary)
         # Timestamps are displayed in messages
@@ -180,7 +180,7 @@ class TestMessageDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -200,7 +200,7 @@ class TestMessageDisplay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message with whitespace
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -220,7 +220,7 @@ class TestMessageDisplay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send multiple messages
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -263,14 +263,14 @@ class TestMessageDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify loading indicator appears while request is in flight.
         loading_indicator = page.locator("text=Searching threat intelligence database...")
@@ -311,7 +311,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -352,7 +352,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -397,7 +397,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -409,7 +409,7 @@ class TestArticleResultsDisplay:
         # Find article card and click to expand
         article_card = page.locator("text=Test Article").locator("..")
         article_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify expanded view shows source
         source_info = page.locator("text=Source: Test Source")
@@ -443,7 +443,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -455,7 +455,7 @@ class TestArticleResultsDisplay:
         # Expand article
         article_card = page.locator("text=Test Article").locator("..")
         article_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Find article title link
         article_link = page.locator("a[href='/articles/1']")
@@ -491,7 +491,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -534,7 +534,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -546,7 +546,7 @@ class TestArticleResultsDisplay:
         # Expand article
         article_card = page.locator("text=Test Article").locator("..")
         article_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify summary is truncated (ends with ...)
         summary = page.locator("text=...")
@@ -572,7 +572,7 @@ class TestArticleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -622,7 +622,7 @@ class TestSigmaRuleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -665,7 +665,7 @@ class TestSigmaRuleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -709,7 +709,7 @@ class TestSigmaRuleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -721,7 +721,7 @@ class TestSigmaRuleResultsDisplay:
         # Find rule card and click to expand
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify expanded view shows status
         status_info = page.locator("text=Status: stable")
@@ -758,7 +758,7 @@ class TestSigmaRuleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -770,7 +770,7 @@ class TestSigmaRuleResultsDisplay:
         # Expand rule
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify MITRE tags appear
         mitre_tags = page.locator("text=MITRE:")
@@ -800,7 +800,7 @@ class TestSigmaRuleResultsDisplay:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -812,7 +812,7 @@ class TestSigmaRuleResultsDisplay:
         # Expand rule
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify file path appears
         file_path = page.get_by_text("/rules/test.yml", exact=True)
@@ -861,7 +861,7 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -873,7 +873,7 @@ class TestYAMLModal:
         # Expand rule
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Click file path to open YAML modal
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
@@ -919,7 +919,7 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message and open modal
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -931,7 +931,7 @@ class TestYAMLModal:
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
@@ -941,7 +941,7 @@ class TestYAMLModal:
         close_button = page.locator("button:has-text('Close')")
         expect(close_button).to_be_visible()
         close_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify modal is closed
         page.locator("text=Test Rule")
@@ -982,7 +982,7 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message and open modal
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -994,7 +994,7 @@ class TestYAMLModal:
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
@@ -1003,7 +1003,7 @@ class TestYAMLModal:
         # Click backdrop (fixed inset-0 element)
         backdrop = page.locator(".fixed.inset-0.bg-black")
         backdrop.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify modal is closed
         page.locator("text=Test Rule")
@@ -1044,7 +1044,7 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message and open modal
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1056,7 +1056,7 @@ class TestYAMLModal:
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
@@ -1064,7 +1064,7 @@ class TestYAMLModal:
 
         # Press Escape key
         page.keyboard.press("Escape")
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify modal is closed
         page.locator("text=Test Rule")
@@ -1107,7 +1107,7 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message and open modal
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1119,7 +1119,7 @@ class TestYAMLModal:
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
@@ -1166,7 +1166,7 @@ class TestYAMLModal:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message and open modal
         input_field = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1178,7 +1178,7 @@ class TestYAMLModal:
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
         rule_card.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.click()
@@ -1190,7 +1190,7 @@ class TestYAMLModal:
 
         # Click copy button
         copy_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify alert appears (copy success)
         # Note: Playwright handles alerts automatically
@@ -1247,7 +1247,7 @@ class TestYAMLModal:
         page.wait_for_timeout(500)
         # Expand rule by clicking the rule row (title area), then click file path link
         rule_title.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
         file_path_link = page.get_by_text("/rules/test.yml", exact=True)
         file_path_link.wait_for(state="visible", timeout=5000)
         file_path_link.click()
@@ -1267,7 +1267,7 @@ class TestSettingsPanel:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify max results dropdown exists
         max_results = page.locator("#maxResults")
@@ -1284,7 +1284,7 @@ class TestSettingsPanel:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify similarity threshold dropdown exists
         threshold = page.locator("#threshold")
@@ -1322,7 +1322,7 @@ class TestSettingsPanel:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify embedding stats appear
         embedding_stats = page.locator("text=Articles:")
@@ -1342,7 +1342,7 @@ class TestSettingsPanel:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify update embeddings button exists
         update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
@@ -1369,7 +1369,7 @@ class TestSettingsPanel:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Click update embeddings button
         update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
@@ -1400,12 +1400,12 @@ class TestSettingsPanel:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Click update embeddings button
         update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
         update_btn.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify loading state
         loading_text = page.locator("text=Updating...")
@@ -1451,11 +1451,11 @@ class TestSettingsPanel:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
         update_btn.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         interval_calls = page.evaluate("window.__intervalCalls")
         assert 4000 in interval_calls
@@ -1467,7 +1467,7 @@ class TestSettingsPanel:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Change max results
         max_results = page.locator("#maxResults")
@@ -1477,7 +1477,7 @@ class TestSettingsPanel:
         # Reload page
         page.reload()
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify setting persisted (may be stored in component state)
         max_results = page.locator("#maxResults")
@@ -1494,7 +1494,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify textarea exists
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1508,7 +1508,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify placeholder text
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1541,14 +1541,14 @@ class TestInputArea:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
         textarea.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify input is disabled
         expect(textarea).to_be_disabled()
@@ -1560,7 +1560,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify send button exists
         send_button = page.locator("button:has-text('Send')")
@@ -1574,7 +1574,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify send button is disabled when input is empty
         page.locator("button:has-text('Send')")
@@ -1587,7 +1587,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Type message and press Enter
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1606,7 +1606,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Type message with Shift+Enter
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1626,7 +1626,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1645,7 +1645,7 @@ class TestInputArea:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify suggestions text exists
         suggestions = page.locator("text=💡 Try asking:")
@@ -1683,7 +1683,7 @@ class TestAPIIntegration:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1722,7 +1722,7 @@ class TestAPIIntegration:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Change settings
         max_results = page.locator("#maxResults")
@@ -1768,7 +1768,7 @@ class TestAPIIntegration:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1802,7 +1802,7 @@ class TestAPIIntegration:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -1841,14 +1841,14 @@ class TestAPIIntegration:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Send message
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
         textarea.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Verify loading state
         loading_text = page.locator("text=Searching threat intelligence database...")
@@ -1881,7 +1881,7 @@ class TestModelSelection:
         # Reload page
         page.reload()
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify model is loaded (checked via API call)
         request_body = {}
@@ -1932,7 +1932,7 @@ class TestModelSelection:
 
             page.reload()
             page.wait_for_load_state("load")
-            page.wait_for_timeout(3000)
+            page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
             request_capture.clear()
 
@@ -1990,7 +1990,7 @@ class TestEmbeddingStats:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify API was called
         assert api_called["called"], "Embedding stats API should be called"
@@ -2023,7 +2023,7 @@ class TestEmbeddingStats:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify stats are displayed
         stats_text = page.locator("text=150/300")
@@ -2057,7 +2057,7 @@ class TestEmbeddingStats:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Initial stats call
         initial_count = stats_call_count["count"]
@@ -2087,7 +2087,7 @@ class TestEmbeddingStats:
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
+        page.locator("textarea[placeholder*='Ask about cybersecurity']").wait_for(state="visible", timeout=20000)
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("text=🔍 Threat Intelligence Chat")

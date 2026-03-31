@@ -172,7 +172,6 @@ class TestInvalidInputHandling:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Try to submit empty form
         send_button = page.locator("button:has-text('Send')")
@@ -310,7 +309,6 @@ class TestErrorRecovery:
         # Refresh (retry)
         page.reload()
         page.wait_for_load_state("load")
-        page.wait_for_timeout(1000)  # Wait for retry logic
 
         # Verify retry occurred (should have more calls after reload)
         assert call_count["count"] > initial_api_calls, (

@@ -18,7 +18,7 @@ class TestHuntQueriesQAPromptEditor:
         page.wait_for_load_state("domcontentloaded")
 
         page.locator("#tab-config").click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
 
         # Expand Extract Agent panel
         page.locator('[data-collapsible-panel="extract-agent-panel"]').click()
@@ -38,7 +38,7 @@ class TestHuntQueriesQAPromptEditor:
         qa_toggle = page.locator("#qa-huntqueriesextract")
         if not qa_toggle.is_checked():
             page.locator("label:has(#qa-huntqueriesextract)").click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
         qa_container = page.locator("#huntqueriesextract-agent-qa-prompt-container")
         expect(qa_container).to_be_visible()

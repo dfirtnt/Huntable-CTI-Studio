@@ -33,7 +33,6 @@ def test_agent_evals_page_loads(page: Page):
     """Test that the agent evals page loads correctly."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
 
     # Check main heading (use role to avoid strict mode when multiple h1)
     expect(page.get_by_role("heading", name="Agent Evaluations")).to_be_visible()
@@ -68,7 +67,6 @@ def test_load_dataset_articles(page: Page):
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
     # Check if articles loaded (either articles shown or "No articles" message)
@@ -91,7 +89,6 @@ def test_select_articles_and_presets(page: Page):
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
     # Check if there are articles to select
@@ -118,7 +115,6 @@ def test_run_evaluation_button(page: Page):
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
     # Select article if available (presets no longer exist)
@@ -167,7 +163,6 @@ def test_export_bundles_button_visible_when_results_loaded(page: Page):
     """When Load Previous Results shows config version columns, export button (📦) is present."""
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(1000)
     page.locator("#subagentSelect").select_option("cmdline")
     _click_load_previous_results_and_wait(page)
     # Export button appears in table header when config versions exist
@@ -185,7 +180,6 @@ def test_select_all_deselect_all_buttons(page: Page):
     _mock_eval_articles_api(page)
     page.goto("http://127.0.0.1:8001/mlops/agent-evals")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(1000)  # Wait for JavaScript to initialize
     _click_load_eval_articles_and_wait(page)
 
     # Check if articles exist

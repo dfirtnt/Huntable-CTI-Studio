@@ -514,7 +514,7 @@ class TestArticlesBulkSelection:
 
             # Click select all
             select_all.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify bulk actions toolbar appears
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
@@ -538,7 +538,7 @@ class TestArticlesBulkSelection:
             expect(first_checkbox).to_be_visible()
 
             first_checkbox.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify bulk actions toolbar appears
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
@@ -561,7 +561,7 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify toolbar is visible
             expect(bulk_toolbar).to_be_visible()
@@ -581,7 +581,7 @@ class TestArticlesBulkSelection:
         if checkboxes.count() >= 2:
             checkboxes.first.click()
             checkboxes.nth(1).click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify selected count
             selected_count = page.locator("#selected-count")
@@ -602,7 +602,7 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find Select All Visible button in toolbar
             select_all_btn = page.locator("button:has-text('Select All Visible')")
@@ -625,7 +625,7 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find Clear Selection button
             clear_btn = page.locator("button:has-text('Clear Selection')")
@@ -633,7 +633,7 @@ class TestArticlesBulkSelection:
 
             # Click clear selection
             clear_btn.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify toolbar is hidden
             bulk_toolbar = page.locator("#bulk-actions-toolbar")
@@ -652,7 +652,7 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find Delete button
             delete_btn = page.locator("button:has-text('🗑️ Delete')")
@@ -692,7 +692,7 @@ class TestArticlesBulkSelection:
         checkboxes = page.locator(".bulk-select-checkbox")
         if checkboxes.count() > 0:
             checkboxes.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Navigate to next page (pagination link only; article titles may contain "Next")
             next_link = page.locator("a[href*='page=']:has-text('Next')")
@@ -933,7 +933,7 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button:has-text('Classify'), button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify modal opens
             modal = page.locator("#classificationModal")
@@ -953,7 +953,7 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find close button
             close_button = page.locator(
@@ -1129,7 +1129,7 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Press Escape key
             page.keyboard.press("Escape")
@@ -1152,7 +1152,7 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Click on modal backdrop
             modal = page.locator("#classificationModal")

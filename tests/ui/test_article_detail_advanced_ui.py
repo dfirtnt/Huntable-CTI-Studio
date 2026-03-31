@@ -291,7 +291,7 @@ class TestArticleDetailDeletion:
 
             # Click delete button (will trigger confirmation dialog)
             delete_btn.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify confirmation dialog appears
             # Playwright handles dialogs automatically, but we can verify the function exists
@@ -474,7 +474,7 @@ class TestArticleDetailAdvancedFeatures:
             # Click delete button
             delete_btn = page.locator("button:has-text('Delete Article')")
             delete_btn.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify dialog was triggered
             assert dialog_handled["handled"], "Delete confirmation dialog should appear"
@@ -523,7 +523,7 @@ class TestArticleDetailAdvancedFeatures:
             # ai_btn = page.locator("button:has-text('🤖'), button:has-text('AI')")
             # if ai_btn.count() > 0:
             #     ai_btn.first.click()
-            #     page.wait_for_timeout(500)
+            #     page.wait_for_timeout(200)
             #
             #     # Verify modal opens
             #     ai_modal = page.locator("text=AL/ML Assistant, text=AI/ML Assistant")

@@ -21,7 +21,6 @@ class TestDiagnosticsPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for JavaScript initialization
 
         # Verify page title
         expect(page).to_have_title(re.compile(r"System Diagnostics.*Huntable CTI"))
@@ -37,7 +36,6 @@ class TestDiagnosticsPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify quick actions section exists
         quick_actions = page.locator("text=⚡ Quick Actions")
@@ -87,7 +85,6 @@ class TestDiagnosticsQuickActions:
 
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Click Run All Health Checks button
         run_all_btn = page.locator("#runAllHealthChecks")
@@ -116,7 +113,6 @@ class TestDiagnosticsQuickActions:
 
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Click Refresh Job Data button
         refresh_btn = page.locator("#refreshJobData")
@@ -134,7 +130,6 @@ class TestDiagnosticsQuickActions:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify auto-refresh checkbox exists and is checked by default
         auto_refresh = page.locator("#autoRefresh")
@@ -158,7 +153,6 @@ class TestDiagnosticsQuickActions:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify last updated timestamp exists
         last_updated = page.locator("#lastUpdated")
@@ -175,7 +169,6 @@ class TestDiagnosticsSystemStatus:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify overall health status section exists
         overall_health = page.locator("#overallHealthStatus")
@@ -188,7 +181,6 @@ class TestDiagnosticsSystemStatus:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify worker status section exists
         worker_status = page.locator("#workerStatus")
@@ -201,7 +193,6 @@ class TestDiagnosticsSystemStatus:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify queue status section exists
         queue_status = page.locator("#queueStatus")
@@ -214,7 +205,6 @@ class TestDiagnosticsSystemStatus:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify active tasks section exists
         active_tasks = page.locator("#activeTasks")
@@ -231,7 +221,6 @@ class TestDiagnosticsHealthChecks:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify database health section exists
         database_health = page.locator("#databaseHealthContent")
@@ -244,7 +233,6 @@ class TestDiagnosticsHealthChecks:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify services health section exists
         services_health = page.locator("#servicesHealthContent")
@@ -257,7 +245,6 @@ class TestDiagnosticsHealthChecks:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify deduplication health section exists
         deduplication_health = page.locator("#deduplicationHealthContent")
@@ -270,7 +257,6 @@ class TestDiagnosticsHealthChecks:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify celery health section exists
         celery_health = page.locator("#celeryHealthContent")
@@ -287,7 +273,6 @@ class TestDiagnosticsJobHistory:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify job history section exists (h2 matches template; no emoji in title)
         job_history_header = page.locator("h2.diag-card-title:has-text('Recent Job History')")
@@ -304,7 +289,6 @@ class TestDiagnosticsJobHistory:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         job_header = page.locator('[data-collapsible-panel="job-history"]')
         expect(job_header).to_be_visible()
@@ -321,11 +305,11 @@ class TestDiagnosticsJobHistory:
         assert not _class_has_hidden(job_history_content)
 
         job_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
         assert _class_has_hidden(job_history_content)
 
         job_header.click()
-        page.wait_for_timeout(500)
+        page.wait_for_timeout(200)
         assert not _class_has_hidden(job_history_content)
 
 
@@ -353,7 +337,6 @@ class TestDiagnosticsAutoRefresh:
 
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify initial API call
         initial_count = api_call_count["count"]
@@ -384,7 +367,6 @@ class TestDiagnosticsAutoRefresh:
 
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Disable auto-refresh
         auto_refresh = page.locator("#autoRefresh")
@@ -411,7 +393,6 @@ class TestDiagnosticsLoadingOverlay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify loading overlay exists
         loading_overlay = page.locator("#loadingOverlay")
@@ -425,7 +406,6 @@ class TestDiagnosticsLoadingOverlay:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify loading message element exists
         loading_message = page.locator("#loadingMessage")
@@ -456,7 +436,6 @@ class TestDiagnosticsErrorHandling:
 
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("h1:has-text('🔧 System Diagnostics')").first

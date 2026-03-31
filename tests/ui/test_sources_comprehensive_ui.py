@@ -394,7 +394,7 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify modal is now visible
             expect(config_modal).not_to_have_class("hidden")
@@ -411,7 +411,7 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify form fields exist
             lookback_days = page.locator("#configLookbackDays")
@@ -435,7 +435,7 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify input constraints
             lookback_days = page.locator("#configLookbackDays")
@@ -462,7 +462,7 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find save button
             save_btn = page.locator("#saveSourceConfigBtn")
@@ -481,7 +481,7 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Find cancel button
             cancel_btn = page.locator("#cancelSourceConfigBtn")
@@ -489,7 +489,7 @@ class TestSourceConfigurationModal:
 
             # Click cancel
             cancel_btn.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify modal is closed
             config_modal = page.locator("#sourceConfigModal")
@@ -507,14 +507,14 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Click outside modal (on backdrop)
             config_modal = page.locator("#sourceConfigModal")
             # Click on backdrop (first child div)
             backdrop = config_modal.locator("div.fixed.inset-0").first
             backdrop.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify modal is closed
             expect(config_modal).to_have_class("hidden")
@@ -531,11 +531,11 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Press Escape
             page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify modal is closed
             config_modal = page.locator("#sourceConfigModal")
@@ -569,7 +569,7 @@ class TestSourceConfigurationModal:
         configure_buttons = page.locator("button:has-text('Configure')")
         if configure_buttons.count() > 0:
             configure_buttons.first.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Fill form fields
             lookback_days = page.locator("#configLookbackDays")

@@ -62,7 +62,7 @@ def _trigger_load_queue(page: Page) -> None:
         page.evaluate("async () => { await window.loadQueue(); }")
     else:
         page.locator('button[onclick="loadQueue()"]').first.click()
-    page.wait_for_timeout(500)
+    page.wait_for_timeout(200)
 
 
 def _ensure_rule_modal_open(page: Page) -> None:
@@ -105,7 +105,6 @@ def test_workflow_queue_preview_edits_survive_load_queue(page: Page) -> None:
     # previewId + queue tab: same deep-link path as production; Preview also sets previewId when opened via button.
     page.goto(f"{base_url}/workflow?previewId=1#queue")
     page.wait_for_load_state("load")
-    page.wait_for_timeout(2000)
 
     _enter_edit_and_append_marker(page)
     _await_load_queue_deferred_preview(page)

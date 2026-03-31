@@ -86,7 +86,6 @@ class TestMobileLayout:
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify page loads and displays correctly
         heading = page.locator("h1").first
@@ -102,7 +101,6 @@ class TestMobileLayout:
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)
 
         # Verify page loads and displays correctly
         heading = page.locator("h1").first
@@ -183,7 +181,6 @@ class TestMobileTouchInteractions:
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Tap on input
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -248,7 +245,6 @@ class TestMobileForms:
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify form inputs are accessible
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -269,7 +265,6 @@ class TestMobileForms:
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Fill and submit form
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -294,7 +289,6 @@ class TestMobileForms:
         page.set_viewport_size({"width": 375, "height": 667})
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Find dropdowns
         selects = page.locator("select")

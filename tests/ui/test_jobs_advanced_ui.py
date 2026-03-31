@@ -20,7 +20,6 @@ class TestJobsPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for JavaScript initialization
 
         # Verify page title
         expect(page).to_have_title("Job Monitor - Huntable CTI Scraper")
@@ -36,7 +35,6 @@ class TestJobsPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify auto-refresh checkbox exists
         auto_refresh = page.locator("#autoRefresh")
@@ -50,7 +48,6 @@ class TestJobsPageLoad:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify refresh button exists
         refresh_btn = page.locator("#refreshBtn")
@@ -68,7 +65,6 @@ class TestJobsAutoRefresh:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify auto-refresh is checked by default
         auto_refresh = page.locator("#autoRefresh")
@@ -105,7 +101,6 @@ class TestJobsAutoRefresh:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify initial API calls
         initial_count = api_call_count["count"]
@@ -140,7 +135,6 @@ class TestJobsRefreshButton:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Get initial count
         initial_count = api_call_count["count"]
@@ -163,7 +157,6 @@ class TestJobsRefreshButton:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify last updated timestamp exists
         last_updated = page.locator("#lastUpdated")
@@ -214,7 +207,6 @@ class TestJobsWorkerStatus:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify worker status section exists
         worker_status = page.locator("#workerStatus")
@@ -244,7 +236,6 @@ class TestJobsWorkerStatus:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify empty state message appears
         empty_state = page.locator("text=No active workers")
@@ -278,7 +269,6 @@ class TestJobsQueueStatus:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify queue status section exists
         queue_status = page.locator("#queueStatus")
@@ -308,7 +298,6 @@ class TestJobsQueueStatus:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify queue status section exists (may show empty queues)
         queue_status = page.locator("#queueStatus")
@@ -350,7 +339,6 @@ class TestJobsActiveTasks:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify active tasks section exists
         active_tasks = page.locator("#activeTasks")
@@ -380,7 +368,6 @@ class TestJobsActiveTasks:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify empty state message appears
         empty_state = page.locator("text=No active tasks")
@@ -423,7 +410,6 @@ class TestJobsHistory:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify job history section exists
         job_history = page.locator("#jobHistory")
@@ -453,7 +439,6 @@ class TestJobsHistory:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify empty state message appears
         empty_state = page.locator("text=No recent tasks")
@@ -480,7 +465,6 @@ class TestJobsErrorHandling:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("h1:has-text('🔄 Job Monitor')").first
@@ -515,7 +499,6 @@ class TestJobsAPIIntegration:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "Jobs status API should be called"
@@ -541,7 +524,6 @@ class TestJobsAPIIntegration:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "Jobs queues API should be called"
@@ -567,7 +549,6 @@ class TestJobsAPIIntegration:
 
         page.goto(f"{base_url}/jobs")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "Jobs history API should be called"

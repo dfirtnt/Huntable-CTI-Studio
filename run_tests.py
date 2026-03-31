@@ -854,6 +854,16 @@ class RunTestRunner:
         if self.config.test_type == RunTestType.API:
             cmd.extend(["-o", "asyncio_default_test_loop_scope=session"])
 
+        # UI tests: add a per-test timeout guard so a single hung Playwright test
+        # cannot block the entire serial run.  Requires pytest-timeout.
+        if self.config.test_type in (RunTestType.UI, RunTestType.E2E, RunTestType.ALL, RunTestType.COVERAGE):
+            try:
+                import pytest_timeout  # noqa: F401
+
+                cmd.extend(["--timeout=60", "--timeout-method=thread"])
+            except ImportError:
+                pass  # pytest-timeout not installed; timeout guard disabled
+
         # Add execution context specific options
         effective_context = self._get_effective_context(self.config.test_type)
         if effective_context == ExecutionContext.DOCKER:

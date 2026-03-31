@@ -34,7 +34,6 @@ class TestKeyboardNavigation:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Focus on input
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
@@ -118,7 +117,6 @@ class TestARIALabels:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Find inputs and verify they have labels
         inputs = page.locator("input, textarea, select")
@@ -237,7 +235,7 @@ class TestFocusManagement:
 
             # Close modal (if any)
             page.keyboard.press("Escape")
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
 
             # Verify focus returns (may vary by implementation)
             focused_element = page.evaluate("document.activeElement")
@@ -391,7 +389,6 @@ class TestFormAccessibility:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Find form inputs
         inputs = page.locator("input, textarea, select")
@@ -414,7 +411,6 @@ class TestFormAccessibility:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify error messages have proper ARIA attributes
         page.locator("[role='alert'], .error, [aria-live]")

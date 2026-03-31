@@ -50,7 +50,6 @@ class TestPageLoadTime:
         start_time = time.time()
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)  # Wait for React to render
         load_time = time.time() - start_time
 
         # Verify page loads within reasonable time (10 seconds for complex page)
@@ -65,7 +64,6 @@ class TestPageLoadTime:
         start_time = time.time()
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)  # Wait for React to render
         load_time = time.time() - start_time
 
         # Verify page loads within reasonable time (10 seconds for React app)
@@ -92,7 +90,6 @@ class TestAPIPerformance:
 
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Verify page loads (API performance verified via page load time)
         heading = page.locator("h1").first
@@ -179,7 +176,6 @@ class TestRenderingPerformance:
         start_time = time.time()
         page.goto(f"{base_url}/analytics/scraper-metrics")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(3000)  # Wait for Chart.js to render
         render_time = time.time() - start_time
 
         # Verify charts render within reasonable time (10 seconds)
@@ -227,7 +223,6 @@ class TestMemoryUsage:
         for _i in range(3):
             page.goto(f"{base_url}/")
             page.wait_for_load_state("load")
-            page.wait_for_timeout(1000)
 
         # Verify page still loads correctly
         heading = page.locator("h1").first
@@ -362,7 +357,7 @@ class TestInteractionPerformance:
             # Measure click response time
             start_time = time.time()
             button.click()
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
             response_time = time.time() - start_time
 
             # Verify response is fast (1 second)
@@ -375,7 +370,6 @@ class TestInteractionPerformance:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
-        page.wait_for_timeout(2000)
 
         # Fill form and submit
         textarea = page.locator("textarea[placeholder*='Ask about cybersecurity']")
