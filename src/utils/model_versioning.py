@@ -8,10 +8,12 @@ This module provides functionality to:
 """
 
 import logging
+import os
+import shutil
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, select, update
 
 from src.database.async_manager import AsyncDatabaseManager
 from src.database.models import MLModelVersionTable
@@ -156,6 +158,40 @@ class MLModelVersionManager:
         except Exception as e:
             logger.error(f"Error getting all versions: {e}")
             return []
+
+    async def get_versions_paginated(
+        self,
+        page: int = 1,
+        limit: int = 10,
+        version_number: int | None = None,
+    ) -> tuple[list[MLModelVersionTable], int]:
+        """Get model versions with pagination and optional version search.
+
+        Returns:
+            Tuple of (versions list, total count).
+        """
+        try:
+            async with self.db_manager.get_session() as session:
+                base = select(MLModelVersionTable)
+                if version_number is not None:
+                    base = base.where(MLModelVersionTable.version_number == version_number)
+
+                # Total count
+                from sqlalchemy import func as sa_func
+
+                count_result = await session.execute(select(sa_func.count()).select_from(base.subquery()))
+                total = count_result.scalar() or 0
+
+                # Paginated rows
+                offset = (page - 1) * limit
+                rows_result = await session.execute(
+                    base.order_by(desc(MLModelVersionTable.version_number)).limit(limit).offset(offset)
+                )
+                versions = rows_result.scalars().all()
+                return versions, total
+        except Exception as e:
+            logger.error(f"Error getting paginated versions: {e}")
+            return [], 0
 
     async def compare_versions(self, old_version_id: int, new_version_id: int) -> dict[str, Any]:
         """
@@ -356,4 +392,64 @@ class MLModelVersionManager:
 
         except Exception as e:
             logger.error(f"Error updating comparison results: {e}")
+            return False
+
+    async def activate_version(self, version_id: int) -> bool:
+        """
+        Activate a specific model version:
+        1. Copy its versioned artifact to the live model path
+        2. Flip is_current flags in DB
+        3. Clear the ContentFilter lru_cache so the next request reloads the model
+
+        Raises FileNotFoundError if the versioned artifact is missing (version predates
+        rollback support and was never saved with a versioned path).
+        """
+        version = await self.get_version_by_id(version_id)
+        if not version:
+            raise ValueError(f"Model version {version_id} not found")
+
+        versioned_path = version.model_file_path
+        if not versioned_path or not os.path.exists(versioned_path):
+            raise FileNotFoundError(
+                f"No artifact for model version {version.version_number} at '{versioned_path}'. "
+                "Only versions trained after rollback support was added can be restored."
+            )
+
+        live_path = "models/content_filter.pkl"
+        os.makedirs(os.path.dirname(live_path), exist_ok=True)
+        shutil.copy2(versioned_path, live_path)
+        logger.info(f"Copied {versioned_path} → {live_path} for rollback to v{version.version_number}")
+
+        async with self.db_manager.get_session() as session:
+            await session.execute(update(MLModelVersionTable).values(is_current=False))
+            await session.execute(
+                update(MLModelVersionTable).where(MLModelVersionTable.id == version_id).values(is_current=True)
+            )
+            await session.commit()
+
+        # Invalidate the lru_cache singleton so the next request loads the restored model
+        try:
+            from src.web.dependencies import get_content_filter
+
+            get_content_filter.cache_clear()
+        except Exception:
+            pass  # Not running inside the web process (e.g. script context) — safe to ignore
+
+        logger.info(f"Activated model version {version.version_number} (id={version_id})")
+        return True
+
+    async def set_version_artifact(self, version_id: int, artifact_path: str) -> bool:
+        """Update model_file_path and set is_current=True for a freshly trained version."""
+        try:
+            async with self.db_manager.get_session() as session:
+                await session.execute(update(MLModelVersionTable).values(is_current=False))
+                await session.execute(
+                    update(MLModelVersionTable)
+                    .where(MLModelVersionTable.id == version_id)
+                    .values(model_file_path=artifact_path, is_current=True)
+                )
+                await session.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error setting version artifact: {e}")
             return False

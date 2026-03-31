@@ -63,8 +63,13 @@ def load_feedback_data():
         return pd.DataFrame()
 
 
-def load_annotation_data():
-    """Load annotation data from database."""
+def load_annotation_data(include_all: bool = False):
+    """Load annotation data from database.
+
+    Args:
+        include_all: When True, load all annotations regardless of used_for_training
+                     flag (used in bootstrap mode when no baseline CSV exists).
+    """
     try:
         # Use the existing database manager
         from database.manager import DatabaseManager
@@ -75,8 +80,11 @@ def load_annotation_data():
         try:
             from sqlalchemy import text
 
-            # Query annotations (only unused ones with ~1000 chars)
-            query = text("""
+            # In bootstrap mode, include already-used annotations too — they aren't
+            # in the (missing) baseline CSV so they must come from the DB directly.
+            used_filter = "" if include_all else "AND aa.used_for_training = FALSE"
+
+            query = text(f"""
             SELECT
                 ROW_NUMBER() OVER (ORDER BY aa.created_at) as record_number,
                 aa.selected_text as highlighted_text,
@@ -89,7 +97,7 @@ def load_annotation_data():
             FROM article_annotations aa
             WHERE LENGTH(aa.selected_text) >= 950
             AND LENGTH(aa.selected_text) <= 1050
-            AND aa.used_for_training = FALSE
+            {used_filter}
             ORDER BY aa.created_at
             """)
 
@@ -217,13 +225,14 @@ def mark_feedback_as_used():
 
 def combine_training_data(original_file: str, feedback_df: pd.DataFrame, annotation_df: pd.DataFrame = None):
     """Combine original training data with feedback and annotation data."""
-    # Load original training data
-    if not os.path.exists(original_file):
-        print(f"❌ Original training file not found: {original_file}")
-        return None
-
-    original_df = pd.read_csv(original_file)
-    print(f"📚 Loaded {len(original_df)} original training examples")
+    # Load original training data (optional — may not exist on first run)
+    if os.path.exists(original_file):
+        original_df = pd.read_csv(original_file)
+        print(f"📚 Loaded {len(original_df)} original training examples")
+    else:
+        print(f"⚠️  Original training file not found: {original_file}")
+        print("   Proceeding in bootstrap mode (feedback + annotation data only)")
+        original_df = pd.DataFrame(columns=["record_number", "highlighted_text", "classification"])
 
     # Process feedback data
     feedback_training = process_feedback_for_training(feedback_df)
@@ -273,14 +282,17 @@ def retrain_model_with_feedback(
     # Load feedback data
     feedback_df = load_feedback_data()
 
-    # Load annotation data
-    annotation_df = load_annotation_data()
+    # When the baseline CSV is absent we are in bootstrap mode — load all
+    # annotations from DB (including already-used ones) since they aren't
+    # represented in any CSV file yet.
+    bootstrap_mode = not os.path.exists(original_file)
+    annotation_df = load_annotation_data(include_all=bootstrap_mode)
 
     # Combine training data
     combined_df = combine_training_data(original_file, feedback_df, annotation_df)
 
-    if combined_df is None:
-        print("❌ Failed to prepare training data")
+    if combined_df is None or combined_df.empty:
+        print("❌ No training data available (no feedback, annotations, or original file)")
         return False
 
     # Ensure output directory exists
@@ -337,39 +349,54 @@ def retrain_model_with_feedback(
             from src.database.async_manager import AsyncDatabaseManager
             from src.utils.model_versioning import MLModelVersionManager
 
-            db_manager = AsyncDatabaseManager()
-            version_manager = MLModelVersionManager(db_manager)
-
             # Count feedback samples used (both correct and incorrect)
             feedback_count = len(feedback_df) if not feedback_df.empty else 0
 
-            new_version_id = asyncio.run(
-                version_manager.save_model_version(
-                    metrics=training_result,
-                    _training_config={"original_file": original_file},
-                    feedback_count=feedback_count,
-                    model_file_path=current_model_path,
-                )
-            )
+            # Run all version-related DB work inside a single asyncio.run() so
+            # the async engine lives and dies within one event loop — calling
+            # asyncio.run() twice on the same AsyncDatabaseManager instance
+            # would corrupt the connection pool.
+            async def _save_version_and_artifact():
+                db = AsyncDatabaseManager(pool_size=2, max_overflow=0)
+                try:
+                    vm = MLModelVersionManager(db)
+                    version_id = await vm.save_model_version(
+                        metrics=training_result,
+                        _training_config={"original_file": original_file},
+                        feedback_count=feedback_count,
+                        model_file_path=current_model_path,
+                    )
+                    versioned_path = f"/app/models/content_filter_v{version_id}.pkl"
+                    shutil.copy2(current_model_path, versioned_path)
+                    await vm.set_version_artifact(version_id, versioned_path)
+                    return version_id, versioned_path
+                finally:
+                    await db.close()
+
+            new_version_id, versioned_artifact_path = asyncio.run(_save_version_and_artifact())
 
             print(f"📊 Saved new model version: {new_version_id}")
+            print(f"💾 Saved versioned artifact: {versioned_artifact_path}")
 
             # Set the compared_with_version field for the new version
             if old_version_id and new_version_id:
                 try:
-                    # Update the new version to reference the old version
                     async def update_comparison_reference():
-                        async with db_manager.get_session() as session:
-                            from sqlalchemy import update
+                        from sqlalchemy import update
 
-                            from src.database.models import MLModelVersionTable
+                        from src.database.models import MLModelVersionTable
 
-                            await session.execute(
-                                update(MLModelVersionTable)
-                                .where(MLModelVersionTable.id == new_version_id)
-                                .values(compared_with_version=old_version_id)
-                            )
-                            await session.commit()
+                        db = AsyncDatabaseManager(pool_size=2, max_overflow=0)
+                        try:
+                            async with db.get_session() as session:
+                                await session.execute(
+                                    update(MLModelVersionTable)
+                                    .where(MLModelVersionTable.id == new_version_id)
+                                    .values(compared_with_version=old_version_id)
+                                )
+                                await session.commit()
+                        finally:
+                            await db.close()
 
                     asyncio.run(update_comparison_reference())
                     print(
@@ -407,52 +434,67 @@ def retrain_model_with_feedback(
 
         # Run evaluation on test set
         print("\n🧪 Running evaluation on test set...")
+        eval_metrics = None
+
+        # Try dedicated evaluator first (uses curated eval_set.csv)
         try:
-            from utils.model_evaluation import ModelEvaluator
+            from src.utils.model_evaluation import ModelEvaluator
 
             evaluator = ModelEvaluator()
             eval_metrics = evaluator.evaluate_model(filter_system)
+            print("✅ Evaluation complete (curated eval set)!")
+            print(f"   - Misclassified: {eval_metrics['misclassified_count']}/{eval_metrics['total_eval_chunks']}")
+        except (FileNotFoundError, ImportError) as e:
+            print(f"   ℹ️  Curated eval set not available ({e})")
+            print("   Falling back to training test-split metrics…")
+        except Exception as e:
+            print(f"⚠️  Evaluator failed: {e}")
+            print("   Falling back to training test-split metrics…")
 
-            print("✅ Evaluation complete!")
+        # Fallback: use the training's own test-split metrics (80/20 split)
+        if eval_metrics is None and training_result:
+            eval_metrics = {
+                "accuracy": training_result.get("accuracy", 0.0),
+                "precision_huntable": training_result.get("precision_huntable", 0.0),
+                "precision_not_huntable": training_result.get("precision_not_huntable", 0.0),
+                "recall_huntable": training_result.get("recall_huntable", 0.0),
+                "recall_not_huntable": training_result.get("recall_not_huntable", 0.0),
+                "f1_score_huntable": training_result.get("f1_score_huntable", 0.0),
+                "f1_score_not_huntable": training_result.get("f1_score_not_huntable", 0.0),
+                "confusion_matrix": None,
+            }
+            print("✅ Using training test-split metrics for evaluation")
+
+        if eval_metrics:
             print(f"   - Test Accuracy: {eval_metrics['accuracy']:.3f}")
             print(f"   - Precision (Huntable): {eval_metrics['precision_huntable']:.3f}")
-            print(f"   - Precision (Not Huntable): {eval_metrics['precision_not_huntable']:.3f}")
             print(f"   - Recall (Huntable): {eval_metrics['recall_huntable']:.3f}")
-            print(f"   - Recall (Not Huntable): {eval_metrics['recall_not_huntable']:.3f}")
             print(f"   - F1 Score (Huntable): {eval_metrics['f1_score_huntable']:.3f}")
-            print(f"   - F1 Score (Not Huntable): {eval_metrics['f1_score_not_huntable']:.3f}")
-            print(f"   - Misclassified: {eval_metrics['misclassified_count']}/{eval_metrics['total_eval_chunks']}")
 
-            # Save evaluation metrics to model version
+            # Save evaluation metrics to the model version
             try:
-                import asyncio
-
-                from database.async_manager import AsyncDatabaseManager
-                from utils.model_versioning import MLModelVersionManager
-
                 async def save_eval_metrics():
-                    db_manager = AsyncDatabaseManager()
-                    version_manager = MLModelVersionManager(db_manager)
-                    latest_version = await version_manager.get_latest_version()
-
-                    if latest_version:
-                        success = await version_manager.save_evaluation_metrics(latest_version.id, eval_metrics)
-                        if success:
-                            print(f"✅ Evaluation metrics saved to model version {latest_version.version_number}")
+                    db = AsyncDatabaseManager(pool_size=2, max_overflow=0)
+                    try:
+                        vm = MLModelVersionManager(db)
+                        latest = await vm.get_latest_version()
+                        if latest:
+                            success = await vm.save_evaluation_metrics(latest.id, eval_metrics)
+                            if success:
+                                print(f"✅ Evaluation metrics saved to model version {latest.version_number}")
+                            else:
+                                print("⚠️  Failed to save evaluation metrics to database")
                         else:
-                            print("⚠️  Failed to save evaluation metrics to database")
-                    else:
-                        print("⚠️  No model version found to save evaluation metrics")
-
-                    await db_manager.close()
+                            print("⚠️  No model version found to save evaluation metrics")
+                    finally:
+                        await db.close()
 
                 asyncio.run(save_eval_metrics())
 
             except Exception as e:
                 print(f"⚠️  Could not save evaluation metrics: {e}")
-
-        except Exception as e:
-            print(f"⚠️  Could not run evaluation: {e}")
+        else:
+            print("⚠️  No evaluation metrics available")
 
         # Show statistics
         if not feedback_df.empty:
@@ -468,7 +510,10 @@ def retrain_model_with_feedback(
             print(f"   - Training examples created: {correct_feedback + incorrect_feedback}")
 
         return training_result
-    print("❌ Model retraining failed")
+    if training_result and training_result.get("error"):
+        print(f"❌ Model retraining failed: {training_result['error']}")
+    else:
+        print("❌ Model retraining failed")
     # Restore backup if training failed
     if backup_model_path and os.path.exists(backup_model_path):
         shutil.copy2(backup_model_path, current_model_path)

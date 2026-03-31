@@ -298,6 +298,9 @@ class MLModelVersionTable(Base):
     eval_confusion_matrix = Column(JSON, nullable=True)
     evaluated_at = Column(DateTime, nullable=True)
 
+    # Active version tracking
+    is_current = Column(Boolean, nullable=False, default=False, index=True)
+
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
 

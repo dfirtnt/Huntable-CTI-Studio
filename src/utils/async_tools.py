@@ -32,9 +32,17 @@ def run_sync(coro: Coroutine[Any, Any, T], *, allow_running_loop: bool = False) 
     Raises:
         RuntimeError: If called from a running event loop (unless allow_running_loop=True)
     """
+    # Detect whether we're inside a running event loop.  get_running_loop()
+    # raises RuntimeError when there is *no* loop, so a successful return
+    # means we ARE inside one.
+    has_running_loop = False
     try:
-        loop = asyncio.get_running_loop()
-        # We're in a running event loop
+        asyncio.get_running_loop()
+        has_running_loop = True
+    except RuntimeError:
+        pass
+
+    if has_running_loop:
         if allow_running_loop:
             logger.warning(
                 "run_sync() called from running event loop with allow_running_loop=True. "
@@ -54,11 +62,9 @@ def run_sync(coro: Coroutine[Any, Any, T], *, allow_running_loop: bool = False) 
                 "run_sync() called from a running event loop. "
                 "Use 'await' in async context instead, or refactor to avoid sync wrapper."
             )
-    except RuntimeError as e:
-        if "running event loop" in str(e):
-            raise  # Re-raise our custom error
-        # No running loop, safe to use asyncio.run()
-        return asyncio.run(coro)
+
+    # No running loop — safe to use asyncio.run()
+    return asyncio.run(coro)
 
 
 def ensure_async_context(func):
