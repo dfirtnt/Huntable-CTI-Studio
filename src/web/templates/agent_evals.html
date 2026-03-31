@@ -729,7 +729,11 @@ async function loadEvalArticles() {
         
     } catch (error) {
         console.error('Error loading eval articles:', error);
-        articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        articleList.textContent = '';
+        const errP = document.createElement('p');
+        errP.className = 'text-sm text-red-600 dark:text-red-400';
+        errP.textContent = 'Error: ' + error.message;
+        articleList.appendChild(errP);
         showNotification('Failed to load eval articles: ' + error.message, 'error');
     } finally {
         loadBtn.disabled = false;
@@ -913,7 +917,11 @@ async function loadDataset() {
         
     } catch (error) {
         console.error('Error loading dataset:', error);
-        articleList.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        articleList.textContent = '';
+        const errP = document.createElement('p');
+        errP.className = 'text-sm text-red-600 dark:text-red-400';
+        errP.textContent = 'Error: ' + error.message;
+        articleList.appendChild(errP);
         showNotification('Failed to load dataset: ' + error.message, 'error');
     } finally {
         loadBtn.disabled = false;
@@ -2238,7 +2246,11 @@ async function loadPreviousResults() {
         
     } catch (error) {
         console.error('Error loading previous results:', error);
-        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        resultsTable.textContent = '';
+        const errEl = document.createElement('p');
+        errEl.className = 'text-sm text-red-600 dark:text-red-400';
+        errEl.textContent = 'Error: ' + error.message;
+        resultsTable.appendChild(errEl);
     }
 }
 
@@ -2248,32 +2260,40 @@ async function backfillEvalRecords() {
     const subagentSelect = document.getElementById('subagentSelect').value;
     const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
-    
+
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Updating pending records...</p>';
-    
+
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-backfill?subagent=${apiSubagent}`, {
             method: 'POST'
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
             throw new Error(errorData.detail || `HTTP ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Show success message
-        resultsTable.innerHTML = `<p class="text-sm text-green-600 dark:text-green-400">✅ ${data.message}</p>`;
-        
+        resultsTable.textContent = '';
+        const msgEl = document.createElement('p');
+        msgEl.className = 'text-sm text-green-600 dark:text-green-400';
+        msgEl.textContent = data.message;
+        resultsTable.appendChild(msgEl);
+
         // Reload results to show updated list
         setTimeout(() => {
             loadPreviousResults();
         }, 1000);
-        
+
     } catch (error) {
         console.error('Error backfilling eval records:', error);
-        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        resultsTable.textContent = '';
+        const errEl = document.createElement('p');
+        errEl.className = 'text-sm text-red-600 dark:text-red-400';
+        errEl.textContent = 'Error: ' + error.message;
+        resultsTable.appendChild(errEl);
     }
 }
 
@@ -2283,37 +2303,45 @@ async function clearPendingRecords() {
     const subagentSelect = document.getElementById('subagentSelect').value;
     const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
-    
+
     // Confirm deletion
     if (!confirm(`Are you sure you want to delete all pending evaluation records for ${apiSubagent}? This action cannot be undone.`)) {
         return;
     }
-    
+
     resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Clearing pending records...</p>';
-    
+
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-clear-pending?subagent=${apiSubagent}`, {
             method: 'DELETE'
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ detail: response.statusText }));
             throw new Error(errorData.detail || `HTTP ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Show success message
-        resultsTable.innerHTML = `<p class="text-sm text-green-600 dark:text-green-400">✅ ${data.message}</p>`;
-        
+        resultsTable.textContent = '';
+        const msgEl2 = document.createElement('p');
+        msgEl2.className = 'text-sm text-green-600 dark:text-green-400';
+        msgEl2.textContent = data.message;
+        resultsTable.appendChild(msgEl2);
+
         // Reload results to show updated list (without pending records)
         setTimeout(() => {
             loadPreviousResults();
         }, 1000);
-        
+
     } catch (error) {
         console.error('Error clearing pending records:', error);
-        resultsTable.innerHTML = `<p class="text-sm text-red-600 dark:text-red-400">❌ Error: ${error.message}</p>`;
+        resultsTable.textContent = '';
+        const errEl = document.createElement('p');
+        errEl.className = 'text-sm text-red-600 dark:text-red-400';
+        errEl.textContent = 'Error: ' + error.message;
+        resultsTable.appendChild(errEl);
     }
 }
 

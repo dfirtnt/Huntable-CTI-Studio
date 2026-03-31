@@ -24,8 +24,33 @@ logger = logging.getLogger(__name__)
 class MLModelVersionManager:
     """Manages ML model versions and performance comparisons."""
 
+    ALLOWED_MODEL_DIRS = ("models", "/app/models")
+
     def __init__(self, db_manager: AsyncDatabaseManager):
         self.db_manager = db_manager
+
+    @staticmethod
+    def _validate_model_path(path: str) -> str:
+        """Validate that a model file path is within the allowed models directory.
+
+        Prevents path traversal attacks by resolving the path and checking it
+        stays within one of the ALLOWED_MODEL_DIRS.
+
+        Raises ValueError if the path escapes the allowed directory.
+        """
+        import pathlib
+
+        resolved = pathlib.Path(path).resolve()
+        for allowed in MLModelVersionManager.ALLOWED_MODEL_DIRS:
+            allowed_dir = pathlib.Path(allowed).resolve()
+            try:
+                resolved.relative_to(allowed_dir)
+                return str(resolved)
+            except ValueError:
+                continue
+        raise ValueError(
+            f"Model path '{path}' is outside the allowed directories: {MLModelVersionManager.ALLOWED_MODEL_DIRS}"
+        )
 
     async def save_model_version(
         self,
@@ -414,6 +439,9 @@ class MLModelVersionManager:
                 f"No artifact for model version {version.version_number} at '{versioned_path}'. "
                 "Only versions trained after rollback support was added can be restored."
             )
+
+        # Validate the source path stays within the allowed models directory
+        self._validate_model_path(versioned_path)
 
         live_path = "models/content_filter.pkl"
         os.makedirs(os.path.dirname(live_path), exist_ok=True)

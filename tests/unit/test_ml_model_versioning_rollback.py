@@ -74,6 +74,7 @@ class TestActivateVersion:
             patch("src.utils.model_versioning.os.path.exists", return_value=True),
             patch("src.utils.model_versioning.os.makedirs"),
             patch("src.web.dependencies.get_content_filter") as mock_cf,
+            patch.object(MLModelVersionManager, "ALLOWED_MODEL_DIRS", (str(tmp_path),)),
         ):
             mock_cf.cache_clear = Mock()
             result = await mgr.activate_version(version.id)
