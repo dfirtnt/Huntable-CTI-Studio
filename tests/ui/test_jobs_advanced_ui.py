@@ -143,7 +143,7 @@ class TestJobsRefreshButton:
         refresh_btn = page.locator("#refreshBtn, button:has-text('Refresh'), button[onclick*='refresh']").first
         refresh_btn.wait_for(state="visible", timeout=5000)
         refresh_btn.click()
-        page.wait_for_timeout(3000)  # Wait for API call to complete
+        page.wait_for_timeout(1000)  # Wait for API call to complete
 
         # Verify API was called again
         assert api_call_count["count"] > initial_count, (
@@ -168,7 +168,7 @@ class TestJobsRefreshButton:
         # Click refresh button
         refresh_btn = page.locator("#refreshBtn")
         refresh_btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1000)
 
         # Verify timestamp updated (may or may not change depending on timing)
         expect(last_updated).to_be_visible()

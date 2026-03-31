@@ -14,6 +14,7 @@ class TestKeyboardNavigation:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_tab_navigation(self, page: Page):
         """Test Tab key navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -29,6 +30,7 @@ class TestKeyboardNavigation:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_enter_key_submission(self, page: Page):
         """Test Enter key form submission."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -50,6 +52,7 @@ class TestKeyboardNavigation:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_escape_key_modal_close(self, page: Page):
         """Test Escape key closes modals."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -65,6 +68,7 @@ class TestKeyboardNavigation:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_arrow_key_navigation(self, page: Page):
         """Test arrow key navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -90,6 +94,7 @@ class TestARIALabels:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_button_aria_labels(self, page: Page):
         """Test button ARIA labels."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -112,6 +117,7 @@ class TestARIALabels:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_input_aria_labels(self, page: Page):
         """Test input ARIA labels."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -142,6 +148,7 @@ class TestARIALabels:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_modal_aria_labels(self, page: Page):
         """Test modal ARIA labels."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -162,6 +169,7 @@ class TestARIALabels:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_nav_has_main_aria_label(self, page: Page):
         """Test main nav has aria-label for screen readers."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -172,6 +180,7 @@ class TestARIALabels:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_articles_search_help_aria_label(self, page: Page):
         """Test articles search syntax help button has aria-label."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -192,6 +201,7 @@ class TestFocusManagement:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_focus_on_page_load(self, page: Page):
         """Test focus on page load."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -205,6 +215,7 @@ class TestFocusManagement:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_focus_trap_in_modals(self, page: Page):
         """Test focus trap in modals."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -221,6 +232,7 @@ class TestFocusManagement:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_focus_return_after_modal_close(self, page: Page):
         """Test focus returns after modal close."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -247,6 +259,7 @@ class TestScreenReaderSupport:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_heading_hierarchy(self, page: Page):
         """Test heading hierarchy."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -268,6 +281,7 @@ class TestScreenReaderSupport:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_alt_text_for_images(self, page: Page):
         """Test alt text for images."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -288,6 +302,7 @@ class TestScreenReaderSupport:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_link_descriptions(self, page: Page):
         """Test link descriptions."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -314,6 +329,7 @@ class TestColorContrast:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_text_color_contrast(self, page: Page):
         """Test text color contrast."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -329,6 +345,7 @@ class TestColorContrast:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_button_color_contrast(self, page: Page):
         """Test button color contrast."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -348,6 +365,7 @@ class TestTextScaling:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_text_scaling_support(self, page: Page):
         """Test text scaling support."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -364,6 +382,7 @@ class TestTextScaling:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_responsive_text_layout(self, page: Page):
         """Test responsive text layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -384,6 +403,7 @@ class TestFormAccessibility:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_form_label_association(self, page: Page):
         """Test form label association."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -406,6 +426,7 @@ class TestFormAccessibility:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_form_error_messages(self, page: Page):
         """Test form error messages accessibility."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -422,6 +443,7 @@ class TestLandmarkRoles:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_navigation_landmark(self, page: Page):
         """Test navigation landmark."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -434,6 +456,7 @@ class TestLandmarkRoles:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_main_content_landmark(self, page: Page):
         """Test main content landmark."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -446,6 +469,7 @@ class TestLandmarkRoles:
 
     @pytest.mark.ui
     @pytest.mark.accessibility
+    @pytest.mark.slow
     def test_banner_landmark(self, page: Page):
         """Test banner landmark."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

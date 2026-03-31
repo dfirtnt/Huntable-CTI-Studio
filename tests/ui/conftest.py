@@ -6,6 +6,8 @@ Run 'playwright install' in the Docker container before running UI tests.
 These tests are marked with @pytest.mark.ui and will be excluded from normal test runs.
 """
 
+from urllib.parse import urlparse
+
 import pytest
 
 # Try to import Playwright
@@ -51,6 +53,84 @@ def check_playwright_browsers():
             return False
         # Re-raise other exceptions
         raise
+
+
+class _UrlAwarePage:
+    """Transparent proxy around a Playwright Page that deduplicates same-URL navigations.
+
+    When multiple tests in the same class all call ``page.goto("/same/path")``,
+    only the first navigation hits the network; subsequent calls return
+    immediately because the browser tab is already at that URL.
+
+    All other attributes and methods delegate transparently to the underlying
+    Playwright Page, so no test code needs to change.
+
+    ``wait_for_load_state()`` after a skipped goto is a no-op on an already-loaded
+    page, so the guard idiom ``page.goto(url); page.wait_for_load_state("load")``
+    remains safe without modification.
+    """
+
+    def __init__(self, pw_page):
+        object.__setattr__(self, "_pw", pw_page)
+
+    def goto(self, url, **kwargs):
+        pw = object.__getattribute__(self, "_pw")
+        try:
+            current = urlparse(pw.url)
+            target = urlparse(url)
+            # Skip navigation when already on the same scheme+host+path.
+            # Empty path ("about:blank") is never skipped.
+            if (
+                current.path
+                and current.scheme == target.scheme
+                and current.netloc == target.netloc
+                and current.path == target.path
+            ):
+                return None
+        except Exception:
+            pass  # On any parse error fall through to real navigation
+        return pw.goto(url, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(object.__getattribute__(self, "_pw"), name)
+
+    def __setattr__(self, name, value):
+        if name == "_pw":
+            object.__setattr__(self, name, value)
+        else:
+            setattr(object.__getattribute__(self, "_pw"), name, value)
+
+
+@pytest.fixture(scope="class")
+def page(context):
+    """Class-scoped page shared across all tests in a test class.
+
+    Overrides the function-scoped ``page`` fixture from the root conftest for
+    UI tests.  One browser tab is reused for the lifetime of a test class,
+    eliminating repeated same-URL navigations.
+
+    ``page.goto(url)`` is deduplicated: if the tab is already at *url* (matching
+    scheme + host + path, ignoring query and fragment) the navigation is skipped.
+    This alone removes several hundred redundant page loads across the suite.
+
+    Tests that genuinely need a blank slate between runs should use
+    ``fresh_page`` instead.
+    """
+    pw_page = context.new_page()
+    yield _UrlAwarePage(pw_page)
+    pw_page.close()
+
+
+@pytest.fixture
+def fresh_page(context):
+    """Function-scoped fresh page — a new browser tab for every test.
+
+    Use this when a test must start from ``about:blank`` or when residual
+    in-page state from a sibling test would break assertions.
+    """
+    p = context.new_page()
+    yield p
+    p.close()
 
 
 @pytest.fixture(scope="class")

@@ -89,7 +89,7 @@ class TestDiagnosticsQuickActions:
         # Click Run All Health Checks button
         run_all_btn = page.locator("#runAllHealthChecks")
         run_all_btn.click()
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(1000)
 
         # Verify health status sections update
         overall_health = page.locator("#overallHealthStatus")
@@ -117,7 +117,7 @@ class TestDiagnosticsQuickActions:
         # Click Refresh Job Data button
         refresh_btn = page.locator("#refreshJobData")
         refresh_btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1000)
 
         # Verify job data sections exist
         worker_status = page.locator("#workerStatus")

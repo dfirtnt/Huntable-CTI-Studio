@@ -2009,7 +2009,7 @@ class TestWorkflowExecutionsAPI:
         status_filter = page.locator("#statusFilter, select[name='status'], select[id*='status']").first
         if status_filter.is_visible():
             status_filter.select_option("completed")
-            page.wait_for_timeout(3000)  # Wait for filter API call
+            page.wait_for_timeout(1000)  # Wait for filter API call
 
             # Verify additional API call was made
             assert len(api_calls) > initial_call_count, (
@@ -2137,7 +2137,7 @@ class TestWorkflowQueueAPI:
         status_filter = page.locator("#queueStatusFilter, select[name='status'], select[id*='status']").first
         if status_filter.is_visible():
             status_filter.select_option("pending")
-            page.wait_for_timeout(3000)  # Wait for filter API call
+            page.wait_for_timeout(1000)  # Wait for filter API call
 
             # Verify additional API call was made
             assert len(api_calls) > initial_call_count, (

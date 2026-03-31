@@ -14,6 +14,7 @@ class TestMobileLayout:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_dashboard_mobile_layout(self, page: Page):
         """Test dashboard mobile layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -33,6 +34,7 @@ class TestMobileLayout:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_articles_mobile_layout(self, page: Page):
         """Test articles page mobile layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -48,6 +50,7 @@ class TestMobileLayout:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_sources_mobile_layout(self, page: Page):
         """Test sources page mobile layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -63,6 +66,7 @@ class TestMobileLayout:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_settings_mobile_layout(self, page: Page):
         """Test settings page mobile layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -78,6 +82,7 @@ class TestMobileLayout:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_workflow_mobile_layout(self, page: Page):
         """Test workflow page mobile layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -93,6 +98,7 @@ class TestMobileLayout:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_chat_mobile_layout(self, page: Page):
         """Test chat page mobile layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -112,6 +118,7 @@ class TestMobileTouchInteractions:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_touch_button_tap(self, page: Page):
         """Test touch button tap."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -133,6 +140,7 @@ class TestMobileTouchInteractions:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_touch_link_tap(self, page: Page):
         """Test touch link tap."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -154,6 +162,7 @@ class TestMobileTouchInteractions:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_touch_scroll(self, page: Page):
         """Test touch scroll."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -173,6 +182,7 @@ class TestMobileTouchInteractions:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_touch_input_focus(self, page: Page):
         """Test touch input focus."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -198,6 +208,7 @@ class TestMobileNavigation:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_navigation_menu(self, page: Page):
         """Test mobile navigation menu."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -218,6 +229,7 @@ class TestMobileNavigation:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_breadcrumb_navigation(self, page: Page):
         """Test mobile breadcrumb navigation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -237,6 +249,7 @@ class TestMobileForms:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_form_inputs(self, page: Page):
         """Test mobile form inputs."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -257,6 +270,7 @@ class TestMobileForms:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_form_submission(self, page: Page):
         """Test mobile form submission."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -281,6 +295,7 @@ class TestMobileForms:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_dropdown_selects(self, page: Page):
         """Test mobile dropdown selects."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -307,6 +322,7 @@ class TestMobileModals:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_modal_display(self, page: Page):
         """Test mobile modal display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -323,6 +339,7 @@ class TestMobileModals:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_modal_close(self, page: Page):
         """Test mobile modal close."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -338,6 +355,7 @@ class TestMobileModals:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_modal_backdrop_tap(self, page: Page):
         """Test mobile modal backdrop tap."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -357,6 +375,7 @@ class TestMobileTables:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_table_display(self, page: Page):
         """Test mobile table display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -381,6 +400,7 @@ class TestMobileTables:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_table_scroll(self, page: Page):
         """Test mobile table scroll."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -409,6 +429,7 @@ class TestMobileResponsiveBreakpoints:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_small_mobile_viewport(self, page: Page):
         """Test small mobile viewport (320px)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -424,6 +445,7 @@ class TestMobileResponsiveBreakpoints:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_medium_mobile_viewport(self, page: Page):
         """Test medium mobile viewport (375px)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -439,6 +461,7 @@ class TestMobileResponsiveBreakpoints:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_large_mobile_viewport(self, page: Page):
         """Test large mobile viewport (414px)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -454,6 +477,7 @@ class TestMobileResponsiveBreakpoints:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_tablet_viewport(self, page: Page):
         """Test tablet viewport (768px)."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -473,6 +497,7 @@ class TestMobileOrientation:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_portrait_orientation(self, page: Page):
         """Test portrait orientation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -488,6 +513,7 @@ class TestMobileOrientation:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_landscape_orientation(self, page: Page):
         """Test landscape orientation."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -503,6 +529,7 @@ class TestMobileOrientation:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_orientation_change(self, page: Page):
         """Test orientation change handling."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -526,6 +553,7 @@ class TestMobileSpecificFeatures:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_viewport_meta_tag(self, page: Page):
         """Test mobile viewport meta tag."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -541,6 +569,7 @@ class TestMobileSpecificFeatures:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_touch_target_sizes(self, page: Page):
         """Test mobile touch target sizes."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -562,6 +591,7 @@ class TestMobileSpecificFeatures:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_text_readability(self, page: Page):
         """Test mobile text readability."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -586,6 +616,7 @@ class TestMobileNav:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_hamburger_visible(self, page: Page):
         """Test hamburger button visible at mobile viewport."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -598,6 +629,7 @@ class TestMobileNav:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_menu_opens_on_click(self, page: Page):
         """Test clicking hamburger opens mobile menu with six links."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -619,6 +651,7 @@ class TestMobileNav:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_menu_link_navigates_and_closes(self, page: Page):
         """Test clicking a link in mobile menu navigates and closes menu."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -639,6 +672,7 @@ class TestMobileNav:
 
     @pytest.mark.ui
     @pytest.mark.mobile
+    @pytest.mark.slow
     def test_mobile_menu_escape_closes(self, page: Page):
         """Test Escape key closes mobile menu."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

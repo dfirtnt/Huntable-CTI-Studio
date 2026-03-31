@@ -110,7 +110,6 @@ class TestMessageDisplay:
         input_field.fill("Test question")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify assistant response appears
         assistant_message = page.locator("text=This is a test response")
@@ -137,7 +136,6 @@ class TestMessageDisplay:
         input_field.fill("Test question")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify error message appears
         error_message = page.locator("text=Sorry, I encountered an error")
@@ -187,7 +185,6 @@ class TestMessageDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify model badge appears
         model_badge = page.locator("text=🤖 OpenAI • gpt-4o-mini")
@@ -318,7 +315,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify article results header
         article_header = page.locator("text=📚 1 articles:")
@@ -359,7 +355,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify article compact view
         article_title = page.locator("text=Test Article Title")
@@ -404,7 +399,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Find article card and click to expand
         article_card = page.locator("text=Test Article").locator("..")
@@ -450,7 +444,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand article
         article_card = page.locator("text=Test Article").locator("..")
@@ -498,7 +491,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify similarity percentage (75%)
         similarity = page.locator("text=75%")
@@ -541,7 +533,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand article
         article_card = page.locator("text=Test Article").locator("..")
@@ -579,7 +570,6 @@ class TestArticleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify no article results section appears
         page.locator("text=📚")
@@ -629,7 +619,6 @@ class TestSigmaRuleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify rules header
         rules_header = page.locator("text=🛡️ 1 detection rules:")
@@ -672,7 +661,6 @@ class TestSigmaRuleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify rule compact view
         rule_title = page.locator("text=Test SIGMA Rule")
@@ -716,7 +704,6 @@ class TestSigmaRuleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Find rule card and click to expand
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -765,7 +752,6 @@ class TestSigmaRuleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -807,7 +793,6 @@ class TestSigmaRuleResultsDisplay:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -868,7 +853,6 @@ class TestYAMLModal:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -926,7 +910,6 @@ class TestYAMLModal:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -989,7 +972,6 @@ class TestYAMLModal:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -1051,7 +1033,6 @@ class TestYAMLModal:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -1114,7 +1095,6 @@ class TestYAMLModal:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -1173,7 +1153,6 @@ class TestYAMLModal:
         input_field.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Expand rule and click file path
         rule_card = page.locator("text=Test Rule").locator("..")
@@ -1374,7 +1353,6 @@ class TestSettingsPanel:
         # Click update embeddings button
         update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
         update_btn.click()
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "Update embeddings API should be called"
@@ -1690,7 +1668,6 @@ class TestAPIIntegration:
         textarea.fill("Test question")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify API was called
         assert api_called["called"], "RAG chat API should be called"
@@ -1737,7 +1714,6 @@ class TestAPIIntegration:
         textarea.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify request includes settings
         assert request_body.get("max_results") == 10, "Request should include max_results"
@@ -1775,7 +1751,6 @@ class TestAPIIntegration:
         textarea.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify response is displayed
         response = page.locator("text=Test response with articles")
@@ -1809,7 +1784,6 @@ class TestAPIIntegration:
         textarea.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify error message appears
         error_message = page.locator("text=Sorry, I encountered an error")
@@ -1906,7 +1880,6 @@ class TestModelSelection:
         textarea.fill("Test")
         send_button = page.locator("button:has-text('Send')")
         send_button.click()
-        page.wait_for_timeout(2000)
 
         # Verify model was normalized and used
         # Note: anthropic should be normalized to 'anthropic'
@@ -1958,7 +1931,6 @@ class TestModelSelection:
             textarea.fill("Test")
             send_button = page.locator("button:has-text('Send')")
             send_button.click()
-            page.wait_for_timeout(2000)
 
             # Verify normalized model was used
             assert request_capture.get("llm_provider") == expected_normalized, (
@@ -2065,7 +2037,6 @@ class TestEmbeddingStats:
         # Click update embeddings button
         update_btn = page.locator("button:has-text('🔄 Update Embeddings')")
         update_btn.click()
-        page.wait_for_timeout(2000)
 
         # Verify stats API was called again
         assert stats_call_count["count"] > initial_count, "Stats should be refreshed after update"

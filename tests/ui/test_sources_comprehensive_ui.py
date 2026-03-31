@@ -584,7 +584,7 @@ class TestSourceConfigurationModal:
             # Click save
             save_btn = page.locator("#saveSourceConfigBtn")
             save_btn.click()
-            page.wait_for_timeout(3000)
+            page.wait_for_timeout(1000)
 
             # Verify all three API calls were made
             assert api_calls["lookback"], "Lookback API should be called"

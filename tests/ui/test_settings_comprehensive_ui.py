@@ -461,7 +461,7 @@ class TestDataExport:
         # Click export button
         export_btn = page.locator("#exportAnnotationsBtn")
         export_btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1000)
 
         # Verify API was called
         assert api_called["called"], "Export annotations API should be called"

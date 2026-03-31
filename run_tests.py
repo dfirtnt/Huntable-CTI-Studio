@@ -194,6 +194,7 @@ class RunTestConfig:
     markers: list[str] | None = None
     exclude_markers: list[str] | None = None
     include_agent_config_tests: bool = False
+    include_slow: bool = False  # Include @pytest.mark.slow tests (perf/mobile/a11y); excluded by default in UI runs
     playwright_last_failed: bool = False
     skip_playwright_js: bool = False
     config_file: str | None = None
@@ -837,8 +838,11 @@ class RunTestRunner:
         elif self.config.test_type == RunTestType.UNIT:
             default_excludes.extend(["integration", "api", "ui", "ui_smoke", "e2e", "performance", "smoke"])
         # UI: by default exclude agent/workflow config-mutating tests (use --include-agent-config-tests to run them)
+        # Also exclude @pytest.mark.slow by default (performance/mobile/accessibility) — use --include-slow to run them
         elif self.config.test_type == RunTestType.UI and not self.config.include_agent_config_tests:
             default_excludes.append("agent_config_mutation")
+            if not self.config.include_slow:
+                default_excludes.append("slow")
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:
@@ -888,10 +892,21 @@ class RunTestRunner:
             else:
                 logger.info("Running tests on localhost")
 
-        # Parallel requires pytest-xdist. UI Playwright tests hit one shared live server (localhost:8001);
-        # default -n auto causes worker contention and mass timeouts — opt in with --parallel only.
+        # Parallel execution via pytest-xdist.
+        # UI tests hit a single live server (localhost:8001).  Use -n 2 as a safe default
+        # for UI runs: enough to parallelise I/O-heavy page loads without overwhelming the
+        # server.  Use --parallel to get -n auto (all CPU cores).
         if self.config.parallel:
             cmd.extend(["-n", "auto"])
+        elif self.config.test_type in (RunTestType.UI, RunTestType.E2E) and not self.config.fail_fast:
+            # Auto-enable -n 2 for UI/E2E when pytest-xdist is available.
+            # Bounded to 2 workers to avoid server-side contention on a single live stack.
+            try:
+                import xdist  # noqa: F401
+
+                cmd.extend(["-n", "2"])
+            except ImportError:
+                pass  # pytest-xdist not installed; run serially
 
         # Add coverage
         if self.config.coverage:
@@ -1962,6 +1977,11 @@ Manual Container Management:
         help="Include UI tests that mutate agent/workflow config (only for 'ui' type; default is to exclude them)",
     )
     parser.add_argument(
+        "--include-slow",
+        action="store_true",
+        help="Include @pytest.mark.slow UI tests (performance, mobile, accessibility); excluded by default in 'ui' runs",
+    )
+    parser.add_argument(
         "--playwright-last-failed",
         action="store_true",
         help="Rerun only Playwright tests that failed in the last run (skips pytest; use after 'ui' run with failures)",
@@ -2017,6 +2037,7 @@ Manual Container Management:
         markers=args.markers,
         exclude_markers=args.exclude_markers,
         include_agent_config_tests=args.include_agent_config_tests,
+        include_slow=args.include_slow,
         playwright_last_failed=args.playwright_last_failed,
         skip_playwright_js=args.skip_playwright_js,
         config_file=args.config,

@@ -999,7 +999,6 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(2000)  # Wait for data to load
 
             # Verify article content is displayed
             article_content = page.locator("#modalArticleContent")
@@ -1019,7 +1018,6 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(2000)
 
             # Verify title is displayed
             title_element = page.locator("#articleTitle")
@@ -1040,7 +1038,6 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(2000)
 
             # Verify content is displayed
             content_element = page.locator("#articleContent")
@@ -1059,7 +1056,6 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(2000)
 
             # Verify classification buttons exist
             chosen_btn = page.locator("button:has-text('✅ Chosen')")
@@ -1083,7 +1079,6 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(2000)
 
             # Find Previous button
             previous_btn = page.locator("button:has-text('← Previous')")
@@ -1106,7 +1101,6 @@ class TestArticlesClassificationModal:
         classify_buttons = page.locator("button[onclick*='openClassificationModal']")
         if classify_buttons.count() > 0:
             classify_buttons.first.click()
-            page.wait_for_timeout(2000)
 
             # Find Next Unclassified button
             next_btn = page.locator("button:has-text('Next Unclassified')")

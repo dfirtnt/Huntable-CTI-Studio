@@ -15,6 +15,7 @@ class TestPageLoadTime:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_dashboard_load_time(self, page: Page):
         """Test dashboard page load time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -29,6 +30,7 @@ class TestPageLoadTime:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_articles_page_load_time(self, page: Page):
         """Test articles page load time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -43,6 +45,7 @@ class TestPageLoadTime:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_workflow_page_load_time(self, page: Page):
         """Test workflow page load time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -57,6 +60,7 @@ class TestPageLoadTime:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_chat_page_load_time(self, page: Page):
         """Test chat page load time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -75,6 +79,7 @@ class TestAPIPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_dashboard_api_response_time(self, page: Page):
         """Test dashboard API response time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -97,6 +102,7 @@ class TestAPIPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_articles_api_response_time(self, page: Page):
         """Test articles API response time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -110,6 +116,7 @@ class TestAPIPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_parallel_api_calls(self, page: Page):
         """Test parallel API calls performance."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -141,6 +148,7 @@ class TestRenderingPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_initial_render_time(self, page: Page):
         """Test initial render time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -155,6 +163,7 @@ class TestRenderingPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_large_list_rendering(self, page: Page):
         """Test large list rendering performance."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -169,6 +178,7 @@ class TestRenderingPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_chart_rendering_performance(self, page: Page):
         """Test chart rendering performance."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -187,6 +197,7 @@ class TestMemoryUsage:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_page_memory_usage(self, page: Page):
         """Test page memory usage."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -215,6 +226,7 @@ class TestMemoryUsage:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_memory_leak_detection(self, page: Page):
         """Test memory leak detection."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -234,6 +246,7 @@ class TestCachingBehavior:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_static_asset_caching(self, page: Page):
         """Test static asset caching."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -256,6 +269,7 @@ class TestCachingBehavior:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_api_response_caching(self, page: Page):
         """Test API response caching."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -289,6 +303,7 @@ class TestNetworkPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_network_request_count(self, page: Page):
         """Test network request count."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -311,6 +326,7 @@ class TestNetworkPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_resource_loading_optimization(self, page: Page):
         """Test resource loading optimization."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -343,6 +359,7 @@ class TestInteractionPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_button_click_response_time(self, page: Page):
         """Test button click response time."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -365,6 +382,7 @@ class TestInteractionPerformance:
 
     @pytest.mark.ui
     @pytest.mark.performance
+    @pytest.mark.slow
     def test_form_submission_performance(self, page: Page):
         """Test form submission performance."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

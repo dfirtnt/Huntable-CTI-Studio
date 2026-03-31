@@ -491,7 +491,7 @@ class TestQuickActions:
         ).first
         rescore_btn.wait_for(state="visible", timeout=5000)
         rescore_btn.click()
-        page.wait_for_timeout(3000)  # Wait for API call to complete
+        page.wait_for_timeout(1000)  # Wait for API call to complete
 
         # Verify API was called
         assert api_called["called"], "Rescore all articles API should be called"

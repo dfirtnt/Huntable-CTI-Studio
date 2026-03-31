@@ -242,7 +242,7 @@ class TestHealthCheckButtons:
         refresh_btn = page.locator("#refreshJobData")
         expect(refresh_btn).to_be_visible()
         refresh_btn.click()
-        page.wait_for_timeout(2000)
+        page.wait_for_timeout(1000)
         last_updated = page.locator("#lastUpdated")
         expect(last_updated).to_be_visible()
 
