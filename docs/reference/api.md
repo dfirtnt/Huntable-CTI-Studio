@@ -98,6 +98,21 @@ The strict configuration contract is defined in `src/config/workflow_config_sche
 
 These endpoints manage runtime settings and provider connectivity.
 
+### Models And MLOps
+
+- `GET /api/model/retrain-status` — Poll retraining progress (idle / starting / loading / complete / error)
+- `POST /api/model/retrain` — Trigger model retraining from user feedback and annotations
+- `GET /api/model/versions` — List model versions with metrics. Query params: `page` (optional; omit for unpaginated), `limit` (default 10, max 100), `version` (exact version number search)
+- `POST /api/model/evaluate` — Run evaluation of the current model on the annotated test set
+- `GET /api/model/eval-chunk-count` — Count of chunks in the evaluation dataset
+- `GET /api/model/feedback-count` — Count of available feedback and annotation samples for retraining
+- `POST /api/model/rollback/{version_id}` — Roll back to a specific model version. Copies the saved artifact to the live path, flips `is_current`, clears the ContentFilter cache, and starts a background chunk re-scoring backfill
+- `GET /api/model/compare/{version_id}` — Get or generate comparison results between a version and its predecessor
+- `GET /api/model/feedback-comparison` — Before/after confidence levels for chunks that received user feedback
+- `GET /api/model/classification-timeline` — Classification breakdown across model versions for time series charting
+
+Route module: `src/web/routes/models.py`. Version data is stored in the `ml_model_versions` table (see `src/database/models.py`).
+
 ### Sigma Queue And Evaluation
 
 - `GET /sigma-queue` — HTML page for the standalone SIGMA queue (same console as Workflow → Queue; uses `/api/sigma-queue/*` for data).
@@ -119,6 +134,7 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - `chat.py`
 - `settings.py`
 - `sigma_queue.py`
+- `models.py`
 
 ## Verification Guidance
 

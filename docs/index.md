@@ -69,6 +69,10 @@ Semantic search across your CTI corpus using embeddings. See [RAG Search](featur
 
 LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See [Source Healing Architecture](internals/source-healing.md).
 
+### Model Versioning And Rollback
+
+Train, evaluate, and roll back the content-filtering model through the MLOps control center. Every training run is versioned with metrics (accuracy, precision, recall, F1); rollback restores a prior artifact and re-scores all chunks in the background. See [Content Filtering](features/content-filtering.md).
+
 ## LLM Support
 
 Huntable CTI Studio works with multiple LLM providers:

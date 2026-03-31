@@ -561,9 +561,11 @@ python3 scripts/run_tests_by_group.py --group smoke
 
 **Test Files**:
 - `tests/test_*.py` (root level)
-- `tests/core/`
-- `tests/services/`
-- `tests/utils/`
+- `tests/core/` (includes `test_wp_json_articles.py` — WordPress JSON extraction)
+- `tests/services/` (includes `test_source_healing_coordinator.py`, `test_source_healing_service.py`, `test_sigma_sync_metadata.py`)
+- `tests/utils/` (includes `test_langfuse_reset.py`, `test_model_validation.py`)
+- `tests/unit/` (includes `test_mcp_sigma_get_rule.py`, `test_ml_model_versioning_rollback.py`)
+- `tests/smoke/` (`test_mcp_rag_smoke.py` — MCP RAG smoke test)
 - `tests/workflows/`
 - `tests/cli/`
 
@@ -590,6 +592,13 @@ python3 scripts/run_tests_by_group.py --group unit
 **Test Files**:
 - `tests/api/test_annotations_api.py`
 - `tests/api/test_endpoints.py`
+- `tests/api/test_model_rollback_api.py`
+- `tests/api/test_healing_endpoints.py`
+- `tests/api/test_sigma_enrich_api.py`
+- `tests/api/test_workflow_config_api.py`
+- `tests/api/test_scheduled_jobs_api.py`
+- `tests/api/test_backup_cron_api.py`
+- `tests/api/test_cron_api.py`
 
 **Run Command**:
 ```bash
@@ -736,6 +745,7 @@ python3 scripts/run_tests_by_group.py --group ai
 | `tests/cli/` | unit | Falls under unit (not explicitly mapped) |
 | `tests/core/` | unit | Falls under unit (not explicitly mapped) |
 | `tests/services/` | unit | Falls under unit (not explicitly mapped) |
+| `tests/unit/` | unit | MCP tools, model versioning/rollback |
 | `tests/utils/` | unit | Falls under unit (not explicitly mapped) |
 | `tests/workflows/` | unit | Falls under unit (not explicitly mapped) |
 | `tests/playwright/` | e2e/ui | Playwright tests included in e2e/ui groups |
