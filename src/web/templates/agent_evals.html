@@ -4,51 +4,342 @@
 
 {% block content %}
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+    /* ═══════════════════════════════════════════════════════════
+       TELEMETRY OBSERVATORY — Agent Evals Dashboard
+       ═══════════════════════════════════════════════════════════ */
+
     .eval-page {
         min-height: 100vh;
+        background:
+            radial-gradient(ellipse 80% 60% at 50% -10%, rgba(16, 185, 129, 0.04) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 90%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+            var(--panel-bg-0);
+        position: relative;
     }
-    .eval-card {
-        background: var(--eval-card-bg) !important;
+    .eval-page::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image:
+            linear-gradient(rgba(139, 92, 246, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(139, 92, 246, 0.02) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+        z-index: 0;
     }
-    .eval-desc-text {
-        color: var(--eval-text-primary);
+    .eval-page > * { position: relative; z-index: 1; }
+
+    /* ── Typography ──────────────────────────────────────────── */
+    .eval-body-font {
+        font-family: 'IBM Plex Sans', 'DM Sans', sans-serif;
     }
-    .eval-subtitle {
+    .eval-mono {
+        font-family: 'Space Mono', 'JetBrains Mono', monospace;
+        font-size: 0.8rem;
+    }
+
+    /* ── Panel System ────────────────────────────────────────── */
+    .eval-panel {
+        background: linear-gradient(135deg, var(--panel-bg-2) 0%, var(--panel-bg-3) 100%);
+        border: 1px solid rgba(139, 92, 246, 0.08);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    .eval-panel::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.3) 30%, rgba(59, 130, 246, 0.3) 70%, transparent 100%);
+    }
+    .eval-panel-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .eval-panel-body {
+        padding: 1.5rem;
+    }
+
+    /* ── Section Label (instrument-style) ────────────────────── */
+    .eval-section-label {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
         color: var(--text-muted-slate);
+        opacity: 0.7;
     }
-    .btn-green {
-        background-color: var(--action-execute);
-        transition: all 0.2s ease;
+    .eval-section-title {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: var(--text-primary);
     }
-    .btn-green:hover {
-        background-color: var(--action-execute-dark);
-        box-shadow: 0 4px 12px var(--action-execute-shadow);
+
+    /* ── Status Indicator (live dot) ─────────────────────────── */
+    .eval-status-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+        position: relative;
     }
-    .comparison-table {
-        overflow-x: auto;
+    .eval-status-dot--live {
+        background: var(--action-execute);
+        box-shadow: 0 0 6px var(--action-execute);
+        animation: eval-pulse 2s ease-in-out infinite;
     }
-    .status-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 0.375rem;
+    @keyframes eval-pulse {
+        0%, 100% { box-shadow: 0 0 4px var(--action-execute); opacity: 1; }
+        50% { box-shadow: 0 0 12px var(--action-execute); opacity: 0.8; }
+    }
+
+    /* ── Breadcrumb ──────────────────────────────────────────── */
+    .eval-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.7rem;
+        letter-spacing: 0.05em;
+        color: var(--text-muted-slate);
+        opacity: 0.6;
+    }
+    .eval-breadcrumb a {
+        color: var(--text-muted-slate);
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    .eval-breadcrumb a:hover { color: var(--action-execute); }
+    .eval-breadcrumb .sep { opacity: 0.4; }
+
+    /* ── Hero Header ─────────────────────────────────────────── */
+    .eval-hero {
+        display: flex;
+        align-items: flex-start;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .eval-hero-icon {
+        width: 56px; height: 56px;
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(16, 185, 129, 0.05));
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        flex-shrink: 0;
+    }
+    .eval-hero h1 {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-weight: 700;
+        font-size: 1.75rem;
+        color: var(--text-emphasis);
+        line-height: 1.2;
+        margin: 0;
+    }
+    .eval-hero-desc {
+        font-family: 'IBM Plex Sans', sans-serif;
         font-size: 0.875rem;
-        font-weight: 500;
+        color: var(--text-muted-slate);
+        line-height: 1.6;
+        margin-top: 0.5rem;
+        max-width: 640px;
+    }
+    .eval-hero-desc code {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.75rem;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--action-execute);
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+        border: 1px solid rgba(16, 185, 129, 0.15);
+    }
+
+    /* ── Select / Input Styling ──────────────────────────────── */
+    .eval-select {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.85rem;
+        background: var(--panel-bg-4);
+        border: 1px solid rgba(139, 92, 246, 0.12);
+        border-radius: 8px;
+        padding: 0.6rem 0.85rem;
+        color: var(--text-primary);
+        width: 100%;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        padding-right: 2.25rem;
+    }
+    .eval-select:focus {
+        outline: none;
+        border-color: var(--action-execute);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .eval-btn {
+        font-family: 'IBM Plex Sans', sans-serif;
+        font-weight: 600;
+        font-size: 0.8rem;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+    }
+    .eval-btn:active { transform: scale(0.97); }
+    .eval-btn--primary {
+        background: linear-gradient(135deg, var(--action-execute) 0%, var(--action-execute-dark) 100%);
+        color: white;
+        box-shadow: 0 2px 8px var(--action-execute-shadow), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+    .eval-btn--primary:hover {
+        box-shadow: 0 4px 16px var(--action-execute-shadow), inset 0 1px 0 rgba(255,255,255,0.15);
+        transform: translateY(-1px);
+    }
+    .eval-btn--primary:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    .eval-btn--secondary {
+        background: var(--panel-bg-5);
+        color: var(--text-secondary);
+        border: 1px solid rgba(139, 92, 246, 0.1);
+    }
+    .eval-btn--secondary:hover {
+        background: var(--panel-bg-6);
+        border-color: rgba(139, 92, 246, 0.2);
+        color: var(--text-primary);
+    }
+    .eval-btn--accent {
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--action-info);
+        border: 1px solid rgba(59, 130, 246, 0.15);
+    }
+    .eval-btn--accent:hover {
+        background: rgba(59, 130, 246, 0.2);
+        border-color: rgba(59, 130, 246, 0.3);
+    }
+    .eval-btn--danger {
+        background: rgba(220, 38, 38, 0.1);
+        color: #f87171;
+        border: 1px solid rgba(220, 38, 38, 0.15);
+    }
+    .eval-btn--danger:hover {
+        background: rgba(220, 38, 38, 0.2);
+        border-color: rgba(220, 38, 38, 0.3);
+    }
+    .eval-btn--sm {
+        font-size: 0.7rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 6px;
+    }
+
+    /* ── Run Button (hero action) ────────────────────────────── */
+    .eval-run-btn {
+        font-family: 'Space Mono', monospace;
+        font-weight: 700;
+        font-size: 0.95rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        width: 100%;
+        padding: 1rem 2rem;
+        border-radius: 10px;
+        border: none;
+        color: white;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, var(--action-execute) 0%, #047857 100%);
+        box-shadow:
+            0 4px 20px rgba(16, 185, 129, 0.25),
+            inset 0 1px 0 rgba(255,255,255,0.12);
+        transition: all 0.3s ease;
+    }
+    .eval-run-btn::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%; right: 0; bottom: 0;
+        width: 300%;
+        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+        animation: eval-sweep 3s ease-in-out infinite;
+    }
+    @keyframes eval-sweep {
+        0% { transform: translateX(-33%); }
+        100% { transform: translateX(33%); }
+    }
+    .eval-run-btn:hover:not(:disabled) {
+        box-shadow:
+            0 6px 28px rgba(16, 185, 129, 0.35),
+            inset 0 1px 0 rgba(255,255,255,0.15);
+        transform: translateY(-1px);
+    }
+    .eval-run-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+        transform: none;
+    }
+    .eval-run-btn:disabled::before { animation: none; }
+
+    /* ── Article List ────────────────────────────────────────── */
+    .eval-article-list {
+        max-height: 18rem;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--panel-bg-6) transparent;
+    }
+    .eval-article-list::-webkit-scrollbar { width: 5px; }
+    .eval-article-list::-webkit-scrollbar-thumb {
+        background: var(--panel-bg-6);
+        border-radius: 3px;
+    }
+
+    /* ── Status Badges (comparison table) ────────────────────── */
+    .status-badge {
+        font-family: 'Space Mono', monospace;
+        padding: 0.2rem 0.6rem;
+        border-radius: 5px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
     }
     .status-exact {
-        background-color: var(--action-execute);
-        color: white;
+        background: rgba(16, 185, 129, 0.15);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.25);
     }
     .status-mismatch {
-        background-color: var(--action-danger);
-        color: white;
+        background: rgba(220, 38, 38, 0.12);
+        color: #f87171;
+        border: 1px solid rgba(220, 38, 38, 0.2);
     }
     .status-pending {
-        background-color: var(--action-warning);
-        color: white;
+        background: rgba(234, 179, 8, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(234, 179, 8, 0.2);
     }
     .status-warning {
-        background-color: var(--action-warning);
-        color: white;
+        background: rgba(234, 179, 8, 0.12);
+        color: #fbbf24;
+        border: 1px solid rgba(234, 179, 8, 0.2);
     }
+
+    /* ── Chart Area ──────────────────────────────────────────── */
+    .comparison-table { overflow-x: auto; }
     .chart-scroll-wrapper {
         display: flex;
         min-width: min-content;
@@ -69,187 +360,241 @@
         writing-mode: vertical-rl;
         transform: rotate(-180deg);
         white-space: nowrap;
-        font-size: 0.75rem;
-        font-weight: 500;
+        font-family: 'Space Mono', monospace;
+        font-size: 0.65rem;
+        font-weight: 400;
         color: var(--text-muted-slate);
+        letter-spacing: 0.05em;
     }
+
+    /* ── Modal Overlay ───────────────────────────────────────── */
+    .eval-modal-backdrop {
+        background: rgba(5, 8, 18, 0.75);
+        backdrop-filter: blur(4px);
+    }
+    .eval-modal-content {
+        background: linear-gradient(135deg, var(--panel-bg-2), var(--panel-bg-3));
+        border: 1px solid rgba(139, 92, 246, 0.12);
+        border-radius: 14px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+    }
+
+    /* ── Chart Navigation ────────────────────────────────────── */
+    .eval-chart-nav {
+        font-family: 'Space Mono', monospace;
+        font-size: 0.7rem;
+        padding: 0.3rem 0.65rem;
+        border-radius: 5px;
+        border: 1px solid rgba(139, 92, 246, 0.1);
+        background: var(--panel-bg-5);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .eval-chart-nav:hover:not(:disabled) {
+        background: var(--panel-bg-6);
+        border-color: rgba(139, 92, 246, 0.2);
+    }
+    .eval-chart-nav:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Entrance Animations ─────────────────────────────────── */
+    @keyframes eval-fadeUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .eval-animate-in {
+        animation: eval-fadeUp 0.5s ease-out both;
+    }
+    .eval-animate-in:nth-child(1) { animation-delay: 0.05s; }
+    .eval-animate-in:nth-child(2) { animation-delay: 0.12s; }
+    .eval-animate-in:nth-child(3) { animation-delay: 0.19s; }
+    .eval-animate-in:nth-child(4) { animation-delay: 0.26s; }
+    .eval-animate-in:nth-child(5) { animation-delay: 0.33s; }
+
 </style>
 
 <div class="eval-page">
-<div class="container mx-auto px-4 py-8">
-    <nav class="flex mb-8" aria-label="Breadcrumb">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-            <li class="inline-flex items-center">
-                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
-                    <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
-                    </svg>
-                    Dashboard
-                </a>
-            </li>
-            <li aria-current="page">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
-                    </svg>
-                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Agent Evals</span>
-                </div>
-            </li>
-        </ol>
-    </nav>
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
-            <svg class="w-10 h-10 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Breadcrumb -->
+    <div class="eval-breadcrumb mb-6 eval-animate-in" aria-label="Breadcrumb">
+        <a href="/">DASHBOARD</a>
+        <span class="sep">/</span>
+        <a href="/mlops">MLOPS</a>
+        <span class="sep">/</span>
+        <span style="color: var(--action-execute);">AGENT EVALS</span>
+    </div>
+
+    <!-- Hero Header -->
+    <div class="eval-hero eval-animate-in">
+        <div class="eval-hero-icon">
+            <svg class="w-7 h-7" style="color: var(--action-execute);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
-            Agent Evaluations
-        </h1>
-        <p class="eval-desc-text">Run evaluation articles through workflows with different presets and compare results. Evals use the 0.8 confidence (conservative) threshold for content filtering.</p>
+        </div>
+        <div>
+            <h1>Agent Evaluations</h1>
+            <p class="eval-hero-desc">
+                Run evaluation articles through workflows with different presets and compare results.
+                Evals use the <code>0.8</code> confidence (conservative) threshold for content filtering.
+            </p>
+        </div>
     </div>
 
-    <!-- Configuration Section -->
-    <div class="eval-card rounded-lg shadow-lg p-6 mb-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Configuration</h2>
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <!-- Subagent Selection -->
+    <!-- ═══ Configuration Panel ═══ -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-header">
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Extractor Subagent
-                </label>
-                <select id="subagentSelect" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700 text-gray-900 dark:text-white">
-                    <option value="cmdline">CommandLine</option>
-                    <option value="process_lineage">Process Lineage</option>
-                    <option value="hunt_queries">Hunt Queries</option>
-                </select>
-                <button id="loadEvalArticlesBtn" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                    Load Eval Articles
-                </button>
+                <div class="eval-section-label">SYS.01</div>
+                <div class="eval-section-title eval-body-font">Configuration</div>
             </div>
-
-            <!-- Current Config Display -->
-            <div>
-                {% set show_eval_config_help = true %}
-                {% include 'components/workflow_config_snippet.html' %}
-            </div>
-        </div>
-    </div>
-
-    <!-- Article Selection -->
-    <div class="eval-card rounded-lg shadow-lg p-6 mb-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Evaluation Articles</h2>
-            <div class="flex gap-2">
-                <button id="selectAllBtn" class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">
-                    Select All
-                </button>
-                <button id="deselectAllBtn" class="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700">
-                    Deselect All
-                </button>
-            </div>
-        </div>
-        <div id="articleList" class="space-y-2 max-h-64 overflow-y-auto">
-            <p class="text-sm text-gray-500 dark:text-gray-400">Load a dataset to see articles.</p>
-        </div>
-    </div>
-
-    <!-- Run Evaluation -->
-    <div class="eval-card rounded-lg shadow-lg p-6 mb-6">
-        <button id="runEvalBtn" class="w-full px-6 py-3 btn-green text-white rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-            Run Evaluation
-        </button>
-        <div id="evalStatus" class="mt-4 hidden">
             <div class="flex items-center gap-2">
-                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                <span class="text-sm text-gray-600 dark:text-gray-400" id="evalStatusText"></span>
+                <span class="eval-status-dot eval-status-dot--live"></span>
+                <span class="eval-mono" style="color: var(--action-execute); font-size: 0.7rem;">ACTIVE</span>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Subagent Selection -->
+                <div>
+                    <label class="eval-section-label block mb-2">EXTRACTOR SUBAGENT</label>
+                    <select id="subagentSelect" class="eval-select">
+                        <option value="cmdline">CommandLine</option>
+                        <option value="process_lineage">Process Lineage</option>
+                        <option value="hunt_queries">Hunt Queries</option>
+                    </select>
+                    <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Load Eval Articles
+                    </button>
+                </div>
+                <!-- Current Config Display -->
+                <div>
+                    {% set show_eval_config_help = true %}
+                    {% include 'components/workflow_config_snippet.html' %}
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Commandlines Modal -->
-    <div id="commandlinesModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
-            <div class="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 id="commandlinesModalTitle" class="text-xl font-semibold text-gray-900 dark:text-white">Extracted Results</h3>
+    <!-- ═══ Article Selection Panel ═══ -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-header">
+            <div>
+                <div class="eval-section-label">SYS.02</div>
+                <div class="eval-section-title eval-body-font">Evaluation Articles</div>
+            </div>
+            <div class="flex gap-2">
+                <button id="selectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Select All</button>
+                <button id="deselectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Deselect All</button>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <div id="articleList" class="eval-article-list space-y-2">
+                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.8rem;">Load a dataset to see articles.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Run Evaluation ═══ -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-body" style="padding: 1.25rem 1.5rem;">
+            <button id="runEvalBtn" class="eval-run-btn" disabled>
+                RUN EVALUATION
+            </button>
+            <div id="evalStatus" class="mt-4 hidden">
+                <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
+                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
+                    <span class="eval-mono" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ Commandlines Modal ═══ -->
+    <div id="commandlinesModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
+        <div class="eval-modal-content max-w-4xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
+                <h3 id="commandlinesModalTitle" class="eval-section-title">Extracted Results</h3>
                 <div class="flex items-center gap-3">
-                    <button id="exportEvalBundleBtn" class="hidden px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-md transition-colors" title="Export evaluation bundle (JSON)">
-                        📦 Export Bundle
+                    <button id="exportEvalBundleBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="Export evaluation bundle (JSON)">
+                        Export Bundle
                     </button>
-                    <button id="closeCommandlinesModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button id="closeCommandlinesModal" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
             </div>
             <div id="commandlinesContent" class="p-6 overflow-y-auto flex-1">
-                <p class="text-gray-500 dark:text-gray-400">Loading extraction results...</p>
+                <p style="color: var(--text-muted-slate);" class="eval-mono">Loading extraction results...</p>
             </div>
         </div>
     </div>
 
-    <!-- Results Comparison -->
-    <div class="eval-card rounded-lg shadow-lg p-6">
-        <div class="flex justify-between items-center mb-4">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Results Comparison</h2>
-            <div class="flex gap-2">
-                <button id="backfillEvalBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
-                    Update Pending Records
-                </button>
-                <button id="clearPendingBtn" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm">
-                    Clear Pending Records
-                </button>
-                <button id="loadPreviousResultsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
-                    Load Previous Results
+    <!-- ═══ Results Comparison ═══ -->
+    <div class="eval-panel eval-animate-in">
+        <div class="eval-panel-header" style="flex-wrap: wrap;">
+            <div>
+                <div class="eval-section-label">SYS.03</div>
+                <div class="eval-section-title eval-body-font">Results Comparison</div>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <button id="backfillEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm">Update Pending</button>
+                <button id="clearPendingBtn" class="eval-btn eval-btn--danger eval-btn--sm">Clear Pending</button>
+                <button id="loadPreviousResultsBtn" class="eval-btn eval-btn--secondary eval-btn--sm">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Load Previous
                 </button>
             </div>
         </div>
-        
-        <!-- Aggregate Scores Section -->
-        <div id="aggregateScores" class="mb-6 hidden bg-gray-800 border border-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
-            <div 
-                data-collapsible-panel="aggregate-scores-panel"
-                class="w-full flex items-center justify-between p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer"
-            >
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Aggregate Scores by Config Version</h3>
-                <span id="aggregate-scores-panel-toggle" class="text-gray-700 dark:text-gray-200 text-lg font-medium transform transition-transform" aria-hidden="true">▼</span>
-            </div>
-            <div id="aggregate-scores-panel-content" class="hidden p-4 border-t border-gray-200 dark:border-gray-700">
-                <div id="aggregateScoresContent" class="space-y-4"></div>
-            </div>
-        </div>
-        
-        <!-- MAE Chart -->
-        <div id="maeChartContainer" class="mb-6 hidden">
-            <div class="eval-card rounded-lg shadow-lg p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Mean Absolute Error Metrics by Config Version</h3>
-                    <div class="flex items-center gap-2">
-                        <button id="chartPrevBtn" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            ← Prev
-                        </button>
-                        <span id="chartRangeDisplay" class="text-sm text-gray-400 dark:text-gray-500 px-2"></span>
-                        <button id="chartNextBtn" class="px-3 py-1 text-sm bg-gray-700 hover:bg-gray-600 text-white rounded disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                            Next →
-                        </button>
-                        <span class="text-xs text-gray-500 dark:text-gray-400 ml-1" title="Chart shows 25 config versions at a time">(← Prev for older runs)</span>
-                    </div>
+        <div class="eval-panel-body">
+
+            <!-- Aggregate Scores Section -->
+            <div id="aggregateScores" class="mb-6 hidden" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <div
+                    data-collapsible-panel="aggregate-scores-panel"
+                    class="w-full flex items-center justify-between p-4 text-left rounded-t-lg transition-colors cursor-pointer"
+                    style="border-bottom: 1px solid rgba(139, 92, 246, 0.06);"
+                    onmouseover="this.style.background='rgba(139,92,246,0.04)'"
+                    onmouseout="this.style.background='transparent'"
+                >
+                    <h3 class="eval-section-title" style="font-size: 0.95rem;">Aggregate Scores by Config Version</h3>
+                    <span id="aggregate-scores-panel-toggle" style="color: var(--text-muted-slate); font-size: 0.8rem; transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
                 </div>
-                <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
-                    <div class="chart-scroll-wrapper">
-                        <div class="y-axis-label-sticky" aria-hidden="true">
-                            <span>Normalized MAE (nMAE)</span>
-                        </div>
-                        <div class="h-64" style="min-width: fit-content;">
-                            <canvas id="maeChart"></canvas>
-                        </div>
-                    </div>
+                <div id="aggregate-scores-panel-content" class="hidden p-4" style="border-top: 1px solid rgba(139, 92, 246, 0.06);">
+                    <div id="aggregateScoresContent" class="space-y-4"></div>
                 </div>
             </div>
-        </div>
-        
-        <div id="resultsTable" class="comparison-table">
-            <p class="text-sm text-gray-500 dark:text-gray-400">Run an evaluation to see results, or click "Load Previous Results" to view past evaluations.</p>
+
+            <!-- MAE Chart -->
+            <div id="maeChartContainer" class="mb-6 hidden">
+                <div style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
+                        <h3 class="eval-section-title" style="font-size: 0.95rem;">MAE Metrics by Config Version</h3>
+                        <div class="flex items-center gap-2">
+                            <button id="chartPrevBtn" class="eval-chart-nav" disabled>&larr; Prev</button>
+                            <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.65rem; padding: 0 0.25rem;"></span>
+                            <button id="chartNextBtn" class="eval-chart-nav" disabled>Next &rarr;</button>
+                        </div>
+                    </div>
+                    <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
+                        <div class="chart-scroll-wrapper">
+                            <div class="y-axis-label-sticky" aria-hidden="true">
+                                <span>Normalized MAE (nMAE)</span>
+                            </div>
+                            <div class="h-64" style="min-width: fit-content;">
+                                <canvas id="maeChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultsTable" class="comparison-table">
+                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.8rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+            </div>
         </div>
     </div>
 </div>

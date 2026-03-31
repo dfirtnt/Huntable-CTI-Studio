@@ -753,6 +753,28 @@ The ML model is automatically trained during `./setup.sh`. The setup script:
 
 **No manual steps required** - the model is ready to use after setup completes.
 
+## Defining "Huntable" for Your Use Case
+
+"Huntable" is not a fixed standard — it is a subjective label that reflects what your team considers worth hunting for. The default training data and eval set bundled with this project were built around one specific definition: **text chunks are huntable if they contain behavioral techniques** — command-line patterns, process trees, registry modifications, lateral movement, persistence mechanisms, and similar TTP-level content. Atomic indicators such as IP addresses, domain names, file hashes, and CVE IDs are treated as **not huntable** in the defaults.
+
+Your organisation may define "huntable" differently. For example, you may want to classify IOC-rich chunks as huntable if your workflow pivots on indicators rather than behaviors. Both approaches are valid. The model supports either definition — it learns whatever labeling you provide.
+
+### Changing your definition: what else must change
+
+The ML model eval scores (accuracy, precision, recall, F1) are measured against a fixed labeled eval set at `outputs/evaluation_data/eval_set.csv`. **That file encodes the labeling philosophy of whoever generated it.** If you retrain the model with a different definition but leave the eval set unchanged, your scores will appear to degrade — not because the model is performing worse, but because the ground truth in the eval set no longer matches your intent.
+
+If you change your definition of huntable, you must also rebuild the eval set from your own annotations:
+
+```bash
+# After annotating chunks in the UI with your labeling convention:
+python3 scripts/export_annotations_for_eval.py
+# Writes to outputs/evaluation_data/eval_set.csv
+```
+
+Only then will the model eval report reflect how well the model has learned *your* definition.
+
+---
+
 ## Manual Training (Advanced)
 
 If you need to retrain or update the model:
