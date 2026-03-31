@@ -373,7 +373,7 @@
     </div>
 
     <!-- Keyword Matches Display -->
-    {% if article.article_metadata %}
+    {% if keyword_resolution.panel_groups %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
         <div 
             data-collapsible-panel="keyword-matches"
@@ -395,122 +395,44 @@
         </div>
         
         <div id="keyword-matches-content" class="hidden mt-11">
+            <div class="mb-4 space-y-3">
+                <p class="text-sm text-gray-600 dark:text-gray-300">
+                    Automatic keyword highlights use one precedence-aware match per span. If a term belongs to multiple automatic categories, the highest-priority category owns the rendered highlight.
+                </p>
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Automatic keyword highlights</span>
+                    {% for legend in keyword_resolution.automatic_legends %}
+                    <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium text-gray-900 dark:text-gray-100 {{ legend.classes }}" title="{{ legend.title }}">
+                        <span class="w-3 h-3 rounded border border-current/30 {{ legend.classes }}"></span>
+                        {{ legend.label }}
+                    </span>
+                    {% endfor %}
+                </div>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- Perfect Discriminators -->
-            <div class="card bg-green-100 dark:bg-green-800 border border-green-300 dark:border-green-600 rounded-lg p-4">
+            {% for group in keyword_resolution.panel_groups %}
+            <div class="card rounded-lg p-4 {{ group['card_classes'] }}">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-green-800 dark:text-green-200 flex items-center">
-                        <span class="mr-2">✅</span>
-                        Perfect Discriminators
+                    <h3 class="text-sm font-semibold flex items-center {{ group['heading_classes'] }}">
+                        <span class="mr-2">{{ group['icon'] }}</span>
+                        {{ group['title'] }}
                     </h3>
-                    <span class="text-xs font-bold text-white bg-emerald-600 dark:bg-emerald-600 px-2 py-1 rounded-full">
-                        75 pts
+                    <span class="text-xs font-bold px-2 py-1 rounded-full {{ group['badge_classes'] }}">
+                        {{ group['points_label'] }}
                     </span>
                 </div>
                 <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.article_metadata.get('perfect_keyword_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-600">
-                        {{ keyword }}
+                    {% for item in group['items'] %}
+                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium {{ group['chip_classes'] }}" title="{{ item.title }}">
+                        {{ item.text }}
                     </span>
                     {% endfor %}
-                    {% if not article.article_metadata.get('perfect_keyword_matches') %}
+                    {% if not group['items'] %}
                     <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
                     {% endif %}
                 </div>
             </div>
-            
-            <!-- Good Discriminators -->
-            <div class="card bg-purple-100 dark:bg-purple-800 border border-purple-300 dark:border-purple-600 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-purple-800 dark:text-purple-200 flex items-center">
-                        <span class="mr-2">🟣</span>
-                        Good Discriminators
-                    </h3>
-                    <span class="text-xs font-bold text-white bg-purple-600 dark:bg-purple-600 px-2 py-1 rounded-full">
-                        5 pts
-                    </span>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.article_metadata.get('good_keyword_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-purple-100 dark:bg-purple-800 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-600">
-                        {{ keyword }}
-                    </span>
-                    {% endfor %}
-                    {% if not article.article_metadata.get('good_keyword_matches') %}
-                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- LOLBAS Executables -->
-            <div class="card bg-blue-100 dark:bg-blue-800 border border-blue-300 dark:border-blue-600 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-blue-800 dark:text-blue-200 flex items-center">
-                        <span class="mr-2">🔧</span>
-                        LOLBAS Executables
-                    </h3>
-                    <span class="text-xs font-bold text-white bg-blue-600 dark:bg-blue-600 px-2 py-1 rounded-full">
-                        10 pts
-                    </span>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.article_metadata.get('lolbas_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-600">
-                        {{ keyword }}
-                    </span>
-                    {% endfor %}
-                    {% if not article.article_metadata.get('lolbas_matches') %}
-                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Intelligence Indicators -->
-            <div class="card bg-red-100 dark:bg-red-800 border border-red-300 dark:border-red-600 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-red-800 dark:text-red-200 flex items-center">
-                        <span class="mr-2">🎯</span>
-                        Intelligence Indicators
-                    </h3>
-                    <span class="text-xs font-bold text-white bg-red-600 dark:bg-red-600 px-2 py-1 rounded-full">
-                        10 pts
-                    </span>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.article_metadata.get('intelligence_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-red-100 dark:bg-red-800 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-600">
-                        {{ keyword }}
-                    </span>
-                    {% endfor %}
-                    {% if not article.article_metadata.get('intelligence_matches') %}
-                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <!-- Negative Indicators -->
-            <div class="card bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg p-4">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-200 flex items-center">
-                        <span class="mr-2">⚠️</span>
-                        Negative Indicators
-                    </h3>
-                    <span class="text-xs font-bold text-white bg-gray-600 dark:bg-gray-600 px-2 py-1 rounded-full">
-                        -10 pts
-                    </span>
-                </div>
-                <div class="flex flex-wrap gap-1">
-                    {% for keyword in article.article_metadata.get('negative_matches', []) %}
-                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
-                        {{ keyword }}
-                    </span>
-                    {% endfor %}
-                    {% if not article.article_metadata.get('negative_matches') %}
-                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
-                    {% endif %}
-                </div>
-            </div>
-            
+            {% endfor %}
             </div>
         </div>
         
@@ -523,9 +445,10 @@
         <div class="bg-gray-100 dark:bg-gray-900 rounded-lg p-6">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Article Content</h3>
-                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2">
                         <span class="text-sm text-gray-600 dark:text-gray-400">Select text to annotate</span>
+                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Manual huntability annotations</span>
                         <div class="flex items-center space-x-1">
                             <span class="w-3 h-3 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 rounded"></span>
                             <span class="text-xs text-gray-600 dark:text-gray-400">Huntable</span>
@@ -612,7 +535,7 @@
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark);">{{ article.content|highlight_keywords(article.article_metadata)|safe }}</div>
+                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark);">{{ article.content|highlight_keywords(keyword_resolution.matches)|safe }}</div>
                 <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-print); background-color: var(--surface-plain-bg); border: 1px solid var(--border-warning); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05);">{{ article.content|e }}</div>
             </div>
         </div>
@@ -4643,26 +4566,23 @@ Please provide a detailed analysis based on the article content and the user's s
                 el.style.setProperty('visibility', 'visible', 'important');
                 el.style.setProperty('opacity', '1', 'important');
                 
-                // Check if this is a highlight element - only Perfect (green) and LOLBAS (blue)
-                const hasGreenBg = el.classList.contains('bg-green-100') || 
-                                   el.classList.contains('bg-green-200') ||
-                                   el.classList.contains('bg-green-300');
-                const hasBlueBg = el.classList.contains('bg-blue-100') || 
-                                  el.classList.contains('bg-blue-200');
+                const printHighlightStyles = {
+                    perfect: ['var(--action-success-bg)', 'var(--action-success-dark)', 'var(--action-success)'],
+                    good: ['var(--keyword-good-bg)', 'var(--keyword-good-text)', 'var(--keyword-good-border)'],
+                    lolbas: ['var(--action-info-bg)', 'var(--action-info-dark)', 'var(--action-info)'],
+                    intelligence: ['var(--keyword-intelligence-bg)', 'var(--keyword-intelligence-text)', 'var(--keyword-intelligence-border)'],
+                    negative: ['var(--keyword-negative-bg)', 'var(--keyword-negative-text)', 'var(--keyword-negative-border)']
+                };
+                const highlightCategory = Object.keys(printHighlightStyles).find(category =>
+                    el.classList.contains(`keyword-highlight--${category}`)
+                );
                 
-                // Ensure highlight colors are visible for print (only Perfect and LOLBAS)
-                if (hasGreenBg) {
-                    // Perfect keyword matches - green highlight
-                    el.style.setProperty('background-color', 'var(--action-success-bg)', 'important');
-                    el.style.setProperty('color', 'var(--action-success-dark)', 'important');
-                    el.style.setProperty('border', '1px solid var(--action-success)', 'important');
-                    el.style.setProperty('padding', '2px 4px', 'important');
-                    el.style.setProperty('border-radius', '3px', 'important');
-                } else if (hasBlueBg) {
-                    // LOLBAS matches - blue highlight
-                    el.style.setProperty('background-color', 'var(--action-info-bg)', 'important');
-                    el.style.setProperty('color', 'var(--action-info-dark)', 'important');
-                    el.style.setProperty('border', '1px solid var(--action-info)', 'important');
+                // Ensure highlight colors are visible for print for all automatic keyword categories
+                if (highlightCategory) {
+                    const [backgroundColor, textColor, borderColor] = printHighlightStyles[highlightCategory];
+                    el.style.setProperty('background-color', backgroundColor, 'important');
+                    el.style.setProperty('color', textColor, 'important');
+                    el.style.setProperty('border', `1px solid ${borderColor}`, 'important');
                     el.style.setProperty('padding', '2px 4px', 'important');
                     el.style.setProperty('border-radius', '3px', 'important');
                 } else {
@@ -4677,14 +4597,14 @@ Please provide a detailed analysis based on the article content and the user's s
                         if (color && !color.includes('rgb(0, 0, 0)') && 
                             !color.includes('rgb(1,') && !color.includes('rgb(2,')) {
                             // Only change if it's not already a colored highlight
-                            if (!hasGreenBg && !hasBlueBg) {
+                            if (!highlightCategory) {
                                 el.style.setProperty('color', 'var(--text-print)', 'important');
                             }
                         }
                         
                         // Remove dark backgrounds that aren't highlights
                         if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent' &&
-                            !hasGreenBg && !hasBlueBg) {
+                            !highlightCategory) {
                             if (bgColor.includes('rgb(0,') || bgColor.includes('rgb(1,')) {
                                 el.style.setProperty('background-color', 'transparent', 'important');
                             }

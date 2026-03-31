@@ -96,6 +96,16 @@
   --action-info-hover: #2563eb;
   --action-info-shadow: rgba(59, 130, 246, 0.25);
   --action-info-fill: rgba(59, 130, 246, 0.1);
+  /* Keyword highlight semantic colors */
+  --keyword-good-bg: #f3e8ff;
+  --keyword-good-text: #6b21a8;
+  --keyword-good-border: #9333ea;
+  --keyword-intelligence-bg: #fed7aa;
+  --keyword-intelligence-text: #9a3412;
+  --keyword-intelligence-border: #ea580c;
+  --keyword-negative-bg: #f3f4f6;
+  --keyword-negative-text: #374151;
+  --keyword-negative-border: #9ca3af;
   /* Execute — emerald */
   --action-execute: #10b981;       /* emerald-500 */
   --action-execute-dark: #059669;  /* emerald-600; hover/dark */

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from src.database.async_manager import async_db_manager
+from src.utils.keyword_resolution import build_keyword_resolution_context
 from src.utils.search_parser import parse_boolean_search
 from src.web.dependencies import ENVIRONMENT, logger, rag_enabled, templates
 from src.web.routes.articles import SimpleFilter
@@ -547,6 +548,8 @@ async def article_detail(request: Request, article_id: int):
             )
 
         source = await async_db_manager.get_source(article.source_id)
+        metadata = article.article_metadata or {}
+        keyword_resolution = build_keyword_resolution_context(str(article.content or ""), metadata)
 
         return templates.TemplateResponse(
             "article_detail.html",
@@ -554,6 +557,7 @@ async def article_detail(request: Request, article_id: int):
                 "request": request,
                 "article": article,
                 "source": source,
+                "keyword_resolution": keyword_resolution,
                 "chatgpt_content_limit": int(os.getenv("CHATGPT_CONTENT_LIMIT", "1000000")),
                 "anthropic_content_limit": int(os.getenv("ANTHROPIC_CONTENT_LIMIT", "1000000")),
                 "content_filtering_enabled": os.getenv("CONTENT_FILTERING_ENABLED", "true").lower() == "true",

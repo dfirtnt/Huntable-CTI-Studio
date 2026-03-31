@@ -8,16 +8,19 @@ keep template-specific helpers in a dedicated location.
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime
 from typing import Any
 
-from src.utils.content import ThreatHuntingScorer
+from src.utils.keyword_resolution import (
+    ResolvedKeywordMatch,
+    render_highlighted_content,
+    resolve_keyword_matches,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def highlight_keywords(content: str, metadata: dict[str, Any]) -> str:
+def highlight_keywords(content: str, metadata: dict[str, Any] | list[ResolvedKeywordMatch] | None) -> str:
     """
     Highlight discriminator keywords in article content.
 
@@ -28,139 +31,20 @@ def highlight_keywords(content: str, metadata: dict[str, Any]) -> str:
     Returns:
         HTML content with highlighted keywords.
     """
-    if not content or not metadata:
+    if not content:
         return content
 
-    # Get all keyword matches
-    all_keywords: list[tuple[str, str, str]] = []
-    keyword_types: dict[str, tuple[str, str]] = {
-        "perfect_keyword_matches": (
-            "perfect",
-            "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700",
-        ),
-        "good_keyword_matches": (
-            "good",
-            "bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 border-purple-300 dark:border-purple-700",
-        ),
-        "lolbas_matches": (
-            "lolbas",
-            "bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700",
-        ),
-        "intelligence_matches": (
-            "intelligence",
-            "bg-orange-200 dark:bg-orange-950 text-orange-900 dark:text-orange-300 border-orange-400 dark:border-orange-800",
-        ),
-        "negative_matches": (
-            "negative",
-            "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border-gray-300 dark:border-gray-600",
-        ),
-    }
-
-    for key, (type_name, css_classes) in keyword_types.items():
-        keywords = metadata.get(key, [])
-        for keyword in keywords:
-            all_keywords.append((keyword, type_name, css_classes))
-
-    if not all_keywords:
+    if metadata is None:
         return content
 
     # Sort keywords by length (longest first) to avoid partial replacements
-    all_keywords.sort(key=lambda x: len(x[0]), reverse=True)
-
     # Check if content is already highlighted (contains HTML spans)
     if "<span class=" in content:
         logger.warning("Content already contains HTML spans, skipping keyword highlighting to avoid nested spans")
         return content
 
-    matches = []
-    for keyword, type_name, css_classes in all_keywords:
-        # For certain keywords, allow partial matches (e.g., "hunting" in "threat hunting")
-        partial_match_keywords = [
-            "hunting",
-            "detection",
-            "monitor",
-            "alert",
-            "executable",
-            "parent-child",
-            "defender query",
-            ".exe",
-        ]
-
-        # For wildcard keywords, use prefix matching
-        wildcard_keywords = ["spawn"]
-
-        try:
-            # Handle special cases first
-            if keyword.lower() in partial_match_keywords:
-                # For partial matches, just escape and compile
-                escaped_keyword = re.escape(keyword)
-                pattern = re.compile(escaped_keyword, re.IGNORECASE)
-            elif keyword.lower() in wildcard_keywords:
-                # For wildcard matching (e.g., "spawn" matches "spawns", "spawning", "spawned")
-                escaped_keyword = re.escape(keyword)
-                pattern = re.compile(escaped_keyword + r"\w*", re.IGNORECASE)
-            else:
-                # Use shared keyword pattern logic from ThreatHuntingScorer
-                pattern_str = ThreatHuntingScorer._build_keyword_pattern(keyword)
-                # Convert word boundaries (\b) to letter boundaries for highlighting
-                # Replace \b at start with lookbehind, \b at end with lookahead
-                if pattern_str.startswith("\\b"):
-                    pattern_str = pattern_str.replace("\\b", r"(?<![a-zA-Z])", 1)
-                if pattern_str.endswith("\\b"):
-                    pattern_str = pattern_str[:-2] + r"(?![a-zA-Z])"
-                pattern_str = pattern_str.replace("\\b", r"(?![a-zA-Z])")
-                pattern = re.compile(pattern_str, re.IGNORECASE)
-
-            for match in pattern.finditer(content):
-                matches.append(
-                    {
-                        "start": match.start(),
-                        "end": match.end(),
-                        "keyword": keyword,
-                        "type_name": type_name,
-                        "css_classes": css_classes,
-                    }
-                )
-        except re.error as exc:
-            logger.warning("Regex error for keyword '%s': %s", keyword, exc)
-            continue
-
-    # Sort matches by start position
-    matches.sort(key=lambda x: x["start"])
-
-    # Remove overlapping matches (keep the longest one)
-    non_overlapping = []
-    for match in matches:
-        overlaps = False
-        for existing in list(non_overlapping):
-            if match["start"] < existing["end"] and match["end"] > existing["start"]:
-                # Overlap detected - keep the longer match
-                if len(match["keyword"]) > len(existing["keyword"]):
-                    non_overlapping.remove(existing)
-                    non_overlapping.append(match)
-                overlaps = True
-                break
-
-        if not overlaps:
-            non_overlapping.append(match)
-
-    # Sort again by start position
-    non_overlapping.sort(key=lambda x: x["start"])
-
-    highlighted_content = content
-    for match in reversed(non_overlapping):
-        # Use the actual matched text from content, not the keyword from metadata
-        matched_text = content[match["start"] : match["end"]]
-        highlight_span = (
-            '<span class="px-1 py-0.5 rounded text-xs font-medium border '
-            f'{match["css_classes"]}" title="{match["type_name"].title()} discriminator: {match["keyword"]}">'
-            f"{matched_text}</span>"
-        )
-        highlighted_content = (
-            highlighted_content[: match["start"]] + highlight_span + highlighted_content[match["end"] :]
-        )
-
-    return highlighted_content
+    resolved_matches = metadata if isinstance(metadata, list) else resolve_keyword_matches(content, metadata)
+    return render_highlighted_content(content, resolved_matches)
 
 
 def strftime_filter(value: datetime | None, format_string: str = "%Y-%m-%d %H:%M:%S") -> str:

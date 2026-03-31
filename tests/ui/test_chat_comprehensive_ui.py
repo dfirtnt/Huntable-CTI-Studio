@@ -240,20 +240,26 @@ class TestMessageDisplay:
         """Test loading indicator during message sending."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
 
-        # Delay API response
-        def handle_route(route):
-            import time
-
-            time.sleep(1)
-            mock_response = {
-                "response": "Response",
-                "timestamp": "2025-01-01T00:00:00Z",
-                "relevant_articles": [],
-                "total_results": 0,
-            }
-            route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
-
-        page.route("**/api/chat/rag", handle_route)
+        # Delay API response inside the page context so React can render the loading state.
+        page.add_init_script("""
+            const originalFetch = window.fetch.bind(window);
+            window.fetch = async (input, init) => {
+                const url = typeof input === 'string' ? input : input.url;
+                if (url.includes('/api/chat/rag')) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return new Response(JSON.stringify({
+                        response: 'Response',
+                        timestamp: '2025-01-01T00:00:00Z',
+                        relevant_articles: [],
+                        total_results: 0
+                    }), {
+                        status: 200,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                }
+                return originalFetch(input, init);
+            };
+        """)
 
         page.goto(f"{base_url}/chat")
         page.wait_for_load_state("load")
@@ -266,7 +272,7 @@ class TestMessageDisplay:
         send_button.click()
         page.wait_for_timeout(500)
 
-        # Verify loading indicator appears
+        # Verify loading indicator appears while request is in flight.
         loading_indicator = page.locator("text=Searching threat intelligence database...")
         expect(loading_indicator).to_be_visible()
 

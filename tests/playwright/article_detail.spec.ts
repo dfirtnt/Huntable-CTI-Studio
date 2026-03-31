@@ -13,6 +13,61 @@ async function resolveArticleId(requestContext: APIRequestContext): Promise<stri
   return first?.id ? String(first.id) : null;
 }
 
+async function resolveKeywordResolutionArticleId(page: import('@playwright/test').Page): Promise<string | null> {
+  if (TEST_ARTICLE_ID) {
+    return TEST_ARTICLE_ID;
+  }
+
+  await page.goto(`${BASE}/articles`);
+  await page.waitForLoadState('domcontentloaded');
+
+  const hrefs = await page
+    .locator('a[href^="/articles/"]')
+    .evaluateAll((links) =>
+      Array.from(
+        new Set(
+          links
+            .map((link) => link.getAttribute('href') || '')
+            .filter((href) => /^\/articles\/\d+$/.test(href))
+        )
+      ).slice(0, 25)
+    );
+
+  for (const href of hrefs) {
+    const match = href.match(/\/articles\/(\d+)$/);
+    if (!match) continue;
+
+    const articleId = match[1];
+    await page.goto(`${BASE}/articles/${articleId}`);
+    await page.waitForLoadState('domcontentloaded');
+
+    const keywordButton = page.getByRole('button', { name: /Keyword Matches/i });
+    if (await keywordButton.isVisible().catch(() => false)) {
+      await keywordButton.click();
+      await page.waitForTimeout(100);
+    }
+
+    const verdict = await page.evaluate(() => {
+      const intelligenceChip = document.querySelector('#keyword-matches-content .bg-orange-100, #keyword-matches-content .bg-orange-200');
+      const overlapChip = Array.from(document.querySelectorAll('#keyword-matches-content span')).find((el) => {
+        const title = el.getAttribute('title') || '';
+        return title.includes('Highest-priority match among:') && title.includes('Perfect') && title.includes('LOLBAS');
+      });
+      const perfectOverlapSpan = Array.from(document.querySelectorAll('#article-content span.keyword-highlight--perfect')).find((el) =>
+        (el.getAttribute('data-source-categories') || '').includes('lolbas')
+      );
+      const intelligenceSpan = document.querySelector('#article-content span.keyword-highlight--intelligence');
+      return Boolean(intelligenceChip && overlapChip && perfectOverlapSpan && intelligenceSpan);
+    });
+
+    if (verdict) {
+      return articleId;
+    }
+  }
+
+  return null;
+}
+
 test.describe('Article Detail Page', () => {
   test.skip(SKIP_TESTS, 'Article detail tests disabled (SKIP_ARTICLE_TESTS=true).');
 
@@ -142,5 +197,40 @@ test.describe('Article List Page', () => {
     
     await page.waitForLoadState('networkidle');
     await expect(page).toHaveURL(/\/articles\/\d+/);
+  });
+
+  test('[ARTICLE-033] Keyword resolution UI stays aligned across panel, body, and legends', async ({ page }) => {
+    const articleId = await resolveKeywordResolutionArticleId(page);
+    test.skip(!articleId, 'No article available with overlapping keyword categories and intelligence matches');
+
+    await page.goto(`${BASE}/articles/${articleId}`);
+    await page.waitForLoadState('domcontentloaded');
+
+    await page.getByRole('button', { name: /Keyword Matches/i }).click();
+
+    const overlapChip = page.locator('#keyword-matches-content span[title*="Highest-priority match among:"]').first();
+    const intelligenceChip = page.locator('#keyword-matches-content .bg-orange-100, #keyword-matches-content .bg-orange-200').first();
+    const perfectOverlapSpan = page.locator('#article-content span.keyword-highlight--perfect[data-source-categories*="lolbas"]').first();
+    const intelligenceSpan = page.locator('#article-content span.keyword-highlight--intelligence').first();
+
+    await expect(overlapChip).toBeVisible();
+    await expect(intelligenceChip).toBeVisible();
+    await expect(perfectOverlapSpan).toBeVisible();
+    await expect(intelligenceSpan).toBeVisible();
+    await expect(page.getByText('Automatic keyword highlights', { exact: true })).toBeVisible();
+    await expect(page.getByText(/Manual huntability annotations/i)).toBeVisible();
+    await expect(overlapChip).toHaveAttribute('title', /Perfect/);
+    await expect(overlapChip).toHaveAttribute('title', /LOLBAS/);
+
+    const [chipBackground, bodyBackground] = await Promise.all([
+      intelligenceChip.evaluate((el) => getComputedStyle(el).backgroundColor),
+      intelligenceSpan.evaluate((el) => getComputedStyle(el).backgroundColor),
+    ]);
+
+    expect(chipBackground).toBe(bodyBackground);
+    const overlapText = (await overlapChip.textContent())?.trim() || '';
+    if (overlapText) {
+      await expect(page.locator(`#keyword-matches-content .bg-blue-100:text-is("${overlapText}")`)).toHaveCount(0);
+    }
   });
 });
