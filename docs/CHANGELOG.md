@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **MLOps frontend redesign** (2026-03-30): Agent Evals and ML vs Hunt Comparison pages rebuilt with distinctive panel-based layouts, custom typography (Space Mono / IBM Plex Sans / Barlow Condensed), instrument-style section labels, entrance animations, and refined status badges. All JS functionality preserved.
+- **Gitignore** (2026-03-30): Broadened `*.pkl` glob replaces specific model-file pattern; removed tracked `content_filter.pkl` binary.
+- **Content filtering docs** (2026-03-30): New "Defining Huntable for Your Use Case" section explains that the default labeling convention is behavioral-TTP-focused and documents how to rebuild the eval set when changing definitions.
+
 ### Added
 - **ML model rollback** (2026-03-30): `POST /api/model/rollback/{version_id}` restores any prior model version — copies the versioned `.pkl` artifact to the live path, flips `is_current` in DB, clears the `ContentFilter` lru_cache, and runs a background chunk re-score. New `is_current` column on `ml_model_versions` with incremental migration. Retrain script now saves versioned artifacts (`content_filter_v{id}.pkl`) and populates `eval_*` metrics from the training test-split when the curated eval set is unavailable.
 - **Version history pagination and search** (2026-03-30): `GET /api/model/versions` accepts optional `?page=&limit=&version=` for server-side pagination; unpaginated mode preserved for the chart. UI panel shows 5 versions per page with Prev/Next controls and version-number search.
