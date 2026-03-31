@@ -4,7 +4,7 @@ Model management endpoints.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Path
 
 from src.database.async_manager import async_db_manager
 from src.web.dependencies import logger
@@ -85,7 +85,7 @@ async def api_model_retrain_status():
 
     except Exception as e:
         logger.error(f"Error getting retrain status: {e}")
-        return {"status": "error", "progress": 0, "message": f"Error: {str(e)}"}
+        return {"status": "error", "progress": 0, "message": "Internal error while checking retrain status"}
 
 
 @router.post("/retrain")
@@ -268,7 +268,7 @@ async def api_model_retrain():
 
     except Exception as e:
         logger.error(f"Error starting retraining: {e}")
-        return {"success": False, "message": f"Failed to start retraining: {str(e)}"}
+        return {"success": False, "message": "Failed to start retraining"}
 
 
 def _serialize_version(version) -> dict:
@@ -345,7 +345,7 @@ async def api_get_model_versions(
 
     except Exception as e:
         logger.error(f"Error getting model versions: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get model versions: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Failed to get model versions") from e
 
 
 @router.post("/evaluate")
@@ -408,7 +408,7 @@ async def api_model_evaluate():
         return {"success": False, "message": "Evaluation dataset not found. Please run annotation export first."}
     except Exception as e:
         logger.error(f"Model evaluation failed: {e}")
-        return {"success": False, "message": f"Evaluation failed: {str(e)}"}
+        return {"success": False, "message": "Model evaluation failed"}
 
 
 @router.get("/classification-timeline")
@@ -502,7 +502,7 @@ async def api_get_classification_timeline():
 
     except Exception as e:
         logger.error(f"Error getting classification timeline: {e}")
-        return {"success": False, "timeline": [], "message": f"Failed to get classification timeline: {str(e)}"}
+        return {"success": False, "timeline": [], "message": "Failed to get classification timeline"}
 
 
 @router.get("/eval-chunk-count")
@@ -525,7 +525,7 @@ async def api_get_eval_chunk_count():
 
     except Exception as e:
         logger.error(f"Error getting evaluation chunk count: {e}")
-        return {"success": False, "count": 0, "message": f"Error: {str(e)}"}
+        return {"success": False, "count": 0, "message": "Failed to get evaluation chunk count"}
 
 
 @router.get("/feedback-count")
@@ -593,11 +593,11 @@ async def api_get_feedback_count():
 
     except Exception as e:
         logger.error(f"Error getting feedback count: {e}")
-        return {"success": False, "count": 0, "message": f"Failed to get feedback count: {str(e)}"}
+        return {"success": False, "count": 0, "message": "Failed to get feedback count"}
 
 
 @router.post("/rollback/{version_id}")
-async def api_model_rollback(version_id: int):
+async def api_model_rollback(version_id: int = Path(..., gt=0)):
     """
     Roll back the active model to a specific version.
 
@@ -664,7 +664,7 @@ async def api_model_rollback(version_id: int):
 
 
 @router.get("/compare/{version_id}")
-async def api_get_model_comparison(version_id: int):
+async def api_get_model_comparison(version_id: int = Path(..., gt=0)):
     """Get comparison results for a specific model version vs its predecessor."""
     try:
         from src.utils.model_versioning import MLModelVersionManager
@@ -740,7 +740,7 @@ async def api_get_model_comparison(version_id: int):
 
     except Exception as e:
         logger.error(f"Error getting model comparison: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get model comparison: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Failed to get model comparison") from e
 
 
 @router.get("/feedback-comparison")
@@ -879,4 +879,4 @@ async def api_get_feedback_comparison():
 
     except Exception as e:
         logger.error(f"Error getting feedback comparison: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get feedback comparison: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Failed to get feedback comparison") from e
