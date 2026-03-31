@@ -142,8 +142,65 @@
         </div>
     </div>
 
-    
-    
+    <!-- Model Version History -->
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">📜 Model Version History</h2>
+            <div class="flex items-center gap-2">
+                <!-- Version search -->
+                <div class="flex items-center gap-1">
+                    <input type="number" id="mvhSearchInput" min="1" placeholder="v#"
+                           class="w-16 px-2 py-1 text-xs bg-gray-700 border border-gray-600 rounded text-gray-200 placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+                           onkeydown="if(event.key==='Enter') searchModelVersions()">
+                    <button onclick="searchModelVersions()" class="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded border border-gray-600 transition-colors">Search</button>
+                    <button id="mvhClearBtn" onclick="clearModelVersionSearch()" class="hidden text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 text-orange-400 rounded border border-gray-600 transition-colors">Clear</button>
+                </div>
+                <button onclick="refreshModelVersionHistory()" class="text-gray-400 hover:text-gray-200 transition-colors text-sm px-2 py-1 rounded" title="Refresh">
+                    <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+            </div>
+        </div>
+        <p class="text-sm text-gray-400 mb-4">Each trained version is preserved. The <span class="text-green-400 font-semibold">Active</span> version is currently scoring content. Roll back to any prior version to restore its predictions — chunk re-scoring runs automatically.</p>
+
+        <!-- Rollback progress indicator (hidden until a rollback is in flight) -->
+        <div id="rollbackProgressSection" class="hidden mb-4 p-3 bg-gray-700 rounded-md border border-orange-500">
+            <div class="flex items-center gap-3">
+                <svg class="animate-spin w-4 h-4 text-orange-400 flex-shrink-0" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/></svg>
+                <span id="rollbackProgressText" class="text-sm text-orange-300">Rolling back model…</span>
+            </div>
+        </div>
+
+        <div id="modelVersionHistoryList" class="space-y-3">
+            <p class="text-gray-500 text-sm text-center py-4">Loading…</p>
+        </div>
+
+        <!-- Pagination controls -->
+        <div id="mvhPagination" class="hidden flex items-center justify-between mt-4 pt-3 border-t border-gray-700">
+            <span id="mvhPageInfo" class="text-xs text-gray-500">Page 1 of 1</span>
+            <div class="flex items-center gap-2">
+                <button id="mvhPrevBtn" onclick="changeModelVersionPage(-1)" disabled
+                        class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded border border-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">← Prev</button>
+                <button id="mvhNextBtn" onclick="changeModelVersionPage(1)" disabled
+                        class="px-3 py-1 text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 rounded border border-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rollback Confirmation Dialog -->
+    <div id="rollbackConfirmModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-70 flex items-center justify-center z-50">
+        <div class="bg-gray-800 border border-gray-600 rounded-lg shadow-xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold text-white mb-2">🔄 Confirm Rollback</h3>
+            <p id="rollbackConfirmText" class="text-sm text-gray-300 mb-4"></p>
+            <div class="bg-gray-700 rounded p-3 mb-4 text-xs text-gray-400">
+                All chunk classifications will be re-scored with the restored model. This may take a few minutes.
+            </div>
+            <div class="flex justify-end gap-3">
+                <button onclick="closeRollbackConfirm()" class="px-4 py-2 text-sm border border-gray-500 text-gray-300 hover:text-white rounded-md transition-colors">Cancel</button>
+                <button id="rollbackConfirmBtn" onclick="executeRollback()" class="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors font-medium">🔄 Rollback</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Evaluation Metrics Charts -->
     <div class="mb-8">
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
@@ -490,6 +547,7 @@
                     borderColor: getThemeColor('--chart-cyan') || 'rgba(75, 192, 192, 1)',
                     backgroundColor: getThemeColor('--chart-cyan-fill') || 'rgba(75, 192, 192, 0.2)',
                     borderWidth: 2,
+                    pointRadius: 4,
                     fill: false,
                     tension: 0.1,
                     spanGaps: true
@@ -499,6 +557,9 @@
                     borderColor: getThemeColor('--chart-pink') || 'rgba(255, 99, 132, 1)',
                     backgroundColor: getThemeColor('--chart-pink-fill') || 'rgba(255, 99, 132, 0.2)',
                     borderWidth: 2,
+                    borderDash: [6, 3],
+                    pointRadius: 4,
+                    pointStyle: 'rectRot',
                     fill: false,
                     tension: 0.1,
                     spanGaps: true
@@ -508,6 +569,7 @@
                     borderColor: getThemeColor('--chart-blue-light') || 'rgba(54, 162, 235, 1)',
                     backgroundColor: getThemeColor('--chart-blue-light-fill') || 'rgba(54, 162, 235, 0.2)',
                     borderWidth: 2,
+                    pointRadius: 4,
                     fill: false,
                     tension: 0.1,
                     spanGaps: true
@@ -517,6 +579,8 @@
                     borderColor: getThemeColor('--action-warning') || 'rgba(255, 206, 86, 1)',
                     backgroundColor: getThemeColor('--badge-yellow-bg') || 'rgba(255, 206, 86, 0.2)',
                     borderWidth: 2,
+                    pointRadius: 4,
+                    pointStyle: 'triangle',
                     fill: false,
                     tension: 0.1,
                     spanGaps: true
@@ -544,7 +608,13 @@
                 },
                 plugins: {
                     legend: {
-                        display: false
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 16,
+                            color: '#9ca3af'
+                        }
                     },
                     title: {
                         display: false
@@ -556,7 +626,7 @@
                                 if (context.parsed.y === null) {
                                     return `v${labelVersion}: No evaluation data`;
                                 }
-                                return `v${labelVersion}: ${context.parsed.y.toFixed(1)}%`;
+                                return `${context.dataset.label} v${labelVersion}: ${context.parsed.y.toFixed(1)}%`;
                             }
                         }
                     }
@@ -1319,6 +1389,9 @@
             document.getElementById('retrainModelBtn').addEventListener('click', retrainModel);
             document.getElementById('refreshRetrainBtn').addEventListener('click', refreshRetrainingStatus);
             document.getElementById('processEligibleBtn').addEventListener('click', processEligibleArticles);
+
+            // Load version history on page load
+            refreshModelVersionHistory();
             
             // Zoom controls
             const zoomInBtn = document.getElementById('zoomInBtn');
@@ -1330,6 +1403,241 @@
                 zoomOutBtn.addEventListener('click', zoomOut);
             }
         });
+
+        // ── Model Version History (paginated) ─────────────────────────────────
+
+        // Safe HTML escape for any string values coming from the API
+        function _escHtml(str) {
+            const d = document.createElement('div');
+            d.textContent = String(str);
+            return d.innerHTML;
+        }
+
+        let _mvhPage   = 1;
+        const _mvhLimit = 5;
+        let _mvhSearch  = '';
+
+        let _pendingRollbackVersionId     = null;
+        let _pendingRollbackVersionNumber = null;
+
+        async function refreshModelVersionHistory() {
+            const listEl = document.getElementById('modelVersionHistoryList');
+            if (!listEl) return;
+            listEl.innerHTML = '';
+            var loadingP = document.createElement('p');
+            loadingP.className = 'text-gray-500 text-sm text-center py-4';
+            loadingP.textContent = 'Loading\u2026';
+            listEl.appendChild(loadingP);
+
+            try {
+                var url = '/api/model/versions?page=' + _mvhPage + '&limit=' + _mvhLimit;
+                if (_mvhSearch) url += '&version=' + encodeURIComponent(_mvhSearch);
+
+                var resp = await fetch(url);
+                var data = await resp.json();
+
+                if (!data.success || !data.versions || !data.versions.length) {
+                    listEl.innerHTML = '';
+                    var emptyP = document.createElement('p');
+                    emptyP.className = 'text-gray-500 text-sm text-center py-4';
+                    emptyP.textContent = _mvhSearch
+                        ? 'No version matching v' + _mvhSearch + '.'
+                        : 'No model versions recorded yet.';
+                    listEl.appendChild(emptyP);
+                    _updateMvhPagination(0, 0);
+                    return;
+                }
+
+                listEl.innerHTML = '';
+                data.versions.forEach(function(v) {
+                    listEl.appendChild(_buildVersionCard(v));
+                });
+
+                _updateMvhPagination(data.total_versions, data.total_pages);
+
+            } catch (err) {
+                listEl.innerHTML = '';
+                var errP = document.createElement('p');
+                errP.className = 'text-red-400 text-sm text-center py-4';
+                errP.textContent = 'Failed to load version history: ' + err.message;
+                listEl.appendChild(errP);
+                _updateMvhPagination(0, 0);
+            }
+        }
+
+        // Build a version card using safe DOM methods.
+        // All dynamic values are either escaped strings or derived from API numbers.
+        function _buildVersionCard(v) {
+            var trainedAt = _escHtml(v.trained_at ? new Date(v.trained_at).toLocaleString() : '\u2014');
+            var trainAcc  = v.accuracy                != null ? (v.accuracy * 100).toFixed(1) + '%'               : '\u2014';
+            var evalAcc   = v.eval_accuracy           != null ? (v.eval_accuracy * 100).toFixed(1) + '%'           : '\u2014';
+            var f1Hunt    = v.eval_f1_score_huntable  != null ? v.eval_f1_score_huntable.toFixed(3)                : '\u2014';
+            var prec      = v.eval_precision_huntable != null ? (v.eval_precision_huntable * 100).toFixed(1) + '%' : '\u2014';
+            var rec       = v.eval_recall_huntable    != null ? (v.eval_recall_huntable * 100).toFixed(1) + '%'    : '\u2014';
+            var samples   = v.training_data_size      != null ? Number(v.training_data_size).toLocaleString()      : '\u2014';
+            var vId  = parseInt(v.id, 10);
+            var vNum = parseInt(v.version_number, 10);
+
+            var card = document.createElement('div');
+            card.className = 'border border-gray-600 rounded-md p-4 bg-gray-900';
+
+            // Header row
+            var header = document.createElement('div');
+            header.className = 'flex items-start justify-between gap-4';
+
+            var left = document.createElement('div');
+            left.className = 'flex-1 min-w-0';
+
+            var titleRow = document.createElement('div');
+            titleRow.className = 'flex items-center gap-2 mb-2 flex-wrap';
+            var vLabel = document.createElement('span');
+            vLabel.className = 'font-semibold text-white';
+            vLabel.textContent = 'v' + vNum;
+            titleRow.appendChild(vLabel);
+
+            if (v.is_current) {
+                var badge = document.createElement('span');
+                badge.className = 'text-xs px-2 py-0.5 bg-green-600 text-white rounded font-medium';
+                badge.textContent = '\u25cf Active';
+                titleRow.appendChild(badge);
+            }
+
+            var dateSpan = document.createElement('span');
+            dateSpan.className = 'text-xs text-gray-500';
+            dateSpan.textContent = v.trained_at ? new Date(v.trained_at).toLocaleString() : '\u2014';
+            titleRow.appendChild(dateSpan);
+            left.appendChild(titleRow);
+
+            // Metrics grid
+            var grid = document.createElement('div');
+            grid.className = 'grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-xs';
+            var metrics = [
+                ['Samples', samples], ['Train acc', trainAcc], ['Eval acc', evalAcc],
+                ['F1 (hunt)', f1Hunt], ['Prec / Rec', prec + ' / ' + rec]
+            ];
+            metrics.forEach(function(m) {
+                var cell = document.createElement('div');
+                var lbl = document.createElement('span');
+                lbl.className = 'text-gray-500';
+                lbl.textContent = m[0];
+                var val = document.createElement('span');
+                val.className = 'text-gray-200 font-medium';
+                val.textContent = m[1];
+                cell.appendChild(lbl);
+                cell.appendChild(document.createElement('br'));
+                cell.appendChild(val);
+                grid.appendChild(cell);
+            });
+            left.appendChild(grid);
+            header.appendChild(left);
+
+            // Action button
+            var right = document.createElement('div');
+            right.className = 'flex-shrink-0 pt-1';
+            if (!v.is_current && v.has_artifact) {
+                var btn = document.createElement('button');
+                btn.className = 'px-3 py-1.5 text-xs bg-orange-600 hover:bg-orange-700 text-white rounded-md transition-colors font-medium whitespace-nowrap';
+                btn.textContent = '\uD83D\uDD04 Rollback';
+                btn.addEventListener('click', function() { confirmRollback(vId, vNum); });
+                right.appendChild(btn);
+            } else if (!v.is_current && !v.has_artifact) {
+                var noArt = document.createElement('span');
+                noArt.className = 'text-xs text-gray-500 italic';
+                noArt.title = 'Trained before rollback support was added';
+                noArt.textContent = 'No artifact';
+                right.appendChild(noArt);
+            }
+            header.appendChild(right);
+
+            card.appendChild(header);
+            return card;
+        }
+
+        function _updateMvhPagination(total, totalPages) {
+            var pag      = document.getElementById('mvhPagination');
+            var info     = document.getElementById('mvhPageInfo');
+            var prevBtn  = document.getElementById('mvhPrevBtn');
+            var nextBtn  = document.getElementById('mvhNextBtn');
+            if (!pag) return;
+
+            if (total <= _mvhLimit && _mvhPage === 1) {
+                pag.classList.add('hidden');
+                return;
+            }
+            pag.classList.remove('hidden');
+            info.textContent = 'Page ' + _mvhPage + ' of ' + Math.max(1, totalPages) + ' (' + total + ' versions)';
+            prevBtn.disabled = _mvhPage <= 1;
+            nextBtn.disabled = _mvhPage >= totalPages;
+        }
+
+        function changeModelVersionPage(delta) {
+            _mvhPage = Math.max(1, _mvhPage + delta);
+            refreshModelVersionHistory();
+        }
+
+        function searchModelVersions() {
+            var input = document.getElementById('mvhSearchInput');
+            var val = (input ? input.value : '').trim();
+            _mvhSearch = val;
+            _mvhPage = 1;
+            document.getElementById('mvhClearBtn').classList.toggle('hidden', !val);
+            refreshModelVersionHistory();
+        }
+
+        function clearModelVersionSearch() {
+            var input = document.getElementById('mvhSearchInput');
+            if (input) input.value = '';
+            _mvhSearch = '';
+            _mvhPage = 1;
+            document.getElementById('mvhClearBtn').classList.add('hidden');
+            refreshModelVersionHistory();
+        }
+
+        function confirmRollback(versionId, versionNumber) {
+            _pendingRollbackVersionId     = versionId;
+            _pendingRollbackVersionNumber = versionNumber;
+            document.getElementById('rollbackConfirmText').textContent =
+                'Roll back to model v' + versionNumber + '? The current active model will be replaced and all chunk classifications will be re-scored.';
+            document.getElementById('rollbackConfirmModal').classList.remove('hidden');
+        }
+
+        function closeRollbackConfirm() {
+            _pendingRollbackVersionId     = null;
+            _pendingRollbackVersionNumber = null;
+            document.getElementById('rollbackConfirmModal').classList.add('hidden');
+        }
+
+        async function executeRollback() {
+            if (_pendingRollbackVersionId === null) return;
+            const versionId     = _pendingRollbackVersionId;
+            const versionNumber = _pendingRollbackVersionNumber;
+
+            closeRollbackConfirm();
+
+            const progressSection = document.getElementById('rollbackProgressSection');
+            const progressText    = document.getElementById('rollbackProgressText');
+            progressText.textContent = 'Rolling back to v' + versionNumber + '\u2026';
+            progressSection.classList.remove('hidden');
+
+            try {
+                const resp   = await fetch('/api/model/rollback/' + versionId, { method: 'POST' });
+                const result = await resp.json();
+
+                if (result.success) {
+                    progressText.textContent = '\u2705 Rolled back to v' + versionNumber + '. Chunk re-scoring running in background\u2026';
+                    await refreshModelVersionHistory();
+                    await refreshRetrainingStatus();
+                    setTimeout(function() { progressSection.classList.add('hidden'); }, 6000);
+                } else {
+                    progressText.textContent = '\u274C Rollback failed: ' + (result.detail || result.message || 'Unknown error');
+                    setTimeout(function() { progressSection.classList.add('hidden'); }, 8000);
+                }
+            } catch (err) {
+                progressText.textContent = '\u274C Rollback error: ' + err.message;
+                setTimeout(function() { progressSection.classList.add('hidden'); }, 8000);
+            }
+        }
+
     </script>
 {% endblock %}
 

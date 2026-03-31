@@ -132,6 +132,13 @@ class AsyncDatabaseManager:
             async with self.engine.begin() as conn:
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 await conn.run_sync(Base.metadata.create_all)
+                # Incremental column additions for existing installations
+                await conn.execute(
+                    text(
+                        "ALTER TABLE ml_model_versions "
+                        "ADD COLUMN IF NOT EXISTS is_current BOOLEAN NOT NULL DEFAULT FALSE"
+                    )
+                )
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")

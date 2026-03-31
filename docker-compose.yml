@@ -125,7 +125,16 @@ services:
           memory: ${WEB_MEMORY_LIMIT:-1G}
         reservations:
           memory: ${WEB_MEMORY_RESERVATION:-256M}
-    command: uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001 --reload
+    command: >-
+      uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001
+      --reload
+      --reload-include '*.py'
+      --reload-exclude 'models/*'
+      --reload-exclude 'tests/*'
+      --reload-exclude 'scripts/*'
+      --reload-exclude 'test-results/*'
+      --reload-exclude 'allure-results/*'
+      --reload-exclude '*.pkl'
 
   # Celery Worker for Background Tasks
   worker:

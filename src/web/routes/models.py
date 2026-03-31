@@ -172,9 +172,10 @@ async def api_model_retrain():
                         from src.utils.async_tools import run_sync
                         from src.utils.model_versioning import MLModelVersionManager
 
-                        # run_retrain() is called from a thread, so we need to use run_sync
+                        # run_retrain() is called from a thread, so we need to use run_sync.
+                        # Use a tiny pool — this is a one-shot query, not a long-lived manager.
                         async def get_latest_version():
-                            db_manager = AsyncDatabaseManager()
+                            db_manager = AsyncDatabaseManager(pool_size=2, max_overflow=0)
                             version_manager = MLModelVersionManager(db_manager)
                             latest_version = await version_manager.get_latest_version()
                             await db_manager.close()
@@ -225,7 +226,20 @@ async def api_model_retrain():
                             },
                         )
                 else:
-                    update_status("error", 0, f"Retraining failed: {result.stderr}")
+                    # The retrain script uses print() → stdout, not stderr.
+                    # Prefer stderr if populated (unexpected crash), otherwise
+                    # surface the last non-empty line of stdout as the reason.
+                    error_detail = (
+                        result.stderr.strip()
+                        if result.stderr.strip()
+                        else (
+                            next(
+                                (ln.strip() for ln in reversed(result.stdout.splitlines()) if ln.strip()),
+                                "unknown error — check server logs",
+                            )
+                        )
+                    )
+                    update_status("error", 0, f"Retraining failed: {error_detail}")
 
             except Exception as e:
                 update_status("error", 0, f"Retraining error: {str(e)}")
@@ -257,48 +271,76 @@ async def api_model_retrain():
         return {"success": False, "message": f"Failed to start retraining: {str(e)}"}
 
 
+def _serialize_version(version) -> dict:
+    """Convert an MLModelVersionTable row to a JSON-safe dict."""
+    return {
+        "id": version.id,
+        "version_number": version.version_number,
+        "trained_at": version.trained_at.isoformat(),
+        "accuracy": version.accuracy,
+        "precision_huntable": version.precision_huntable,
+        "precision_not_huntable": version.precision_not_huntable,
+        "recall_huntable": version.recall_huntable,
+        "recall_not_huntable": version.recall_not_huntable,
+        "f1_score_huntable": version.f1_score_huntable,
+        "f1_score_not_huntable": version.f1_score_not_huntable,
+        "training_data_size": version.training_data_size,
+        "feedback_samples_count": version.feedback_samples_count,
+        "training_duration_seconds": version.training_duration_seconds,
+        "is_current": version.is_current,
+        "has_artifact": bool(version.model_file_path),
+        "has_comparison": version.comparison_results is not None,
+        # Evaluation metrics
+        "eval_accuracy": version.eval_accuracy,
+        "eval_precision_huntable": version.eval_precision_huntable,
+        "eval_precision_not_huntable": version.eval_precision_not_huntable,
+        "eval_recall_huntable": version.eval_recall_huntable,
+        "eval_recall_not_huntable": version.eval_recall_not_huntable,
+        "eval_f1_score_huntable": version.eval_f1_score_huntable,
+        "eval_f1_score_not_huntable": version.eval_f1_score_not_huntable,
+        "eval_confusion_matrix": version.eval_confusion_matrix,
+        "evaluated_at": version.evaluated_at.isoformat() if version.evaluated_at else None,
+        "has_evaluation": version.evaluated_at is not None,
+    }
+
+
 @router.get("/versions")
-async def api_get_model_versions():
-    """Get all ML model versions with metrics."""
+async def api_get_model_versions(
+    page: int | None = None,
+    limit: int = 10,
+    version: int | None = None,
+):
+    """Get ML model versions with metrics.
+
+    When ``page`` is supplied the response is paginated (page-based).
+    When omitted, all versions are returned (backward-compatible for the chart).
+    ``version`` filters by exact version number (search).
+    """
     try:
         from src.utils.model_versioning import MLModelVersionManager
 
         version_manager = MLModelVersionManager(async_db_manager)
-        versions = await version_manager.get_all_versions(limit=50)
 
-        # Convert to serializable format
-        versions_data = []
-        for version in versions:
-            versions_data.append(
-                {
-                    "id": version.id,
-                    "version_number": version.version_number,
-                    "trained_at": version.trained_at.isoformat(),
-                    "accuracy": version.accuracy,
-                    "precision_huntable": version.precision_huntable,
-                    "precision_not_huntable": version.precision_not_huntable,
-                    "recall_huntable": version.recall_huntable,
-                    "recall_not_huntable": version.recall_not_huntable,
-                    "f1_score_huntable": version.f1_score_huntable,
-                    "f1_score_not_huntable": version.f1_score_not_huntable,
-                    "training_data_size": version.training_data_size,
-                    "feedback_samples_count": version.feedback_samples_count,
-                    "training_duration_seconds": version.training_duration_seconds,
-                    "has_comparison": version.comparison_results is not None,
-                    # Evaluation metrics
-                    "eval_accuracy": version.eval_accuracy,
-                    "eval_precision_huntable": version.eval_precision_huntable,
-                    "eval_precision_not_huntable": version.eval_precision_not_huntable,
-                    "eval_recall_huntable": version.eval_recall_huntable,
-                    "eval_recall_not_huntable": version.eval_recall_not_huntable,
-                    "eval_f1_score_huntable": version.eval_f1_score_huntable,
-                    "eval_f1_score_not_huntable": version.eval_f1_score_not_huntable,
-                    "eval_confusion_matrix": version.eval_confusion_matrix,
-                    "evaluated_at": version.evaluated_at.isoformat() if version.evaluated_at else None,
-                    "has_evaluation": version.evaluated_at is not None,
-                }
+        if page is not None:
+            versions, total = await version_manager.get_versions_paginated(
+                page=max(1, page),
+                limit=max(1, min(limit, 100)),
+                version_number=version,
             )
+            versions_data = [_serialize_version(v) for v in versions]
+            total_pages = (total + limit - 1) // limit if limit else 1
+            return {
+                "success": True,
+                "versions": versions_data,
+                "total_versions": total,
+                "page": page,
+                "limit": limit,
+                "total_pages": total_pages,
+            }
 
+        # Unpaginated (chart / legacy callers)
+        versions = await version_manager.get_all_versions(limit=200)
+        versions_data = [_serialize_version(v) for v in versions]
         return {"success": True, "versions": versions_data, "total_versions": len(versions_data)}
 
     except Exception as e:
@@ -552,6 +594,73 @@ async def api_get_feedback_count():
     except Exception as e:
         logger.error(f"Error getting feedback count: {e}")
         return {"success": False, "count": 0, "message": f"Failed to get feedback count: {str(e)}"}
+
+
+@router.post("/rollback/{version_id}")
+async def api_model_rollback(version_id: int):
+    """
+    Roll back the active model to a specific version.
+
+    Copies the version's saved artifact to the live model path, flips is_current
+    in the database, clears the ContentFilter cache, and starts a background
+    backfill so chunk classifications reflect the restored model.
+    """
+    import os
+    import threading
+
+    from src.utils.model_versioning import MLModelVersionManager
+
+    version_manager = MLModelVersionManager(async_db_manager)
+
+    version = await version_manager.get_version_by_id(version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Model version not found")
+
+    if version.is_current:
+        return {"success": False, "message": f"Version {version.version_number} is already the active model"}
+
+    artifact_path = version.model_file_path
+    if not artifact_path or not os.path.exists(artifact_path):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"No artifact found for model version {version.version_number}. "
+                "Only versions trained after rollback support was added can be restored."
+            ),
+        )
+
+    try:
+        await version_manager.activate_version(version_id)
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    # Re-score all chunks with the restored model in a background thread
+    def run_backfill():
+        try:
+            from src.database.manager import DatabaseManager
+            from src.services.chunk_analysis_backfill import ChunkAnalysisBackfillService
+
+            db = DatabaseManager().get_session()
+            try:
+                service = ChunkAnalysisBackfillService(db)
+                results = service.backfill_all(min_hunt_score=50.0, min_confidence=0.7)
+                logger.info(
+                    f"Rollback backfill complete: {results.get('successful', 0)} ok, {results.get('failed', 0)} failed"
+                )
+            finally:
+                db.close()
+        except Exception as exc:
+            logger.error(f"Rollback backfill failed: {exc}")
+
+    thread = threading.Thread(target=run_backfill, daemon=True)
+    thread.start()
+
+    return {
+        "success": True,
+        "message": (f"Rolled back to model v{version.version_number}. Chunk re-scoring is running in the background."),
+        "version_number": version.version_number,
+        "version_id": version_id,
+    }
 
 
 @router.get("/compare/{version_id}")

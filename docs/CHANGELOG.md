@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **ML model rollback** (2026-03-30): `POST /api/model/rollback/{version_id}` restores any prior model version — copies the versioned `.pkl` artifact to the live path, flips `is_current` in DB, clears the `ContentFilter` lru_cache, and runs a background chunk re-score. New `is_current` column on `ml_model_versions` with incremental migration. Retrain script now saves versioned artifacts (`content_filter_v{id}.pkl`) and populates `eval_*` metrics from the training test-split when the curated eval set is unavailable.
+- **Version history pagination and search** (2026-03-30): `GET /api/model/versions` accepts optional `?page=&limit=&version=` for server-side pagination; unpaginated mode preserved for the chart. UI panel shows 5 versions per page with Prev/Next controls and version-number search.
+- **Tests** (2026-03-30): 10 unit tests (`test_ml_model_versioning_rollback.py`) for `activate_version` / `set_version_artifact`; 16 API tests (`test_model_rollback_api.py`) covering rollback endpoint, paginated versions, and version search.
+
+### Fixed
+- **Uvicorn reload crash** (2026-03-30): `--reload` watched all files including `.pkl` model artifacts, causing cascading restarts during retrain. Added `--reload-include '*.py'` and `--reload-exclude` for `models/*`, `tests/*`, `scripts/*`, `*.pkl` in both `docker-compose.yml` and `docker-compose.dev2.yml`.
+- **`run_sync` false positive** (2026-03-30): Substring match `"running event loop" in str(e)` incorrectly caught `"no running event loop"` from background threads. Replaced with explicit boolean check.
+- **Connection pool bloat** (2026-03-30): Throwaway `AsyncDatabaseManager` instances in retrain script and routes now use `pool_size=2, max_overflow=0` instead of the default 20+30.
+- **Retrain error reporting** (2026-03-30): Retrain endpoint now surfaces the last stdout line when stderr is empty, instead of showing a blank error.
+- **Eval chart empty** (2026-03-30): Fixed import path (`utils.` → `src.utils.`) for `ModelEvaluator` in retrain script; added training test-split fallback so `eval_*` fields are always populated after retrain.
+- **Chart overlapping lines** (2026-03-30): Precision line hidden behind Accuracy when values are identical; added dashed line style, distinct point shapes (`rectRot`, `triangle`), and interactive legend with `usePointStyle`.
+- **Bootstrap train_test_split** (2026-03-30): `ContentFilter.train_model` falls back to non-stratified split when any class has <2 samples.
+
 ### Fixed
 - **UI tests / test runner** (2026-03-27): `test_workflow_queue_table_layout_ui` targets `#tab-content-queue .q-table-wrap` (queue scroll) instead of `.overflow-x-auto`, which matched hidden enrich `<pre>` nodes; assertions use `q-cell-article` / `q-cell-title` CSS ellipsis like executions tests; article links get a `title` attribute in `workflow.html`. `run_tests.py` no longer forces `pytest-xdist -n auto` for `ui` (opt in with **`--parallel`**). All `tests/ui` Playwright waits: **`networkidle` → `load`** (Diagnostics auto-refresh and similar pages never reach network idle). `test_diagnostics_advanced_ui` job history header/toggle assertions aligned with template; collapsible `hidden` checked via `classList` token.
 
