@@ -790,21 +790,101 @@ async function viewExecution(executionId) {
                                     const totalAttempts = sigmaErrorLog?.total_attempts || validationResults.length;
                                     
                                     if (conversationLog && conversationLog.length > 0) {
-                                        // Full conversation log display - build HTML string
+                                        // Detect format: per-rule (SigmaGenerationService) has rule_id; per-attempt (legacy) has messages
+                                        const isPerRuleFormat = conversationLog[0].rule_id !== undefined;
+
+                                        if (isPerRuleFormat) {
+                                            // Per-rule format: one entry per generated rule
+                                            const totalRepairs = conversationLog.reduce((sum, r) => sum + (r.repair_attempts || []).length, 0);
+                                            const repairSuffix = totalRepairs > 0 ? ', ' + totalRepairs + ' repair attempt' + (totalRepairs !== 1 ? 's' : '') : '';
+                                            let html = '<div class="mt-4 border-t pt-4 border-gray-300 dark:border-gray-600"><details class="w-full" open><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2">🔄 LLM ↔ pySigma Conversation Log (' + conversationLog.length + ' rule' + (conversationLog.length !== 1 ? 's' : '') + repairSuffix + ')</summary>';
+                                            html += '<div class="text-xs text-gray-600 dark:text-gray-400 mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>';
+                                            html += '<div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">';
+
+                                            conversationLog.forEach((entry, idx) => {
+                                                const ruleNum = idx + 1;
+                                                const isFailed = entry.final_status === 'failed';
+                                                const isRepaired = entry.final_status === 'repaired';
+                                                const statusIcon = isFailed ? '❌' : (isRepaired ? '🔧' : '✅');
+                                                const statusLabel = isFailed ? 'Failed' : (isRepaired ? 'Repaired' : 'Valid');
+                                                const statusColor = isFailed ? 'text-red-400' : (isRepaired ? 'text-amber-400' : 'text-emerald-400');
+                                                const borderColor = isFailed ? 'border-red-300 dark:border-red-700' : (isRepaired ? 'border-amber-300 dark:border-amber-700' : 'border-green-300 dark:border-green-700');
+                                                const phaseBadge = entry.generation_phase === 'expansion' ? '<span class="px-1 py-0.5 rounded text-xs bg-purple-600 text-white ml-1">expansion</span>' : '';
+
+                                                html += '<div class="p-3 bg-gray-800 border-2 rounded-lg ' + borderColor + '">';
+                                                html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white bg-blue-600 mr-2">Rule ' + ruleNum + '</span>' + phaseBadge + '<span class="text-xs ' + statusColor + ' font-semibold ml-2">' + statusIcon + ' ' + statusLabel + '</span></div>';
+
+                                                // Validation result
+                                                const val = entry.validation || {};
+                                                const valErrors = val.errors || [];
+                                                const valWarnings = val.warnings || [];
+                                                html += '<div class="mb-2"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">pySigma Validation:</div>';
+                                                html += '<div class="p-2 bg-gray-700 rounded border ' + borderColor + '">';
+                                                html += '<span class="text-xs ' + (val.is_valid ? 'text-emerald-400' : 'text-red-400') + '">' + (val.is_valid ? '✅ Valid' : '❌ Invalid') + '</span>';
+                                                if (valErrors.length > 0) {
+                                                    html += '<div class="text-xs mt-1"><strong class="text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
+                                                    valErrors.forEach(e => { html += '<li class="text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>'; });
+                                                    html += '</ul></div>';
+                                                }
+                                                if (valWarnings.length > 0) {
+                                                    html += '<div class="text-xs mt-1"><strong class="text-amber-400">Warnings:</strong><ul class="list-disc list-inside ml-2">';
+                                                    valWarnings.forEach(w => { html += '<li class="text-amber-400 text-xs">' + String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>'; });
+                                                    html += '</ul></div>';
+                                                }
+                                                html += '</div></div>';
+
+                                                // Repair attempts (only present when rule needed fixing)
+                                                const repairAttempts = entry.repair_attempts || [];
+                                                if (repairAttempts.length > 0) {
+                                                    html += '<details class="mb-1"><summary class="cursor-pointer text-xs text-amber-400 hover:text-amber-300 font-medium">🔧 Repair Attempts (' + repairAttempts.length + ')</summary><div class="mt-2 space-y-2">';
+                                                    repairAttempts.forEach((ra, raIdx) => {
+                                                        const raValid = ra.validation && ra.validation.is_valid;
+                                                        const raBorder = raValid ? 'border-green-700' : 'border-red-700';
+                                                        html += '<div class="p-2 bg-gray-900 border rounded ' + raBorder + '">';
+                                                        html += '<div class="text-xs font-semibold text-gray-300 mb-1">' + (raValid ? '✅' : '❌') + ' Repair Attempt ' + (ra.attempt || raIdx + 1) + '</div>';
+                                                        if (ra.llm_response) {
+                                                            const raResp = String(ra.llm_response).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                                                            html += '<details class="mb-1"><summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-medium">🤖 LLM Response</summary>';
+                                                            html += '<pre class="mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300 whitespace-pre-wrap break-words">' + raResp + '</pre></details>';
+                                                        }
+                                                        if (ra.validation) {
+                                                            const raErrors = ra.validation.errors || [];
+                                                            if (raErrors.length > 0) {
+                                                                html += '<div class="text-xs mt-1"><strong class="text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">';
+                                                                raErrors.forEach(e => { html += '<li class="text-red-400 text-xs">' + String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>'; });
+                                                                html += '</ul></div>';
+                                                            }
+                                                        }
+                                                        if (ra.error) {
+                                                            html += '<div class="text-xs text-red-400 mt-1">Error: ' + String(ra.error).replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+                                                        }
+                                                        html += '</div>';
+                                                    });
+                                                    html += '</div></details>';
+                                                }
+
+                                                html += '</div>';
+                                            });
+
+                                            html += '</div></details></div>';
+                                            return html;
+                                        }
+
+                                        // Per-attempt format (legacy): one entry per LLM call with messages/llm_response
                                         let html = '<div class="mt-4 border-t pt-4 border-gray-300 dark:border-gray-600"><details class="w-full" open><summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2">🔄 LLM ↔ pySigma Conversation Log (' + conversationLog.length + ' attempt' + (conversationLog.length !== 1 ? 's' : '') + ')</summary>';
                                         html += '<div class="text-xs text-gray-600 dark:text-gray-400 mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>';
                                         html += '<div class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700">';
-                                        
+
                                         conversationLog.forEach((entry, idx) => {
                                             const attempt = entry.attempt || (idx + 1);
                                             const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
                                             const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
-                                            
+
                                             html += '<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
                                             html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + attemptBadgeColor + ' mr-2">' + attemptIcon + ' Attempt ' + attempt + '</span>';
                                             html += entry.all_valid ? '<span class="text-xs text-emerald-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-400 font-semibold">Has Validation Errors</span>';
                                             html += '</div>';
-                                            
+
                                             // Messages
                                             const messages = entry.messages || [];
                                             if (messages.length > 0) {
@@ -819,14 +899,14 @@ async function viewExecution(executionId) {
                                                 });
                                                 html += '</div>';
                                             }
-                                            
+
                                             // LLM Response
                                             const llmResponse = String(entry.llm_response || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                             if (llmResponse) {
                                                 html += '<details class="mb-2"><summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 hover:underline font-medium">🤖 LLM Response</summary>';
                                                 html += '<pre class="mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words border border-gray-200 dark:border-gray-700">' + llmResponse + '</pre></details>';
                                             }
-                                            
+
                                             // Validation results (API may return object or array)
                                             const vRaw = entry.validation;
                                             const validation = Array.isArray(vRaw) ? vRaw : (vRaw && typeof vRaw === 'object' && vRaw !== null ? Object.values(vRaw) : []);
@@ -856,10 +936,10 @@ async function viewExecution(executionId) {
                                                 });
                                                 html += '</div>';
                                             }
-                                            
+
                                             html += '</div>';
                                         });
-                                        
+
                                         html += '</div></details></div>';
                                         return html;
                                     } else if (validationResults && validationResults.length > 0) {

@@ -11434,7 +11434,70 @@ async function viewExecution(executionId) {
                 // Show conversation log if it exists, OR show validation results summary even when no errors
                 // Always show if validation results exist (even if conversation log is null)
                 if (conversationLog && conversationLog.length > 0) {
-                    // Full conversation log display
+                    // Detect format: per-rule (SigmaGenerationService) has rule_id; per-attempt (legacy) has messages
+                    const isPerRuleFormat = conversationLog[0].rule_id !== undefined;
+
+                    if (isPerRuleFormat) {
+                        // Per-rule format: one entry per generated rule
+                        const totalRepairs = conversationLog.reduce((sum, r) => sum + (r.repair_attempts || []).length, 0);
+                        const repairSuffix = totalRepairs > 0 ? `, ${totalRepairs} repair attempt${totalRepairs !== 1 ? 's' : ''}` : '';
+                        const ruleCardsHtml = conversationLog.map((entry, idx) => {
+                            const ruleNum = idx + 1;
+                            const isFailed = entry.final_status === 'failed';
+                            const isRepaired = entry.final_status === 'repaired';
+                            const statusIcon = isFailed ? '❌' : (isRepaired ? '🔧' : '✅');
+                            const statusLabel = isFailed ? 'Failed' : (isRepaired ? 'Repaired' : 'Valid');
+                            const statusColor = isFailed ? 'text-red-400' : (isRepaired ? 'text-amber-400' : 'text-emerald-400');
+                            const borderColor = isFailed ? 'border-red-300 dark:border-red-700' : (isRepaired ? 'border-amber-300 dark:border-amber-700' : 'border-green-300 dark:border-green-700');
+                            const phaseBadge = entry.generation_phase === 'expansion' ? '<span class="px-1 py-0.5 rounded text-xs bg-purple-600 text-white ml-1">expansion</span>' : '';
+
+                            const val = entry.validation || {};
+                            const valErrors = (val.errors || []).map(e => `<li class="text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                            const valWarnings = (val.warnings || []).map(w => `<li class="text-amber-400 text-xs">${String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+
+                            const repairAttempts = entry.repair_attempts || [];
+                            const repairHtml = repairAttempts.length > 0 ? `<details class="mb-1"><summary class="cursor-pointer text-xs text-amber-400 hover:text-amber-300 font-medium">🔧 Repair Attempts (${repairAttempts.length})</summary><div class="mt-2 space-y-2">${
+                                repairAttempts.map((ra, raIdx) => {
+                                    const raValid = ra.validation && ra.validation.is_valid;
+                                    const raBorder = raValid ? 'border-green-700' : 'border-red-700';
+                                    const raErrors = (ra.validation && ra.validation.errors || []).map(e => `<li class="text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
+                                    const raResp = ra.llm_response ? `<details class="mb-1"><summary class="cursor-pointer text-xs text-blue-400 hover:text-blue-300 font-medium">🤖 LLM Response</summary><pre class="mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-300 whitespace-pre-wrap break-words">${String(ra.llm_response).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre></details>` : '';
+                                    const raErrHtml = raErrors ? `<div class="text-xs mt-1"><strong class="text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">${raErrors}</ul></div>` : '';
+                                    const raErrMsg = ra.error ? `<div class="text-xs text-red-400 mt-1">Error: ${String(ra.error).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : '';
+                                    return `<div class="p-2 bg-gray-900 border rounded ${raBorder}"><div class="text-xs font-semibold text-gray-300 mb-1">${raValid ? '✅' : '❌'} Repair Attempt ${ra.attempt || raIdx + 1}</div>${raResp}${raErrHtml}${raErrMsg}</div>`;
+                                }).join('')
+                            }</div></details>` : '';
+
+                            return `<div class="p-3 bg-gray-800 border-2 rounded-lg ${borderColor}">
+                                <div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white bg-blue-600 mr-2">Rule ${ruleNum}</span>${phaseBadge}<span class="text-xs ${statusColor} font-semibold ml-2">${statusIcon} ${statusLabel}</span></div>
+                                <div class="mb-2"><div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">pySigma Validation:</div>
+                                    <div class="p-2 bg-gray-700 rounded border ${borderColor}">
+                                        <span class="text-xs ${val.is_valid ? 'text-emerald-400' : 'text-red-400'}">${val.is_valid ? '✅ Valid' : '❌ Invalid'}</span>
+                                        ${valErrors ? `<div class="text-xs mt-1"><strong class="text-red-400">Errors:</strong><ul class="list-disc list-inside ml-2">${valErrors}</ul></div>` : ''}
+                                        ${valWarnings ? `<div class="text-xs mt-1"><strong class="text-amber-400">Warnings:</strong><ul class="list-disc list-inside ml-2">${valWarnings}</ul></div>` : ''}
+                                    </div>
+                                </div>
+                                ${repairHtml}
+                            </div>`;
+                        }).join('');
+
+                        conversationHtml = `<div class="mt-3 border-t pt-3 border-gray-200 dark:border-gray-700">
+                            <details class="w-full" open>
+                                <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
+                                    <span class="text-gray-900 dark:text-white">🔄 LLM ↔ pySigma Conversation Log (${conversationLog.length} rule${conversationLog.length !== 1 ? 's' : ''}${repairSuffix})</span>
+                                    <button onclick="event.stopPropagation(); toggleLogFullscreen('log-${exec.id}', 'log-btn-${exec.id}')" id="log-btn-${exec.id}" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Toggle log fullscreen">
+                                        <svg id="log-fullscreen-icon-${exec.id}" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+                                        <svg id="log-exit-fullscreen-icon-${exec.id}" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"/></svg>
+                                    </button>
+                                </summary>
+                                <div class="text-xs text-gray-600 dark:text-white mb-2 mt-2">Shows the iterative validation process between the LLM and pySigma validator</div>
+                                <div id="log-${exec.id}" class="space-y-3 max-h-96 overflow-y-auto p-3 bg-gray-50 dark:bg-gray-900 rounded border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-white">
+                                    ${ruleCardsHtml}
+                                </div>
+                            </details>
+                        </div>`;
+                    } else {
+                    // Per-attempt format (legacy): one entry per LLM call with messages/llm_response
                     conversationHtml = `<div class="mt-3 border-t pt-3 border-gray-200 dark:border-gray-700">
                         <details class="w-full" open>
                             <summary class="cursor-pointer text-sm font-semibold text-gray-900 dark:text-white hover:text-gray-700 dark:hover:text-gray-100 mb-2 flex items-center justify-between">
@@ -11454,7 +11517,7 @@ async function viewExecution(executionId) {
                                 const attempt = entry.attempt || (idx + 1);
                                 const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
                                 const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
-                                
+
                                 // Format messages
                                 const messages = entry.messages || [];
                                 const messagesHtml = messages.map((msg, msgIdx) => {
@@ -11462,38 +11525,30 @@ async function viewExecution(executionId) {
                                     const content = String(msg.content || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                                     const roleIcon = role === 'system' ? '⚙️' : '👤';
                                     const roleColor = role === 'system' ? 'text-purple-700 dark:text-purple-400' : 'text-blue-700 dark:text-blue-400';
-                                    // COMMENTED OUT: Truncation control
-                                    // const preview = content.substring(0, 200) + (content.length > 200 ? '...' : '');
                                     const collapsibleId = `msg-${exec.id}-${idx}-${msgIdx}`;
-                                    
                                     return `<div class="mb-2">
                                         <div class="flex items-center mb-1">
                                             <span class="mr-2">${roleIcon}</span>
                                             <span class="font-semibold ${roleColor} text-xs uppercase">${role}</span>
-                                            <!-- COMMENTED OUT: Truncation control button -->
-                                            <!-- ${content.length > 200 ? `<button onclick="toggleCollapse('${collapsibleId}')" class="ml-2 text-xs text-blue-600 hover:text-blue-800 dark:text-white dark:hover:text-gray-300 underline">[toggle full]</button>` : ''} -->
                                         </div>
                                         <div class="bg-gray-100 dark:bg-gray-800 p-2 rounded border border-gray-300 dark:border-gray-600">
                                             <div id="${collapsibleId}-preview" class="text-xs text-gray-700 dark:text-white">${content}</div>
-                                            <!-- Truncation control code removed - preview variable was undefined -->
                                         </div>
                                     </div>`;
                                 }).join('');
-                                
+
                                 // Format LLM response
                                 const llmResponse = entry.llm_response || '';
                                 const llmContent = String(llmResponse).replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                                // COMMENTED OUT: Truncation control
-                                // const llmPreview = llmContent.substring(0, 200) + (llmContent.length > 200 ? '...' : '');
                                 const llmCollapsibleId = `llm-${exec.id}-${idx}`;
-                                
+
                                 // Format validation results (API may return object or array)
                                 const vRaw = entry.validation;
                                 const validation = Array.isArray(vRaw) ? vRaw : (vRaw && typeof vRaw === 'object' && vRaw !== null ? Object.values(vRaw) : []);
                                 const hasErrors = validation.some(v => !v.is_valid);
                                 const validationIcon = hasErrors ? '❌' : '✅';
                                 const validationColor = hasErrors ? 'text-red-700 dark:text-red-400' : 'text-green-700 dark:text-green-400';
-                                
+
                                 const validationHtml = validation.map((v, vIdx) => {
                                     const errs = (v.errors || []).map(e => `<li class="text-red-700 dark:text-red-400 text-xs">${String(e).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
                                     const warns = (v.warnings || []).map(w => `<li class="text-yellow-700 dark:text-yellow-400 text-xs">${String(w).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</li>`).join('');
@@ -11506,7 +11561,7 @@ async function viewExecution(executionId) {
                                         ${warns ? `<div class="text-xs mt-1"><strong class="text-yellow-700 dark:text-yellow-400">Warnings:</strong><ul class="list-disc list-inside ml-2">${warns}</ul></div>` : ''}
                                     </div>`;
                                 }).join('');
-                                
+
                                 return `<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ${idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700'}">
                                     <div class="flex items-center mb-2">
                                         <span class="px-2 py-1 rounded text-xs font-semibold text-white ${attemptBadgeColor} mr-2">${attemptIcon} Attempt ${attempt}</span>
@@ -11519,9 +11574,7 @@ async function viewExecution(executionId) {
                                     <div class="mb-3">
                                         <div class="text-xs font-semibold text-gray-700 dark:text-white mb-1">LLM Response:</div>
                                         <div class="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800">
-                                            <!-- COMMENTED OUT: Truncation control - showing full content directly -->
                                             <pre class="text-xs whitespace-pre-wrap text-gray-800 dark:text-white">${llmContent}</pre>
-                                            <!-- Truncation control code removed - llmPreview variable was undefined -->
                                         </div>
                                     </div>
                                     <div>
@@ -11533,6 +11586,7 @@ async function viewExecution(executionId) {
                             </div>
                         </details>
                     </div>`;
+                    }
                 } else if (validationResults && validationResults.length > 0) {
                     // Show validation results summary when no conversation log but validation occurred
                     // Show this even when validation passed (sigmaErrors might be null but validationResults exist)
