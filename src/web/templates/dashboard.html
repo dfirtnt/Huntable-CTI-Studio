@@ -769,7 +769,7 @@
         });
     }
 
-    function updateUptimeRing(uptime) {
+    function updateUptimeRing(uptime, status = null) {
         const bar = document.getElementById('uptime-ring-bar');
         const pct = document.getElementById('uptime-value');
         const dot = document.getElementById('health-dot');
@@ -780,17 +780,20 @@
         const offset = circumference * (1 - Math.min(100, Math.max(0, uptime)) / 100);
         bar.style.strokeDashoffset = offset;
 
-        const isHealthy = uptime > 95;
-        const isWarning = uptime > 80;
-        const color = isHealthy ? '#34d399' : isWarning ? '#fbbf24' : '#f87171';
-        const label = isHealthy ? 'Nominal' : isWarning ? 'Degraded' : 'Critical';
+        const palette = {
+            nominal: { color: '#34d399', label: 'Nominal' },
+            degraded: { color: '#fbbf24', label: 'Degraded' },
+            critical: { color: '#f87171', label: 'Critical' }
+        };
+        const inferredStatus = uptime > 95 ? 'nominal' : uptime > 80 ? 'degraded' : 'critical';
+        const display = palette[status] || palette[inferredStatus];
 
-        bar.style.stroke = color;
-        pct.style.color  = color;
+        bar.style.stroke = display.color;
+        pct.style.color  = display.color;
         pct.textContent  = uptime.toFixed(1) + '%';
 
-        if (dot) { dot.style.background = color; dot.style.boxShadow = `0 0 7px ${color}`; }
-        if (txt) { txt.textContent = label; txt.style.color = color; }
+        if (dot) { dot.style.background = display.color; dot.style.boxShadow = `0 0 7px ${display.color}`; }
+        if (txt) { txt.textContent = display.label; txt.style.color = display.color; }
     }
 
     async function loadDashboardData() {
@@ -800,14 +803,15 @@
             const data = await res.json();
 
             // ── Health ──
-            const uptime = parseFloat(data.health?.uptime) || 0;
-            updateUptimeRing(uptime);
+            const health = data.health || {};
+            const uptime = parseFloat(health.uptime) || 0;
+            updateUptimeRing(uptime, health.status);
 
             const srcEl = document.getElementById('total-sources');
             const rspEl = document.getElementById('avg-response');
-            if (srcEl) srcEl.textContent = data.health?.total_sources ?? '—';
+            if (srcEl) srcEl.textContent = health.total_sources ?? '—';
             if (rspEl) {
-                const rt = data.health?.avg_response_time;
+                const rt = health.avg_response_time;
                 rspEl.textContent = rt != null ? rt + 's' : '—';
             }
 

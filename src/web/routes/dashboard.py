@@ -4,6 +4,7 @@ Dashboard data endpoint.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter
@@ -12,6 +13,62 @@ from src.database.async_manager import async_db_manager
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Dashboard"])
+_EXCLUDED_HEALTH_IDENTIFIERS = {"manual", "eval_articles"}
+
+
+def _compute_ingestion_health(sources):
+    """Score ingestion health using failure severity instead of raw active/total ratio."""
+    monitored_sources = [
+        source
+        for source in sources
+        if getattr(source, "active", True) and getattr(source, "identifier", "") not in _EXCLUDED_HEALTH_IDENTIFIERS
+    ]
+
+    total_monitored = len(monitored_sources)
+    if total_monitored == 0:
+        return {
+            "uptime": 0.0,
+            "status": "critical",
+            "label": "Critical",
+            "healthy_sources": 0,
+            "warning_sources": 0,
+            "critical_sources": 0,
+            "monitored_sources": 0,
+        }
+
+    warning_sources = 0
+    critical_sources = 0
+    for source in monitored_sources:
+        consecutive_failures = getattr(source, "consecutive_failures", 0) or 0
+        if consecutive_failures >= 3:
+            critical_sources += 1
+        elif consecutive_failures >= 1:
+            warning_sources += 1
+
+    healthy_sources = total_monitored - warning_sources - critical_sources
+    weighted_healthy_sources = healthy_sources + (warning_sources * 0.5)
+    uptime = round((weighted_healthy_sources / total_monitored) * 100, 1)
+
+    critical_threshold = max(3, math.ceil(total_monitored * 0.2))
+    if critical_sources >= critical_threshold:
+        status = "critical"
+        label = "Critical"
+    elif critical_sources > 0 or warning_sources > 0:
+        status = "degraded"
+        label = "Degraded"
+    else:
+        status = "nominal"
+        label = "Nominal"
+
+    return {
+        "uptime": uptime,
+        "status": status,
+        "label": label,
+        "healthy_sources": healthy_sources,
+        "warning_sources": warning_sources,
+        "critical_sources": critical_sources,
+        "monitored_sources": total_monitored,
+    }
 
 
 def _format_time_ago(timestamp):
@@ -51,7 +108,7 @@ async def api_dashboard_data():
 
         total_sources = len(sources)
         active_sources = len([source for source in sources if source.active])
-        uptime = (active_sources / total_sources * 100) if total_sources > 0 else 0
+        health = _compute_ingestion_health(sources)
 
         recent_articles = await async_db_manager.list_articles(limit=1000)
         daily_data: dict[str, int] = {}
@@ -257,8 +314,14 @@ async def api_dashboard_data():
 
         return {
             "health": {
-                "uptime": round(uptime, 1),
+                "uptime": health["uptime"],
+                "status": health["status"],
+                "label": health["label"],
                 "total_sources": total_sources,
+                "monitored_sources": health["monitored_sources"],
+                "healthy_sources": health["healthy_sources"],
+                "warning_sources": health["warning_sources"],
+                "critical_sources": health["critical_sources"],
                 "avg_response_time": 1.42,
             },
             "volume": {"daily": daily_data, "hourly": hourly_data},
@@ -276,7 +339,17 @@ async def api_dashboard_data():
     except Exception as exc:  # noqa: BLE001
         logger.error("Dashboard data error: %s", exc)
         return {
-            "health": {"uptime": 0.0, "total_sources": 0, "avg_response_time": 0.0},
+            "health": {
+                "uptime": 0.0,
+                "status": "critical",
+                "label": "Critical",
+                "total_sources": 0,
+                "monitored_sources": 0,
+                "healthy_sources": 0,
+                "warning_sources": 0,
+                "critical_sources": 0,
+                "avg_response_time": 0.0,
+            },
             "volume": {"daily": {"2025-01-01": 0}, "hourly": {"00": 0}},
             "failing_sources": [],
             "top_articles": [],
