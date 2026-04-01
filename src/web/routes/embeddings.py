@@ -29,7 +29,7 @@ async def api_embedding_stats():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Embedding stats error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/api/embeddings/update")
@@ -65,7 +65,7 @@ async def api_update_embeddings(request: Request):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Embedding update error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/embeddings/logs")
@@ -152,7 +152,7 @@ async def get_embedding_logs():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Error reading embedding logs: %s", exc, exc_info=True)
-        return {"success": False, "logs": f"Error reading logs: {exc}"}
+        return {"success": False, "logs": "Error reading logs"}
 
 
 @router.post("/api/articles/{article_id}/embed")
@@ -189,4 +189,4 @@ async def api_generate_embedding(article_id: int):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Generate embedding error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
