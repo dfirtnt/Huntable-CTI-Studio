@@ -1,6 +1,10 @@
 """Tests for threat hunting scorer functionality."""
 
+import pytest
+
 from src.utils.content import HUNT_SCORING_KEYWORDS, ThreatHuntingScorer
+
+pytestmark = pytest.mark.unit
 
 
 class TestThreatHuntingScorer:

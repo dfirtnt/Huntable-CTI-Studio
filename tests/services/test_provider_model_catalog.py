@@ -6,6 +6,8 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
+pytestmark = pytest.mark.unit
+
 from src.services import provider_model_catalog as catalog_module
 from src.services.provider_model_catalog import (
     DEFAULT_CATALOG,

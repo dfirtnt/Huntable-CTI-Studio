@@ -89,6 +89,11 @@ class AsyncDatabaseManager:
                     "postgresql+asyncpg://cti_user:cti_password@postgres:5432/cti_scraper",
                 )
 
+        # Normalize to asyncpg driver — AsyncEngine requires an async-capable driver.
+        # A plain postgresql:// URL (psycopg2) is automatically upgraded here so that
+        # environments that set DATABASE_URL / TEST_DATABASE_URL without +asyncpg still work.
+        if database_url and database_url.startswith("postgresql://"):
+            database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
         self.database_url = database_url
         self.echo = echo
 

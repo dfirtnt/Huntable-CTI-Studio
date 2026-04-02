@@ -4,6 +4,8 @@ import pytest
 
 from src.services.sigma_validator import SigmaRule, SigmaValidator, ValidationError, ValidationResult
 
+pytestmark = pytest.mark.unit
+
 
 class TestSigmaRule:
     """Test SigmaRule functionality."""

@@ -6,6 +6,8 @@ import pytest
 
 from src.utils.search_parser import BooleanSearchParser, parse_boolean_search
 
+pytestmark = pytest.mark.unit
+
 
 class TestBooleanSearchParser:
     """Test cases for BooleanSearchParser class."""

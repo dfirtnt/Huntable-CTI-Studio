@@ -6,6 +6,8 @@ import pytest
 
 from src.services.sigma_sync_service import SigmaSyncService
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def sigma_repo(tmp_path):

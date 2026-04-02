@@ -1,6 +1,10 @@
 """Tests for chunk debug utility helpers."""
 
+import pytest
+
 from src.web.routes.debug import calculate_filtered_costs
+
+pytestmark = pytest.mark.unit
 
 
 def test_calculate_filtered_costs_reuses_filtered_tokens():

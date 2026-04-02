@@ -5,10 +5,13 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 from src.services.backup_cron_service import BackupCronService
 from src.utils.backup_config import BackupConfigManager
+
+pytestmark = pytest.mark.unit
 
 
 def test_list_jobs_classifies_managed_and_external(monkeypatch):

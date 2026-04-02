@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Source-check distributed lock** (2026-04-02): `check_all_sources` Celery task acquires a Redis `SET NX EX` lock on startup (default TTL 90 min, env `SOURCE_CHECK_LOCK_TTL_SECONDS`). Overlapping invocations skip gracefully with `status: skipped` rather than running concurrent DB/scrape storms. Lock is released in a `finally` block with compare-and-delete to prevent a different owner from releasing it.
+- **Healing error detail propagation** (2026-04-02): LLM HTTP, timeout, and generic exceptions in `SourceHealingService._analyze_with_llm` now include an `error_detail` key in the returned dict; `run_healing_round` surfaces this in the `HealingEvent.error_message` when no validation summary is available. The healing history UI distinguishes validation-fetch summaries from plain error messages, showing a `Details:` label and red colouring for the latter.
+- **Score parser patterns 2b/2c** (2026-04-02): `LLMService` score extraction adds `Score: N/10` and generic `N/10` patterns before the tail-scan fallback, improving compatibility with custom ranking prompts.
+- **Tests** (2026-04-02): `test_source_check_task_lock.py` (Celery task lock acquire/skip/release), `test_source_healing_service.py::TestHealingErrorDetails` (error-detail propagation), `test_source_healing_coordinator.py` (coordinator integration), `test_healing_history_status_ui.py` (Playwright UI for healing history).
+
+### Changed
+- **pytest config consolidated** (2026-04-02): `[tool.pytest.ini_options]` block added to `pyproject.toml` mirroring `tests/pytest.ini`; `pyproject.toml` is now the authoritative pytest config source.
+- **`run_tests.py` security tests** (2026-04-02): `USE_ASGI_CLIENT=1` and `asyncio_default_test_loop_scope=session` now apply to `RunTestType.SECURITY` runs (previously API-only), so security tests in `tests/api/` can use `patch()` mocks against the in-process app.
+- **`asyncio.run()` in Celery test-agent tasks** (2026-04-02): Replaced deprecated `asyncio.get_event_loop().run_until_complete()` with `asyncio.run()` in `test_sub_agent_task`, `test_rank_agent_task`, and `test_sigma_agent_task`.
+- **`async_manager` URL normalisation** (2026-04-02): `AsyncDatabaseManager` automatically upgrades `postgresql://` URLs to `postgresql+asyncpg://` so environments that omit the driver suffix still connect via asyncpg.
+
 ### Changed
 - **Dashboard ingestion health scoring** (2026-04-01): `uptime` replaced with a severity-weighted health score. Sources with ≥3 consecutive failures are `critical`; 1–2 failures are `warning` (weighted 0.5×). `manual` and `eval_articles` identifiers excluded from monitoring. API response now includes `status` (`nominal`/`degraded`/`critical`), `label`, `monitored_sources`, `healthy_sources`, `warning_sources`, `critical_sources`. Dashboard ring and status badge consume the server-supplied status rather than a client-side uptime threshold. `_compute_ingestion_health` shared between `dashboard.py` and `metrics.py`.
 - **CI: Python Playwright UI job** (2026-04-01): `tests.yml` gains a `ui` job that runs the comprehensive `@pytest.mark.ui` suite in CI (postgres + redis services, DB schema bootstrap, live web server, `playwright install --with-deps chromium`, `python run_tests.py ui`). The optimised suite (~15–20 min locally) runs within a 40-minute CI timeout.

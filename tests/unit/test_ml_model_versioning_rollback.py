@@ -12,6 +12,8 @@ import pytest
 
 from src.utils.model_versioning import MLModelVersionManager
 
+pytestmark = pytest.mark.unit
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

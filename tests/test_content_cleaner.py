@@ -4,6 +4,8 @@ import pytest
 
 from src.utils.content import ContentCleaner, ContentExtractor, TextNormalizer
 
+pytestmark = pytest.mark.unit
+
 
 class TestContentCleaner:
     """Test ContentCleaner functionality."""

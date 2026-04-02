@@ -7,6 +7,8 @@ import pytest
 
 from src.services.sigma_pr_service import SigmaPRService
 
+pytestmark = pytest.mark.unit
+
 
 class TestSigmaPRServicePathResolution:
     """Test path resolution uses sigma-repo default and respects explicit paths."""

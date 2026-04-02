@@ -113,7 +113,7 @@ def test_sub_agent_task(
                 execution_id=None,
             )
 
-        result = asyncio.get_event_loop().run_until_complete(_run())
+        result = asyncio.run(_run())
         return {"success": True, "agent_name": agent_name, "article_id": article_id, "result": result}
     except Exception as exc:
         logger.error("test_sub_agent_task failed: %s", exc, exc_info=True)
@@ -172,7 +172,7 @@ def test_rank_agent_task(
                 ground_truth_details=ground_truth_details,
             )
 
-        result = asyncio.get_event_loop().run_until_complete(_run())
+        result = asyncio.run(_run())
         return {"success": True, "article_id": article_id, "result": result}
     except Exception as exc:
         logger.error("test_rank_agent_task failed: %s", exc, exc_info=True)
@@ -233,7 +233,7 @@ def test_sigma_agent_task(
                 sigma_system_prompt=sigma_system_prompt,
             )
 
-        result = asyncio.get_event_loop().run_until_complete(_run())
+        result = asyncio.run(_run())
 
         # Summarize result for task output
         rules = result.get("rules", []) if result else []

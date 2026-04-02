@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import pytest
+
 from src.web.routes import cron as cron_routes
+
+pytestmark = pytest.mark.api
 
 
 async def _run_async(awaitable):

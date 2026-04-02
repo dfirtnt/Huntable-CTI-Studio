@@ -854,8 +854,8 @@ class RunTestRunner:
 
         cmd.extend(["-m", combined_expr])
 
-        # API tests use in-process ASGI client (USE_ASGI_CLIENT=1 in subprocess env); one event loop for the whole run
-        if self.config.test_type == RunTestType.API:
+        # API and security tests use in-process ASGI client (USE_ASGI_CLIENT=1 in subprocess env); one event loop for the whole run
+        if self.config.test_type in (RunTestType.API, RunTestType.SECURITY):
             cmd.extend(["-o", "asyncio_default_test_loop_scope=session"])
 
         # UI tests: add a per-test timeout guard so a single hung Playwright test
@@ -1058,8 +1058,9 @@ class RunTestRunner:
             if self.config.skip_real_api:
                 env["SKIP_REAL_API_TESTS"] = "1"
 
-            # Use in-process ASGI client for API tests (no live server on 127.0.0.1:8001 required)
-            if self.config.test_type == RunTestType.API:
+            # Use in-process ASGI client for API and security tests (no live server on 127.0.0.1:8001 required)
+            # Security tests in tests/api/ use patch() to inject errors; those mocks only work in-process.
+            if self.config.test_type in (RunTestType.API, RunTestType.SECURITY):
                 env["USE_ASGI_CLIENT"] = "1"
                 # In-process app must reach Redis on host (docker port map 6379)
                 if (

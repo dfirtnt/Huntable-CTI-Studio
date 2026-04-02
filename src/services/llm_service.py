@@ -1717,12 +1717,30 @@ class LLMService:
                     if score_match:
                         score = float(score_match.group(1))
                     else:
-                        # Pattern 3: Look for numbers 1-10 in the last 500 chars (where final answer usually is)
-                        # Reasoning models often put the score at the end after reasoning
-                        tail_text = response_text[-500:] if len(response_text) > 500 else response_text
-                        score_match = re.search(r"\b([1-9]|10)(?:\.\d+)?\b", tail_text)
+                        # Pattern 2b: "Score: N/10" format
+                        # Handles custom prompts that produce "Agent Value Score: 6/10" etc.
+                        score_match = re.search(
+                            r"Score[:\s]+(\d+(?:\.\d+)?)\s*/\s*10",
+                            response_text,
+                            re.IGNORECASE,
+                        )
                         if score_match:
                             score = float(score_match.group(1))
+                        else:
+                            # Pattern 2c: Generic "N/10" anywhere in response
+                            score_match = re.search(
+                                r"\b(\d+(?:\.\d+)?)\s*/\s*10\b",
+                                response_text,
+                            )
+                            if score_match:
+                                score = float(score_match.group(1))
+                            else:
+                                # Pattern 3: Look for numbers 1-10 in the last 500 chars (where final answer usually is)
+                                # Reasoning models often put the score at the end after reasoning
+                                tail_text = response_text[-500:] if len(response_text) > 500 else response_text
+                                score_match = re.search(r"\b([1-9]|10)(?:\.\d+)?\b", tail_text)
+                                if score_match:
+                                    score = float(score_match.group(1))
 
                 if score is not None:
                     score = max(1.0, min(10.0, score))  # Clamp to 1-10

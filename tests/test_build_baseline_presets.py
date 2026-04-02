@@ -9,6 +9,9 @@ if str(REPO_ROOT) not in sys.path:
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import build_baseline_presets as script
+import pytest
+
+pytestmark = pytest.mark.unit
 
 
 def test_presets_dir_under_config_presets_agent_configs():

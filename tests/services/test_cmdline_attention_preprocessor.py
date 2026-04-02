@@ -1,6 +1,10 @@
 """Unit tests for cmdline_attention_preprocessor."""
 
+import pytest
+
 from src.services.cmdline_attention_preprocessor import _expand_to_boundary, process
+
+pytestmark = pytest.mark.unit
 
 
 def test_empty_article():

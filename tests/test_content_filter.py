@@ -7,6 +7,8 @@ import pytest
 
 from src.utils.content_filter import ContentFilter, FilterConfig, FilterResult
 
+pytestmark = pytest.mark.unit
+
 
 class TestContentFilter:
     """Test ContentFilter functionality."""

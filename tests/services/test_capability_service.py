@@ -6,6 +6,8 @@ import pytest
 
 from src.services.capability_service import CapabilityService
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.fixture
 def capability_service():

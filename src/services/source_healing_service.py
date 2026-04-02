@@ -169,6 +169,10 @@ class SourceHealingService:
                     parts.append(f"rss_stats={json.dumps(validation['rss_parsing_stats'])}")
                 validation_summary = " | ".join(parts)
 
+            event_error_message = validation_summary
+            if event_error_message is None and isinstance(proposed_actions, dict):
+                event_error_message = proposed_actions.get("error_detail")
+
             event = HealingEventCreate(
                 source_id=source_id,
                 round_number=round_num,
@@ -176,7 +180,7 @@ class SourceHealingService:
                 actions_proposed=proposed_actions.get("actions", []) if isinstance(proposed_actions, dict) else [],
                 actions_applied=applied,
                 validation_success=fix_validated,
-                error_message=validation_summary,
+                error_message=event_error_message,
             )
             await db.create_healing_event(event)
 
@@ -604,13 +608,26 @@ class SourceHealingService:
                 source_snapshot.get("id"),
                 sc,
             )
-            return {"diagnosis": f"LLM HTTP error ({sc})", "actions": []}
-        except httpx.TimeoutException:
+            return {
+                "diagnosis": f"LLM HTTP error ({sc})",
+                "actions": [],
+                "error_detail": str(exc) or f"HTTPStatusError ({sc})",
+            }
+        except httpx.TimeoutException as exc:
             logger.exception("[AutoHeal] LLM timeout for source %s", source_snapshot.get("id"))
-            return {"diagnosis": "LLM request timed out", "actions": []}
-        except Exception:
+            return {
+                "diagnosis": "LLM request timed out",
+                "actions": [],
+                "error_detail": str(exc) or exc.__class__.__name__,
+            }
+        except Exception as exc:
             logger.exception("[AutoHeal] LLM call failed for source %s", source_snapshot.get("id"))
-            return {"diagnosis": "LLM call failed", "actions": []}
+            detail = str(exc).strip() or exc.__class__.__name__
+            return {
+                "diagnosis": f"LLM call failed: {exc.__class__.__name__}",
+                "actions": [],
+                "error_detail": detail,
+            }
 
     @staticmethod
     def _build_user_prompt(

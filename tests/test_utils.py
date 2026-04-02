@@ -8,6 +8,8 @@ from src.utils.content import ContentCleaner
 from src.utils.search_parser import BooleanSearchParser
 from src.utils.simhash import SimHash
 
+pytestmark = pytest.mark.unit
+
 
 class TestBooleanSearchParser:
     """Test the BooleanSearchParser utility."""

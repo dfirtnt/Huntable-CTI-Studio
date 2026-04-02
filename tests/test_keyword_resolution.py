@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import pytest
+
 from src.utils.keyword_resolution import (
     KEYWORD_CATEGORY_METADATA,
     build_keyword_resolution_context,
     render_highlighted_content,
     resolve_keyword_matches,
 )
+
+pytestmark = pytest.mark.unit
 
 
 def test_overlap_resolves_to_higher_priority_category() -> None:

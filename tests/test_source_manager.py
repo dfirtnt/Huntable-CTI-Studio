@@ -7,6 +7,8 @@ import pytest
 
 from src.core.source_manager import SourceConfig, SourceConfigLoader, SourceManager
 
+pytestmark = pytest.mark.unit
+
 
 class TestSourceConfig:
     """Test SourceConfig functionality."""

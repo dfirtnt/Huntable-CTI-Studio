@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import pytest
+
 from src.utils.keyword_resolution import resolve_keyword_matches
 from src.web.utils.jinja_filters import highlight_keywords
+
+pytestmark = pytest.mark.unit
 
 
 def test_highlight_keywords_renders_resolved_matches_without_nested_spans() -> None:

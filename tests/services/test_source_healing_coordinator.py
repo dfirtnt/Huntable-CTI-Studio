@@ -127,6 +127,21 @@ class TestGracePeriodFiltering:
         assert 2 in dispatched_ids  # stale — dispatched
         assert 3 in dispatched_ids  # never — dispatched
 
+    @pytest.mark.asyncio
+    async def test_source_exactly_at_grace_period_boundary_is_dispatched(self, _mock_config, _mock_db, _mock_heal_task):
+        """A source exactly 24 hours stale should be dispatched because only newer successes are skipped."""
+        from src.services.source_healing_coordinator import scan_and_trigger_healing
+
+        source = _make_source_row(last_success=datetime.now() - timedelta(hours=24))
+
+        result_mock = MagicMock()
+        result_mock.scalars.return_value.all.return_value = [source]
+        _mock_db.execute.return_value = result_mock
+
+        await scan_and_trigger_healing()
+
+        _mock_heal_task.delay.assert_called_once_with(source.id)
+
 
 class TestDisabledHealing:
     @pytest.mark.asyncio
@@ -156,3 +171,35 @@ class TestDisabledHealing:
         await scan_and_trigger_healing()
 
         _mock_heal_task.delay.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_query_failure_returns_without_dispatch(self, _mock_config, _mock_db, _mock_heal_task):
+        """Database query failures should be swallowed so the scheduler loop stays alive."""
+        from src.services.source_healing_coordinator import scan_and_trigger_healing
+
+        _mock_db.execute.side_effect = RuntimeError("db unavailable")
+
+        await scan_and_trigger_healing()
+
+        _mock_heal_task.delay.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_dispatch_failure_on_one_source_does_not_block_remaining_sources(
+        self, _mock_config, _mock_db, _mock_heal_task
+    ):
+        """A failed queue dispatch should not prevent later sources from being scheduled."""
+        from src.services.source_healing_coordinator import scan_and_trigger_healing
+
+        first = _make_source_row(source_id=1, name="First", last_success=None)
+        second = _make_source_row(source_id=2, name="Second", last_success=None)
+
+        result_mock = MagicMock()
+        result_mock.scalars.return_value.all.return_value = [first, second]
+        _mock_db.execute.return_value = result_mock
+        _mock_heal_task.delay.side_effect = [RuntimeError("queue down"), None]
+
+        await scan_and_trigger_healing()
+
+        assert _mock_heal_task.delay.call_count == 2
+        dispatched_ids = [call.args[0] for call in _mock_heal_task.delay.call_args_list]
+        assert dispatched_ids == [1, 2]

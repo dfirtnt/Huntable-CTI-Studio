@@ -5,6 +5,8 @@ import pytest
 from src.web.routes import metrics
 from src.web.routes.dashboard import _compute_ingestion_health
 
+pytestmark = pytest.mark.unit
+
 
 def _source(identifier: str, *, active: bool = True, consecutive_failures: int = 0):
     return SimpleNamespace(

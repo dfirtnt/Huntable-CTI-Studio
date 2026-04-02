@@ -969,16 +969,18 @@ async function openHealingHistory(sourceId, sourceName) {
                 valEl.className = 'heal-event-validation';
                 var valLabel = document.createElement('span');
                 valLabel.className = 'heal-event-val-label';
-                valLabel.textContent = 'Validation fetch: ';
+                var isValidationSummary = ev.error_message.includes('method=')
+                    || ev.error_message.includes('articles_found=')
+                    || ev.error_message.includes('response_time=');
+                valLabel.textContent = isValidationSummary ? 'Validation fetch: ' : 'Details: ';
                 valEl.appendChild(valLabel);
 
-                // Parse the pipe-delimited validation summary into readable parts
-                var valParts = ev.error_message.split(' | ');
+                var valParts = isValidationSummary ? ev.error_message.split(' | ') : [ev.error_message];
                 valParts.forEach(function(part, idx) {
                     if (idx > 0) valEl.appendChild(document.createTextNode(' · '));
                     var span = document.createElement('span');
                     // Highlight errors in red
-                    if (part.startsWith('error=')) {
+                    if (part.startsWith('error=') || !isValidationSummary) {
                         span.style.color = 'var(--action-danger, #f87171)';
                     }
                     span.textContent = part;

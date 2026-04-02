@@ -6,6 +6,8 @@ import subprocess
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from src.services.scheduled_jobs_service import (
     ScheduledJobsConfigError,
     ScheduledJobsService,

@@ -6,6 +6,8 @@ import pytest
 
 from src.core.rss_parser import RSSParser
 
+pytestmark = pytest.mark.unit
+
 
 class TestSourceManager:
     """Test the SourceManager class."""

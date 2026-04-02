@@ -8,6 +8,7 @@ import logging
 import os
 import subprocess
 import time
+import uuid
 from pathlib import Path
 
 from celery import Celery
@@ -17,6 +18,9 @@ from src.services.scheduled_jobs_service import ScheduledJobsService, cron_expre
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+_SOURCE_CHECK_LOCK_KEY = "celery:lock:check_all_sources"
+_SOURCE_CHECK_LOCK_TTL_SECONDS = int(os.getenv("SOURCE_CHECK_LOCK_TTL_SECONDS", "5400"))
 
 # CRITICAL: Get Redis URL from environment BEFORE any other imports
 # Check both REDIS_URL and CELERY_BROKER_URL (Celery's preferred env var name)
@@ -130,6 +134,40 @@ def register_configurable_periodic_tasks(sender, jobs, crontab_factory=crontab):
         )
 
 
+def _acquire_redis_lock(lock_key: str, ttl_seconds: int) -> str | None:
+    """Acquire a best-effort Redis lock and return the owner token."""
+    if not redis_url:
+        return None
+
+    try:
+        import redis
+
+        token = str(uuid.uuid4())
+        client = redis.from_url(redis_url, decode_responses=True)
+        acquired = client.set(lock_key, token, nx=True, ex=ttl_seconds)
+        client.close()
+        return token if acquired else ""
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not acquire Redis lock %s: %s", lock_key, exc)
+        return None
+
+
+def _release_redis_lock(lock_key: str, token: str | None) -> None:
+    """Release a Redis lock only if this process still owns it."""
+    if not redis_url or token in (None, ""):
+        return
+
+    try:
+        import redis
+
+        client = redis.from_url(redis_url, decode_responses=True)
+        if client.get(lock_key) == token:
+            client.delete(lock_key)
+        client.close()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Could not release Redis lock %s: %s", lock_key, exc)
+
+
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     """Setup periodic tasks for the CTI Scraper."""
@@ -154,6 +192,14 @@ def setup_periodic_tasks(sender, **kwargs):
 @celery_app.task(bind=True, max_retries=3)
 def check_all_sources(self):
     """Check all active sources for new content."""
+    lock_token = _acquire_redis_lock(_SOURCE_CHECK_LOCK_KEY, _SOURCE_CHECK_LOCK_TTL_SECONDS)
+    if lock_token == "":
+        logger.info("Skipping check_all_sources because another run already holds the lock")
+        return {
+            "status": "skipped",
+            "message": "Another source check run is already in progress",
+        }
+
     try:
         import asyncio
 
@@ -304,6 +350,8 @@ def check_all_sources(self):
         logger.error(f"Source check task failed: {exc}")
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=60 * (2**self.request.retries)) from exc
+    finally:
+        _release_redis_lock(_SOURCE_CHECK_LOCK_KEY, lock_token)
 
 
 @celery_app.task(bind=True, max_retries=2)

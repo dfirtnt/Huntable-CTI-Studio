@@ -6,6 +6,8 @@ import pytest
 
 from src.database.async_manager import AsyncDatabaseManager
 
+pytestmark = pytest.mark.unit
+
 
 @pytest.mark.asyncio
 async def test_get_corruption_stats():
