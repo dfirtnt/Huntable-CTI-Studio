@@ -1,5 +1,6 @@
 """RSS/Atom feed parser for threat intelligence sources."""
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -65,6 +66,13 @@ class RSSParser:
                 "parse_errors": 0,
             }
 
+            # Get crawl delay from source config for rate-limiting scrape fallbacks
+            crawl_delay = 1.0  # Default
+            if hasattr(source, "config") and source.config:
+                src_cfg = source.config if isinstance(source.config, dict) else {}
+                robots_cfg = src_cfg.get("robots", {}) or {}
+                crawl_delay = robots_cfg.get("crawl_delay", 1.0) or 1.0
+
             for entry in feed_data.entries:
                 try:
                     article, filter_reason = await self._parse_entry_with_stats(entry, source)
@@ -79,6 +87,10 @@ class RSSParser:
                             stats["filtered_title"] += 1
                         elif filter_reason == "content":
                             stats["filtered_content"] += 1
+
+                    # Respect crawl delay if modern scraping was used on this entry
+                    if getattr(entry, "_used_modern_fallback", False):
+                        await asyncio.sleep(crawl_delay)
                 except Exception as e:
                     logger.error(f"Failed to parse entry in {source.name}: {e}")
                     stats["parse_errors"] += 1
@@ -578,6 +590,8 @@ class RSSParser:
                 logger.info(
                     f"RSS content too short ({rss_text_length} chars) for {url}, trying modern scraping (target: {source_min_length} chars)"
                 )
+                # Mark that scraping fallback was attempted (for crawl delay in main loop)
+                entry._used_modern_fallback = True
                 try:
                     # Try basic scraping to get full content
                     modern_content = await self._extract_with_modern_scraping(url, source)
@@ -589,8 +603,6 @@ class RSSParser:
                             logger.info(
                                 f"Modern scraping successful: {modern_text_length} chars vs {rss_text_length} chars from RSS"
                             )
-                            # Mark that basic scraping was used
-                            entry._used_modern_fallback = True
                             return modern_content
                         logger.info(
                             f"Modern scraping didn't provide sufficient content: {modern_text_length} chars (need >= 1000)"
@@ -771,8 +783,19 @@ class RSSParser:
 
             soup = BeautifulSoup(response.text, "lxml")
 
+            # Try source-specific body_selectors first (from source config)
+            source_selectors = []
+            if hasattr(source, "config") and source.config:
+                src_cfg = (
+                    source.config
+                    if isinstance(source.config, dict)
+                    else (source.config.model_dump() if hasattr(source.config, "model_dump") else {})
+                )
+                extract_cfg = src_cfg.get("extract", {}) or {}
+                source_selectors = extract_cfg.get("body_selectors", []) or []
+
             # Try comprehensive content selectors (prioritized by likelihood)
-            content_selectors = [
+            content_selectors = source_selectors + [
                 # CrowdStrike specific (prioritized)
                 '[class*="blog"]',
                 '[class*="post-content"]',
@@ -919,27 +942,26 @@ class RSSParser:
         if not text or len(text) < min_length:
             return False
 
-        # Check for anti-bot/error messages
-        anti_bot_indicators = [
-            "access denied",
-            "blocked",
-            "bot detected",
-            "captcha",
-            "please enable javascript",
-            "javascript is required",
-            "cloudflare",
-            "security check",
-            "rate limit",
-            "temporarily unavailable",
-            "403 forbidden",
-            "404 not found",
-        ]
+        # Check for anti-bot/error messages — only on short content where these
+        # indicators likely mean a block page, not article text about security topics
+        if len(text) < 2000:
+            anti_bot_indicators = [
+                "access denied",
+                "bot detected",
+                "captcha",
+                "please enable javascript",
+                "javascript is required",
+                "cloudflare",
+                "temporarily unavailable",
+                "403 forbidden",
+                "404 not found",
+            ]
 
-        text_lower = text.lower()
-        for indicator in anti_bot_indicators:
-            if indicator in text_lower:
-                logger.warning(f"Anti-bot content detected for {url}: {indicator}")
-                return False
+            text_lower = text.lower()
+            for indicator in anti_bot_indicators:
+                if indicator in text_lower:
+                    logger.warning(f"Anti-bot content detected for {url}: {indicator}")
+                    return False
 
         # Ensure sufficient content length and word count
         words = text.split()

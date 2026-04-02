@@ -1030,7 +1030,7 @@ sources:
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
-      min_content_length: 1500
+      min_content_length: 4000
       title_filter_keywords: ["webinar", "training", "careers", "job posting", "demo", "pricing"]
       rss_only: false
       extract:
@@ -1039,6 +1039,6 @@ sources:
         date_selectors:
           - "meta[property='article:published_time']::attr(content)"
           - "time[datetime]::attr(datetime)"
-        body_selectors: [".w-richtext", ".text-rich-text_resources", "article", "main"]
+        body_selectors: [".blog-rich-text.w-richtext", ".blog-content_rt-wrapper", ".w-richtext", "article", "main"]
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
     description: "Endor Labs — supply chain security, open-source malware research, and dependency risk analysis"

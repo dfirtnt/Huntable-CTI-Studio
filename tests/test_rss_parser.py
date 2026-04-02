@@ -515,6 +515,67 @@ class TestRSSParser:
 
         assert not parser._is_quality_content(anti_bot_content, "https://example.com/article")
 
+    def test_is_quality_content_anti_bot_long_security_article(self, mock_http_client):
+        """Anti-bot keywords in long articles should NOT trigger false positive.
+
+        Security articles legitimately contain words like 'blocked', 'access denied',
+        'rate limit', etc. The anti-bot check should only fire on short responses
+        (< 2000 chars) that look like actual block pages.
+        """
+        parser = RSSParser(mock_http_client)
+
+        # A legitimate security article mentioning "captcha" and "access denied"
+        long_security_article = (
+            "The threat actor deployed a credential harvesting kit that mimicked a captcha "
+            "verification page. Once victims completed the security check, their session "
+            "tokens were exfiltrated. Access denied responses were logged when the botnet "
+            "attempted to brute-force the login portal. The rate limit was quickly exceeded "
+            "and the cloudflare WAF blocked subsequent requests. " * 10
+        )
+        assert len(long_security_article) > 2000
+        assert parser._is_quality_content(long_security_article, "https://example.com/article")
+
+    @pytest.mark.asyncio
+    async def test_modern_scraper_uses_source_body_selectors(self, mock_http_client):
+        """Modern scraper should try source-configured body_selectors before generic ones."""
+        parser = RSSParser(mock_http_client)
+
+        source = create_test_source(
+            id=1,
+            identifier="endor-labs",
+            name="Endor Labs",
+            url="https://www.endorlabs.com/learn",
+            rss_url="https://www.endorlabs.com/learn/rss.xml",
+            active=True,
+            config={
+                "min_content_length": 4000,
+                "extract": {
+                    "body_selectors": [".blog-rich-text.w-richtext", ".custom-content"],
+                },
+            },
+        )
+
+        # HTML where only the source-specific selector has content
+        html = (
+            """<html><body>
+            <div class="w-richtext">Empty sidebar</div>
+            <div class="blog-rich-text w-richtext">
+                <p>"""
+            + ("Full article content about supply chain attacks. " * 100)
+            + """</p>
+            </div>
+            <article>Nav and footer text only.</article>
+        </body></html>"""
+        )
+
+        mock_response = create_async_mock_response(text=html, status_code=200)
+        mock_http_client.get.return_value = mock_response
+
+        content = await parser._extract_with_modern_scraping("https://www.endorlabs.com/learn/test-article", source)
+
+        assert content is not None
+        assert "supply chain attacks" in content
+
     def test_get_feed_content_from_description(self, mock_http_client):
         """Test getting content from description field."""
         entry = Mock()

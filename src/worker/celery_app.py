@@ -1126,27 +1126,9 @@ def collect_from_source(self, source_id: int):
                             # Save deduplicated articles using sync database manager
                             saved_count = 0
                             if dedup_result.unique_articles:
-                                # Convert articles to ArticleCreate objects for bulk creation
-                                from src.models.article import ArticleCreate
-
-                                article_creates = []
-                                for article in dedup_result.unique_articles:
-                                    article_create = ArticleCreate(
-                                        source_id=article.source_id,
-                                        canonical_url=article.canonical_url,
-                                        title=article.title,
-                                        published_at=article.published_at,
-                                        authors=article.authors,
-                                        tags=article.tags,
-                                        summary=article.summary,
-                                        content=article.content,
-                                        content_hash=article.content_hash,
-                                        article_metadata=getattr(article, "metadata", {}),
-                                    )
-                                    article_creates.append(article_create)
-
-                                # Bulk create articles
-                                created_articles, errors = db.create_articles_bulk(article_creates)
+                                # dedup_result.unique_articles are already ArticleCreate objects
+                                # from ContentProcessor with enhanced metadata (including scores)
+                                created_articles, errors = db.create_articles_bulk(dedup_result.unique_articles)
                                 saved_count = len(created_articles)
 
                                 if errors:
