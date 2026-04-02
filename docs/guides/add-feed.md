@@ -23,10 +23,11 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
    ```
    Keep `allow`, `post_url_regex`, and `title_filter_keywords` consistent with existing entries to avoid scraping noise.
 
-2. Sync YAML to the database without deleting existing rows:
+2. Sync YAML to the database. Use `--new-only` to insert new sources without overwriting existing DB configs (e.g. lookback_days, check_frequency):
    ```bash
-   ./run_cli.sh sync-sources --config config/sources.yaml --no-remove
+   ./run_cli.sh sync-sources --config config/sources.yaml --no-remove --new-only
    ```
+   Without `--new-only`, sync will overwrite existing sources with YAML values. Use plain `--no-remove` only when you intentionally want to reset existing configs to YAML defaults.
 
 3. Verify the source is active:
    ```bash

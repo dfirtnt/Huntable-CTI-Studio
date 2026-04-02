@@ -18,15 +18,16 @@ pass_context = click.make_pass_decorator(CLIContext, ensure=True)
 @click.command("sync-sources")
 @click.option("--config", default="config/sources.yaml", help="Path to sources YAML file")
 @click.option("--no-remove", is_flag=True, default=False, help="Do not remove DB sources missing from YAML")
+@click.option("--new-only", is_flag=True, default=False, help="Only insert new sources; skip updating existing ones")
 @pass_context
-def sync_sources(ctx: CLIContext, config: str, no_remove: bool):
+def sync_sources(ctx: CLIContext, config: str, no_remove: bool, new_only: bool):
     """Synchronize database sources from YAML configuration."""
 
     async def _run():
         db_manager = AsyncDatabaseManager(ctx.database_url)
         service = SourceSyncService(Path(config), db_manager)
         try:
-            count = await service.sync(remove_missing=not no_remove)
+            count = await service.sync(remove_missing=not no_remove, new_only=new_only)
             click.echo(f"Synchronized {count} sources from {config}")
         finally:
             await db_manager.close()

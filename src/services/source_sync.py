@@ -25,13 +25,13 @@ class SourceSyncService:
         self.db_manager = db_manager
         self.loader = SourceConfigLoader()
 
-    async def sync(self, validate_feeds: bool = False, remove_missing: bool = True) -> int:
+    async def sync(self, validate_feeds: bool = False, remove_missing: bool = True, new_only: bool = False) -> int:
         """Run synchronization and return number of synced sources."""
 
         source_configs = self.loader.load_from_file(str(self.config_path))
         logger.info("Loaded %d source configs", len(source_configs))
 
-        synced_sources = await self._sync_to_db(source_configs, remove_missing)
+        synced_sources = await self._sync_to_db(source_configs, remove_missing, new_only=new_only)
 
         logger.info("Synchronization complete: %d sources", len(synced_sources))
         return len(synced_sources)
@@ -40,6 +40,8 @@ class SourceSyncService:
         self,
         source_configs: list[SourceCreate],
         remove_missing: bool,
+        *,
+        new_only: bool = False,
     ) -> list[Source]:
         existing_sources = await self.db_manager.list_sources()
         existing_by_identifier = {src.identifier: src for src in existing_sources}
@@ -51,6 +53,11 @@ class SourceSyncService:
             existing = existing_by_identifier.get(identifier)
 
             if existing:
+                if new_only:
+                    logger.debug("Skipping existing source %s (--new-only)", identifier)
+                    synced_sources.append(existing)
+                    continue
+
                 # Extract config: SourceConfig model has inner 'config' dict
                 if hasattr(config.config, "config"):
                     # SourceConfig Pydantic model: extract inner config dict

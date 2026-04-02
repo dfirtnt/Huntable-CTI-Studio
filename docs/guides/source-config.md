@@ -25,6 +25,10 @@ Source configurations can be stored in two places:
 **YAML overwrites database** when sync runs manually:
 - `./run_cli.sh sync-sources` command overwrites database with YAML values
 - Use only when you want to reset to YAML defaults
+- Use `--new-only` to insert new sources without touching existing DB configs (preserves lookback_days, check_frequency, etc.):
+  ```bash
+  ./run_cli.sh sync-sources --no-remove --new-only
+  ```
 
 ### RSS-first sources (`rss_only: true`)
 Some sites are best ingested from their feed content without HTML scraping. In `config/sources.yaml`, set `rss_url` on the source and set `config.rss_only: true` to prefer feed extraction.

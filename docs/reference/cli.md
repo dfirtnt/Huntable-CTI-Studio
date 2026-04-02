@@ -99,12 +99,14 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 |--------|---------|-------------|
 | `--config PATH` | `config/sources.yaml` | Path to sources YAML |
 | `--no-remove` | `False` | Do not remove DB sources that are not in YAML |
+| `--new-only` | `False` | Only insert new sources; skip updating existing ones (preserves DB configs) |
 
 **Examples:**
 
 ```bash
-./run_cli.sh sync-sources --config config/sources.yaml --no-remove
-./run_cli.sh sync-sources --config config/sources.yaml
+./run_cli.sh sync-sources --config config/sources.yaml --no-remove --new-only  # safest: add new, skip existing, no deletes
+./run_cli.sh sync-sources --config config/sources.yaml --no-remove              # add/update, no deletes
+./run_cli.sh sync-sources --config config/sources.yaml                          # full sync: add/update/delete
 ```
 
 **See also:** [Add feed](../guides/add-feed.md), [Source config precedence](../guides/source-config.md).
@@ -446,7 +448,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `init` | First setup; load sources from YAML into DB |
 | `collect` | Manual fetch from sources (scheduler does this automatically) |
 | `search` | Query articles (text, source, time window) |
-| `sync-sources` | Apply YAML source changes to DB (add/update; use `--no-remove` to avoid deleting) |
+| `sync-sources` | Apply YAML source changes to DB (`--no-remove` to keep extras; `--new-only` to skip existing) |
 | `compare-sources` | Compare DB source settings vs sources.yaml (drift check) |
 | `backup create/list/restore/verify/prune/stats` | Full backup workflow |
 | `rescore` | Recompute keyword-based threat hunting scores |

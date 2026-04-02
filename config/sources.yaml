@@ -984,3 +984,61 @@ sources:
         author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
       min_content_length: 2000
     description: "Symantec Enterprise Security blog and threat intelligence"
+
+  # Datadog Security Labs — RSS feed available; focused on emerging threats & vulnerabilities
+  - id: "datadog_security_labs"
+    name: "Datadog Security Labs"
+    url: "https://securitylabs.datadoghq.com/articles/"
+    rss_url: "https://securitylabs.datadoghq.com/rss/feed.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["securitylabs.datadoghq.com"]
+      post_url_regex: ["^https://securitylabs\\.datadoghq\\.com/articles/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      rss_only: false
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: ["article", "main", "section", ".content", ".post-content"]
+        author_selectors: ["meta[name='author']::attr(content)", "a[href*='author']"]
+    description: "Datadog Security Labs — cloud security research, supply chain threats, and vulnerability analysis"
+
+  # Endor Labs — RSS feed available; supply chain security and open-source malware research
+  - id: "endor_labs"
+    name: "Endor Labs Security Research"
+    url: "https://www.endorlabs.com/learn"
+    rss_url: "https://www.endorlabs.com/learn/rss.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["www.endorlabs.com"]
+      post_url_regex: ["^https://www\\.endorlabs\\.com/learn/[^?#]+$"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting", "demo", "pricing"]
+      rss_only: false
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: [".w-richtext", ".text-rich-text_resources", "article", "main"]
+        author_selectors: ["meta[name='author']::attr(content)", ".author-name"]
+    description: "Endor Labs — supply chain security, open-source malware research, and dependency risk analysis"
