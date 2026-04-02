@@ -24,7 +24,7 @@ async def evaluations_page(request: Request):
     except Exception as e:
         logger.error(f"Error loading evaluations page: {e}")
         return templates.TemplateResponse(
-            "error.html", {"request": request, "error": f"Error loading evaluations page: {str(e)}"}, status_code=500
+            "error.html", {"request": request, "error": "An unexpected error occurred"}, status_code=500
         )
 
 
@@ -40,7 +40,9 @@ async def compare_evaluations_page(request: Request, baseline_id: int = Query(..
 
         return templates.TemplateResponse("evaluation_comparison.html", {"request": request, "comparison": comparison})
     except ValueError as e:
-        return templates.TemplateResponse("error.html", {"request": request, "error": str(e)}, status_code=400)
+        return templates.TemplateResponse(
+            "error.html", {"request": request, "error": "An unexpected error occurred"}, status_code=400
+        )
     finally:
         db_session.close()
 

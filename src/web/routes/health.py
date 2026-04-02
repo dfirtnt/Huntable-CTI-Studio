@@ -57,7 +57,7 @@ async def api_health_check() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Health check failed",
         }
 
 
@@ -97,7 +97,7 @@ async def api_database_health() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Health check failed",
         }
 
 
@@ -129,7 +129,7 @@ async def api_deduplication_health() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Health check failed",
         }
 
 
@@ -242,7 +242,7 @@ async def api_services_health() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Health check failed",
         }
 
 
@@ -293,7 +293,7 @@ async def api_celery_health() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Health check failed",
         }
 
 
@@ -312,7 +312,7 @@ async def api_ingestion_health() -> dict[str, Any]:
         return {
             "status": "unhealthy",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Health check failed",
         }
 
 
@@ -326,4 +326,4 @@ async def api_capabilities() -> dict[str, Any]:
         return service.compute_capabilities()
     except Exception as exc:
         logger.error("Capabilities check failed: %s", exc)
-        return {"error": str(exc)}
+        return {"error": "Health check failed"}

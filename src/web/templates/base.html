@@ -341,27 +341,44 @@
         
         // Cross-page AI completion notification system
         function showCompletionBanner(type, typeText, typeIcon, articleId, articleTitle) {
-            // Create completion banner
+            // Create completion banner using safe DOM methods
             const banner = document.createElement('div');
             banner.id = 'completionBanner';
             banner.className = 'fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg max-w-sm text-white';
             banner.style.backgroundColor = 'var(--action-execute)';
-            
-            banner.innerHTML = `
-                <div class="flex items-center space-x-2">
-                    <span class="text-lg">${typeIcon}</span>
-                    <div class="flex-1">
-                        <div class="font-medium">${typeText} Complete!</div>
-                        <div class="text-sm opacity-90">Article: ${articleTitle.length > 30 ? articleTitle.substring(0, 30) + '...' : articleTitle}</div>
-                        <a href="/articles/${articleId}#${type}" class="text-sm underline hover:no-underline">View Results →</a>
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-            `;
+
+            const row = document.createElement('div');
+            row.className = 'flex items-center space-x-2';
+
+            const iconSpan = document.createElement('span');
+            iconSpan.className = 'text-lg';
+            iconSpan.textContent = typeIcon;
+            row.appendChild(iconSpan);
+
+            const body = document.createElement('div');
+            body.className = 'flex-1';
+            const heading = document.createElement('div');
+            heading.className = 'font-medium';
+            heading.textContent = typeText + ' Complete!';
+            body.appendChild(heading);
+            const subtitle = document.createElement('div');
+            subtitle.className = 'text-sm opacity-90';
+            subtitle.textContent = 'Article: ' + (articleTitle.length > 30 ? articleTitle.substring(0, 30) + '...' : articleTitle);
+            body.appendChild(subtitle);
+            const link = document.createElement('a');
+            link.href = '/articles/' + (parseInt(articleId, 10) || 0) + '#' + encodeURIComponent(type);
+            link.className = 'text-sm underline hover:no-underline';
+            link.textContent = 'View Results \u2192';
+            body.appendChild(link);
+            row.appendChild(body);
+
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'text-white hover:text-gray-200';
+            closeBtn.textContent = '\u00d7';
+            closeBtn.addEventListener('click', function() { banner.remove(); });
+            row.appendChild(closeBtn);
+
+            banner.appendChild(row);
             
             // Add to page
             document.body.appendChild(banner);

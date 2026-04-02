@@ -109,13 +109,13 @@ async def api_create_backup(request: Request):
                 "message": "Backup created successfully",
             }
 
-        raise HTTPException(status_code=500, detail=f"Backup failed: {result.stderr}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="Backup timed out") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup creation error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/list")
@@ -134,7 +134,7 @@ async def api_list_backups():
         )
 
         if result.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"Failed to list backups: {result.stderr}")
+            raise HTTPException(status_code=500, detail="Internal server error")
 
         backups: list[dict[str, Any]] = []
         lines = result.stdout.split("\n")
@@ -170,7 +170,7 @@ async def api_list_backups():
         raise HTTPException(status_code=500, detail="List backups timed out") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup list error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/cron")
@@ -180,10 +180,10 @@ async def api_get_backup_cron():
         state = _get_cron_state()
         return {"success": True, **state}
     except CronCommandError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup cron state error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/cron")
@@ -210,14 +210,14 @@ async def api_update_backup_cron(payload: BackupCronUpdate):
             **state,
         }
     except CronUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=503, detail="Service unavailable") from exc
     except CronCommandError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup cron update error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.delete("/cron")
@@ -229,12 +229,12 @@ async def api_delete_backup_cron():
         state = service.remove_backup_schedule(manager.get_config())
         return {"success": True, **state}
     except CronUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=503, detail="Service unavailable") from exc
     except CronCommandError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup cron delete error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/status")
@@ -256,7 +256,7 @@ async def api_backup_status():
         )
 
         if result.returncode != 0:
-            raise HTTPException(status_code=500, detail=f"Failed to get backup status: {result.stderr}")
+            raise HTTPException(status_code=500, detail="Internal server error")
 
         total_backups = 0
         total_size_gb = 0.0
@@ -312,10 +312,10 @@ async def api_backup_status():
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="Status check timed out") from exc
     except CronCommandError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Backup status error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/restore")
@@ -385,7 +385,7 @@ async def api_restore_backup(request: Request):
                 "output": result.stdout,
             }
 
-        raise HTTPException(status_code=500, detail=f"Restore failed: {result.stderr or result.stdout}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
     except subprocess.TimeoutExpired as exc:
         raise HTTPException(status_code=500, detail="Restore timed out") from exc
@@ -393,7 +393,7 @@ async def api_restore_backup(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Restore error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 # Allowed backup file extensions for restore-from-file
@@ -452,7 +452,7 @@ async def api_restore_from_file(file: UploadFile = File(..., description="Backup
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Restore from file error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     finally:
         if tmp_path and tmp_path.exists():
             try:

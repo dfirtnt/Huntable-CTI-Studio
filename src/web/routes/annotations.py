@@ -87,7 +87,7 @@ async def create_annotation(article_id: int, annotation_data: dict):
                 raise HTTPException(status_code=500, detail="Failed to create annotation")
         except Exception as db_exc:
             logger.error(f"Database error creating annotation: {db_exc}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Failed to create annotation: {str(db_exc)}") from db_exc
+            raise HTTPException(status_code=500, detail="Internal server error") from db_exc
 
         try:
             annotations = await async_db_manager.get_article_annotations(article_id)
@@ -111,7 +111,7 @@ async def create_annotation(article_id: int, annotation_data: dict):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to create annotation: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/articles/{article_id}/annotations")
@@ -135,7 +135,7 @@ async def get_article_annotations(article_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to get annotations: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.delete("/api/articles/{article_id}/annotations/{annotation_id}")
@@ -169,7 +169,7 @@ async def delete_article_annotation(article_id: int, annotation_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete annotation: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/annotations/stats")
@@ -257,7 +257,7 @@ async def list_annotations(
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to list annotations: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/annotations/{annotation_id}")
@@ -274,7 +274,7 @@ async def get_annotation(annotation_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to get annotation: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.put("/api/annotations/{annotation_id}")
@@ -296,10 +296,10 @@ async def update_annotation(
         raise
     except ValueError as exc:
         # Catch ValueError from service layer (e.g., usage immutability)
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail="Validation error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to update annotation: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.delete("/api/annotations/{annotation_id}")
@@ -340,4 +340,4 @@ async def delete_annotation(annotation_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete annotation: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

@@ -24,10 +24,10 @@ async def api_get_cron():
         service = BackupCronService()
         return {"success": True, **service.get_snapshot()}
     except CronCommandError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Cron state error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.put("")
@@ -37,9 +37,9 @@ async def api_replace_cron(payload: CronUpdate):
         service = BackupCronService()
         return {"success": True, **service.replace_crontab(payload.content)}
     except CronUnavailableError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
+        raise HTTPException(status_code=503, detail="Service unavailable") from exc
     except CronCommandError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Cron replace error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

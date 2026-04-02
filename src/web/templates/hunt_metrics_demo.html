@@ -358,7 +358,11 @@ function hideLoadingState() {
 function showErrorState(message) {
     const charts = document.querySelectorAll('[id$="Chart"], [id$="Plot"], [id$="Matrix"]');
     charts.forEach(chart => {
-        chart.innerHTML = `<div class="flex items-center justify-center h-full text-red-500">${message}</div>`;
+        chart.textContent = '';
+        const errDiv = document.createElement('div');
+        errDiv.className = 'flex items-center justify-center h-full text-red-500';
+        errDiv.textContent = message;
+        chart.appendChild(errDiv);
     });
 }
 

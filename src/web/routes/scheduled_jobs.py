@@ -32,7 +32,7 @@ async def api_get_scheduled_jobs():
         return {"success": True, **await service.get_state()}
     except Exception as exc:  # noqa: BLE001
         logger.error("Scheduled jobs state error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.put("")
@@ -43,9 +43,9 @@ async def api_update_scheduled_jobs(payload: ScheduledJobsUpdateRequest):
         state = await service.update_state({job_id: update.model_dump() for job_id, update in payload.jobs.items()})
         return {"success": True, **state}
     except ScheduledJobsConfigError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail="Validation error") from exc
     except SchedulerReloadError as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Scheduled jobs update error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

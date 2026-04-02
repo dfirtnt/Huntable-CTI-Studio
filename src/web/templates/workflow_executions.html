@@ -1235,14 +1235,20 @@ async function viewExecution(executionId) {
             } catch (e) {
                 errorMessage = errorText || errorMessage;
             }
-            contentDiv.innerHTML = 
-                `<div class="text-red-600 dark:text-red-400 p-4">Error loading execution details: ${errorMessage}</div>`;
+            contentDiv.textContent = '';
+            const errDiv = document.createElement('div');
+            errDiv.className = 'text-red-600 dark:text-red-400 p-4';
+            errDiv.textContent = 'Error loading execution details: ' + errorMessage;
+            contentDiv.appendChild(errDiv);
             modal.classList.remove('hidden');
         }
     } catch (error) {
         console.error('Error loading execution details:', error);
-        contentDiv.innerHTML = 
-            `<div class="text-red-600 dark:text-red-400 p-4">Error loading execution details: ${error.message}</div>`;
+        contentDiv.textContent = '';
+        const errDiv = document.createElement('div');
+        errDiv.className = 'text-red-600 dark:text-red-400 p-4';
+        errDiv.textContent = 'Error loading execution details: ' + error.message;
+        contentDiv.appendChild(errDiv);
         modal.classList.remove('hidden');
     }
 }
@@ -1569,7 +1575,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                     <div>
                         <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Title:</h4>
                         <div class="text-base flex items-center gap-2 flex-wrap">
-                            <span>${ruleData.title || 'Untitled Rule'}</span>
+                            <span>${escapeHtml(ruleData.title || 'Untitled Rule')}</span>
                             <span class="text-xs px-2 py-0.5 rounded ${sourceBadgeClass}">${sourceLabel}</span>
                         </div>
                     </div>
@@ -1577,7 +1583,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                     ${ruleData.description ? `
                         <div>
                             <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Description:</h4>
-                            <div class="text-sm">${ruleData.description}</div>
+                            <div class="text-sm">${escapeHtml(ruleData.description)}</div>
                         </div>
                     ` : ''}
                     
@@ -1585,7 +1591,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                         ${ruleData.rule_id ? `
                             <div>
                                 <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Rule ID:</h4>
-                                <div class="text-sm">${ruleData.rule_id}</div>
+                                <div class="text-sm">${escapeHtml(ruleData.rule_id)}</div>
                             </div>
                         ` : ''}
                         ${ruleData.level ? `
@@ -1593,7 +1599,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                         ${ruleData.status ? `
                             <div>
                                 <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Status:</h4>
-                                <div class="text-sm"><span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">${ruleData.status}</span></div>
+                                <div class="text-sm"><span class="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">${escapeHtml(ruleData.status)}</span></div>
                             </div>
                         ` : ''}
                         <div>
@@ -1605,7 +1611,7 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
                     ${ruleData.file_path ? `
                         <div>
                             <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">File Path:</h4>
-                            <div class="text-xs font-mono text-gray-600 dark:text-gray-400">${ruleData.file_path}</div>
+                            <div class="text-xs font-mono text-gray-600 dark:text-gray-400">${escapeHtml(ruleData.file_path)}</div>
                         </div>
                     ` : ''}
                     

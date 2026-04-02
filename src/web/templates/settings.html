@@ -2967,7 +2967,8 @@
                 backupList.innerHTML = '<div class="text-center text-red-500 py-4">Failed to load backups</div>';
             }
         } catch (error) {
-            backupList.innerHTML = '<div class="text-center text-red-500 py-4">Error loading backups: ' + error.message + '</div>';
+            backupList.textContent = 'Error loading backups: ' + error.message;
+            backupList.className = 'text-center text-red-500 py-4';
         }
     }
     

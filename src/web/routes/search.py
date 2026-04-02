@@ -68,7 +68,7 @@ async def api_search_articles(
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Search API error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/search/help")
@@ -108,7 +108,7 @@ async def api_semantic_search(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Semantic search error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/articles/{article_id}/similar")
@@ -147,4 +147,4 @@ async def api_similar_articles(article_id: int, limit: int = 10, threshold: floa
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Similar articles error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

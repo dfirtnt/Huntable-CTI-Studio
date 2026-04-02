@@ -966,7 +966,7 @@
                 btn.style.setProperty('--btn-clr', 'var(--d-green)');
                 setTimeout(() => { btn.innerHTML = original; btn.style.setProperty('--btn-clr', '#a78bfa'); btn.disabled = false; }, 4000);
             } else {
-                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${data.detail || 'Error'}`;
+                btn.textContent = data.detail ? String(data.detail).substring(0, 80) : 'Error';
                 btn.style.setProperty('--btn-clr', 'var(--d-red)');
                 setTimeout(() => { btn.innerHTML = original; btn.style.setProperty('--btn-clr', '#a78bfa'); btn.disabled = false; }, 4000);
             }

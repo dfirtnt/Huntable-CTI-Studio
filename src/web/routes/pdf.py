@@ -179,7 +179,7 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                 raise
             except Exception as exc:  # noqa: BLE001
                 logger.error("Database error during PDF upload: %s", exc)
-                raise HTTPException(status_code=500, detail=f"Database error: {exc}") from exc
+                raise HTTPException(status_code=500, detail="Internal server error") from exc
 
             try:
                 threat_hunting_result = ThreatHuntingScorer.score_threat_hunting_content(
@@ -260,4 +260,4 @@ async def api_pdf_upload(file: UploadFile = File(...)):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("PDF upload error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

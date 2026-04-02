@@ -37,7 +37,7 @@ async def api_eval_hallucination(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Hallucination evaluation error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/api/eval/relevance")
@@ -68,7 +68,7 @@ async def api_eval_relevance(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Relevance evaluation error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/metrics")
@@ -108,7 +108,7 @@ async def api_eval_metrics():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Metrics evaluation error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/history")
@@ -130,7 +130,7 @@ async def api_eval_history(agent_name: str, limit: int = 50):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Evaluation history error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/comparison")
@@ -151,10 +151,10 @@ async def api_eval_comparison(baseline_id: int, current_id: int):
             db_session.close()
 
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Bad request") from exc
     except Exception as exc:  # noqa: BLE001
         logger.error("Evaluation comparison error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/agent-metrics")
@@ -182,7 +182,7 @@ async def api_eval_agent_metrics(agent_name: str):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Agent metrics error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/trends")
@@ -204,7 +204,7 @@ async def api_eval_trends(agent_name: str, metric_key: str, evaluation_type: str
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Evaluation trends error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/os-detection-manual-results")
@@ -334,7 +334,7 @@ async def api_os_detection_manual_results():
         }
     except Exception as e:
         logger.error(f"Error loading OS detection manual results: {e}")
-        return {"success": False, "error": str(e), "results": [], "accuracies": {}}
+        return {"success": False, "error": "Internal server error", "results": [], "accuracies": {}}
 
 
 @router.get("/api/eval/observables-count-results")
@@ -576,7 +576,7 @@ async def api_observables_count_results():
         import traceback
 
         traceback.print_exc()
-        return {"success": False, "error": str(e), "results": [], "model_summaries": {}}
+        return {"success": False, "error": "Internal server error", "results": [], "model_summaries": {}}
 
 
 @router.post("/api/eval/run")
@@ -608,7 +608,7 @@ async def api_eval_run(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Evaluation run error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/eval/rank-agent-benchmarks")
@@ -754,4 +754,4 @@ async def api_rank_agent_benchmarks():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Rank agent benchmarks error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

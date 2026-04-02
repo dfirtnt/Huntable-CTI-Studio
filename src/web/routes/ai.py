@@ -272,8 +272,8 @@ async def _call_anthropic_with_retry(
 
     # Should not reach here, but handle edge case
     if last_exception:
-        raise HTTPException(status_code=500, detail=f"Anthropic API failed after {max_retries} attempts")
-    raise HTTPException(status_code=500, detail=f"Anthropic API failed after {max_retries} attempts")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    raise HTTPException(status_code=500, detail="Internal server error")
 
 
 def _get_lmstudio_settings() -> dict[str, Any]:
@@ -535,7 +535,7 @@ async def api_test_openai_key(request: Request):
         raise HTTPException(status_code=408, detail="Request timeout") from e
     except Exception as e:
         logger.error(f"OpenAI API key test error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @test_router.post("/test-anthropic-key")
@@ -583,7 +583,7 @@ async def api_test_anthropic_key(request: Request):
         raise HTTPException(status_code=408, detail="Request timeout") from e
     except Exception as e:
         logger.error(f"Anthropic API key test error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @test_router.post("/test-gemini-key")
@@ -611,7 +611,7 @@ async def api_test_gemini_key(request: Request):
         raise HTTPException(status_code=408, detail="Request timeout") from e
     except Exception as exc:
         logger.error(f"Gemini API key test error: {exc}")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 async def _get_hf_token() -> str | None:
@@ -1039,7 +1039,7 @@ async def api_test_lmstudio_connection(request: Request):
         raise HTTPException(status_code=503, detail="Cannot connect to LMStudio service") from e
     except Exception as e:
         logger.error(f"LMStudio connection test error: {e}")
-        raise HTTPException(status_code=500, detail=f"LMStudio connection test failed: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @test_router.post("/load-lmstudio-model")
@@ -1093,7 +1093,7 @@ async def api_load_lmstudio_model(request: Request):
                 }
             error_output = result.stderr or result.stdout
             logger.error(f"Failed to load model: {error_output}")
-            raise HTTPException(status_code=500, detail=f"Failed to load model: {error_output[:500]}")
+            raise HTTPException(status_code=500, detail="Internal server error")
         except subprocess.TimeoutExpired as e:
             raise HTTPException(
                 status_code=504,
@@ -1101,13 +1101,13 @@ async def api_load_lmstudio_model(request: Request):
             ) from e
         except Exception as e:
             logger.error(f"Error loading model: {e}", exc_info=True)
-            raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}") from e
+            raise HTTPException(status_code=500, detail="Internal server error") from e
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Load model endpoint error: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @test_router.post("/test-langfuse-connection")
@@ -1261,7 +1261,7 @@ async def api_test_langfuse_connection(request: Request):
 
     except Exception as e:
         logger.error(f"Langfuse connection test error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/rank-with-gpt4o")
@@ -1502,7 +1502,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"API ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/gpt4o-rank")
@@ -1576,7 +1576,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
             if response.status_code != 200:
                 error_detail = response.text
                 logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+                raise HTTPException(status_code=500, detail="Internal server error")
 
             result = response.json()
             analysis = result["choices"][0]["message"]["content"]
@@ -1608,7 +1608,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/gpt4o-rank-optimized")
@@ -1726,7 +1726,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
             if response.status_code != 200:
                 error_detail = response.text
                 logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+                raise HTTPException(status_code=500, detail="Internal server error")
 
             result = response.json()
             analysis = result["choices"][0]["message"]["content"]
@@ -1783,7 +1783,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/extract-observables")
@@ -2060,7 +2060,7 @@ async def api_extract_observables(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"Error extracting observables: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to extract observables: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/extract-iocs")
@@ -2246,7 +2246,7 @@ async def api_extract_iocs(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"IOCs extraction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/extract-iocs-ctibert")
@@ -2318,7 +2318,7 @@ async def api_extract_iocs_ctibert(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"CTI-BERT IOC extraction error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/detect-os")
@@ -2452,7 +2452,7 @@ async def api_detect_os(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"OS detection error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{article_id}/generate-sigma")
@@ -2935,7 +2935,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     ) from e
                 except Exception as e:
                     logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
-                    raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}") from e
+                    raise HTTPException(status_code=500, detail="Internal server error") from e
 
                 result = response.json()
                 return result["choices"][0]["message"]["content"]
@@ -3047,7 +3047,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         raise
     except Exception as e:
         logger.error(f"SIGMA rules generation error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def calculate_semantic_overlap(generated_rule: dict, sigmahq_rule: dict) -> dict[str, Any]:
@@ -3393,7 +3393,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         raise
     except Exception as e:
         logger.error(f"Error getting Sigma matches for article {article_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/sigma-rules-yaml/{rule_id}")
@@ -3476,7 +3476,7 @@ async def api_get_sigma_rule_yaml(rule_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting YAML for rule_id '{rule_id}': {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/sigma-rules/{rule_id}")
@@ -3535,7 +3535,7 @@ async def api_get_sigma_rule_details(rule_id: str):
         raise
     except Exception as e:
         logger.error(f"Error getting Sigma rule details for rule_id '{rule_id}': {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # DEPRECATED: Custom prompt endpoint removed (AI/ML Assistant modal deprecated)
@@ -3713,5 +3713,5 @@ Please provide a detailed analysis based on the article content and the user's r
         raise
     except Exception as e:
         logger.error(f"Custom prompt error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 """

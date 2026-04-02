@@ -96,7 +96,7 @@ async def api_rescore_all():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Rescore all error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/generate-report")
@@ -110,7 +110,7 @@ async def api_generate_report():
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("Generate report error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/trigger-ingestion")
@@ -135,7 +135,7 @@ async def api_trigger_ingestion():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Trigger ingestion error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/trigger-healing")
@@ -166,4 +166,4 @@ async def api_trigger_healing():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Trigger healing error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

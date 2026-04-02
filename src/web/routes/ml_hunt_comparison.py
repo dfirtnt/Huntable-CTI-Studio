@@ -31,7 +31,7 @@ async def get_model_comparison_stats(model_version: str | None = None):
         return {"success": True, "stats": stats}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting model comparison stats: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/results")
@@ -71,7 +71,7 @@ async def get_chunk_analysis_results(
         return {"success": True, "results": results, "count": len(results)}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting chunk analysis results: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/model-versions")
@@ -91,7 +91,7 @@ async def get_available_model_versions():
         return {"success": True, "model_versions": versions}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting model versions: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/eligible-count")
@@ -113,7 +113,7 @@ async def get_eligible_articles_count(min_hunt_score: float = 50.0):
         return {"success": True, "count": count, "min_hunt_score": min_hunt_score}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting eligible count: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/logs")
@@ -335,7 +335,7 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("Error starting article processing: %s", exc, exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/summary")
@@ -369,4 +369,4 @@ async def get_comparison_summary():
         return {"success": True, "summary": summary}
     except Exception as exc:  # noqa: BLE001
         logger.error("Error getting comparison summary: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

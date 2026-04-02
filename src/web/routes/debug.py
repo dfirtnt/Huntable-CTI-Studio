@@ -170,7 +170,7 @@ async def api_chunk_debug(
                                 "feature_contribution": feature_contribution,
                             }
                         except Exception as exc:  # noqa: BLE001
-                            ml_details = {"error": str(exc)}
+                            ml_details = {"error": "ML processing failed"}
 
                     # Check for keywords and patterns using threat hunting scorer
                     from src.utils.content import ThreatHuntingScorer
@@ -244,7 +244,7 @@ async def api_chunk_debug(
                         "confidence": 0.0,
                         "reason": f"Error: {exc}",
                         "features": {},
-                        "ml_details": {"error": str(exc)},
+                        "ml_details": {"error": "ML processing failed"},
                         "has_threat_keywords": False,
                         "has_command_patterns": False,
                         "has_perfect_discriminators": False,
@@ -322,4 +322,4 @@ async def api_chunk_debug(
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Chunk debug error: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Chunk debug failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

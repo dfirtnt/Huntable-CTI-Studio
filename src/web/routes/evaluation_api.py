@@ -363,7 +363,7 @@ async def get_dataset_items(request: Request, dataset_name: str):
         raise
     except Exception as e:
         logger.error(f"Error getting dataset items: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 class EvaluationRunRequest(BaseModel):
@@ -473,7 +473,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error running evaluation: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/executions/{execution_id}/results")
@@ -526,7 +526,7 @@ async def get_execution_results(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting execution results: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/execution/{execution_id}/commandlines")
@@ -642,7 +642,7 @@ async def get_execution_commandlines(
         raise
     except Exception as e:
         logger.error(f"Error getting execution commandlines: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def resolve_article_by_url(url: str) -> int | None:
@@ -802,7 +802,7 @@ async def get_subagent_eval_articles(
         raise
     except Exception as e:
         logger.error(f"Error loading subagent eval articles: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 class SubagentEvalRunRequest(BaseModel):
@@ -1051,7 +1051,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
         raise
     except Exception as e:
         logger.error(f"Error running subagent eval: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/subagent-eval-results")
@@ -1164,7 +1164,7 @@ async def get_subagent_eval_results(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting subagent eval results: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/subagent-eval-status/{eval_record_id}")
@@ -1236,7 +1236,7 @@ async def get_subagent_eval_status(request: Request, eval_record_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting subagent eval status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/subagent-eval-clear-pending")
@@ -1279,7 +1279,7 @@ async def clear_pending_eval_records(request: Request, subagent: str = Query(...
             db_session.close()
     except Exception as e:
         logger.error(f"Error clearing pending eval records: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/subagent-eval-backfill")
@@ -1348,7 +1348,7 @@ async def backfill_eval_records(request: Request, subagent: str = Query(..., des
             db_session.close()
     except Exception as e:
         logger.error(f"Error backfilling eval records: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/subagent-eval-aggregate")
@@ -1483,7 +1483,7 @@ async def get_subagent_eval_aggregate(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting aggregate eval scores: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config-versions-models")
@@ -1556,7 +1556,7 @@ async def get_config_versions_models(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting config versions models: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 class ExportBundleRequest(BaseModel):
@@ -1694,7 +1694,7 @@ async def get_eval_bundle_metadata(
         raise
     except Exception as e:
         logger.error(f"Error getting eval bundle metadata for execution {execution_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 # Map subagent canonical names to agent names used in eval bundles
@@ -1794,4 +1794,4 @@ async def export_bundles_by_config_version(
             f"Error exporting bundles for config version {config_version}: {e}",
             exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e

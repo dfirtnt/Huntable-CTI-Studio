@@ -595,6 +595,7 @@ async function runHealthCheck(endpoint, loadingMessage) {
 function formatTimestamp(ts) { return new Date(ts).toLocaleString(); }
 function getHealthIcon(s) { return s === 'healthy' ? '✓' : s === 'unhealthy' || s === 'error' ? '✗' : s === 'not_configured' ? '○' : '?'; }
 function getHealthColor(s) { return s === 'healthy' ? 'diag-status-success' : s === 'unhealthy' || s === 'error' ? 'diag-status-error' : 'diag-muted'; }
+function escapeHtml(str) { const d = document.createElement('div'); d.textContent = String(str ?? ''); return d.innerHTML; }
 
 async function updateOverallHealthStatus() {
     const data = await runHealthCheck('', 'Checking overall system status...');
@@ -650,7 +651,11 @@ async function updateDatabaseHealth() {
             <div class="diag-inner-panel ${corrupt === 0 ? 'diag-status-success' : 'diag-status-error'}">${corrupt === 0 ? '✓' : '✗'} Content integrity: ${corrupt} corrupted</div>
         </div>`;
     } else {
-        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
+        content.textContent = '';
+        const errDiv = document.createElement('div');
+        errDiv.className = 'diag-inner-panel diag-status-error';
+        errDiv.textContent = '\u2717 ' + (data.error || 'Unknown error');
+        content.appendChild(errDiv);
     }
 }
 
@@ -668,7 +673,7 @@ async function updateDeduplicationHealth() {
             <div class="diag-inner-panel ${near === 0 ? 'diag-status-success' : 'diag-status-warning'}">${near === 0 ? '✓' : '⚠'} Near duplicates: ${near}</div>
         </div>`;
     } else {
-        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
+        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${escapeHtml(data.error || 'Unknown error')}</div>`;
     }
 }
 
@@ -681,19 +686,23 @@ async function updateServicesHealth() {
         content.innerHTML = Object.entries(data.services).map(([name, svc]) => {
             const ok = svc.status === 'healthy';
             let extra = '';
-            if (ok && name === 'lmstudio' && svc.models_available != null) extra = `<span class="text-xs diag-muted">${svc.models_available} models</span>`;
+            if (ok && name === 'lmstudio' && svc.models_available != null) extra = `<span class="text-xs diag-muted">${Number(svc.models_available)} models</span>`;
             else if (ok && name === 'redis' && svc.info?.used_memory != null) extra = `<span class="text-xs font-mono diag-muted">${Math.round(svc.info.used_memory/1024/1024)}MB</span>`;
             else if (name === 'langfuse' && svc.configured != null) extra = `<span class="text-xs diag-muted">${svc.configured ? 'Configured' : 'Not configured'}</span>`;
             return `<div class="diag-inner-panel flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     <span>${getHealthIcon(svc.status)}</span>
-                    <div><div class="font-medium text-sm" style="color:var(--text-primary);">${name.toUpperCase()}</div><div class="text-xs diag-muted">${svc.status}${svc.message ? ' · ' + svc.message : ''}${svc.error ? ' · ' + svc.error : ''}</div></div>
+                    <div><div class="font-medium text-sm" style="color:var(--text-primary);">${escapeHtml(name.toUpperCase())}</div><div class="text-xs diag-muted">${escapeHtml(svc.status)}${svc.message ? ' \u00b7 ' + escapeHtml(svc.message) : ''}${svc.error ? ' \u00b7 ' + escapeHtml(svc.error) : ''}</div></div>
                 </div>
                 ${extra ? `<div>${extra}</div>` : ''}
             </div>`;
         }).join('');
     } else {
-        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
+        content.textContent = '';
+        const errDiv = document.createElement('div');
+        errDiv.className = 'diag-inner-panel diag-status-error';
+        errDiv.textContent = '\u2717 ' + (data.error || 'Unknown error');
+        content.appendChild(errDiv);
     }
 }
 
@@ -708,12 +717,16 @@ async function updateCeleryHealth() {
             return `<div class="diag-inner-panel flex items-center justify-between mb-2">
                 <div class="flex items-center gap-2">
                     <span>${getHealthIcon(compData.status)}</span>
-                    <div><div class="font-medium text-sm" style="color:var(--text-primary);">${comp.toUpperCase()}</div><div class="text-xs diag-muted">${compData.active_workers ?? compData.url ?? compData.backend ?? compData.status}</div></div>
+                    <div><div class="font-medium text-sm" style="color:var(--text-primary);">${escapeHtml(comp.toUpperCase())}</div><div class="text-xs diag-muted">${escapeHtml(compData.active_workers ?? compData.url ?? compData.backend ?? compData.status)}</div></div>
                 </div>
             </div>`;
         }).join('');
     } else {
-        content.innerHTML = `<div class="diag-inner-panel diag-status-error">✗ ${data.error || 'Unknown error'}</div>`;
+        content.textContent = '';
+        const errDiv = document.createElement('div');
+        errDiv.className = 'diag-inner-panel diag-status-error';
+        errDiv.textContent = '\u2717 ' + (data.error || 'Unknown error');
+        content.appendChild(errDiv);
     }
 }
 

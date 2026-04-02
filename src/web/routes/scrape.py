@@ -49,7 +49,7 @@ async def api_scrape_url(request: dict):
         raise
     except Exception as exc:
         logger.error("Scrape error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 async def _scrape_single_url(
@@ -287,7 +287,7 @@ async def _scrape_single_url(
         # Check if it's a duplicate error
         if "Duplicate" in error_msg or "already exists" in error_msg.lower():
             raise HTTPException(status_code=409, detail=f"Duplicate article: {error_msg}")
-        raise HTTPException(status_code=500, detail=f"Database error: {error_msg}")
+        raise HTTPException(status_code=500, detail="Internal server error")
     if not articles:
         raise HTTPException(status_code=500, detail="No articles were created (may be duplicate content)")
 

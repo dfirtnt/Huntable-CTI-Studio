@@ -48,7 +48,7 @@ async def api_feedback_chunk_classification(request: Request):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Feedback collection failed: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Feedback collection failed: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/feedback/chunk-classification/{article_id}/{chunk_id}")
@@ -88,4 +88,4 @@ async def api_get_chunk_feedback(article_id: int, chunk_id: int):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to get chunk feedback: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Failed to get chunk feedback: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

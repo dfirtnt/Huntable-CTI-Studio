@@ -632,7 +632,7 @@ async def api_model_rollback(version_id: int = Path(..., gt=0)):
     try:
         await version_manager.activate_version(version_id)
     except (FileNotFoundError, ValueError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        raise HTTPException(status_code=422, detail="Validation error") from exc
 
     # Re-score all chunks with the restored model in a background thread
     def run_backfill():

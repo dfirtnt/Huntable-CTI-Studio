@@ -195,7 +195,7 @@ async def get_workflow_config(request: Request):
 
     except Exception as e:
         logger.error(f"Error getting workflow config: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/config", response_model=WorkflowConfigResponse)
@@ -518,7 +518,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
 
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/config/preset/save")
@@ -564,7 +564,7 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error saving config preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/config/preset/export")
@@ -667,7 +667,7 @@ async def list_config_presets(request: Request, scope: str | None = None):
             db_session.close()
     except Exception as e:
         logger.error(f"Error listing config presets: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/preset/{preset_id}")
@@ -696,7 +696,7 @@ async def get_config_preset(request: Request, preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting config preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/config/preset/{preset_id}")
@@ -718,7 +718,7 @@ async def delete_config_preset(request: Request, preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error deleting config preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, Any]:
@@ -797,7 +797,7 @@ async def list_config_versions(
             db_session.close()
     except Exception as e:
         logger.error(f"Error listing config versions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/version/{version_number}")
@@ -821,7 +821,7 @@ async def get_config_by_version(request: Request, version_number: int):
         raise
     except Exception as e:
         logger.error(f"Error getting config by version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/prompts")
@@ -915,7 +915,7 @@ async def get_agent_prompts(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error getting agent prompts: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/prompts/{agent_name}")
@@ -972,7 +972,7 @@ async def get_agent_prompt(request: Request, agent_name: str):
         raise
     except Exception as e:
         logger.error(f"Error getting agent prompt: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/config/prompts")
@@ -1115,7 +1115,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
         raise
     except Exception as e:
         logger.error(f"Error updating agent prompt: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/prompts/{agent_name}/versions")
@@ -1153,7 +1153,7 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
 
     except Exception as e:
         logger.error(f"Error getting prompt versions: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/prompts/{agent_name}/by-config-version/{config_version}")
@@ -1237,7 +1237,7 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
         raise
     except Exception as e:
         logger.error(f"Error getting prompt by config version: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/config/prompts/{agent_name}/rollback")
@@ -1354,7 +1354,7 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
         raise
     except Exception as e:
         logger.error(f"Error rolling back agent prompt: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 class TestSubAgentRequest(BaseModel):
@@ -1623,7 +1623,7 @@ async def bootstrap_prompts_from_files(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error bootstrapping prompts: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/config/test-status/{task_id}")
@@ -1647,7 +1647,7 @@ async def get_test_status(request: Request, task_id: str):
         return {"success": True, "task_id": task_id, "status": "pending", "message": "Test is still running in worker"}
     except Exception as e:
         logger.error(f"Error checking test status: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/config/test-sigmaagent")
@@ -1696,7 +1696,7 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
             ) from e
 
         logger.error(f"Error testing SIGMA agent: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/config/test-rankagent")

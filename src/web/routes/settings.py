@@ -58,7 +58,7 @@ async def get_all_settings():
 
     except Exception as e:
         logger.error(f"Error fetching settings: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{key}")
@@ -85,7 +85,7 @@ async def get_setting(key: str):
 
     except Exception as e:
         logger.error(f"Error fetching setting {key}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("")
@@ -132,7 +132,7 @@ async def update_setting(update: SettingUpdate):
 
     except Exception as e:
         logger.error(f"Error updating setting {update.key}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/bulk")
@@ -188,7 +188,7 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
 
     except Exception as e:
         logger.error(f"Error in bulk update: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/{key}")
@@ -221,4 +221,4 @@ async def delete_setting(key: str):
         raise
     except Exception as e:
         logger.error(f"Error deleting setting {key}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e

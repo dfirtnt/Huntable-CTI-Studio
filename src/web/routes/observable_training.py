@@ -31,7 +31,7 @@ async def api_observable_training_summary():
         return {"success": True, **summary}
     except Exception as exc:  # noqa: BLE001
         logger.error("Observable training summary error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/run")
@@ -75,4 +75,4 @@ async def api_run_cmd_training(body: dict[str, Any] | None = None):
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("Observable training run failed: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

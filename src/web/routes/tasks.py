@@ -63,7 +63,7 @@ async def api_get_task_status(task_id: str):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("API get task status error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/api/jobs/status")
@@ -138,7 +138,7 @@ async def api_jobs_status():
             "worker_stats": {},
             "registered_tasks": {},
             "active_queues": {},
-            "error": str(exc),
+            "error": "Internal server error",
         }
 
 
@@ -174,7 +174,7 @@ async def api_jobs_queues():
         return {
             "status": "error",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Internal server error",
         }
 
 
@@ -232,5 +232,5 @@ async def api_jobs_history(limit: int = 50):
         return {
             "status": "error",
             "timestamp": datetime.now().isoformat(),
-            "error": str(exc),
+            "error": "Internal server error",
         }

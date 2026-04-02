@@ -82,7 +82,7 @@ async def api_articles_list(
         }
     except Exception as exc:  # noqa: BLE001
         logger.error("API articles list error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/next")
@@ -105,7 +105,7 @@ async def api_get_next_article(current_article_id: int):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("API get next article error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/previous")
@@ -127,7 +127,7 @@ async def api_get_previous_article(current_article_id: int):
 
     except Exception as exc:  # noqa: BLE001
         logger.error("API get previous article error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/top")
@@ -151,7 +151,7 @@ async def api_articles_top(limit: int = 10):
         return top_articles
     except Exception as exc:  # noqa: BLE001
         logger.error("Top articles error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/{article_id}")
@@ -181,7 +181,7 @@ async def api_get_article(article_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("API get article error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/{article_id}/mark-reviewed")
@@ -210,7 +210,7 @@ async def api_mark_article_reviewed(article_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("API mark reviewed error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/bulk-action")
@@ -253,7 +253,7 @@ async def api_bulk_action(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("API bulk action error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.delete("/{article_id}")
@@ -276,4 +276,4 @@ async def delete_article(article_id: int):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete article: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

@@ -46,7 +46,7 @@ async def api_sources_list(filter_params: SourceFilter):
         return {"sources": [source.dict() for source in sources]}
     except Exception as exc:
         logger.error("API sources list error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/failing")
@@ -94,7 +94,7 @@ async def api_get_source(source_id: int):
         raise
     except Exception as exc:
         logger.error("API get source error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/{source_id}/toggle")
@@ -122,7 +122,7 @@ async def api_toggle_source_status(source_id: int):
         raise
     except Exception as exc:
         logger.error("API toggle source status error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/{source_id}/collect")
@@ -146,7 +146,7 @@ async def api_collect_from_source(source_id: int):
 
     except Exception as exc:
         logger.error("API collect from source error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.put("/{source_id}/min_content_length")
@@ -173,7 +173,7 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
         raise
     except Exception as exc:
         logger.error("API update source min content length error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.put("/{source_id}/lookback")
@@ -215,7 +215,7 @@ async def api_update_source_lookback(source_id: int, request: dict):
         raise
     except Exception as exc:
         logger.error("Failed to update source lookback window: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.put("/{source_id}/check_frequency")
@@ -265,7 +265,7 @@ async def api_update_source_check_frequency(source_id: int, request: dict):
         raise
     except Exception as exc:
         logger.error("Failed to update source check frequency: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/{source_id}/stats")
@@ -314,7 +314,7 @@ async def api_source_stats(source_id: int):
         raise
     except Exception as exc:
         logger.error("API source stats error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/{source_id}/heal")
@@ -347,7 +347,7 @@ async def api_heal_source(source_id: int):
         }
     except Exception as exc:
         logger.error("API heal source error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.post("/{source_id}/reset-healing")
@@ -367,7 +367,7 @@ async def api_reset_healing(source_id: int):
         }
     except Exception as exc:
         logger.error("API reset healing error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/{source_id}/healing-history")
@@ -386,4 +386,4 @@ async def api_healing_history(source_id: int):
         }
     except Exception as exc:
         logger.error("API healing history error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

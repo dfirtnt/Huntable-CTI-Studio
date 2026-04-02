@@ -278,7 +278,7 @@ async def list_workflow_executions(
 
     except Exception as e:
         logger.error(f"Error listing workflow executions: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/executions/{execution_id}", response_model=ExecutionDetailResponse)
@@ -370,7 +370,7 @@ async def get_workflow_execution(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting workflow execution: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def _build_observables_response(
@@ -438,7 +438,7 @@ async def get_execution_observables(
         raise
     except Exception as e:
         logger.error(f"Error getting execution observables: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/executions/cleanup-stale")
@@ -501,7 +501,7 @@ async def cleanup_stale_executions(
 
     except Exception as e:
         logger.error(f"Error cleaning up stale executions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/executions/{execution_id}/stream")
@@ -883,7 +883,7 @@ async def trigger_stuck_executions(request: Request):
 
     except Exception as e:
         logger.error(f"Error triggering stuck executions: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/executions/{execution_id}/retry")
@@ -978,7 +978,7 @@ async def retry_workflow_execution(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error retrying workflow execution: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/executions/{execution_id}/cancel")
@@ -1030,7 +1030,7 @@ async def cancel_workflow_execution(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error cancelling workflow execution: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/executions/cancel-all-running")
@@ -1074,7 +1074,7 @@ async def cancel_all_running_executions(request: Request):
 
     except Exception as e:
         logger.error(f"Error cancelling all running executions: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def _get_langfuse_setting(db_session: Session, key: str, env_key: str, default: str | None = None) -> str | None:
@@ -1238,7 +1238,7 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting debug info: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/articles/{article_id}/trigger")
@@ -1343,7 +1343,7 @@ async def trigger_workflow_for_article(
         with contextlib.suppress(Exception):
             db_session.rollback()
         logger.error(f"Error triggering workflow for article {article_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 class ExportBundleRequest(BaseModel):
@@ -1396,7 +1396,7 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Error exporting eval bundle for execution {execution_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/executions/{execution_id}/export-bundle")
@@ -1465,4 +1465,4 @@ async def get_eval_bundle_metadata(
         raise
     except Exception as e:
         logger.error(f"Error getting eval bundle metadata for execution {execution_id}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e

@@ -83,7 +83,7 @@ async def api_run_observable_evaluation(body: dict[str, Any] | None = None):
 
     except Exception as exc:
         logger.error(f"Observable evaluation error: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/metrics")
@@ -130,7 +130,7 @@ async def api_get_observable_metrics(
 
     except Exception as exc:
         logger.error(f"Error retrieving observable metrics: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/metrics/aggregated")
@@ -186,7 +186,7 @@ async def api_get_aggregated_metrics(
 
     except Exception as exc:
         logger.error(f"Error aggregating observable metrics: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/failures")
@@ -251,4 +251,4 @@ async def api_get_evaluation_failures(
 
     except Exception as exc:
         logger.error(f"Error retrieving failure taxonomy: {exc}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc

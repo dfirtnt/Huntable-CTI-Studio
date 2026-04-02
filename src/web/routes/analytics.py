@@ -932,7 +932,7 @@ async def api_track_event(request: Request):
         raise
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to track analytics event: %s", exc)
-        raise HTTPException(status_code=500, detail=f"Failed to track analytics event: {exc}") from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 @router.get("/events")

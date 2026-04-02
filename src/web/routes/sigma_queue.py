@@ -380,7 +380,7 @@ async def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest
         raise
     except Exception as e:
         logger.error(f"Error adding rule to queue: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/list", response_model=QueuedRuleListResponse)
@@ -488,7 +488,7 @@ async def list_queued_rules(
 
     except Exception as e:
         logger.error(f"Error listing queued rules: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{queue_id}/approve")
@@ -528,7 +528,7 @@ async def approve_queued_rule(request: Request, queue_id: int, update: QueueUpda
         raise
     except Exception as e:
         logger.error(f"Error approving queued rule: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{queue_id}/reject")
@@ -570,7 +570,7 @@ async def reject_queued_rule(request: Request, queue_id: int):
         raise
     except Exception as e:
         logger.error(f"Error rejecting queued rule: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.put("/{queue_id}/yaml")
@@ -596,7 +596,7 @@ async def update_rule_yaml(request: Request, queue_id: int, update: RuleYamlUpda
         raise
     except Exception as e:
         logger.error(f"Error updating rule YAML: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 def _sanitize_error_detail(detail: str) -> str:
@@ -1181,7 +1181,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 except Exception as e:
                     logger.error(f"Error calling {provider} API: {e}", exc_info=True)
                     error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
-                    raise HTTPException(status_code=500, detail=f"Error enriching rule: {error_msg}") from e
+                    raise HTTPException(status_code=500, detail="Internal server error") from e
         finally:
             db_session.close()
 
@@ -1234,7 +1234,7 @@ async def save_prompt_version(save_request: SavePromptRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error saving prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error saving prompt: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/prompt/history")
@@ -1269,7 +1269,7 @@ async def get_prompt_history(limit: int = 50):
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting prompt history: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting history: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/prompt/version/{version_id}")
@@ -1304,7 +1304,7 @@ async def get_prompt_version(version_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting prompt version: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/prompt/latest")
@@ -1335,7 +1335,7 @@ async def get_latest_prompt_version():
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting latest prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting latest prompt version: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/prompt/load/{version_id}")
@@ -1366,7 +1366,7 @@ async def load_prompt_version(version_id: int):
         raise
     except Exception as e:
         logger.error(f"Error loading prompt version: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error loading prompt version: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/preset/save")
@@ -1430,7 +1430,7 @@ async def save_enrichment_preset(save_request: SavePresetRequest):
             db_session.close()
     except Exception as e:
         logger.error(f"Error saving preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error saving preset: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/preset/list")
@@ -1461,7 +1461,7 @@ async def list_enrichment_presets():
             db_session.close()
     except Exception as e:
         logger.error(f"Error listing presets: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error listing presets: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/preset/{preset_id}")
@@ -1495,7 +1495,7 @@ async def get_enrichment_preset(preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error getting preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting preset: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.delete("/preset/{preset_id}")
@@ -1523,7 +1523,7 @@ async def delete_enrichment_preset(preset_id: int):
         raise
     except Exception as e:
         logger.error(f"Error deleting preset: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error deleting preset: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 class CompareRulesRequest(BaseModel):
@@ -1613,7 +1613,7 @@ async def compare_rules_similarity(compare_request: CompareRulesRequest):
 
     except Exception as e:
         logger.error(f"Error comparing rules: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error comparing rules: {str(e)}") from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/{queue_id}/validate")
@@ -2142,7 +2142,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                 "provider": provider if "provider" in locals() else "workflow",
                 "model": model if "model" in locals() else "Sigma agent",
             }
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.get("/{queue_id}/similar-rules")
@@ -2298,7 +2298,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
         raise
     except Exception as e:
         logger.error(f"Error finding similar rules for queued rule {queue_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
 @router.post("/submit-pr")
@@ -2378,4 +2378,4 @@ async def submit_pr_for_approved_rules(request: Request):
 
     except Exception as e:
         logger.error(f"Error submitting PR: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e

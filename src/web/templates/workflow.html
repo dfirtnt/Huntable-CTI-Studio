@@ -10804,7 +10804,14 @@ async function loadExecutions() {
         if (tbody) {
             const columns = getExecutionTableColumnCount();
             renderExecutionHeader();
-            tbody.innerHTML = `<tr><td colspan="${columns}" class="px-6 py-4 text-center text-red-500">Error: ${error.message}</td></tr>`;
+            tbody.textContent = '';
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = columns;
+            td.className = 'px-6 py-4 text-center text-red-500';
+            td.textContent = 'Error: ' + error.message;
+            tr.appendChild(td);
+            tbody.appendChild(tr);
         }
     }
 }

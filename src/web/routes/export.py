@@ -125,4 +125,4 @@ async def api_export_annotations():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Export annotations error: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
