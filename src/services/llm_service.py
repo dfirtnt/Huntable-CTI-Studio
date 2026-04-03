@@ -3439,8 +3439,7 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                                             "items",
                                             "process_lineage",
                                             "sigma_queries",
-                                            "event_ids",
-                                            "registry_keys",
+                                            "registry_artifacts",
                                             "count",
                                         ]
                                         if success and parsed and any(k in parsed for k in expected_keys):
@@ -3490,14 +3489,10 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                                 count = len(last_result.get("sigma_queries", []))
                                 logger.info(f"{agent_name} found {count} sigma_queries")
                                 last_result["items"] = last_result.pop("sigma_queries")
-                            elif "event_ids" in last_result:
-                                count = len(last_result.get("event_ids", []))
-                                logger.info(f"{agent_name} found {count} event_ids")
-                                last_result["items"] = last_result.pop("event_ids")
-                            elif "registry_keys" in last_result:
-                                count = len(last_result.get("registry_keys", []))
-                                logger.info(f"{agent_name} found {count} registry_keys")
-                                last_result["items"] = last_result.pop("registry_keys")
+                            elif "registry_artifacts" in last_result:
+                                count = len(last_result.get("registry_artifacts", []))
+                                logger.info(f"{agent_name} found {count} registry_artifacts")
+                                last_result["items"] = last_result.pop("registry_artifacts")
                             elif "items" in last_result:
                                 count = len(last_result.get("items", []))
                                 logger.info(f"{agent_name} found {count} items")
@@ -3559,7 +3554,7 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                         if "cmdline_items" in last_result:
                             output_for_langfuse["cmdline_items"] = last_result["cmdline_items"]
                         # Include any other result fields that might be useful
-                        for key in ["process_lineage", "sigma_queries", "event_ids", "registry_keys"]:
+                        for key in ["process_lineage", "sigma_queries", "registry_artifacts"]:
                             if key in last_result:
                                 output_for_langfuse[key] = last_result[key]
                         # Include error if present

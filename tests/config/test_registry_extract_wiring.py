@@ -460,3 +460,40 @@ class TestDefaultAgentPrompts:
 
         assert "RegistryExtract" in AGENT_PROMPT_FILES
         assert "RegistryQA" in AGENT_PROMPT_FILES
+
+
+# ===========================================================================
+# LLM service JSON normalization + Langfuse output keys
+# ===========================================================================
+
+
+class TestLLMServiceNormalizationKeys:
+    """Verify llm_service.py expected_keys and normalization handle registry_artifacts
+    and no longer reference dead keys (event_ids, registry_keys)."""
+
+    def test_expected_keys_includes_registry_artifacts(self):
+        """The JSON candidate expected_keys list must include registry_artifacts."""
+        from pathlib import Path
+
+        llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
+        source = llm_service_path.read_text()
+        assert "registry_artifacts" in source, "registry_artifacts missing from llm_service.py"
+
+    def test_dead_keys_removed_from_expected_keys(self):
+        """event_ids and registry_keys must NOT appear in expected_keys or normalization."""
+        from pathlib import Path
+
+        llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
+        source = llm_service_path.read_text()
+        # These legacy keys should not appear in the expected_keys list or normalization branches
+        assert '"event_ids"' not in source, "Dead key event_ids still referenced in llm_service.py"
+        assert '"registry_keys"' not in source, "Dead key registry_keys still referenced in llm_service.py"
+
+    def test_langfuse_loop_includes_registry_artifacts(self):
+        """The Langfuse output loop must scan for registry_artifacts."""
+        from pathlib import Path
+
+        llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
+        source = llm_service_path.read_text()
+        # Find the Langfuse output loop line
+        assert 'for key in ["process_lineage", "sigma_queries", "registry_artifacts"]' in source
