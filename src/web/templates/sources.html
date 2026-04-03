@@ -10,7 +10,11 @@
   display:inline-flex; align-items:center; gap:0.4rem;
   padding:0.3rem 0.75rem; border-radius:999px;
   font-size:0.75rem; font-weight:600; border:1px solid;
+  cursor:pointer; transition:box-shadow 0.15s, transform 0.1s;
+  user-select:none;
 }
+.stat-chip:hover { transform:scale(1.04); }
+.stat-chip.chip-selected { box-shadow:0 0 0 2px currentColor; }
 .stat-chip.sc-active  { background:rgba(34,197,94,0.15);  color:#86efac; border-color:rgba(34,197,94,0.3); }
 .stat-chip.sc-inactive{ background:rgba(239,68,68,0.15);  color:#fca5a5; border-color:rgba(239,68,68,0.3); }
 .stat-chip.sc-failing { background:rgba(234,179,8,0.15);  color:#fde047; border-color:rgba(234,179,8,0.3); }
@@ -270,21 +274,21 @@
             {% endif %}
         {% endfor %}
         <div class="stats-bar">
-            <span class="stat-chip sc-active">
+            <span class="stat-chip sc-active" data-filter="active" onclick="toggleChipFilter(this)" title="Click to filter Active sources">
                 <span class="stat-dot" style="background:var(--action-success-light,#22c55e);"></span>
                 {{ ns.active }} Active
             </span>
-            <span class="stat-chip sc-inactive">
+            <span class="stat-chip sc-inactive" data-filter="inactive" onclick="toggleChipFilter(this)" title="Click to filter Inactive sources">
                 <span class="stat-dot" style="background:var(--action-danger,#dc2626);"></span>
                 {{ ns.inactive }} Inactive
             </span>
             {% if ns.failing > 0 %}
-            <span class="stat-chip sc-failing">
+            <span class="stat-chip sc-failing" data-filter="failing" onclick="toggleChipFilter(this)" title="Click to filter Failing sources">
                 <span class="stat-dot" style="background:var(--action-warning,#eab308);"></span>
                 ⚠ {{ ns.failing }} Failing
             </span>
             {% endif %}
-            <span class="stat-chip sc-total">
+            <span class="stat-chip sc-total" data-filter="all" onclick="toggleChipFilter(this)" title="Click to show all sources">
                 <span class="stat-dot" style="background:var(--text-muted-slate);"></span>
                 {{ ns.total }} Sources
             </span>
@@ -309,7 +313,7 @@
             <span class="src-search-icon">🔍</span>
             <input class="src-search-input" type="text" id="sourceSearch" placeholder="Search sources…" oninput="filterSources()" aria-label="Search sources">
         </div>
-        <select class="src-filter-select" id="statusFilter" onchange="filterSources()" aria-label="Filter by status">
+        <select class="src-filter-select" id="statusFilter" onchange="syncChipHighlight(); filterSources()" aria-label="Filter by status">
             <option value="all">All status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
@@ -658,6 +662,33 @@ function toggleOverflow(btn) {
 document.addEventListener('click', () => {
     document.querySelectorAll('.src-dropdown').forEach(d => d.classList.remove('open'));
 });
+
+// ── Chip highlight sync ──
+function syncChipHighlight() {
+    const val = document.getElementById('statusFilter').value;
+    document.querySelectorAll('.stat-chip[data-filter]').forEach(c => {
+        c.classList.toggle('chip-selected', c.dataset.filter === val
+            || (val === 'all' && c.dataset.filter === 'all'));
+    });
+}
+
+// ── Chip toggle filter ──
+function toggleChipFilter(chip) {
+    const filter = chip.dataset.filter;
+    const sel = document.getElementById('statusFilter');
+    // Toggle: if already selected, reset to "all"; otherwise activate
+    if (sel.value === filter && filter !== 'all') {
+        sel.value = 'all';
+    } else {
+        sel.value = filter;
+    }
+    // Update selected visual state on all chips
+    document.querySelectorAll('.stat-chip[data-filter]').forEach(c => {
+        c.classList.toggle('chip-selected', c.dataset.filter === sel.value
+            || (sel.value === 'all' && c.dataset.filter === 'all'));
+    });
+    filterSources();
+}
 
 // ── Filter / search ──
 function filterSources() {
