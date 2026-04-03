@@ -83,7 +83,9 @@ class TestFirstEnabledProvider:
 
         mock_session = MagicMock()
         mock_session.query.return_value.filter.return_value.all.return_value = []
-        with patch.dict("os.environ", {"OPENAI_API_KEY": "sk-from-env"}, clear=False):
+        with patch.dict(
+            "os.environ", {"OPENAI_API_KEY": "sk-from-env", "WORKFLOW_LMSTUDIO_ENABLED": "false"}, clear=False
+        ):
             provider = _first_enabled_provider(mock_session)
         assert provider == "openai"
 

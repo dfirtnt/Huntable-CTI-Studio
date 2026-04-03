@@ -7919,13 +7919,15 @@ function getCurrentModelForAgent(agentName) {
         'CmdlineExtract': 'cmdlineextract',
         'ProcTreeExtract': 'proctreeextract',
         'HuntQueriesExtract': 'huntqueriesextract',
+        'RegistryExtract': 'registryextract',
         'OSDetectionAgent': 'osdetectionagent',
         'CmdLineQA': 'cmdlineqa',
         'ProcTreeQA': 'proctreeqa',
         'HuntQueriesQA': 'huntqueriesqa',
+        'RegistryQA': 'registryqa',
         'RankAgentQA': 'rankqa'
     };
-    
+
     const providerSelectMap = {
         'RankAgent': 'rankagent-provider',
         'ExtractAgent': 'extractagent-provider',
@@ -7933,9 +7935,11 @@ function getCurrentModelForAgent(agentName) {
         'CmdlineExtract': 'cmdlineextract-provider',
         'ProcTreeExtract': 'proctreeextract-provider',
         'HuntQueriesExtract': 'huntqueriesextract-provider',
+        'RegistryExtract': 'registryextract-provider',
         'CmdLineQA': 'cmdlineqa-provider',
         'ProcTreeQA': 'proctreeqa-provider',
         'HuntQueriesQA': 'huntqueriesqa-provider',
+        'RegistryQA': 'registryqa-provider',
         'RankAgentQA': 'rankqa-provider'
     };
     
@@ -7956,7 +7960,7 @@ function getCurrentModelForAgent(agentName) {
     if (activeModel) return activeModel;
     
     // Sub-agent fallback: inherit ExtractAgent model when empty
-    const subAgentNames = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA'];
+    const subAgentNames = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA'];
     if (subAgentNames.includes(agentName)) {
         const extractProvider = document.getElementById('extractagent-provider')?.value || getDefaultProvider();
         const extractModel = getActiveAgentModelValue('extractagent', extractProvider);

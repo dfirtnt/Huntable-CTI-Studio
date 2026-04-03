@@ -32,6 +32,7 @@ Usage:
     python run_tests.py --help                    # Show all options
     python run_tests.py smoke                     # Quick health check (stateless, no containers)
     python run_tests.py unit                      # Unit tests (stateless, runs locally)
+    python run_tests.py unit api smoke            # Run multiple test types sequentially
     python run_tests.py integration               # Integration tests (stateful, auto-starts containers)
     python run_tests.py ui                        # UI tests (may auto-start containers)
     python run_tests.py all                       # Full test suite (auto-starts containers)
@@ -2002,13 +2003,14 @@ Manual Container Management:
         """,
     )
 
-    # Test type (positional argument)
+    # Test type (positional argument — accepts one or more types)
+    valid_types = [t.value for t in RunTestType]
     parser.add_argument(
-        "test_type",
-        nargs="?",
-        default="smoke",
-        choices=[t.value for t in RunTestType],
-        help="Type of tests to run",
+        "test_types",
+        nargs="*",
+        default=None,
+        metavar="TEST_TYPE",
+        help=f"Type(s) of tests to run (e.g. unit api smoke). Defaults to smoke. Choices: {', '.join(valid_types)}",
     )
 
     # Execution context
@@ -2087,32 +2089,47 @@ Manual Container Management:
     else:
         context = ExecutionContext(args.context)
 
-    # Convert test type
-    test_type = RunTestType(args.test_type)
+    # Validate and build a config per requested test type (deduplicated, order-preserved)
+    raw_types = args.test_types if args.test_types else ["smoke"]
+    for t in raw_types:
+        if t not in {tv.value for tv in RunTestType}:
+            parser.error(f"invalid test type: '{t}' (choose from {', '.join(tv.value for tv in RunTestType)})")
+    seen: set[str] = set()
+    test_types: list[RunTestType] = []
+    for t in raw_types:
+        if t not in seen:
+            seen.add(t)
+            test_types.append(RunTestType(t))
 
-    return RunTestConfig(
-        test_type=test_type,
-        context=context,
-        verbose=args.verbose,
-        debug=args.debug,
-        parallel=args.parallel,
-        coverage=args.coverage,
-        install_deps=args.install,
-        validate_env=not args.no_validate,
-        skip_real_api=args.skip_real_api,
-        test_paths=args.paths,
-        markers=args.markers,
-        exclude_markers=args.exclude_markers,
-        include_agent_config_tests=args.include_agent_config_tests,
-        include_slow=args.include_slow,
-        playwright_last_failed=args.playwright_last_failed,
-        skip_playwright_js=args.skip_playwright_js,
-        config_file=args.config,
-        output_format=args.output_format,
-        fail_fast=args.fail_fast,
-        retry_count=args.retry,
-        timeout=args.timeout,
-    )
+    configs: list[RunTestConfig] = []
+    for test_type in test_types:
+        configs.append(
+            RunTestConfig(
+                test_type=test_type,
+                context=context,
+                verbose=args.verbose,
+                debug=args.debug,
+                parallel=args.parallel,
+                coverage=args.coverage,
+                install_deps=args.install,
+                validate_env=not args.no_validate,
+                skip_real_api=args.skip_real_api,
+                test_paths=args.paths,
+                markers=args.markers,
+                exclude_markers=args.exclude_markers,
+                include_agent_config_tests=args.include_agent_config_tests,
+                include_slow=args.include_slow,
+                playwright_last_failed=args.playwright_last_failed,
+                skip_playwright_js=args.skip_playwright_js,
+                config_file=args.config,
+                output_format=args.output_format,
+                fail_fast=args.fail_fast,
+                retry_count=args.retry,
+                timeout=args.timeout,
+            )
+        )
+
+    return configs
 
 
 async def main():
@@ -2120,29 +2137,44 @@ async def main():
     _load_dotenv()
     _strip_cloud_llm_keys()
     try:
-        # Parse configuration
-        config = parse_arguments()
+        # Parse configuration (one config per requested test type)
+        configs = parse_arguments()
 
-        # Create test runner
-        runner = RunTestRunner(config)
+        overall_results: list[tuple[str, bool, dict[str, int]]] = []
+        all_passed = True
 
-        # Setup environment
-        if not await runner.setup_environment():
-            logger.error("Failed to setup test environment")
-            return 1
+        for config in configs:
+            # Create test runner
+            runner = RunTestRunner(config)
 
-        try:
-            # Run tests
-            success = runner.run_tests()
+            # Setup environment
+            if not await runner.setup_environment():
+                logger.error(f"Failed to setup test environment for {config.test_type.value}")
+                overall_results.append((config.test_type.value, False, {}))
+                all_passed = False
+                continue
 
-            # Generate enhanced report
-            runner.print_enhanced_summary()
+            try:
+                # Run tests
+                success = runner.run_tests()
 
-            return 0 if success else 1
+                # Generate enhanced report for this type
+                runner.print_enhanced_summary()
 
-        finally:
-            # Teardown environment
-            await runner.teardown_environment()
+                counts = _extract_counts(runner)
+                overall_results.append((config.test_type.value, success, counts))
+                if not success:
+                    all_passed = False
+
+            finally:
+                # Teardown environment
+                await runner.teardown_environment()
+
+        # Print combined summary when multiple types were requested
+        if len(configs) > 1:
+            _print_combined_summary(overall_results)
+
+        return 0 if all_passed else 1
 
     except KeyboardInterrupt:
         logger.info("Test execution interrupted by user")
@@ -2151,6 +2183,60 @@ async def main():
         logger.error(f"Test runner failed: {e}")
         logger.exception("Full traceback:")
         return 1
+
+
+def _extract_counts(runner: "RunTestRunner") -> dict[str, int]:
+    """Aggregate passed/failed/skipped counts from a runner's results."""
+    passed = failed = skipped = 0
+    for key in ("pytest", "playwright"):
+        if key in runner.results and "counts" in runner.results[key]:
+            c = runner.results[key]["counts"]
+            passed += c.get("passed", 0)
+            failed += c.get("failed", 0) + c.get("errors", 0)
+            skipped += c.get("skipped", 0)
+    return {"passed": passed, "failed": failed, "skipped": skipped}
+
+
+def _print_combined_summary(results: list[tuple[str, bool, dict[str, int]]]) -> None:
+    """Print a final combined summary across all test types."""
+    GREEN = "\033[32m"
+    RED = "\033[31m"
+    YELLOW = "\033[33m"
+    DIM = "\033[2m"
+    RESET = "\033[0m"
+
+    print("\n")
+    print("=" * 72)
+    print("  COMBINED TEST SUMMARY")
+    print("=" * 72)
+    print(f"  {'Type':<16s} {'Passed':>8s} {'Failed':>8s} {'Skipped':>8s}   Status")
+    print(f"  {'-' * 16} {'-' * 8} {'-' * 8} {'-' * 8}   {'-' * 8}")
+
+    totals = {"passed": 0, "failed": 0, "skipped": 0}
+    all_passed = True
+
+    for test_type, passed, counts in results:
+        p = counts.get("passed", 0)
+        f = counts.get("failed", 0)
+        s = counts.get("skipped", 0)
+        totals["passed"] += p
+        totals["failed"] += f
+        totals["skipped"] += s
+
+        status = f"{GREEN}PASSED{RESET}" if passed else f"{RED}FAILED{RESET}"
+        p_str = f"{GREEN}{p:>8d}{RESET}" if p else f"{DIM}{p:>8d}{RESET}"
+        f_str = f"{RED}{f:>8d}{RESET}" if f else f"{DIM}{f:>8d}{RESET}"
+        s_str = f"{YELLOW}{s:>8d}{RESET}" if s else f"{DIM}{s:>8d}{RESET}"
+        print(f"  {test_type:<16s} {p_str} {f_str} {s_str}   {status}")
+        if not passed:
+            all_passed = False
+
+    print(f"  {'-' * 16} {'-' * 8} {'-' * 8} {'-' * 8}   {'-' * 8}")
+    tp, tf, ts = totals["passed"], totals["failed"], totals["skipped"]
+    overall = f"{GREEN}ALL PASSED{RESET}" if all_passed else f"{RED}SOME FAILED{RESET}"
+    print(f"  {'Total':<16s} {tp:>8d} {tf:>8d} {ts:>8d}   {overall}")
+    print("=" * 72)
+    print()
 
 
 if __name__ == "__main__":
