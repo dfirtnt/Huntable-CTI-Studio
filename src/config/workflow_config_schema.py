@@ -2,7 +2,7 @@
 Pydantic schema for workflow config v2.
 
 PascalCase convention. All agent definitions require Provider, Model, Temperature, TopP, Enabled.
-ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract)
+ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract)
 inherit provider/model when not configured.
 
 Strict export: Prompts may only contain canonical prompt-bearing agent names (no ExtractAgentSettings).
