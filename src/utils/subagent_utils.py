@@ -7,6 +7,7 @@ AGENT_TO_SUBAGENT = {
     "cmdlineextract": "cmdline",
     "proctreeextract": "process_lineage",
     "huntqueriesextract": "hunt_queries",
+    "registryextract": "registry_artifacts",
 }
 
 # Reverse map from canonical alias to agent name (CamelCase)
@@ -32,6 +33,11 @@ SUBAGENT_CANONICAL = {
     "hunt_queries_sigma": "hunt_queries_sigma",
     "huntqueriessigma": "hunt_queries_sigma",
     "hunt-queries-sigma": "hunt_queries_sigma",
+    "registry_artifacts": "registry_artifacts",
+    "registryartifacts": "registry_artifacts",
+    "registry-artifacts": "registry_artifacts",
+    "registryextract": "registry_artifacts",
+    "registry": "registry_artifacts",
 }
 
 __all__ = [

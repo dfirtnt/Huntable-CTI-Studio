@@ -967,6 +967,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "cmdline": "CmdlineExtract",
                     "process_lineage": "ProcTreeExtract",
                     "hunt_queries": "HuntQueriesExtract",
+                    "registry_artifacts": "RegistryExtract",
                 }
                 agent_name = subagent_to_agent.get(subagent_eval)
                 if agent_name:
@@ -988,6 +989,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "cmdline": {"items": [], "count": 0},
                 "process_lineage": {"items": [], "count": 0},
                 "hunt_queries": {"items": [], "count": 0},
+                "registry_artifacts": {"items": [], "count": 0},
             }
 
             # Get config models for LLMService
@@ -1030,6 +1032,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "cmdline": "CmdlineExtract",
                         "process_lineage": "ProcTreeExtract",
                         "hunt_queries": "HuntQueriesExtract",
+                        "registry_artifacts": "RegistryExtract",
                     }
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
@@ -1045,6 +1048,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             "CmdlineExtract": "CmdLineQA",
                             "ProcTreeExtract": "ProcTreeQA",
                             "HuntQueriesExtract": "HuntQueriesQA",
+                            "RegistryExtract": "RegistryQA",
                         }
                         qa_name = qa_names.get(agent_name)
                         if qa_name:
@@ -1069,6 +1073,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 ("CmdlineExtract", "cmdline", "CmdLineQA"),
                 ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
                 ("HuntQueriesExtract", "hunt_queries", "HuntQueriesQA"),
+                ("RegistryExtract", "registry_artifacts", "RegistryQA"),
             ]
 
             # Initialize conversation log for extract_agent
@@ -1118,7 +1123,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
-            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract
+            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
 
             logger.info(
@@ -1322,6 +1327,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "CmdlineExtract": "cmdline",
                     "ProcTreeExtract": "process_lineage",
                     "HuntQueriesExtract": "hunt_queries",
+                    "RegistryExtract": "registry_artifacts",
                 }
 
                 agent_subagent_name = agent_to_subagent.get(agent_name)
@@ -1469,6 +1475,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "CmdlineExtract": "cmdline",
                         "ProcTreeExtract": "process_lineage",
                         "HuntQueriesExtract": "hunt_queries",
+                        "RegistryExtract": "registry_artifacts",
                     }
                     agent_subagent = agent_to_subagent.get(agent_name)
 
@@ -1546,6 +1553,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             "CmdlineExtract": "cmdline",
                             "ProcTreeExtract": "process_lineage",
                             "HuntQueriesExtract": "hunt_queries",
+                            "RegistryExtract": "registry_artifacts",
                         }
                         agent_subagent_final = agent_to_subagent_final.get(agent_name)
                         normalized_agent_subagent = (
@@ -1764,11 +1772,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "cmdline": "CmdlineExtract",
                 "process_lineage": "ProcTreeExtract",
                 "hunt_queries": "HuntQueriesExtract",
+                "registry_artifacts": "RegistryExtract",
             }
             cat_to_subagent_name = {
                 "cmdline": "Command-line Extractor",
                 "process_lineage": "Process Tree Extractor",
                 "hunt_queries": "Hunt Queries Extractor",
+                "registry_artifacts": "Registry Extractor",
             }
 
             # Enrich subresults items with traceability system fields (observable traceability feature)

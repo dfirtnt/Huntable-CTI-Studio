@@ -9,10 +9,12 @@ _MINIMAL_AGENT_MODELS = {
     "CmdlineExtract_model": "gpt-4",
     "ProcTreeExtract_model": "gpt-4",
     "HuntQueriesExtract_model": "gpt-4",
+    "RegistryExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
     "CmdLineQA": "gpt-4",
     "ProcTreeQA": "gpt-4",
     "HuntQueriesQA": "gpt-4",
+    "RegistryQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
@@ -149,4 +151,4 @@ def test_missing_required_sections_get_defaults():
     assert "Agents" in migrated
     assert migrated["Thresholds"]["MinHuntScore"] == 97.0
     config = WorkflowConfigV2.model_validate(migrated)
-    assert len(config.Agents) == 11
+    assert len(config.Agents) == 13

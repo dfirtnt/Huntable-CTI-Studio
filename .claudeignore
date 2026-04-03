@@ -1,0 +1,32 @@
+# Test artifacts / generated output
+allure-results/
+playwright-report/
+coverage.xml
+output/
+outputs/
+tmp/
+
+# JS deps
+node_modules/
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Build artifacts
+site/
+*.min.js
+*.min.css
+*.map
+
+# Images (not useful as text)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+
+# Lock files (large, rarely useful)
+uv.lock
+package-lock.json

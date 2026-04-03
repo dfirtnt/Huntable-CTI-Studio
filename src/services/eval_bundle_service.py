@@ -179,6 +179,7 @@ class EvalBundleService:
             "CmdlineExtract": "cmdline",
             "ProcTreeExtract": "process_lineage",
             "HuntQueriesExtract": "hunt_queries",
+            "RegistryExtract": "registry_artifacts",
         }
         subagent_name = agent_to_subagent_map.get(agent_name)
         expected_count = None
@@ -305,6 +306,7 @@ class EvalBundleService:
             "CmdlineExtract": "extract_agent",
             "ProcTreeExtract": "extract_agent",
             "HuntQueriesExtract": "extract_agent",
+            "RegistryExtract": "extract_agent",
         }
 
         log_key = agent_key_map.get(agent_name, agent_name)
@@ -515,13 +517,14 @@ class EvalBundleService:
             "CmdlineExtract": "ExtractAgent",
             "ProcTreeExtract": "ExtractAgent",
             "HuntQueriesExtract": "ExtractAgent",
+            "RegistryExtract": "ExtractAgent",
         }
 
         model_config_key = model_key_map.get(agent_name, agent_name)
 
         # Sub-agents use flat keys (e.g., "HuntQueriesExtract_model", "HuntQueriesExtract_provider")
         # Main agents may use nested structure (e.g., agent_models["ExtractAgent"] = {model: "...", provider: "..."})
-        sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
+        sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]
         is_sub_agent = agent_name in sub_agents
 
         # Try to get model config
@@ -1262,7 +1265,7 @@ class EvalBundleService:
         agent_models = config_snapshot.get("agent_models", {})
         if isinstance(agent_models, dict):
             # For sub-agents, try to get their specific config or ExtractAgent config
-            sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
+            sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]
             if agent_name in sub_agents:
                 # Try agent-specific flat keys first
                 agent_model_config = {}

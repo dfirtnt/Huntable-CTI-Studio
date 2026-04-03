@@ -2009,6 +2009,59 @@
                         </div>
                       </div>
 
+                      <!-- RegistryExtract -->
+                      <div id="sa-registry" class="sa-item">
+                        <div class="sa-header" onclick="toggleSA('sa-registry')">
+                          <span class="sa-title">RegistryExtract</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Registry Artifacts</span>
+                          <span id="registryextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
+                          <span id="registryextract-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span class="sa-chevron ml-2">▼</span>
+                        </div>
+                        <div class="sa-body space-y-3">
+                          <div class="flex items-center justify-between">
+                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Enable RegistryExtract</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip</p></div>
+                            <div class="flex items-center gap-2">
+                              <span id="registryextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                              <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-registryextract-enabled" name="extract_subagent_enabled[RegistryExtract]" aria-label="Enable RegistryExtract" class="sr-only peer" onchange="handleExtractAgentToggle('RegistryExtract')"><div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div></label>
+                            </div>
+                          </div>
+                          <div class="space-y-2">
+                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Model Provider</label>
+                            <select id="registryextract-provider" name="agent_models[RegistryExtract_provider]" onchange="onAgentProviderChange('registryextract')" class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs"><option value="lmstudio">LMStudio (Local)</option><option value="openai">OpenAI (Cloud)</option><option value="anthropic">Anthropic Claude (Cloud)</option></select>
+                            <div data-agent-prefix="registryextract" data-provider="lmstudio"><select id="registryextract-model" name="agent_models[RegistryExtract_model]" onchange="validateAgentModelOnChange('registryextract'); autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"><option value="">Use Extract Agents Fallback Model</option></select></div>
+                            <div data-agent-prefix="registryextract" data-provider="openai" class="hidden"><input type="text" id="registryextract-model-openai" name="agent_models[RegistryExtract_model]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="gpt-4o-mini" onchange="validateAgentModelOnChange('registryextract'); autoSaveModelChange()" oninput="validateAgentModelOnChange('registryextract'); autoSaveModelChange()"></div>
+                            <div data-agent-prefix="registryextract" data-provider="anthropic" class="hidden"><input type="text" id="registryextract-model-anthropic" name="agent_models[RegistryExtract_model]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="claude-sonnet-4-5" onchange="validateAgentModelOnChange('registryextract'); autoSaveModelChange()" oninput="validateAgentModelOnChange('registryextract'); autoSaveModelChange()"></div>
+                          </div>
+                          <div class="flex gap-3">
+                            <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="registryextract-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label><span id="registryextract-temperature-value" class="text-purple-400 font-medium text-xs">0</span></div><input type="range" id="registryextract-temperature" name="agent_models[RegistryExtract_temperature]" min="0" max="2" step="0.1" value="0.0" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('registryextract-temperature'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div></div>
+                            <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="registryextract-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label><span id="registryextract-top-p-value" class="text-purple-400 font-medium text-xs">0.9</span></div><input type="range" id="registryextract-top-p" name="agent_models[RegistryExtract_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('registryextract-top-p'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div></div>
+                          </div>
+                          <div id="registryextract-agent-prompt-container"></div>
+                          <div class="flex items-center justify-between">
+                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">RegistryExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-registryextract" name="qa_enabled[RegistryExtract]" class="sr-only peer" onchange="updateQABadge('registryextract-agent'); autoSaveConfig();"><div class="w-10 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50"></div></label>
+                          </div>
+                          <div id="registryextract-agent-qa-configs" class="hidden space-y-2">
+                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Registry QA Model Provider</label>
+                            <select id="registryqa-provider" name="agent_models[RegistryQA_provider]" onchange="onAgentProviderChange('registryqa')" class="w-full bg-panel-0 border border-gray-700 rounded-lg px-2 py-1.5 text-gray-50 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-xs"><option value="lmstudio">LMStudio (Local)</option><option value="openai">OpenAI (Cloud)</option><option value="anthropic">Anthropic Claude (Cloud)</option></select>
+                            <div data-agent-prefix="registryqa" data-provider="lmstudio"><select id="registryqa-model" name="agent_models[RegistryQA]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"></select></div>
+                            <div data-agent-prefix="registryqa" data-provider="openai" class="hidden"><input type="text" id="registryqa-model-openai" name="agent_models[RegistryQA]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="gpt-4o-mini" onchange="autoSaveModelChange()"></div>
+                            <div data-agent-prefix="registryqa" data-provider="anthropic" class="hidden"><input type="text" id="registryqa-model-anthropic" name="agent_models[RegistryQA]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="claude-sonnet-4-5" onchange="autoSaveModelChange()"></div>
+                            <div class="mt-2 flex gap-3">
+                              <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="registryqa-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label><span id="registryqa-temperature-value" class="text-purple-400 font-medium text-xs">0.1</span></div><input type="range" id="registryqa-temperature" name="agent_models[RegistryQA_temperature]" min="0" max="2" step="0.1" value="0.1" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('registryqa-temperature'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div></div>
+                              <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="registryqa-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label><span id="registryqa-top-p-value" class="text-purple-400 font-medium text-xs">0.9</span></div><input type="range" id="registryqa-top-p" name="agent_models[RegistryQA_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('registryqa-top-p'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div></div>
+                            </div>
+                          </div>
+                          <div id="registryextract-agent-qa-prompt-container" class="hidden"></div>
+                          <div class="flex gap-2 pt-1">
+                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('RegistryExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test RegistryExtract</button>
+                            <button type="button" onclick="saveSubAgentPreset('registry')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
+                            <button type="button" onclick="showConfigPresetListForScope('registry')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
+                          </div>
+                        </div>
+                      </div>
+
                     </div><!-- end sub-agents accordion -->
                   </div>
                 </div>
@@ -2256,7 +2309,7 @@
                     <div class="text-center p-4 rounded-lg border-2 shadow-md" style="background: var(--step-3-bg) !important; border-color: var(--step-3-border) !important;">
                         <div class="text-2xl font-bold" style="color: var(--step-3) !important;">3</div>
                         <div class="text-xs font-semibold mt-1" style="color: var(--text-primary) !important;">Extract Agents</div>
-                        <div class="mt-2 text-[10px] font-medium" style="color: var(--badge-yellow-text) !important;">3 Sub-Agents</div>
+                        <div class="mt-2 text-[10px] font-medium" style="color: var(--badge-yellow-text) !important;">4 Sub-Agents</div>
                     </div>
                     <div class="text-center p-4 rounded-lg border" style="background: var(--step-4-bg) !important; border-color: var(--step-4-border) !important;">
                         <div class="text-2xl font-bold" style="color: var(--step-4) !important;">4</div>
@@ -2287,6 +2340,10 @@
                             <div class="rounded px-2 py-1.5 text-center border" style="background: var(--panel-bg-6) !important; border-color: var(--indigo-border-15) !important;">
                                 <div class="text-[10px] font-semibold" style="color: var(--text-secondary) !important;">Hunt Query</div>
                                 <div class="text-[8px] mt-0.5" style="color: var(--text-muted-slate) !important;">Query</div>
+                            </div>
+                            <div class="rounded px-2 py-1.5 text-center border" style="background: var(--panel-bg-6) !important; border-color: var(--indigo-border-15) !important;">
+                                <div class="text-[10px] font-semibold" style="color: var(--text-secondary) !important;">Registry</div>
+                                <div class="text-[8px] mt-0.5" style="color: var(--text-muted-slate) !important;">Artifacts</div>
                             </div>
                         </div>
                     </div>
@@ -3046,7 +3103,7 @@ let currentConfig = null;
 let isInitializing = true; // Flag to prevent autosave during page initialization
 let agentPrompts = {};
 let agentModels = {};
-const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
+const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract'];
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
 let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
@@ -3669,6 +3726,18 @@ const AGENT_CONFIG = {
         hasFallback: true,
         fallbackAgent: 'extractagent'
     },
+    registryextract: {
+        prefix: 'registryextract',
+        providerKey: 'RegistryExtract_provider',
+        modelKey: 'RegistryExtract_model',
+        temperatureKey: 'RegistryExtract_temperature',
+        topPKey: 'RegistryExtract_top_p',
+        name: 'RegistryExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
     // QA agents
     rankqa: {
         prefix: 'rankqa',
@@ -3714,6 +3783,17 @@ const AGENT_CONFIG = {
         isQA: true,
         hasFallback: false
     },
+    registryqa: {
+        prefix: 'registryqa',
+        providerKey: 'RegistryQA_provider',
+        modelKey: 'RegistryQA',
+        temperatureKey: 'RegistryQA_temperature',
+        topPKey: 'RegistryQA_top_p',
+        name: 'RegistryQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
 };
 
 /**
@@ -3743,10 +3823,12 @@ const AGENT_UI_DISPLAY_LABELS = {
     cmdlineextract: 'CmdlineExtract',
     proctreeextract: 'ProcTreeExtract',
     huntqueriesextract: 'HuntQueriesExtract',
+    registryextract: 'RegistryExtract',
     rankqa: 'Rank QA',
     cmdlineqa: 'CmdLine QA',
     proctreeqa: 'ProcTree QA',
-    huntqueriesqa: 'HuntQueries QA'
+    huntqueriesqa: 'HuntQueries QA',
+    registryqa: 'Registry QA'
 };
 
 function getAgentUIDisplayLabel(agentPrefix) {
@@ -3838,6 +3920,7 @@ function normalizeWorkflowConfigControlBindings() {
         'qa-cmdlineextract': { key: 'qa_enabled[CmdlineExtract]', label: 'CmdlineExtract QA Agent' },
         'qa-proctreeextract': { key: 'qa_enabled[ProcTreeExtract]', label: 'ProcTreeExtract QA Agent' },
         'qa-huntqueriesextract': { key: 'qa_enabled[HuntQueriesExtract]', label: 'HuntQueriesExtract QA Agent' },
+        'qa-registryextract': { key: 'qa_enabled[RegistryExtract]', label: 'RegistryExtract QA Agent' },
         'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'OS Detection Embedding Model' },
         'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
         'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
@@ -3857,7 +3940,8 @@ function normalizeWorkflowConfigControlBindings() {
     [
         { id: 'toggle-cmdlineextract-enabled', agent: 'CmdlineExtract' },
         { id: 'toggle-proctreeextract-enabled', agent: 'ProcTreeExtract' },
-        { id: 'toggle-huntqueriesextract-enabled', agent: 'HuntQueriesExtract' }
+        { id: 'toggle-huntqueriesextract-enabled', agent: 'HuntQueriesExtract' },
+        { id: 'toggle-registryextract-enabled', agent: 'RegistryExtract' }
     ].forEach(item => {
         const el = document.getElementById(item.id);
         if (!el) return;
@@ -3880,10 +3964,12 @@ function normalizeWorkflowConfigControlBindings() {
             cmdlineextract: 'CmdlineExtract',
             proctreeextract: 'ProcTreeExtract',
             huntqueriesextract: 'HuntQueriesExtract',
+            registryextract: 'RegistryExtract',
             qaagent: 'QAAgent',
             cmdlineqa: 'CmdLineQA',
             proctreeqa: 'ProcTreeQA',
-            huntqueriesqa: 'HuntQueriesQA'
+            huntqueriesqa: 'HuntQueriesQA',
+            registryqa: 'RegistryQA'
         };
         const agentName = promptAgentNameMap[agentId] || agentId;
         setAttr(textarea, 'data-derived-persist-key', `agent_prompts.${agentName}.prompt`);
@@ -4358,13 +4444,14 @@ function renderAgentModels() {
         return;
     }
     
-    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
+    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'SigmaAgent'];
     const agentLabels = {
         'RankAgent': 'Rank Agent',
         'OSDetectionAgent': 'OS Detection',
         'ExtractAgent': 'Extract Agents',
         'CmdlineExtract': 'CmdlineExtract (Command Line Extraction)',
         'ProcTreeExtract': 'ProcTreeExtract (Process Lineage)',
+        'RegistryExtract': 'RegistryExtract (Registry Artifacts)',
         'SigmaAgent': 'Sigma Agent'
     };
     
@@ -5189,7 +5276,7 @@ function renderAgentPrompts() {
         const templateData = promptParts.templateData || {};
         
         // Check if this is an extraction agent (has template format)
-        const isExtractionAgent = isTemplateFormat || ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA'].includes(agentName);
+        const isExtractionAgent = isTemplateFormat || ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA'].includes(agentName);
         
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
@@ -5311,8 +5398,8 @@ async function saveAgentPrompt(agentName) {
     const systemVal = promptSystemElement.value || "";
     const userVal = promptUserElement.value || "";
 
-    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'].includes(agentName);
-    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'QAAgent'].includes(agentName);
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract'].includes(agentName);
+    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'QAAgent'].includes(agentName);
     const current = agentPrompts[agentName]?.prompt || '';
     let parsed = {};
     try { parsed = current ? JSON.parse(current) : {}; } catch (_) {}
@@ -5656,7 +5743,8 @@ window.updateQABadge = function(agentPrefix) {
     const checkboxId = agentPrefix === 'rank-agent' ? 'qa-rankagent' :
                       agentPrefix === 'cmdlineextract-agent' ? 'qa-cmdlineextract' :
                       agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
-                      agentPrefix === 'huntqueriesextract-agent' ? 'qa-huntqueriesextract' : null;
+                      agentPrefix === 'huntqueriesextract-agent' ? 'qa-huntqueriesextract' :
+                      agentPrefix === 'registryextract-agent' ? 'qa-registryextract' : null;
     
     if (!badge) {
         console.error(`updateQABadge: Badge not found for prefix: ${agentPrefix}, badgeId: ${badgeId}`);
@@ -5728,6 +5816,8 @@ window.updateQABadge = function(agentPrefix) {
                 renderQAPrompt('ProcTreeQA', `${agentPrefix}-qa-prompt-container`);
             } else if (agentPrefix === 'huntqueriesextract-agent') {
                 renderQAPrompt('HuntQueriesQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'registryextract-agent') {
+                renderQAPrompt('RegistryQA', `${agentPrefix}-qa-prompt-container`);
             }
             
             // Force re-initialization after renderQAPrompt completes
@@ -5832,6 +5922,36 @@ async function loadConfig(skipPromptReload = false) {
             }
 
             currentConfig = fetchedConfig;
+
+            // Backfill extract sub-agents that have no model/provider from ExtractAgent defaults
+            if (currentConfig.agent_models) {
+                const am = currentConfig.agent_models;
+                const fallbackProvider = am.ExtractAgent_provider || 'lmstudio';
+                const fallbackModel = am.ExtractAgent || '';
+                extractSubAgents.forEach(agentName => {
+                    const modelKey = `${agentName}_model`;
+                    const providerKey = `${agentName}_provider`;
+                    if ((!am[modelKey] || am[modelKey] === '') && fallbackModel) {
+                        am[modelKey] = fallbackModel;
+                    }
+                    if ((!am[providerKey] || am[providerKey] === '') && fallbackProvider) {
+                        am[providerKey] = fallbackProvider;
+                    }
+                });
+
+                // Backfill QA agents that have no model/provider from a peer QA agent
+                const qaAgents = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA'];
+                const qaFallbackModel = qaAgents.reduce((f, qa) => f || am[qa], '') || '';
+                const qaFallbackProvider = qaAgents.reduce((f, qa) => f || am[`${qa}_provider`], '') || 'lmstudio';
+                qaAgents.forEach(qaName => {
+                    if ((!am[qaName] || am[qaName] === '') && qaFallbackModel) {
+                        am[qaName] = qaFallbackModel;
+                    }
+                    if ((!am[`${qaName}_provider`] || am[`${qaName}_provider`] === '') && qaFallbackProvider) {
+                        am[`${qaName}_provider`] = qaFallbackProvider;
+                    }
+                });
+            }
 
             // When skipPromptReload: agentPrompts was just updated by loadAgentPrompts() (post-save/rollback).
             // Sync currentConfig.agent_prompts so auto-save and other logic use fresh prompt data.
@@ -5950,10 +6070,12 @@ async function loadConfig(skipPromptReload = false) {
             { name: 'CmdlineExtract', id: 'cmdlineextract-temperature', prefix: 'cmdlineextract' },
             { name: 'ProcTreeExtract', id: 'proctreeextract-temperature', prefix: 'proctreeextract' },
             { name: 'HuntQueriesExtract', id: 'huntqueriesextract-temperature', prefix: 'huntqueriesextract' },
+            { name: 'RegistryExtract', id: 'registryextract-temperature', prefix: 'registryextract' },
             { name: 'RankAgentQA', id: 'rankqa-temperature', prefix: 'rankqa' },
             { name: 'CmdLineQA', id: 'cmdlineqa-temperature', prefix: 'cmdlineqa' },
             { name: 'ProcTreeQA', id: 'proctreeqa-temperature', prefix: 'proctreeqa' },
-            { name: 'HuntQueriesQA', id: 'huntqueriesqa-temperature', prefix: 'huntqueriesqa' }
+            { name: 'HuntQueriesQA', id: 'huntqueriesqa-temperature', prefix: 'huntqueriesqa' },
+            { name: 'RegistryQA', id: 'registryqa-temperature', prefix: 'registryqa' }
         ];
         subAgents.forEach(subAgent => {
             const tempInput = document.getElementById(subAgent.id);
@@ -6082,16 +6204,8 @@ async function loadAgentModels() {
     try {
         // Check if any agent uses LMStudio before calling the API
         const agentModelsToCheck = currentConfig?.agent_models || agentModels || {};
-        const providerAgentMap = {
-            rankagent: 'RankAgent',
-            extractagent: 'ExtractAgent',
-            sigmaagent: 'SigmaAgent',
-            cmdlineextract: 'CmdlineExtract',
-            proctreeextract: 'ProcTreeExtract'
-        };
-        
-        const hasLMStudioProvider = Object.entries(providerAgentMap).some(([prefix, name]) => {
-            const storedProvider = agentModelsToCheck[`${name}_provider`] || getDefaultProvider();
+        const hasLMStudioProvider = getAgentConfigs().some(config => {
+            const storedProvider = agentModelsToCheck[config.providerKey] || getDefaultProvider();
             return storedProvider === 'lmstudio';
         });
         
@@ -7360,7 +7474,7 @@ async function performAutoSave() {
         
         // Collect QA enabled settings
         const qaEnabled = {};
-        const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
+        const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'SigmaAgent'];
         agents.forEach(agentName => {
             const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
             const checkbox = document.getElementById(`qa-${agentId}`);
@@ -7374,7 +7488,7 @@ async function performAutoSave() {
         }
         
         // Collect disabled extract agents
-        const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
+        const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract'];
         const disabledFromDOM = [];
         extractSubAgents.forEach(agentName => {
             const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
@@ -7531,8 +7645,8 @@ function validateAllTemperatureInputs() {
     });
     
     // Check QA agents and sub-agents
-    const qaAgents = ['rankqa', 'cmdlineqa', 'proctreeqa', 'huntqueriesqa'];
-    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract'];
+    const qaAgents = ['rankqa', 'cmdlineqa', 'proctreeqa', 'huntqueriesqa', 'registryqa'];
+    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract', 'registryextract'];
     
     [...qaAgents, ...subAgents].forEach(prefix => {
         const provider = getAgentProvider(prefix) || getDefaultProvider();
@@ -7701,7 +7815,8 @@ function renderAgentPrompts() {
     const subAgents = [
         { name: 'CmdlineExtract', container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
         { name: 'ProcTreeExtract', container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
-        { name: 'HuntQueriesExtract', container: 'huntqueriesextract-agent-prompt-container', prefix: 'huntqueriesextract-agent' }
+        { name: 'HuntQueriesExtract', container: 'huntqueriesextract-agent-prompt-container', prefix: 'huntqueriesextract-agent' },
+        { name: 'RegistryExtract', container: 'registryextract-agent-prompt-container', prefix: 'registryextract-agent' }
     ];
     
     subAgents.forEach(subAgent => {
@@ -7749,7 +7864,8 @@ function renderAgentPrompts() {
     // Render Sub-Agent QA Prompts (prefix must be unique per panel to avoid ID collision with Extract prompt panel)
     const qaAgents = [
         { name: 'ProcTreeQA', container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent-qa' },
-        { name: 'HuntQueriesQA', container: 'huntqueriesextract-agent-qa-prompt-container', prefix: 'huntqueriesextract-agent-qa' }
+        { name: 'HuntQueriesQA', container: 'huntqueriesextract-agent-qa-prompt-container', prefix: 'huntqueriesextract-agent-qa' },
+        { name: 'RegistryQA', container: 'registryextract-agent-qa-prompt-container', prefix: 'registryextract-agent-qa' }
     ];
     
     qaAgents.forEach(qaAgent => {
@@ -7889,7 +8005,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     }
     
     // Check if this is an extraction agent that uses template format
-    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'].includes(agentName);
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract'].includes(agentName);
     
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -8342,6 +8458,10 @@ function toggleModelSelectionVisibility(agentName, enabled) {
         'HuntQueriesExtract': {
             panelContent: 'huntqueriesextract-agent-panel-content',
             providerSelect: 'huntqueriesextract-provider'
+        },
+        'RegistryExtract': {
+            panelContent: 'registryextract-agent-panel-content',
+            providerSelect: 'registryextract-provider'
         }
     };
     
@@ -8404,7 +8524,8 @@ function updateQAStateForSubagent(agentName) {
     const qaCheckboxMap = {
         'CmdlineExtract': 'qa-cmdlineextract',
         'ProcTreeExtract': 'qa-proctreeextract',
-        'HuntQueriesExtract': 'qa-huntqueriesextract'
+        'HuntQueriesExtract': 'qa-huntqueriesextract',
+        'RegistryExtract': 'qa-registryextract'
     };
     
     const qaCheckboxId = qaCheckboxMap[agentName];
@@ -8486,10 +8607,11 @@ async function handleExtractAgentToggle(agentName) {
 const SUBAGENT_SCOPE_MAP = {
     cmdline: { extract: 'CmdlineExtract', qa: 'CmdLineQA', qaEnabledKey: 'CmdlineExtract', extractPrefix: 'cmdlineextract', qaPrefix: 'cmdlineqa' },
     proctree: { extract: 'ProcTreeExtract', qa: 'ProcTreeQA', qaEnabledKey: 'ProcTreeExtract', extractPrefix: 'proctreeextract', qaPrefix: 'proctreeqa' },
-    huntqueries: { extract: 'HuntQueriesExtract', qa: 'HuntQueriesQA', qaEnabledKey: 'HuntQueriesExtract', extractPrefix: 'huntqueriesextract', qaPrefix: 'huntqueriesqa' }
+    huntqueries: { extract: 'HuntQueriesExtract', qa: 'HuntQueriesQA', qaEnabledKey: 'HuntQueriesExtract', extractPrefix: 'huntqueriesextract', qaPrefix: 'huntqueriesqa' },
+    registry: { extract: 'RegistryExtract', qa: 'RegistryQA', qaEnabledKey: 'RegistryExtract', extractPrefix: 'registryextract', qaPrefix: 'registryqa' }
 };
 
-const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries'];
+const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries', 'registry'];
 
 function getSubAgentPresetState(pairScope) {
     if (!SUBAGENT_SCOPES.includes(pairScope)) {
@@ -9125,7 +9247,8 @@ async function applyPreset(preset) {
                 { name: 'RankAgentQA', id: 'rankqa-model', tempId: 'rankqa-temperature', topPId: 'rankqa-top-p' },
                 { name: 'CmdLineQA', id: 'cmdlineqa-model', tempId: 'cmdlineqa-temperature', topPId: 'cmdlineqa-top-p' },
                 { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature', topPId: 'proctreeqa-top-p' },
-                { name: 'HuntQueriesQA', id: 'huntqueriesqa-model', tempId: 'huntqueriesqa-temperature', topPId: 'huntqueriesqa-top-p' }
+                { name: 'HuntQueriesQA', id: 'huntqueriesqa-model', tempId: 'huntqueriesqa-temperature', topPId: 'huntqueriesqa-top-p' },
+                { name: 'RegistryQA', id: 'registryqa-model', tempId: 'registryqa-temperature', topPId: 'registryqa-top-p' }
             ];
             
             qaModelFields.forEach(field => {
@@ -9309,7 +9432,8 @@ function cancelEditPrompt2(agentName) {
     const qaAgentMap = {
         'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
         'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
-        'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' }
+        'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
+        'RegistryQA': { prefix: 'registryextract-agent', container: 'registryextract-agent-qa-prompt-container' }
     };
     
     // Check if this is a QA agent or if the corresponding extract agent has QA enabled
@@ -9351,8 +9475,8 @@ async function saveAgentPrompt2(agentName) {
     const systemVal = promptSystemElement.value || "";
     const userVal = promptUserElement.value || "";
 
-    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'].includes(agentName);
-    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'QAAgent'].includes(agentName);
+    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract'].includes(agentName);
+    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'QAAgent'].includes(agentName);
     const current = agentPrompts[agentName]?.prompt || '';
     let parsed = {};
     try { parsed = current ? JSON.parse(current) : {}; } catch (_) {}
@@ -9443,7 +9567,8 @@ async function saveAgentPrompt2(agentName) {
                 'QAAgent': { prefix: 'rank-agent', container: 'rank-qa-agent-prompt-content' },
                 'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
                 'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
-                'HuntQueriesQA': { prefix: 'huntqueriesextract-agent', container: 'huntqueriesextract-agent-qa-prompt-container' }
+                'HuntQueriesQA': { prefix: 'huntqueriesextract-agent', container: 'huntqueriesextract-agent-qa-prompt-container' },
+                'RegistryQA': { prefix: 'registryextract-agent', container: 'registryextract-agent-qa-prompt-container' }
             };
             
             const qaInfo = qaAgentMap[agentName];
@@ -9612,12 +9737,13 @@ function getAllSelectedModelsWithProviders() {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
         'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
-        'HuntQueriesExtract': document.getElementById('qa-huntqueriesextract')
+        'HuntQueriesExtract': document.getElementById('qa-huntqueriesextract'),
+        'RegistryExtract': document.getElementById('qa-registryextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
     });
-    
+
     // Helper to get model and provider from UI
     function getModelWithProvider(agentPrefix, providerId, agentName) {
         const providerSelect = document.getElementById(providerId);
@@ -9665,9 +9791,10 @@ function getAllSelectedModelsWithProviders() {
     const subAgents = [
         { name: 'CmdlineExtract', prefix: 'cmdlineextract', providerId: 'cmdlineextract-provider' },
         { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' },
-        { name: 'HuntQueriesExtract', prefix: 'huntqueriesextract', providerId: 'huntqueriesextract-provider' }
+        { name: 'HuntQueriesExtract', prefix: 'huntqueriesextract', providerId: 'huntqueriesextract-provider' },
+        { name: 'RegistryExtract', prefix: 'registryextract', providerId: 'registryextract-provider' }
     ];
-    
+
     subAgents.forEach(subAgent => {
         const modelInfo = getModelWithProvider(subAgent.prefix, subAgent.providerId, subAgent.name);
         if (modelInfo) {
@@ -9675,12 +9802,13 @@ function getAllSelectedModelsWithProviders() {
             selectedModels.push(modelInfo);
         }
     });
-    
+
     // QA agents - only show if model exists (show enabled/disabled state)
     const qaAgents = [
         { name: 'CmdLineQA', prefix: 'cmdlineqa', providerId: 'cmdlineqa-provider', subAgent: 'CmdlineExtract' },
         { name: 'ProcTreeQA', prefix: 'proctreeqa', providerId: 'proctreeqa-provider', subAgent: 'ProcTreeExtract' },
         { name: 'HuntQueriesQA', prefix: 'huntqueriesqa', providerId: 'huntqueriesqa-provider', subAgent: 'HuntQueriesExtract' },
+        { name: 'RegistryQA', prefix: 'registryqa', providerId: 'registryqa-provider', subAgent: 'RegistryExtract' },
         { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null } // RankAgentQA doesn't have a sub-agent
     ];
     
@@ -9868,12 +9996,13 @@ function getLMStudioModelsOnly() {
     const qaCheckboxes = {
         'RankAgent': document.getElementById('qa-rankagent'),
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
-        'ProcTreeExtract': document.getElementById('qa-proctreeextract')
+        'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
+        'RegistryExtract': document.getElementById('qa-registryextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
     });
-    
+
     // Main agent models - only include if provider is 'lmstudio' and agent is enabled
     // Rank Agent - check if enabled
     const rankAgentEnabled = document.getElementById('rank-agent-enabled')?.checked !== false;
@@ -10345,7 +10474,7 @@ if (workflowConfigForm) {
     
     // Collect QA enabled settings
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
+    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'SigmaAgent'];
     agents.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
@@ -10420,7 +10549,7 @@ if (workflowConfigForm) {
     
     // CRITICAL: Read disabled agents directly from DOM checkboxes to ensure accuracy
     // This is the source of truth, not the disabledExtractAgents Set which might be stale
-    const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract'];
+    const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract'];
     const disabledFromDOM = [];
     extractSubAgents.forEach(agentName => {
         const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
@@ -11234,9 +11363,10 @@ async function viewExecution(executionId) {
                     const subAgents = [
                         { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
                         { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 2 },
-                        { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 }
+                        { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 },
+                        { key: 'registry_artifacts', name: 'RegistryExtract', qaName: 'RegistryQA', display: 'Registry Artifacts Extraction', icon: '🗝️', order: 4 }
                     ];
-                    
+
                     const conversationLog = exec.error_log?.extract_agent?.conversation_log || [];
                     const subAgentDetails = subAgents.map(subAgent => {
                         const result = subresults[subAgent.key];

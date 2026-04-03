@@ -218,7 +218,7 @@ _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normall
 Both execution paths use the **same workflow code**:
 
 **Celery Path:**
-```
+```text
 trigger_agentic_workflow() (Celery task)
   → run_workflow()
     → create_agentic_workflow()
@@ -226,7 +226,7 @@ trigger_agentic_workflow() (Celery task)
 ```
 
 **Direct Path:**
-```
+```text
 API endpoint / workflow trigger
   → run_workflow()
     → create_agentic_workflow()
@@ -240,7 +240,7 @@ API endpoint / workflow trigger
 
 ## Data Flow Diagram
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                    Sub-Agent Execution                       │
 └─────────────────────────────────────────────────────────────┘
@@ -433,7 +433,7 @@ All workflow executions run the same LangGraph state machine (`src/workflows/age
 - Automated high-hunt-score triggers, scheduled jobs, and the executions retry endpoint
 
 **Flow:**
-```
+```text
 User action / automated trigger
   → WorkflowTriggerService.trigger_workflow()
     → trigger_agentic_workflow.delay(article_id)  # Celery task
@@ -461,7 +461,7 @@ User action / automated trigger
 - Direct API calls to `POST /api/workflow/config/test-subagent`
 
 **Flow:**
-```
+```text
 Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent() → immediate result
 ```
 

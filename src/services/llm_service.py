@@ -315,7 +315,7 @@ class LLMService:
             return self.top_p_extract
         if agent_name == "SigmaAgent":
             return self.top_p_sigma
-        if agent_name in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]:
+        if agent_name in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]:
             # Sub-agents fall back to ExtractAgent top_p
             return self.top_p_extract
 
@@ -3193,7 +3193,12 @@ TRACEABILITY (REQUIRED when possible): For each extracted item include:
 - extraction_justification: Which prompt rule or rubric triggered this extraction.
 - confidence_score: A number between 0.0 and 1.0 for extraction confidence.
 If your output uses an array of items (e.g. cmdline_items, process_lineage, queries), each item may be a string (value only) or an object with "value" plus source_evidence, extraction_justification, and confidence_score."""
-                if user_prompt and agent_name in ("CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"):
+                if user_prompt and agent_name in (
+                    "CmdlineExtract",
+                    "ProcTreeExtract",
+                    "HuntQueriesExtract",
+                    "RegistryExtract",
+                ):
                     user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")

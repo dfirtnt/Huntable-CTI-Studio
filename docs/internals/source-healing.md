@@ -6,7 +6,7 @@
 
 ## How It Works
 
-The healing pipeline runs when a source hits the `failure_threshold` (default: 3 consecutive failures). It executes up to `max_attempts` rounds per session (default: 8), each round following this cycle:
+The healing pipeline runs when a source hits the `failure_threshold` (default: 100 consecutive failures). It executes up to `max_attempts` rounds per session (default: 5), each round following this cycle:
 
 1. **Gather context** — source config, error history, working source examples
 2. **Deep diagnostic probe** — RSS content, sitemap, WP JSON API, JS-rendering detection
@@ -14,6 +14,20 @@ The healing pipeline runs when a source hits the `failure_threshold` (default: 3
 4. **Apply actions** — merges proposed config into the source
 5. **Validate** — runs a real fetch and records the result as a source check
 6. **Decide** — stop if healed, retry with validation logs if not
+
+## Dispatch And Eligibility
+
+Healing can be dispatched in two ways:
+
+- **Scheduled scan**: `check_sources_for_healing` Celery task (hourly by default; configurable via Scheduled Jobs)
+- **Manual trigger**: `POST /api/actions/trigger-healing` for a full scan, or `POST /api/sources/{source_id}/heal` for one source
+
+For scheduled scans, a source is eligible only when all are true:
+
+- `active = true`
+- `consecutive_failures >= failure_threshold`
+- `healing_exhausted = false`
+- `last_success` is either null or older than 24 hours (grace period for transient failures)
 
 ## Deep Diagnostic Probes
 
@@ -101,7 +115,8 @@ The LLM receives configs from up to 3 healthy sources (sorted by article count) 
 Each validation attempt records a `source_check` entry with an `[AutoHeal validation]` prefix. This means:
 - The check history shows what each healing round's fix actually produced
 - Subsequent LLM rounds see their predecessor's validation results
-- The healing history UI displays validation details (method, articles found, error)
+- The healing history UI displays validation details (`method`, `articles_found`, `error`) when present
+- If no validation summary exists (for example, LLM transport/runtime failure before apply/validate), the UI shows `Details:` with the stored `error_detail`
 
 ## Config Fields the LLM Can Modify
 

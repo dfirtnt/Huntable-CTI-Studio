@@ -12,10 +12,12 @@ _MINIMAL_AGENT_MODELS = {
     "CmdlineExtract_model": "gpt-4",
     "ProcTreeExtract_model": "gpt-4",
     "HuntQueriesExtract_model": "gpt-4",
+    "RegistryExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
     "CmdLineQA": "gpt-4",
     "ProcTreeQA": "gpt-4",
     "HuntQueriesQA": "gpt-4",
+    "RegistryQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
@@ -297,6 +299,17 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "QAPrompt": {},
         },
         "HuntQueriesExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        "RegistryExtract": {
             "Enabled": True,
             "Provider": "openai",
             "Model": "gpt-4",

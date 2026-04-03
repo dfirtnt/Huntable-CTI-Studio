@@ -22,6 +22,8 @@ AGENT_PROMPT_FILES = {
     "ProcTreeQA": "ProcTreeQA",
     "HuntQueriesExtract": "HuntQueriesExtract",
     "HuntQueriesQA": "HuntQueriesQA",
+    "RegistryExtract": "RegistryExtract",
+    "RegistryQA": "RegistryQA",
     "ExtractAgent": "ExtractAgent",
     "OSDetectionAgent": "OSDetectionAgent",
 }

@@ -35,6 +35,7 @@ These endpoints control source state and manual collection.
 
 ### Source Healing
 
+- `POST /api/actions/trigger-healing` — Trigger a scan for all sources currently eligible for healing
 - `POST /api/sources/{source_id}/heal` — Trigger a healing session for a failing source
 - `POST /api/sources/{source_id}/reset-healing` — Reset `healing_exhausted` and `healing_attempts`
 - `GET /api/sources/{source_id}/healing-history` — Audit trail of all healing rounds and actions

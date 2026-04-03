@@ -262,6 +262,57 @@ class RunTestRunner:
         logger.info(f"Using virtual environment: {venv_python}")
         return venv_python
 
+    def _wait_for_test_containers(self, timeout_seconds: int = 90) -> bool:
+        """Wait until required local test containers report healthy status."""
+        compose_base = ["docker", "compose", "-f", "docker-compose.test.yml"]
+        required_services = ("postgres_test", "redis_test")
+        deadline = time.time() + timeout_seconds
+
+        while time.time() < deadline:
+            statuses: list[str] = []
+            all_healthy = True
+
+            for service in required_services:
+                cid_result = subprocess.run(
+                    [*compose_base, "ps", "-q", service],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                container_id = (cid_result.stdout or "").strip()
+
+                if not container_id:
+                    statuses.append(f"{service}=missing")
+                    all_healthy = False
+                    continue
+
+                health_result = subprocess.run(
+                    [
+                        "docker",
+                        "inspect",
+                        "--format",
+                        "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
+                        container_id,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                status = (health_result.stdout or "").strip() if health_result.returncode == 0 else "unknown"
+                statuses.append(f"{service}={status or 'unknown'}")
+                if status != "healthy":
+                    all_healthy = False
+
+            if all_healthy:
+                logger.info("Test containers ready: %s", ", ".join(statuses))
+                return True
+
+            logger.debug("Waiting for test containers: %s", ", ".join(statuses))
+            time.sleep(2)
+
+        logger.error("Timed out waiting for test containers to become healthy")
+        return False
+
     async def setup_environment(self) -> bool:
         """Set up test environment."""
         # Check if test containers are needed for stateful tests
@@ -302,6 +353,10 @@ class RunTestRunner:
                         return False
             else:
                 logger.info("CI detected - using GitHub Actions services (postgres/redis)")
+
+            if not self._wait_for_test_containers():
+                logger.error("Required test containers are not healthy")
+                return False
 
         # Set up test environment variables
         os.environ["APP_ENV"] = "test"
@@ -354,21 +409,32 @@ class RunTestRunner:
         if needs_test_containers:
             schema_script = project_root / "scripts" / "init_test_schema.py"
             if schema_script.exists():
-                result = subprocess.run(
-                    [self.venv_python, str(schema_script)],
-                    capture_output=True,
-                    text=True,
-                    timeout=60,
-                    cwd=str(project_root),
-                    env={**os.environ, "APP_ENV": "test"},
-                )
-                if result.returncode != 0:
-                    logger.warning(
-                        "Schema init failed - some integration tests may fail: %s",
-                        result.stderr or result.stdout,
+                schema_initialized = False
+                for attempt in range(1, 4):
+                    result = subprocess.run(
+                        [self.venv_python, str(schema_script)],
+                        capture_output=True,
+                        text=True,
+                        timeout=90,
+                        cwd=str(project_root),
+                        env={**os.environ, "APP_ENV": "test"},
                     )
-                else:
-                    logger.info("Test database schema initialized")
+                    if result.returncode == 0:
+                        schema_initialized = True
+                        logger.info("Test database schema initialized")
+                        break
+
+                    logger.warning(
+                        "Schema init attempt %d/3 failed: %s",
+                        attempt,
+                        (result.stderr or result.stdout).strip(),
+                    )
+                    if attempt < 3:
+                        time.sleep(2 * attempt)
+
+                if not schema_initialized:
+                    logger.error("Schema init failed after retries")
+                    return False
 
         if not ENVIRONMENT_UTILS_AVAILABLE:
             logger.warning("Environment utilities not available, skipping advanced environment setup")

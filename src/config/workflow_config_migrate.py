@@ -37,6 +37,8 @@ _AGENT_FLAT_PREFIXES = [
     ("CmdLineQA", "CmdlineQA", "CmdLineQA"),  # legacy CmdLineQA -> CmdlineQA
     ("ProcTreeQA", "ProcTreeQA", "ProcTreeQA"),
     ("HuntQueriesQA", "HuntQueriesQA", "HuntQueriesQA"),
+    ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
+    ("RegistryQA", "RegistryQA", "RegistryQA"),
 ]
 
 

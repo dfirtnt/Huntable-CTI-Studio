@@ -109,8 +109,8 @@ class MetadataConfig(BaseModel):
 
 # Agent names in canonical order (main, sub-agents, QA, special)
 AGENT_NAMES_MAIN = ["RankAgent", "ExtractAgent", "SigmaAgent"]
-AGENT_NAMES_SUB = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
-AGENT_NAMES_QA = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA"]
+AGENT_NAMES_SUB = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]
+AGENT_NAMES_QA = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA"]
 AGENT_NAMES_SPECIAL = ["OSDetectionFallback"]
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
 
@@ -123,6 +123,7 @@ BASE_AGENT_TO_QA: dict[str, str] = {
     "CmdlineExtract": "CmdlineQA",
     "ProcTreeExtract": "ProcTreeQA",
     "HuntQueriesExtract": "HuntQueriesQA",
+    "RegistryExtract": "RegistryQA",
 }
 QA_AGENT_TO_BASE: dict[str, str] = {qa: base for base, qa in BASE_AGENT_TO_QA.items()}
 
@@ -214,8 +215,8 @@ class WorkflowConfigV2(BaseModel):
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        qa_agents = {"RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA"}
-        sub_agents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"}
+        qa_agents = {"RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA"}
+        sub_agents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"}
         # Legacy flat keys expected by UI and services (v2 CmdlineQA -> CmdLineQA)
         legacy_flat_prefix: dict[str, str] = {"CmdlineQA": "CmdLineQA"}
         for agent_name, agent in self.Agents.items():

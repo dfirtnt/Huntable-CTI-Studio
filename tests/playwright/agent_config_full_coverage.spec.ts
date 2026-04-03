@@ -94,10 +94,12 @@ test.describe('Agent Config Full Coverage (10+ agents)', () => {
       { name: 'CmdlineExtract', container: '#cmdlineextract-agent-prompt-container', panelId: 'cmdlineextract-agent-prompt-panel' },
       { name: 'ProcTreeExtract', container: '#proctreeextract-agent-prompt-container', panelId: 'proctreeextract-agent-prompt-panel' },
       { name: 'HuntQueriesExtract', container: '#huntqueriesextract-agent-prompt-container', panelId: 'huntqueriesextract-agent-prompt-panel' },
+      { name: 'RegistryExtract', container: '#registryextract-agent-prompt-container', panelId: 'registryextract-agent-prompt-panel' },
       { name: 'QAAgent', container: '#rank-qa-agent-prompt-content', panelId: 'qaagent-qa-prompt-panel' },
       { name: 'CmdLineQA', container: '#cmdlineextract-agent-qa-prompt-container', panelId: 'cmdlineqa-qa-prompt-panel' },
       { name: 'ProcTreeQA', container: '#proctreeextract-agent-qa-prompt-container', panelId: 'proctreeqa-qa-prompt-panel' },
-      { name: 'HuntQueriesQA', container: '#huntqueriesextract-agent-qa-prompt-container', panelId: 'huntqueriesqa-qa-prompt-panel' }
+      { name: 'HuntQueriesQA', container: '#huntqueriesextract-agent-qa-prompt-container', panelId: 'huntqueriesqa-qa-prompt-panel' },
+      { name: 'RegistryQA', container: '#registryextract-agent-qa-prompt-container', panelId: 'registryqa-qa-prompt-panel' }
     ];
 
     for (const editor of promptEditors) {
@@ -138,6 +140,7 @@ test.describe('Agent Config Full Coverage (10+ agents)', () => {
       { name: 'CmdlineExtract', temp: '#cmdlineextract-temperature', topP: '#cmdlineextract-top-p' },
       { name: 'ProcTreeExtract', temp: '#proctreeextract-temperature', topP: '#proctreeextract-top-p' },
       { name: 'HuntQueriesExtract', temp: '#huntqueriesextract-temperature', topP: '#huntqueriesextract-top-p' },
+      { name: 'RegistryExtract', temp: '#registryextract-temperature', topP: '#registryextract-top-p' },
       { name: 'RankAgentQA', temp: '#rankqa-temperature', topP: '#rankqa-top-p' },
       { name: 'CmdLineQA', temp: '#cmdlineqa-temperature', topP: '#cmdlineqa-top-p' },
       { name: 'ProcTreeQA', temp: '#proctreeqa-temperature', topP: '#proctreeqa-top-p' },

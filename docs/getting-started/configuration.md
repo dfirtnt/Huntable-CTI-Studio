@@ -222,8 +222,11 @@ Sources that accumulate consecutive failures are automatically diagnosed and rep
 
 - **Enable/disable**: Toggle auto-healing on or off
 - **Provider/model**: Which LLM to use for diagnosis
-- **Max attempts**: Rounds per healing session (default: 8)
-- **Failure threshold**: Consecutive failures before healing triggers (default: 3)
+- **Max attempts**: Rounds per healing session (default: 5)
+- **Failure threshold**: Consecutive failures before healing triggers (default: 100)
+- **Check interval**: Hours between scheduled scans (default: 1)
+
+Eligibility note: the coordinator skips sources with a recent success (`last_success` within 24 hours) to avoid rewriting config for transient failures.
 
 For architecture details, see [Source Healing](../internals/source-healing.md).
 
@@ -279,4 +282,4 @@ After modifying configuration:
 
 ---
 
-_Last verified: February 2025_
+_Last verified: April 2026_

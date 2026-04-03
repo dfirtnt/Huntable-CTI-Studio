@@ -372,9 +372,11 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     "CmdlineExtract",
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
+                    "RegistryExtract",
                     "CmdLineQA",
                     "ProcTreeQA",
                     "HuntQueriesQA",
+                    "RegistryQA",
                 ]
                 for agent_name, prompt_data in final_agent_prompts.items():
                     if agent_name in extraction_agents and isinstance(prompt_data, dict):
@@ -876,6 +878,8 @@ async def get_agent_prompts(request: Request):
                 "ProcTreeQA",
                 "HuntQueriesExtract",
                 "HuntQueriesQA",
+                "RegistryExtract",
+                "RegistryQA",
             ]
 
             # Deleted subagents that should be filtered out
@@ -1019,9 +1023,11 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                     "CmdlineExtract",
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
+                    "RegistryExtract",
                     "CmdLineQA",
                     "ProcTreeQA",
                     "HuntQueriesQA",
+                    "RegistryQA",
                 ]
                 if prompt_update.agent_name in extraction_agents:
                     try:
@@ -1553,6 +1559,7 @@ async def bootstrap_prompts_from_files(request: Request):
                 ("CmdlineExtract", "CmdLineQA"),
                 ("ProcTreeExtract", "ProcTreeQA"),
                 ("HuntQueriesExtract", "HuntQueriesQA"),
+                ("RegistryExtract", "RegistryQA"),
             ]
 
             for agent_name, qa_name in sub_agents:

@@ -37,6 +37,8 @@ function orderModelsByWorkflow(models) {
         'ProcTreeQA',
         'HuntQueriesExtract',
         'HuntQueriesQA',
+        'RegistryExtract',
+        'RegistryQA',
         'SIGMA',
         'OS Fallback'
     ];
@@ -46,6 +48,7 @@ function orderModelsByWorkflow(models) {
         'CmdlineExtract',
         'ProcTreeExtract',
         'HuntQueriesExtract',
+        'RegistryExtract',
         'RankAgentQA'
     ]);
     
@@ -53,7 +56,8 @@ function orderModelsByWorkflow(models) {
     const secondLevelSubAgents = new Set([
         'CmdLineQA',
         'ProcTreeQA',
-        'HuntQueriesQA'
+        'HuntQueriesQA',
+        'RegistryQA'
     ]);
     
     // Create a map for quick lookup
@@ -122,16 +126,16 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         const qaEnabled = currentConfig.qa_enabled || {};
         
         // Helper to add agent to list
-        const addAgent = (agentId, displayName, indentLevel = 0, enabled = true) => {
-            const model = agentModels[agentId] || agentModels[`${agentId}_model`];
+        const addAgent = (agentId, displayName, indentLevel = 0, enabled = true, fallbackModel = null, fallbackProvider = null) => {
+            const model = agentModels[agentId] || agentModels[`${agentId}_model`] || fallbackModel;
             if (!model) return;
-            
-            const provider = agentModels[`${agentId}_provider`] || '';
-            const badgeClass = enabled 
+
+            const provider = agentModels[`${agentId}_provider`] || fallbackProvider || '';
+            const badgeClass = enabled
                 ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
                 : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
             const badgeText = enabled ? 'Enabled' : 'Disabled';
-            
+
             modelsList.push({
                 text: `${displayName}: ${model} (${provider})`,
                 indentLevel: indentLevel,
@@ -158,20 +162,31 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         const subAgentOrder = [
             { id: 'CmdlineExtract', name: 'CmdlineExtract', qa: 'CmdLineQA' },
             { id: 'ProcTreeExtract', name: 'ProcTreeExtract', qa: 'ProcTreeQA' },
-            { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' }
+            { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' },
+            { id: 'RegistryExtract', name: 'RegistryExtract', qa: 'RegistryQA' }
         ];
         
         // Disabled state from config only so Workflow and Agent-evals show the same status
         const fromConfig = currentConfig?.agent_prompts?.ExtractAgentSettings?.disabled_agents;
         const disabled = Array.isArray(fromConfig) ? new Set(fromConfig) : new Set();
         
+        // Sub-agents fall back to ExtractAgent model/provider when not explicitly configured
+        const extractModel = agentModels.ExtractAgent || null;
+        const extractProvider = agentModels.ExtractAgent_provider || null;
+
+        // QA agents fall back to a peer QA agent's model/provider
+        const qaNames = subAgentOrder.map(a => a.qa);
+        const qaFallbackModel = qaNames.reduce((f, qa) => f || agentModels[qa], '') || null;
+        const qaFallbackProvider = qaNames.reduce((f, qa) => f || agentModels[`${qa}_provider`], '') || null;
+
         subAgentOrder.forEach(agent => {
             const isEnabled = !disabled.has(agent.id);
-            addAgent(agent.id, agent.name, 1, isEnabled);
-            
-            // Add QA for this sub-agent
-            if (agentModels[agent.qa]) {
-                addAgent(agent.qa, agent.qa, 2, qaEnabled[agent.id] || false);
+            addAgent(agent.id, agent.name, 1, isEnabled, extractModel, extractProvider);
+
+            // Add QA for this sub-agent (fall back to peer QA model if not explicitly set)
+            const qaModel = agentModels[agent.qa] || qaFallbackModel;
+            if (qaModel) {
+                addAgent(agent.qa, agent.qa, 2, qaEnabled[agent.id] || false, qaFallbackModel, qaFallbackProvider);
             }
         });
         

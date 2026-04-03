@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 # Canonical agent group order (for tests and other consumers that expect group ordering).
 CORE_AGENTS = ["RankAgent", "ExtractAgent", "SigmaAgent"]
-EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]
-QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA"]
+EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]
+QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA"]
 UTILITY_AGENTS = ["OSDetectionFallback"]
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
@@ -39,6 +39,8 @@ AGENTS_ORDER_UI = [
     "ProcTreeQA",
     "HuntQueriesExtract",
     "HuntQueriesQA",
+    "RegistryExtract",
+    "RegistryQA",
     "SigmaAgent",
 ]
 
@@ -78,6 +80,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "CmdlineExtract",
     "ProcTreeExtract",
     "HuntQueriesExtract",
+    "RegistryExtract",
     "SigmaAgent",
 ]
 
@@ -141,6 +144,10 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ),
     (
         "HuntQueriesExtract",
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+    ),
+    (
+        "RegistryExtract",
         ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
     ),
     (
@@ -248,6 +255,7 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         ("CmdlineExtract", "CmdlineQA"),
         ("ProcTreeExtract", "ProcTreeQA"),
         ("HuntQueriesExtract", "HuntQueriesQA"),
+        ("RegistryExtract", "RegistryQA"),
     ]:
         cfg = _agent_cfg(agents, base)
         qa_cfg = _agent_cfg(agents, qa_name)
@@ -426,6 +434,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         ("CmdlineExtract", "CmdlineQA"),
         ("ProcTreeExtract", "ProcTreeQA"),
         ("HuntQueriesExtract", "HuntQueriesQA"),
+        ("RegistryExtract", "RegistryQA"),
     ]:
         block = ui.get(base) or {}
         if not block:

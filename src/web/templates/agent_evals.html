@@ -462,6 +462,7 @@
                         <option value="cmdline">CommandLine</option>
                         <option value="process_lineage">Process Lineage</option>
                         <option value="hunt_queries">Hunt Queries</option>
+                        <option value="registry_artifacts">Registry Artifacts</option>
                     </select>
                     <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -612,7 +613,8 @@ const excludedVersions = [594, 603, 606, 633, 665, 668, 962, 1013, 1022, 1029, 1
 const SUBAGENT_MAP = {
     'cmdline': 'CmdlineExtract',
     'process_lineage': 'ProcTreeExtract',
-    'hunt_queries': 'HuntQueriesExtract'
+    'hunt_queries': 'HuntQueriesExtract',
+    'registry_artifacts': 'RegistryExtract'
 };
 
 // Load active workflow config
@@ -1985,7 +1987,9 @@ async function loadAggregateScores() {
                             
                             // Get QA agent status
                             const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
-                                               agentName === 'ProcTreeExtract' ? 'ProcTreeQA' : null;
+                                               agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
+                                               agentName === 'HuntQueriesExtract' ? 'HuntQueriesQA' :
+                                               agentName === 'RegistryExtract' ? 'RegistryQA' : null;
                             const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
                             
                             configParamsByVersion[version] = {
@@ -2478,6 +2482,9 @@ async function showCommandlines(executionId, articleUrl, count) {
         } else if (resultType === 'hunt_queries' || subagentEval === 'hunt_queries') {
             modalTitle.textContent = 'Extracted Hunt Queries';
             agentName = 'HuntQueriesExtract';
+        } else if (resultType === 'registry_artifacts' || subagentEval === 'registry_artifacts') {
+            modalTitle.textContent = 'Extracted Registry Artifacts';
+            agentName = 'RegistryExtract';
         } else {
             modalTitle.textContent = 'Extracted Commandlines';
             agentName = 'CmdlineExtract';

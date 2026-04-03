@@ -36,6 +36,8 @@ FIDELITY_PROCTREE_ENABLED = True
 FIDELITY_PROCTREE_QA_ENABLED = True
 FIDELITY_HUNTQUERIES_ENABLED = True
 FIDELITY_HUNTQUERIES_QA_ENABLED = True
+FIDELITY_REGISTRY_ENABLED = True
+FIDELITY_REGISTRY_QA_ENABLED = True
 FIDELITY_SIGMA_THRESHOLD = 0.42
 FIDELITY_SIGMA_FULL_ARTICLE = True
 FIDELITY_DISABLED_AGENTS: list[str] = []  # all enabled
@@ -118,6 +120,17 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
             "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " HuntQueriesQA", "instructions": ""},
         },
+        "RegistryExtract": {
+            "Enabled": FIDELITY_REGISTRY_ENABLED,
+            "Provider": "anthropic",
+            "Model": "claude-sonnet-4-5",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Registry", "instructions": ""},
+            "QAEnabled": FIDELITY_REGISTRY_QA_ENABLED,
+            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
+            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " RegistryQA", "instructions": ""},
+        },
         "SigmaAgent": {
             "Provider": "anthropic",
             "Model": "claude-sonnet-4-5",
@@ -174,6 +187,7 @@ def test_import_enforces_all_settings():
     assert config.QA.Enabled.get("CmdlineExtract") is FIDELITY_CMDLINE_QA_ENABLED
     assert config.QA.Enabled.get("ProcTreeExtract") is FIDELITY_PROCTREE_QA_ENABLED
     assert config.QA.Enabled.get("HuntQueriesExtract") is FIDELITY_HUNTQUERIES_QA_ENABLED
+    assert config.QA.Enabled.get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
 
     # Execution
     assert config.Execution.OsDetectionSelectedOs == FIDELITY_OS_SELECTED
@@ -220,6 +234,7 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     assert legacy["qa_enabled"].get("CmdlineExtract") is FIDELITY_CMDLINE_QA_ENABLED
     assert legacy["qa_enabled"].get("ProcTreeExtract") is FIDELITY_PROCTREE_QA_ENABLED
     assert legacy["qa_enabled"].get("HuntQueriesExtract") is FIDELITY_HUNTQUERIES_QA_ENABLED
+    assert legacy["qa_enabled"].get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
     assert legacy["sigma_fallback_enabled"] is FIDELITY_SIGMA_FULL_ARTICLE
     assert legacy["cmdline_attention_preprocessor_enabled"] is FIDELITY_CMDLINE_ATTENTION
     assert legacy["osdetection_fallback_enabled"] is FIDELITY_OS_FALLBACK_ENABLED
@@ -278,6 +293,10 @@ def test_export_contains_all_settings():
     assert exported["HuntQueriesExtract"]["Enabled"] is FIDELITY_HUNTQUERIES_ENABLED
     assert exported["HuntQueriesExtract"]["QAEnabled"] is FIDELITY_HUNTQUERIES_QA_ENABLED
 
+    assert exported["RegistryExtract"]["Enabled"] is FIDELITY_REGISTRY_ENABLED
+    assert exported["RegistryExtract"]["QAEnabled"] is FIDELITY_REGISTRY_QA_ENABLED
+    assert FIDELITY_PROMPT_SENTINEL in exported["RegistryExtract"]["Prompt"].get("prompt", "")
+
     sigma = exported["SigmaAgent"]
     assert float(sigma["SimilarityThreshold"]) == FIDELITY_SIGMA_THRESHOLD
     assert sigma["UseFullArticleContent"] is FIDELITY_SIGMA_FULL_ARTICLE
@@ -313,6 +332,7 @@ def test_round_trip_export_import_export_identity():
         "CmdlineExtract",
         "ProcTreeExtract",
         "HuntQueriesExtract",
+        "RegistryExtract",
         "SigmaAgent",
     ):
         assert section in n1 and section in n2, f"Missing section {section}"

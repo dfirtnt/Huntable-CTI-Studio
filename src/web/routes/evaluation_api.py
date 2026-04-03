@@ -32,6 +32,7 @@ _SUBAGENT_TO_AGENT = {
     "cmdline": "CmdlineExtract",
     "process_lineage": "ProcTreeExtract",
     "hunt_queries": "HuntQueriesExtract",
+    "registry_artifacts": "RegistryExtract",
 }
 
 
@@ -48,6 +49,9 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
         return len(items) if isinstance(items, list) else agent_result.get("count")
     if subagent_name == "process_lineage":
         items = agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    if subagent_name == "registry_artifacts":
+        items = agent_result.get("registry_artifacts") or agent_result.get("items", [])
         return len(items) if isinstance(items, list) else agent_result.get("count")
     n = agent_result.get("count")
     if n is not None:
@@ -578,6 +582,10 @@ async def get_execution_commandlines(
                         commandlines = [
                             obs.get("value", str(obs)) for obs in observables if obs.get("type") == "hunt_queries"
                         ]
+                    elif result_key == "registry_artifacts":
+                        commandlines = [
+                            obs.get("value", str(obs)) for obs in observables if obs.get("type") == "registry_artifacts"
+                        ]
 
                 # Also check subresults
                 if not commandlines:
@@ -606,6 +614,14 @@ async def get_execution_commandlines(
                                 # For hunt_queries, we want to return both EDR queries and SIGMA rules separately
                                 # but also include items for backward compatibility
                                 items = hunt_queries_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
+                        elif result_key == "registry_artifacts":
+                            registry_result = subresults.get("registry_artifacts", {}) or subresults.get(
+                                "RegistryExtract", {}
+                            )
+                            if isinstance(registry_result, dict):
+                                items = registry_result.get("items", [])
                                 if items:
                                     commandlines = items if isinstance(items, list) else [items]
 
@@ -1539,7 +1555,7 @@ async def get_config_versions_models(
                     model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider or 'not configured'})")
 
                 # Sub-agents (only if enabled and has model)
-                for agent in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"]:
+                for agent in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
                         provider = agent_models.get(f"{agent}_provider") or ""
@@ -1698,11 +1714,12 @@ async def get_eval_bundle_metadata(
 
 
 # Map subagent canonical names to agent names used in eval bundles
-_SUBAGENT_TO_AGENT = {
+_SUBAGENT_TO_BUNDLE_AGENT = {
     "cmdline": "CmdlineExtract",
     "process_lineage": "ProcTreeExtract",
     "hunt_queries": "HuntQueriesExtract",
     "hunt_queries_edr": "HuntQueriesExtract",
+    "registry_artifacts": "RegistryExtract",
 }
 
 
@@ -1727,7 +1744,7 @@ async def export_bundles_by_config_version(
                 lookup_values = set(lookup_values) if lookup_values else set()
                 lookup_values.add("hunt_queries_edr")
                 lookup_values = list(lookup_values)
-            agent_name = _SUBAGENT_TO_AGENT.get(canonical_subagent or "")
+            agent_name = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent or "")
             if not agent_name:
                 agent_name = "CmdlineExtract"  # fallback for unknown subagents
 
