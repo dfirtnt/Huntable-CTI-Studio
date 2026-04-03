@@ -183,7 +183,7 @@ function renderExecutions() {
             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${exec.id}</td>
             <td class="px-6 py-4 text-sm">
                 <a href="/articles/${exec.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-white dark:hover:text-gray-300">
-                    ${exec.article_title || 'Article ' + exec.article_id}
+                    ${escapeHtml(exec.article_title || 'Article ' + exec.article_id)}
                 </a>
             </td>
             <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(exec.status)}</td>
@@ -291,13 +291,13 @@ async function viewExecution(executionId) {
                     <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
                         <div class="grid grid-cols-2 gap-4 text-sm">
                             <div><strong class="text-gray-900 dark:text-white">Execution ID:</strong> ${exec.id}</div>
-                            <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 dark:text-white hover:underline">${exec.article_title || 'Article ' + exec.article_id}</a></div>
+                            <div><strong class="text-gray-900 dark:text-white">Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-600 dark:text-white hover:underline">${escapeHtml(exec.article_title || 'Article ' + exec.article_id)}</a></div>
                             <div><strong class="text-gray-900 dark:text-white">Status:</strong> ${getStatusBadge(exec.status)}</div>
                             <div><strong class="text-gray-900 dark:text-white">Current Step:</strong> ${getStepBadge(exec.current_step)}</div>
                             <div><strong class="text-gray-900 dark:text-white">Created:</strong> ${new Date(exec.created_at).toLocaleString()}</div>
                             ${exec.completed_at ? `<div><strong class="text-gray-900 dark:text-white">Completed:</strong> ${new Date(exec.completed_at).toLocaleString()}</div>` : ''}
                         </div>
-                        ${exec.error_message ? `<div class="mt-2 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800"><strong>Error:</strong> ${exec.error_message}</div>` : ''}
+                        ${exec.error_message ? `<div class="mt-2 bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800"><strong>Error:</strong> ${escapeHtml(exec.error_message)}</div>` : ''}
                     </div>
 
                     <!-- Step 0: OS Detection (gate - runs first, Windows only continues) -->
@@ -399,7 +399,7 @@ async function viewExecution(executionId) {
                             <div>
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
-                                    <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                    <div>• Article Title: ${escapeHtml(exec.article_title || 'N/A')}</div>
                                     <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
                                     <div>• Threshold: ${config.ranking_threshold ?? 6.0}</div>
                                 </div>
@@ -418,7 +418,7 @@ async function viewExecution(executionId) {
                                                 💭 Reasoning
                                             </summary>
                                             <div class="p-3 bg-gray-800 border border-gray-700">
-                                                <pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">${exec.ranking_reasoning}</pre>
+                                                <pre class="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-mono">${escapeHtml(exec.ranking_reasoning)}</pre>
                                             </div>
                                         </details>
                                     ` : ''}
@@ -437,7 +437,7 @@ async function viewExecution(executionId) {
                                 <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                 <div class="mt-1 text-sm">
                                     <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
-                                    <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                    <div>• Article Title: ${escapeHtml(exec.article_title || 'N/A')}</div>
                                 </div>
                             </div>
                             <div>
@@ -540,7 +540,7 @@ async function viewExecution(executionId) {
                                                     <strong class="text-gray-900 dark:text-white">Inputs:</strong>
                                                     <div class="mt-1 text-sm">
                                                         <div>• Filtered Content: ${exec.junk_filter_result?.filtered_length || 0} chars</div>
-                                                        <div>• Article Title: ${exec.article_title || 'N/A'}</div>
+                                                        <div>• Article Title: ${escapeHtml(exec.article_title || 'N/A')}</div>
                                                         <div>• Article URL: ${exec.article_url || 'N/A'}</div>
                                                         <div>• Agent: ${subAgent.name}</div>
                                                         ${config.agent_models && config.agent_models[`${subAgent.name}_model`] ? `<div>• Model: ${config.agent_models[`${subAgent.name}_model`]}</div>` : ''}

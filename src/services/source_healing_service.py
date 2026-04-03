@@ -171,7 +171,9 @@ class SourceHealingService:
 
             event_error_message = validation_summary
             if event_error_message is None and isinstance(proposed_actions, dict):
-                event_error_message = proposed_actions.get("error_detail")
+                raw_detail = proposed_actions.get("error_detail") or ""
+                # Truncate and strip potential secrets from exception strings
+                event_error_message = raw_detail[:500] if raw_detail else None
 
             event = HealingEventCreate(
                 source_id=source_id,

@@ -217,11 +217,12 @@ class AsyncDatabaseManager:
                     (80, 100, "very_high"),
                 ]:
                     score_count_result = await session.execute(
-                        text(f"""
+                        text("""
                             SELECT COUNT(*) FROM articles WHERE archived = FALSE
                             AND CAST(article_metadata ->> 'threat_hunting_score' AS FLOAT)
-                            BETWEEN {min_score} AND {max_score}
-                        """)
+                            BETWEEN :min_score AND :max_score
+                        """),
+                        {"min_score": min_score, "max_score": max_score},
                     )
                     score_ranges[label] = score_count_result.scalar() or 0
 

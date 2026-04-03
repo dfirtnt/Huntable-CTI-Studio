@@ -104,22 +104,15 @@ class RSSParser:
                     article.article_metadata = {}
                 article.article_metadata["rss_parsing_stats"] = stats
 
-            # If no articles, create a dummy article just to carry stats
+            # Log stats when all entries were filtered (no dummy article —
+            # downstream has no filter for url="" so it would reach the DB).
             if not articles and stats["total_entries"] > 0:
-                # Create a temporary article just to carry stats metadata
-                # This will be filtered out later but allows stats to be passed through
-                from src.models.article import ArticleCreate
-
-                dummy_article = ArticleCreate(
-                    source_id=source.id,
-                    url="",
-                    canonical_url="",
-                    title="",
-                    published_at=datetime.now(),
-                    content="",
-                    article_metadata={"rss_parsing_stats": stats, "is_dummy": True},
+                logger.info(
+                    "All %d RSS entries filtered for %s (stats: %s)",
+                    stats["total_entries"],
+                    source.name,
+                    stats,
                 )
-                articles.append(dummy_article)
 
             return articles
 

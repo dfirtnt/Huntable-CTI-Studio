@@ -33,6 +33,10 @@ class SimpleFilter:
 router = APIRouter(prefix="/api/articles", tags=["Articles"])
 
 
+_ALLOWED_SORT_COLUMNS = {"published_at", "created_at", "title", "ranking_score"}
+_ALLOWED_SORT_ORDERS = {"asc", "desc"}
+
+
 @router.get("")
 async def api_articles_list(
     limit: int | None = 100,
@@ -46,6 +50,11 @@ async def api_articles_list(
     logger.debug("API ARTICLES ENDPOINT CALLED!")
     logger.debug("=" * 50)
     logger.debug("Function parameters: sort_by=%s, sort_order=%s", sort_by, sort_order)
+    # Validate sort parameters against allowlist
+    if sort_by not in _ALLOWED_SORT_COLUMNS:
+        sort_by = "published_at"
+    if sort_order not in _ALLOWED_SORT_ORDERS:
+        sort_order = "desc"
     try:
         logger.debug("DEBUG: API called with sort_by=%s, sort_order=%s", sort_by, sort_order)
         logger.info("DEBUG: API called with sort_by=%s, sort_order=%s", sort_by, sort_order)

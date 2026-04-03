@@ -450,8 +450,8 @@ function updateWorkerStatus(data) {
         html += `<div class="diag-inner-panel flex items-center justify-between">
             <div>
                 <div class="font-medium text-sm" style="color:var(--text-primary);">${workerType} Worker</div>
-                <div class="text-xs diag-muted font-mono">${worker}</div>
-                <div class="text-xs diag-muted mt-0.5">Queues: ${queueNames} · Pool: ${processCount}</div>
+                <div class="text-xs diag-muted font-mono">${escapeHtml(worker)}</div>
+                <div class="text-xs diag-muted mt-0.5">Queues: ${escapeHtml(queueNames)} · Pool: ${processCount}</div>
             </div>
             <div class="text-right">
                 <div class="text-sm diag-status-success">Active</div>
@@ -485,8 +485,8 @@ function updateQueueStatus(data) {
         const workers = (queueToWorkers[queueName] || []).join(', ') || 'No consumers';
         html += `<div class="diag-inner-panel flex items-center justify-between">
             <div>
-                <div class="font-medium text-sm" style="color:var(--text-primary);">${queueName}</div>
-                <div class="text-xs diag-muted">${workers}</div>
+                <div class="font-medium text-sm" style="color:var(--text-primary);">${escapeHtml(queueName)}</div>
+                <div class="text-xs diag-muted">${escapeHtml(workers)}</div>
             </div>
             <div class="text-right">
                 <div class="text-lg font-bold font-mono ${statusClass}">${length}</div>
@@ -525,8 +525,8 @@ function updateActiveTasks(data) {
         const queueNames = workerQueues.map(q => typeof q === 'string' ? q : (q?.name || String(q))).join(', ');
         html += `<div class="diag-inner-panel flex items-center justify-between">
             <div>
-                <div class="font-medium text-sm" style="color:var(--text-primary);">${taskName}</div>
-                <div class="text-xs diag-muted font-mono">Started ${startTime}${queueNames ? ' · ' + queueNames : ''}</div>
+                <div class="font-medium text-sm" style="color:var(--text-primary);">${escapeHtml(taskName)}</div>
+                <div class="text-xs diag-muted font-mono">Started ${startTime}${queueNames ? ' · ' + escapeHtml(queueNames) : ''}</div>
             </div>
             <div class="text-right">
                 <div class="text-sm diag-status-info">Running</div>
@@ -570,7 +570,7 @@ function updateJobHistory(data) {
                 <div class="text-xs diag-muted mt-0.5">${queueInfo.workerType} · ${queueInfo.queue}</div>
             </div>
             <div class="text-right">
-                <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
+                <div class="text-sm ${statusColor}">${statusIcon} ${escapeHtml(task.status)}</div>
             </div>
         </div>`;
     });
