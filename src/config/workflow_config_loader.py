@@ -372,6 +372,41 @@ def _default_agent(provider: str = "", model: str = "", enabled: bool = False) -
     return {"Provider": provider, "Model": model, "Temperature": 0.0, "TopP": 0.9, "Enabled": enabled}
 
 
+# Sub-agents that may be absent from older presets and can be safely defaulted.
+# New sub-agents should be added here so that importing old presets doesn't fail.
+_OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
+    (
+        "RegistryExtract",
+        {
+            "Enabled": False,
+            "Provider": "",
+            "Model": "",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": "", "instructions": ""},
+            "QAEnabled": False,
+            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
+            "QAPrompt": {"prompt": "", "instructions": ""},
+        },
+    ),
+]
+
+
+def _backfill_ui_ordered_sub_agents(ui: dict[str, Any]) -> dict[str, Any]:
+    """Inject defaults for any optional sub-agent sections absent from a UI-ordered preset.
+
+    Called before strict validation so that presets exported before a sub-agent was added
+    can still be imported without error.  The agent is added as disabled (Enabled=False)
+    so it has no effect on existing workflows.
+    """
+    ui = dict(ui)  # shallow copy – don't mutate caller's dict
+    for section, default_block in _OPTIONAL_SUB_AGENT_SECTIONS:
+        if section not in ui:
+            logger.debug("Backfilling missing sub-agent section '%s' with defaults", section)
+            ui[section] = default_block
+    return ui
+
+
 def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
     """Convert UI-ordered export back to v2 for load_workflow_config."""
     th_extra = ui.get("Thresholds") or {}
@@ -619,6 +654,7 @@ def load_workflow_config(raw: dict[str, Any] | Any) -> WorkflowConfigV2:
     if not isinstance(raw, dict):
         raw = _normalize_raw_from_db(raw)
     if is_ui_ordered_preset(raw):
+        raw = _backfill_ui_ordered_sub_agents(raw)
         validate_ui_ordered_preset_strict(raw)
         raw = ui_ordered_to_v2(raw)
     elif _is_legacy_v1_shape(raw):

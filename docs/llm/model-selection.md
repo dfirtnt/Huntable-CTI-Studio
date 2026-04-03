@@ -139,7 +139,7 @@ Test on 30+ diverse articles:
 ### Task Definition
 Extract explicitly stated observables from CTI articles with zero inference or interpretation.
 
-**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtractommand Line, Registry Key, Event Code, KQL Signature, Process Lineage, Network Observable
+**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract
 
 ### Cognitive Requirements
 - Deterministic pattern matching

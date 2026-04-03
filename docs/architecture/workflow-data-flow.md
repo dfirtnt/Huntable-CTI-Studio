@@ -43,18 +43,19 @@ Results are persisted to PostgreSQL in JSONB format:
 
 ### Step 1: Sub-Agent Execution
 
-Each sub-agent (CmdlineExtract, HuntQueriesExtract, ProcTreeExtract) runs and produces results:
+Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract) runs and produces results:
 
 ```python
-# Sub-agents run sequentially (RegExtract, EventCodeExtract, SigExtract deprecated)
+# Sub-agents run sequentially
 subresults = {
     "cmdline": {
         "items": [...],      # Extracted command lines
         "count": 4,
         "raw": {...}         # Full CmdlineExtract output including qa_corrections
     },
-    "hunt_queries": {...},   # or sigma_queries
-    "process_lineage": {...}
+    "process_lineage": {...},
+    "hunt_queries": {...},
+    "registry_artifacts": {...}
 }
 ```
 

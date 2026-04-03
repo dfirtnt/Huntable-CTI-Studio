@@ -118,7 +118,7 @@ For agents that support QA (Step 2: RankAgent; each sub-agent in Step 3):
 
 ## Sub-Agent Accordion (Step 3)
 
-Agents in execution order: CmdlineExtract → ProcTreeExtract → HuntQueriesExtract.
+Agents in execution order: CmdlineExtract → ProcTreeExtract → HuntQueriesExtract → RegistryExtract.
 
 Each sub-agent row is collapsible via `toggleSA(id)`. Body contains:
 - Provider/model/temperature selectors (existing element IDs preserved)
