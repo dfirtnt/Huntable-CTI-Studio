@@ -1683,20 +1683,53 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         state["cmdline_items"] = items
                         state["count"] = len(items)
 
-                    # Store agent result in conversation log
-                    # Include messages and response if available (for eval bundle export)
-                    log_entry = {"agent": agent_name, "items_count": len(items), "result": agent_result}
-                    # Extract LLM call data from result if available
+                    # Store agent result in conversation log.
+                    # _llm_messages / _llm_response are kept in result for eval-bundle fallback
+                    # but are also promoted to top-level as *truncated* copies for the live-view
+                    # SSE stream.  Storing the full article content in both places per agent
+                    # causes the conversation_log JSONB to grow too large, which prevents the
+                    # last agents' message data from being transferred correctly.
+                    _MAX_MSG_CHARS = 3000
+                    _MAX_RESP_CHARS = 2000
+                    log_entry: dict = {"agent": agent_name, "items_count": len(items), "result": agent_result}
                     if isinstance(agent_result, dict):
                         if "_llm_messages" in agent_result:
-                            log_entry["messages"] = agent_result["_llm_messages"]
+                            truncated_msgs = []
+                            for _m in agent_result["_llm_messages"]:
+                                if isinstance(_m, dict):
+                                    _c = _m.get("content", "")
+                                    truncated_msgs.append(
+                                        {**_m, "content": _c[:_MAX_MSG_CHARS] + "…"} if len(_c) > _MAX_MSG_CHARS else _m
+                                    )
+                                else:
+                                    truncated_msgs.append(_m)
+                            log_entry["messages"] = truncated_msgs
                         if "_llm_response" in agent_result:
-                            log_entry["llm_response"] = agent_result["_llm_response"]
+                            _r = agent_result["_llm_response"]
+                            log_entry["llm_response"] = _r[:_MAX_RESP_CHARS] + "…" if len(_r) > _MAX_RESP_CHARS else _r
                         if "_llm_attempt" in agent_result:
                             log_entry["attempt"] = agent_result["_llm_attempt"]
                         if "_attention_preprocessor" in agent_result:
                             log_entry["attention_preprocessor"] = agent_result["_attention_preprocessor"]
                     conversation_log.append(log_entry)
+
+                    # Incremental commit: persist conversation_log after each agent so the
+                    # live-view SSE stream shows agents one-by-one instead of all at once.
+                    if execution:
+                        if execution.error_log is None or not isinstance(execution.error_log, dict):
+                            execution.error_log = {}
+                        _existing_qa = execution.error_log.get("qa_results", {})
+                        execution.error_log["extract_agent"] = {"conversation_log": conversation_log}
+                        if _existing_qa:
+                            execution.error_log["qa_results"] = _existing_qa
+                        from sqlalchemy.orm.attributes import flag_modified
+
+                        flag_modified(execution, "error_log")
+                        db_session.commit()
+                        logger.debug(
+                            f"[Workflow {state['execution_id']}] Incremental commit after {agent_name} "
+                            f"({len(conversation_log)} conversation_log entries)"
+                        )
 
                     # Store QA result if available
                     if qa_enabled and "_qa_result" in agent_result:
