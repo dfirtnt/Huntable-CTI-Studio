@@ -97,6 +97,19 @@ def test_sub_agent_task(
 
         max_qa_retries = config.qa_max_retries if hasattr(config, "qa_max_retries") else 5
 
+        # Resolve per-agent provider, model, temperature, top_p from config
+        agent_provider = agent_models.get(f"{agent_name}_provider", "")
+        agent_model = agent_models.get(f"{agent_name}_model", "")
+        agent_temperature = float(agent_models.get(f"{agent_name}_temperature", 0.0))
+        agent_top_p = agent_models.get(f"{agent_name}_top_p")
+        agent_top_p = float(agent_top_p) if agent_top_p is not None else None
+
+        # QA model override
+        from src.config.workflow_config_schema import BASE_AGENT_TO_QA
+
+        qa_name = BASE_AGENT_TO_QA.get(agent_name, "")
+        qa_model_override = agent_models.get(qa_name) if qa_name else None
+
         from src.services.llm_service import LLMService
 
         llm_service = LLMService(config_models=agent_models)
@@ -111,6 +124,11 @@ def test_sub_agent_task(
                 qa_prompt_config=qa_prompt_config,
                 max_retries=max_qa_retries,
                 execution_id=None,
+                model_name=agent_model or None,
+                temperature=agent_temperature,
+                top_p=agent_top_p,
+                qa_model_override=qa_model_override,
+                provider=agent_provider or None,
             )
 
         result = asyncio.run(_run())
