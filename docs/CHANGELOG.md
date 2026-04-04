@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **RegistryExtract sub-agent** (2026-04-03): New extraction sub-agent for Windows registry artifacts (persistence keys, config changes, defense evasion). Full-stack integration: schema, config pipeline, migration, services, routes, UI templates, presets, eval data, and 36 wiring tests. Split-hive output schema (`registry_hive` + `registry_key_path`) for Sigma `registry_event` compatibility. Includes RegistryQA validation agent.
+- **Registry eval articles** (2026-04-03): 4 eval articles (Xloader v6/v7, Matanbuchus 3.0, ZeroTrace, CrystalX RAT) with expected counts in `config/eval_articles.yaml` and static snapshots in `config/eval_articles_data/registry_artifacts/`.
+
+### Fixed
+- **Test button ignored per-agent provider/model** (2026-04-03): `test_sub_agent_task` called `run_extraction_agent()` without passing `provider`, `model_name`, `temperature`, or `top_p` — every sub-agent's Test button used ExtractAgent's provider instead of the per-agent config.
+- **RegistryExtract missing from `getCurrentModelForAgent`** (2026-04-03): Prompt header showed "Model: Not configured" despite a model being selected.
+- **LMStudio provider detection** (2026-04-03): `loadAgentModels()` hardcoded a 5-agent map; replaced with `getAgentConfigs()`.
+- **Old presets rejected new agent on import** (2026-04-03): Added `_backfill_ui_ordered_sub_agents()` to inject disabled defaults before strict validation.
+- **Live view missing data for sub-agents** (2026-04-03): Added per-agent incremental commits and message truncation (3000/2000 chars).
+- **Langfuse output key mismatch** (2026-04-03): Replaced dead `event_ids`/`registry_keys` with `registry_artifacts` in `llm_service.py`.
+
+### Added
 - **Source-check distributed lock** (2026-04-02): `check_all_sources` Celery task acquires a Redis `SET NX EX` lock on startup (default TTL 90 min, env `SOURCE_CHECK_LOCK_TTL_SECONDS`). Overlapping invocations skip gracefully with `status: skipped` rather than running concurrent DB/scrape storms. Lock is released in a `finally` block with compare-and-delete to prevent a different owner from releasing it.
 - **Healing error detail propagation** (2026-04-02): LLM HTTP, timeout, and generic exceptions in `SourceHealingService._analyze_with_llm` now include an `error_detail` key in the returned dict; `run_healing_round` surfaces this in the `HealingEvent.error_message` when no validation summary is available. The healing history UI distinguishes validation-fetch summaries from plain error messages, showing a `Details:` label and red colouring for the latter.
 - **Score parser patterns 2b/2c** (2026-04-02): `LLMService` score extraction adds `Score: N/10` and generic `N/10` patterns before the tail-scan fallback, improving compatibility with custom ranking prompts.
