@@ -196,6 +196,60 @@ def test_flatten_for_llm_service_keys():
     assert flat["SigmaEmbeddingModel"] == "bert"
 
 
+_MINIMAL_V2_RAW = {
+    "Version": "2.0",
+    "Agents": {
+        "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+    },
+    "Prompts": {
+        "RankAgent": {"prompt": "", "instructions": ""},
+        "RankAgentQA": {"prompt": "", "instructions": ""},
+    },
+}
+
+_LEGACY_RESPONSE_DICT_KEYS = frozenset(
+    {
+        "id",
+        "min_hunt_score",
+        "ranking_threshold",
+        "similarity_threshold",
+        "junk_filter_threshold",
+        "auto_trigger_hunt_score_threshold",
+        "version",
+        "is_active",
+        "description",
+        "agent_prompts",
+        "agent_models",
+        "qa_enabled",
+        "sigma_fallback_enabled",
+        "osdetection_fallback_enabled",
+        "qa_max_retries",
+        "rank_agent_enabled",
+        "cmdline_attention_preprocessor_enabled",
+        "created_at",
+        "updated_at",
+    }
+)
+
+
+@pytest.mark.unit
+@pytest.mark.contract
+def test_to_legacy_response_dict_key_set_is_stable():
+    """to_legacy_response_dict exposes a stable, complete top-level key set.
+
+    Consumers (UI, API routes) rely on every one of these keys being present.
+    A removed or renamed key is a silent breaking change.
+    """
+    config = WorkflowConfigV2.model_validate(_MINIMAL_V2_RAW)
+    legacy = config.to_legacy_response_dict()
+    assert legacy.keys() == _LEGACY_RESPONSE_DICT_KEYS, (
+        f"Key set drift detected.\n"
+        f"  Added:   {legacy.keys() - _LEGACY_RESPONSE_DICT_KEYS}\n"
+        f"  Removed: {_LEGACY_RESPONSE_DICT_KEYS - legacy.keys()}"
+    )
+
+
 def test_example_json_valid():
     """Example v2 JSON file validates."""
     path = Path(__file__).resolve().parent.parent.parent / "config" / "schema" / "workflow_config_v2_example.json"

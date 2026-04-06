@@ -130,17 +130,39 @@ class ContentFetcher:
                         elif hasattr(first_article, "metadata") and first_article.metadata:
                             rss_stats = first_article.metadata.get("rss_parsing_stats", {})
 
-                    response_time = (datetime.now() - start_time).total_seconds()
-
                     if articles:
-                        self._update_stats("rss_successes", len(articles), response_time, True)
+                        merged_articles = articles
+                        method = "rss"
+                        # Optional archive supplement: if explicitly configured, merge RSS with
+                        # archive/page scraping to avoid RSS item-count limits.
+                        if self._should_supplement_with_archive(source):
+                            try:
+                                archive_articles = await self.modern_scraper.scrape_source(source)
+                                if archive_articles:
+                                    merged_articles = self._merge_articles_by_url(articles, archive_articles)
+                                    added_count = len(merged_articles) - len(articles)
+                                    if added_count > 0:
+                                        method = "rss+basic_scraping"
+                                        logger.info(
+                                            "Archive supplement for %s added %s articles (%s RSS + %s archive => %s total)",
+                                            source.name,
+                                            added_count,
+                                            len(articles),
+                                            len(archive_articles),
+                                            len(merged_articles),
+                                        )
+                            except Exception as e:
+                                logger.warning(f"Archive supplement failed for {source.name}: {e}")
+
+                        response_time = (datetime.now() - start_time).total_seconds()
+                        self._update_stats("rss_successes", len(merged_articles), response_time, True)
                         logger.info(
-                            f"RSS fetch successful for {source.name}: {len(articles)} articles (RSS stats: {rss_stats})"
+                            f"RSS fetch successful for {source.name}: {len(merged_articles)} articles (RSS stats: {rss_stats})"
                         )
                         return FetchResult(
                             source=source,
-                            articles=articles,
-                            method="rss",
+                            articles=merged_articles,
+                            method=method,
                             success=True,
                             response_time=response_time,
                             rss_parsing_stats=rss_stats,
@@ -359,6 +381,18 @@ class ContentFetcher:
 
         return False
 
+    def _should_supplement_with_archive(self, source: Source) -> bool:
+        """Check if source should merge RSS results with archive/page scraping."""
+        config = source.config if isinstance(source.config, dict) else {}
+
+        # Handle nested config structure (when loaded from YAML, config may be nested under 'config' key)
+        if isinstance(config, dict) and "config" in config and isinstance(config["config"], dict):
+            config = config["config"]
+
+        archive_pages = config.get("archive_pages", False) if isinstance(config, dict) else False
+        max_archive_pages = config.get("max_archive_pages", 0) if isinstance(config, dict) else 0
+        return bool(archive_pages and (max_archive_pages or 0) > 0)
+
     def _has_modern_config(self, source: Source) -> bool:
         """Check if source has modern scraping configuration."""
         config = source.config
@@ -390,6 +424,28 @@ class ContentFetcher:
 
         logger.debug(f"No modern config found for {source.name}")
         return False
+
+    def _merge_articles_by_url(
+        self, primary: list[ArticleCreate], secondary: list[ArticleCreate]
+    ) -> list[ArticleCreate]:
+        """Merge two article lists while preserving order and deduplicating by canonical URL."""
+        merged: list[ArticleCreate] = []
+        seen_urls: set[str] = set()
+
+        def normalize(url: str | None) -> str:
+            if not url:
+                return ""
+            return str(url).strip().rstrip("/")
+
+        for article in primary + secondary:
+            canonical_url = normalize(getattr(article, "canonical_url", None))
+            if canonical_url and canonical_url in seen_urls:
+                continue
+            if canonical_url:
+                seen_urls.add(canonical_url)
+            merged.append(article)
+
+        return merged
 
     def _update_stats(self, method: str, article_count: int, response_time: float, success: bool):
         """Update internal statistics."""
