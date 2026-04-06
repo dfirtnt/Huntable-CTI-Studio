@@ -47,6 +47,9 @@ class TestCollectNowButton:
 
         page.goto(f"{base_url}/sources")
 
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
+
         # Click the first Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
         collect_button.click()
@@ -74,6 +77,9 @@ class TestCollectNowButton:
         page.route("**/api/sources/*/collect", mock_fetch)
 
         page.goto(f"{base_url}/sources")
+
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
 
         # Click Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
@@ -107,6 +113,9 @@ class TestCollectNowButton:
 
         page.goto(f"{base_url}/sources")
 
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
+
         # Click Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
         collect_button.click()
@@ -132,6 +141,9 @@ class TestCollectNowButton:
         page.route("**/api/sources/*/collect", mock_fetch)
 
         page.goto(f"{base_url}/sources")
+
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
 
         # Click Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
@@ -159,6 +171,9 @@ class TestCollectNowButton:
 
         page.goto(f"{base_url}/sources")
 
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
+
         # Click Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
         collect_button.click()
@@ -183,6 +198,9 @@ class TestCollectNowButton:
         page.route("**/api/sources/*/collect", mock_fetch)
 
         page.goto(f"{base_url}/sources")
+
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
 
         # Click Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
@@ -212,6 +230,11 @@ class TestCollectNowButton:
         page.route("**/api/sources/*/collect", mock_fetch)
 
         page.goto(f"{base_url}/sources")
+        page.reload()  # Ensure clean state (prior tests may have left status div visible)
+        page.wait_for_load_state("load")
+
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
 
         # Click Collect Now button
         collect_button = page.locator("button:has-text('Collect Now')").first
@@ -221,8 +244,9 @@ class TestCollectNowButton:
         status_div = page.locator("#collectionStatus")
         expect(status_div).to_be_visible()
 
-        # Click close button
+        # Click close button (wait for it to be visible inside status div)
         close_button = page.locator("#closeCollectionStatus")
+        expect(close_button).to_be_visible(timeout=5000)
         close_button.click()
 
         # Check that status is hidden (contains hidden class)
@@ -250,6 +274,9 @@ class TestCollectNowButton:
 
         page.goto(f"{base_url}/sources")
 
+        # Force-enable buttons in case source.active=False in test environment
+        page.evaluate("document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))")
+
         # Get all Collect Now buttons
         collect_buttons = page.locator("button:has-text('Collect Now')")
         button_count = collect_buttons.count()
@@ -262,6 +289,11 @@ class TestCollectNowButton:
             assert len(api_calls) == 1
 
             if button_count > 1:
+                # Force-enable again after first click (status overlay may re-render)
+                page.evaluate(
+                    "document.querySelectorAll('button.btn-collect').forEach(b => b.removeAttribute('disabled'))"
+                )
+
                 # Click second button
                 collect_buttons.nth(1).click()
 

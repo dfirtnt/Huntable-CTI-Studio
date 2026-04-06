@@ -60,13 +60,14 @@ class TestArticlesSearchAndFilter:
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
-        # Open help panel
+        # Open help panel (idempotent: only click if currently hidden)
         help_button = page.locator("#search-help-btn")
-        help_button.click()
-        page.wait_for_timeout(300)
+        help_panel = page.locator("#search-help")
+        if not help_panel.is_visible():
+            help_button.click()
+            page.wait_for_timeout(300)
 
         # Verify help content is visible
-        help_panel = page.locator("#search-help")
         expect(help_panel).to_be_visible()
 
         # Verify search syntax examples
@@ -331,7 +332,9 @@ class TestArticlesSorting:
     def test_sort_parameter_preservation_in_url(self, page: Page):
         """Test sort parameter preservation in URL."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc")
+        # Use JS navigation to bypass _UrlAwarePage dedup (which ignores query params)
+        page.goto(f"{base_url}/articles")
+        page.evaluate(f"window.location.href = '{base_url}/articles?sort_by=title&sort_order=asc'")
         page.wait_for_load_state("load")
 
         # Verify sort parameters are preserved
@@ -370,12 +373,12 @@ class TestArticlesSorting:
     def test_sort_reset_functionality(self, page: Page):
         """Test sort reset functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc")
-        page.wait_for_load_state("load")
+        page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc", wait_until="load")
 
-        # Navigate to base URL (resets sort)
-        page.goto(f"{base_url}/articles")
-        page.wait_for_load_state("load")
+        # _UrlAwarePage skips same-path navigations (ignoring query strings), so
+        # use expect_navigation + JS to force the reset to /articles.
+        with page.expect_navigation(wait_until="load"):
+            page.evaluate(f"window.location.href = '{base_url}/articles'")
         _ensure_filters_visible(page)
 
         # Verify sort defaults are applied
@@ -486,8 +489,9 @@ class TestArticlesPagination:
     def test_pagination_empty_state(self, page: Page):
         """Test pagination empty state."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        # Navigate with filter that returns no results
-        page.goto(f"{base_url}/articles?search=nonexistent_article_xyz_12345")
+        # Use JS navigation to bypass _UrlAwarePage dedup (which ignores query params)
+        page.goto(f"{base_url}/articles")
+        page.evaluate(f"window.location.href = '{base_url}/articles?search=nonexistent_article_xyz_12345'")
         page.wait_for_load_state("load")
 
         # Verify empty state message
@@ -550,6 +554,7 @@ class TestArticlesBulkSelection:
         """Test bulk actions toolbar visibility toggle."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
+        page.reload()  # Reset state: prior tests may have left articles selected
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
@@ -573,6 +578,7 @@ class TestArticlesBulkSelection:
         """Test selected count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
+        page.reload()  # Reset state: prior tests may have left articles selected
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
@@ -668,6 +674,7 @@ class TestArticlesBulkSelection:
         """Test bulk selection state persistence."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles")
+        page.reload()  # Reset state: prior tests may have left articles selected
         page.wait_for_timeout(1000)
 
         # Select articles

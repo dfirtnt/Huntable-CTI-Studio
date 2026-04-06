@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **UI test suite correctness** (2026-04-06): Aligned 18 failing Playwright tests with the actual DOM. Key fixes: (1) `test_collect_now_button` — force-enable `disabled` buttons before click (`source.active=False` in test env renders them non-interactive); (2) `test_rag_chat_ui` — corrected loading indicator text (`Searching threat intelligence database`), Send button disabled-state validation, `rows=1` attribute, missing `a[href='/chat']` nav link (lives on `/articles`), and `llm_provider` assertion (`openai` — chat reads provider from `/api/settings`, not localStorage); (3) `test_diagnostics_advanced_ui` / `test_health_checks_advanced_ui` — `to_have_class(re.compile(r"\bhidden\b"))` for multi-class elements; (4) `test_articles_advanced_ui` — `expect_navigation` + JS eval to bypass `_UrlAwarePage` same-path dedup for sort-reset navigation.
+- **UI test class-scope isolation** (2026-04-06): `test_chat_loading_state` and `test_chat_displays_selected_model_name` moved to `fresh_page` (function-scoped) to prevent JS `add_init_script` interceptors and mocked routes from bleeding into subsequent class-scoped tests. Added `.first` to locators that accumulate duplicate matches across class-scoped test sequences.
+
 ### Changed
 - **Documentation trueup** (2026-04-06): Weekly doc audit — added RegistryExtract to sub-agent lists in 3 docs (agents, first-workflow, workflow-data-flow diagram); corrected FeatureFlags inventory in agent-config-schema; fixed "LangFuse" → "Langfuse" casing and 3.x → 4.x version refs across 3 docs; removed Ganymede from available moon names (already used for v5.2.0); removed duplicate note paragraph and StackEdit metadata from workflow-data-flow.
 

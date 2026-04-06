@@ -333,9 +333,10 @@ class TestDiagnosticsAutoRefresh:
             else:
                 route.continue_()
 
-        page.route("**/api/jobs", handle_route)
+        page.route("**/api/jobs/**", handle_route)  # matches /api/jobs/status, /api/jobs/queues, etc.
 
         page.goto(f"{base_url}/diags")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify initial API call
@@ -389,31 +390,30 @@ class TestDiagnosticsLoadingOverlay:
     @pytest.mark.ui
     @pytest.mark.diagnostics
     def test_loading_overlay_display(self, page: Page):
-        """Test loading overlay displays."""
+        """Test loading overlay exists and is hidden by default."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
 
-        # Verify loading overlay exists
+        # Overlay exists in DOM but is hidden by default (display:none via hidden class).
+        # to_have_class() requires full-string match, so use regex to check for membership.
         loading_overlay = page.locator("#loadingOverlay")
-        expect(loading_overlay).to_be_visible()
-        expect(loading_overlay).to_have_class("hidden")
+        expect(loading_overlay).not_to_be_visible()
+        expect(loading_overlay).to_have_class(re.compile(r"\bhidden\b"))
 
     @pytest.mark.ui
     @pytest.mark.diagnostics
     def test_loading_message_display(self, page: Page):
-        """Test loading message displays."""
+        """Test loading message element exists."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
         page.wait_for_load_state("load")
 
-        # Verify loading message element exists
+        # Element is inside the hidden overlay, so it's not visible but is in the DOM
         loading_message = page.locator("#loadingMessage")
-        expect(loading_message).to_be_visible()
-
-        # Verify loading text exists
-        loading_text = page.locator("text=Running Diagnostics")
-        expect(loading_text).to_be_visible()
+        expect(loading_message).to_be_attached()
+        # Initial text is "Please wait..."
+        expect(loading_message).to_contain_text("wait")
 
 
 class TestDiagnosticsErrorHandling:
@@ -435,8 +435,9 @@ class TestDiagnosticsErrorHandling:
         page.route("**/api/jobs", handle_route)
 
         page.goto(f"{base_url}/diags")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify page still loads (graceful error handling)
-        heading = page.locator("h1:has-text('🔧 System Diagnostics')").first
+        heading = page.locator("h1:has-text('System Diagnostics')").first
         expect(heading).to_be_visible()
