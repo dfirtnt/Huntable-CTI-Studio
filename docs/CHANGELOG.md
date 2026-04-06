@@ -205,7 +205,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Preset layout**: Workflow preset JSONs consolidated under `config/presets/AgentConfigs/`. Tracked quickstart presets moved from repo root `presets/` to `config/presets/AgentConfigs/quickstart/`. Private presets (gitignored) go in `config/presets/private/`. Root `presets/` folder removed. `build_baseline_presets.py` now normalizes JSON in `quickstart/` instead of `presets/`. Docs and README updated.
 
 ### Added
-- **LLM provider model catalog refresh at setup and start**: `./setup.sh` and `./start.sh` now run the provider model catalog refresh after services are up so users see the current OpenAI/Anthropic/Gemini model list immediately instead of waiting for the daily 4:00 AM Celery run. Documentation updated (SCRIPTS_AND_USAGE.md, installation.md, configuration.md).
+- **LLM provider model catalog refresh at setup and start**: `./setup.sh` and `./start.sh` now run the provider model catalog refresh after services are up so users see the current OpenAI/Anthropic model list immediately instead of waiting for the daily 4:00 AM Celery run. Documentation updated (SCRIPTS_AND_USAGE.md, installation.md, configuration.md).
 - **Claude Sonnet 4.6** in default and live provider model catalog.
 - **Preset prompt merge**: Script and preset for filling workflow presets from repo prompts
   - `scripts/merge_prompts_into_preset.py` — merges `src/prompts` contents into a preset JSON's `agent_prompts`
@@ -295,7 +295,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PreprocessInvariantError` classified as `infra_failed` in eval_runner, agentic_workflow, langfuse_eval_client
   - Eval bundle unit tests: illegal state positive/negative cases (`test_eval_bundle_service.py`)
 - **Workflow Executions table sorting and filtering** (2026-02-02): Sortable column headers (ID, Article, Status, Current Step, Ranking Score, Created); step filter dropdown; article ID filter with Apply button; API params `sort_by`, `sort_order`, `step`; API and UI tests
-- **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic, gemini)
+- **Cursor rule: Langchain workflow provider-agnostic** (2026-02-02): New rule `.cursor/rules/langchain-workflow-provider-agnostic.mdc` enforcing that workflow/LLM changes work regardless of model/provider (lmstudio, openai, anthropic)
 - **Cursor rule: Agent config test confirmation** (2026-02-02): New rule `.cursor/rules/agent-config-test-confirmation.mdc` requiring explicit user approval before running or creating tests that mutate active agent configs
 - **Cmdline Attention Preprocessor documentation** (2026-02-02): New feature doc and workflow diagram updates
 - **Agent config preset: OS Detection fallback coverage** (2026-02-17): Presets now capture and restore all OS Detection fallback fields
@@ -447,7 +447,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Toggle button with proper ARIA attributes for accessibility
   - Available in both SIGMA queue and workflow execution views
 - **LLM Provider Indicator** (2026-01-14): Added provider indicator badge in enrichment modal header
-  - Displays current LLM provider (OpenAI, Claude, Gemini, LMStudio) with icon
+  - Displays current LLM provider (OpenAI, Claude, LMStudio) with icon
   - Dynamically detects provider from workflow config or settings
   - Updates automatically when modal opens
 - **Rule Validation Feature** (2026-01-14): Added LLM + pySIGMA validation for queued rules
@@ -715,7 +715,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Workflow debug info now returns direct Langfuse trace URLs with host/project metadata to avoid search-only links.
 - Workflow LLM provider enable flags now default to enabled when a key is present, with env fallbacks.
 - Documentation true-up: README and docs index now match current compose services, ports (8001/2024/8888), and LMStudio defaults; Getting Started and Docker Architecture aligned to pgvector Postgres + containerized CLI; port guide updated and run_cli.sh now passes args directly to `python -m src.cli.main`.
-- Settings: hid Gemini workflow provider and API key UI until workflow support is implemented.
+- Settings: hid an unsupported workflow provider and API key UI until support is implemented.
 
 ### Fixed
 - **LMStudio Model Display & RAG Results**: LMStudio responses now report the actual model returned by the API (e.g., DeepSeek variants) and Sigma similarity search uses typed vector bindings to avoid asyncpg syntax errors; vector indexes rebuilt to allow embedding writes and restore RAG retrieval.
@@ -757,7 +757,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Restore operations now work correctly with containerized database
 
 ### Added
-- **Provider Model Catalog Service**: Added `config/provider_model_catalog.json`, `src/services/provider_model_catalog.py`, and `scripts/maintenance/update_provider_model_catalogs.py` to centrally manage OpenAI/Anthropic/Gemini curated model lists with both CLI and API accessors.
+- **Provider Model Catalog Service**: Added `config/provider_model_catalog.json`, `src/services/provider_model_catalog.py`, and `scripts/maintenance/update_provider_model_catalogs.py` to centrally manage OpenAI/Anthropic curated model lists with both CLI and API accessors.
 - **UI Tests for Dashboard Functionality**: Added comprehensive UI tests for dashboard features
   - `test_article_volume_charts_display`: Verifies Article Volume section displays daily and hourly charts with proper canvas dimensions
   - `test_high_score_articles_section_display`: Tests High-Score Articles section shows 10 cards with proper navigation links
@@ -780,7 +780,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added `scripts/ensure_manual_source.py` utility script
 
 ### Changed
-- **Provider Test Buttons Refresh Models**: Settings “Test API Key” buttons now call provider model listings (OpenAI, Anthropic, Gemini), persist refreshed catalogs, and update Workflow dropdowns instantly via `/api/provider-model-catalog` with local caching.
+- **Provider Test Buttons Refresh Models**: Settings “Test API Key” buttons now call provider model listings (OpenAI, Anthropic), persist refreshed catalogs, and update Workflow dropdowns instantly via `/api/provider-model-catalog` with local caching.
 - **Merged Health Checks and Diagnostics Pages**: Combined `/health-checks` and `/diags` into single comprehensive diagnostics page
   - New page at `/diags` includes all job monitoring, health checks, and ingestion analytics
   - Removed redundant `/health-checks` page and route

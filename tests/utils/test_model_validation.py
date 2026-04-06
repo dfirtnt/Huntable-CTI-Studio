@@ -142,7 +142,7 @@ class TestIsValidOpenaiChatModel:
 
     def test_non_openai_pattern_false(self):
         assert is_valid_openai_chat_model("claude-3-opus") is False
-        assert is_valid_openai_chat_model("gemini-1.5-pro") is False
+        assert is_valid_openai_chat_model("llama-3.1-70b") is False
         assert is_valid_openai_chat_model("unknown-model") is False
 
     def test_non_chat_patterns_excluded(self):

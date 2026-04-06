@@ -84,7 +84,7 @@ def test_security_openai_model_allowlist_filters_malicious_ids():
         "javascript:alert(1)",
         "../../etc/passwd",
         "<script>alert(1)</script>",
-        "gemini-2.5-pro",
+        "claude-3-5-sonnet",
     ]
 
     filtered = _filter_openai_models(raw_ids)
@@ -94,7 +94,7 @@ def test_security_openai_model_allowlist_filters_malicious_ids():
     assert "javascript:alert(1)" not in filtered
     assert "../../etc/passwd" not in filtered
     assert "<script>alert(1)</script>" not in filtered
-    assert "gemini-2.5-pro" not in filtered
+    assert "claude-3-5-sonnet" not in filtered
 
 
 @pytest.mark.unit

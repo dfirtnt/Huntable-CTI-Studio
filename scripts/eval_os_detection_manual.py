@@ -2,7 +2,7 @@
 """
 Evaluate OS Detection models against manual test data with human ground truth.
 
-Compares multiple models (Gemini, Sonnet 4.5, Haiku 4.5, ChatGPT4o, ChatGPT5.1, SEC-BERT)
+Compares multiple models (Sonnet 4.5, Haiku 4.5, ChatGPT4o, ChatGPT5.1, SEC-BERT)
 against human classifications.
 """
 
@@ -29,7 +29,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://isc.sans.edu/diary/rss/32484",
         "title": "Microsoft Office Russian Dolls",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -40,7 +39,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.infosecurity-magazine.com/news/akira-ransomware-244m-in-illicit/",
         "title": "Akira Ransomware Haul Surpasses $244M in Illicit Proceeds",
-        "gemini": "Mixed",
         "sonnet_4_5": "Mixed",
         "haiku_4_5": "Mixed",
         "chatgpt4o": "Mixed",
@@ -51,7 +49,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.bleepingcomputer.com/news/security/cisa-warns-of-akira-ransomware-linux-encryptor-targeting-nutanix-vms/",
         "title": "CISA warns of Akira ransomware Linux encryptor targeting Nutanix VMs",
-        "gemini": "Mixed",
         "sonnet_4_5": "Mixed",
         "haiku_4_5": "Mixed",
         "chatgpt4o": "Linux",
@@ -62,7 +59,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://blog.talosintelligence.com/kraken-ransomware-group/",
         "title": "Unleashing the Kraken ransomware group",
-        "gemini": "Mixed",
         "sonnet_4_5": "Mixed",
         "haiku_4_5": "Mixed",
         "chatgpt4o": "Mixed",
@@ -73,7 +69,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://isc.sans.edu/diary/rss/32480",
         "title": "Formbook Delivered Through Multiple Scripts",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "",
@@ -84,7 +79,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://thehackernews.com/2025/11/amazon-uncovers-attacks-exploited-cisco.html",
         "title": "Amazon Uncovers Attacks Exploited Cisco ISE and Citrix NetScaler as Zero-Day Flaws",
-        "gemini": "Other",
         "sonnet_4_5": "Other",
         "haiku_4_5": "Other",
         "chatgpt4o": "Other",
@@ -95,7 +89,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://thehackernews.com/2025/11/whatsapp-malware-maverick-hijacks.html",
         "title": "WhatsApp Malware 'Maverick' Hijacks Browser Sessions to Target Brazil's Biggest Banks",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Other",
@@ -106,7 +99,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://thehackernews.com/2025/11/gootloader-is-back-using-new-font-trick.html",
         "title": "GootLoader Is Back, Using a New Font Trick to Hide Malware on WordPress Sites",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -117,7 +109,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.bleepingcomputer.com/news/security/how-a-cpu-spike-led-to-uncovering-a-ransomhub-ransomware-attack/",
         "title": "How a CPU spike led to uncovering a RansomHub ransomware attack",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -128,7 +119,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://unit42.paloaltonetworks.com/authentication-coercion/",
         "title": "You Thought It Was Over? Authentication Coercion Keeps Evolving",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -139,7 +129,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.recordedfuture.com/research/tag-144s-persistent-grip-on-south-american-organizations",
         "title": "TAG-144's Persistent Grip on South American Organizations",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -150,7 +139,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.security.com/threat-intelligence/ukraine-russia-attacks",
         "title": "Ukrainian organizations still heavily targeted by Russian attacks",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Mixed",
@@ -161,7 +149,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://research.checkpoint.com/2025/under-the-pure-curtain-from-rat-to-builder-to-coder/",
         "title": "Under the Pure Curtain: From RAT to Builder to Coder",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -172,7 +159,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://thedfirreport.com/2025/08/05/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira/",
         "title": "From Bing Search to Ransomware: Bumblebee and AdaptixC2 Deliver Akira",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -183,7 +169,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.picussecurity.com/resource/blog/crypto24-ransomware-uncovered-stealth-persistence-and-enterprise-scale-impact",
         "title": "Crypto24 Ransomware Uncovered: Stealth, Persistence, and Enterprise-Scale Impact",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -194,7 +179,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.recordedfuture.com/blog/september-2025-cve-landscape",
         "title": "September 2025 CVE Landscape",
-        "gemini": "Mixed",
         "sonnet_4_5": "Mixed",
         "haiku_4_5": "Mixed",
         "chatgpt4o": "Other",
@@ -205,7 +189,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://blog.talosintelligence.com/uncovering-qilin-attack-methods-exposed-through-multiple-cases/",
         "title": "Uncovering Qilin attack methods exposed through multiple cases",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Mixed",
@@ -216,7 +199,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.recordedfuture.com/blog/october-2025-cve-landscape",
         "title": "October 2025 CVE Landscape",
-        "gemini": "Mixed",
         "sonnet_4_5": "Mixed",
         "haiku_4_5": "Mixed",
         "chatgpt4o": "Other",
@@ -227,7 +209,6 @@ MANUAL_TEST_DATA = [
     {
         "url": "https://www.elastic.co/security-labs/roningloader",
         "title": "RONINGLOADER: DragonBreath's New Path to PPL Abuse",
-        "gemini": "Windows",
         "sonnet_4_5": "Windows",
         "haiku_4_5": "Windows",
         "chatgpt4o": "Windows",
@@ -379,7 +360,6 @@ async def main():
     # Prepare evaluation data
     evaluation_data = []
     all_predictions = {
-        "gemini": [],
         "sonnet_4_5": [],
         "haiku_4_5": [],
         "chatgpt4o": [],
@@ -401,7 +381,6 @@ async def main():
         secbert_pred = normalize_os_label(secbert_pred)
 
         # Collect all predictions
-        all_predictions["gemini"].append(normalize_os_label(test_item["gemini"]))
         all_predictions["sonnet_4_5"].append(normalize_os_label(test_item["sonnet_4_5"]))
         all_predictions["haiku_4_5"].append(normalize_os_label(test_item["haiku_4_5"]))
         all_predictions["chatgpt4o"].append(normalize_os_label(test_item["chatgpt4o"]))
@@ -416,7 +395,6 @@ async def main():
                 "title": test_item["title"],
                 "ground_truth_os": human_truth,
                 "predictions": {
-                    "gemini": normalize_os_label(test_item["gemini"]),
                     "sonnet_4_5": normalize_os_label(test_item["sonnet_4_5"]),
                     "haiku_4_5": normalize_os_label(test_item["haiku_4_5"]),
                     "chatgpt4o": normalize_os_label(test_item["chatgpt4o"]),
@@ -433,9 +411,8 @@ async def main():
     print("=" * 80)
     print()
 
-    model_names = ["gemini", "sonnet_4_5", "haiku_4_5", "chatgpt4o", "chatgpt5_1", "sec_bert"]
+    model_names = ["sonnet_4_5", "haiku_4_5", "chatgpt4o", "chatgpt5_1", "sec_bert"]
     model_display_names = {
-        "gemini": "Gemini",
         "sonnet_4_5": "Claude Sonnet 4.5",
         "haiku_4_5": "Claude Haiku 4.5",
         "chatgpt4o": "ChatGPT-4o",
@@ -445,11 +422,7 @@ async def main():
 
     metrics = {}
     for model in model_names:
-        if model == "sec_bert":
-            # Use actual SEC-BERT results
-            predictions = all_predictions[model]
-        else:
-            predictions = all_predictions[model]
+        predictions = all_predictions[model]
 
         accuracy = calculate_accuracy(predictions, all_predictions["human"])
         confusion = calculate_confusion_matrix(predictions, all_predictions["human"])
@@ -500,7 +473,7 @@ async def main():
     print()
 
     print(
-        f"{'Article ID':<10} {'Human':<12} {'SEC-BERT':<12} {'Gemini':<12} {'Sonnet 4.5':<12} {'Haiku 4.5':<12} {'GPT-4o':<12} {'GPT-5.1':<12} {'Match':<8}"
+        f"{'Article ID':<10} {'Human':<12} {'SEC-BERT':<12} {'Sonnet 4.5':<12} {'Haiku 4.5':<12} {'GPT-4o':<12} {'GPT-5.1':<12} {'Match':<8}"
     )
     print("-" * 100)
 
@@ -508,21 +481,18 @@ async def main():
         article_id = item["article_id"]
         human = item["ground_truth_os"]
         secbert = item["predictions"]["sec_bert"]
-        gemini = item["predictions"]["gemini"]
         sonnet = item["predictions"]["sonnet_4_5"]
         haiku = item["predictions"]["haiku_4_5"]
         gpt4o = item["predictions"]["chatgpt4o"]
         gpt51 = item["predictions"]["chatgpt5_1"]
 
         # Count matches
-        matches = sum(
-            [secbert == human, gemini == human, sonnet == human, haiku == human, gpt4o == human, gpt51 == human]
-        )
+        matches = sum([secbert == human, sonnet == human, haiku == human, gpt4o == human, gpt51 == human])
 
-        match_str = f"{matches}/6"
+        match_str = f"{matches}/5"
 
         print(
-            f"{article_id:<10} {human:<12} {secbert:<12} {gemini:<12} {sonnet:<12} {haiku:<12} {gpt4o:<12} {gpt51:<12} {match_str:<8}"
+            f"{article_id:<10} {human:<12} {secbert:<12} {sonnet:<12} {haiku:<12} {gpt4o:<12} {gpt51:<12} {match_str:<8}"
         )
 
     # Save results
