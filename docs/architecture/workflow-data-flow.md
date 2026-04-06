@@ -203,8 +203,6 @@ if content_to_use is None:
 
 _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
 
-_Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
-
 **Why memory?**
 - Faster access (no database query)
 - Workflow is sequential (extraction → SIGMA within the same execution)
@@ -247,12 +245,12 @@ API endpoint / workflow trigger
 └─────────────────────────────────────────────────────────────┘
                           │
                           ▼
-    ┌──────────┐  ┌──────────┐  ┌──────────┐
-    │Cmdline   │  │HuntQuery │  │ProcTree  │
-    │Extract   │  │Extract   │  │Extract   │
-    └────┬─────┘  └────┬─────┘  └────┬─────┘
-         │             │             │
-         └─────────────┴─────────────┘
+    ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐
+    │Cmdline   │  │HuntQuery │  │ProcTree  │  │Registry  │
+    │Extract   │  │Extract   │  │Extract   │  │Extract   │
+    └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘
+         │             │             │              │
+         └─────────────┴─────────────┴──────────────┘
                           │
                           ▼
          ┌──────────────────────────────┐
@@ -260,7 +258,8 @@ API endpoint / workflow trigger
          │  {                            │
          │    "cmdline": {...},          │
          │    "hunt_queries": {...},     │
-         │    "process_lineage": {...}   │
+         │    "process_lineage": {...},  │
+         │    "registry_artifacts": {...}│
          │  }                            │
          └──────────────┬─────────────────┘
                         │
@@ -340,9 +339,9 @@ FROM agentic_workflow_executions
 WHERE article_id = 1427;
 ```
 
-## LangFuse Trace Creation and Session Tracking
+## Langfuse Trace Creation and Session Tracking
 
-Every workflow execution creates a LangFuse trace with session tracking for debugging and monitoring.
+Every workflow execution creates a Langfuse trace with session tracking for debugging and monitoring.
 
 ### Trace Lifecycle
 
@@ -353,7 +352,7 @@ Every workflow execution creates a LangFuse trace with session tracking for debu
 
 ### Implementation
 
-The LangFuse integration is implemented in `src/utils/langfuse_client.py` using the LangFuse OpenTelemetry SDK:
+The Langfuse integration is implemented in `src/utils/langfuse_client.py` using the Langfuse OpenTelemetry SDK:
 
 ```python
 from langfuse.types import TraceContext
@@ -373,7 +372,7 @@ span_cm = client.start_as_current_span(
 )
 span = span_cm.__enter__()
 
-# Explicitly associate with session (required in LangFuse 3.x)
+# Explicitly associate with session (required in Langfuse 4.x)
 span.update_trace(session_id=session_id)
 
 # Store trace_id (32 chars) for debug links
@@ -382,12 +381,12 @@ trace_id = span.trace_id
 
 ### Session Association
 
-In LangFuse 3.x with OpenTelemetry, two steps are required to associate a trace with a session:
+In Langfuse 4.x with OpenTelemetry, two steps are required to associate a trace with a session:
 
 1. **Pass session_id in TraceContext**: This provides context during span creation
 2. **Call span.update_trace()**: This explicitly associates the trace with the session
 
-Without the explicit `update_trace()` call, the session view in LangFuse will be empty even though traces exist.
+Without the explicit `update_trace()` call, the session view in Langfuse will be empty even though traces exist.
 
 ### Trace Storage
 
@@ -400,11 +399,11 @@ execution.trace_id = trace_id_value  # 32-char trace ID, not 16-char span ID
 db_session.commit()
 ```
 
-**Important**: Store the `trace_id` (32 characters), not the span `id` (16 characters). The span ID is insufficient for LangFuse trace lookups.
+**Important**: Store the `trace_id` (32 characters), not the span `id` (16 characters). The span ID is insufficient for Langfuse trace lookups.
 
 ### Debug Links
 
-Debug buttons in the UI prefer direct LangFuse trace URLs and fall back to trace search by `session_id` when trace metadata is incomplete:
+Debug buttons in the UI prefer direct Langfuse trace URLs and fall back to trace search by `session_id` when trace metadata is incomplete:
 
 ```python
 # In workflow_executions.py
@@ -443,9 +442,9 @@ User action / automated trigger
 
 **Characteristics:**
 - ✅ **Production ready**: Queues work, scales across workers
-- ✅ **Tracing**: LangFuse traces are emitted when configured
+- ✅ **Tracing**: Langfuse traces are emitted when configured
 - ✅ **Background**: UI gets an immediate acknowledgement
-- ⚠️ **Debugger friendly via LangFuse**: No embedded http debugger, lean on trace views
+- ⚠️ **Debugger friendly via Langfuse**: No embedded http debugger, lean on trace views
 
 **Code references:**
 - `src/services/workflow_trigger_service.py:120-165` (creates execution + dispatches Celery)
@@ -470,7 +469,7 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - ✅ **Immediate feedback**: Synchronous execution
 - ✅ **Isolated**: Only a single agent runs (no Sigma or similarity stages)
 - ⚠️ **No persistence**: Execution records are not written
-- ⚠️ **No LangFuse traces**: Runs in-process, no background worker
+- ⚠️ **No Langfuse traces**: Runs in-process, no background worker
 
 **Code references:**
 - `src/web/routes/workflow_config.py:579-680`
@@ -483,15 +482,15 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 | **Use Case** | Production workflows | Prompt/agent testing |
 | **Execution** | Background async | Synchronous |
 | **Speed** | Fast (queued) | Fastest |
-| **Debugging** | LangFuse trace views | Console logs |
-| **Traces** | Optional (LangFuse) | None |
+| **Debugging** | Langfuse trace views | Console logs |
+| **Traces** | Optional (Langfuse) | None |
 | **Persistence** | Execution DB records | None |
 | **Scope** | Full extraction → Sigma → similarity | Single agent |
 
 ### How to Choose
 
 - **Production runs**: Use the Celery path (article page buttons, automated triggers, retries)
-- **Debugging/replays**: Trigger a retry and inspect the LangFuse trace (the task still runs via Celery)
+- **Debugging/replays**: Trigger a retry and inspect the Langfuse trace (the task still runs via Celery)
 - **Agent/prompt testing**: Use the direct endpoint in the workflow config UI
 
 ## Code References
@@ -506,6 +505,3 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Manual trigger endpoint**: `src/web/routes/workflow_executions.py:1046-1105`
 - **Direct test trigger**: `src/web/routes/workflow_config.py:579-680`
 - **Database model**: `src/database/models.py:536-573` (AgenticWorkflowExecutionTable)
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbNjUyNDE3NjkwXX0=
--->

@@ -17,6 +17,7 @@ The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and 
 - **CmdlineExtract**: Command-line observables with arguments and QA corrections. Optional **Attention Preprocessor** surfaces LOLBAS-aligned snippets earlier in the LLM prompt; toggle in Workflow Config (Cmdline Extract agent). See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 - **HuntQueriesExtract**: Detection queries (EDR queries and SIGMA rules) extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
+- **RegistryExtract**: Windows registry artifacts (persistence keys, config changes, defense evasion). Split-hive output (`registry_hive` + `registry_key_path`) for Sigma `registry_event` compatibility.
 
 Each sub-agent returns `items` and `count`; the supervisor aggregates them into `observables`, `discrete_huntables_count`, and a `content` string that Sigma consumes.
 

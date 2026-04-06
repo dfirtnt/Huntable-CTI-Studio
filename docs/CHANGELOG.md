@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Documentation trueup** (2026-04-06): Weekly doc audit — added RegistryExtract to sub-agent lists in 3 docs (agents, first-workflow, workflow-data-flow diagram); corrected FeatureFlags inventory in agent-config-schema; fixed "LangFuse" → "Langfuse" casing and 3.x → 4.x version refs across 3 docs; removed Ganymede from available moon names (already used for v5.2.0); removed duplicate note paragraph and StackEdit metadata from workflow-data-flow.
+
 ### Added
 - **RegistryExtract sub-agent** (2026-04-03): New extraction sub-agent for Windows registry artifacts (persistence keys, config changes, defense evasion). Full-stack integration: schema, config pipeline, migration, services, routes, UI templates, presets, eval data, and 36 wiring tests. Split-hive output schema (`registry_hive` + `registry_key_path`) for Sigma `registry_event` compatibility. Includes RegistryQA validation agent.
 - **Registry eval articles** (2026-04-03): 4 eval articles (Xloader v6/v7, Matanbuchus 3.0, ZeroTrace, CrystalX RAT) with expected counts in `config/eval_articles.yaml` and static snapshots in `config/eval_articles_data/registry_artifacts/`.

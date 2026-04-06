@@ -9,7 +9,7 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [LangFuse Workflow Debugging](#langfuse-workflow-debugging)
+2. [Langfuse Workflow Debugging](#langfuse-workflow-debugging)
 3. [Test Failure Analysis](#test-failure-analysis)
 4. [Async Test Debugging](#async-test-debugging)
 5. [Test Isolation and Cleanup](#test-isolation-and-cleanup)
@@ -22,18 +22,18 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 
 The Huntable CTI Studio debugging tools provide:
 
-- **LangFuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to LangFuse UI
+- **Langfuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to Langfuse UI
 - **Comprehensive Failure Analysis**: Automatic categorization and analysis of test failures with actionable suggestions
 - **Async Debugging**: Specialized tools for debugging async/await code and event loop issues
 - **Test Isolation**: Enhanced isolation mechanisms to prevent test interference
 - **Performance Profiling**: Detailed performance monitoring and bottleneck identification
 - **Rich Output Formatting**: Timestamped, colorized, and structured test output
 
-## LangFuse Workflow Debugging
+## Langfuse Workflow Debugging
 
 ### Overview
 
-The agentic workflow integrates with LangFuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
+The agentic workflow integrates with Langfuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
 
 !!! warning "Cloud-only support and sensitive trace data"
     Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are not supported by this project.
@@ -66,7 +66,7 @@ Each workflow execution creates:
 
 ### Implementation Details
 
-The LangFuse integration is implemented in `src/utils/langfuse_client.py`:
+The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
 # Create trace with session context
@@ -85,7 +85,7 @@ span_cm = client.start_as_current_span(
 )
 span = span_cm.__enter__()
 
-# Explicitly associate trace with session (required in LangFuse 3.x)
+# Explicitly associate trace with session (required in Langfuse 4.x)
 span.update_trace(session_id=session_id)
 
 # Store trace_id (32 chars) not span id (16 chars)
@@ -94,7 +94,7 @@ trace_id = span.trace_id
 
 ### Key Implementation Points
 
-1. **Session Association**: In LangFuse 3.x with OpenTelemetry, passing `session_id` in `TraceContext` alone is insufficient. An explicit `span.update_trace(session_id=...)` call is required.
+1. **Session Association**: In Langfuse 4.x with OpenTelemetry, passing `session_id` in `TraceContext` alone is insufficient. An explicit `span.update_trace(session_id=...)` call is required.
 
 2. **Trace ID vs Span ID**:
    - **Trace ID**: 32-character identifier (e.g., `62ed1c144abee5401636ea6c5b9b4f7a`)
@@ -134,7 +134,7 @@ When debugging workflow failures:
 
 ### Configuration
 
-LangFuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.
+Langfuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -701,7 +701,7 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [LangFuse Workflow Debugging](#langfuse-workflow-debugging)
+2. [Langfuse Workflow Debugging](#langfuse-workflow-debugging)
 3. [Test Failure Analysis](#test-failure-analysis)
 4. [Async Test Debugging](#async-test-debugging)
 5. [Test Isolation and Cleanup](#test-isolation-and-cleanup)
@@ -714,18 +714,18 @@ This comprehensive guide covers the enhanced debugging capabilities available in
 
 The Huntable CTI Studio debugging tools provide:
 
-- **LangFuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to LangFuse UI
+- **Langfuse Workflow Debugging**: Session-based tracing for agentic workflow executions with direct links to Langfuse UI
 - **Comprehensive Failure Analysis**: Automatic categorization and analysis of test failures with actionable suggestions
 - **Async Debugging**: Specialized tools for debugging async/await code and event loop issues
 - **Test Isolation**: Enhanced isolation mechanisms to prevent test interference
 - **Performance Profiling**: Detailed performance monitoring and bottleneck identification
 - **Rich Output Formatting**: Timestamped, colorized, and structured test output
 
-## LangFuse Workflow Debugging
+## Langfuse Workflow Debugging
 
 ### Overview
 
-The agentic workflow integrates with LangFuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
+The agentic workflow integrates with Langfuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
 
 !!! warning "Cloud-only support and sensitive trace data"
     Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are not supported by this project.
@@ -758,7 +758,7 @@ Each workflow execution creates:
 
 ### Implementation Details
 
-The LangFuse integration is implemented in `src/utils/langfuse_client.py`:
+The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
 # Create trace with session context
@@ -777,7 +777,7 @@ span_cm = client.start_as_current_span(
 )
 span = span_cm.__enter__()
 
-# Explicitly associate trace with session (required in LangFuse 3.x)
+# Explicitly associate trace with session (required in Langfuse 4.x)
 span.update_trace(session_id=session_id)
 
 # Store trace_id (32 chars) not span id (16 chars)
@@ -786,7 +786,7 @@ trace_id = span.trace_id
 
 ### Key Implementation Points
 
-1. **Session Association**: In LangFuse 3.x with OpenTelemetry, passing `session_id` in `TraceContext` alone is insufficient. An explicit `span.update_trace(session_id=...)` call is required.
+1. **Session Association**: In Langfuse 4.x with OpenTelemetry, passing `session_id` in `TraceContext` alone is insufficient. An explicit `span.update_trace(session_id=...)` call is required.
 
 2. **Trace ID vs Span ID**:
    - **Trace ID**: 32-character identifier (e.g., `62ed1c144abee5401636ea6c5b9b4f7a`)
@@ -826,7 +826,7 @@ When debugging workflow failures:
 
 ### Configuration
 
-LangFuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.
+Langfuse configuration can be stored in the Settings UI or provided through environment variables. Settings saved in the UI take precedence over environment variables.
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...

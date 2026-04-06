@@ -158,14 +158,14 @@ python3 scripts/build_baseline_presets.py
 | `CHATGPT_CONTENT_LIMIT` | Max content chars for ChatGPT | `1000000` |
 | `ANTHROPIC_CONTENT_LIMIT` | Max content chars for Anthropic | `1000000` |
 
-### LangFuse Observability
+### Langfuse Observability
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
-| `LANGFUSE_PUBLIC_KEY` | LangFuse public key | Required to enable tracing |
-| `LANGFUSE_SECRET_KEY` | LangFuse secret key | Required to enable tracing |
-| `LANGFUSE_HOST` | LangFuse Cloud host URL | Optional; runtime default is `https://cloud.langfuse.com` |
-| `LANGFUSE_PROJECT_ID` | LangFuse project ID | Optional; improves workflow trace deep links in the UI |
+| `LANGFUSE_PUBLIC_KEY` | Langfuse public key | Required to enable tracing |
+| `LANGFUSE_SECRET_KEY` | Langfuse secret key | Required to enable tracing |
+| `LANGFUSE_HOST` | Langfuse Cloud host URL | Optional; runtime default is `https://cloud.langfuse.com` |
+| `LANGFUSE_PROJECT_ID` | Langfuse project ID | Optional; improves workflow trace deep links in the UI |
 
 Configure Langfuse through environment variables or the Settings UI. Settings stored in the web UI take precedence over the same values in the environment.
 

@@ -78,7 +78,6 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 
 The solar system's named moons provide a rich pool of candidates for future versions:
 
-- **Ganymede** - Largest moon of Jupiter and the solar system; discovered by Galileo Galilei
 - **Io** - Volcanic Jovian moon
 - **Europa** - Jovian moon with subsurface ocean
 - **Titan** - Largest moon of Saturn
