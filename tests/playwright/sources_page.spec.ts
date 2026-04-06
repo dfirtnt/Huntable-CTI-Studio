@@ -390,7 +390,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
     await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
 
     await expect(page.locator('#configLookbackDays')).toHaveAttribute('min', '1');
-    await expect(page.locator('#configLookbackDays')).toHaveAttribute('max', '365');
+    await expect(page.locator('#configLookbackDays')).toHaveAttribute('max', '999');
     await expect(page.locator('#configCheckFrequency')).toHaveAttribute('min', '1');
     await expect(page.locator('#configCheckFrequency')).toHaveAttribute('max', '1440');
     await expect(page.locator('#configMinContentLength')).toHaveAttribute('min', '0');
@@ -488,7 +488,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
 
     await openSourceOverflow(page, source.id);
     await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
-    await page.locator('#configLookbackDays').fill('400');
+    await page.locator('#configLookbackDays').fill('1000');
     await page.locator('#saveSourceConfigBtn').click();
     await page.waitForTimeout(500);
     expect(called).toBeFalsy();
@@ -756,7 +756,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
   });
 
   test('[SOURCES-103] Invalid lookback too high returns 400', async ({ request }) => {
-    const response = await request.put(`${BASE}/api/sources/1/lookback`, { data: { lookback_days: 400 } });
+    const response = await request.put(`${BASE}/api/sources/1/lookback`, { data: { lookback_days: 1000 } });
     expect(response.status()).toBe(400);
   });
 

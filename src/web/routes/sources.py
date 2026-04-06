@@ -16,6 +16,9 @@ from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/sources", tags=["Sources"])
 
+LOOKBACK_MIN_DAYS = 1
+LOOKBACK_MAX_DAYS = 999
+
 
 def _get_collection_method(source) -> str:
     """Determine collection method for a source."""
@@ -191,8 +194,11 @@ async def api_update_source_lookback(source_id: int, request: dict):
             except ValueError as exc:
                 raise HTTPException(status_code=400, detail="lookback_days must be a valid integer") from exc
 
-        if lookback_days < 1 or lookback_days > 365:
-            raise HTTPException(status_code=400, detail="lookback_days must be between 1 and 365")
+        if lookback_days < LOOKBACK_MIN_DAYS or lookback_days > LOOKBACK_MAX_DAYS:
+            raise HTTPException(
+                status_code=400,
+                detail=(f"lookback_days must be between {LOOKBACK_MIN_DAYS} and {LOOKBACK_MAX_DAYS}"),
+            )
 
         source = await async_db_manager.get_source(source_id)
         if not source:

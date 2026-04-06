@@ -572,10 +572,10 @@
                 <div class="mt-4 space-y-6">
                     <div>
                         <label for="configLookbackDays" class="block text-sm font-medium mb-2" style="color:var(--text-secondary);">Lookback Window (days)</label>
-                        <input type="number" id="configLookbackDays" min="1" max="365"
+                        <input type="number" id="configLookbackDays" min="1" max="999"
                                class="w-full bg-panel-0 border rounded-lg px-3 py-2 focus:outline-none focus:ring-1"
                                style="background-color:var(--panel-bg-0); border-color:var(--border-muted); color:var(--text-primary);"
-                               placeholder="Enter days (1-365)">
+                               placeholder="Enter days (1-999)">
                         <p class="mt-1 text-xs" style="color:var(--text-muted-slate);">How many days back this source should look for articles.</p>
                     </div>
                     <div>
@@ -835,7 +835,7 @@ function saveSourceConfig() {
     const days = parseInt(document.getElementById('configLookbackDays').value);
     const checkFrequencyMinutes = parseInt(document.getElementById('configCheckFrequency').value);
     const minLength = parseInt(document.getElementById('configMinContentLength').value);
-    if (!days || days < 1 || days > 365) { showNotification('Please enter a valid number between 1 and 365 days.', 'error'); return; }
+    if (!days || days < 1 || days > 999) { showNotification('Please enter a valid number between 1 and 999 days.', 'error'); return; }
     if (!checkFrequencyMinutes || checkFrequencyMinutes < 1 || checkFrequencyMinutes > 1440) { showNotification('Please enter a valid number between 1 and 1440 minutes.', 'error'); return; }
     if (isNaN(minLength) || minLength < 0) { showNotification('Please enter a valid non-negative number for minimum content length.', 'error'); return; }
     const saveBtn = document.getElementById('saveSourceConfigBtn');

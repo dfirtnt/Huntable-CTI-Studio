@@ -442,7 +442,7 @@ class TestSourceConfigurationModal:
             min_val = lookback_days.get_attribute("min")
             max_val = lookback_days.get_attribute("max")
             assert min_val == "1"
-            assert max_val == "365"
+            assert max_val == "999"
 
             check_frequency = page.locator("#configCheckFrequency")
             min_val = check_frequency.get_attribute("min")

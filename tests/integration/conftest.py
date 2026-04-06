@@ -70,10 +70,11 @@ def _integration_db_url():
     return db_url
 
 
-@pytest_asyncio.fixture(loop_scope="function")
+@pytest_asyncio.fixture
 async def test_database_with_rollback():
-    """Per-test DB session in the test's event loop; rollback for isolation.
-    Function-scoped to avoid 'another operation in progress' and 'Future attached to a different loop'.
+    """Per-test DB session with rollback for isolation.
+    Uses the default session-scoped event loop (asyncio_default_fixture_loop_scope)
+    so teardown runs on the same loop as the asyncpg connection.
     """
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
@@ -89,13 +90,13 @@ async def test_database_with_rollback():
     await engine.dispose()
 
 
-@pytest_asyncio.fixture(loop_scope="function")
+@pytest_asyncio.fixture
 async def test_database_session(test_database_with_rollback):
     """Alias for tests that expect test_database_session (e.g. eval execution)."""
     return test_database_with_rollback
 
 
-@pytest_asyncio.fixture(loop_scope="function")
+@pytest_asyncio.fixture
 async def test_database_manager(test_database_with_rollback):
     """Provide test database manager with transaction rollback.
     Async so it runs in the test's event loop (same as test_database_with_rollback),
@@ -118,7 +119,7 @@ async def test_database_manager(test_database_with_rollback):
     return TestAsyncDatabaseManager(database_url=db_url)
 
 
-@pytest_asyncio.fixture(loop_scope="function")
+@pytest_asyncio.fixture
 async def test_database_manager_real():
     """Real AsyncDatabaseManager (own engine/sessions) for tests that must not share the rollback session.
     Use when the test commits data and needs a separate connection (e.g. annotation persistence).
