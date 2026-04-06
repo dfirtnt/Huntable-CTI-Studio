@@ -328,30 +328,12 @@ class TestLMStudioURLSettings:
     def test_temperature_slider(self, page: Page):
         """Test AI temperature slider."""
         pytest.skip("#aiTemperature removed - settings UI redesigned")
-        expect(temperature_slider).to_be_visible()
-        assert temperature_slider.get_attribute("min") == "0.0"
-        assert temperature_slider.get_attribute("max") == "1.0"
-        assert temperature_slider.get_attribute("step") == "0.1"
-
-        # Verify temperature value display
-        temperature_value = page.locator("#temperatureValue")
-        expect(temperature_value).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_temperature_slider_value_update(self, page: Page):
         """Test temperature slider value updates display."""
         pytest.skip("#aiTemperature removed - settings UI redesigned")
-        temperature_value = page.locator("#temperatureValue")
-        temperature_value.text_content()
-
-        # Change slider value
-        temperature_slider.fill("0.5")
-        page.wait_for_timeout(500)
-
-        # Verify value display updated
-        new_value = temperature_value.text_content()
-        assert new_value == "0.5"
 
     @pytest.mark.ui
     @pytest.mark.settings
@@ -451,165 +433,54 @@ class TestAPIConfiguration:
     def test_api_configuration_section_visibility(self, page: Page):
         """Test API configuration section visibility."""
         pytest.skip("#aiModel removed - API configuration section tests require redesign")
-        expect(api_section).to_be_visible()
-
-        # Verify it's hidden initially (display: none)
-        display_style = api_section.evaluate("el => window.getComputedStyle(el).display")
-        assert display_style == "none"
-
-        # Select OpenAI model (should show API section)
-        ai_model = page.locator("#aiModel")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify section is now visible
-        display_style = api_section.evaluate("el => window.getComputedStyle(el).display")
-        assert display_style != "none"
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_openai_api_key_input(self, page: Page):
         """Test OpenAI API key input."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify OpenAI API key input
-        openai_key = page.locator("#openaiApiKey")
-        expect(openai_key).to_be_visible()
-        expect(openai_key).to_have_attribute("type", "password")
-        expect(openai_key).to_have_attribute("placeholder", "sk-...")
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_openai_api_key_toggle_visibility(self, page: Page):
         """Test OpenAI API key toggle visibility button."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify toggle button exists
-        toggle_btn = page.locator("#toggleApiKey")
-        expect(toggle_btn).to_be_visible()
-
-        # Click toggle
-        openai_key = page.locator("#openaiApiKey")
-        toggle_btn.click()
-        page.wait_for_timeout(200)
-
-        # Verify input type changed to text
-        input_type = openai_key.get_attribute("type")
-        assert input_type == "text"
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_anthropic_api_key_section_visibility(self, page: Page):
         """Test Anthropic API key section visibility."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Find Anthropic section
-        anthropic_section = page.locator("#anthropicApiKeySection")
-        expect(anthropic_section).to_be_visible()
-
-        # Verify it's hidden initially
-        display_style = anthropic_section.evaluate("el => window.getComputedStyle(el).display")
-        assert display_style == "none"
-
-        # Select Anthropic model
-        ai_model.select_option("anthropic")
-        page.wait_for_timeout(500)
-
-        # Verify section is now visible
-        display_style = anthropic_section.evaluate("el => window.getComputedStyle(el).display")
-        assert display_style != "none"
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_anthropic_api_key_toggle_visibility(self, page: Page):
         """Test Anthropic API key toggle visibility button."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("anthropic")
-        page.wait_for_timeout(500)
-
-        # Verify toggle button exists
-        toggle_btn = page.locator("#toggleAnthropicApiKey")
-        expect(toggle_btn).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_langfuse_configuration_section(self, page: Page):
         """Test Langfuse configuration section."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify Langfuse section exists
-        langfuse_section = page.locator("#langfuseApiKeySection")
-        expect(langfuse_section).to_be_visible()
-
-        # Verify Langfuse inputs
-        langfuse_public_key = page.locator("#langfusePublicKey")
-        expect(langfuse_public_key).to_be_visible()
-
-        langfuse_secret_key = page.locator("#langfuseSecretKey")
-        expect(langfuse_secret_key).to_be_visible()
-
-        langfuse_host = page.locator("#langfuseHost")
-        expect(langfuse_host).to_be_visible()
-
-        langfuse_project_id = page.locator("#langfuseProjectId")
-        expect(langfuse_project_id).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_langfuse_toggle_visibility_buttons(self, page: Page):
         """Test Langfuse toggle visibility buttons."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify toggle buttons exist
-        toggle_public = page.locator("#toggleLangfusePublicKey")
-        expect(toggle_public).to_be_visible()
-
-        toggle_secret = page.locator("#toggleLangfuseSecretKey")
-        expect(toggle_secret).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_test_langfuse_connection_button(self, page: Page):
         """Test Langfuse connection test button."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify test button exists
-        test_btn = page.locator("#testLangfuseConnection")
-        expect(test_btn).to_be_visible()
-        expect(test_btn).to_have_text("🧪 Test Langfuse Connection")
-
-        # Verify status span exists
-        test_status = page.locator("#langfuseTestStatus")
-        expect(test_status).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.settings
     def test_test_api_key_button(self, page: Page):
         """Test API key test button."""
         pytest.skip("#aiModel removed - settings UI redesigned")
-        ai_model.select_option("chatgpt")
-        page.wait_for_timeout(500)
-
-        # Verify test button exists
-        test_btn = page.locator("#testApiKey")
-        expect(test_btn).to_be_visible()
-        expect(test_btn).to_have_text("🧪 Test API Key")
-
-        # Verify status span exists
-        api_key_status = page.locator("#apiKeyStatus")
-        expect(api_key_status).to_be_visible()
 
 
 class TestSettingsPersistence:
