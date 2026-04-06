@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Langchain Workflow — Provider-Agnostic Implementation
 
-Changes to the LangGraph workflow and LLM service **must** work regardless of which model/provider is chosen (lmstudio, openai, anthropic, gemini).
+Changes to the LangGraph workflow and LLM service **must** work regardless of which model/provider is chosen (lmstudio, openai, anthropic).
 
 ## Rules
 

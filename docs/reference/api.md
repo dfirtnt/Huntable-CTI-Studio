@@ -82,10 +82,16 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `PUT /api/workflow/config`
 - `GET /api/workflow/config/prompts`
 - `GET /api/workflow/config/prompts/{agent_name}`
-- `PUT /api/workflow/config/prompts/{agent}`
+- `PUT /api/workflow/config/prompts`
+- `GET /api/workflow/config/prompts/{agent_name}/versions`
+- `GET /api/workflow/config/prompts/{agent_name}/by-config-version/{config_version}`
+- `POST /api/workflow/config/prompts/{agent_name}/rollback`
+- `POST /api/workflow/config/prompts/bootstrap`
 - `GET /api/workflow/config/versions` — List config versions with pagination. Query params: `page` (default 1), `limit` (default 20, max 100), `version` (optional, exact integer match). Response: `versions`, `total`, `page`, `total_pages`.
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
+
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, and their QA counterparts (`RankAgentQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`).
 
 The strict configuration contract is defined in `src/config/workflow_config_schema.py`.
 
@@ -94,8 +100,7 @@ The strict configuration contract is defined in `src/config/workflow_config_sche
 - `GET /api/settings/*`
 - `POST /api/test-openai-key`
 - `POST /api/test-anthropic-key`
-- `POST /api/test-gemini-key`
-- `POST /api/test-lmstudio`
+- `POST /api/test-lmstudio-connection`
 
 These endpoints manage runtime settings and provider connectivity.
 
@@ -118,11 +123,25 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 - `GET /sigma-queue` — HTML page for the standalone SIGMA queue (same console as Workflow → Queue; uses `/api/sigma-queue/*` for data).
 - `GET /api/sigma-queue/list` — List queued SIGMA rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/evaluation/*`
 - `GET /api/evaluation-ui/*`
 
-These support Sigma review flows and evaluation tooling.
+#### Subagent Evaluation Endpoints
+
+These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, **RegistryExtract**):
+
+- `GET /api/evaluation/subagent-eval-articles` — List seeded eval articles for a given subagent.
+- `POST /api/evaluation/run-subagent-eval` — Trigger a subagent eval run.
+- `GET /api/evaluation/subagent-eval-results` — Get results for completed subagent eval runs.
+- `GET /api/evaluation/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
+- `DELETE /api/evaluation/subagent-eval-clear-pending` — Clear pending/stuck eval records.
+- `POST /api/evaluation/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
+- `GET /api/evaluation/subagent-eval-aggregate` — Aggregated metrics across all subagent eval runs.
+- `GET /api/evaluation/config-versions-models` — List config versions with model info for each agent.
+
+Route module: `src/web/routes/evaluation_api.py`.
 
 ## Finding The Right Route Module
 
@@ -136,6 +155,7 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - `settings.py`
 - `sigma_queue.py`
 - `models.py`
+- `evaluation_api.py` — subagent eval runs, export bundles, config-version model lookup
 
 ## Verification Guidance
 

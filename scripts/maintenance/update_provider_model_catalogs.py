@@ -57,17 +57,6 @@ def anthropic_filter(model_ids: list[str]) -> list[str]:
     return filter_anthropic_models_latest_only(model_ids)
 
 
-def gemini_filter(model_ids: list[str]) -> list[str]:
-    cleaned = []
-    for mid in model_ids:
-        if not mid:
-            continue
-        normalized = mid.split("/")[-1]
-        if normalized.lower().startswith("gemini"):
-            cleaned.append(normalized)
-    return sorted(set(cleaned))
-
-
 PROVIDERS = [
     ProviderConfig(
         name="openai",
@@ -86,14 +75,6 @@ PROVIDERS = [
             "anthropic-version": "2023-06-01",
         },
         filter_fn=anthropic_filter,
-    ),
-    ProviderConfig(
-        name="gemini",
-        env_var="GEMINI_API_KEY",
-        url="https://generativelanguage.googleapis.com/v1beta/models",
-        headers_builder=lambda _: {"Content-Type": "application/json"},
-        filter_fn=gemini_filter,
-        params_builder=lambda api_key: {"key": api_key},
     ),
 ]
 

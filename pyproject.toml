@@ -269,6 +269,7 @@ markers = [
     "sigma: SIGMA rule enrichment tests",
     "agent_config_mutation: UI tests that mutate agent/workflow/settings config (run eval, save config, save settings)",
     "timeout: Per-test timeout in seconds (from pytest-timeout)",
+    "lmstudio: Tests requiring a running LMStudio instance (skipped automatically when LMStudio is unreachable)",
 ]
 addopts = "-p no:langsmith_plugin --strict-markers --strict-config --verbose --tb=short --alluredir=allure-results -ra --showlocals -W ignore::pydantic.warnings.PydanticDeprecatedSince20"
 console_output_style = "progress"
@@ -281,4 +282,4 @@ filterwarnings = [
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
-asyncio_default_test_loop_scope = "function"
+asyncio_default_test_loop_scope = "session"

@@ -92,6 +92,3 @@ Stack shutdown (optional):
 ```bash
 docker-compose down
 ```
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbNTUyNzE0ODA1XX0=
--->

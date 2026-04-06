@@ -127,8 +127,6 @@ WORKFLOW_PROVIDER_APPSETTING_KEYS = {
     "openai_api_key": "WORKFLOW_OPENAI_API_KEY",
     "anthropic_enabled": "WORKFLOW_ANTHROPIC_ENABLED",
     "anthropic_api_key": "WORKFLOW_ANTHROPIC_API_KEY",
-    "gemini_enabled": "WORKFLOW_GEMINI_ENABLED",
-    "gemini_api_key": "WORKFLOW_GEMINI_API_KEY",
     "lmstudio_enabled": "WORKFLOW_LMSTUDIO_ENABLED",
 }
 
@@ -174,11 +172,6 @@ class LLMService:
             or os.getenv("WORKFLOW_ANTHROPIC_API_KEY")
             or os.getenv("ANTHROPIC_API_KEY")
         )
-        self.gemini_api_key = (
-            workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"])
-            or os.getenv("WORKFLOW_GEMINI_API_KEY")
-            or os.getenv("GEMINI_API_KEY")
-        )
 
         def _enabled(setting_key: str, env_key: str, default: bool) -> bool:
             # AppSettings override, then env flag, else default
@@ -197,11 +190,6 @@ class LLMService:
             "WORKFLOW_ANTHROPIC_ENABLED",
             bool(self.anthropic_api_key),
         )
-        self.workflow_gemini_enabled = _enabled(
-            WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_enabled"],
-            "WORKFLOW_GEMINI_ENABLED",
-            bool(self.gemini_api_key),
-        )
         self.workflow_lmstudio_enabled = _enabled(
             WORKFLOW_PROVIDER_APPSETTING_KEYS["lmstudio_enabled"],
             "WORKFLOW_LMSTUDIO_ENABLED",
@@ -212,7 +200,6 @@ class LLMService:
             "lmstudio": default_model,
             "openai": os.getenv("WORKFLOW_OPENAI_MODEL", "gpt-4o-mini"),
             "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL", "claude-sonnet-4-5"),
-            "gemini": os.getenv("WORKFLOW_GEMINI_MODEL", default_model),
         }
 
         self.provider_rank = self._canonicalize_provider(config_models.get("RankAgent_provider") or "")
@@ -333,8 +320,6 @@ class LLMService:
             return "openai"
         if normalized in {"anthropic", "claude", "claude-sonnet-4-5"}:
             return "anthropic"
-        if normalized in {"gemini", "google-gemini"}:
-            return "gemini"
         if normalized in {"lmstudio", "local", "local_llm", "deepseek"} or not normalized:
             return "lmstudio"
         if normalized == "auto":
@@ -840,8 +825,6 @@ class LLMService:
                     "Save the key in Settings (click Save after entering it) or set "
                     "WORKFLOW_ANTHROPIC_API_KEY or ANTHROPIC_API_KEY in .env and restart workers."
                 )
-        elif provider == "gemini":
-            raise RuntimeError("Google Gemini provider is not yet supported for agentic workflows.")
         elif provider != "lmstudio":
             raise RuntimeError(f"Provider '{provider}' is not supported for agentic workflows.")
 

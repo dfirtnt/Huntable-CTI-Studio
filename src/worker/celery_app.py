@@ -1312,7 +1312,7 @@ def sync_sigma_rules(self, force_reindex=False):
 
 @celery_app.task(bind=True, max_retries=2)
 def update_provider_model_catalogs(self):
-    """Refresh OpenAI/Anthropic/Gemini model lists and write config/provider_model_catalog.json."""
+    """Refresh OpenAI/Anthropic model lists and write config/provider_model_catalog.json."""
     repo_root = Path(__file__).resolve().parents[2]
     script_path = repo_root / "scripts" / "maintenance" / "update_provider_model_catalogs.py"
     if not script_path.exists():

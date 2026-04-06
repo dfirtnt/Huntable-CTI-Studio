@@ -88,7 +88,6 @@ To resolve conflicts, either:
 |----------|---------|----------|
 | `OPENAI_API_KEY` | OpenAI API key | No |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key | No |
-| `GEMINI_API_KEY` | Google Gemini API key | No |
 
 **Keys set during `./setup.sh`**: If you enter OpenAI or Anthropic API keys when prompted by `setup.sh`, they are written to `.env` only. The application uses these values at runtime—**you do not need to enter them again in the Settings page**. The Settings page shows values stored in the database; keys that exist only in `.env` are not displayed there, so the OpenAI/Anthropic fields may appear empty even though the keys are in use. To have keys visible and editable in Settings, add them there; values saved in Settings are stored in the database and take precedence over `.env` for the workflow UI.
 
@@ -98,14 +97,11 @@ To resolve conflicts, either:
 |----------|---------|---------|
 | `WORKFLOW_OPENAI_API_KEY` | OpenAI key for workflows | Falls back to `OPENAI_API_KEY` |
 | `WORKFLOW_ANTHROPIC_API_KEY` | Anthropic key for workflows | Falls back to `ANTHROPIC_API_KEY` |
-| `WORKFLOW_GEMINI_API_KEY` | Gemini key for workflows | Falls back to `GEMINI_API_KEY` |
 | `WORKFLOW_OPENAI_ENABLED` | Enable OpenAI in workflows | DB setting |
 | `WORKFLOW_ANTHROPIC_ENABLED` | Enable Anthropic in workflows | DB setting |
-| `WORKFLOW_GEMINI_ENABLED` | Enable Gemini in workflows | DB setting |
 | `WORKFLOW_LMSTUDIO_ENABLED` | Enable LM Studio in workflows | DB setting |
 | `WORKFLOW_OPENAI_MODEL` | OpenAI model for workflows | — |
 | `WORKFLOW_ANTHROPIC_MODEL` | Anthropic model for workflows | — |
-| `WORKFLOW_GEMINI_MODEL` | Gemini model for workflows | — |
 
 ### LM Studio Configuration
 
@@ -129,18 +125,20 @@ To resolve conflicts, either:
 
 Pre-built workflow config presets with **all agent prompts included** are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent.
 
+Committed quickstart presets (v2 format, always present in repo) are in `config/presets/AgentConfigs/quickstart/`:
+
 | Preset file | Provider | Model | Use when |
 |-------------|----------|--------|----------|
-| `config/presets/AgentConfigs/anthropic-sonnet-4.5.json` | Anthropic | Claude Sonnet 4.5 | You have `ANTHROPIC_API_KEY` and want to use Claude for all agents. |
-| `config/presets/AgentConfigs/chatgpt-4o-mini.json` | OpenAI | gpt-4o-mini | You have `OPENAI_API_KEY` or `CHATGPT_API_KEY` and want 4o-mini for all agents. |
-| `config/presets/AgentConfigs/lmstudio-qwen2.5-8b.json` | LM Studio | Qwen 2.5 8B (local) | You run LM Studio with a model such as Qwen2.5-8B-Instruct and want to use it for all agents. |
+| `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json` | Anthropic | Claude Sonnet 4.6 | You have `ANTHROPIC_API_KEY` and want to use Claude for all agents. |
+| `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json` | OpenAI | gpt-4.1-mini | You have `OPENAI_API_KEY` and want a fast OpenAI model for all agents. |
+| `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json` | LM Studio | Qwen 3 (local) | You run LM Studio with a Qwen3-compatible model and want to use it for all agents. |
 
-Tracked quickstart presets (v2 format) live in `config/presets/AgentConfigs/quickstart/` (e.g. `Quickstart-anthropic-sonnet-4-6.json`, `Quickstart-openai-gpt-4.1-mini.json`, `Quickstart-LMStudio-Qwen3.json`). Load them the same way via **Import from file**.
+Alternatively, you can generate baseline presets (`anthropic-sonnet-4.5.json`, `chatgpt-4o-mini.json`, `lmstudio-qwen2.5-8b.json`) at the top level of `config/presets/AgentConfigs/` by running `python3 scripts/build_baseline_presets.py`. These are not committed to the repo; use the quickstart files above for a fresh install.
 
 **How to load a preset**
 
 1. Open the **Workflow** page in the web UI.
-2. In the workflow config panel, use **Import from file** and choose one of the JSON files above (e.g. `config/presets/AgentConfigs/chatgpt-4o-mini.json`).
+2. In the workflow config panel, use **Import from file** and choose one of the JSON files above (e.g. `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`).
 3. Confirm the import; the active workflow config (thresholds, agent models, and **agent prompts**) will be replaced by the preset. You can then run the workflow or tweak settings.
 
 **Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import from file** to load from it.

@@ -240,7 +240,6 @@ async def api_os_detection_manual_results():
                 "url": test_item["url"],
                 "title": test_item["title"],
                 "human": normalize_os_label(test_item["human"]),
-                "gemini": normalize_os_label(test_item.get("gemini", "")),
                 "sonnet_4_5": normalize_os_label(test_item.get("sonnet_4_5", "")),
                 "haiku_4_5": normalize_os_label(test_item.get("haiku_4_5", "")),
                 "chatgpt4o": normalize_os_label(test_item.get("chatgpt4o", "")),
@@ -299,7 +298,6 @@ async def api_os_detection_manual_results():
         # Calculate accuracies
         accuracies = {}
         model_columns = [
-            "gemini",
             "sonnet_4_5",
             "haiku_4_5",
             "chatgpt4o",

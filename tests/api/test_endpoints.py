@@ -183,7 +183,7 @@ class TestProviderCatalog:
         data = response.json()
         catalog = data.get("catalog", {})
         assert isinstance(catalog, dict)
-        for provider in ("openai", "anthropic", "gemini"):
+        for provider in ("openai", "anthropic"):
             assert provider in catalog
             models = catalog[provider]
             assert isinstance(models, list)

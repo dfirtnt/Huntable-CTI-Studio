@@ -2,13 +2,20 @@ import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://127.0.0.1:8001';
 
+// Map legacy panel IDs to step-section IDs and their model containers.
+const PANEL_INFO: Record<string, { step: string; container: string; label: string }> = {
+  'rank-agent-configs-panel': { step: 's2', container: '#rank-agent-model-container', label: 'Rank Agent' },
+  'extract-agent-panel': { step: 's3', container: '#extract-agent-model-container', label: 'Extract Agent' },
+  'os-detection-panel': { step: 's0', container: '#os-detection-model-container', label: 'OS Detection' },
+  'sigma-agent-panel': { step: 's4', container: '#sigma-agent-model-container', label: 'SIGMA Generator Agent' },
+};
+
 test.describe('Agent Config Restore After Collapse', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/workflow#config`);
     await page.waitForLoadState('networkidle');
     await page.waitForTimeout(2000);
 
-    // Switch to config tab
     await page.evaluate(() => {
       if (typeof switchTab === 'function') {
         switchTab('config');
@@ -16,23 +23,18 @@ test.describe('Agent Config Restore After Collapse', () => {
     });
     await page.waitForTimeout(1000);
 
-    // Wait for config form to be visible
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    await page.waitForTimeout(2000); // Wait for config to fully load
+    await page.waitForTimeout(2000);
   });
 
   test('should render Rank Agent config content after restore when panel was collapsed', async ({ page }) => {
-    const panelId = 'rank-agent-configs-panel';
-    const content = page.locator(`#${panelId}-content`);
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`).first();
-    const container = page.locator('#rank-agent-model-container');
+    const info = PANEL_INFO['rank-agent-configs-panel'];
+    const section = page.locator(`#${info.step}`);
+    const container = page.locator(info.container);
 
-    const isHidden = await content.evaluate(el => el.classList.contains('hidden'));
-    if (isHidden) {
-      await header.scrollIntoViewIfNeeded().catch(() => {});
-      await header.click({ force: true });
-      await page.waitForTimeout(300);
-    }
+    // Open step section
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
+    await page.waitForTimeout(300);
 
     // Manually trigger loadAgentModels to populate containers
     await page.evaluate(async () => {
@@ -40,23 +42,21 @@ test.describe('Agent Config Restore After Collapse', () => {
         await loadAgentModels();
       }
     });
-    await page.waitForTimeout(2000); // Wait for API call and rendering
+    await page.waitForTimeout(2000);
 
-    // Check if container has content (may be empty if API fails, but structure should exist)
     const containerExists = await container.count() > 0;
     expect(containerExists).toBe(true);
 
-    // Now collapse the panel BEFORE checking content
-    await header.click();
+    // Close the step section
+    await page.evaluate((id) => document.getElementById(id)?.classList.remove('open'), info.step);
     await page.waitForTimeout(300);
-    await expect(content).toHaveClass(/hidden/);
+    await expect(section).not.toHaveClass(/open/);
 
     // Verify container still exists in DOM even when hidden
     const containerWhenHidden = await container.evaluate(el => el !== null);
     expect(containerWhenHidden).toBe(true);
 
     // Trigger a config reload (simulating what happens after save)
-    // This is the critical test - can we render to a container in a hidden panel?
     await page.evaluate(async () => {
       if (typeof loadAgentModels === 'function') {
         await loadAgentModels();
@@ -64,173 +64,104 @@ test.describe('Agent Config Restore After Collapse', () => {
     });
     await page.waitForTimeout(2000);
 
-    // Expand the panel again
-    await header.click();
+    // Re-open the step section
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
     await page.waitForTimeout(500);
 
     // Verify content is accessible after expanding
-    await expect(content).toBeVisible();
-    
-    // Wait a bit for content to render
+    await expect(section).toHaveClass(/open/);
+
     await page.waitForTimeout(500);
-    
-    // Check if container has content (even if hidden due to CSS)
-    const containerAfterRestore = page.locator('#rank-agent-model-container');
+    const containerAfterRestore = page.locator(info.container);
     const containerContent = await containerAfterRestore.evaluate(el => el.innerHTML);
-    
-    // The key test: container should have content even after being collapsed and reloaded
-    // This verifies the fix works - content is rendered regardless of panel visibility
     expect(containerContent.length).toBeGreaterThan(0);
-    
-    // Container should exist in DOM
     const containerAfterRestoreExists = await containerAfterRestore.count() > 0;
     expect(containerAfterRestoreExists).toBe(true);
   });
 
   test.skip('should render Extract Agent config content after restore when panel was collapsed', async ({ page }) => {
-    const panelId = 'extract-agent-panel';
-    const content = page.locator(`#${panelId}-content`);
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`).first();
-    const container = page.locator('#extract-agent-model-container');
+    const info = PANEL_INFO['extract-agent-panel'];
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
+    await page.waitForSelector(info.container, { state: 'attached', timeout: 10000 });
+    await page.waitForTimeout(3000);
 
-    const isHidden = await content.evaluate(el => el.classList.contains('hidden'));
-    if (isHidden) {
-      await header.scrollIntoViewIfNeeded().catch(() => {});
-      await header.click({ force: true });
-      await page.waitForTimeout(300);
-    }
-
-    await page.waitForSelector('#extract-agent-model-container', { state: 'attached', timeout: 10000 });
-    await page.waitForTimeout(3000);  // Increased from 2000 to 3000
-
-    // Verify container has content
+    const container = page.locator(info.container);
     const containerContent = await container.evaluate(el => el.innerHTML);
     expect(containerContent.length).toBeGreaterThan(0);
     expect(containerContent).toContain('Extract Agent Model');
 
-    // Collapse the panel
-    await header.click();
+    await page.evaluate((id) => document.getElementById(id)?.classList.remove('open'), info.step);
     await page.waitForTimeout(300);
-    await expect(content).toHaveClass(/hidden/);
 
-    // Trigger config reload
     await page.evaluate(async () => {
-      if (typeof loadAgentModels === 'function') {
-        await loadAgentModels();
-      }
+      if (typeof loadAgentModels === 'function') await loadAgentModels();
     });
-    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for API calls
+    await page.waitForTimeout(2000);
 
-    // Expand the panel again
-    await header.click();
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
     await page.waitForTimeout(500);
 
-    // Verify content is still there
-    await expect(content).toBeVisible();
-    const containerAfterRestore = page.locator('#extract-agent-model-container');
-    await expect(containerAfterRestore).toBeVisible();
-    
+    const containerAfterRestore = page.locator(info.container);
     const contentAfterRestore = await containerAfterRestore.evaluate(el => el.innerHTML);
     expect(contentAfterRestore.length).toBeGreaterThan(0);
     expect(contentAfterRestore).toContain('Extract Agent Model');
   });
 
   test.skip('should render OS Detection Agent config content after restore when panel was collapsed', async ({ page }) => {
-    const panelId = 'os-detection-panel';
-    const content = page.locator(`#${panelId}-content`);
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`).first();
-    const container = page.locator('#os-detection-model-container');
+    const info = PANEL_INFO['os-detection-panel'];
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
+    await page.waitForSelector(info.container, { state: 'attached', timeout: 10000 });
+    await page.waitForTimeout(3000);
 
-    const isHidden = await content.evaluate(el => el.classList.contains('hidden'));
-    if (isHidden) {
-      await header.scrollIntoViewIfNeeded().catch(() => {});
-      await header.click({ force: true });
-      await page.waitForTimeout(300);
-    }
-
-    // Wait for container to exist in DOM
-    await page.waitForSelector('#os-detection-model-container', { state: 'attached', timeout: 10000 });  // Increased from 5000
-    await page.waitForTimeout(3000);  // Increased from 2000 to 3000
-
-    // Verify container has content
+    const container = page.locator(info.container);
     const containerContent = await container.evaluate(el => el.innerHTML);
     expect(containerContent.length).toBeGreaterThan(0);
     expect(containerContent).toContain('OS Detection Agent Model');
 
-    // Collapse the panel
-    await header.click();
+    await page.evaluate((id) => document.getElementById(id)?.classList.remove('open'), info.step);
     await page.waitForTimeout(300);
-    await expect(content).toHaveClass(/hidden/);
 
-    // Trigger config reload
     await page.evaluate(async () => {
-      if (typeof loadAgentModels === 'function') {
-        await loadAgentModels();
-      }
+      if (typeof loadAgentModels === 'function') await loadAgentModels();
     });
-    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for API calls
+    await page.waitForTimeout(2000);
 
-    // Expand the panel again
-    await header.click();
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
     await page.waitForTimeout(500);
 
-    // Verify content is still there
-    await expect(content).toBeVisible();
-    const containerAfterRestore = page.locator('#os-detection-model-container');
-    await expect(containerAfterRestore).toBeVisible();
-    
+    const containerAfterRestore = page.locator(info.container);
     const contentAfterRestore = await containerAfterRestore.evaluate(el => el.innerHTML);
     expect(contentAfterRestore.length).toBeGreaterThan(0);
     expect(contentAfterRestore).toContain('OS Detection Agent Model');
   });
 
   test('should render Sigma Agent config content after restore when panel was collapsed', async ({ page }) => {
-    const panelId = 'sigma-agent-panel';
-    const content = page.locator(`#${panelId}-content`);
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`).first();
-    const container = page.locator('#sigma-agent-model-container');
-
-    const isHidden = await content.evaluate(el => el.classList.contains('hidden'));
-    if (isHidden) {
-      await header.scrollIntoViewIfNeeded().catch(() => {});
-      await header.click({ force: true });
-      await page.waitForTimeout(300);
-    }
-
-    // Wait for container to exist in DOM
-    await page.waitForSelector('#sigma-agent-model-container', { state: 'attached', timeout: 5000 });
+    const info = PANEL_INFO['sigma-agent-panel'];
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
+    await page.waitForSelector(info.container, { state: 'attached', timeout: 5000 });
     await page.waitForTimeout(2000);
 
-    // Verify container has content
+    const container = page.locator(info.container);
     const containerContent = await container.evaluate(el => el.innerHTML);
     expect(containerContent.length).toBeGreaterThan(0);
     expect(containerContent).toContain('SIGMA Generator Agent Model');
 
-    // Collapse the panel
-    await header.click();
+    await page.evaluate((id) => document.getElementById(id)?.classList.remove('open'), info.step);
     await page.waitForTimeout(300);
-    await expect(content).toHaveClass(/hidden/);
 
-    // Trigger config reload
     await page.evaluate(async () => {
-      if (typeof loadAgentModels === 'function') {
-        await loadAgentModels();
-      }
+      if (typeof loadAgentModels === 'function') await loadAgentModels();
     });
-    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for API calls
+    await page.waitForTimeout(2000);
 
-    // Expand the panel again
-    await header.click();
+    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
     await page.waitForTimeout(500);
 
-    // Verify content is still there
-    await expect(content).toBeVisible();
-    const containerAfterRestore = page.locator('#sigma-agent-model-container');
-    await expect(containerAfterRestore).toBeVisible();
-    
+    const section = page.locator(`#${info.step}`);
+    await expect(section).toHaveClass(/open/);
+    const containerAfterRestore = page.locator(info.container);
     const contentAfterRestore = await containerAfterRestore.evaluate(el => el.innerHTML);
     expect(contentAfterRestore.length).toBeGreaterThan(0);
     expect(contentAfterRestore).toContain('SIGMA Generator Agent Model');
   });
 });
-

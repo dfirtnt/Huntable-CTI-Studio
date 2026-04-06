@@ -425,7 +425,7 @@ python3 scripts/maintenance/reset_gold_eval_training_flag.py
 ```
 
 ### `maintenance/update_provider_model_catalogs.py`
-**Purpose**: Fetch latest OpenAI, Anthropic, and Gemini models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns. The catalog is filtered: **OpenAI** — chat-only, latest only (no `-YYYY-MM-DD` dated variants); **Anthropic** — one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5).  
+**Purpose**: Fetch latest OpenAI and Anthropic models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns. The catalog is filtered: **OpenAI** — chat-only, latest only (no `-YYYY-MM-DD` dated variants); **Anthropic** — one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5).  
 **Usage**:
 ```bash
 # Preview only (no write)
@@ -434,7 +434,7 @@ python3 scripts/maintenance/update_provider_model_catalogs.py
 # Write updated catalog to config/provider_model_catalog.json
 python3 scripts/maintenance/update_provider_model_catalogs.py --write
 ```
-**Requirements**: `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` (and optionally `GEMINI_API_KEY`) in environment. Missing keys cause that provider to retain its existing catalog list.
+**Requirements**: `OPENAI_API_KEY` and/or `ANTHROPIC_API_KEY` in environment. Missing keys cause that provider to retain its existing catalog list.
 
 ### When the catalog is refreshed
 - **At setup**: `./setup.sh` runs the refresh after services start so users see the current model list immediately.

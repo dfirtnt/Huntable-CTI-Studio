@@ -2606,7 +2606,6 @@
                             <select id="validateProviderSelect" class="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
                                 <option value="openai">OpenAI</option>
                                 <option value="anthropic">Anthropic</option>
-                                <option value="gemini">Gemini</option>
                                 <option value="lmstudio">LMStudio</option>
                             </select>
                             <select id="validateModelSelect" class="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[150px]">
@@ -3141,8 +3140,7 @@ function __dbgLog(hypothesisId, message, data) {
 const allProviderOptions = [
     { value: 'lmstudio', label: 'LMStudio (Local)' },
     { value: 'openai', label: 'OpenAI (Cloud)' },
-    { value: 'anthropic', label: 'Anthropic Claude (Cloud)' },
-    { value: 'gemini', label: 'Gemini (Cloud)' }
+    { value: 'anthropic', label: 'Anthropic Claude (Cloud)' }
 ];
 
 // Current enabled providers - updated from Settings
@@ -3152,8 +3150,7 @@ let providerOptions = [...allProviderOptions];
 let enabledProviders = {
     lmstudio: true,  // LMStudio always available (local) when enabled
     openai: true,
-    anthropic: true,
-    gemini: true
+    anthropic: true
 };
 
 /** First enabled provider, or '' when none (e.g. LMStudio disabled, no API keys). */
@@ -3181,8 +3178,7 @@ async function loadEnabledProviders() {
         enabledProviders = {
             lmstudio: settings.WORKFLOW_LMSTUDIO_ENABLED === 'true',  // opt-in, default false
             openai: settings.WORKFLOW_OPENAI_ENABLED === 'true',
-            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true',
-            gemini: settings.WORKFLOW_GEMINI_ENABLED === 'true'
+            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true'
         };
         
         // Filter providerOptions based on enabled settings
@@ -12963,8 +12959,7 @@ function initializeValidateDropdowns() {
             modelSelect.innerHTML = '';
             const defaultModels = {
                 'openai': ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-                'anthropic': ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
-                'gemini': ['gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash']
+                'anthropic': ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229']
             };
             
             if (defaultModels[provider]) {
@@ -13922,8 +13917,6 @@ async function loadEnrichProviderModelCatalog() {
                         defaultProvider = 'openai';
                     } else if (settings.WORKFLOW_ANTHROPIC_ENABLED === 'true' && settings.WORKFLOW_ANTHROPIC_API_KEY && enrichProviderCatalog.anthropic) {
                         defaultProvider = 'anthropic';
-                    } else if (settings.WORKFLOW_GEMINI_ENABLED === 'true' && settings.WORKFLOW_GEMINI_API_KEY && enrichProviderCatalog.gemini) {
-                        defaultProvider = 'gemini';
                     }
                     
                     if (defaultProvider) {
@@ -13947,7 +13940,7 @@ function populateEnrichProviderDropdown() {
     
     providerSelect.innerHTML = '<option value="">Select provider...</option>';
     
-    const providers = ['lmstudio', 'openai', 'anthropic', 'gemini'];
+    const providers = ['lmstudio', 'openai', 'anthropic'];
     providers.forEach(provider => {
         // Always show LMStudio, for others check if catalog has models
         if (provider === 'lmstudio') {
@@ -14809,8 +14802,6 @@ async function enrichRule() {
                     apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
                 } else if (selectedProvider === 'anthropic') {
                     apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-                } else if (selectedProvider === 'gemini') {
-                    apiKey = settings.WORKFLOW_GEMINI_API_KEY || settings.GEMINI_API_KEY;
                 }
             }
         } catch (error) {
@@ -14824,8 +14815,6 @@ async function enrichRule() {
                 apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
             } else if (selectedProvider === 'anthropic') {
                 apiKey = settings.anthropicApiKey || settings.workflowAnthropicApiKey;
-            } else if (selectedProvider === 'gemini') {
-                apiKey = settings.geminiApiKey || settings.workflowGeminiApiKey;
             }
         }
         
@@ -14862,7 +14851,7 @@ async function enrichRule() {
         if (selectedProvider !== 'lmstudio' && apiKey) {
             const headerKey = selectedProvider === 'openai' ? 'X-OpenAI-API-Key' :
                              selectedProvider === 'anthropic' ? 'X-Anthropic-API-Key' :
-                             selectedProvider === 'gemini' ? 'X-Gemini-API-Key' : 'X-OpenAI-API-Key';
+                             'X-OpenAI-API-Key';
             headers[headerKey] = apiKey;
         }
         
@@ -15090,8 +15079,6 @@ async function enrichRuleFurther() {
                     apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
                 } else if (selectedProvider === 'anthropic') {
                     apiKey = settings.WORKFLOW_ANTHROPIC_API_KEY || settings.ANTHROPIC_API_KEY;
-                } else if (selectedProvider === 'gemini') {
-                    apiKey = settings.WORKFLOW_GEMINI_API_KEY || settings.GEMINI_API_KEY;
                 }
             }
         } catch (error) {
@@ -15105,8 +15092,6 @@ async function enrichRuleFurther() {
                 apiKey = settings.aiOpenaiApiKey || settings.workflowOpenaiApiKey;
             } else if (selectedProvider === 'anthropic') {
                 apiKey = settings.anthropicApiKey || settings.workflowAnthropicApiKey;
-            } else if (selectedProvider === 'gemini') {
-                apiKey = settings.geminiApiKey || settings.workflowGeminiApiKey;
             }
         }
         
@@ -15146,7 +15131,7 @@ async function enrichRuleFurther() {
         if (selectedProvider !== 'lmstudio' && apiKey) {
             const headerKey = selectedProvider === 'openai' ? 'X-OpenAI-API-Key' :
                              selectedProvider === 'anthropic' ? 'X-Anthropic-API-Key' :
-                             selectedProvider === 'gemini' ? 'X-Gemini-API-Key' : 'X-OpenAI-API-Key';
+                             'X-OpenAI-API-Key';
             headers[headerKey] = apiKey;
         }
         

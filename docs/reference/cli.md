@@ -1,6 +1,6 @@
 # CLI Reference
 
-All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `python -m src.cli.main`. See [Configuration](../getting-started/configuration.md) for environment and [Docker Architecture](../getting-started/installation.md#docker-services) for how the CLI container connects to Postgres and Redis.
+All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `python3 -m src.cli.main`. See [Configuration](../getting-started/configuration.md) for environment and [Docker Architecture](../getting-started/installation.md#docker-services) for how the CLI container connects to Postgres and Redis.
 
 ## Running the CLI
 
@@ -274,7 +274,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `stats` | Show embedding coverage (total, embedded, pending, per-source) |
 | `search` | Semantic search: prompt for query, return similar articles |
 
-**Options (embed embe, no subcommand):**
+**Options (embed embed, no subcommand):**
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -419,7 +419,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `add` | Archive articles (`--article-id` or `--source-id`) |
 | `remove` | Unarchive articles |
 | `list` | List archived articles |
-| `cleanup` | Show archive statisticsrestore` | Restore from a backup of archived articles (advanced) |
+| `cleanup` | Show archive statistics |
 
 **Options (add / remove):**
 
@@ -459,6 +459,3 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `export` | Dump articles to JSON/CSV |
 | `stats` | DB summary (sources, articles, activity) |
 | `archive add/remove/list/cleanup` | Soft-delete, or restore, or clean up articles |
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbODI4NTQ5MTgyXX0=
--->

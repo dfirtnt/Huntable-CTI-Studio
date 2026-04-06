@@ -28,13 +28,12 @@ router = APIRouter(prefix="/api/workflow", tags=["workflow"])
 _PROVIDER_TO_SETTINGS_KEY = {
     "openai": "WORKFLOW_OPENAI_ENABLED",
     "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
-    "gemini": "WORKFLOW_GEMINI_ENABLED",
     "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
 }
 
 
 def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]) -> None:
-    """Enable in Settings any providers referenced in agent_models (openai, anthropic, gemini, lmstudio)."""
+    """Enable in Settings any providers referenced in agent_models (openai, anthropic, lmstudio)."""
     if not agent_models:
         return
     providers = set()
@@ -323,7 +322,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 logger.info(
                     f"Merged agent_models: {merged_agent_models} (update: {config_update.agent_models}, current: {current_config.agent_models if current_config else None}, removed: {list(keys_to_remove)})"
                 )
-                # Auto-enable providers used in preset so any provider (OpenAI, Anthropic, Gemini, LMStudio) works
+                # Auto-enable providers used in preset so any provider (OpenAI, Anthropic, LMStudio) works
                 _enable_providers_from_agent_models(db_session, merged_agent_models)
             elif current_config:
                 merged_agent_models = current_config.agent_models

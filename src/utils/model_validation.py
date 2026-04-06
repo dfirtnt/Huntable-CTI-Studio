@@ -44,7 +44,6 @@ TEMPERATURE_RANGE_BY_PROVIDER: dict[str, tuple[float, float]] = {
     "openai": (0.0, 2.0),
     "anthropic": (0.0, 1.0),
     "lmstudio": (0.0, 2.0),
-    "gemini": (0.0, 2.0),
 }
 DEFAULT_TEMPERATURE_RANGE = (0.0, 2.0)
 
@@ -52,7 +51,7 @@ DEFAULT_TEMPERATURE_RANGE = (0.0, 2.0)
 def clamp_temperature_for_provider(provider: str, temperature: float) -> float:
     """
     Clamp temperature to the provider's valid range.
-    OpenAI: [0, 2]; Anthropic: [0, 1]; LM Studio / Gemini: [0, 2].
+    OpenAI: [0, 2]; Anthropic: [0, 1]; LM Studio: [0, 2].
     Unknown provider: clamp to [0, 2].
     """
     try:

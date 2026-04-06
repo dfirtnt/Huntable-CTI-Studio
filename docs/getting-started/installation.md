@@ -27,7 +27,7 @@ The `start.sh` script will:
 - Run `docker-compose up --build -d`
 - Health-check PostgreSQL, Redis, and the web application
 - Sync SigmaHQ repo and optionally index rules (when LM Studio / embeddings are available)
-- Seed eval articles from config and refresh the **LLM provider model catalog** (OpenAI/Anthropic/Gemini) so workflow model dropdowns show the current list without waiting for the daily Celery run
+- Seed eval articles from config and refresh the **LLM provider model catalog** (OpenAI/Anthropic) so workflow model dropdowns show the current list without waiting for the daily Celery run
 - Build the MkDocs docs site and start the MkDocs server in the background (logs in `logs/mkdocs.log`) when `mkdocs.yml` is present
 
 ## Access Points
@@ -172,7 +172,7 @@ See `configuration.md` for detailed port configuration.
 
 ### CLI Command Errors
 - Use `./run_cli.sh --help` to see current commands
-- Arguments are passed directly to `python -m src.cli.main`
+- Arguments are passed directly to `python3 -m src.cli.main`
 - Check CLI logs: `docker-compose logs cli`
 
 ### Container Won't Start
@@ -185,6 +185,15 @@ See `configuration.md` for detailed port configuration.
 
 **MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
 
+The committed eval article directories cover all four extraction sub-agents:
+
+| Directory | Sub-agent |
+|-----------|-----------|
+| `config/eval_articles_data/cmdline/` | CmdlineExtract |
+| `config/eval_articles_data/process_lineage/` | ProcTreeExtract |
+| `config/eval_articles_data/hunt_queries/` | HuntQueriesExtract |
+| `config/eval_articles_data/registry_artifacts/` | RegistryExtract |
+
 ## Next Steps
 
 - Configure your sources in [`configuration.md`](configuration.md)
@@ -193,4 +202,4 @@ See `configuration.md` for detailed port configuration.
 
 ---
 
-_Last verified: February 23, 2026_
+_Last verified: April 2026_

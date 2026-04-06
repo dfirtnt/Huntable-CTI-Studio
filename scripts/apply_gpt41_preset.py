@@ -3,7 +3,7 @@
 Apply the GPT 4.1 preset to workflow config via API.
 
 Thin wrapper around apply_preset.py for the OpenAI GPT 4.1 preset.
-For other presets (Anthropic, Gemini, LMStudio), use:
+For other presets (Anthropic, LMStudio), use:
   python3 scripts/apply_preset.py <path-to-preset.json>
 
 Usage:

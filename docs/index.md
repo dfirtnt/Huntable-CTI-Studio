@@ -79,7 +79,6 @@ Huntable CTI Studio works with multiple LLM providers:
 
 - OpenAI
 - Anthropic
-- Google Gemini
 - LM Studio
 
 See [Model Selection Guide](llm/model-selection.md) for recommendations.

@@ -45,17 +45,6 @@ def _filter_anthropic_models(model_ids: list[str]) -> list[str]:
     return filter_anthropic_models_latest_only(model_ids)
 
 
-def _filter_gemini_models(model_ids: list[str]) -> list[str]:
-    cleaned = []
-    for model_id in model_ids:
-        if not model_id:
-            continue
-        normalized = model_id.split("/")[-1]
-        if normalized.lower().startswith("gemini"):
-            cleaned.append(normalized)
-    return sorted(set(cleaned))
-
-
 async def _fetch_openai_models(api_key: str) -> list[str]:
     headers = {
         "Authorization": f"Bearer {api_key}",
@@ -104,34 +93,10 @@ async def _fetch_anthropic_models(api_key: str) -> list[str]:
         return []
 
 
-async def _fetch_gemini_models(api_key: str) -> list[str]:
-    params = {"key": api_key}
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                "https://generativelanguage.googleapis.com/v1beta/models", params=params, timeout=20.0
-            )
-        if response.status_code != 200:
-            logger.warning(f"Gemini models API returned {response.status_code}: {response.text[:200]}")
-            return []
-        data = response.json()
-        models = []
-        for item in data.get("models", []):
-            if isinstance(item, dict):
-                name = item.get("name")
-                if name:
-                    models.append(name)
-        return _filter_gemini_models(models)
-    except httpx.HTTPError as exc:
-        logger.warning(f"Failed to fetch Gemini models: {exc}")
-        return []
-
-
 async def _refresh_provider_catalog(provider: str, api_key: str) -> dict[str, list[str]]:
     fetcher_map = {
         "openai": _fetch_openai_models,
         "anthropic": _fetch_anthropic_models,
-        "gemini": _fetch_gemini_models,
     }
     fetcher = fetcher_map.get(provider)
     if not fetcher:
@@ -584,34 +549,6 @@ async def api_test_anthropic_key(request: Request):
     except Exception as e:
         logger.error(f"Anthropic API key test error: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@test_router.post("/test-gemini-key")
-async def api_test_gemini_key(request: Request):
-    """Test Gemini API key validity by listing available models."""
-    try:
-        body = await request.json()
-        api_key = (body.get("api_key") or "").strip()
-        if not api_key:
-            raise HTTPException(status_code=400, detail="API key is required")
-
-        models = await _fetch_gemini_models(api_key)
-        if models:
-            catalog = update_provider_models("gemini", models)
-            return {
-                "valid": True,
-                "message": f"API key is valid. Retrieved {len(models)} models.",
-                "models": models,
-                "catalog": catalog,
-            }
-        raise HTTPException(status_code=400, detail="Unable to fetch Gemini models with provided key")
-    except httpx.HTTPStatusError as exc:
-        raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text) from exc
-    except httpx.TimeoutException as e:
-        raise HTTPException(status_code=408, detail="Request timeout") from e
-    except Exception as exc:
-        logger.error(f"Gemini API key test error: {exc}")
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
 
 
 async def _get_hf_token() -> str | None:

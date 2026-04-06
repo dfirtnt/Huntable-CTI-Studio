@@ -200,15 +200,24 @@ test.describe('Agent Config OS Detection', () => {
   });
 });
 
+const PANEL_STEP_MAP: Record<string, string[]> = {
+  'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
+  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
+  'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
+  'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],
+};
 async function expandPanelIfNeeded(page: any, panelId: string) {
+  const stepIds = PANEL_STEP_MAP[panelId];
+  if (stepIds) {
+    await page.evaluate((ids: string[]) => { ids.forEach(id => document.getElementById(id)?.classList.add('open')); }, stepIds);
+    await page.waitForTimeout(300);
+    return;
+  }
   const content = page.locator(`#${panelId}-content`);
   const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
-
   if (await header.isVisible({ timeout: 2000 }).catch(() => false)) {
     const isHidden = await content.evaluate((el: HTMLElement) => el.classList.contains('hidden')).catch(() => true);
-    if (isHidden) {
-      await header.click();
-      await page.waitForTimeout(300);
-    }
+    if (isHidden) { await header.click(); await page.waitForTimeout(300); }
   }
 }

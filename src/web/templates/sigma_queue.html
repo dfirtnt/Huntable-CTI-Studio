@@ -1098,9 +1098,7 @@ async function updateLLMProviderIndicator() {
                 const settings = data.settings || {};
                 
                 // Check which providers are enabled and have API keys
-                if (settings.WORKFLOW_GEMINI_ENABLED === 'true' && settings.WORKFLOW_GEMINI_API_KEY) {
-                    provider = 'gemini';
-                } else if (settings.WORKFLOW_ANTHROPIC_ENABLED === 'true' && settings.WORKFLOW_ANTHROPIC_API_KEY) {
+                if (settings.WORKFLOW_ANTHROPIC_ENABLED === 'true' && settings.WORKFLOW_ANTHROPIC_API_KEY) {
                     provider = 'anthropic';
                 } else if (settings.WORKFLOW_OPENAI_ENABLED === 'true' && settings.WORKFLOW_OPENAI_API_KEY) {
                     provider = 'openai';
@@ -1112,10 +1110,7 @@ async function updateLLMProviderIndicator() {
         const normalizedProvider = provider.toLowerCase();
         
         // Set display name and icon based on provider
-        if (normalizedProvider.includes('gemini') || normalizedProvider === 'gemini') {
-            providerName = 'Gemini';
-            providerIcon = '💎';
-        } else if (normalizedProvider.includes('anthropic') || normalizedProvider === 'anthropic' || normalizedProvider === 'claude') {
+        if (normalizedProvider.includes('anthropic') || normalizedProvider === 'anthropic' || normalizedProvider === 'claude') {
             providerName = 'Claude';
             providerIcon = '🤖';
         } else if (normalizedProvider.includes('openai') || normalizedProvider === 'openai' || normalizedProvider === 'chatgpt') {
@@ -2114,4 +2109,3 @@ function closeSimilarRulesModal() {
 
 </script>
 {% endblock %}
-

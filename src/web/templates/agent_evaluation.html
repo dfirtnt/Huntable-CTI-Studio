@@ -185,7 +185,6 @@
                         <tr>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">URL</th>
                             <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
-                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Gemini</th>
                             <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sonnet 4.5</th>
                             <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Haiku 4.5</th>
                             <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GPT-4o</th>
@@ -802,7 +801,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Display accuracy summary
             const accuracySummary = document.getElementById('accuracy-summary');
             const modelNames = {
-                'gemini': 'Gemini',
                 'sonnet_4_5': 'Sonnet 4.5',
                 'haiku_4_5': 'Haiku 4.5',
                 'chatgpt4o': 'GPT-4o',
@@ -866,7 +864,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td class="px-3 py-2 text-xs text-gray-900 dark:text-white max-w-xs truncate" title="${row.title}">
                             ${row.title}
                         </td>
-                        <td class="px-3 py-2 text-center text-xs ${getCellClass(row.gemini)}">${getCellContent(row.gemini)}</td>
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.sonnet_4_5)}">${getCellContent(row.sonnet_4_5)}</td>
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.haiku_4_5)}">${getCellContent(row.haiku_4_5)}</td>
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.chatgpt4o)}">${getCellContent(row.chatgpt4o)}</td>
@@ -903,4 +900,3 @@ document.addEventListener('DOMContentLoaded', async () => {
 {% endif %}
 </script>
 {% endblock %}
-

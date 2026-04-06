@@ -33,6 +33,16 @@ async function reloadWorkflowConfig(page: Page) {
   await waitForConfigReady(page);
 }
 
+/** Open a step-section by index (pipeline stages s0-s5). */
+async function openStep(page: Page, n: number) {
+  await page.evaluate((idx) => {
+    if (typeof scrollToStep === 'function') scrollToStep(idx);
+    else if (typeof toggle === 'function') toggle(`s${idx}`);
+  }, n);
+  await page.waitForTimeout(600);
+}
+
+/** Expand a `data-collapsible-panel` sub-panel (prompt / QA panels). */
 async function expandPanel(page: Page, panelId: string) {
   const content = page.locator(`#${panelId}-content`);
   const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
@@ -47,7 +57,8 @@ async function expandPanel(page: Page, panelId: string) {
 }
 
 async function ensureRankAgentPanel(page: Page) {
-  await expandPanel(page, 'rank-agent-configs-panel');
+  // Step 2 = LLM Ranking (rank agent section)
+  await openStep(page, 2);
   await page.waitForSelector('#rank-agent-model-container', { state: 'attached', timeout: 10000 });
 }
 
@@ -108,20 +119,20 @@ test.describe('Workflow Config Persistence', () => {
     const rankingThreshold = page.locator('#rankingThreshold');
     await expect(rankingThreshold).toBeVisible();
     const initialValue = await rankingThreshold.inputValue();
-    const newValue = (parseFloat(initialValue) || 6.0) + 0.5;
+    const newValue = Math.min((parseFloat(initialValue) || 6.0) + 0.5, 10);
 
-    const saveButton = page.locator('#save-config-button');
-    await rankingThreshold.fill(newValue.toString());
-    await rankingThreshold.dispatchEvent('change');
-    await page.waitForTimeout(400);
-    await expect(saveButton).toBeEnabled();
-
-    await Promise.all([
-      page.waitForResponse((resp) =>
-        resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT'
-      ),
-      saveButton.click(),
-    ]);
+    // rankingThreshold is a range input with oninput="autoSaveConfig()".
+    // Changing the value triggers debounced autosave — wait for the PUT response.
+    const savePromise = page.waitForResponse(
+      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
+      { timeout: 15000 }
+    );
+    await rankingThreshold.evaluate((el, val) => {
+      (el as HTMLInputElement).value = val.toString();
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, newValue);
+    await savePromise;
 
     await page.waitForTimeout(500);
     const text = await display.innerText();
@@ -137,41 +148,38 @@ test.describe('Workflow Config Persistence', () => {
     await ensureRankAgentPanel(page);
     const toggle = page.locator('#rank-agent-enabled');
     const initiallyEnabled = await toggle.isChecked();
-    const saveButton = page.locator('#save-config-button');
 
     try {
       if (initiallyEnabled) {
+        // Toggling #rank-agent-enabled triggers autoSaveConfig via onchange
+        const savePromise = page.waitForResponse(
+          (r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
+          { timeout: 15000 }
+        );
         await page.evaluate(() => {
           const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
           if (!input) throw new Error('Rank Agent toggle not found');
           input.checked = false;
           input.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        await page.waitForTimeout(400);
-        await expect(saveButton).toBeEnabled();
-        await Promise.all([
-          page.waitForResponse((r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT'),
-          saveButton.click(),
-        ]);
+        await savePromise;
         await page.waitForTimeout(500);
       }
       const displayText = await page.locator('#configDisplay').innerText();
       expect(displayText).toContain('RankAgentQA');
     } finally {
       if (initiallyEnabled) {
+        const restorePromise = page.waitForResponse(
+          (r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT',
+          { timeout: 15000 }
+        ).catch(() => {});
         await page.evaluate(() => {
           const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
           if (!input) return;
           input.checked = true;
           input.dispatchEvent(new Event('change', { bubbles: true }));
         });
-        await page.waitForTimeout(400);
-        if (await saveButton.isEnabled()) {
-          await Promise.all([
-            page.waitForResponse((r) => r.url().includes('/api/workflow/config') && r.request().method() === 'PUT'),
-            saveButton.click(),
-          ]);
-        }
+        await restorePromise;
       }
     }
   });
@@ -193,44 +201,35 @@ test.describe('Workflow Config Persistence', () => {
     const originalValue = await toggle.isChecked();
 
     try {
+      const savePromise = page.waitForResponse(
+        response => response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',
+        { timeout: 15000 }
+      );
       await page.evaluate(() => {
         const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
         if (!input) throw new Error('Rank Agent toggle not found');
         input.checked = !input.checked;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       });
+      await savePromise;
 
       const expectedValue = !originalValue;
-      const saveButton = page.locator('#save-config-button');
-      await expect(saveButton).toBeEnabled();
-      await Promise.all([
-        page.waitForResponse(response =>
-          response.url().includes('/api/workflow/config') && response.request().method() === 'PUT'
-        ),
-        saveButton.click()
-      ]);
-
       await reloadWorkflowConfig(page);
       await ensureRankAgentPanel(page);
 
       await expect(page.locator('#rank-agent-enabled')).toHaveJSProperty('checked', expectedValue);
     } finally {
+      const restorePromise = page.waitForResponse(
+        response => response.url().includes('/api/workflow/config') && response.request().method() === 'PUT',
+        { timeout: 15000 }
+      ).catch(() => {});
       await page.evaluate((value) => {
         const input = document.getElementById('rank-agent-enabled') as HTMLInputElement | null;
         if (!input) return;
         input.checked = value;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       }, originalValue);
-
-      const saveButton = page.locator('#save-config-button');
-      if (await saveButton.isEnabled()) {
-        await Promise.all([
-          page.waitForResponse(response =>
-            response.url().includes('/api/workflow/config') && response.request().method() === 'PUT'
-          ),
-          saveButton.click()
-        ]);
-      }
+      await restorePromise;
     }
   });
 

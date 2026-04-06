@@ -75,6 +75,15 @@ Common fields:
 - optional `raw`
 - optional error fields when an agent call fails
 
+Known `subresults` keys (one per sub-agent):
+
+| Key | Sub-agent |
+|-----|-----------|
+| `cmdline` | CmdlineExtract |
+| `process_lineage` | ProcTreeExtract |
+| `sigma_queries` | HuntQueriesExtract |
+| `registry_artifacts` | RegistryExtract |
+
 ## Workflow Config V2
 
 The strict workflow config contract is defined by `src/config/workflow_config_schema.py`.

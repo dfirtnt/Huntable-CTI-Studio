@@ -56,8 +56,6 @@ class TestFirstEnabledProvider:
             "WORKFLOW_OPENAI_API_KEY": "",
             "ANTHROPIC_API_KEY": "",
             "WORKFLOW_ANTHROPIC_API_KEY": "",
-            "GEMINI_API_KEY": "",
-            "WORKFLOW_GEMINI_API_KEY": "",
         }
         with patch.dict("os.environ", env_clear, clear=False):
             from fastapi import HTTPException

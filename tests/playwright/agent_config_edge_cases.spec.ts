@@ -144,20 +144,22 @@ test.describe('Agent Config Edge Cases', () => {
     await page.waitForTimeout(1000);
   });
 
-  test('should handle rapid panel toggles without breaking autosave', async ({ page }) => {
+  test('should handle rapid step-section toggles without breaking autosave', async ({ page }) => {
     await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
 
-    const panelToggle = page.locator('#rank-agent-configs-panel-toggle, button[onclick*="rank-agent-configs-panel"]').first();
     const rankingInput = page.locator('#rankingThreshold');
     await rankingInput.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Rapidly toggle panel while changing value
+    // Rapidly toggle step-section (s2 = LLM Ranking) while changing value
     for (let i = 0; i < 3; i++) {
-      await panelToggle.click();
+      await page.evaluate(() => document.getElementById('s2')?.classList.remove('open'));
       await page.waitForTimeout(100);
-      await panelToggle.click();
+      await page.evaluate(() => document.getElementById('s2')?.classList.add('open'));
       await page.waitForTimeout(100);
-      await rankingInput.fill((6.0 + i * 0.1).toString());
+      await rankingInput.evaluate((el, val) => {
+        (el as HTMLInputElement).value = val.toString();
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      }, 6.0 + i * 0.1);
       await page.waitForTimeout(100);
     }
 
@@ -204,15 +206,24 @@ test.describe('Agent Config Edge Cases', () => {
   });
 });
 
+const PANEL_STEP_MAP: Record<string, string[]> = {
+  'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
+  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
+  'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
+  'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],
+};
 async function expandPanelIfNeeded(page: any, panelId: string) {
+  const stepIds = PANEL_STEP_MAP[panelId];
+  if (stepIds) {
+    await page.evaluate((ids: string[]) => { ids.forEach(id => document.getElementById(id)?.classList.add('open')); }, stepIds);
+    await page.waitForTimeout(300);
+    return;
+  }
   const content = page.locator(`#${panelId}-content`);
-  const toggle = page.locator(`#${panelId}-toggle, button[onclick*="${panelId}"]`).first();
-
-  if (await toggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+  const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+  if (await header.isVisible({ timeout: 2000 }).catch(() => false)) {
     const isHidden = await content.evaluate((el: HTMLElement) => el.classList.contains('hidden')).catch(() => true);
-    if (isHidden) {
-      await toggle.click();
-      await page.waitForTimeout(300);
-    }
+    if (isHidden) { await header.click(); await page.waitForTimeout(300); }
   }
 }

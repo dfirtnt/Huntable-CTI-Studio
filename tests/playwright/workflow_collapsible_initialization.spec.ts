@@ -1,6 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://127.0.0.1:8001';
+
+// ── Helpers ──────────────────────────────────────────────────────────
+// The workflow config tab was redesigned into step-sections (s0-s5).
+// `data-collapsible-panel` now only exists on dynamically-rendered
+// prompt / QA-prompt sub-panels inside each step.
+
+/** Open a step-section by index (0-5) and wait for its body to be visible. */
+async function openStep(page: Page, n: number) {
+  await page.evaluate((idx) => {
+    if (typeof scrollToStep === 'function') scrollToStep(idx);
+    else if (typeof toggle === 'function') toggle(`s${idx}`);
+  }, n);
+  await page.waitForTimeout(600);
+}
+
+/** Wait for at least one collapsible prompt panel to appear inside the form. */
+async function waitForPromptPanels(page: Page) {
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-collapsible-panel]').length > 0,
+    { timeout: 15000 }
+  );
+}
+
+/** Return the first collapsible panel header found inside #workflowConfigForm. */
+function firstPromptPanel(page: Page) {
+  return page.locator('#workflowConfigForm [data-collapsible-panel]').first();
+}
 
 test.describe('Workflow Collapsible Panels - Initialization', () => {
   test.beforeEach(async ({ page }) => {
@@ -17,12 +44,16 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
 
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
     await page.waitForTimeout(1000);
+
+    // Open step 0 (OS Detection) so its prompt panel renders
+    await openStep(page, 0);
+    await waitForPromptPanels(page);
   });
 
   test('should initialize panels on page load', async ({ page }) => {
-    // Check that panels have been initialized
-    const panelId = 'other-thresholds-panel';
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+    const header = firstPromptPanel(page);
+    const panelId = await header.getAttribute('data-collapsible-panel');
+    expect(panelId).toBeTruthy();
 
     // Verify initialization marker
     const isInitialized = await header.getAttribute('data-collapsible-initialized');
@@ -37,8 +68,8 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
   });
 
   test('should initialize panels after config reload', async ({ page }) => {
-    const panelId = 'rank-agent-configs-panel';
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+    const header = firstPromptPanel(page);
+    const panelId = await header.getAttribute('data-collapsible-panel');
 
     // Verify initial initialization
     let isInitialized = await header.getAttribute('data-collapsible-initialized');
@@ -52,19 +83,25 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     });
     await page.waitForTimeout(2000);
 
-    // Verify panel still works after reload
-    const content = page.locator(`#${panelId}-content`);
-    await expect(content).toHaveClass(/hidden/);
+    // Re-open the step so prompt panels re-render
+    await openStep(page, 0);
+    await waitForPromptPanels(page);
 
-    await header.click();
-    await page.waitForTimeout(300);
+    // Verify panel still works after reload
+    const newHeader = firstPromptPanel(page);
+    const newPanelId = await newHeader.getAttribute('data-collapsible-panel');
+    const content = page.locator(`#${newPanelId}-content`);
+
+    // Ensure collapsed, then click to expand
+    const isHidden = await content.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (isHidden) {
+      await newHeader.click();
+      await page.waitForTimeout(300);
+    }
     await expect(content).toBeVisible();
   });
 
   test('should initialize panels after tab switch', async ({ page }) => {
-    const panelId = 'other-thresholds-panel';
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
-
     // Switch to executions tab
     await page.evaluate(() => {
       if (typeof switchTab === 'function') {
@@ -81,55 +118,42 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     });
     await page.waitForTimeout(2000);
 
-    // Verify panel still works
-    const content = page.locator(`#${panelId}-content`);
-    await expect(content).toHaveClass(/hidden/);
+    await openStep(page, 0);
+    await waitForPromptPanels(page);
 
-    await header.click();
-    await page.waitForTimeout(300);
+    // Verify panel still works
+    const header = firstPromptPanel(page);
+    const panelId = await header.getAttribute('data-collapsible-panel');
+    const content = page.locator(`#${panelId}-content`);
+
+    const isHidden = await content.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (isHidden) {
+      await header.click();
+      await page.waitForTimeout(300);
+    }
     await expect(content).toBeVisible();
   });
 
   test('should initialize dynamically added prompt panels', async ({ page }) => {
-    // Expand Rank Agent panel to access prompts
-    const rankPanelId = 'rank-agent-configs-panel';
-    const rankHeader = page.locator(`[data-collapsible-panel="${rankPanelId}"]`);
-    const rankContent = page.locator(`#${rankPanelId}-content`);
-    const isHidden = await rankContent.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-    if (isHidden) {
-      await rankHeader.click();
-      await page.waitForTimeout(1000);
-    }
-
-    // Wait for prompts to render
+    // Open step 2 (LLM Ranking) to get RankAgent prompt panel
+    await openStep(page, 2);
     await page.waitForTimeout(2000);
 
-    // Look for dynamically added prompt panels
-    // Prompt panels have IDs like "rank-agent-prompt-container" or similar
-    const promptContainers = page.locator('[id*="prompt-container"], [id*="prompt-panel"]');
-    const count = await promptContainers.count();
+    const promptPanels = page.locator('#workflowConfigForm [data-collapsible-panel$="-prompt-panel"]');
+    const count = await promptPanels.count();
 
     if (count > 0) {
-      // Check if prompt panels are initialized
-      // They should have data-collapsible-panel attribute and be clickable
-      const firstPromptPanel = promptContainers.first();
-      const hasCollapsiblePanel = await firstPromptPanel.getAttribute('data-collapsible-panel');
-      
-      if (hasCollapsiblePanel) {
-        // Verify it's initialized
-        const isInitialized = await firstPromptPanel.getAttribute('data-collapsible-initialized');
-        expect(isInitialized).toBe('true');
-      }
+      const firstPanel = promptPanels.first();
+      const isInitialized = await firstPanel.getAttribute('data-collapsible-initialized');
+      expect(isInitialized).toBe('true');
     } else {
-      // No prompt panels found - may not be loaded yet or not present
-      // This is acceptable, test verifies the initialization mechanism exists
-      test.skip();
+      test.skip(true, 'No prompt panels rendered in current config');
     }
   });
 
   test('should not create duplicate event handlers after re-initialization', async ({ page }) => {
-    const panelId = 'other-thresholds-panel';
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+    const header = firstPromptPanel(page);
+    const panelId = await header.getAttribute('data-collapsible-panel');
     const content = page.locator(`#${panelId}-content`);
 
     // Ensure panel starts collapsed
@@ -147,7 +171,7 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     let isVisible = await content.isVisible();
     expect(isVisible).toBe(true);
 
-    // Manually trigger re-initialization (simulating dynamic content addition)
+    // Manually trigger re-initialization
     await page.evaluate((pid) => {
       const headerEl = document.querySelector(`[data-collapsible-panel="${pid}"]`);
       if (headerEl) {
@@ -162,29 +186,17 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     // Verify panel is still initialized after re-initialization
     const isInitialized = await header.getAttribute('data-collapsible-initialized');
     expect(isInitialized).toBe('true');
-    
-    // Verify panel is still functional after re-initialization
-    // Check that it's still initialized
-    const stillInitialized = await header.getAttribute('data-collapsible-initialized');
-    expect(stillInitialized).toBe('true');
-    
+
     // Verify ARIA attributes are still correct
     const ariaExpanded = await header.getAttribute('aria-expanded');
     expect(ariaExpanded).toBeTruthy();
     expect(['true', 'false']).toContain(ariaExpanded);
-    
-    // Verify panel can still be toggled (test basic functionality)
-    // Get current state
+
+    // Verify panel can still be toggled
     const currentState = await content.isVisible();
-    
-    // Click to toggle
     await header.click();
     await page.waitForTimeout(500);
-    
-    // State should have changed (unless there's a bug)
     const newState = await content.isVisible();
-    // Note: If state doesn't change, it might indicate a bug with re-initialization
-    // For now, we verify the panel is still initialized and has correct ARIA
     expect(typeof newState).toBe('boolean');
   });
 
@@ -196,89 +208,64 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
       testHeader.textContent = 'Test Panel';
       document.body.appendChild(testHeader);
 
-      // Initialize panels (should not throw error for missing content)
       if (typeof initCollapsiblePanels === 'function') {
         initCollapsiblePanels();
       }
     });
 
-    // Should not throw error - initialization should skip missing content
     await page.waitForTimeout(500);
 
-    // Verify page still works
-    const existingPanel = page.locator(`[data-collapsible-panel="other-thresholds-panel"]`);
+    // Should not throw error - existing panels still work
+    const existingPanel = firstPromptPanel(page);
     await expect(existingPanel).toBeVisible();
   });
 
   test('should work with missing toggle element', async ({ page }) => {
-    // Some panels might not have toggle elements
-    // Test that panels still work without toggle
-    const panelId = 'other-thresholds-panel';
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+    const header = firstPromptPanel(page);
+    const panelId = await header.getAttribute('data-collapsible-panel');
     const content = page.locator(`#${panelId}-content`);
 
-    // Panel should still work even if toggle is missing
-    await expect(content).toHaveClass(/hidden/);
-
-    await header.click();
-    await page.waitForTimeout(300);
+    // Ensure collapsed, then click to expand
+    const isHidden = await content.evaluate(el => el.classList.contains('hidden')).catch(() => true);
+    if (isHidden) {
+      await header.click();
+      await page.waitForTimeout(300);
+    }
     await expect(content).toBeVisible();
   });
 
-  test('should allow multiple panels expanded simultaneously', async ({ page }) => {
-    const panel1Id = 'other-thresholds-panel';
-    const panel2Id = 'qa-settings-panel';
-    const panel3Id = 'os-detection-panel';
+  test('should allow multiple step-sections to accordion correctly', async ({ page }) => {
+    // Step sections use accordion behavior — only one open at a time
+    await openStep(page, 0);
+    const s0 = page.locator('#s0');
+    await expect(s0).toHaveClass(/open/);
 
-    const header1 = page.locator(`[data-collapsible-panel="${panel1Id}"]`);
-    const header2 = page.locator(`[data-collapsible-panel="${panel2Id}"]`);
-    const header3 = page.locator(`[data-collapsible-panel="${panel3Id}"]`);
+    await openStep(page, 1);
+    const s1 = page.locator('#s1');
+    await expect(s1).toHaveClass(/open/);
+    // s0 should be closed now
+    await expect(s0).not.toHaveClass(/open/);
 
-    const content1 = page.locator(`#${panel1Id}-content`);
-    const content2 = page.locator(`#${panel2Id}-content`);
-    const content3 = page.locator(`#${panel3Id}-content`);
-
-    // Expand all three panels
-    await header1.click();
-    await page.waitForTimeout(300);
-    await header2.click();
-    await page.waitForTimeout(300);
-    await header3.click();
-    await page.waitForTimeout(300);
-
-    // All should be visible
-    await expect(content1).toBeVisible();
-    await expect(content2).toBeVisible();
-    await expect(content3).toBeVisible();
-
-    // Collapse one - others should remain expanded
-    await header1.click();
-    await page.waitForTimeout(300);
-
-    await expect(content1).toHaveClass(/hidden/);
-    await expect(content2).toBeVisible();
-    await expect(content3).toBeVisible();
+    await openStep(page, 2);
+    const s2 = page.locator('#s2');
+    await expect(s2).toHaveClass(/open/);
+    await expect(s1).not.toHaveClass(/open/);
   });
 
   test('should maintain panel state during form interactions', async ({ page }) => {
-    const panelId = 'other-thresholds-panel';
-    const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
-    const content = page.locator(`#${panelId}-content`);
+    // Open step 1 (Junk Filter) which has the junkFilterThreshold input
+    await openStep(page, 1);
+    const s1 = page.locator('#s1');
+    await expect(s1).toHaveClass(/open/);
 
-    // Expand panel
-    await header.click();
-    await page.waitForTimeout(300);
-    await expect(content).toBeVisible();
-
-    // Interact with form field
     const input = page.locator('#junkFilterThreshold');
     if (await input.isVisible()) {
       await input.fill('0.9');
-      await input.blur();
+      await input.dispatchEvent('input');
       await page.waitForTimeout(500);
 
-      // Panel should still be expanded
-      await expect(content).toBeVisible();
+      // Step should still be open
+      await expect(s1).toHaveClass(/open/);
     }
   });
 });

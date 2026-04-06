@@ -190,6 +190,88 @@ Notes:
 
 ---
 
+## UI Stability Contracts
+
+The Playwright suite and JS `onclick`/`onchange` bindings treat the items below as hard contracts. Renaming or removing any of them silently breaks tests or runtime wiring. **A spec in `docs/superpowers/specs/` must be approved before touching them.**
+
+### Contract-grade DOM IDs
+
+| Group | IDs |
+|---|---|
+| Config form | `#workflowConfigForm`, `#save-config-button` |
+| Tab system | `#tab-config`, `#tab-executions`, `#tab-queue`, `#tab-content-config`, `#tab-content-executions`, `#tab-content-queue` |
+| Pipeline step sections | `#s0`–`#s6` (scrollable root: `#config-content`) |
+| Sub-agent accordion panels | `#sa-cmdline`, `#sa-proctree`, `#sa-huntqueries`, `#sa-registry` |
+| Sub-agent enable toggles | `#toggle-{agentname}-enabled` (e.g. `#toggle-cmdlineextract-enabled`) |
+| Prompt containers (JS-populated) | `#{agentprefix}-agent-prompt-container`, `#{agentprefix}-agent-qa-prompt-container` |
+| Config preset / version modals | `#configPresetListModal`, `#configVersionListModal`, `#configVersionList`, `#configVersionSearch`, `#configVersionPrevBtn`, `#configVersionNextBtn`, `#configVersionPageInfo` |
+| Per-agent model containers | `#{agentprefix}-agent-model-container` (e.g. `#sigma-agent-model-container`, `#os-detection-model-container`) |
+| Step controls | `#junkFilterThreshold`, `#similarityThreshold`, `#sigma-fallback-enabled` |
+
+### Contract-grade JS functions
+
+Changing a signature or removing a function listed here breaks `onclick`/`onchange` bindings in the HTML or inter-file calls without any static error.
+
+| Function | Called from |
+|---|---|
+| `toggle(id)` | Step section headers (`onclick="toggle('s0')"` etc.) |
+| `toggleSA(id)` | Sub-agent accordion headers (`onclick="toggleSA('sa-cmdline')"` etc.) |
+| `scrollToStep(n)` | Rail node clicks |
+| `switchTab(tab)` | Tab nav buttons and cross-tab deep links |
+| `loadConfig()` | Reset button (`onclick="loadConfig()"`) |
+| `autoSaveConfig()` | `onchange` on ~20 config inputs |
+| `autoSaveModelChange()` | `onchange` on provider/model selects |
+| `showConfigPresetList()` | Presets button |
+| `showConfigPresetListForScope(scope)` | Sub-agent Save/Load preset buttons |
+| `showConfigVersionList()` | Versions button |
+| `onAgentProviderChange(agentPrefix)` | Provider select `onchange` for every agent |
+| `handleExtractAgentToggle(agentName)` | Sub-agent enable checkbox `onchange` |
+| `renderAgentPrompts()` | Called by `loadConfig()` to inject prompt panels |
+| `saveAgentPrompt2(agentName)` | Save button inside dynamically rendered prompt panels |
+| `showPromptHistory(agentName)` | History button inside dynamically rendered prompt panels |
+| `testSubAgent(agentName, id)` | Sub-agent test buttons |
+| `testRankAgent(id)`, `testSigmaAgent(id)` | Step 2 / Step 4 test buttons |
+| `promptForArticleId(defaultId)` | Used by all test buttons to prompt for article ID |
+| `pushModal(modalId)` / `popModal()` | Modal stack manager — used across the page |
+
+### agentPrefix token map
+
+The `agentPrefix` string is used as a key in DOM IDs, `onchange` handlers, and API calls. Renaming a prefix requires updating all three simultaneously.
+
+| Agent | agentPrefix |
+|---|---|
+| OS Detection | `osdetectionagent` |
+| LLM Ranking | `rankagent` |
+| ExtractAgent supervisor | `extractagent` |
+| CmdlineExtract | `cmdlineextract` |
+| ProcTreeExtract | `proctreeextract` |
+| HuntQueriesExtract | `huntqueriesextract` |
+| RegistryExtract | `registryextract` |
+| SIGMA Agent | `sigmaagent` |
+| QA variants | `{agentprefix}qa` (e.g. `cmdlineqa`, `rankqa`) |
+
+### CSS variable contracts
+
+All pipeline accent colors are defined in `src/web/static/css/theme-variables.css`. New UI code must reference these variables — no raw hex values.
+
+| Variable | Use |
+|---|---|
+| `--step-0` … `--step-6` | Per-step accent color (border beams, badges, glow) |
+| `--sc` | Scoped alias set per step section (`#s0 { --sc: var(--step-0); }` etc.) — enables uniform child styling without per-step CSS repetition |
+| `--panel-bg-*` | Background layer stack for nested panels |
+
+### What requires a spec before code changes
+
+- Renaming or removing any contract-grade DOM ID or JS function above
+- Changing an `agentPrefix` token
+- Adding or removing a pipeline step (extending/shrinking the `s0`–`s6` / `sa-*` namespace)
+- Changing the `toggle()` / `toggleSA()` open-state model (CSS class, ID format, or no-op guard logic)
+- Changing the modal stack protocol (`pushModal` / `popModal`)
+
+Changes within a step's content (labels, layout, new controls) do not require a spec — only the structural anchors above are frozen.
+
+---
+
 ## User Request Playbooks (Agent-Ready)
 
 - **Mutating work** (writes, `sync-sources`, disabling sources): get explicit user confirmation first; state what will change.

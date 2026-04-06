@@ -899,7 +899,7 @@ class EnrichmentPresetTable(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False, index=True)
     description = Column(Text, nullable=True)
-    provider = Column(String(50), nullable=False)  # openai, anthropic, gemini, lmstudio
+    provider = Column(String(50), nullable=False)  # openai, anthropic, lmstudio
     model = Column(String(255), nullable=False)
     system_prompt = Column(Text, nullable=False)
     user_instruction = Column(Text, nullable=True)

@@ -7,7 +7,7 @@ Steps:
 2. Enable WORKFLOW_*_ENABLED in Settings for those providers
 3. Convert preset to legacy, PUT to /api/workflow/config
 
-Supports OpenAI, Anthropic, Gemini, LMStudio presets.
+Supports OpenAI, Anthropic, and LMStudio presets.
 
 Usage:
   python3 scripts/apply_preset.py [PRESET_PATH] [--base-url http://localhost:8001]
@@ -33,7 +33,6 @@ DEFAULT_PRESET = (
 _PROVIDER_TO_SETTINGS_KEY = {
     "openai": "WORKFLOW_OPENAI_ENABLED",
     "anthropic": "WORKFLOW_ANTHROPIC_ENABLED",
-    "gemini": "WORKFLOW_GEMINI_ENABLED",
     "lmstudio": "WORKFLOW_LMSTUDIO_ENABLED",
 }
 
@@ -147,7 +146,7 @@ def main() -> int:
         agent_models = legacy.get("agent_models") or {}
         providers = extract_providers_from_agent_models(agent_models)
         if not providers:
-            print("   Warning: No known providers in preset (openai, anthropic, gemini, lmstudio)")
+            print("   Warning: No known providers in preset (openai, anthropic, lmstudio)")
         else:
             print(f"   Providers in preset: {', '.join(sorted(providers))}")
 

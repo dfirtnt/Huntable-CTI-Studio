@@ -19,7 +19,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 - **LangGraph**: Orchestrates the 7-step agentic workflow (state machine, conditional branching, checkpointing)
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source auto-healing**: LLM-powered diagnostics (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) automatically repair failing sources
-- **Multi-model AI**: OpenAI, Anthropic, Gemini, LM Studio
+- **Multi-model AI**: OpenAI, Anthropic, LM Studio
 
 ## Agentic Workflow
 

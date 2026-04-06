@@ -240,8 +240,10 @@ test.describe('Executions table - View button', () => {
     }
 
     const color = await viewButton.evaluate((el) => window.getComputedStyle(el).color);
-    // text-blue-600 = rgb(37, 99, 235), dark:text-blue-400 = rgb(96, 165, 250)
-    const isBlue = color.includes('96, 165, 250') || color.includes('37, 99, 235') || color.includes('96 165 250') || color.includes('37 99 235');
+    // --action-info = #3b82f6 = rgb(59, 130, 246) (blue-500), also check blue-400/600
+    const isBlue = color.includes('59, 130, 246') || color.includes('59 130 246') ||
+                   color.includes('96, 165, 250') || color.includes('37, 99, 235') ||
+                   color.includes('96 165 250') || color.includes('37 99 235');
     expect(isBlue).toBe(true);
   });
 });

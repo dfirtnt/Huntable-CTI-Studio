@@ -56,12 +56,17 @@ def _run_task(agent_name: str, agent_models: dict, qa_enabled: dict | None = Non
     ):
         from src.worker.tasks.test_agents import test_sub_agent_task
 
-        # Call the underlying function, not via Celery dispatch
-        result = test_sub_agent_task(
-            MagicMock(),  # self (Celery task instance)
-            agent_name=agent_name,
-            article_id=1916,
-        )
+        # tests/worker/conftest.py mocks celery with a passthrough `task`
+        # decorator ONLY if the real `celery` package hasn't been imported
+        # yet. In full-suite runs, earlier tests import real Celery, so
+        # `test_sub_agent_task` is a real Task instance. For a real bound
+        # Task, `.run` is already a bound method (self auto-injected) and
+        # expects `(agent_name, article_id, ...)`. For the mocked passthrough,
+        # `test_sub_agent_task` is the raw function needing a manual `self`.
+        if hasattr(test_sub_agent_task, "app"):  # real Celery Task instance
+            result = test_sub_agent_task.run(agent_name, 1916)
+        else:  # passthrough-mocked: raw function with `self` first param
+            result = test_sub_agent_task(MagicMock(), agent_name, 1916)
 
     assert mock_run.call_count == 1
     return mock_run.call_args

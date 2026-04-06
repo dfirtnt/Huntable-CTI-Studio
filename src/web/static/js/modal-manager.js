@@ -112,7 +112,7 @@
         }
         if (!btn) {
             const buttons = modal.querySelectorAll('button');
-            const primaryTexts = ['save', 'submit', 'ok', 'confirm', 'apply', 'trigger', 'run'];
+            const primaryTexts = ['save', 'submit', 'ok', 'confirm', 'apply', 'trigger', 'run', 'execute'];
             for (const b of buttons) {
                 const text = (b.textContent || '').trim().toLowerCase();
                 if (primaryTexts.some(t => text.includes(t))) {

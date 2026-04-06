@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+# Re-exec with the project venv Python if the current interpreter is too old.
+# This block uses only Python 2/3-compatible syntax so even /usr/bin/python3 (3.9)
+# can parse and execute it before reaching any 3.10+ union-type annotations below.
+import os as _os  # noqa: E401
+import sys as _sys
+
+_venv_py = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), ".venv", "bin", "python3")
+if _sys.version_info < (3, 10) and _os.path.exists(_venv_py):
+    _os.execv(_venv_py, [_venv_py] + _sys.argv)
+del _os, _sys, _venv_py
+
 """
 CTI Scraper Unified Test Runner
 

@@ -39,9 +39,12 @@ test.describe('Agent Config Error Handling', () => {
 
     const newValue = '7.0';
 
-    // Change should not throw error or break UI
-    await input.fill(newValue);
-    await input.blur();
+    // Range inputs need evaluate() + dispatchEvent to trigger oninput handler
+    await input.evaluate((el, val) => {
+      (el as HTMLInputElement).value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, newValue);
 
     // Wait for error to be logged (but UI should remain functional)
     await page.waitForTimeout(1000);
@@ -69,9 +72,12 @@ test.describe('Agent Config Error Handling', () => {
 
     const newValue = '7.5';
 
-    // Change should not break UI
-    await input.fill(newValue);
-    await input.blur();
+    // Range input: use evaluate
+    await input.evaluate((el, val) => {
+      (el as HTMLInputElement).value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, newValue);
 
     await page.waitForTimeout(1000);
 
@@ -100,9 +106,12 @@ test.describe('Agent Config Error Handling', () => {
 
     const newValue = '8.0';
 
-    // Change should not break UI
-    await input.fill(newValue);
-    await input.blur();
+    // Range input: use evaluate
+    await input.evaluate((el, val) => {
+      (el as HTMLInputElement).value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }, newValue);
 
     await page.waitForTimeout(1000);
 
@@ -126,10 +135,16 @@ test.describe('Agent Config Error Handling', () => {
       }
     });
 
-    // Make rapid changes to different fields
-    await rankingInput.fill('7.0');
+    // Make rapid changes to different fields — use evaluate for range inputs
+    await rankingInput.evaluate((el, val) => {
+      (el as HTMLInputElement).value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, '7.0');
     await page.waitForTimeout(100);
-    await junkFilterInput.fill('0.85');
+    await junkFilterInput.evaluate((el, val) => {
+      (el as HTMLInputElement).value = val;
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }, '0.85');
     await page.waitForTimeout(100);
 
     // Wait for debounce to complete
@@ -156,10 +171,13 @@ test.describe('Agent Config Error Handling', () => {
     const input = page.locator('#rankingThreshold');
     await input.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Make multiple changes
+    // Make multiple changes — use evaluate for range input
     for (let i = 0; i < 3; i++) {
-      await input.fill((6.0 + i * 0.5).toString());
-      await input.blur();
+      await input.evaluate((el, val) => {
+        (el as HTMLInputElement).value = val.toString();
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }, 6.0 + i * 0.5);
       await page.waitForTimeout(500);
     }
 
@@ -170,15 +188,24 @@ test.describe('Agent Config Error Handling', () => {
   });
 });
 
+const PANEL_STEP_MAP: Record<string, string[]> = {
+  'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
+  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
+  'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
+  'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],
+};
 async function expandPanelIfNeeded(page: any, panelId: string) {
+  const stepIds = PANEL_STEP_MAP[panelId];
+  if (stepIds) {
+    await page.evaluate((ids: string[]) => { ids.forEach(id => document.getElementById(id)?.classList.add('open')); }, stepIds);
+    await page.waitForTimeout(300);
+    return;
+  }
   const content = page.locator(`#${panelId}-content`);
-  const toggle = page.locator(`#${panelId}-toggle, button[onclick*="${panelId}"]`).first();
-
-  if (await toggle.isVisible({ timeout: 2000 }).catch(() => false)) {
+  const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
+  if (await header.isVisible({ timeout: 2000 }).catch(() => false)) {
     const isHidden = await content.evaluate((el: HTMLElement) => el.classList.contains('hidden')).catch(() => true);
-    if (isHidden) {
-      await toggle.click();
-      await page.waitForTimeout(300);
-    }
+    if (isHidden) { await header.click(); await page.waitForTimeout(300); }
   }
 }

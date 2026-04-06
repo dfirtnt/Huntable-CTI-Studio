@@ -2,6 +2,10 @@ import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
+// The toolbar trigger was renamed from "Restore by version" to "🔄 Versions"
+// (workflow.html:2154). We select by onclick handler for stability.
+const RESTORE_BTN_SELECTOR = 'button[onclick="showConfigVersionList()"]';
+
 test.describe('Workflow config Restore by version', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/workflow#config`);
@@ -11,7 +15,7 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Restore by version button is visible and opens modal', async ({ page }) => {
-    const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     await expect(restoreBtn).toBeVisible({ timeout: 5000 });
     await restoreBtn.click();
     const modal = page.locator('#configVersionListModal');
@@ -20,7 +24,7 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Search input and Search button are visible in modal', async ({ page }) => {
-    const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     await restoreBtn.click();
     await expect(page.locator('#configVersionListModal')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#configVersionSearch')).toBeVisible();
@@ -28,7 +32,7 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Search by version triggers API request with version param', async ({ page }) => {
-    const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const initialResponsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
@@ -51,7 +55,7 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Pagination footer shows when more than 20 versions', async ({ page }) => {
-    const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
@@ -75,7 +79,7 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Version list loads from API and shows at least placeholder or versions', async ({ page }) => {
-    const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
@@ -91,7 +95,7 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Load version populates form and closes modal', async ({ page }) => {
-    const restoreBtn = page.locator('button:has-text("Restore by version")');
+    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }

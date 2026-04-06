@@ -26,7 +26,6 @@ class TestLoadCatalog:
             out = load_catalog()
         assert "openai" in out
         assert "anthropic" in out
-        assert "gemini" in out
         # OpenAI: no dated variants
         for m in out["openai"]:
             assert "-2024-" not in m and "-2025-" not in m

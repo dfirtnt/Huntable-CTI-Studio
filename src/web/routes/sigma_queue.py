@@ -86,7 +86,6 @@ def _first_enabled_provider(db_session) -> str:
     for prov, app_key in [
         ("openai", WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"]),
         ("anthropic", WORKFLOW_PROVIDER_APPSETTING_KEYS["anthropic_api_key"]),
-        ("gemini", WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]),
     ]:
         val = settings.get(app_key)
         api_key = (
@@ -97,8 +96,6 @@ def _first_enabled_provider(db_session) -> str:
                 if prov == "openai"
                 else os.getenv("ANTHROPIC_API_KEY")
                 if prov == "anthropic"
-                else os.getenv("GEMINI_API_KEY")
-                if prov == "gemini"
                 else None
             )
         )
@@ -106,7 +103,7 @@ def _first_enabled_provider(db_session) -> str:
             return prov
     raise HTTPException(
         status_code=400,
-        detail="No LLM provider configured. Enable LMStudio (WORKFLOW_LMSTUDIO_ENABLED=true) or set API keys for OpenAI/Anthropic/Gemini in Settings.",
+        detail="No LLM provider configured. Enable LMStudio (WORKFLOW_LMSTUDIO_ENABLED=true) or set API keys for OpenAI/Anthropic in Settings.",
     )
 
 
@@ -126,21 +123,20 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
         )
     agent_models = config.agent_models or {}
     raw_provider = (agent_models.get("SigmaAgent_provider") or "").strip().lower()
-    if raw_provider in ("openai", "anthropic", "gemini", "lmstudio"):
+    if raw_provider in ("openai", "anthropic", "lmstudio"):
         provider = raw_provider
     else:
         provider = _first_enabled_provider(db_session)
     if provider == "lmstudio" and os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() != "true":
         raise HTTPException(
             status_code=400,
-            detail="Sigma agent is set to LMStudio but LMStudio is disabled. Set SigmaAgent_provider to openai, anthropic, or gemini in Workflow Config.",
+            detail="Sigma agent is set to LMStudio but LMStudio is disabled. Set SigmaAgent_provider to openai or anthropic in Workflow Config.",
         )
     model = (agent_models.get("SigmaAgent") or "").strip()
     if not model and provider != "lmstudio":
         model = {
             "openai": "gpt-4o-mini",
             "anthropic": "claude-sonnet-4-5",
-            "gemini": "gemini-1.5-pro",
         }.get(provider, "gpt-4o-mini")
     if not model:
         model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
@@ -163,14 +159,6 @@ def _get_sigma_agent_llm_from_workflow(db_session) -> tuple[str, str, str | None
             (val if val and str(val).strip() else None)
             or os.getenv("WORKFLOW_ANTHROPIC_API_KEY")
             or os.getenv("ANTHROPIC_API_KEY")
-        )
-    elif provider == "gemini":
-        k = WORKFLOW_PROVIDER_APPSETTING_KEYS["gemini_api_key"]
-        val = workflow_settings.get(k)
-        api_key = (
-            (val if val and str(val).strip() else None)
-            or os.getenv("WORKFLOW_GEMINI_API_KEY")
-            or os.getenv("GEMINI_API_KEY")
         )
     elif provider == "lmstudio":
         api_key = "not_required"
@@ -246,7 +234,7 @@ class EnrichRuleRequest(BaseModel):
     instruction: str | None = None  # Optional user instruction for enrichment
     system_prompt: str | None = None  # Optional system prompt override
     current_rule_yaml: str | None = None  # Optional current rule YAML for iterative enrichment
-    provider: str | None = None  # LLM provider (openai, anthropic, gemini)
+    provider: str | None = None  # LLM provider (openai, anthropic, lmstudio)
     model: str | None = None  # Model name
     include_article_content: bool | None = False  # Include junk-filtered article content
     directive_toggles: dict[str, bool] | None = None  # Optional d1..d7; defaults all True
@@ -256,7 +244,7 @@ class EnrichRuleRequest(BaseModel):
 class ValidateRuleRequest(BaseModel):
     """Request model for validating a rule."""
 
-    provider: str | None = None  # LLM provider (openai, anthropic, gemini, lmstudio)
+    provider: str | None = None  # LLM provider (openai, anthropic, lmstudio)
     model: str | None = None  # Model name
     rule_yaml: str | None = None  # Optional current rule YAML from preview modal (uses DB if omitted)
 
@@ -727,6 +715,11 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             # Get provider and model from request, default to OpenAI
             provider = (enrich_request.provider or "openai").lower()
             model = enrich_request.model or "gpt-4o-mini"
+            if provider not in {"openai", "anthropic", "lmstudio"}:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
+                )
 
             # Get API key from request headers (not needed for LMStudio)
             api_key = None
@@ -734,8 +727,6 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                 api_key = request.headers.get("X-OpenAI-API-Key")
             elif provider == "anthropic":
                 api_key = request.headers.get("X-Anthropic-API-Key")
-            elif provider == "gemini":
-                api_key = request.headers.get("X-Gemini-API-Key")
             elif provider == "lmstudio":
                 # LMStudio doesn't need an API key, uses local URL
                 api_key = "not_required"
@@ -877,36 +868,6 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                         response_data = response.json()
                         content = response_data.get("content", [])
                         raw_response = content[0].get("text", "").strip() if content else ""
-
-                    elif provider == "gemini":
-                        # Gemini API endpoint
-                        response = await client.post(
-                            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
-                            headers={"Content-Type": "application/json"},
-                            json={
-                                "contents": [{"parts": [{"text": f"{system_message}\n\n{enrichment_prompt}"}]}],
-                                "generationConfig": {
-                                    "temperature": 0.2,
-                                    "maxOutputTokens": 4000,
-                                },
-                            },
-                            timeout=120.0,
-                        )
-                        if response.status_code != 200:
-                            error_detail = f"Gemini API error: {response.status_code}"
-                            if response.status_code == 401:
-                                error_detail = "Gemini API key is invalid or expired. Please check your API key."
-                            elif response.status_code == 429:
-                                error_detail = "Gemini API rate limit exceeded. Please wait and try again."
-                            logger.error(f"Gemini API error: {response.text}")
-                            raise HTTPException(status_code=response.status_code, detail=error_detail)
-                        response_data = response.json()
-                        candidates = response_data.get("candidates", [])
-                        raw_response = ""
-                        if candidates and "content" in candidates[0]:
-                            parts = candidates[0]["content"].get("parts", [])
-                            if parts:
-                                raw_response = parts[0].get("text", "").strip()
 
                     elif provider == "lmstudio":
                         logger.info(f"Calling LMStudio API for rule {queue_id} with model {model}")
@@ -1090,7 +1051,10 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             raise HTTPException(status_code=503, detail=error_detail)
 
                     else:
-                        raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
+                        )
 
                     # Validate we got a response
                     if not raw_response or not raw_response.strip():
@@ -1646,14 +1610,26 @@ async def validate_rule(request: Request, queue_id: int):
                 # Get provider and model from request, default to OpenAI
                 provider = (body.get("provider") or "openai").lower()
                 model = body.get("model") or "gpt-4o-mini"
+                if provider not in {"openai", "anthropic", "lmstudio"}:
+                    return {
+                        "success": False,
+                        "validated_yaml": None,
+                        "errors": [
+                            f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio."
+                        ],
+                        "attempts": 0,
+                        "message": f"Unsupported provider '{provider}'",
+                        "conversation_log": [],
+                        "validation_results": [],
+                        "provider": provider,
+                        "model": model,
+                    }
                 # Get API key from request headers (not needed for LMStudio)
                 api_key = None
                 if provider == "openai":
                     api_key = request.headers.get("X-OpenAI-API-Key")
                 elif provider == "anthropic":
                     api_key = request.headers.get("X-Anthropic-API-Key")
-                elif provider == "gemini":
-                    api_key = request.headers.get("X-Gemini-API-Key")
                 elif provider == "lmstudio":
                     api_key = "not_required"
 
@@ -1858,37 +1834,6 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                             content = response_data.get("content", [])
                             raw_response = content[0].get("text", "").strip() if content else ""
 
-                        elif provider == "gemini":
-                            response = await client.post(
-                                f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
-                                headers={"Content-Type": "application/json"},
-                                json={
-                                    "contents": [{"parts": [{"text": f"{system_message}\n\n{validation_prompt}"}]}],
-                                    "generationConfig": {
-                                        "temperature": 0.2,
-                                        "maxOutputTokens": 4000,
-                                    },
-                                },
-                                timeout=120.0,
-                            )
-
-                            if response.status_code != 200:
-                                error_detail = f"Gemini API error: {response.status_code}"
-                                if response.status_code == 401:
-                                    error_detail = "Gemini API key is invalid or expired. Please check your API key."
-                                elif response.status_code == 429:
-                                    error_detail = "Gemini API rate limit exceeded. Please wait and try again."
-                                logger.error(f"Gemini API error: {response.text}")
-                                error_occurred = error_detail
-                                raise HTTPException(status_code=response.status_code, detail=error_detail)
-
-                            response_data = response.json()
-                            candidates = response_data.get("candidates", [])
-                            if candidates and "content" in candidates[0]:
-                                parts = candidates[0]["content"].get("parts", [])
-                                if parts:
-                                    raw_response = parts[0].get("text", "").strip()
-
                         elif provider == "lmstudio":
                             # LMStudio API (OpenAI-compatible, local)
                             def _lmstudio_url_candidates():
@@ -1972,7 +1917,10 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                     status_code=503, detail=f"LMStudio failed on all URLs: {last_error}"
                                 )
                         else:
-                            raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Unsupported provider '{provider}'. Supported providers: openai, anthropic, lmstudio.",
+                            )
 
                         if not raw_response:
                             error_occurred = "Empty response from LLM"
