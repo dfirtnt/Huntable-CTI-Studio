@@ -22,7 +22,7 @@ class TestCrossPageNavigation:
         page.wait_for_load_state("load")
 
         # Navigate to articles
-        articles_link = page.locator("a:has-text('Articles')")
+        articles_link = page.locator("a:has-text('Articles')").first
         expect(articles_link).to_be_visible()
         articles_link.click()
 
@@ -38,7 +38,7 @@ class TestCrossPageNavigation:
         page.wait_for_load_state("load")
 
         # Navigate to dashboard
-        dashboard_link = page.locator("a[href='/']")
+        dashboard_link = page.locator("a[href='/']").first
         expect(dashboard_link).to_be_visible()
         dashboard_link.click()
 
@@ -54,7 +54,7 @@ class TestCrossPageNavigation:
         page.wait_for_load_state("load")
 
         # Navigate to articles
-        articles_link = page.locator("a:has-text('Articles')")
+        articles_link = page.locator("a:has-text('Articles')").first
         articles_link.click()
         page.wait_for_load_state("load")
         expect(page).to_have_url(f"{base_url}/articles")
@@ -75,7 +75,7 @@ class TestCrossPageNavigation:
         page.wait_for_load_state("load")
 
         # Navigate to articles
-        articles_link = page.locator("a:has-text('Articles')")
+        articles_link = page.locator("a:has-text('Articles')").first
         articles_link.click()
         page.wait_for_load_state("load")
 
@@ -102,7 +102,7 @@ class TestCrossPageNavigation:
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/articles")
-        expect(page).to_have_title("Articles - CTI Scraper")
+        expect(page).to_have_title("Articles - Huntable CTI Studio")
 
     @pytest.mark.ui
     @pytest.mark.navigation
@@ -116,7 +116,7 @@ class TestCrossPageNavigation:
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/sources")
-        expect(page).to_have_title("Sources - CTI Scraper")
+        expect(page).to_have_title("Sources - Huntable CTI Studio")
 
     @pytest.mark.ui
     @pytest.mark.navigation
@@ -130,7 +130,7 @@ class TestCrossPageNavigation:
 
         # Verify page loads correctly
         expect(page).to_have_url(f"{base_url}/settings")
-        expect(page).to_have_title("Settings - CTI Scraper")
+        expect(page).to_have_title("Settings - Huntable CTI Studio")
 
     @pytest.mark.ui
     @pytest.mark.navigation
@@ -142,9 +142,9 @@ class TestCrossPageNavigation:
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
 
-        # Verify page loads correctly
-        expect(page).to_have_url(f"{base_url}/workflow")
-        expect(page).to_have_title("Agentic Workflow - CTI Scraper")
+        # Verify page loads correctly (URL may include hash fragment like #config)
+        expect(page).to_have_url(re.compile(rf"{re.escape(base_url)}/workflow(#.*)?$"))
+        expect(page).to_have_title("Agentic Workflow - Huntable CTI Studio")
 
     @pytest.mark.ui
     @pytest.mark.navigation
@@ -191,12 +191,12 @@ class TestCrossPageNavigation:
             page.goto(f"{base_url}{page_path}")
             page.wait_for_load_state("load")
 
-            # Verify navigation menu exists
-            nav_menu = page.locator("nav")
+            # Verify navigation menu exists (use first to handle desktop+mobile navs)
+            nav_menu = page.locator("nav").first
             expect(nav_menu).to_be_visible()
 
             # Verify common navigation links exist
-            dashboard_link = page.locator("a[href='/']")
+            dashboard_link = page.locator("a[href='/']").first
             expect(dashboard_link).to_be_visible()
 
     @pytest.mark.ui
@@ -233,7 +233,7 @@ class TestCrossPageNavigation:
         # Find back link or navigate via menu
         articles_link = page.locator("a:has-text('Articles')")
         if articles_link.count() > 0:
-            articles_link.click()
+            articles_link.first.click()
             page.wait_for_load_state("load")
 
             # Verify navigation back to list

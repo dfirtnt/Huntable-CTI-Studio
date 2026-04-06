@@ -297,12 +297,13 @@ class TestErrorRecovery:
             else:
                 route.continue_()
 
-        page.route("**/api/dashboard*", handle_route)
-        page.route("**/api/stats*", handle_route)
-        page.route("**/api/health*", handle_route)
+        page.route("**/api/dashboard/**", handle_route)
+        page.route("**/api/stats/**", handle_route)
+        page.route("**/api/health/**", handle_route)
 
-        # Navigate to page
-        page.goto(f"{base_url}/dashboard")
+        # Navigate to page (reload to bypass class-scoped page dedup)
+        page.goto(f"{base_url}/")
+        page.reload()
         page.wait_for_load_state("load")
         initial_api_calls = call_count["count"]
 

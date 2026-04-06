@@ -22,7 +22,7 @@ class TestPDFUploadPageLoad:
         page.wait_for_load_state("load")
 
         # Verify page title
-        expect(page).to_have_title("PDF Upload - Huntable CTI Scraper")
+        expect(page).to_have_title("PDF Upload - Huntable CTI Studio")
 
         # Verify main heading
         heading = page.locator("h1:has-text('📄 Upload PDF Report')").first
@@ -114,9 +114,9 @@ class TestPDFUploadProgress:
         page.goto(f"{base_url}/pdf-upload")
         page.wait_for_load_state("load")
 
-        # Verify upload status div exists
+        # Upload status exists but is hidden by default (display:none via hidden class)
         upload_status = page.locator("#upload-status")
-        expect(upload_status).to_be_visible()
+        expect(upload_status).not_to_be_visible()
         expect(upload_status).to_have_class("hidden")
 
     @pytest.mark.ui
@@ -139,9 +139,9 @@ class TestPDFUploadProgress:
         page.goto(f"{base_url}/pdf-upload")
         page.wait_for_load_state("load")
 
-        # Verify success div exists
+        # Success div exists but is hidden by default (display:none via hidden class)
         upload_success = page.locator("#upload-success")
-        expect(upload_success).to_be_visible()
+        expect(upload_success).not_to_be_visible()
         expect(upload_success).to_have_class("hidden")
 
     @pytest.mark.ui
@@ -152,9 +152,9 @@ class TestPDFUploadProgress:
         page.goto(f"{base_url}/pdf-upload")
         page.wait_for_load_state("load")
 
-        # Verify error div exists
+        # Error div exists but is hidden by default (display:none via hidden class)
         upload_error = page.locator("#upload-error")
-        expect(upload_error).to_be_visible()
+        expect(upload_error).not_to_be_visible()
         expect(upload_error).to_have_class("hidden")
 
 
@@ -233,9 +233,9 @@ class TestPDFUploadAPI:
         page.goto(f"{base_url}/pdf-upload")
         page.wait_for_load_state("load")
 
-        # Verify error div exists
+        # Error div is in DOM but hidden until an upload fails
         upload_error = page.locator("#upload-error")
-        expect(upload_error).to_be_visible()
+        expect(upload_error).to_be_attached()
 
 
 class TestPDFUploadDragAndDrop:
@@ -292,9 +292,9 @@ class TestPDFUploadQueue:
         page.goto(f"{base_url}/pdf-upload")
         page.wait_for_load_state("load")
 
-        # Verify upload status exists (queue indicator)
+        # Upload status is in DOM but hidden by default
         upload_status = page.locator("#upload-status")
-        expect(upload_status).to_be_visible()
+        expect(upload_status).to_be_attached()
 
         # Note: Queue management may be handled server-side
 
@@ -329,9 +329,9 @@ class TestPDFUploadHistory:
         page.goto(f"{base_url}/pdf-upload")
         page.wait_for_load_state("load")
 
-        # Verify success details exist (shows article ID)
+        # Success details are in DOM but inside hidden upload-success div
         success_details = page.locator("#success-details")
-        expect(success_details).to_be_visible()
+        expect(success_details).to_be_attached()
 
         # Note: History may be stored server-side or in localStorage
 

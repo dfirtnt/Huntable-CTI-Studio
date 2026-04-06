@@ -14,7 +14,9 @@ class TestEvalUIRendering:
 
         # Assert page loaded
         expect(page).to_have_url("http://localhost:8001/evaluations", timeout=5000)
-        expect(page.locator("h1, .page-title")).to_contain_text("Evaluation", timeout=5000)
+        expect(page.locator("h1:has-text('Evaluation'), .page-title:has-text('Evaluation')").first).to_be_visible(
+            timeout=5000
+        )
 
     def test_eval_metrics_display(self, page: Page):
         """Test that eval metrics are displayed."""

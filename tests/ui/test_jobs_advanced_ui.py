@@ -22,7 +22,7 @@ class TestJobsPageLoad:
         page.wait_for_load_state("load")
 
         # Verify page title
-        expect(page).to_have_title("Job Monitor - Huntable CTI Scraper")
+        expect(page).to_have_title("Job Monitor - Huntable CTI Studio")
 
         # Verify main heading
         heading = page.locator("h1:has-text('🔄 Job Monitor')").first
@@ -100,6 +100,7 @@ class TestJobsAutoRefresh:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify initial API calls
@@ -235,6 +236,7 @@ class TestJobsWorkerStatus:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify empty state message appears
@@ -367,6 +369,7 @@ class TestJobsActiveTasks:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify empty state message appears
@@ -438,6 +441,7 @@ class TestJobsHistory:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify empty state message appears
@@ -523,6 +527,7 @@ class TestJobsAPIIntegration:
         page.route("**/api/jobs/queues", handle_route)
 
         page.goto(f"{base_url}/jobs")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify API was called
@@ -548,6 +553,7 @@ class TestJobsAPIIntegration:
         page.route("**/api/jobs/history", handle_route)
 
         page.goto(f"{base_url}/jobs")
+        page.reload()
         page.wait_for_load_state("load")
 
         # Verify API was called

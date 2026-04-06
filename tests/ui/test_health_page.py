@@ -369,6 +369,7 @@ class TestHealthPage:
         """Test initial content in health check sections."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
+        page.reload()  # Reset to initial state (prior tests may have run health checks)
 
         # Check initial content messages (diags uses single Run All Health Checks button)
         initial_messages = [

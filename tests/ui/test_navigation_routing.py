@@ -24,9 +24,11 @@ class TestNavigationRouting:
         articles_link = page.locator('a[href="/articles"]').first
         articles_link.click()
 
-        # Assert we're on articles page
+        # Assert we're on articles page (base template h1 is "Huntable CTI Studio"; use has-text to find the content h1)
         expect(page).to_have_url(re.compile(rf"{re.escape(base_url)}/articles"))
-        expect(page.locator("h1, .page-title, h2")).to_contain_text("Articles", timeout=5000)
+        expect(page.locator("h1:has-text('Articles'), h1:has-text('Threat Intelligence')").first).to_be_visible(
+            timeout=5000
+        )
 
     def test_navigation_to_workflow(self, page: Page):
         """Test navigation to workflow page."""
@@ -37,8 +39,8 @@ class TestNavigationRouting:
         workflow_link = page.locator('a[href="/workflow"]').first
         workflow_link.click()
 
-        # Assert we're on workflow page
-        expect(page).to_have_url(f"{base_url}/workflow")
+        # Assert we're on workflow page (may include hash fragment like #config)
+        expect(page).to_have_url(re.compile(rf"{re.escape(base_url)}/workflow(#.*)?$"))
 
     def test_breadcrumb_navigation(self, page: Page):
         """Test breadcrumb navigation: Dashboard link goes home."""

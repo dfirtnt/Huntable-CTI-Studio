@@ -19,8 +19,10 @@ _SUBAGENT_TO_SA_BLOCK = {
 
 
 def _open_operator_step(page: Page, step_id: str) -> None:
-    page.locator(f"#{step_id} .section-header").click()
-    page.wait_for_timeout(300)
+    section = page.locator(f"#{step_id}")
+    if "open" not in (section.get_attribute("class") or ""):
+        page.locator(f"#{step_id} .section-header").click()
+        page.wait_for_timeout(300)
 
 
 class TestWorkflowTabNavigation:
@@ -165,13 +167,12 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Find Junk Filter panel header
-        panel_id = "other-thresholds-panel"
-        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        # Find Junk Filter panel header (Step 1: #s1)
+        header = page.locator("#s1 .section-header")
         expect(header).to_be_visible()
 
         # Get initial state
-        panel_content = page.locator("#other-thresholds-panel-content")
+        panel_content = page.locator("#s1 .section-body")
         initial_state = panel_content.is_visible()
 
         # Click header to toggle
@@ -193,12 +194,11 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Find OS Detection panel header
-        panel_id = "os-detection-panel"
-        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        # Find OS Detection panel header (Step 0: #s0)
+        header = page.locator("#s0 .section-header")
         expect(header).to_be_visible()
 
-        panel_content = page.locator("#os-detection-panel-content")
+        panel_content = page.locator("#s0 .section-body")
         initial_state = panel_content.is_visible()
 
         header.click()
@@ -218,11 +218,11 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        panel_id = "rank-agent-configs-panel"
-        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
+        # Rank Agent panel (Step 2: #s2)
+        header = page.locator("#s2 .section-header")
         expect(header).to_be_visible()
 
-        panel_content = page.locator("#rank-agent-configs-panel-content")
+        panel_content = page.locator("#s2 .section-body")
         initial_state = panel_content.is_visible()
 
         header.click()
@@ -288,23 +288,21 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Get chevron element
-        panel_id = "other-thresholds-panel"
-        chevron = page.locator(f"#{panel_id}-toggle")
+        # Chevron uses CSS rotation (text stays ▼, section gets .open class)
+        section = page.locator("#s1")
+        chevron = page.locator("#s1 .section-chevron")
         expect(chevron).to_be_visible()
 
-        # Get initial chevron text (should be ▼ when collapsed)
-        initial_text = chevron.text_content()
+        # Record initial class state
+        initial_class = section.get_attribute("class") or ""
 
         # Toggle panel by clicking header
-        header = page.locator(f'[data-collapsible-panel="{panel_id}"]')
-        header.click()
+        page.locator("#s1 .section-header").click()
         page.wait_for_timeout(300)
 
-        # Chevron text should change (▼ to ▲)
-        new_text = chevron.text_content()
-        assert initial_text != new_text, "Chevron text should change on toggle"
-        # This test verifies the chevron exists and updates correctly
+        # Section class should change (open added or removed)
+        new_class = section.get_attribute("class") or ""
+        assert initial_class != new_class, "Section class should change on toggle"
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -395,10 +393,8 @@ class TestWorkflowConfigurationJunkFilter:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Junk Filter panel
-        toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(300)
+        # Expand Junk Filter panel (Step 1: #s1)
+        _open_operator_step(page, "s1")
 
         # Verify threshold input exists
         threshold_input = page.locator("#junkFilterThreshold")
@@ -419,10 +415,8 @@ class TestWorkflowConfigurationJunkFilter:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Junk Filter panel
-        toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(300)
+        # Expand Junk Filter panel (Step 1: #s1)
+        _open_operator_step(page, "s1")
 
         threshold_input = page.locator("#junkFilterThreshold")
 
@@ -442,10 +436,8 @@ class TestWorkflowConfigurationJunkFilter:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Junk Filter panel
-        toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(300)
+        # Expand Junk Filter panel (Step 1: #s1)
+        _open_operator_step(page, "s1")
 
         # Find help button
         help_button = page.locator("button[onclick*=\"showHelp('junkFilterThreshold')\"]")
@@ -492,10 +484,8 @@ class TestWorkflowConfigurationRankAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Rank Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(200)
+        # Expand Rank Agent panel (Step 2: #s2)
+        _open_operator_step(page, "s2")
 
         # Verify model container exists
         model_container = page.locator("#rank-agent-model-container")
@@ -512,10 +502,8 @@ class TestWorkflowConfigurationRankAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Rank Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(200)
+        # Expand Rank Agent panel (Step 2: #s2)
+        _open_operator_step(page, "s2")
 
         # Find test button
         test_button = page.get_by_role("button", name=re.compile(r"Test with .* ArticleID"))
@@ -536,10 +524,8 @@ class TestWorkflowConfigurationRankAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Rank Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(200)
+        # Expand Rank Agent panel (Step 2: #s2)
+        _open_operator_step(page, "s2")
 
         # Find threshold input
         threshold_input = page.locator("#rankingThreshold")
@@ -560,10 +546,8 @@ class TestWorkflowConfigurationRankAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Rank Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(200)
+        # Expand Rank Agent panel (Step 2: #s2)
+        _open_operator_step(page, "s2")
 
         threshold_input = page.locator("#rankingThreshold")
 
@@ -583,10 +567,8 @@ class TestWorkflowConfigurationRankAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Rank Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(200)
+        # Expand Rank Agent panel (Step 2: #s2)
+        _open_operator_step(page, "s2")
 
         # Find QA toggle checkbox
         qa_toggle = page.locator("#qa-rankagent")
@@ -619,10 +601,8 @@ class TestWorkflowConfigurationRankAgent:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Expand Rank Agent panel
-        toggle_button = page.locator('[data-collapsible-panel="rank-agent-configs-panel"]')
-        toggle_button.click()
-        page.wait_for_timeout(200)
+        # Expand Rank Agent panel (Step 2: #s2)
+        _open_operator_step(page, "s2")
 
         # Find QA model dropdown
         qa_model_dropdown = page.locator("#rankqa-model")
@@ -1875,10 +1855,8 @@ class TestWorkflowConfigurationAdvanced:
         # Make a change to enable save button
         threshold_input = page.locator("#junkFilterThreshold")
         if threshold_input.is_visible():
-            # Expand panel first
-            toggle_button = page.locator('[data-collapsible-panel="other-thresholds-panel"]')
-            toggle_button.click()
-            page.wait_for_timeout(300)
+            # Expand panel first (Step 1: #s1)
+            _open_operator_step(page, "s1")
 
             # Change threshold value
             threshold_input.fill("0.85")

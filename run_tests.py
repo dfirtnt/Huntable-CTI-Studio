@@ -72,6 +72,16 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+# Augment PATH so subprocesses can find tools (e.g. Docker Desktop CLI on macOS)
+# installed outside the default non-login shell PATH.
+_EXTRA_PATH_DIRS = ["/usr/local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin"]
+_current_path = os.environ.get("PATH", "")
+_path_parts = _current_path.split(os.pathsep)
+for _d in reversed(_EXTRA_PATH_DIRS):
+    if _d not in _path_parts:
+        os.environ["PATH"] = _d + os.pathsep + os.environ.get("PATH", "")
+del _EXTRA_PATH_DIRS, _current_path, _path_parts, _d
+
 
 # Keys from .env that must not be applied in test (guard: TEST_DATABASE_URL only).
 # Cloud LLM keys are skipped so they are not loaded from .env into the test process.

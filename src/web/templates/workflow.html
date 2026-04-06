@@ -960,6 +960,14 @@
   color: var(--text-muted-slate);
 }
 
+.q-table .q-cell-obs {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted-slate);
+  text-align: center;
+}
+
 .q-table .q-cell-date {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
@@ -2567,6 +2575,7 @@
                         <th style="padding-left:24px">ID</th>
                         <th>Article</th>
                         <th>Rule Title</th>
+                        <th>Obs Used</th>
                         <th>Similarity</th>
                         <th>Status</th>
                         <th>Created</th>
@@ -2575,7 +2584,7 @@
                 </thead>
                 <tbody id="queueTableBody">
                     <tr>
-                        <td colspan="8" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
+                        <td colspan="9" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -12716,6 +12725,17 @@ function getQueueStatusBadge(status) {
     return `<span class="q-badge ${cls}">${label}</span>`;
 }
 
+function getObservablesUsedCount(rule) {
+    const list = rule?.rule_metadata?.observables_used;
+    if (!Array.isArray(list) || list.length === 0) return 0;
+
+    const unique = new Set();
+    for (const idx of list) {
+        if (Number.isInteger(idx) && idx >= 0) unique.add(idx);
+    }
+    return unique.size;
+}
+
 async function loadQueue() {
     try {
         const statusFilterEl = document.getElementById('queueStatusFilter');
@@ -12740,14 +12760,14 @@ async function loadQueue() {
             console.error('Failed to load queue:', response.status, response.statusText);
             const tbody = document.getElementById('queueTableBody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-red-500">Error loading queue</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-red-500">Error loading queue</td></tr>';
             }
         }
     } catch (error) {
         console.error('Error loading queue:', error);
         const tbody = document.getElementById('queueTableBody');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
         }
     }
 }
@@ -12760,7 +12780,7 @@ function renderQueue() {
     }
     
     if (queue.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
         // Check if we need to trigger preview from URL parameter even with empty queue
         checkAndTriggerPreview();
         return;
@@ -12770,6 +12790,7 @@ function renderQueue() {
     tbody.innerHTML = queue.map(rule => {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
+        const observablesUsedCount = getObservablesUsedCount(rule);
 
         return `
             <tr id="queue-row-${rule.id}" data-status="${rule.status || ''}">
@@ -12781,6 +12802,7 @@ function renderQueue() {
                     </a>
                 </td>
                 <td class="q-cell-title" title="${(title || '').replace(/"/g, '&quot;')}">${title}</td>
+                <td class="q-cell-obs">${observablesUsedCount}</td>
                 <td class="q-cell-sim">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>

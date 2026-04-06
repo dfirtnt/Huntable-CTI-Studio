@@ -91,6 +91,11 @@ class _UrlAwarePage:
             pass  # On any parse error fall through to real navigation
         return pw.goto(url, **kwargs)
 
+    @property
+    def __class__(self):
+        # Makes isinstance(page, Page) return True so playwright's expect() accepts this proxy.
+        return type(object.__getattribute__(self, "_pw"))
+
     def __getattr__(self, name):
         return getattr(object.__getattribute__(self, "_pw"), name)
 
