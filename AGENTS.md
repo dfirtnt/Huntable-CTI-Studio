@@ -57,6 +57,7 @@ Use this map to orient before searching broadly:
 | `config/` | Versioned source YAML, workflow presets, eval article data, provider catalogs |
 | `tests/` | Pytest suites, Playwright specs, fixtures, and test infrastructure |
 | `docs/` | Human-facing docs; useful orientation aid but subordinate to code when they diverge |
+| `docs/solutions/` | Documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`) |
 | `src/huntable_mcp/` | Read-only Model Context Protocol server for articles, SIGMA, sources, workflow/queue visibility (`run_mcp.py`, `python3 -m src.huntable_mcp`); see `docs/reference/mcp-tools.md` |
 
 ---
