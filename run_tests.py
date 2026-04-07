@@ -60,6 +60,7 @@ import asyncio
 import logging
 import os
 import queue
+import shutil
 import subprocess
 import sys
 import threading
@@ -242,7 +243,6 @@ class RunTestRunner:
 
         # Virtual environment paths - always use .venv
         self.venv_python = self._ensure_venv()
-        self.venv_pip = self.venv_python.replace("python3", "pip")
 
         # Enhanced debugging components
         self.failure_reporter = None
@@ -528,67 +528,35 @@ class RunTestRunner:
 
     def install_dependencies(self) -> bool:
         """Install test dependencies."""
-        logger.info("Installing test dependencies...")
+        logger.info("Installing test dependencies via uv lockfile...")
 
-        # Virtual environment is already set up in __init__
+        uv_binary = shutil.which("uv")
+        if not uv_binary:
+            logger.error("uv is required to install dependencies. Install uv and retry.")
+            return False
 
-        # Install from requirements files
-        commands = [
-            (f"{self.venv_pip} install --upgrade pip", "Upgrading pip"),
-            (
-                f"{self.venv_pip} install -r requirements.txt",
-                "Installing project dependencies",
-            ),
-        ]
+        if not self._run_command(
+            f"{uv_binary} sync --frozen --group test",
+            "Syncing locked dependencies with uv",
+            capture_output=True,
+        ):
+            logger.error("Failed to sync dependencies from uv.lock")
+            return False
 
-        # Add test requirements if it exists (non-blocking)
-        if os.path.exists("requirements-test.txt"):
-            try:
-                logger.info("Attempting to install test dependencies (may have conflicts, continuing if it fails)...")
-                commands.append(
-                    (
-                        f"{self.venv_pip} install -r requirements-test.txt",
-                        "Installing test dependencies",
-                    )
-                )
-            except Exception:
-                logger.warning("Test dependencies not installed, continuing without them")
-
-        # Add sigma_similarity (optional) for tests/sigma_semantic_similarity
-        if os.path.exists("requirements-sigma.txt"):
-            commands.append(
-                (
-                    f"{self.venv_pip} install -r requirements-sigma.txt",
-                    "Installing sigma similarity (optional)",
-                )
-            )
-
-        # Track which commands are optional
-        optional_commands = ["Installing test dependencies", "Installing sigma similarity (optional)"]
-
-        # Install Playwright if it's installed
+        # Install Playwright browser binaries when package is available.
         result = subprocess.run(
             [self.venv_python, "-c", "import playwright"],
             capture_output=True,
             check=False,
         )
-        if result.returncode == 0:
-            commands.append(
-                (
-                    f"{self.venv_python} -m playwright install chromium",
-                    "Installing Playwright browser",
-                )
-            )
+        if result.returncode == 0 and not self._run_command(
+            f"{self.venv_python} -m playwright install chromium",
+            "Installing Playwright browser",
+            capture_output=True,
+        ):
+            logger.warning("Optional step failed: Installing Playwright browser")
 
-        for cmd, description in commands:
-            result = self._run_command(cmd, description, capture_output=True)
-            if not result and description not in optional_commands:
-                logger.error(f"Failed to {description.lower()}")
-                return False
-            if not result:
-                logger.warning(f"Optional step failed: {description}")
-
-        logger.info("Dependencies installed successfully")
+        logger.info("Dependencies synced successfully")
         return True
 
     def _check_dependencies(self) -> bool:

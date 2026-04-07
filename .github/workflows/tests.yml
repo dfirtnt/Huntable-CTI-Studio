@@ -24,19 +24,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+        run: uv sync --frozen --group test
 
       - name: Run pip-audit
         run: >-
-          pip-audit
+          uv run pip-audit
           --ignore-vuln GHSA-rf74-v2fm-23pw
           --ignore-vuln CVE-2026-33230
           --ignore-vuln CVE-2026-33231
@@ -86,19 +85,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+        run: uv sync --frozen --group test
 
       - name: Start web app
         run: |
-          nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          nohup uv run python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
               echo "Web app is healthy"
@@ -111,7 +109,7 @@ jobs:
           exit 1
 
       - name: Run smoke tests
-        run: python run_tests.py smoke
+        run: uv run python run_tests.py smoke
 
       - name: Upload smoke test artifacts
         if: always()
@@ -139,29 +137,27 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
-            requirements-sigma.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt -r requirements-sigma.txt
+        run: uv sync --frozen --group test
 
       - name: Run unit tests
-        run: python run_tests.py unit
+        run: uv run python run_tests.py unit
 
       - name: Enforce unit coverage gates
         env:
           APP_ENV: test
           TEST_DATABASE_URL: postgresql+asyncpg://cti_user:cti_pass@localhost:5432/cti_scraper_test
         run: |
-          python -m coverage erase
+          uv run python -m coverage erase
 
           # Baseline gate for unit-focused runtime code.
-          python -m pytest tests/services/ tests/utils/ \
+          uv run python -m pytest tests/services/ tests/utils/ \
             -m "not integration" \
             --cov=src.services \
             --cov=src.utils \
@@ -169,15 +165,15 @@ jobs:
             --cov-fail-under=39
 
           # Package-specific gates to prevent regressions from being hidden by aggregate numbers.
-          python -m coverage erase
-          python -m pytest tests/services/ tests/utils/ \
+          uv run python -m coverage erase
+          uv run python -m pytest tests/services/ tests/utils/ \
             -m "not integration" \
             --cov=src.services \
             --cov-report=term \
             --cov-fail-under=45
 
-          python -m coverage erase
-          python -m pytest tests/services/ tests/utils/ \
+          uv run python -m coverage erase
+          uv run python -m pytest tests/services/ tests/utils/ \
             -m "not integration" \
             --cov=src.utils \
             --cov-report=term \
@@ -235,19 +231,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+        run: uv sync --frozen --group test
 
       - name: Initialize test database schema
         run: |
-          python - <<'PY'
+          uv run python - <<'PY'
           import asyncio
           import os
           from sqlalchemy import text
@@ -278,7 +273,7 @@ jobs:
           PY
 
       - name: Run API tests
-        run: python run_tests.py api
+        run: uv run python run_tests.py api
 
       - name: Upload API test artifacts
         if: always()
@@ -331,19 +326,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+        run: uv sync --frozen --group test
 
       - name: Initialize test database schema
         run: |
-          python - <<'PY'
+          uv run python - <<'PY'
           import asyncio
           import os
           from sqlalchemy import text
@@ -374,7 +368,7 @@ jobs:
 
       - name: Start web app
         run: |
-          nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          nohup uv run python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
               echo "Web app is healthy"
@@ -387,7 +381,7 @@ jobs:
           exit 1
 
       - name: Run integration tests
-        run: python run_tests.py integration
+        run: uv run python run_tests.py integration
 
       - name: Upload integration test artifacts
         if: always()
@@ -442,22 +436,21 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+        run: uv sync --frozen --group test
 
       - name: Install Playwright browsers
-        run: playwright install --with-deps chromium
+        run: uv run playwright install --with-deps chromium
 
       - name: Initialize test database schema
         run: |
-          python - <<'PY'
+          uv run python - <<'PY'
           import asyncio
           import os
           from sqlalchemy import text
@@ -488,7 +481,7 @@ jobs:
 
       - name: Start web app
         run: |
-          nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          nohup uv run python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
               echo "Web app is healthy"
@@ -501,7 +494,7 @@ jobs:
           exit 1
 
       - name: Run UI tests
-        run: python run_tests.py ui
+        run: uv run python run_tests.py ui
 
       - name: Upload UI test artifacts
         if: always()

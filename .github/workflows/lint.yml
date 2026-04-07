@@ -41,8 +41,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install vulture
-        run: pip install vulture
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install locked dependencies
+        run: uv sync --frozen --group dev --no-group test
 
       - name: Run vulture
-        run: vulture src scripts vulture_whitelist.py --min-confidence 80
+        run: uv run vulture src scripts vulture_whitelist.py --min-confidence 80

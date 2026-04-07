@@ -54,19 +54,18 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            requirements-test.txt
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
 
       - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -r requirements-test.txt
+        run: uv sync --frozen --group test
 
       - name: Initialize test database schema
         run: |
-          python - <<'PY'
+          uv run python - <<'PY'
           import asyncio
           import os
           from sqlalchemy import text
@@ -99,7 +98,7 @@ jobs:
         env:
           PYTHONUNBUFFERED: "1"
         run: |
-          nohup python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
+          nohup uv run python -m uvicorn src.web.modern_main:app --host 127.0.0.1 --port 8001 --log-level info > web.log 2>&1 &
           sleep 5
           for i in {1..60}; do
             if curl -fsS http://127.0.0.1:8001/health >/dev/null; then
