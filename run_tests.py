@@ -376,9 +376,13 @@ class RunTestRunner:
             else:
                 logger.info("CI detected - using GitHub Actions services (postgres/redis)")
 
-            if not self._wait_for_test_containers():
-                logger.error("Required test containers are not healthy")
-                return False
+            # In CI, GitHub Actions `services:` blocks provide Postgres/Redis with
+            # their own health-checks.  _wait_for_test_containers inspects local
+            # docker-compose containers which don't exist in CI, so skip it.
+            if not in_ci:
+                if not self._wait_for_test_containers():
+                    logger.error("Required test containers are not healthy")
+                    return False
 
         # Set up test environment variables
         os.environ["APP_ENV"] = "test"
