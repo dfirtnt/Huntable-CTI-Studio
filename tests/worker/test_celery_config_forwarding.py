@@ -90,6 +90,25 @@ class TestTestAgentsGuard:
             assert mod._runtime_environment() not in ("development", "test")
 
 
+class TestCollectionImmediateQueue:
+    """Verify the collection_immediate queue exists for user Collect Now priority."""
+
+    def test_collection_immediate_queue_defined(self):
+        import src.worker.celeryconfig as celeryconfig
+
+        assert "collection_immediate" in celeryconfig.task_queues
+        q = celeryconfig.task_queues["collection_immediate"]
+        assert q["exchange"] == "collection_immediate"
+        assert q["routing_key"] == "collection_immediate"
+
+    def test_collect_from_source_default_route_unchanged(self):
+        """Default route for collect_from_source stays 'collection' (not collection_immediate)."""
+        import src.worker.celeryconfig as celeryconfig
+
+        route = celeryconfig.task_routes["src.worker.celery_app.collect_from_source"]
+        assert route["queue"] == "collection"
+
+
 class TestTestAgentTaskRouting:
     """Ensure test agent tasks route to the workflows queue."""
 

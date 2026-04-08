@@ -76,6 +76,10 @@ task_queues = {
         "exchange": "connectivity",
         "routing_key": "connectivity",
     },
+    "collection_immediate": {
+        "exchange": "collection_immediate",
+        "routing_key": "collection_immediate",
+    },
     "collection": {
         "exchange": "collection",
         "routing_key": "collection",

@@ -138,7 +138,7 @@ async def api_collect_from_source(source_id: int):
         task = celery_app.send_task(
             "src.worker.celery_app.collect_from_source",
             args=[source_id],
-            queue="collection",
+            queue="collection_immediate",
         )
 
         return {
