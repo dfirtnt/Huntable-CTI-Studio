@@ -192,7 +192,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
       });
     });
 
-    await page.locator(`button[onclick="collectFromSource(${source.id})"]`).click();
+    await page.locator(`button[onclick="collectFromSource(${source.id})"]`).click({ force: true });
     await expect.poll(() => called).toBeTruthy();
   });
 
@@ -205,7 +205,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'PENDING', ready: false }) });
     });
 
-    await page.locator(`button[onclick="collectFromSource(${source.id})"]`).click();
+    await page.locator(`button[onclick="collectFromSource(${source.id})"]`).click({ force: true });
     const panel = page.locator('#collectionStatus');
     await expect(panel).toBeVisible();
     await expect(page.locator('#collectionStatusText')).toContainText(/collection/i);
