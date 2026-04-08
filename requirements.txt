@@ -56,7 +56,7 @@ certifi==2025.11.12
 urllib3==2.6.3
 charset-normalizer==3.4.5
 python-multipart==0.0.22
-cryptography==46.0.6  # Enhanced encryption; CVE-2026-34073 fix
+cryptography==46.0.7  # Enhanced encryption; CVE-2026-34073 fix
 
 # PDF processing
 pypdf==6.9.2
