@@ -49,6 +49,8 @@ count(), near, temporal joins, aggregation, multiple logsource blocks, correlati
 
 Same input → identical byte-for-byte output. Canonical sort of atoms and DNF branches; stable JSON serialization; no global state.
 
+Field resolution is case-insensitive: `Image`, `image`, and `process_path` all resolve to `process.image`. Values for case-insensitive Sigma operators (`contains`, `endswith`, `startswith`, `eq`) are lowercased in atom identities so that `Delete` and `delete` produce the same atom.
+
 ## Error types
 
 - `UnsupportedSigmaFeatureError`: Unsupported condition/detection feature

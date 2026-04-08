@@ -30,9 +30,84 @@ def test_filter_never_increases_similarity():
 def test_field_alias_applied():
     node = AtomNode("CommandLine", "contains", "contains", "test")
     ident = atom_identity(node)
-    assert "process.command_line" in ident or "CommandLine" in ident
-    # FIELD_ALIAS_MAP says CommandLine -> process.command_line
-    assert ident.startswith("process.command_line") or "command_line" in ident.lower()
+    assert ident.startswith("process.command_line")
+
+
+# ── Regression: case-insensitive field resolution (2026-04-08) ────────────────
+# LLM-generated rules use lowercase/snake_case field names. The alias map must
+# resolve them to the same canonical namespace as PascalCase SigmaHQ fields.
+# See docs/solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md
+
+
+class TestFieldAliasCaseInsensitive:
+    """Field alias resolution must be case-insensitive."""
+
+    @pytest.mark.parametrize(
+        "field,expected_prefix",
+        [
+            ("Image", "process.image"),
+            ("image", "process.image"),
+            ("IMAGE", "process.image"),
+            ("CommandLine", "process.command_line"),
+            ("commandline", "process.command_line"),
+            ("command_line", "process.command_line"),
+            ("ParentImage", "process.parent_image"),
+            ("parent_image", "process.parent_image"),
+            ("parentimage", "process.parent_image"),
+            ("ProcessCommandLine", "process.command_line"),
+            ("process_command_line", "process.command_line"),
+            ("ProcessPath", "process.image"),
+            ("process_path", "process.image"),
+        ],
+    )
+    def test_field_variants_resolve_to_same_namespace(self, field, expected_prefix):
+        node = AtomNode(field, "contains", "contains", "test")
+        ident = atom_identity(node)
+        assert ident.startswith(expected_prefix), (
+            f"Field {field!r} resolved to {ident.split('|')[0]!r}, expected {expected_prefix!r}"
+        )
+
+    def test_unknown_field_lowercased(self):
+        """Fields not in the alias map should still be lowercased."""
+        node = AtomNode("TargetFilename", "contains", "contains", "test")
+        ident = atom_identity(node)
+        assert ident.startswith("targetfilename|")
+
+    def test_pascal_and_snake_produce_identical_atoms(self):
+        """PascalCase SigmaHQ field and snake_case LLM field produce the same atom."""
+        pascal = AtomNode("CommandLine", "contains", "contains|all", "Delete")
+        snake = AtomNode("command_line", "contains", "contains|all", "Delete")
+        assert atom_identity(pascal) == atom_identity(snake)
+
+
+# ── Regression: case-insensitive value normalization (2026-04-08) ─────────────
+# Sigma's contains/endswith/startswith/eq are case-insensitive by spec.
+# Atom identity must fold case for these operators.
+
+
+class TestValueCaseFolding:
+    """Values must be lowercased for case-insensitive Sigma operators."""
+
+    @pytest.mark.parametrize(
+        "operator",
+        ["contains", "endswith", "startswith", "eq"],
+    )
+    def test_case_insensitive_operators_fold_value(self, operator):
+        upper = AtomNode("Image", operator, operator, "PowerShell.EXE")
+        lower = AtomNode("Image", operator, operator, "powershell.exe")
+        assert atom_identity(upper) == atom_identity(lower)
+
+    def test_regex_operator_preserves_case(self):
+        """The 're' operator should NOT fold case — regex patterns are case-sensitive."""
+        upper = AtomNode("CommandLine", "re", "re", "(?i)Delete.*Shadows")
+        lower = AtomNode("CommandLine", "re", "re", "(?i)delete.*shadows")
+        assert atom_identity(upper) != atom_identity(lower)
+
+    def test_mixed_case_contains_all(self):
+        """The specific bug from the issue: Delete vs delete with |contains|all."""
+        node_upper = AtomNode("CommandLine", "contains", "contains|all", "Delete")
+        node_lower = AtomNode("CommandLine", "contains", "contains|all", "delete")
+        assert atom_identity(node_upper) == atom_identity(node_lower)
 
 
 def test_positive_atoms_sorted(rule_with_and):

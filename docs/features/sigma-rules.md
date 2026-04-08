@@ -285,6 +285,8 @@ Enhances "Generate SIGMA Rules" by comparing proposed/generated rules against in
 
 When the **sigma_semantic_similarity** package is installed (`pip install -e sigma_semantic_similarity/` from the repo root), the app uses its deterministic engine for pairwise rule comparison in novelty assessment and (when no LLM is configured) in eval semantic scoring. It uses canonical telemetry class, DNF normalization, Jaccard, containment, and filter penalties—no embeddings. If the package is not installed, the app uses the existing in-app or LLM/embedding logic.
 
+The engine's `atom_extractor.py` uses case-insensitive field resolution (`_FIELD_ALIAS_MAP_LOWER`) and operator-aware value folding (`_CASE_INSENSITIVE_OPS`) so that LLM-generated rules using lowercase/snake_case field names (e.g., `image`, `command_line`) produce the same atom identities as standard PascalCase Sigma fields.
+
 ### How It Works
 
 ```
@@ -681,6 +683,12 @@ When Similarity Search finds no matches, the UI shows a **diagnostic** and setup
    ./run_cli.sh sigma stats
    ```
    Sigma embeddings use local sentence-transformers (intfloat/e5-base-v2). Ensure `sigma index-embeddings` has completed successfully.
+
+4. **If rules are synced but similarity is still zero**, the atom identity normalization may be stale. LLM-generated rules may use lowercase/snake_case field names (`image`, `command_line`) that don't match the PascalCase atoms stored for SigmaHQ rules (`process.image`, `process.command_line`). Recompute semantic fields:
+   ```bash
+   ./run_cli.sh sigma recompute-semantics
+   ```
+   See [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md) for the full diagnosis.
 
 #### Slow Performance
 1. Rebuild vector index:

@@ -249,8 +249,19 @@ class SigmaPRService:
 
     def _resolve_default_base_branch(self) -> str:
         """Prefer main when origin/main exists, otherwise master (legacy)."""
-        _, stdout, _ = self._run_git_command(["branch", "-r"], check=False)
-        return "main" if "origin/main" in stdout else "master"
+        _, remote_stdout, _ = self._run_git_command(["branch", "-r"], check=False)
+        if "origin/main" in remote_stdout:
+            return "main"
+        if "origin/master" in remote_stdout:
+            return "master"
+        # Fallback: check local branches (remote info may be unavailable in Docker)
+        _, local_stdout, _ = self._run_git_command(["branch", "--list"], check=False)
+        local_branches = local_stdout.strip()
+        if "main" in local_branches:
+            return "main"
+        if "master" in local_branches:
+            return "master"
+        return "main"
 
     def _check_repo_status(self) -> dict[str, Any]:
         """

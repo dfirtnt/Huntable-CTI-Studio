@@ -4,7 +4,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from src.services.sigma_novelty_service import NoveltyLabel, SigmaNoveltyService
+from src.services.sigma_novelty_service import (
+    NoveltyLabel,
+    SigmaNoveltyService,
+    _normalize_atom_identity,
+)
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
@@ -156,3 +160,109 @@ class TestSigmaNoveltyService:
         assert "atom_overlap" in metrics
         assert "logsource_match" in metrics
         assert 0.0 <= metrics["atom_overlap"] <= 1.0
+
+
+# ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────
+# Ensures the transition shim correctly resolves field aliases and folds case
+# on precomputed atom identity strings from the database.
+# See docs/solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md
+
+
+class TestNormalizeAtomIdentity:
+    """Tests for the runtime atom identity normalizer."""
+
+    @pytest.mark.parametrize(
+        "raw,expected",
+        [
+            # snake_case fields -> canonical namespace
+            ("command_line|contains|contains|all|delete", "process.command_line|contains|contains|all|delete"),
+            ("image|endswith|endswith|/vssadmin.exe", "process.image|endswith|endswith|/vssadmin.exe"),
+            ("parent_image|endswith|endswith|/cmd.exe", "process.parent_image|endswith|endswith|/cmd.exe"),
+            # Already-canonical fields pass through
+            ("process.command_line|contains|contains|cl", "process.command_line|contains|contains|cl"),
+            ("process.image|endswith|endswith|/wevtutil.exe", "process.image|endswith|endswith|/wevtutil.exe"),
+            # PascalCase (old stored format) -> canonical
+            ("CommandLine|contains|contains|all|Delete", "process.command_line|contains|contains|all|delete"),
+            # Unknown fields lowercased
+            ("OriginalFileName|eq||VSSADMIN.EXE", "originalfilename|eq||vssadmin.exe"),
+            # Value casing folded
+            ("process.command_line|contains|contains|all|Delete", "process.command_line|contains|contains|all|delete"),
+        ],
+    )
+    def test_normalization(self, raw, expected):
+        assert _normalize_atom_identity(raw) == expected
+
+    def test_proposed_vs_stored_atoms_intersect(self):
+        """Simulate the actual bug: proposed atoms (snake_case) vs stored atoms (canonical)."""
+        # Proposed rule atoms (LLM-generated, snake_case fields, mixed-case values)
+        proposed = [
+            "command_line|contains|contains|all|Delete",
+            "command_line|contains|contains|all|Shadows",
+            "image|endswith|endswith|/vssadmin.exe",
+            "parent_image|endswith|endswith|/cmd.exe",
+        ]
+        # Stored SigmaHQ atoms (canonical namespace, lowercase values)
+        stored = [
+            "process.command_line|contains|contains|all|delete",
+            "process.command_line|contains|contains|all|shadow",
+            "process.image|endswith|endswith|/vssadmin.exe",
+            "originalfilename|eq||vssadmin.exe",
+        ]
+
+        A1 = {_normalize_atom_identity(a) for a in proposed}
+        A2 = {_normalize_atom_identity(a) for a in stored}
+        shared = A1 & A2
+
+        # Must share at least vssadmin.exe and delete
+        assert len(shared) >= 2, f"Expected >= 2 shared atoms, got {len(shared)}: {shared}"
+        assert "process.image|endswith|endswith|/vssadmin.exe" in shared
+        assert "process.command_line|contains|contains|all|delete" in shared
+
+    def test_empty_and_malformed_atoms(self):
+        """Edge cases: empty string, no pipe separator."""
+        assert _normalize_atom_identity("") == ""
+        assert _normalize_atom_identity("justafieldname") == "justafieldname"
+
+    def test_assess_novelty_with_snake_case_fields(self):
+        """End-to-end: assess_novelty with snake_case fields finds matches against PascalCase candidates."""
+        service = SigmaNoveltyService()
+
+        # Proposed rule uses snake_case fields (LLM-generated)
+        proposed = {
+            "title": "Test Snake Case",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {
+                "selection": {
+                    "image|endswith": "\\cmd.exe",
+                    "command_line|contains": "whoami",
+                },
+                "condition": "selection",
+            },
+        }
+
+        # Candidate uses PascalCase fields (SigmaHQ standard)
+        candidate = {
+            "title": "Test PascalCase",
+            "rule_id": "test-pascal-001",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {
+                "selection": {
+                    "Image|endswith": "\\cmd.exe",
+                    "CommandLine|contains": "whoami",
+                },
+                "condition": "selection",
+            },
+            "exact_hash_match": False,
+            "exact_hash": "different",
+        }
+
+        service.retrieve_candidates = Mock(return_value=[candidate])
+        result = service.assess_novelty(proposed, threshold=0.0)
+
+        assert result["behavioral_matches_found"] > 0, (
+            "Snake_case proposed rule must find behavioral matches against PascalCase candidates"
+        )
+        top = result["top_matches"][0]
+        assert top["atom_jaccard"] > 0.5, (
+            f"Expected high Jaccard for identical detection logic, got {top['atom_jaccard']}"
+        )

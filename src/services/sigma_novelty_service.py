@@ -36,6 +36,39 @@ except ImportError:
     _sigma_compare_rules_available = False
 
 
+# ── Atom identity normalization (runtime safety net) ──────────────────────────
+# Normalizes precomputed atom identity strings so that field name variants
+# (PascalCase vs snake_case vs lowercase) and value casing all resolve to the
+# same canonical form.  This lets the precomputed-atom fast path produce correct
+# Jaccard scores even when the proposed rule was atomized by a different version
+# of the extractor than the stored SigmaHQ atoms.
+_ATOM_FIELD_ALIAS: dict[str, str] = {
+    "commandline": "process.command_line",
+    "command_line": "process.command_line",
+    "processcommandline": "process.command_line",
+    "process_command_line": "process.command_line",
+    "image": "process.image",
+    "processpath": "process.image",
+    "process_path": "process.image",
+    "parentimage": "process.parent_image",
+    "parent_image": "process.parent_image",
+    "parentcommandline": "process.parent_command_line",
+    "parent_command_line": "process.parent_command_line",
+}
+
+
+def _normalize_atom_identity(atom_id: str) -> str:
+    """Normalize a precomputed atom identity string: resolve field aliases + lowercase."""
+    lowered = atom_id.lower()
+    # Atom format: field|operator|modifier_chain|value
+    parts = lowered.split("|", 1)
+    if len(parts) < 2:
+        return lowered
+    field, rest = parts
+    resolved = _ATOM_FIELD_ALIAS.get(field, field)
+    return f"{resolved}|{rest}"
+
+
 class NoveltyLabel(StrEnum):
     """Novelty classification labels."""
 
@@ -220,10 +253,14 @@ class SigmaNoveltyService:
                     and _sigma_filter_penalty is not None
                 ):
                     # Pure set math: no YAML parsing
-                    A1 = set(proposed_sem["positive_atoms"])
-                    A2 = set(candidate_pos)
-                    F1 = set(proposed_sem["negative_atoms"])
-                    F2 = set(candidate_neg) if candidate_neg else set()
+                    # Normalize atom identities: lowercase values AND resolve field aliases.
+                    # Proposed atoms may use snake_case fields (LLM-generated) while stored
+                    # SigmaHQ atoms use canonical process.* namespace. Both sides need
+                    # normalization for correct comparison.
+                    A1 = {_normalize_atom_identity(a) for a in proposed_sem["positive_atoms"]}
+                    A2 = {_normalize_atom_identity(a) for a in candidate_pos}
+                    F1 = {_normalize_atom_identity(a) for a in proposed_sem["negative_atoms"]}
+                    F2 = {_normalize_atom_identity(a) for a in candidate_neg} if candidate_neg else set()
                     surface_a = float(proposed_sem["surface_score"])
                     surface_b = float(candidate_surface)
 
@@ -314,10 +351,11 @@ class SigmaNoveltyService:
                 if weighted_sim >= threshold:
                     if used_deterministic and candidate_pos is not None and proposed_sem is not None:
                         # Explainability from precomputed atom sets (no parsing)
-                        A1 = set(proposed_sem["positive_atoms"])
-                        A2 = set(candidate_pos)
-                        F1 = set(proposed_sem["negative_atoms"])
-                        F2 = set(candidate_neg) if candidate_neg else set()
+                        # Apply same normalization as the comparison above
+                        A1 = {_normalize_atom_identity(a) for a in proposed_sem["positive_atoms"]}
+                        A2 = {_normalize_atom_identity(a) for a in candidate_pos}
+                        F1 = {_normalize_atom_identity(a) for a in proposed_sem["negative_atoms"]}
+                        F2 = {_normalize_atom_identity(a) for a in candidate_neg} if candidate_neg else set()
                         shared = A1 & A2
                         added = A2 - A1
                         removed = A1 - A2

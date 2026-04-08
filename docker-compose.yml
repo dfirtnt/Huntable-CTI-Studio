@@ -107,7 +107,7 @@ services:
       - ./scripts:/app/scripts
       - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
-      - ../Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
       - /var/run/docker.sock:/var/run/docker.sock
       - /var/db/timezone/zoneinfo/America/New_York:/etc/localtime:ro
       - hf_cache:/root/.cache/huggingface
@@ -177,7 +177,7 @@ services:
       - ./scripts:/app/scripts
       - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
-      - ../Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
@@ -242,7 +242,7 @@ services:
       - ./scripts:/app/scripts
       - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
-      - ../Huntable-SIGMA-Rules:/app/sigma-repo
+      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
       postgres:
         condition: service_healthy
