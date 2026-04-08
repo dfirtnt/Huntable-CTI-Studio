@@ -59,7 +59,7 @@ class LangfuseEvalClient:
                 logger.warning(f"Session ID too long ({len(session_id)} chars), truncating to 200")
                 session_id = session_id[:200]
 
-            experiment_trace = self.client.start_span(
+            experiment_trace = self.client.start_observation(
                 trace_context=TraceContext(session_id=session_id),
                 name=experiment_name,
                 input={
@@ -75,13 +75,6 @@ class LangfuseEvalClient:
                     "experiment_type": "preset_evaluation",
                 },
             )
-
-            # Explicitly associate trace with session (required in LangFuse 3.x)
-            # This ensures the session shows up in Langfuse UI
-            try:
-                experiment_trace.update_trace(session_id=session_id)
-            except Exception as update_error:
-                logger.warning(f"Could not update experiment trace with session_id: {update_error}")
 
             experiment_info = {
                 "id": getattr(experiment_trace, "trace_id", None) or getattr(experiment_trace, "id", None),
@@ -133,12 +126,11 @@ class LangfuseEvalClient:
 
             from langfuse.types import TraceContext
 
-            # If we have an experiment span, create a child span using the parent span's context
+            # If we have an experiment span, create a child observation using the parent span
             if experiment and experiment.get("trace"):
                 experiment_span = experiment["trace"]
-                # Create child span by using the parent span's start_span method
-                # This ensures proper parent-child relationship
-                trace = experiment_span.start_span(
+                # v4: use start_observation on the parent span for proper parent-child relationship
+                trace = experiment_span.start_observation(
                     name=trace_name,
                     input={
                         "article_text": article_item.input.get("article_text", "")
@@ -163,7 +155,7 @@ class LangfuseEvalClient:
                 if experiment and experiment.get("id"):
                     trace_context_kwargs["trace_id"] = experiment["id"]
 
-                trace = self.client.start_span(
+                trace = self.client.start_observation(
                     trace_context=TraceContext(**trace_context_kwargs),
                     name=trace_name,
                     input={
@@ -184,11 +176,7 @@ class LangfuseEvalClient:
                     },
                 )
 
-                # Explicitly associate trace with session (required in LangFuse 3.x)
-                try:
-                    trace.update_trace(session_id=session_id)
-                except Exception as update_error:
-                    logger.warning(f"Could not update trace with session_id: {update_error}")
+                # v4: session_id is already set via TraceContext above
 
             return trace
         except Exception as e:

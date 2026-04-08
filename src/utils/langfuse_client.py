@@ -3,6 +3,8 @@ LangFuse client for LLM observability and monitoring.
 
 Provides centralized LangFuse integration for tracing LLM calls,
 workflow execution, and agent interactions.
+
+Migrated to Langfuse Python SDK v4 (observations-first API).
 """
 
 import logging
@@ -170,8 +172,8 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 session_id = session_id[:200]
             self.session_id = session_id
 
-            # Create a trace-level span with session_id
-            # This creates a top-level trace that shows up in the Sessions view in LangFuse
+            # Langfuse v4: use propagate_attributes for session/user correlation,
+            # then start_as_current_observation for the span.
             from langfuse.types import TraceContext
 
             trace_context = TraceContext(
@@ -179,8 +181,8 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 user_id=self.user_id or f"article_{self.article_id}",
             )
 
-            # Get the context manager and enter it
-            self._span_cm = self._client.start_as_current_span(
+            # Get the context manager and enter it (v4: start_as_current_observation)
+            self._span_cm = self._client.start_as_current_observation(
                 trace_context=trace_context,
                 name=f"agentic_workflow_execution_{self.execution_id}",
                 input={
@@ -196,13 +198,6 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 },
             )
             self._span = self._span_cm.__enter__()
-
-            # Explicitly set session_id on the trace using update_trace()
-            # This is required in LangFuse 3.x to properly associate traces with sessions
-            try:
-                self._span.update_trace(session_id=session_id)
-            except Exception as update_error:
-                logger.warning(f"Could not update trace with session_id: {update_error}")
 
             # Get trace ID (use trace_id, not span id)
             trace_id_value = getattr(self._span, "trace_id", None) or getattr(self._span, "id", None)
@@ -403,20 +398,19 @@ def trace_llm_call(
         # Use provided trace_id, or get from active trace, or create from execution_id
         resolved_trace_id = trace_id or _active_trace_id
 
-        # Create generation using start_generation (LangFuse v3 API)
+        # Create generation using start_observation (Langfuse v4 API)
         from langfuse.types import TraceContext
 
         # Convert messages to LangFuse format for input
         langfuse_input = []
         if metadata and "messages" in metadata:
-            # If messages are provided in metadata, use them
             langfuse_input = metadata["messages"]
         else:
-            # Otherwise create a simple input dict
             langfuse_input = {"execution_id": execution_id, "article_id": article_id, "model": model}
 
         generation_kwargs = {
             "name": name,
+            "as_type": "generation",
             "model": model,
             "input": langfuse_input,
             "metadata": {**(metadata or {}), "execution_id": execution_id, "article_id": article_id},
@@ -432,7 +426,7 @@ def trace_llm_call(
         if trace_context_kwargs:
             generation_kwargs["trace_context"] = TraceContext(**trace_context_kwargs)
 
-        generation = client.start_generation(**generation_kwargs)
+        generation = client.start_observation(**generation_kwargs)
 
         # Track if we've already ended the generation to avoid double-ending
         generation_ended = False
@@ -643,7 +637,7 @@ def log_workflow_step(
         if not client:
             return
 
-        # Create a child span for this workflow step
+        # Create a child span for this workflow step (v4: start_observation)
         from langfuse.types import TraceContext
 
         span_kwargs = {
@@ -667,7 +661,7 @@ def log_workflow_step(
         if trace_context_kwargs:
             span_kwargs["trace_context"] = TraceContext(**trace_context_kwargs)
 
-        span = client.start_span(**span_kwargs)
+        span = client.start_observation(**span_kwargs)
 
         if error:
             span.update(level="ERROR", status_message=str(error))

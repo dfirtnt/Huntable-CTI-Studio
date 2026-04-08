@@ -1096,14 +1096,9 @@ async def api_test_langfuse_connection(request: Request):
             # Try to initialize Langfuse client and validate keys with actual API call
             try:
                 from langfuse import Langfuse
-                from langfuse.api.client import AsyncFernLangfuse
+                from langfuse.api import AccessDeniedError, UnauthorizedError
+                from langfuse.api.client import AsyncLangfuseAPI
                 from langfuse.api.core.api_error import ApiError
-                from langfuse.api.resources.commons.errors.access_denied_error import (
-                    AccessDeniedError,
-                )
-                from langfuse.api.resources.commons.errors.unauthorized_error import (
-                    UnauthorizedError,
-                )
                 from langfuse.types import TraceContext
 
                 base_url = host.rstrip("/")
@@ -1112,7 +1107,7 @@ async def api_test_langfuse_connection(request: Request):
                 # Using the Fern client guarantees we hit the correct endpoint and
                 # get structured errors (401/403) instead of ambiguous responses.
                 async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as fern_http_client:
-                    fern_client = AsyncFernLangfuse(
+                    fern_client = AsyncLangfuseAPI(
                         base_url=base_url,
                         username=public_key,
                         password=secret_key,
@@ -1151,17 +1146,20 @@ async def api_test_langfuse_connection(request: Request):
                     flush_interval=1.0,
                 )
 
-                # Send a test trace/generation using correct Langfuse API
-                test_span = langfuse_client.start_span(
+                # Send a test trace/generation using Langfuse v4 API
+                test_span = langfuse_client.start_observation(
                     name="langfuse_connection_test",
                     metadata={"test": True, "timestamp": datetime.now().isoformat()},
                 )
 
-                test_generation = langfuse_client.start_generation(
+                test_generation = langfuse_client.start_observation(
                     name="test_generation",
+                    as_type="generation",
                     model="test",
-                    model_parameters={"temperature": 0.1},
-                    trace_context=TraceContext(trace_id=test_span.trace_id),
+                    model_parameters={"temperature": "0.1"},
+                    trace_context=TraceContext(
+                        trace_id=getattr(test_span, "trace_id", None) or getattr(test_span, "id", None),
+                    ),
                 )
 
                 # Update generation with output, then end it
