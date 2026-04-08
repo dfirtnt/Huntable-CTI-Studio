@@ -10,10 +10,14 @@ services:
       - ./allure-results:/app/allure-results
       - ./allure-report:/app/allure-report
     environment:
-      - CHECK_RESULTS_EVERY_SECONDS=3
+      - CHECK_RESULTS_EVERY_SECONDS=30
       - KEEP_HISTORY=1
       - KEEP_HISTORY_LATEST=10
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     networks:
       - cti_network
 

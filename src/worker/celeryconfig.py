@@ -116,6 +116,20 @@ worker_max_tasks_per_child = int(
 )  # Configurable, default 50 to prevent memory leaks
 worker_disable_rate_limits = False
 
+# Broker transport options — prevent tight polling loop on idle workers
+broker_transport_options = {
+    "visibility_timeout": 3600,  # 1 hour (default)
+    "queue_order_strategy": "round_robin",
+}
+
+# Redis polling interval: check for new messages every 1 second when idle.
+# Without this, Celery's Redis transport polls as fast as possible (CPU spike).
+broker_connection_retry_on_startup = True
+
+# Disable cluster protocol overhead (not needed for single-node Redis)
+worker_enable_remote_control = True  # keep inspect ping working
+# These are set via CLI flags: --without-gossip --without-mingle --without-heartbeat
+
 # Error handling
 task_acks_late = True
 task_reject_on_worker_lost = True

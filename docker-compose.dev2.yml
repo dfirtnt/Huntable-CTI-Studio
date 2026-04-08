@@ -119,7 +119,7 @@ services:
     networks:
       - cti_network_dev2
     restart: unless-stopped
-    command: celery -A src.worker.celery_app worker --loglevel=debug
+    command: celery -A src.worker.celery_app worker --loglevel=${CELERY_LOG_LEVEL:-info} --without-gossip --without-mingle --without-heartbeat
 
   # Celery Beat for Scheduled Tasks
   scheduler:
@@ -145,7 +145,7 @@ services:
     networks:
       - cti_network_dev2
     restart: unless-stopped
-    command: celery -A src.worker.celery_app beat --loglevel=debug
+    command: celery -A src.worker.celery_app beat --loglevel=${CELERY_LOG_LEVEL:-info}
 
   # CLI Tool Service
   cli:

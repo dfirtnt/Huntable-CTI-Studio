@@ -89,6 +89,9 @@ celery_app.conf.worker_redirect_stdouts_level = celeryconfig.worker_redirect_std
 celery_app.conf.task_acks_late = celeryconfig.task_acks_late
 celery_app.conf.task_reject_on_worker_lost = celeryconfig.task_reject_on_worker_lost
 celery_app.conf.task_remote_tracebacks = celeryconfig.task_remote_tracebacks
+celery_app.conf.broker_transport_options = celeryconfig.broker_transport_options
+celery_app.conf.broker_connection_retry_on_startup = celeryconfig.broker_connection_retry_on_startup
+celery_app.conf.worker_enable_remote_control = celeryconfig.worker_enable_remote_control
 
 # Verify broker URL is still correct
 if redis_url:
@@ -104,11 +107,13 @@ celery_app.autodiscover_tasks()
 import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
 
-# Optional: test_agents module (only used in test endpoints)
-try:
-    import src.worker.tasks.test_agents  # noqa: E402,F401
-except ImportError:
-    pass  # test_agents is optional
+# Optional: test_agents module (only load in development/test to avoid
+# registering test tasks that pollute the workflow queue in production)
+if os.getenv("APP_ENV", "production").lower() in ("development", "test"):
+    try:
+        import src.worker.tasks.test_agents  # noqa: E402,F401
+    except ImportError:
+        pass  # test_agents is optional
 
 
 # Define periodic tasks
