@@ -40,3 +40,50 @@ class TestSigmaPRServicePathResolution:
         with patch.dict("os.environ", {}, clear=False):
             svc = SigmaPRService(repo_path=None)
         assert svc.repo_path == (app_root / "sigma-repo").resolve()
+
+
+class TestResolveDefaultBaseBranch:
+    """Test _resolve_default_base_branch branch detection with local/remote fallback."""
+
+    @pytest.fixture(autouse=True)
+    def _mock_db_settings(self):
+        with patch.object(SigmaPRService, "_get_setting", return_value=None):
+            with patch.dict("os.environ", {}, clear=False):
+                self.svc = SigmaPRService(repo_path="/tmp/fake-repo")
+                yield
+
+    def _mock_git(self, responses: dict[str, str]):
+        """Mock _run_git_command to return specific stdout per git subcommand."""
+        orig = self.svc._run_git_command
+
+        def side_effect(cmd, check=True):
+            for key, stdout in responses.items():
+                if key in cmd:
+                    return (0, stdout, "")
+            return (0, "", "")
+
+        return patch.object(self.svc, "_run_git_command", side_effect=side_effect)
+
+    def test_remote_main_preferred(self):
+        with self._mock_git({"branch": "  origin/main\n  origin/master\n"}):
+            assert self.svc._resolve_default_base_branch() == "main"
+
+    def test_remote_master_when_no_main(self):
+        with self._mock_git({"branch": "  origin/master\n"}):
+            assert self.svc._resolve_default_base_branch() == "master"
+
+    def test_local_main_fallback_when_no_remotes(self):
+        """Docker scenario: no remote info, but local main branch exists."""
+        responses = {"-r": "", "--list": "* main\n  sigma-rules-20260408\n"}
+        with self._mock_git(responses):
+            assert self.svc._resolve_default_base_branch() == "main"
+
+    def test_local_master_fallback(self):
+        responses = {"-r": "", "--list": "* master\n"}
+        with self._mock_git(responses):
+            assert self.svc._resolve_default_base_branch() == "master"
+
+    def test_defaults_to_main_when_nothing_found(self):
+        responses = {"-r": "", "--list": ""}
+        with self._mock_git(responses):
+            assert self.svc._resolve_default_base_branch() == "main"
