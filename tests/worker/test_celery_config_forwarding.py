@@ -16,7 +16,7 @@ import pytest
 pytestmark = pytest.mark.unit
 
 
-def _import_celery_app():
+def _import_celery_app(env: dict[str, str] | None = None):
     """Import celery_app with optional task modules mocked out."""
     for key in list(sys.modules.keys()):
         if key.startswith("src.worker"):
@@ -28,7 +28,11 @@ def _import_celery_app():
         "src.worker.tasks.test_agents": MagicMock(),
     }
 
-    with patch.dict(sys.modules, mocks), patch.dict("os.environ", {"APP_ENV": "test"}):
+    runtime_env = {"APP_ENV": "test"}
+    if env:
+        runtime_env.update(env)
+
+    with patch.dict(sys.modules, mocks), patch.dict("os.environ", runtime_env, clear=False):
         return importlib.import_module("src.worker.celery_app")
 
 
@@ -52,43 +56,46 @@ class TestBrokerTransportOptionsForwarded:
 
 
 class TestTestAgentsGuard:
-    """Verify test_agents env var guard uses APP_ENV (not ENVIRONMENT)."""
+    """Verify test_agents env guard behavior and environment resolution."""
 
-    def test_guard_uses_app_env_variable(self):
-        """The test_agents guard should check APP_ENV, matching the existing test env guard."""
-        import inspect
+    def test_runtime_environment_prefers_app_env(self):
+        mod = _import_celery_app()
+        with patch.dict("os.environ", {"APP_ENV": "test", "ENVIRONMENT": "production"}, clear=True):
+            assert mod._runtime_environment() == "test"
 
-        import src.worker.celery_app
+    def test_runtime_environment_falls_back_to_environment(self):
+        mod = _import_celery_app()
+        with patch.dict("os.environ", {"APP_ENV": "", "ENVIRONMENT": "development"}, clear=True):
+            assert mod._runtime_environment() == "development"
 
-        source = inspect.getsource(src.worker.celery_app)
-        # Find the test_agents import guard — it should reference APP_ENV
-        # Look for the block that imports test_agents
-        import re
-
-        guard_match = re.search(
-            r'if\s+os\.getenv\(["\'](\w+)["\'].*test_agents',
-            source,
-            re.DOTALL,
-        )
-        assert guard_match is not None, "Could not find test_agents import guard"
-        env_var = guard_match.group(1)
-        assert env_var == "APP_ENV", (
-            f"test_agents guard uses {env_var!r} but should use 'APP_ENV' to match the existing test environment guard"
-        )
+    def test_runtime_environment_defaults_to_development(self):
+        mod = _import_celery_app()
+        with patch.dict("os.environ", {"APP_ENV": "", "ENVIRONMENT": ""}, clear=True):
+            assert mod._runtime_environment() == "development"
 
     def test_guard_allows_development_and_test(self):
-        """Guard condition should allow both 'development' and 'test'."""
-        import os
+        mod = _import_celery_app()
+        with patch.dict("os.environ", {"APP_ENV": "development", "ENVIRONMENT": "production"}, clear=True):
+            assert mod._runtime_environment() == "development"
+            assert mod._runtime_environment() in ("development", "test")
 
-        for env_val in ("development", "test"):
-            assert (
-                os.getenv("APP_ENV", "production").lower()
-                if env_val == os.getenv("APP_ENV")
-                else env_val in ("development", "test")
-            )
+        with patch.dict("os.environ", {"APP_ENV": "test", "ENVIRONMENT": "production"}, clear=True):
+            assert mod._runtime_environment() == "test"
+            assert mod._runtime_environment() in ("development", "test")
 
     def test_guard_blocks_production(self):
-        """Guard condition should block when APP_ENV is production or unset."""
-        for env_val in ("production", None):
-            result = (env_val or "production").lower()
-            assert result not in ("development", "test")
+        mod = _import_celery_app()
+        with patch.dict("os.environ", {"APP_ENV": "production", "ENVIRONMENT": "production"}, clear=True):
+            assert mod._runtime_environment() == "production"
+            assert mod._runtime_environment() not in ("development", "test")
+
+
+class TestTestAgentTaskRouting:
+    """Ensure test agent tasks route to the workflows queue."""
+
+    def test_test_agent_routes_target_workflows_queue(self):
+        import src.worker.celeryconfig as celeryconfig
+
+        assert celeryconfig.task_routes["test_agents.test_sub_agent"]["queue"] == "workflows"
+        assert celeryconfig.task_routes["test_agents.test_rank_agent"]["queue"] == "workflows"
+        assert celeryconfig.task_routes["test_agents.test_sigma_agent"]["queue"] == "workflows"

@@ -107,9 +107,15 @@ celery_app.autodiscover_tasks()
 import src.worker.tasks.annotation_embeddings  # noqa: E402,F401
 import src.worker.tasks.observable_training  # noqa: E402,F401
 
+
+def _runtime_environment() -> str:
+    """Resolve runtime environment across APP_ENV/ENVIRONMENT with a dev-safe default."""
+    return (os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "development").lower()
+
+
 # Optional: test_agents module (only load in development/test to avoid
 # registering test tasks that pollute the workflow queue in production)
-if os.getenv("APP_ENV", "production").lower() in ("development", "test"):
+if _runtime_environment() in ("development", "test"):
     try:
         import src.worker.tasks.test_agents  # noqa: E402,F401
     except ImportError:

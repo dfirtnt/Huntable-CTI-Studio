@@ -191,6 +191,49 @@ class TestLLMService:
                 )
 
     @pytest.mark.asyncio
+    async def test_openai_retries_without_temperature_when_model_rejects_non_default(self, service):
+        """OpenAI call should retry once without temperature when model only supports default."""
+        service.openai_api_key = "test-openai-key"
+        service.workflow_openai_enabled = True
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            first_response = Mock()
+            first_response.status_code = 400
+            first_response.text = (
+                '{"error":{"message":"Unsupported value: \'temperature\' does not support 0.0 with this model. '
+                'Only the default (1) value is supported.","type":"invalid_request_error","param":"temperature",'
+                '"code":"unsupported_value"}}'
+            )
+
+            second_response = Mock()
+            second_response.status_code = 200
+            second_response.text = '{"choices":[{"message":{"content":"ok"}}]}'
+            second_response.json = Mock(return_value={"choices": [{"message": {"content": "ok"}}], "usage": {}})
+
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(side_effect=[first_response, second_response])
+            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service.request_chat(
+                provider="openai",
+                model_name="gpt-5.1-chat-latest",
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=128,
+                temperature=0.0,
+                timeout=30.0,
+                failure_context="openai-temp-retry",
+            )
+
+            assert result["choices"][0]["message"]["content"] == "ok"
+            assert mock_client.post.await_count == 2
+
+            first_payload = mock_client.post.await_args_list[0].kwargs["json"]
+            second_payload = mock_client.post.await_args_list[1].kwargs["json"]
+            assert "temperature" in first_payload
+            assert "temperature" not in second_payload
+
+    @pytest.mark.asyncio
     async def test_request_chat_empty_messages_raises_preprocess_invariant_error(self, service):
         """Circuit breaker: request_chat must never invoke LLM with empty messages."""
         with pytest.raises(PreprocessInvariantError, match="empty messages"):

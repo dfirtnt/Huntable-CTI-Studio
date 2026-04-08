@@ -1,5 +1,6 @@
 """Tests for SIGMA generation service functionality."""
 
+import contextlib
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -8,11 +9,27 @@ import yaml
 from src.services.sigma_generation_service import (
     SigmaGenerationService,
     _build_observables_section,
+    _extract_message_text,
+    _is_reasoning_model,
 )
 from src.services.sigma_validator import ValidationResult
 
 # Mark all tests in this file as unit tests (use mocks, no real infrastructure)
 pytestmark = pytest.mark.unit
+
+
+def test_extract_message_text_handles_openai_content_parts():
+    """OpenAI content-part payloads should be normalized to plain text."""
+    payload = [{"type": "output_text", "text": "title: Test Rule\n"}, {"type": "output_text", "text": "id: abc"}]
+    assert _extract_message_text(payload) == "title: Test Rule\nid: abc"
+
+
+def test_is_reasoning_model_treats_openai_sigma_path_as_reasoning():
+    """SIGMA workflow should budget OpenAI models as reasoning-style."""
+    assert _is_reasoning_model("openai", "gpt-5.4")
+    assert _is_reasoning_model("openai", "gpt-4.1")
+    assert _is_reasoning_model("openai", "gpt-4o")
+    assert not _is_reasoning_model("lmstudio", "mistral-7b-instruct")
 
 
 class TestSigmaGenerationService:
@@ -955,3 +972,47 @@ level: low
                         assert len(validated_yaml) == 1
                         parsed_validated = yaml.safe_load(validated_yaml[0])
                         assert "observables_used" not in parsed_validated
+
+    @pytest.mark.asyncio
+    async def test_call_provider_for_sigma_openai_uses_high_max_tokens_and_content_parts(self, service):
+        """OpenAI SIGMA calls should use high completion budget and parse content parts."""
+        service.llm_service.provider_sigma = "openai"
+        service.llm_service.model_sigma = "gpt-5.4"
+        service.llm_service.provider_defaults = {"openai": "gpt-4o-mini"}
+        service.llm_service.temperature_sigma = 1.0
+        service.llm_service.top_p_sigma = 1.0
+        service.llm_service.seed = None
+        service.llm_service._convert_messages_for_model = Mock(side_effect=lambda messages, _model: messages)
+        service.llm_service.request_chat = AsyncMock(
+            return_value={
+                "choices": [
+                    {
+                        "message": {
+                            "content": [
+                                {"type": "output_text", "text": "title: Test Rule\n"},
+                                {"type": "output_text", "text": "id: test-rule\n"},
+                                {"type": "output_text", "text": "description: Test\n"},
+                                {"type": "output_text", "text": "logsource:\n  category: process_creation\n"},
+                                {"type": "output_text", "text": "  product: windows\n"},
+                                {"type": "output_text", "text": "detection:\n  selection:\n"},
+                                {"type": "output_text", "text": "    CommandLine|contains: test\n"},
+                                {"type": "output_text", "text": "  condition: selection\n"},
+                            ]
+                        },
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 200, "total_tokens": 210},
+            }
+        )
+
+        with (
+            patch("src.services.sigma_generation_service.trace_llm_call", return_value=contextlib.nullcontext(None)),
+            patch("src.services.sigma_generation_service.log_llm_completion"),
+            patch("src.services.sigma_generation_service.log_llm_error"),
+        ):
+            output = await service._call_provider_for_sigma("prompt", provider="openai")
+
+        assert output.startswith("title: Test Rule")
+        request_kwargs = service.llm_service.request_chat.call_args.kwargs
+        assert request_kwargs["max_tokens"] == 4000

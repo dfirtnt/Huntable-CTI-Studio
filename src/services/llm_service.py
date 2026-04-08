@@ -955,15 +955,42 @@ class LLMService:
             "temperature": temperature,
         }
 
+        def _temperature_unsupported(resp: httpx.Response) -> bool:
+            if resp.status_code != 400:
+                return False
+            text = (resp.text or "").lower()
+            return (
+                "temperature" in text
+                and "unsupported_value" in text
+                and "only the default (1) value is supported" in text
+            )
+
+        headers = {
+            "Authorization": f"Bearer {self.openai_api_key}",
+            "Content-Type": "application/json",
+        }
+
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=30.0, read=timeout)) as client:
             response = await client.post(
                 "https://api.openai.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.openai_api_key}",
-                    "Content-Type": "application/json",
-                },
+                headers=headers,
                 json=payload,
             )
+
+            # Some OpenAI models only support default temperature (1.0). Retry once without temperature.
+            if _temperature_unsupported(response):
+                logger.warning(
+                    "OpenAI model %s rejected non-default temperature=%s; retrying request without temperature.",
+                    model_name,
+                    temperature,
+                )
+                retry_payload = dict(payload)
+                retry_payload.pop("temperature", None)
+                response = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers=headers,
+                    json=retry_payload,
+                )
 
         if response.status_code != 200:
             raise RuntimeError(f"OpenAI API error ({response.status_code}): {response.text}")

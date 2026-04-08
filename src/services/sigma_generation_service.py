@@ -19,6 +19,48 @@ from src.utils.llm_optimizer import optimize_article_content
 logger = logging.getLogger(__name__)
 
 
+def _extract_message_text(payload: Any) -> str:
+    """Normalize LLM message payloads into plain text."""
+    if payload is None:
+        return ""
+    if isinstance(payload, str):
+        return payload
+    if isinstance(payload, list):
+        parts: list[str] = []
+        for item in payload:
+            if isinstance(item, str):
+                parts.append(item)
+                continue
+            if not isinstance(item, dict):
+                continue
+            # OpenAI may return content parts as [{'type':'output_text','text':'...'}]
+            text_value = item.get("text")
+            if isinstance(text_value, str) and text_value.strip():
+                parts.append(text_value)
+                continue
+            # Generic fallback for connector-specific payloads
+            content_value = item.get("content")
+            if isinstance(content_value, str) and content_value.strip():
+                parts.append(content_value)
+        return "".join(parts)
+    if isinstance(payload, dict):
+        for key in ("text", "content", "value"):
+            value = payload.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+    return ""
+
+
+def _is_reasoning_model(provider: str, model_name: str) -> bool:
+    """Identify models likely to spend completion tokens on reasoning before final output."""
+    model_lower = (model_name or "").lower()
+    if provider == "openai":
+        # In SIGMA generation, OpenAI chat models frequently consume completion budget
+        # before emitting final YAML. Treat all OpenAI models as reasoning-style here.
+        return True
+    return "r1" in model_lower or "reasoning" in model_lower
+
+
 def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
     """Build observables list for prompt injection when extraction_result is available."""
     if not extraction_result or not isinstance(extraction_result, dict):
@@ -763,8 +805,8 @@ Focus on generating rules for the uncovered categories listed above."""
 
         converted_messages = self.llm_service._convert_messages_for_model(messages, model_name)
 
-        is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
-        max_tokens = 2000 if is_reasoning_model else 800
+        is_reasoning_model = _is_reasoning_model(provider, model_name)
+        max_tokens = 4000 if is_reasoning_model else 800
 
         with trace_llm_call(
             name="generate_sigma",
@@ -787,8 +829,8 @@ Focus on generating rules for the uncovered categories listed above."""
                 )
 
                 message = result["choices"][0]["message"]
-                content_text = message.get("content", "")
-                reasoning_text = message.get("reasoning_content", "")
+                content_text = _extract_message_text(message.get("content", ""))
+                reasoning_text = _extract_message_text(message.get("reasoning_content", ""))
 
                 if content_text and (content_text.strip().startswith("title:") or "title:" in content_text[:100]):
                     output = content_text

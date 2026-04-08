@@ -46,6 +46,29 @@ class TestTraceLlmCallUsesV4Api:
                 # v3 method should NOT have been called
                 mock_client.start_generation.assert_not_called()
 
+    def test_propagates_inner_exception_without_generator_protocol_error(self):
+        """Exceptions raised inside the with block should propagate unchanged."""
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+        mock_observation = MagicMock()
+        mock_observation.trace_id = "test-trace"
+        mock_client.start_observation.return_value = mock_observation
+
+        with (
+            patch.object(mod, "_langfuse_client", mock_client),
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "_active_trace_id", None),
+        ):
+            with pytest.raises(ValueError, match="boom"):
+                with mod.trace_llm_call(
+                    name="test_gen_error",
+                    model="gpt-4",
+                    execution_id="exec-1",
+                    article_id=42,
+                ):
+                    raise ValueError("boom")
+
 
 class TestLogWorkflowStepUsesV4Api:
     """Verify log_workflow_step uses start_observation instead of start_span."""
