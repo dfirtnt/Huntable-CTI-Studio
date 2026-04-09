@@ -130,7 +130,7 @@ class CapabilityService:
             return {
                 "enabled": False,
                 "count": 0,
-                "reason": "Similarity search uses SigmaHQ only",
+                "reason": "No rules from your repo are indexed yet — similarity search covers SigmaHQ only",
                 "action": "Run sigma index-customer-repo to include your approved rules",
             }
         except Exception as e:

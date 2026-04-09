@@ -1699,7 +1699,7 @@ async function checkSimilarRulesForQueue() {
         <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
+                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules across indexed repositories...</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take 20-30 seconds</p>
             </div>
         </div>
@@ -2009,11 +2009,11 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
         const emptyTitle = (hasMetadata && totalCandidatesEvaluated === 0)
-            ? 'SigmaHQ Corpus Unavailable'
+            ? 'Rule Corpus Unavailable'
             : 'No Behavioral Overlap Found';
         const emptySubtitle = (hasMetadata && totalCandidatesEvaluated === 0)
-            ? 'No SigmaHQ rules were available for behavioral comparison.'
-            : 'No SigmaHQ rules share detection logic with this rule.';
+            ? 'No indexed rules were available for behavioral comparison.'
+            : 'No indexed rules share detection logic with this rule.';
         matchesHtml = `
             <div class="text-center py-8">
                 <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
@@ -2027,8 +2027,12 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
             const isActive = i === selectedIndex;
             const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
             const barWidth = Math.min(Math.round(simVal * 3), 100);
+            const isCustomer = (m.rule_id && String(m.rule_id).startsWith('cust-')) || (m.file_path && String(m.file_path).startsWith('customer/'));
+            const originBadge = isCustomer
+                ? '<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-900 text-amber-200 ml-1 flex-shrink-0">Your repo</span>'
+                : '<span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-700 text-gray-300 ml-1 flex-shrink-0">SigmaHQ</span>';
             return `<div class="sim-match-item px-3 py-2.5 border-b border-gray-800 cursor-pointer hover:bg-gray-800 transition-colors ${isActive ? 'border-l-2 border-l-purple-500 bg-gray-800' : 'border-l-2 border-l-transparent'} text-left" data-index="${i}">
-              <div class="text-xs font-medium leading-snug mb-1.5 ${isActive ? 'text-purple-400' : 'text-gray-200'}">${escapeHtml(m.title)}</div>
+              <div class="flex items-start gap-1 mb-1.5"><span class="text-xs font-medium leading-snug ${isActive ? 'text-purple-400' : 'text-gray-200'} flex-1 min-w-0">${escapeHtml(m.title)}</span>${originBadge}</div>
               <div class="flex items-center gap-2"><span class="text-xs font-medium text-purple-400 w-10 flex-shrink-0">${simVal.toFixed(1)}%</span><div class="flex-1 h-1 bg-gray-700 rounded-full overflow-hidden"><div class="h-full bg-purple-500 rounded-full" style="width:${barWidth}%"></div></div></div>
             </div>`;
         }).join('');
@@ -2038,7 +2042,7 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
         <div id="similarRulesModalContent" class="bg-gray-900 border border-gray-700 rounded-xl w-full max-w-4xl mx-4 flex flex-col overflow-hidden" style="max-height: 85vh;">
             <div class="px-4 py-3 border-b border-gray-700 flex-shrink-0">
                 <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm font-medium text-white">Similar rules in SigmaHQ repository</span>
+                    <span class="text-sm font-medium text-white">Similar rules across indexed repositories</span>
                     <button onclick="closeSimilarRulesModal()" class="text-gray-400 hover:text-white text-xs border border-gray-600 rounded px-2 py-1 hover:bg-gray-700" aria-label="Close">✕</button>
                 </div>
                 <span class="text-xs text-gray-400">${(config.candidates_evaluated ?? 0).toLocaleString()} candidates evaluated${filterHintHtml} · ${matches.length} rules with behavioral overlap</span>

@@ -15404,7 +15404,7 @@ async function checkSimilarRulesForQueue() {
         <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules in SigmaHQ repository...</p>
+                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules across indexed repositories...</p>
                 <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take 20-30 seconds</p>
             </div>
         </div>
@@ -15732,11 +15732,11 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     let matchesHtml = '';
     if (!matches || matches.length === 0) {
         const emptyTitle = (hasMetadata && totalCandidatesEvaluated === 0)
-            ? 'SigmaHQ Corpus Unavailable'
+            ? 'Rule Corpus Unavailable'
             : 'No Behavioral Overlap Found';
         const emptySubtitle = (hasMetadata && totalCandidatesEvaluated === 0)
-            ? 'No SigmaHQ rules were available for behavioral comparison.'
-            : 'No SigmaHQ rules share detection logic with this rule.';
+            ? 'No indexed rules were available for behavioral comparison.'
+            : 'No indexed rules share detection logic with this rule.';
         matchesHtml = `
             <div class="text-center py-8">
                 <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
@@ -15779,11 +15779,18 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
             const newRuleLogsourceJson = newRuleLogsource ? JSON.stringify(newRuleLogsource, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
             const newRuleDetectionJson = newRuleDetection ? JSON.stringify(newRuleDetection, null, 2).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') : 'N/A';
             
+            const isCustomerRule = (match.rule_id && String(match.rule_id).startsWith('cust-')) || (match.file_path && String(match.file_path).startsWith('customer/'));
+            const repoOriginBadge = isCustomerRule
+                ? '<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200">Your repo</span>'
+                : '<span class="px-1.5 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300">SigmaHQ</span>';
             return `
                 <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <div class="flex items-start justify-between">
                         <div class="flex-1">
-                            <h5 class="font-medium text-gray-900 dark:text-white">${escapeHtml(match.title || 'Untitled Rule')}</h5>
+                            <div class="flex items-center gap-2">
+                                <h5 class="font-medium text-gray-900 dark:text-white">${escapeHtml(match.title || 'Untitled Rule')}</h5>
+                                ${repoOriginBadge}
+                            </div>
                             <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${escapeHtml(match.description || 'No description')}</p>
                         </div>
                         <div class="ml-4 flex flex-col items-end">
@@ -15897,7 +15904,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
     modal.innerHTML = `
         <div id="similarRulesModalContent" class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-gray-800 border border-gray-700 transition-all duration-300">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rules in SigmaHQ Repository</h3>
+                <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rules Across Indexed Repositories</h3>
                 <div class="flex items-center space-x-2">
                     <button onclick="toggleSimilarRulesModalExpand()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" title="Expand to full screen">
                         <svg id="expandIcon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
