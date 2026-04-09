@@ -24,12 +24,75 @@ def test_extract_message_text_handles_openai_content_parts():
     assert _extract_message_text(payload) == "title: Test Rule\nid: abc"
 
 
+class TestExtractMessageTextEdgeCases:
+    """Cover all branches of _extract_message_text normalizer."""
+
+    def test_none_returns_empty(self):
+        assert _extract_message_text(None) == ""
+
+    def test_plain_string_passthrough(self):
+        assert _extract_message_text("hello world") == "hello world"
+
+    def test_empty_string(self):
+        assert _extract_message_text("") == ""
+
+    def test_empty_list(self):
+        assert _extract_message_text([]) == ""
+
+    def test_dict_with_text_key(self):
+        assert _extract_message_text({"text": "some text", "type": "output"}) == "some text"
+
+    def test_dict_with_content_key(self):
+        assert _extract_message_text({"content": "body text"}) == "body text"
+
+    def test_dict_with_value_key(self):
+        assert _extract_message_text({"value": "val"}) == "val"
+
+    def test_dict_prefers_text_over_content(self):
+        """text key should be checked before content key."""
+        assert _extract_message_text({"text": "preferred", "content": "fallback"}) == "preferred"
+
+    def test_dict_with_only_whitespace_values_returns_empty(self):
+        assert _extract_message_text({"text": "  ", "content": "  "}) == ""
+
+    def test_list_with_content_fallback(self):
+        """List items with 'content' key but no 'text' key should use content."""
+        payload = [{"content": "part1"}, {"content": "part2"}]
+        assert _extract_message_text(payload) == "part1part2"
+
+    def test_list_with_mixed_strings_and_dicts(self):
+        payload = ["raw string", {"text": " and dict"}]
+        assert _extract_message_text(payload) == "raw string and dict"
+
+    def test_list_skips_non_string_non_dict_items(self):
+        payload = [42, None, {"text": "ok"}]
+        assert _extract_message_text(payload) == "ok"
+
+    def test_unrecognized_type_returns_empty(self):
+        assert _extract_message_text(12345) == ""
+
+
 def test_is_reasoning_model_treats_openai_sigma_path_as_reasoning():
     """SIGMA workflow should budget OpenAI models as reasoning-style."""
     assert _is_reasoning_model("openai", "gpt-5.4")
     assert _is_reasoning_model("openai", "gpt-4.1")
     assert _is_reasoning_model("openai", "gpt-4o")
     assert not _is_reasoning_model("lmstudio", "mistral-7b-instruct")
+
+
+class TestIsReasoningModelEdgeCases:
+    """Additional edge cases for _is_reasoning_model."""
+
+    def test_r1_model_detected_for_any_provider(self):
+        assert _is_reasoning_model("lmstudio", "deepseek-r1")
+        assert _is_reasoning_model("lmstudio", "DeepSeek-R1-0528")
+
+    def test_reasoning_keyword_detected(self):
+        assert _is_reasoning_model("lmstudio", "custom-reasoning-v2")
+
+    def test_none_model_name_does_not_crash(self):
+        assert not _is_reasoning_model("lmstudio", None)
+        assert _is_reasoning_model("openai", None)
 
 
 class TestSigmaGenerationService:

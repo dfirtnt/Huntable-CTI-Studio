@@ -113,13 +113,6 @@ worker_direct = False
 worker_redirect_stdouts = True
 worker_redirect_stdouts_level = "INFO"
 
-# Performance
-worker_prefetch_multiplier = 1
-worker_max_tasks_per_child = int(
-    os.getenv("CELERY_MAX_TASKS_PER_CHILD", "50")
-)  # Configurable, default 50 to prevent memory leaks
-worker_disable_rate_limits = False
-
 # Broker transport options — prevent tight polling loop on idle workers
 broker_transport_options = {
     "visibility_timeout": 3600,  # 1 hour (default)

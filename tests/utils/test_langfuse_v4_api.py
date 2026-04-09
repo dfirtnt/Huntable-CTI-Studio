@@ -69,6 +69,40 @@ class TestTraceLlmCallUsesV4Api:
                 ):
                     raise ValueError("boom")
 
+    def test_yields_none_when_client_creation_fails(self):
+        """trace_llm_call should yield None (fail-open) when start_observation raises."""
+        import src.utils.langfuse_client as mod
+
+        mock_client = MagicMock()
+        mock_client.start_observation.side_effect = RuntimeError("Langfuse unreachable")
+
+        with (
+            patch.object(mod, "_langfuse_client", mock_client),
+            patch.object(mod, "_langfuse_enabled", True),
+            patch.object(mod, "_active_trace_id", None),
+        ):
+            with mod.trace_llm_call(
+                name="test_fail_open",
+                model="gpt-4",
+                execution_id="exec-1",
+                article_id=42,
+            ) as generation:
+                # Should yield None, not raise
+                assert generation is None
+
+    def test_yields_none_when_langfuse_disabled(self):
+        """trace_llm_call should yield None when Langfuse is disabled."""
+        import src.utils.langfuse_client as mod
+
+        with (
+            patch.object(mod, "_langfuse_enabled", False),
+        ):
+            with mod.trace_llm_call(
+                name="test_disabled",
+                model="gpt-4",
+            ) as generation:
+                assert generation is None
+
 
 class TestLogWorkflowStepUsesV4Api:
     """Verify log_workflow_step uses start_observation instead of start_span."""
