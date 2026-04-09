@@ -2318,6 +2318,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
                 similar_rules = match_result.get("matches", [])
 
+                # max_similarity must use ALL matches, not just threshold-filtered ones
+                all_similarities = [r.get("similarity", 0.0) for r in similar_rules]
+                rule_max_sim = max(all_similarities) if all_similarities else 0.0
+
                 # Filter by threshold and limit to top 10
                 filtered_rules = [r for r in similar_rules if r.get("similarity", 0.0) >= similarity_threshold][:10]
 
@@ -2329,11 +2333,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 novelty_results.append(
                     {
                         "rule_title": rule.get("title"),
-                        "similar_rules": filtered_rules,  # Keep key for backward compatibility
-                        "max_similarity": 1.0 - rule_min_novelty,  # Backward compatibility
+                        "similar_rules": similar_rules[:10],  # Top matches from all candidates
+                        "max_similarity": rule_max_sim,  # Actual max from all candidates
                         "novelty_label": rule_novelty_label,
                         "novelty_score": rule_min_novelty,
-                        "top_matches": filtered_rules[:5],  # Top matches with explainability
+                        "top_matches": filtered_rules[:5] if filtered_rules else similar_rules[:5],
                     }
                 )
 
