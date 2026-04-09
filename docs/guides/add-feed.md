@@ -1,5 +1,7 @@
 # Add a Feed or Source
 
+> **Quick path:** Use the `/add-source` Claude Code skill for guided, automated source addition — it handles RSS discovery, selector inspection, YAML generation, and safe sync. See `.claude/skills/add-source/SKILL.md`.
+
 Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used by the scheduler and collectors. Runtime always reads from the database; YAML is only used for seeding and manual syncs.
 
 ## Precedence rules

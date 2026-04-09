@@ -652,6 +652,39 @@ sources:
     description: "Daily security incident analysis and threat intelligence"
 
   # =============================================================================
+  # INDEPENDENT RESEARCH & COMMUNITY
+  # =============================================================================
+
+  # The Hunter's Ledger — Atom feed at /feed.xml; solo analyst CTI research
+  - id: "hunters_ledger"
+    name: "The Hunter's Ledger"
+    url: "https://the-hunters-ledger.com/"
+    rss_url: "https://the-hunters-ledger.com/feed.xml"
+    check_frequency: 1800  # 30 minutes
+    active: true
+    config:
+      allow: ["the-hunters-ledger.com"]
+      post_url_regex: ["^https://the-hunters-ledger\\.com/reports/.*"]
+      robots:
+        enabled: true
+        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        respect_delay: true
+        max_requests_per_minute: 10
+        crawl_delay: 1.0
+      min_content_length: 1500
+      title_filter_keywords: ["webinar", "training", "careers", "job posting"]
+      rss_only: false
+      extract:
+        prefer_jsonld: true
+        title_selectors: ["h1", ".hl-post-header h1", "meta[property='og:title']::attr(content)"]
+        date_selectors:
+          - "meta[property='article:published_time']::attr(content)"
+          - "time[datetime]::attr(datetime)"
+        body_selectors: [".hl-post-content", "article", "main", ".content"]
+        author_selectors: ["meta[name='author']::attr(content)"]
+    description: "Original threat intelligence research — malware analysis, detection rules, and IOC feeds from a solo analyst"
+
+  # =============================================================================
   # LEGACY SOURCES (Keep for compatibility)
   # =============================================================================
 

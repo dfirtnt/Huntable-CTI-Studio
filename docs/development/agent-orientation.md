@@ -40,6 +40,7 @@ Open these files early:
 | `tests/` | Pytest suites, Playwright specs, fixtures, helpers |
 | `docs/` | Human-facing docs; useful for orientation, secondary to code |
 | `src/huntable_mcp/` | Read-only Model Context Protocol server (`run_mcp.py`, `python3 -m src.huntable_mcp`); [tool reference](../reference/mcp-tools.md) |
+| `.claude/skills/` | Project-scoped Claude Code skills (auto-discovered as `/slash-commands`); see individual `SKILL.md` files |
 
 ## Source Of Truth Hierarchy
 

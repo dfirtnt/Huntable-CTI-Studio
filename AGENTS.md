@@ -59,6 +59,7 @@ Use this map to orient before searching broadly:
 | `docs/` | Human-facing docs; useful orientation aid but subordinate to code when they diverge |
 | `docs/solutions/` | Documented solutions to past problems (bugs, best practices, workflow patterns), organized by category with YAML frontmatter (`module`, `tags`, `problem_type`) |
 | `src/huntable_mcp/` | Read-only Model Context Protocol server for articles, SIGMA, sources, workflow/queue visibility (`run_mcp.py`, `python3 -m src.huntable_mcp`); see `docs/reference/mcp-tools.md` |
+| `.claude/skills/` | Project-scoped Claude Code skills (auto-discovered as slash commands); see individual `SKILL.md` files |
 
 ---
 
@@ -280,12 +281,16 @@ Changes within a step's content (labels, layout, new controls) do not require a 
 
 ### Adding a new source
 
+Use the `/add-source` Claude Code skill (`.claude/skills/add-source/SKILL.md`) for guided, repeatable source addition. The skill automates RSS discovery, selector inspection, YAML generation, and safe sync.
+
+Manual steps (or what the skill does under the hood):
+
 1. Edit `config/sources.yaml`:
    - Add an entry with a unique `id`.
    - Keep `allow`, `post_url_regex`, and `title_filter_keywords` consistent with existing sources to avoid scraping noise.
-2. Sync YAML -> PostgreSQL (without deleting existing rows):
+2. Sync YAML -> PostgreSQL (without deleting existing rows or overwriting existing configs):
    ```bash
-   ./run_cli.sh sync-sources --config config/sources.yaml --no-remove
+   ./run_cli.sh sync-sources --config config/sources.yaml --no-remove --new-only
    ```
 3. Verify it is active:
    ```bash

@@ -69,6 +69,7 @@ Huntable-CTI-Studio/
 ├── config/             # Source YAML, workflow presets, provider catalog, eval data
 ├── tests/              # Pytest suites, Playwright specs, fixtures, docs tests
 ├── docs/               # MkDocs documentation
+├── .claude/skills/     # Project-scoped Claude Code skills (slash commands)
 ├── docker-compose.yml
 ├── docker-compose.test.yml
 ├── run_tests.py
