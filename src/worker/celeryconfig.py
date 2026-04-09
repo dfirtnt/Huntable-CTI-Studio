@@ -39,7 +39,7 @@ task_routes = {
     "src.worker.celery_app.check_all_sources": {"queue": "source_checks"},
     "src.worker.celery_app.cleanup_old_data": {"queue": "maintenance"},
     "src.worker.celery_app.test_source_connectivity": {"queue": "connectivity"},
-    "src.worker.celery_app.collect_from_source": {"queue": "collection"},
+    "src.worker.celery_app.collect_from_source": {"queue": "collection_immediate"},
     "src.worker.celery_app.trigger_agentic_workflow": {"queue": "workflows"},
     "src.worker.celery_app.sync_sigma_rules": {"queue": "maintenance"},
     "src.worker.celery_app.update_provider_model_catalogs": {"queue": "maintenance"},

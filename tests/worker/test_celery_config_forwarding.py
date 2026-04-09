@@ -101,12 +101,12 @@ class TestCollectionImmediateQueue:
         assert q["exchange"] == "collection_immediate"
         assert q["routing_key"] == "collection_immediate"
 
-    def test_collect_from_source_default_route_unchanged(self):
-        """Default route for collect_from_source stays 'collection' (not collection_immediate)."""
+    def test_collect_from_source_default_route_is_collection_immediate(self):
+        """Default route for collect_from_source matches the priority queue used by Collect Now."""
         import src.worker.celeryconfig as celeryconfig
 
         route = celeryconfig.task_routes["src.worker.celery_app.collect_from_source"]
-        assert route["queue"] == "collection"
+        assert route["queue"] == "collection_immediate"
 
 
 class TestTestAgentTaskRouting:
