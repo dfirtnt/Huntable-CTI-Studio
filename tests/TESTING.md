@@ -177,7 +177,7 @@ tests/
 Core functionality testing with mocked dependencies:
 
 - **`test_source_manager.py`** (35 tests) - Source configuration and validation
-- **`test_gpt4o_optimizer.py`** (22 tests) - GPT-4o content optimization
+- **`test_llm_optimizer.py`** (22 tests) - LLM content optimization
 - **`test_utils.py`** (14 tests) - Utility functions
 - **`test_content_filter.py`** (25 tests) - ML-based content filtering
 - **`test_sigma_validator.py`** (50 tests) - SIGMA rule validation
@@ -187,7 +187,7 @@ Core functionality testing with mocked dependencies:
 - **`test_ioc_extractor.py`** (20 tests) - IOC extraction
 - **`test_ai_integration.py`** (15 tests) - AI integration workflows
 - (removed) Ollama - use LMStudio for local AI
-- **`test_gpt4o_endpoint.py`** (15 tests) - GPT-4o API endpoints
+- **`test_llm_endpoint.py`** (15 tests) - LLM API endpoints
 - **`test_database_operations.py`** (33 tests) - Database operations
 - **`test_content_processor.py`** (47 tests) - Content processing pipeline
 - **`test_rss_parser.py`** (46 tests) - RSS feed parsing
@@ -237,7 +237,7 @@ Cross-component testing with real dependencies:
 - **`test_content_pipeline_integration.py`** - Content pipeline
 - **`test_error_recovery_integration.py`** - Error recovery
 - **`test_export_backup_integration.py`** - Export/backup workflows
-- **`test_gpt4o_filtering.py`** - GPT-4o filtering
+- **`test_llm_filtering.py`** - LLM filtering
 - **`test_huntable_probability.py`** - Huntable probability
 - **`test_lightweight_integration.py`** (12 tests) - Lightweight integration
 - **`test_mobile_annotation_direct.py`** - Mobile annotation

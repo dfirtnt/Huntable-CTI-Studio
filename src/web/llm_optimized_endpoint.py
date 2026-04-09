@@ -12,6 +12,7 @@ from src.web.dependencies import logger
 router = APIRouter()
 
 
+@router.post("/api/articles/{article_id}/llm-rank-optimized")
 @router.post("/api/articles/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):
     """Enhanced API endpoint for GPT4o SIGMA huntability ranking with content filtering."""

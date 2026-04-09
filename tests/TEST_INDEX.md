@@ -43,8 +43,8 @@
 | File | Tests | Status | Description |
 |------|-------|--------|-------------|
 | `test_ai_integration.py` | 15 | ✅ Passing | AI integration workflows |
-| `test_gpt4o_optimizer.py` | 22 | ✅ Passing | GPT-4o content optimization |
-| `test_gpt4o_endpoint.py` | 15 | ✅ Passing | GPT-4o API endpoints |
+| `test_llm_optimizer.py` | 22 | ✅ Passing | LLM content optimization |
+| `test_llm_endpoint.py` | 15 | ✅ Passing | LLM API endpoints |
 | (removed) | - | - | Ollama removed; use LMStudio |
 | `test_sigma_validator.py` | 50 | ✅ Passing | SIGMA rule validation |
 | `test_threat_hunting_scorer.py` | 26 | ✅ Passing | Threat hunting scoring |
@@ -113,7 +113,7 @@
 | `test_content_pipeline_integration.py` | 10+ | ✅ Passing | Content processing pipeline |
 | `test_error_recovery_integration.py` | 10+ | ✅ Passing | Error recovery and resilience |
 | `test_export_backup_integration.py` | 10+ | ✅ Passing | Export and backup workflows |
-| `test_gpt4o_filtering.py` | 10+ | ✅ Passing | GPT-4o content filtering |
+| `test_llm_filtering.py` | 10+ | ✅ Passing | LLM content filtering |
 | `test_huntable_probability.py` | 10+ | ✅ Passing | Huntable probability integration |
 | `test_lightweight_integration.py` | 12 | ✅ Passing | Lightweight integration |
 | `test_mobile_annotation_direct.py` | 10+ | ✅ Passing | Mobile annotation direct integration |

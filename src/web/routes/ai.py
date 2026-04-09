@@ -1546,6 +1546,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@router.post("/{article_id}/llm-rank-optimized")
 @router.post("/{article_id}/gpt4o-rank-optimized")
 async def api_gpt4o_rank_optimized(article_id: int, request: Request):
     """Enhanced API endpoint for GPT4o SIGMA huntability ranking with content filtering."""
