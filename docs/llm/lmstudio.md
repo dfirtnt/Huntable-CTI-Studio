@@ -149,8 +149,8 @@ Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity.
 ### Active Providers
 
 1. **LM Studio** (OpenAI-compatible) — Active local model provider with GUI server mode
-2. **OpenAI** (Cloud) — GPT-4o-mini API
-3. **Anthropic** (Cloud) — Claude Haiku API
+2. **OpenAI** (Cloud) — OpenAI API
+3. **Anthropic** (Cloud) — Anthropic Claude API
 
 > **Note**: MLX and llama.cpp providers are planned but not yet implemented.
 

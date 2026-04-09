@@ -27,7 +27,7 @@ Huntable CTI Studio implements a comprehensive RAG system that combines semantic
 Note: RAG sigma retrieval uses embeddings (cosine similarity via pgvector) to find rules relevant to user queries. For workflow duplicate detection (comparing generated rules to SigmaHQ), the system uses a behavioral novelty engine: when `sigma_semantic_similarity` is installed, a deterministic engine (Jaccard × Containment − Filter); otherwise legacy (Atom Jaccard 70% + Logic Shape Similarity 30%). Cosine similarity is not used for workflow duplicate ranking.
 
 4. **LLM Generation Service** (`src/services/llm_generation_service.py`)
-   - **Multi-Provider**: OpenAI GPT-4o, Anthropic Claude, LMStudio (local)
+   - **Multi-Provider**: OpenAI, Anthropic Claude, LMStudio (local)
    - **Auto-Selection**: Automatically chooses best available provider
    - **Fallback**: Graceful degradation to template responses
    - **Context Management**: Conversation history integration
@@ -45,7 +45,7 @@ Note: RAG sigma retrieval uses embeddings (cosine similarity via pgvector) to fi
 - **Follow-Up Questions**: Natural conversation flow with reference resolution
 
 ### Multi-Provider LLM Support
-- **OpenAI GPT-4o**: Primary provider for high-quality analysis
+- **OpenAI**: Primary provider for high-quality analysis
 - **Anthropic Claude**: Alternative provider with different strengths
 - **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
 - **Template Fallback**: Structured responses when LLM unavailable
@@ -116,7 +116,7 @@ The **capabilities** block reflects current feature availability. The Web UI use
 ## Configuration
 
 ### Environment Variables
-- `OPENAI_API_KEY`: OpenAI API key for GPT-4o access
+- `OPENAI_API_KEY`: OpenAI API key
 - `ANTHROPIC_API_KEY`: Anthropic API key for Claude access
 
 ### Frontend Configuration
@@ -161,7 +161,7 @@ You analyze retrieved CTI article content to answer user questions about threat 
 
 ### Response Times
 - **Template Mode**: < 2 seconds
-- **OpenAI GPT-4o**: 3-5 seconds
+- **OpenAI**: 3-5 seconds
 - **Anthropic Claude**: 4-6 seconds
 - **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
 

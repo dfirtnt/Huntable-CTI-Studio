@@ -2,11 +2,11 @@
 
 <!-- MERGED FROM: features/CONTENT_FILTERING.md, features/CONTENT_FILTER_ML_SETUP.md -->
 
-# GPT-4o Content Filtering System Documentation
+# LLM Content Filtering System Documentation
 
 ## Overview
 
-The GPT-4o Content Filtering System is a hybrid machine learning and pattern-based solution designed to reduce OpenAI API costs by intelligently filtering out "not huntable" content before sending it to GPT-4o for analysis. The system achieves **20-80% cost savings** while maintaining analysis quality.
+The LLM Content Filtering System is a hybrid machine learning and pattern-based solution designed to reduce LLM API costs by intelligently filtering out "not huntable" content before sending it to the configured LLM for analysis. The system achieves **20-80% cost savings** while maintaining analysis quality.
 
 ## Table of Contents
 
@@ -43,7 +43,7 @@ Enhanced ML Classification (with hunt score features)
       ↓
 Filtered Content (Huntable Chunks Only)
       ↓
-GPT-4o API
+LLM API
       ↓
 Analysis Results + Cost Savings
 ```
@@ -191,7 +191,7 @@ Chunks are kept or removed based on:
 - Pattern match analysis
 
 ### Step 5: Content Reconstruction
-Only huntable chunks are reassembled and sent to GPT-4o.
+Only huntable chunks are reassembled and sent to the configured LLM.
 
 ## Chunk-Based Filtering
 
@@ -407,7 +407,7 @@ print(f"Filtered content: {result.filtered_content}")
 ```python
 from src.utils.llm_optimizer import optimize_article_content
 
-# Optimize content for GPT-4o
+# Optimize content for LLM
 optimization_result = await optimize_article_content(
     content=article_content,
     min_confidence=0.7
@@ -718,7 +718,7 @@ GET /api/articles/{article_id}/chunk-debug
 
 ## Conclusion
 
-The GPT-4o Content Filtering System successfully reduces API costs by 20-80% while maintaining analysis quality. The hybrid approach combining pattern filters and machine learning provides both speed and accuracy, making it an effective solution for cost optimization in threat intelligence analysis.
+The LLM Content Filtering System successfully reduces API costs by 20-80% while maintaining analysis quality. The hybrid approach combining pattern filters and machine learning provides both speed and accuracy, making it an effective solution for cost optimization in threat intelligence analysis.
 
 **Key Benefits:**
 - ✅ Significant cost savings (20-80%)

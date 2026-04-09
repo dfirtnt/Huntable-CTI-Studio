@@ -400,8 +400,8 @@ API Endpoints:
 │   LLM Services  │    │   RAG Chat      │    │ SIGMA Generation│
 │                 │    │                 │    │                 │
 │ • LM Studio     │    │ • Vector Search │    │ • AI Analysis   │
-│ • OpenAI GPT-4  │    │ • Context Build │    │ • pySIGMA Valid │
-│ • Claude 3      │    │ • Semantic Q&A  │    │ • Rule Creation │
+│ • OpenAI        │    │ • Context Build │    │ • pySIGMA Valid │
+│ • Anthropic     │    │ • Semantic Q&A  │    │ • Rule Creation │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
           ▼                      ▼                      ▼

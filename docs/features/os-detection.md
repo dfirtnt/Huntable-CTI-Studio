@@ -625,7 +625,7 @@ bash scripts/train_os_detection_workflow.sh
 
 #### Step 1: Prepare Training Data
 
-Generate labeled training data using LLM (GPT-4o):
+Generate labeled training data using an LLM:
 
 ```bash
 python scripts/prepare_os_detection_training_data.py \
@@ -638,7 +638,7 @@ python scripts/prepare_os_detection_training_data.py \
 - `--min-hunt-score`: Minimum hunt score for articles (default: 80.0)
 - `--limit`: Maximum number of articles to process (default: None)
 - `--output`: Output path for training data JSON
-- `--llm-model`: LLM model for labeling (default: gpt-4o)
+- `--llm-model`: LLM model for labeling
 - `--no-llm`: Skip LLM labeling (for manual labeling)
 
 **Training Data Format:**
@@ -691,7 +691,7 @@ The training script queries articles from the database with:
 ### 2. Labeling
 
 **LLM Labeling (Recommended):**
-- Uses GPT-4o to analyze article content
+- Uses the configured LLM to analyze article content
 - Labels articles as: Windows, Linux, MacOS, or multiple
 - Fast and consistent labeling
 

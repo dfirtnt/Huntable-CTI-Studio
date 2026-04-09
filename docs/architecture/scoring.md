@@ -58,7 +58,7 @@ Living Off the Land Binaries and Scripts - High technical value:
    - **Confidence enhancement** through hunt score integration
    - **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
    - **Cross-platform coverage** (Windows, macOS, Linux patterns)
-   - **Cost optimization** with 20-80% reduction in GPT-4o API costs
+   - **Cost optimization** with 20-80% reduction in LLM API costs
 
 ### Geometric Series Scoring System
 
