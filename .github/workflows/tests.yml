@@ -40,7 +40,9 @@ jobs:
           --ignore-vuln CVE-2026-33230
           --ignore-vuln CVE-2026-33231
           --ignore-vuln CVE-2026-4539
+          --ignore-vuln GHSA-926x-3r5x-gfhw
         # nltk: no fixed release for GHSA-rf74 / CVE-2026-33230 / CVE-2026-33231 yet; pygments 2.19.2 latest on PyPI (CVE-2026-4539)
+        # langchain-core GHSA-926x-3r5x-gfhw: transitive dep of langgraph; fix in 1.2.28, waiting for langgraph update
 
       # Optional: add step with pyupio/safety-action and secrets.SAFETY_API_KEY for Safety scan (requires account)
 

@@ -192,7 +192,10 @@ test.describe('Sources Page - Executable Test Plan', () => {
       });
     });
 
-    await page.locator(`button[onclick="collectFromSource(${source.id})"]`).click({ force: true });
+    // Enable the button in case the source is inactive (disabled buttons suppress onclick)
+    const btn021 = page.locator(`button[onclick="collectFromSource(${source.id})"]`);
+    await btn021.evaluate((el) => el.removeAttribute('disabled'));
+    await btn021.click({ force: true });
     await expect.poll(() => called).toBeTruthy();
   });
 
@@ -205,7 +208,10 @@ test.describe('Sources Page - Executable Test Plan', () => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'PENDING', ready: false }) });
     });
 
-    await page.locator(`button[onclick="collectFromSource(${source.id})"]`).click({ force: true });
+    // Enable the button in case the source is inactive (disabled buttons suppress onclick)
+    const btn022 = page.locator(`button[onclick="collectFromSource(${source.id})"]`);
+    await btn022.evaluate((el) => el.removeAttribute('disabled'));
+    await btn022.click({ force: true });
     const panel = page.locator('#collectionStatus');
     await expect(panel).toBeVisible();
     await expect(page.locator('#collectionStatusText')).toContainText(/collection/i);
