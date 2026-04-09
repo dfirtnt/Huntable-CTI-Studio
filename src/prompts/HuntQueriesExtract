@@ -12,7 +12,7 @@
   },
   "output_format": {
     "query_count": "Integer count of EDR queries extracted (KQL, Splunk, Elastic, Falcon, SentinelOne, etc.)",
-    "queries": "Array of objects: {'query': '<verbatim query string>', 'type': 'kql|splunk|elastic|falcon|sentinelone|other', 'context': '<brief source context>' (optional)}"
+    "queries": "Array of objects: {'query': '<verbatim query string>', 'type': 'kql|splunk|elastic|falcon|sentinelone|other', 'context': '<brief source context>' (optional), 'confidence_score': <0.0-1.0>, 'source_evidence': '<verbatim paragraph containing this query>', 'extraction_justification': '<which rule triggered extraction>'}"
   },
   "instructions": "Analyze the text for code blocks and query examples. Extract EDR queries (KQL, Splunk, Elastic, etc.) verbatim. If a query is broken across lines, join it if obvious. Preserve original syntax, formatting, and structure. Output valid JSON only."
 }

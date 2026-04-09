@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from ..gpt4o_optimized_endpoint import router as gpt4o_router
+from ..llm_optimized_endpoint import router as llm_optimized_router
 from . import (
     actions,
     ai,
@@ -86,7 +86,7 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(observable_evaluation.router)
     app.include_router(settings.router)
     app.include_router(scheduled_jobs.router)
-    app.include_router(gpt4o_router)
+    app.include_router(llm_optimized_router)
     app.include_router(workflow_config.router)
     app.include_router(workflow_executions.router)
     app.include_router(workflow_ui.router)

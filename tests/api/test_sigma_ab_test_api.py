@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Import router; routes package loads gpt4o_optimized_endpoint which creates async_db_manager.
+# Import router; routes package loads llm_optimized_endpoint which creates async_db_manager.
 # Patch at SQLAlchemy source so async_manager gets a mock engine when it imports create_async_engine.
 with patch("sqlalchemy.ext.asyncio.create_async_engine", return_value=MagicMock()):
     from src.web.routes.sigma_ab_test import router as _sigma_ab_test_router

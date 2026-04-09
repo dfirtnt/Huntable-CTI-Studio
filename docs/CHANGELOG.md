@@ -314,7 +314,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Ollama support** (2026-02-04): Removed remaining Ollama/tinyllama code and references
   - ai.py: ollama/tinyllama now return 400 "Use LMStudio for local LLM"
   - llm_generation_service: removed ollama/tinyllama provider
-  - article_detail.html, gpt4o_optimized_js: removed tinyllama display branches
+  - article_detail.html, llm_optimized_js: removed tinyllama display branches
   - tests: test_health_page OLLAMA→LMSTUDIO; test_ai_* Ollama→LMStudio
   - docs: TEST_INDEX, TESTING, AI_TESTS_README, archive
 - **LangSmith support** (2026-02-04): Removed vestigial LangSmith references; tracing uses Langfuse only

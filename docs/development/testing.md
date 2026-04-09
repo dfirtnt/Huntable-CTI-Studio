@@ -281,6 +281,7 @@ This excludes:
 - Use deterministic fixtures
 - Avoid time-dependent tests
 - Mock external services
+- **Tests must never call real cloud LLM providers (OpenAI, Anthropic, etc.).** Always mock `request_chat` or the equivalent call boundary. LM Studio (local) is allowed if the current install has it enabled. Real cloud-API tests are isolated to the `ai` suite and require explicit opt-in with secrets configured.
 
 ### Execution Order
 

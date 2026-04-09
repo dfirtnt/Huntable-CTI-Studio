@@ -3198,11 +3198,11 @@ If you include reasoning, place it BEFORE the JSON. The JSON must be parseable a
                 # Append traceability requirements for observable traceability feature
                 _traceability_block = """
 
-TRACEABILITY (REQUIRED when possible): For each extracted item include:
+TRACEABILITY (REQUIRED): For each extracted item, the object MUST include these fields:
 - source_evidence: The full paragraph from the article containing this observable (verbatim).
 - extraction_justification: Which prompt rule or rubric triggered this extraction.
 - confidence_score: A number between 0.0 and 1.0 for extraction confidence.
-If your output uses an array of items (e.g. cmdline_items, process_lineage, queries), each item may be a string (value only) or an object with "value" plus source_evidence, extraction_justification, and confidence_score."""
+Every item in the output array MUST be an object (not a plain string). The object MUST have a "value" field plus source_evidence, extraction_justification, and confidence_score."""
                 if user_prompt and agent_name in (
                     "CmdlineExtract",
                     "ProcTreeExtract",
@@ -3529,12 +3529,21 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                         last_result = {"items": [], "count": 0, "error": "Failed to parse response"}
 
                     # Normalize and validate traceability on items (observable traceability feature)
-                    def _normalize_traceability_item(item: Any, agent_name: str) -> Any:
+                    _CONFIDENCE_LEVEL_MAP = {"high": 0.95, "medium": 0.7, "low": 0.4}
+
+                    def _normalize_traceability_item(
+                        item: Any, agent_name: str, _level_map: dict = _CONFIDENCE_LEVEL_MAP
+                    ) -> Any:
+                        if isinstance(item, str):
+                            # Wrap plain strings into objects so confidence can be surfaced
+                            return {"value": item, "confidence_score": None}
                         if not isinstance(item, dict):
                             return item
                         out = dict(item)
                         if "value" not in out and ("source_evidence" in out or "extraction_justification" in out):
-                            out["value"] = out.get("command_line") or out.get("cmdline") or str(item)
+                            out["value"] = (
+                                out.get("command_line") or out.get("cmdline") or out.get("query") or str(item)
+                            )
                         conf = out.get("confidence_score")
                         if conf is not None:
                             try:
@@ -3543,9 +3552,14 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                                     out["confidence_score"] = None
                             except (TypeError, ValueError):
                                 out["confidence_score"] = None
+                        # Fallback: map confidence_level (high/medium/low) to confidence_score
+                        if out.get("confidence_score") is None and out.get("confidence_level"):
+                            mapped = _level_map.get(str(out["confidence_level"]).lower())
+                            if mapped is not None:
+                                out["confidence_score"] = mapped
                         return out
 
-                    for key in ("cmdline_items", "items"):
+                    for key in ("cmdline_items", "items", "registry_artifacts", "queries", "process_lineage"):
                         if key not in last_result or not isinstance(last_result[key], list):
                             continue
                         last_result[key] = [_normalize_traceability_item(it, agent_name) for it in last_result[key]]
@@ -3637,7 +3651,10 @@ If your output uses an array of items (e.g. cmdline_items, process_lineage, quer
                         total_count = len(cmdline_items)
                         if cmdline_items:
                             extracted_commands_text = "\n".join(
-                                [f"{i + 1}. {cmd}" for i, cmd in enumerate(cmdline_items)]
+                                [
+                                    f"{i + 1}. {cmd.get('value', cmd) if isinstance(cmd, dict) else cmd}"
+                                    for i, cmd in enumerate(cmdline_items)
+                                ]
                             )
                         else:
                             extracted_commands_text = "No commands extracted."

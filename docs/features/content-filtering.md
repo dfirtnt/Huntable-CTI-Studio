@@ -134,7 +134,7 @@ This system enables threat intelligence experts to create high-quality, producti
 - 27+ extracted features per chunk (including hunt score features)
 - Configurable confidence thresholds
 
-### 2. GPT-4o Optimizer (`src/utils/gpt4o_optimizer.py`)
+### 2. LLM Optimizer (`src/utils/llm_optimizer.py`)
 
 **Integration layer** for cost optimization and statistics tracking.
 
@@ -144,17 +144,17 @@ This system enables threat intelligence experts to create high-quality, producti
 - Statistics tracking and reporting
 - Async/await support
 
-### 3. Enhanced API Endpoint (`src/web/gpt4o_optimized_endpoint.py`)
+### 3. Enhanced API Endpoint (`src/web/llm_optimized_endpoint.py`)
 
 **New API endpoint** with filtering capabilities.
 
-**Endpoint:** `/api/articles/{article_id}/gpt4o-rank-optimized`
+**Endpoint:** `/api/articles/{article_id}/llm-rank-optimized`
 
 **Parameters:**
 - `use_filtering`: Enable/disable content filtering
 - `min_confidence`: Confidence threshold (0.5-0.8)
 
-### 4. Frontend Integration (`src/web/templates/gpt4o_optimized_js.js`)
+### 4. Frontend Integration (`src/web/templates/llm_optimized_js.js`)
 
 **User interface** for optimization controls.
 
@@ -422,7 +422,7 @@ if optimization_result['success']:
 
 ```javascript
 // Call optimized endpoint
-const response = await fetch(`/api/articles/${articleId}/gpt4o-rank-optimized`, {
+const response = await fetch(`/api/articles/${articleId}/llm-rank-optimized`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -502,7 +502,7 @@ DEFAULT_CONFIDENCE_THRESHOLD=0.7
 
 ### New Endpoint
 
-**URL:** `/api/articles/{article_id}/gpt4o-rank-optimized`
+**URL:** `/api/articles/{article_id}/llm-rank-optimized`
 
 **Method:** POST
 
@@ -538,7 +538,7 @@ DEFAULT_CONFIDENCE_THRESHOLD=0.7
 const optimizationOptions = await showOptimizationDialog();
 
 // Call optimized endpoint
-const response = await fetch(`/api/articles/${articleId}/gpt4o-rank-optimized`, {
+const response = await fetch(`/api/articles/${articleId}/llm-rank-optimized`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

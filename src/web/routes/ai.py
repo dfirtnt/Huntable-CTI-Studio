@@ -1476,7 +1476,7 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
         # SIGMA-focused prompt
         sigma_prompt = format_prompt(
-            "gpt4o_sigma_ranking",
+            "llm_sigma_ranking",
             title=article.title,
             source=source_name,
             url=article.canonical_url or "N/A",
@@ -1626,7 +1626,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
         # SIGMA-focused prompt (same as original)
         sigma_prompt = format_prompt(
-            "gpt4o_sigma_ranking",
+            "llm_sigma_ranking",
             title=article.title,
             source=source_name,
             url=article.canonical_url or "N/A",

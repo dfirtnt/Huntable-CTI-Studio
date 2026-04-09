@@ -585,3 +585,153 @@ class TestNewlineInvariantGuard:
         assert call_args[1]["metadata"]["agent_name"] == "CmdlineExtract"
         assert call_args[1]["metadata"]["attempt"] == 1
         assert "model" in call_args[1]["metadata"]
+
+
+class TestTraceabilityNormalization:
+    """Tests for the traceability normalization logic in run_extraction_agent.
+
+    Verifies that _normalize_traceability_item correctly wraps plain strings,
+    validates confidence_score ranges, maps confidence_level to numeric scores,
+    and infers the 'value' field from agent-specific keys.
+    """
+
+    _PROMPT_CFG = {
+        "role": "You are an extractor.",
+        "user_template": (
+            "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\n"
+            "JSON: {json_example}\nInstructions: {instructions}"
+        ),
+        "task": "Extract",
+        "instructions": "Output JSON",
+        "json_example": "{}",
+    }
+
+    @pytest.fixture
+    def llm_service(self):
+        config_models = {
+            "RankAgent": "gpt-4",
+            "RankAgent_provider": "openai",
+            "ExtractAgent": "gpt-4",
+            "ExtractAgent_provider": "openai",
+            "SigmaAgent": "gpt-4",
+            "SigmaAgent_provider": "openai",
+        }
+        with patch("src.services.llm_service.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
+            return LLMService(config_models=config_models)
+
+    async def _run_extraction(self, llm_service, response_json: str, agent_name: str = "CmdlineExtract"):
+        """Helper: run extraction with a mocked LLM response and return the parsed result."""
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_req:
+            mock_req.return_value = {
+                "choices": [{"message": {"content": response_json}}],
+                "usage": {},
+            }
+            return await llm_service.run_extraction_agent(
+                agent_name=agent_name,
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=self._PROMPT_CFG,
+            )
+
+    @pytest.mark.asyncio
+    async def test_plain_string_items_wrapped_into_objects(self, llm_service):
+        """Plain string items in cmdline_items should become {value: ..., confidence_score: None}."""
+        resp = '{"cmdline_items": ["cmd.exe /c whoami", "net user /domain"], "count": 2}'
+        result = await self._run_extraction(llm_service, resp)
+        items = result["cmdline_items"]
+        assert len(items) == 2
+        assert items[0] == {"value": "cmd.exe /c whoami", "confidence_score": None}
+        assert items[1] == {"value": "net user /domain", "confidence_score": None}
+
+    @pytest.mark.asyncio
+    async def test_dict_items_with_valid_confidence_pass_through(self, llm_service):
+        """Dict items with valid confidence_score (0.0-1.0) are preserved."""
+        resp = '{"cmdline_items": [{"value": "cmd.exe /c dir", "confidence_score": 0.85}], "count": 1}'
+        result = await self._run_extraction(llm_service, resp)
+        assert result["cmdline_items"][0]["confidence_score"] == 0.85
+
+    @pytest.mark.asyncio
+    async def test_out_of_range_confidence_nulled(self, llm_service):
+        """confidence_score outside 0.0-1.0 is set to None."""
+        resp = '{"cmdline_items": [{"value": "cmd.exe /c dir", "confidence_score": 1.5}], "count": 1}'
+        result = await self._run_extraction(llm_service, resp)
+        assert result["cmdline_items"][0]["confidence_score"] is None
+
+    @pytest.mark.asyncio
+    async def test_non_numeric_confidence_nulled(self, llm_service):
+        """Non-numeric confidence_score (e.g. string) is set to None."""
+        resp = '{"cmdline_items": [{"value": "cmd.exe /c dir", "confidence_score": "high"}], "count": 1}'
+        result = await self._run_extraction(llm_service, resp)
+        # "high" can't be float-parsed, so confidence_score should be None
+        assert result["cmdline_items"][0]["confidence_score"] is None
+
+    @pytest.mark.asyncio
+    async def test_confidence_level_maps_to_score(self, llm_service):
+        """confidence_level high/medium/low should map to numeric confidence_score when score is absent.
+
+        Note: registry_artifacts gets renamed to 'items' by the extraction pipeline
+        before traceability normalization runs.
+        """
+        resp = (
+            '{"registry_artifacts": ['
+            '{"value": "HKLM\\\\Run", "confidence_level": "high", "raw_text_snippet": "test"},'
+            '{"value": "HKCU\\\\Run", "confidence_level": "medium", "raw_text_snippet": "test"},'
+            '{"value": "HKU\\\\Run", "confidence_level": "low", "raw_text_snippet": "test"}'
+            '], "count": 3}'
+        )
+        result = await self._run_extraction(llm_service, resp, agent_name="RegistryExtract")
+        # registry_artifacts is renamed to 'items' by the pipeline
+        arts = result["items"]
+        assert arts[0]["confidence_score"] == 0.95
+        assert arts[1]["confidence_score"] == 0.7
+        assert arts[2]["confidence_score"] == 0.4
+
+    @pytest.mark.asyncio
+    async def test_confidence_level_does_not_override_valid_score(self, llm_service):
+        """When both confidence_score and confidence_level exist, the numeric score wins."""
+        resp = (
+            '{"registry_artifacts": ['
+            '{"value": "HKLM\\\\Run", "confidence_score": 0.55, "confidence_level": "high"}'
+            '], "count": 1}'
+        )
+        result = await self._run_extraction(llm_service, resp, agent_name="RegistryExtract")
+        # registry_artifacts is renamed to 'items' by the pipeline
+        assert result["items"][0]["confidence_score"] == 0.55
+
+    @pytest.mark.asyncio
+    async def test_value_inferred_from_query_key(self, llm_service):
+        """When 'value' is missing but 'query' exists, it should be used as the value."""
+        resp = (
+            '{"queries": ['
+            '{"query": "index=main sourcetype=sysmon", "source_evidence": "found in article"}'
+            '], "count": 1}'
+        )
+        result = await self._run_extraction(llm_service, resp, agent_name="HuntQueriesExtract")
+        assert result["queries"][0]["value"] == "index=main sourcetype=sysmon"
+
+    @pytest.mark.asyncio
+    async def test_value_inferred_from_cmdline_key(self, llm_service):
+        """When 'value' is missing but 'cmdline' exists, it should be used as the value."""
+        resp = '{"cmdline_items": [{"cmdline": "net.exe user admin", "source_evidence": "test"}], "count": 1}'
+        result = await self._run_extraction(llm_service, resp)
+        assert result["cmdline_items"][0]["value"] == "net.exe user admin"
+
+    @pytest.mark.asyncio
+    async def test_normalization_applies_to_cmdline_items(self, llm_service):
+        """Normalization wraps plain strings in cmdline_items into objects."""
+        resp = '{"cmdline_items": ["cmd.exe /c test", "net.exe user"], "count": 2}'
+        result = await self._run_extraction(llm_service, resp)
+        for item in result["cmdline_items"]:
+            assert isinstance(item, dict), "cmdline_items should be normalized to dicts"
+            assert "value" in item
+
+    @pytest.mark.asyncio
+    async def test_normalization_applies_to_items_key(self, llm_service):
+        """Normalization wraps plain strings in items into objects."""
+        resp = '{"items": ["item1", "item2"], "count": 2}'
+        result = await self._run_extraction(llm_service, resp)
+        for item in result["items"]:
+            assert isinstance(item, dict), "items should be normalized to dicts"
+            assert "value" in item

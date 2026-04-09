@@ -96,12 +96,12 @@ class TestPromptSynchronization:
 
     @pytest.mark.ui
     @pytest.mark.help
-    def test_ranking_help_matches_gpt4o_prompt(self, html_content):
-        """Test that showRankingHelp() matches gpt4o_sigma_ranking.txt."""
+    def test_ranking_help_matches_llm_prompt(self, html_content):
+        """Test that showRankingHelp() matches llm_sigma_ranking.txt."""
         js_prompt = extract_prompt_from_js(html_content, "showRankingHelp")
         assert js_prompt is not None, "Could not extract prompt from showRankingHelp()"
 
-        file_prompt = load_prompt_file("gpt4o_sigma_ranking")
+        file_prompt = load_prompt_file("llm_sigma_ranking")
 
         # Normalize both for comparison
         normalized_js = normalize_prompt(js_prompt)
@@ -130,7 +130,7 @@ class TestPromptSynchronization:
             assert f"Category {i}:" in normalized_js
             assert f"Category {i}:" in normalized_file
 
-        print("✅ showRankingHelp() prompt matches gpt4o_sigma_ranking.txt")
+        print("✅ showRankingHelp() prompt matches llm_sigma_ranking.txt")
 
     @pytest.mark.ui
     @pytest.mark.help
@@ -255,7 +255,7 @@ class TestPromptSynchronization:
     @pytest.mark.help
     def test_all_ranking_prompts_exclude_atomic_iocs(self):
         """Test that all ranking prompt files exclude atomic IOCs."""
-        ranking_prompts = ["gpt4o_sigma_ranking", "llm_sigma_ranking_simple", "lmstudio_sigma_ranking"]
+        ranking_prompts = ["llm_sigma_ranking", "llm_sigma_ranking_simple", "lmstudio_sigma_ranking"]
 
         for prompt_name in ranking_prompts:
             prompt = load_prompt_file(prompt_name).lower()
@@ -276,7 +276,7 @@ class TestPromptSynchronization:
     def test_ranking_prompt_files_have_consistent_structure(self):
         """Test that ranking prompt files have consistent structure."""
         prompts = {
-            "gpt4o_sigma_ranking": load_prompt_file("gpt4o_sigma_ranking"),
+            "llm_sigma_ranking": load_prompt_file("llm_sigma_ranking"),
             "llm_sigma_ranking_simple": load_prompt_file("llm_sigma_ranking_simple"),
             "lmstudio_sigma_ranking": load_prompt_file("lmstudio_sigma_ranking"),
         }
