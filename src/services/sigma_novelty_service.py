@@ -79,7 +79,9 @@ def _extract_exe_value(atom_str: str) -> str | None:
     parts = atom_str.split("|", 1)
     if len(parts) < 2:
         return None
-    field = parts[0]
+    field = parts[0].lower()
+    # Resolve known aliases (e.g. "parentimage" -> "process.parent_image")
+    field = _ATOM_FIELD_ALIAS.get(field, field)
     if field not in _PROCESS_EXE_CANONICAL_FIELDS:
         return None
     # Value is the last pipe-separated segment
