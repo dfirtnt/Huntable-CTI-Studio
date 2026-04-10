@@ -57,6 +57,49 @@ _ATOM_FIELD_ALIAS: dict[str, str] = {
 }
 
 
+_PROCESS_EXE_CANONICAL_FIELDS: set[str] = {
+    "process.image",
+    "process.parent_image",
+    "process.command_line",
+    "process.parent_command_line",
+    "process.original_file_name",
+    # Legacy / un-aliased forms that may appear
+    "image",
+    "parentimage",
+    "commandline",
+    "parentcommandline",
+    "originalfilename",
+    "command_line",
+    "parent_image",
+}
+
+
+def _extract_exe_value(atom_str: str) -> str | None:
+    """Extract the value portion from a normalized atom string if its field is process-exe related."""
+    parts = atom_str.split("|", 1)
+    if len(parts) < 2:
+        return None
+    field = parts[0]
+    if field not in _PROCESS_EXE_CANONICAL_FIELDS:
+        return None
+    # Value is the last pipe-separated segment
+    segments = atom_str.split("|")
+    return segments[-1] if len(segments) >= 3 else None
+
+
+def _soft_exe_jaccard_from_atom_strings(A1: set[str], A2: set[str], union: set[str]) -> float:
+    """Compute soft jaccard from precomputed atom strings using value-based cross-field matching."""
+    if not union:
+        return 0.0
+    vals1 = {v for a in A1 if (v := _extract_exe_value(a)) is not None}
+    vals2 = {v for a in A2 if (v := _extract_exe_value(a)) is not None}
+    shared = vals1 & vals2
+    if not shared:
+        return 0.0
+    # Dampen by 0.5 since cross-field match is weaker than exact atom match
+    return min((len(shared) / len(union)) * 0.5, 1.0)
+
+
 def _normalize_atom_identity(atom_id: str) -> str:
     """Normalize a precomputed atom identity string: resolve field aliases + lowercase."""
     lowered = atom_id.lower()
@@ -1164,6 +1207,10 @@ class SigmaNoveltyService:
         """
         Compute Jaccard similarity over positive atoms only.
 
+        When strict key matching yields zero overlap, applies value-based soft matching
+        across process-executable fields (Image, CommandLine, ParentImage, etc.) so that
+        rules targeting the same binary via different fields still show behavioral overlap.
+
         Args:
             rule1: First canonical rule
             rule2: Second canonical rule
@@ -1185,10 +1232,17 @@ class SigmaNoveltyService:
         if not set1 and not set2:
             return 1.0
 
-        intersection = len(set1 & set2)
-        union = len(set1 | set2)
+        intersection = set1 & set2
+        union = set1 | set2
 
-        return intersection / union if union > 0 else 0.0
+        if intersection:
+            return len(intersection) / len(union)
+
+        # ── Value-based soft matching across process-executable fields ──
+        # When strict atoms don't overlap, check if the same executable value
+        # appears in process-exe fields on both sides.
+        soft = _soft_exe_jaccard_from_atom_strings(set1, set2, union)
+        return soft
 
     def _atom_to_key(self, atom: dict[str, Any] | Atom) -> str:
         """Convert atom to normalized key for comparison (v1.2: includes op_type)."""
