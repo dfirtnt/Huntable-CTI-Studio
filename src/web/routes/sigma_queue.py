@@ -2157,107 +2157,6 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             match_canonical_class = match_result.get("canonical_class")
             match_logsource_key = match_result.get("logsource_key", "") or ""
 
-            # Filter to matches with actual behavioral overlap (jaccard > 0)
-            behavioral_overlap = [
-                m
-                for m in similar_matches
-                if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
-            ]
-
-            # Semantic embedding fallback: when deterministic engine found candidates but
-            # no behavioral overlap, use embedding similarity to find conceptually similar rules
-            if not behavioral_overlap and total_candidates_evaluated > 0:
-                try:
-                    from sqlalchemy import text as sa_text
-
-                    from src.services.embedding_service import EmbeddingService
-
-                    # Build a query string from the rule's key fields
-                    query_parts = [normalized_rule.get("title", "")]
-                    if normalized_rule.get("description"):
-                        query_parts.append(normalized_rule["description"])
-                    det = normalized_rule.get("detection", {})
-                    for sel_key, sel_val in det.items():
-                        if sel_key == "condition":
-                            continue
-                        if isinstance(sel_val, dict):
-                            for k, v in sel_val.items():
-                                if isinstance(v, list):
-                                    query_parts.extend(str(x) for x in v)
-                                else:
-                                    query_parts.append(str(v))
-                    query_text = " ".join(query_parts).strip()
-
-                    if query_text:
-                        embed_svc = EmbeddingService(model_name="intfloat/e5-base-v2")
-                        query_embedding = embed_svc.generate_embedding(query_text)
-                        embedding_str = "[" + ",".join(map(str, query_embedding)) + "]"
-
-                        stmt = sa_text("""
-                            SELECT sr.id, sr.rule_id, sr.title, sr.description, sr.tags,
-                                   sr.level, sr.status, sr.file_path, sr.logsource, sr.detection,
-                                   CASE
-                                       WHEN sr.logsource_embedding IS NOT NULL
-                                           THEN 1 - (sr.logsource_embedding <=> :qv)
-                                       WHEN sr.embedding IS NOT NULL
-                                           THEN 1 - (sr.embedding <=> :qv)
-                                       ELSE 0.0
-                                   END AS sem_sim
-                            FROM sigma_rules sr
-                            WHERE (sr.logsource_embedding IS NOT NULL OR sr.embedding IS NOT NULL)
-                            ORDER BY sem_sim DESC
-                            LIMIT 10
-                        """)
-                        sem_rows = db_session.execute(stmt, {"qv": embedding_str}).mappings().all()
-
-                        for row in sem_rows:
-                            sem_sim = float(row["sem_sim"] or 0.0)
-                            if sem_sim < 0.3:
-                                continue
-                            similar_matches.append(
-                                {
-                                    "id": row["id"],
-                                    "rule_id": row["rule_id"],
-                                    "title": row["title"],
-                                    "description": row["description"],
-                                    "logsource": row["logsource"],
-                                    "detection": row["detection"],
-                                    "tags": row["tags"] if row["tags"] else [],
-                                    "level": row["level"],
-                                    "status": row["status"],
-                                    "file_path": row["file_path"],
-                                    "similarity": sem_sim,
-                                    "similarity_score": sem_sim,
-                                    "similarity_method": "semantic_embedding",
-                                    "novelty_label": "NOVEL",
-                                    "atom_jaccard": 0.0,
-                                    "logic_shape_similarity": None,
-                                    "shared_atoms": [],
-                                    "added_atoms": [],
-                                    "removed_atoms": [],
-                                    "filter_differences": [],
-                                    "similarity_engine": "semantic",
-                                    "semantic_details": {
-                                        "jaccard": 0.0,
-                                        "containment_factor": 0.0,
-                                        "filter_penalty": 0.0,
-                                        "surface_score_a": 0,
-                                        "surface_score_b": 0,
-                                        "semantic_similarity": sem_sim,
-                                    },
-                                }
-                            )
-
-                        if similar_matches:
-                            similar_matches.sort(key=lambda x: x["similarity"], reverse=True)
-                            engine_used = "semantic_fallback"
-                            behavioral_matches_found = len(similar_matches)
-                            logger.info(
-                                f"Semantic fallback found {len(similar_matches)} matches for queue rule {queue_id}"
-                            )
-                except Exception as sem_err:
-                    logger.warning(f"Semantic embedding fallback failed (non-fatal): {sem_err}")
-
             # Calculate max similarity
             max_similarity = (
                 max([m.get("similarity", 0.0) for m in similar_matches], default=0.0) if similar_matches else 0.0
@@ -2306,12 +2205,11 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                     out["semantic_details"] = m["semantic_details"]
                 return out
 
-            # Only store matches with actual overlap: behavioral (jaccard > 0) or semantic fallback
+            # Only store matches with actual behavioral overlap (jaccard > 0)
             to_store = [
                 _json_safe_match(m)
                 for m in similar_matches[:10]
                 if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
-                or m.get("similarity_engine") == "semantic"
             ]
 
             # Update the queued rule's max_similarity if it's None or different

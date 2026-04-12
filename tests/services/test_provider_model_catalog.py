@@ -29,6 +29,10 @@ class TestLoadCatalog:
         # OpenAI: no dated variants
         for m in out["openai"]:
             assert "-2024-" not in m and "-2025-" not in m
+        # OpenAI: project allowlist applied — only workflow-relevant models survive
+        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
+
+        assert set(out["openai"]) <= PROJECT_OPENAI_ALLOWLIST
         # Anthropic: one per family (filter applied)
         assert isinstance(out["anthropic"], list)
         assert len(out["anthropic"]) <= len(DEFAULT_CATALOG["anthropic"])
@@ -46,6 +50,64 @@ class TestLoadCatalog:
         assert "gpt-4o-2024-05-13" not in out["openai"]
         assert len(out["anthropic"]) == 1
         assert "claude-sonnet-4-5" in out["anthropic"]
+
+    def test_load_catalog_drops_non_allowlisted_chat_models(self, tmp_path):
+        """Valid chat models not in the project allowlist should be filtered out."""
+        path = tmp_path / "catalog.json"
+        raw = {
+            "openai": [
+                "gpt-4o",
+                "gpt-4o-mini",
+                "gpt-4.1",
+                "gpt-4.1-mini",
+                "o3-mini",
+                "o4-mini",
+                # valid chat models but NOT in project allowlist:
+                "gpt-5",
+                "gpt-5-mini",
+                "gpt-4-turbo",
+                "o1",
+                "o3-pro",
+                "codex-mini",
+                "gpt-3.5-turbo",
+            ],
+            "anthropic": [],
+        }
+        path.write_text(json.dumps(raw))
+        with patch.object(catalog_module, "CATALOG_PATH", path):
+            out = load_catalog()
+        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
+
+        assert set(out["openai"]) == PROJECT_OPENAI_ALLOWLIST
+
+    def test_load_catalog_default_catalog_yields_only_allowlisted(self, tmp_path):
+        """DEFAULT_CATALOG includes non-chat entries (realtime, tts, etc.)
+        — load_catalog must filter them all out."""
+        path = tmp_path / "nonexistent.json"
+        with patch.object(catalog_module, "CATALOG_PATH", path):
+            out = load_catalog()
+        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
+
+        # Every surviving OpenAI model must be in the allowlist
+        assert set(out["openai"]) <= PROJECT_OPENAI_ALLOWLIST
+        # Specifically, non-chat models from DEFAULT_CATALOG must be gone
+        for noise in (
+            "gpt-4o-realtime-preview-2024-12-17",
+            "gpt-4o-mini-tts",
+            "gpt-4o-mini-transcribe",
+            "o3-mini-high",
+            "o3-mini-low",
+            "codex-mini-latest",
+            "gpt-4.1-realtime-preview",
+            "gpt-4.1-nano",
+            "gpt-4.1-turbo",
+            "o4",
+            "o1",
+            "o1-mini",
+            "o1-preview",
+            "o1-lite",
+        ):
+            assert noise not in out["openai"], f"{noise} should have been filtered"
 
     def test_invalid_json_raises_http_exception(self, tmp_path):
         path = tmp_path / "catalog.json"
@@ -86,6 +148,17 @@ class TestUpdateProviderModels:
             result = update_provider_models("openai", ["gpt-4o", "o1"])
         assert result["openai"] == ["gpt-4o", "o1"]
         assert json.loads(path.read_text())["openai"] == ["gpt-4o", "o1"]
+
+    def test_round_trip_filters_on_reload(self, tmp_path):
+        """update_provider_models saves raw; reloading applies the project allowlist."""
+        path = tmp_path / "catalog.json"
+        path.write_text(json.dumps({"openai": [], "anthropic": []}))
+        with patch.object(catalog_module, "CATALOG_PATH", path):
+            # Save a broad list (raw, unfiltered)
+            update_provider_models("openai", ["gpt-4o", "o1", "gpt-5", "o4-mini"])
+            # Reload — filter chain should narrow
+            reloaded = load_catalog()
+        assert set(reloaded["openai"]) == {"gpt-4o", "o4-mini"}
 
     def test_new_provider_key_added(self, tmp_path):
         path = tmp_path / "catalog.json"

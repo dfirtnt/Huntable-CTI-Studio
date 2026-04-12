@@ -57,6 +57,55 @@ _ATOM_FIELD_ALIAS: dict[str, str] = {
 }
 
 
+_PROCESS_EXE_CANONICAL_FIELDS: set[str] = {
+    "process.image",
+    "process.parent_image",
+    "process.command_line",
+    "process.parent_command_line",
+    "process.original_file_name",
+    # Legacy / un-aliased forms that may appear
+    "image",
+    "parentimage",
+    "commandline",
+    "parentcommandline",
+    "originalfilename",
+    "command_line",
+    "parent_image",
+}
+
+
+def _extract_exe_value(atom_str: str) -> str | None:
+    """Extract the value portion from an atom string if its field is process-exe related.
+
+    Field matching is case-insensitive so callers that forget to run the
+    atom through ``_normalize_atom_identity`` first (e.g. "Image|endswith|...")
+    still resolve correctly. Mirrors the case-insensitive lookup used by the
+    class-method fallback in ``SigmaNoveltyService.compute_atom_jaccard``.
+    """
+    parts = atom_str.split("|", 1)
+    if len(parts) < 2:
+        return None
+    field = parts[0].lower()
+    if field not in _PROCESS_EXE_CANONICAL_FIELDS:
+        return None
+    # Value is the last pipe-separated segment
+    segments = atom_str.split("|")
+    return segments[-1] if len(segments) >= 3 else None
+
+
+def _soft_exe_jaccard_from_atom_strings(A1: set[str], A2: set[str], union: set[str]) -> float:
+    """Compute soft jaccard from precomputed atom strings using value-based cross-field matching."""
+    if not union:
+        return 0.0
+    vals1 = {v for a in A1 if (v := _extract_exe_value(a)) is not None}
+    vals2 = {v for a in A2 if (v := _extract_exe_value(a)) is not None}
+    shared = vals1 & vals2
+    if not shared:
+        return 0.0
+    # Dampen by 0.5 since cross-field match is weaker than exact atom match
+    return min((len(shared) / len(union)) * 0.5, 1.0)
+
+
 def _normalize_atom_identity(atom_id: str) -> str:
     """Normalize a precomputed atom identity string: resolve field aliases + lowercase."""
     lowered = atom_id.lower()
@@ -276,14 +325,30 @@ class SigmaNoveltyService:
                         reason_flags = ["no_shared_atoms"]
                     else:
                         atom_jaccard = len(intersection) / len(union)
+
+                        # Value-based soft matching: when strict atoms don't overlap,
+                        # check if the same executable value appears in process-exe
+                        # fields on both sides (e.g. process.image vs process.command_line).
+                        if atom_jaccard == 0.0:
+                            soft = _soft_exe_jaccard_from_atom_strings(A1, A2, union)
+                            if soft > 0.0:
+                                atom_jaccard = soft
+
+                        # For containment, use actual intersection size (0 for soft matches)
+                        # but ensure soft matches still get reasonable containment
+                        effective_intersection = len(intersection)
+                        if effective_intersection == 0 and atom_jaccard > 0:
+                            # Soft match: estimate intersection from jaccard
+                            effective_intersection = max(1, round(atom_jaccard * len(union)))
+
                         B, overlap_ratio_a, overlap_ratio_b = compute_containment(
-                            len(intersection), len(A1), len(A2), surface_a, surface_b
+                            effective_intersection, len(A1), len(A2), surface_a, surface_b
                         )
                         logic_similarity = B
                         filter_penalty = _sigma_filter_penalty(F1, F2, len(A1), len(A2))
                         weighted_sim = max(0.0, min(1.0, (atom_jaccard * B) - filter_penalty))
                         weighted_before_penalties = weighted_sim + filter_penalty
-                        reason_flags = []
+                        reason_flags = [] if atom_jaccard > 0 else ["no_shared_atoms"]
 
                     used_deterministic = True
                     service_penalty = 0.0
@@ -1160,9 +1225,35 @@ class SigmaNoveltyService:
             logger.error(f"Failed to retrieve candidates: {e}")
             return []
 
+    # Fields that reference the same executable/binary — a value like '\rundll32.exe'
+    # appearing in any of these fields targets the same process, so cross-field matches
+    # should contribute partial jaccard credit.
+    _PROCESS_EXE_FIELDS: set[str] = {
+        "image",
+        "parentimage",
+        "originalfilename",
+        "commandline",
+        "parentcommandline",
+        "process.image",
+        "process.parent_image",
+        "process.command_line",
+        "process.parent_command_line",
+        "process.original_file_name",
+        # Title-cased variants produced by extract_atomic_predicates
+        "Image",
+        "ParentImage",
+        "OriginalFileName",
+        "CommandLine",
+        "ParentCommandLine",
+    }
+
     def compute_atom_jaccard(self, rule1: CanonicalRule, rule2: CanonicalRule) -> float:
         """
         Compute Jaccard similarity over positive atoms only.
+
+        When strict key matching yields zero overlap, applies value-based soft matching
+        across process-executable fields (Image, CommandLine, ParentImage, etc.) so that
+        rules targeting the same binary via different fields still show behavioral overlap.
 
         Args:
             rule1: First canonical rule
@@ -1185,10 +1276,48 @@ class SigmaNoveltyService:
         if not set1 and not set2:
             return 1.0
 
-        intersection = len(set1 & set2)
-        union = len(set1 | set2)
+        intersection = set1 & set2
+        union = set1 | set2
 
-        return intersection / union if union > 0 else 0.0
+        if intersection:
+            return len(intersection) / len(union)
+
+        # ── Value-based soft matching across process-executable fields ──
+        # Extract (value, op_type) for atoms whose field is a process-exe field.
+        # If the same executable value appears on both sides (regardless of field),
+        # count it as a soft match with a dampening factor.
+        _exe_fields_lower = {f.lower() for f in self._PROCESS_EXE_FIELDS}
+
+        def _exe_values(atoms: list) -> dict[str, set[str]]:
+            """Map normalized value -> set of fields for process-exe atoms."""
+            result: dict[str, set[str]] = {}
+            for a in atoms:
+                if isinstance(a, Atom):
+                    field, value, op_type = a.field, a.value, a.op_type
+                else:
+                    field = a.get("field", "")
+                    value = a.get("value", "")
+                    op_type = a.get("op_type", "literal")
+                if field.lower() not in _exe_fields_lower:
+                    continue
+                if op_type == "literal" and isinstance(value, str) and "\\" in value:
+                    value = re.sub(r"\\+", r"\\", value)
+                result.setdefault(value.lower(), set()).add(field.lower())
+            return result
+
+        exe1 = _exe_values(positive_atoms1)
+        exe2 = _exe_values(positive_atoms2)
+        shared_values = set(exe1.keys()) & set(exe2.keys())
+
+        if not shared_values:
+            return 0.0
+
+        # Soft jaccard: shared executable values / total unique atoms, dampened by 0.5
+        # because cross-field matches are weaker than exact atom matches.
+        soft_overlap = len(shared_values)
+        soft_jaccard = (soft_overlap / len(union)) * 0.5
+
+        return min(soft_jaccard, 1.0)
 
     def _atom_to_key(self, atom: dict[str, Any] | Atom) -> str:
         """Convert atom to normalized key for comparison (v1.2: includes op_type)."""
