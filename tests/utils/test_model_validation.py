@@ -4,10 +4,12 @@ import re
 
 from src.utils.model_validation import (
     OPENAI_DATED,
+    PROJECT_OPENAI_ALLOWLIST,
     _anthropic_family,
     clamp_temperature_for_provider,
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
+    filter_openai_models_project_allowlist,
     is_valid_openai_chat_model,
     suggest_base_model,
 )
@@ -98,6 +100,63 @@ class TestFilterOpenaiModelsLatestOnly:
         ids = ["gpt-4o", "gpt-4.1-mini", "o1", "o3-mini"]
         out = filter_openai_models_latest_only(ids)
         assert set(out) >= {"gpt-4o", "gpt-4.1-mini", "o1", "o3-mini"}
+
+
+class TestFilterOpenaiModelsProjectAllowlist:
+    """filter_openai_models_project_allowlist: narrow to the 6 CTIScraper workflow models."""
+
+    def test_empty(self):
+        assert filter_openai_models_project_allowlist([]) == []
+
+    def test_allowlist_members_kept(self):
+        assert filter_openai_models_project_allowlist(list(PROJECT_OPENAI_ALLOWLIST)) == sorted(
+            PROJECT_OPENAI_ALLOWLIST
+        )
+
+    def test_non_allowlisted_chat_models_dropped(self):
+        # Broader chat models `is_valid_openai_chat_model` would accept but the project doesn't use.
+        ids = ["gpt-5", "gpt-5-mini", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-pro", "o3", "o3-pro", "codex-mini"]
+        assert filter_openai_models_project_allowlist(ids) == []
+
+    def test_allowlisted_mixed_with_noise(self):
+        ids = [
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "o3-mini",
+            "o4-mini",
+            # noise
+            "gpt-5",
+            "gpt-4-turbo",
+            "gpt-4o-audio-preview",
+            "gpt-4o-2024-05-13",
+            "o1",
+        ]
+        out = filter_openai_models_project_allowlist(ids)
+        assert out == sorted(PROJECT_OPENAI_ALLOWLIST)
+
+    def test_whitespace_and_dedupe(self):
+        ids = ["gpt-4o", " gpt-4o ", "gpt-4o", "o4-mini"]
+        out = filter_openai_models_project_allowlist(ids)
+        assert out == ["gpt-4o", "o4-mini"]
+
+    def test_dated_variants_excluded(self):
+        # The base-name allowlist is exact; dated variants are filtered by
+        # filter_openai_models_latest_only upstream, so this layer must also reject them.
+        assert filter_openai_models_project_allowlist(["gpt-4o-2024-05-13", "gpt-4.1-mini-2025-04-14"]) == []
+
+    def test_allowlist_size_matches_spec(self):
+        # Canary: if this changes, update the Todoist task / docs before landing.
+        assert len(PROJECT_OPENAI_ALLOWLIST) == 6
+        assert {
+            "gpt-4o-mini",
+            "gpt-4o",
+            "gpt-4.1-mini",
+            "gpt-4.1",
+            "o3-mini",
+            "o4-mini",
+        } == PROJECT_OPENAI_ALLOWLIST
 
 
 class TestClampTemperatureForProvider:

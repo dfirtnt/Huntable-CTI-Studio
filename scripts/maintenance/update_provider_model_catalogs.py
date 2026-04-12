@@ -28,7 +28,11 @@ if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
 from src.services.provider_model_catalog import load_catalog, save_catalog
-from src.utils.model_validation import filter_anthropic_models_latest_only, filter_openai_models_latest_only
+from src.utils.model_validation import (
+    filter_anthropic_models_latest_only,
+    filter_openai_models_latest_only,
+    filter_openai_models_project_allowlist,
+)
 
 
 @dataclass
@@ -49,8 +53,8 @@ def default_headers(api_key: str) -> dict[str, str]:
 
 
 def openai_filter(model_ids: list[str]) -> list[str]:
-    """Chat-only, latest only (no -YYYY-MM-DD dated variants)."""
-    return filter_openai_models_latest_only(model_ids)
+    """Chat-only, latest only, then narrowed to the CTIScraper workflow allowlist."""
+    return filter_openai_models_project_allowlist(filter_openai_models_latest_only(model_ids))
 
 
 def anthropic_filter(model_ids: list[str]) -> list[str]:

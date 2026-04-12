@@ -149,6 +149,32 @@ def filter_openai_models_latest_only(model_ids: list[str]) -> list[str]:
     )
 
 
+# Project-specific policy: which OpenAI chat/reasoning models the CTIScraper workflows
+# actually use. This is narrower than `is_valid_openai_chat_model` (capability check) on
+# purpose — it's the display allowlist for Workflow/Settings dropdowns so users don't
+# pick a model the pipeline was never built against.
+PROJECT_OPENAI_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "gpt-4o-mini",
+        "gpt-4o",
+        "gpt-4.1-mini",
+        "gpt-4.1",
+        "o3-mini",
+        "o4-mini",
+    }
+)
+
+
+def filter_openai_models_project_allowlist(model_ids: list[str]) -> list[str]:
+    """
+    Narrow an OpenAI model list to only the chat/reasoning models CTIScraper workflows
+    actually use. Applied in the catalog load path, the /api test-key route, and the
+    daily Celery refresh writer so the Workflow dropdown never shows audio/realtime/TTS/
+    image/search/moderation/legacy models or unrelated chat models (gpt-5, o1, o3-pro…).
+    """
+    return sorted({m.strip() for m in model_ids if m and m.strip() in PROJECT_OPENAI_ALLOWLIST})
+
+
 # Anthropic: family = strip -YYYYMMDD or -latest; one representative per family.
 ANTHROPIC_DATED = re.compile(r"-\d{8}$")
 ANTHROPIC_LATEST = re.compile(r"-latest$", re.IGNORECASE)

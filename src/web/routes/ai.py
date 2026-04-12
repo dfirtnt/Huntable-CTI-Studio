@@ -19,6 +19,7 @@ from src.services.provider_model_catalog import load_catalog, update_provider_mo
 from src.utils.model_validation import (
     filter_anthropic_models_latest_only,
     filter_openai_models_latest_only,
+    filter_openai_models_project_allowlist,
     is_valid_openai_chat_model,
     suggest_base_model,
 )
@@ -37,8 +38,8 @@ OPENAI_MODEL_PATTERN = re.compile(
 
 
 def _filter_openai_models(model_ids: list[str]) -> list[str]:
-    """Chat-only, latest only (no -YYYY-MM-DD dated variants)."""
-    return filter_openai_models_latest_only(model_ids)
+    """Chat-only, latest only, then narrowed to the CTIScraper workflow allowlist."""
+    return filter_openai_models_project_allowlist(filter_openai_models_latest_only(model_ids))
 
 
 def _filter_anthropic_models(model_ids: list[str]) -> list[str]:

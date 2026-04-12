@@ -3,7 +3,11 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from src.utils.model_validation import filter_anthropic_models_latest_only, filter_openai_models_latest_only
+from src.utils.model_validation import (
+    filter_anthropic_models_latest_only,
+    filter_openai_models_latest_only,
+    filter_openai_models_project_allowlist,
+)
 
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
 DEFAULT_CATALOG = {
@@ -62,9 +66,10 @@ def load_catalog() -> dict[str, list[str]]:
     # Anthropic: show only latest per family (no datestamped variants)
     if "anthropic" in catalog and catalog["anthropic"]:
         catalog["anthropic"] = filter_anthropic_models_latest_only(catalog["anthropic"])
-    # OpenAI: chat-only, latest only (no -YYYY-MM-DD dated variants)
+    # OpenAI: chat-only, latest only (no -YYYY-MM-DD dated variants), then narrow to
+    # the project-workflow allowlist so dropdowns show only models the pipeline uses.
     if "openai" in catalog and catalog["openai"]:
-        catalog["openai"] = filter_openai_models_latest_only(catalog["openai"])
+        catalog["openai"] = filter_openai_models_project_allowlist(filter_openai_models_latest_only(catalog["openai"]))
     return catalog
 
 
