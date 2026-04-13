@@ -27,6 +27,13 @@ from src.services.llm_service import LLMService
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.worker.celery_app import trigger_agentic_workflow
 
+# Per-submission delay when dispatching a batch of eval workflows.
+# Without staggering, concurrent child workers race on inherited DB connections
+# during os_detection (Celery prefork + SQLAlchemy pool corruption). A short
+# broker-side countdown spreads os_detection DB hits across distinct ticks.
+_EVAL_STAGGER_SECONDS = float(os.getenv("EVAL_STAGGER_SECONDS", "0.2"))
+
+
 # Subagent name -> ExtractAgent-style agent name for run_extraction_agent
 _SUBAGENT_TO_AGENT = {
     "cmdline": "CmdlineExtract",
@@ -386,6 +393,7 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
 
         try:
             executions = []
+            stagger_idx = 0
 
             for article_id in eval_request.article_ids:
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == article_id).first()
@@ -445,8 +453,14 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                     db_session.commit()
                     db_session.refresh(execution)
 
-                    # Trigger workflow via Celery (will use the now-active config)
-                    trigger_agentic_workflow.delay(article_id, execution.id)
+                    # Trigger workflow via Celery (will use the now-active config).
+                    # Stagger submissions via broker countdown so concurrent workers
+                    # don't race on DB connections during os_detection.
+                    trigger_agentic_workflow.apply_async(
+                        args=[article_id, execution.id],
+                        countdown=stagger_idx * _EVAL_STAGGER_SECONDS,
+                    )
+                    stagger_idx += 1
 
                     # Note: Config remains active - user should restore original manually
                     # Or implement proper config restoration after workflow completes
@@ -1046,9 +1060,13 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
 
             db_session.commit()
 
-            # Trigger workflows one at a time (sequential batch)
-            for exec_info in executions:
-                trigger_agentic_workflow.delay(exec_info["article_id"], exec_info["execution_id"])
+            # Trigger workflows with a broker-side stagger so concurrent child
+            # workers don't race on DB connections during os_detection.
+            for idx, exec_info in enumerate(executions):
+                trigger_agentic_workflow.apply_async(
+                    args=[exec_info["article_id"], exec_info["execution_id"]],
+                    countdown=idx * _EVAL_STAGGER_SECONDS,
+                )
                 logger.info(
                     f"Triggered workflow execution {exec_info['execution_id']} for article {exec_info['article_id']}"
                 )

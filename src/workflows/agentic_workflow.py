@@ -105,6 +105,54 @@ class WorkflowState(TypedDict):
     termination_details: dict[str, Any] | None
 
 
+def _mark_pending_subagent_evals_as_failed(
+    execution: "AgenticWorkflowExecutionTable",
+    db_session: "Session",
+) -> int:
+    """Mark any still-pending SubagentEvaluationTable rows for this execution as failed.
+
+    Called when a workflow execution fails before reaching extract_agent (e.g. the
+    os_detection pool-corruption bug). Without this, eval rows linger in "pending"
+    forever and the eval report can't tell runaway failures from in-flight work.
+
+    Returns the number of rows updated.
+    """
+    if execution is None or getattr(execution, "id", None) is None:
+        return 0
+    try:
+        pending_evals = (
+            db_session.query(SubagentEvaluationTable)
+            .filter(
+                SubagentEvaluationTable.workflow_execution_id == execution.id,
+                SubagentEvaluationTable.status == "pending",
+            )
+            .all()
+        )
+        if not pending_evals:
+            return 0
+
+        now = datetime.now()
+        for eval_record in pending_evals:
+            eval_record.status = "failed"
+            eval_record.completed_at = now
+
+        db_session.commit()
+        logger.info(
+            f"Marked {len(pending_evals)} orphaned SubagentEvaluation row(s) as failed for execution {execution.id}"
+        )
+        return len(pending_evals)
+    except Exception as e:
+        logger.error(
+            f"Error marking orphaned subagent_evaluations for execution {execution.id}: {e}",
+            exc_info=True,
+        )
+        try:
+            db_session.rollback()
+        except Exception:
+            pass
+        return 0
+
+
 def _update_subagent_eval_on_completion(
     execution: AgenticWorkflowExecutionTable,
     db_session: Session,
@@ -3233,6 +3281,9 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             execution.status = "failed"
             execution.error_message = str(e)
             db_session.commit()
+            # Reconcile any orphaned pending eval records tied to this execution
+            # (e.g. failure before extract_agent completed).
+            _mark_pending_subagent_evals_as_failed(execution, db_session)
         else:
             # No execution record - this is a real error
             logger.error(f"Workflow execution error for article {article_id}: {e}")

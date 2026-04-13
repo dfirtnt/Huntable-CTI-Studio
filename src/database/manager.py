@@ -29,6 +29,7 @@ class DatabaseManager:
         echo: bool = False,
         pool_size: int = 10,
         max_overflow: int = 20,
+        pool_recycle: int = 3600,
     ):
         # Prefer TEST_DATABASE_URL in test environment (same as async_manager)
         if database_url is None:
@@ -47,7 +48,7 @@ class DatabaseManager:
             database_url = database_url.replace("+asyncpg", "")
             logger.info("Converted asyncpg URL to psycopg2 for synchronous operations")
 
-        cache_key = f"{database_url}|{pool_size}|{max_overflow}|{echo}"
+        cache_key = f"{database_url}|{pool_size}|{max_overflow}|{echo}|{pool_recycle}"
 
         # If we've already created an engine for this connection string, reuse it to prevent connection storms
         if cache_key in self._engine_cache:
@@ -66,8 +67,15 @@ class DatabaseManager:
             self.engine = create_engine(database_url, echo=echo, connect_args={"check_same_thread": False})
         else:
             # PostgreSQL settings
+            # pool_pre_ping validates connections on checkout (catches stale/forked sockets);
+            # pool_recycle forces reconnect after N seconds to match async_manager parity.
             self.engine = create_engine(
-                database_url, echo=echo, pool_size=pool_size, max_overflow=max_overflow, pool_pre_ping=True
+                database_url,
+                echo=echo,
+                pool_size=pool_size,
+                max_overflow=max_overflow,
+                pool_pre_ping=True,
+                pool_recycle=pool_recycle,
             )
 
         # Create session factory

@@ -13,6 +13,7 @@ from pathlib import Path
 
 from celery import Celery
 from celery.schedules import crontab
+from celery.signals import worker_process_init
 
 from src.services.scheduled_jobs_service import ScheduledJobsService, cron_expression_to_kwargs
 
@@ -99,6 +100,32 @@ if redis_url:
         logger.debug("Broker URL successfully set from environment")
     else:
         logger.error(f"CRITICAL: Broker URL mismatch! Expected: {redis_url[:30]}..., Got: {celery_app.conf.broker_url}")
+
+
+@worker_process_init.connect
+def reset_db_connections_on_fork(**kwargs):
+    """Dispose DB engines after Celery worker fork.
+
+    Celery's prefork pool forks child workers from a prewarmed parent. Child
+    processes inherit parent TCP sockets to PostgreSQL; without disposing them
+    here, concurrent children interleave bytes on shared sockets, producing
+    "lost synchronization with server" and "Can't reconnect until invalid
+    transaction is rolled back" errors. Disposing tells SQLAlchemy to open a
+    fresh connection on next use, per child.
+    """
+    try:
+        from src.database.manager import DatabaseManager
+
+        for engine in DatabaseManager._engine_cache.values():
+            try:
+                engine.dispose()
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to dispose sync engine on fork: %s", exc)
+        DatabaseManager._engine_cache.clear()
+        DatabaseManager._session_cache.clear()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Fork-safe DB reset failed: %s", exc)
+
 
 # Load task modules from all registered app configs.
 celery_app.autodiscover_tasks()
@@ -713,6 +740,35 @@ def trigger_agentic_workflow(self, article_id: int, execution_id: int | None = N
         # Retry with exponential backoff
         # Convert exception to string to avoid serializing ORM objects in traceback
         error_msg = str(exc)
+        # On final retry exhaustion, reconcile any orphaned pending eval rows so
+        # the eval report doesn't report "pending" forever.
+        if self.request.retries >= self.max_retries and execution_id is not None:
+            try:
+                from src.database.manager import DatabaseManager
+                from src.database.models import AgenticWorkflowExecutionTable
+                from src.workflows.agentic_workflow import _mark_pending_subagent_evals_as_failed
+
+                cleanup_session = DatabaseManager().get_session()
+                try:
+                    failed_execution = (
+                        cleanup_session.query(AgenticWorkflowExecutionTable)
+                        .filter(AgenticWorkflowExecutionTable.id == execution_id)
+                        .first()
+                    )
+                    if failed_execution is not None:
+                        if failed_execution.status != "failed":
+                            failed_execution.status = "failed"
+                            failed_execution.error_message = error_msg
+                            cleanup_session.commit()
+                        _mark_pending_subagent_evals_as_failed(failed_execution, cleanup_session)
+                finally:
+                    cleanup_session.close()
+            except Exception as cleanup_exc:  # noqa: BLE001
+                logger.warning(
+                    "Orphan eval reconciliation failed for execution %s: %s",
+                    execution_id,
+                    cleanup_exc,
+                )
         raise self.retry(exc=Exception(error_msg), countdown=60 * (2**self.request.retries)) from exc
 
 
