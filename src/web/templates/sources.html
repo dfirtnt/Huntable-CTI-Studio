@@ -244,14 +244,14 @@
     <nav class="flex mb-4" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
-                <a href="/" style="color: var(--text-secondary);" class="text-sm font-medium hover:underline">Home</a>
+                <a href="/" style="color:var(--color-text-secondary);" class="text-sm">Home</a>
             </li>
             <li>
                 <div class="flex items-center">
-                    <svg class="w-4 h-4 mx-1" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <span class="text-sm font-medium" style="color: var(--text-muted-slate);">Sources</span>
+                    <span class="ml-1 text-sm" style="color:var(--text-secondary);">Sources</span>
                 </div>
             </li>
         </ol>
@@ -296,14 +296,14 @@
     </div>
 
     <!-- Database Status Banner (hidden by default) -->
-    <div id="dbStatusBanner" class="hidden rounded-lg p-4 mb-5" style="background-color:rgba(245, 158, 11, 0.1); border:1px solid var(--border-warning);">
+    <div id="dbStatusBanner" class="hidden rounded-lg p-4 mb-5" style="background-color:var(--color-warning-bg); border:1px solid var(--color-warning);">
         <div class="flex items-center">
-            <span style="color:var(--border-warning);" class="flex-shrink-0">⚠️</span>
+            <span style="color:var(--color-warning);" class="flex-shrink-0">⚠️</span>
             <div class="ml-3 flex-1">
-                <h3 class="text-sm font-medium" style="color:var(--action-warning-dark);">Database Status</h3>
-                <p class="text-sm" style="color:var(--action-warning-dark);">The database is experiencing temporary locking issues. Source status changes may not persist until you refresh.</p>
+                <h3 class="text-sm font-medium" style="color:var(--color-warning-text);">Database Status</h3>
+                <p class="text-sm" style="color:var(--color-warning-text);">The database is experiencing temporary locking issues. Source status changes may not persist until you refresh.</p>
             </div>
-            <button onclick="window.location.reload()" class="ml-auto rounded-md px-3 py-1 text-sm font-medium text-white" style="background-color:var(--border-warning);">🔄 Refresh</button>
+            <button onclick="window.location.reload()" class="ml-auto rounded-md px-3 py-1 text-sm font-medium text-white" style="background-color:var(--color-warning);">🔄 Refresh</button>
         </div>
     </div>
 
@@ -760,10 +760,10 @@ async function toggleSourceStatus(sourceId) {
             content += `<p><strong>Previous:</strong> ${result.old_status ? 'Active' : 'Inactive'}</p>`;
             content += `<p><strong>New Status:</strong> <span class="${result.new_status ? 'text-green-400' : 'text-red-400'}">${result.new_status ? 'Active' : 'Inactive'}</span></p>`;
             if (result.success) {
-                content += `<div class="mt-2 p-2 rounded text-sm" style="background-color:var(--action-execute-fill); border:1px solid var(--action-execute); color:var(--action-execute);">✅ Status updated successfully!</div>`;
+                content += `<div class="mt-2 p-2 rounded text-sm" style="background-color:var(--color-success-bg); border:1px solid var(--color-success); color:var(--color-success);">✅ Status updated successfully!</div>`;
             }
             if (result.note) {
-                content += `<div class="mt-2 p-2 rounded text-sm" style="background-color:rgba(245, 158, 11, 0.1); border:1px solid var(--border-warning); color:var(--action-warning-dark);">${result.note}</div>`;
+                content += `<div class="mt-2 p-2 rounded text-sm" style="background-color:var(--color-warning-bg); border:1px solid var(--color-warning); color:var(--action-warning-dark);">${result.note}</div>`;
             }
             content += `</div>`;
             showModal('Source Status Updated', content);
@@ -1255,7 +1255,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
     <div class="bg-white rounded-lg shadow-sm p-6" style="background-color: var(--panel-bg-alt);">
         <div class="flex items-center justify-between mb-4">
             <div>
-                <h2 class="text-xl font-bold" style="color: var(--text-input);">Manual URL Scraping</h2>
+                <h2 class="text-xl font-bold text-gray-900 dark:text-white" style="color: var(--text-input);">Manual URL Scraping</h2>
                 <p class="mt-1 text-sm text-gray-600" style="color: var(--text-muted-blue);">Add one or more URLs (one per line) for batch scraping and analysis</p>
             </div>
         </div>
@@ -1316,7 +1316,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
 
                 <button type="submit" id="scrapeUrlBtn"
                         onclick="event.preventDefault(); event.stopPropagation(); handleAdhocUrlSubmit(event); return false;"
-                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--purple-primary);">
+                        class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--color-brand);">
                     <span class="mr-2">🔍</span>
                     Scrape URLs
                 </button>

@@ -8,88 +8,88 @@
         <nav class="flex mb-4" aria-label="Breadcrumb">
             <ol class="inline-flex items-center space-x-1 md:space-x-3">
                 <li class="inline-flex items-center">
-                    <a href="/analytics" style="color: var(--text-secondary);" class="hover:underline">Analytics</a>
+                    <a href="/analytics" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Analytics</a>
                 </li>
                 <li>
                     <div class="flex items-center">
-                        <svg class="w-6 h-6" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                         </svg>
-                        <span class="ml-1 md:ml-2" style="color: var(--text-muted-slate);">Hunt Scoring Metrics</span>
+                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Hunt Scoring Metrics</span>
                     </div>
                 </li>
             </ol>
         </nav>
-
-        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">🎯 Hunt Scoring Metrics</h1>
-        <p style="color: var(--text-muted-slate);">Analyze threat hunting content quality and keyword performance</p>
+        
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🎯 Hunt Scoring Metrics</h1>
+        <p class="text-gray-600 dark:text-gray-400">Analyze threat hunting content quality and keyword performance</p>
         <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-sm font-medium">
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M10.29 3.86l-8.6 14.86A1 1 0 0 0 2.56 21h18.88a1 1 0 0 0 .87-1.28l-8.6-14.86a1 1 0 0 0-1.72 0z"/></svg>
-            Non-production -- data has not been validated for accuracy
+            Non-production &mdash; data has not been validated for accuracy
         </div>
     </div>
 
     <!-- Metrics Overview -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div class="rounded-lg shadow p-4" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="p-2 " style="background-color: var(--purple-bg-10); rounded-lg">
-                        <svg class="w-5 h-5 " style="color: var(--purple-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                        <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                         </svg>
                     </div>
                     <div class="ml-3">
-                        <p class="text-xs font-medium " style="color: var(--text-muted-slate);">Avg Hunt Score</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="avgHuntScore">-</p>
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Avg Hunt Score</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="avgHuntScore">-</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-4" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="p-2 " style="background-color: rgba(34,197,94,0.15); rounded-lg">
-                        <svg class="w-5 h-5 " style="color: var(--action-success-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
                     <div class="ml-3">
-                        <p class="text-xs font-medium " style="color: var(--text-muted-slate);">High Quality Articles</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="highQualityArticles">-</p>
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">High Quality Articles</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="highQualityArticles">-</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-4" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="p-2 " style="background-color: var(--action-info-fill); rounded-lg">
-                        <svg class="w-5 h-5 " style="color: var(--action-info);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
                     </div>
                     <div class="ml-3">
-                        <p class="text-xs font-medium " style="color: var(--text-muted-slate);">Perfect Matches</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="perfectMatches">-</p>
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Perfect Matches</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="perfectMatches">-</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-4" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="p-2 " style="background-color: rgba(249,115,22,0.15); rounded-lg">
-                        <svg class="w-5 h-5 " style="color: var(--chart-orange);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+                        <svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                         </svg>
                     </div>
                     <div class="ml-3">
-                        <p class="text-xs font-medium " style="color: var(--text-muted-slate);">LOLBAS Matches</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="lolbasMatches">-</p>
+                        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">LOLBAS Matches</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="lolbasMatches">-</p>
                     </div>
                 </div>
             </div>
@@ -99,38 +99,38 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
         <!-- Score Distribution Chart -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-            <h3 class="text-lg font-semibold" class="mb-4" style="color: var(--text-primary);">📊 Hunt Score Distribution</h3>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Hunt Score Distribution</h3>
             <div class="h-64">
                 <canvas id="scoreDistributionChart"></canvas>
             </div>
         </div>
 
         <!-- Keyword Performance Chart -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold" style="color: var(--text-primary);">🔍 Top Performing Keywords - Perfect Discriminators</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🔍 Top Performing Keywords - Perfect Discriminators</h3>
                 <div class="relative group">
-                    <button style="color: var(--text-muted-slate);" class="transition-colors" aria-label="Help">
+                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Help">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div class="absolute right-0 top-8 w-80 rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10" style="background-color: var(--panel-bg-3); border: 1px solid var(--border-muted);">
-                        <div class="text-sm" style="color: var(--text-secondary);">
-                            <h4 class="font-semibold mb-2" style="color: var(--text-primary);">Chart Scope</h4>
+                    <div class="absolute right-0 top-8 w-80 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                        <div class="text-sm text-gray-700 dark:text-gray-300">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Chart Scope</h4>
                             <p class="mb-3">Shows the most frequently matched keywords from <strong>Perfect Discriminators</strong> - keywords that appear exclusively in high-quality threat hunting content.</p>
                             
-                            <h4 class="font-semibold mb-2" style="color: var(--text-primary);">Keyword Lists Included</h4>
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Keyword Lists Included</h4>
                             <ul class="list-disc list-inside space-y-1 mb-3">
                                 <li><strong>Perfect Discriminators</strong> (103 patterns)</li>
-                                <li>Process names: <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">rundll32</code>, <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">msiexec</code></li>
-                                <li>Registry paths: <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">hklm</code>, <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">appdata</code></li>
-                                <li>Command execution: <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">wmic</code>, <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">powershell.exe</code></li>
-                                <li>File types: <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">.lnk</code>, <code class="" style="background-color: var(--panel-bg-4); px-1 rounded">.iso</code></li>
+                                <li>Process names: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">rundll32</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">msiexec</code></li>
+                                <li>Registry paths: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">hklm</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">appdata</code></li>
+                                <li>Command execution: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">wmic</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">powershell.exe</code></li>
+                                <li>File types: <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">.lnk</code>, <code class="bg-gray-100 dark:bg-gray-600 px-1 rounded">.iso</code></li>
                             </ul>
                             
-                            <p class="text-xs " style="color: var(--text-muted-slate);">Note: Only shows top 10 keywords by match count. Other keyword categories (Good Discriminators, LOLBAS, Intelligence) are shown in the detailed analysis table below.</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Note: Only shows top 10 keywords by match count. Other keyword categories (Good Discriminators, LOLBAS, Intelligence) are shown in the detailed analysis table below.</p>
                         </div>
                     </div>
                 </div>
@@ -142,11 +142,11 @@
     </div>
 
     <!-- Keyword Analysis Table -->
-    <div class="rounded-lg shadow mb-8" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-        <div data-collapsible-panel="keyword-analysis" class="px-6 py-4 transition-colors cursor-pointer" style="border-bottom: 1px solid var(--border-muted);">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow mb-8">
+        <div data-collapsible-panel="keyword-analysis" class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold" style="color: var(--text-primary);">🏷️ Keyword Performance Analysis</h3>
-                <span id="keyword-analysis-toggle" class="transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">🏷️ Keyword Performance Analysis</h3>
+                <span id="keyword-analysis-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -154,16 +154,16 @@
             </div>
         </div>
         <div id="keyword-analysis-content" class="overflow-x-auto hidden">
-            <table class="min-w-full">
-                <thead style="background-color: var(--panel-bg-3);">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Category</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Keyword</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Match Count</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Avg Score Impact</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Keyword</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Match Count</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Avg Score Impact</th>
                     </tr>
                 </thead>
-                <tbody id="keywordAnalysisTable" style="background-color: var(--mlops-card-bg); border-top: 1px solid var(--border-muted);">
+                <tbody id="keywordAnalysisTable" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                     <!-- Table content will be loaded dynamically -->
                 </tbody>
             </table>
@@ -171,8 +171,8 @@
     </div>
 
     <!-- Score Trends Chart -->
-    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-        <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">📈 Hunt Score Trends (Last 30 Days)</h3>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Hunt Score Trends (Last 30 Days)</h3>
         <div class="h-80">
             <canvas id="scoreTrendsChart"></canvas>
         </div>
@@ -181,24 +181,24 @@
     <!-- Additional Analytics Sections -->
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mb-8">
         <!-- Source Performance by Hunt Score -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-            <h3 class="text-lg font-semibold" class="mb-4" style="color: var(--text-primary);">🎯 Top Sources by Hunt Score</h3>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Top Sources by Hunt Score</h3>
             <div class="h-64">
                 <canvas id="sourcePerformanceChart"></canvas>
             </div>
         </div>
 
         <!-- Score Quality Distribution -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg font-semibold" style="color: var(--text-primary);">⭐ Content Quality Breakdown</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">⭐ Content Quality Breakdown</h3>
                 <div class="relative group">
-                    <button style="color: var(--text-muted-slate);" class="transition-colors">
+                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div class="absolute right-0 top-6 w-80 p-3 text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10" style="background-color: var(--panel-bg-3); border: 1px solid var(--border-muted); color: var(--text-primary);">
+                    <div class="absolute right-0 top-6 w-80 p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                         <div class="font-semibold mb-2">Content Quality Breakdown</div>
                         <div class="space-y-1 text-xs">
                             <div><strong>Unscored:</strong> Articles not yet processed</div>
@@ -222,62 +222,62 @@
     </div>
 
     <!-- Advanced Analytics -->
-    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-        <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">🔬 Advanced Hunt Analytics</h3>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🔬 Advanced Hunt Analytics</h3>
         
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             <!-- Scoring Efficiency -->
-            <div class="rounded-lg p-4" style="background-color: var(--panel-bg-3);">
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <div class="flex items-center mb-2">
-                    <div class="p-2 rounded-lg mr-3" style="background-color: rgba(34,197,94,0.15);">
-                        <svg class="w-5 h-5" style="color: var(--action-success-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg mr-3">
+                        <svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Scoring Efficiency</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="scoringEfficiency">-</p>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Scoring Efficiency</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="scoringEfficiency">-</p>
                     </div>
                 </div>
-                <p class="text-xs" style="color: var(--text-muted-slate);">Articles with meaningful scores</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Articles with meaningful scores</p>
             </div>
 
             <!-- Keyword Density -->
-            <div class="rounded-lg p-4" style="background-color: var(--panel-bg-3);">
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <div class="flex items-center mb-2">
-                    <div class="p-2 rounded-lg mr-3" style="background-color: var(--action-info-fill);">
-                        <svg class="w-5 h-5" style="color: var(--action-info);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg mr-3">
+                        <svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Avg Keywords/Article</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="avgKeywordsPerArticle">-</p>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Keywords/Article</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="avgKeywordsPerArticle">-</p>
                     </div>
                 </div>
-                <p class="text-xs" style="color: var(--text-muted-slate);">Average keyword matches per article</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Average keyword matches per article</p>
             </div>
 
             <!-- Perfect Match Rate -->
-            <div class="rounded-lg p-4" style="background-color: var(--panel-bg-3);">
+            <div class="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <div class="flex items-center mb-2">
-                    <div class="p-2 rounded-lg mr-3" style="background-color: var(--purple-bg-10);">
-                        <svg class="w-5 h-5" style="color: var(--purple-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg mr-3">
+                        <svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
                     </div>
                     <div>
-                        <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Perfect Match Rate</p>
-                        <p class="text-xl font-semibold" style="color: var(--text-primary);" id="perfectMatchRate">-</p>
+                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Perfect Match Rate</p>
+                        <p class="text-xl font-semibold text-gray-900 dark:text-white" id="perfectMatchRate">-</p>
                     </div>
                 </div>
-                <p class="text-xs" style="color: var(--text-muted-slate);">Percentage of perfect scores</p>
+                <p class="text-xs text-gray-500 dark:text-gray-400">Percentage of perfect scores</p>
             </div>
         </div>
 
         <!-- Recent High-Score Articles -->
         <div class="mt-6">
-            <h4 class="text-md font-semibold mb-3" style="color: var(--text-primary);">🔥 Recent High-Score Articles</h4>
+            <h4 class="text-md font-semibold text-gray-900 dark:text-white mb-3">🔥 Recent High-Score Articles</h4>
             <div class="space-y-2" id="recentHighScoreArticles">
                 <!-- Content will be loaded dynamically -->
             </div>
@@ -422,38 +422,27 @@ function renderKeywordAnalysisTable(data) {
 
     data.keywords?.forEach(keyword => {
         const row = document.createElement('tr');
-        const catBadge = {
-            perfect: 'background-color:rgba(34,197,94,0.2);color:var(--action-success-light);',
-            good: 'background-color:var(--action-info-fill);color:var(--action-info);',
-            lolbas: 'background-color:rgba(249,115,22,0.15);color:var(--chart-orange);'
-        };
-        const bStyle = catBadge[keyword.category] || 'background-color:var(--purple-bg-10);color:var(--purple-light);';
-
-        const catTd = document.createElement('td');
-        catTd.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium';
-        catTd.style.color = 'var(--text-primary)';
-        const badge = document.createElement('span');
-        badge.className = 'px-2 py-1 text-xs font-semibold rounded-full';
-        badge.style.cssText = bStyle;
-        badge.textContent = keyword.category;
-        catTd.appendChild(badge);
-
-        const kwTd = document.createElement('td');
-        kwTd.className = 'px-6 py-4 whitespace-nowrap text-sm font-mono';
-        kwTd.style.color = 'var(--text-primary)';
-        kwTd.textContent = keyword.keyword;
-
-        const countTd = document.createElement('td');
-        countTd.className = 'px-6 py-4 whitespace-nowrap text-sm';
-        countTd.style.color = 'var(--text-muted-slate)';
-        countTd.textContent = keyword.match_count || 0;
-
-        const impactTd = document.createElement('td');
-        impactTd.className = 'px-6 py-4 whitespace-nowrap text-sm';
-        impactTd.style.color = 'var(--text-muted-slate)';
-        impactTd.textContent = keyword.avg_score_impact ? '+' + keyword.avg_score_impact : '0';
-
-        row.append(catTd, kwTd, countTd, impactTd);
+        row.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full ${
+                    keyword.category === 'perfect' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    keyword.category === 'good' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    keyword.category === 'lolbas' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                    'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                }">
+                    ${keyword.category}
+                </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white font-mono">
+                ${keyword.keyword}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${keyword.match_count || 0}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                ${keyword.avg_score_impact ? '+' + keyword.avg_score_impact : '0'}
+            </td>
+        `;
         tbody.appendChild(row);
     });
 }
@@ -580,31 +569,19 @@ function renderRecentHighScoreArticles(data) {
 
     data.articles?.forEach(article => {
         const articleDiv = document.createElement('div');
-        articleDiv.className = 'flex items-center justify-between p-3 rounded-lg transition-colors cursor-pointer';
-        articleDiv.style.cssText = 'background-color: var(--panel-bg-3);';
+        articleDiv.className = 'flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer';
         articleDiv.onclick = () => window.location.href = `/articles/${article.id}`;
-
-        const body = document.createElement('div');
-        body.className = 'flex-1';
-        const h5 = document.createElement('h5');
-        h5.className = 'font-medium text-sm truncate';
-        h5.style.color = 'var(--text-primary)';
-        h5.textContent = article.title;
-        const p = document.createElement('p');
-        p.className = 'text-xs';
-        p.style.color = 'var(--text-muted-slate)';
-        p.textContent = article.source_name + ' - ' + article.created_at;
-        body.append(h5, p);
-
-        const scoreDiv = document.createElement('div');
-        scoreDiv.className = 'ml-4';
-        const badge = document.createElement('span');
-        badge.className = 'px-2 py-1 text-xs font-semibold rounded-full';
-        badge.style.cssText = 'background-color: var(--purple-bg-10); color: var(--purple-light);';
-        badge.textContent = article.hunt_score;
-        scoreDiv.appendChild(badge);
-
-        articleDiv.append(body, scoreDiv);
+        articleDiv.innerHTML = `
+            <div class="flex-1">
+                <h5 class="font-medium text-gray-900 dark:text-white text-sm truncate">${article.title}</h5>
+                <p class="text-xs text-gray-500 dark:text-gray-400">${article.source_name} • ${article.created_at}</p>
+            </div>
+            <div class="ml-4">
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                    ${article.hunt_score}
+                </span>
+            </div>
+        `;
         container.appendChild(articleDiv);
     });
 }

@@ -5,47 +5,47 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">🧪 SIGMA Rule A/B Comparison</h1>
-        <p style="color: var(--text-muted-slate);">Compare two SIGMA rules using behavioral novelty assessment</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🧪 SIGMA Rule A/B Comparison</h1>
+        <p class="text-gray-600 dark:text-gray-400">Compare two SIGMA rules using behavioral novelty assessment</p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Rule A Input -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold" style="color: var(--text-primary);">Rule A</h2>
-                <button onclick="loadExample('a')" class="text-sm text-blue-600 hover:text-blue-800">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Rule A</h2>
+                <button onclick="loadExample('a')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
                     📋 Load Example
                 </button>
             </div>
             <textarea 
                 id="ruleA" 
-                class="w-full h-96 p-3 border rounded-md font-mono text-sm"
+                class="w-full h-96 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm dark:bg-gray-700 dark:text-white"
                 placeholder="Paste SIGMA rule YAML here..."
-             style="border-color: var(--border-muted);"></textarea>
+            ></textarea>
             <div id="ruleAValidation" class="mt-2 text-sm"></div>
         </div>
 
         <!-- Rule B Input -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold" style="color: var(--text-primary);">Rule B</h2>
-                <button onclick="loadExample('b')" class="text-sm text-blue-600 hover:text-blue-800">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Rule B</h2>
+                <button onclick="loadExample('b')" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
                     📋 Load Example
                 </button>
             </div>
             <textarea 
                 id="ruleB" 
-                class="w-full h-96 p-3 border rounded-md font-mono text-sm"
+                class="w-full h-96 p-3 border border-gray-300 dark:border-gray-600 rounded-md font-mono text-sm dark:bg-gray-700 dark:text-white"
                 placeholder="Paste SIGMA rule YAML here..."
-             style="border-color: var(--border-muted);"></textarea>
+            ></textarea>
             <div id="ruleBValidation" class="mt-2 text-sm"></div>
         </div>
     </div>
 
     <!-- Options -->
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
-        <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Options</h3>
+        <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Options</h3>
         <div class="space-y-4">
             <div class="flex items-center space-x-6">
                 <button 
@@ -65,7 +65,7 @@
                     🔎 Compare Rule A to Repository
                 </button>
             </div>
-            <div class="text-sm" style="color: var(--text-muted-slate);">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
                 <p><strong>Compare Rules:</strong> Compare two rules directly using behavioral novelty assessment.</p>
                 <p><strong>Compare to Repository:</strong> Compare Rule A against all indexed rules (SigmaHQ and your repo).</p>
             </div>
@@ -75,21 +75,21 @@
     <!-- Results -->
     <div id="results" class="hidden">
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
-            <h3 class="text-xl font-semibold mb-4" style="color: var(--text-primary);">Comparison Results</h3>
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Comparison Results</h3>
             
             <!-- Overall Similarity & Novelty Classification -->
             <div class="mb-6">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-lg font-semibold" style="color: var(--text-secondary);">Weighted Similarity</span>
+                    <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">Weighted Similarity</span>
                     <div class="flex items-center space-x-4">
-                    <span id="overallSimilarity" class="text-3xl font-bold" style="color: var(--action-info);">-</span>
+                    <span id="overallSimilarity" class="text-3xl font-bold text-blue-600 dark:text-blue-400">-</span>
                         <span id="noveltyLabel" class="px-3 py-1 rounded text-sm font-semibold"></span>
                     </div>
                 </div>
-                <div class="w-full rounded-full h-4 mb-4" style="background-color: var(--panel-bg-4);">
+                <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 mb-4">
                     <div id="similarityBar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
                 </div>
-                <div class="text-sm" style="color: var(--text-muted-slate);">
+                <div class="text-sm text-gray-600 dark:text-gray-400">
                     <span>Novelty Score: </span>
                     <span id="noveltyScore" class="font-semibold">-</span>
                 </div>
@@ -97,23 +97,23 @@
 
             <!-- Behavioral Similarity Breakdown -->
             <div class="mb-6">
-                <h4 class="text-md font-semibold mb-3" style="color: var(--text-secondary);">🔍 Behavioral Similarity Breakdown</h4>
-                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🔍 Behavioral Similarity Breakdown</h4>
+                <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
                     <div class="grid grid-cols-1 gap-2 text-sm">
                         <div class="flex justify-between">
-                            <span style="color: var(--text-secondary);">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
-                            <span id="atomJaccard" class="font-medium text-blue-700">-</span>
+                            <span class="text-gray-700 dark:text-gray-300">Atom Jaccard <span class="text-gray-500">(weight: 70%)</span>:</span>
+                            <span id="atomJaccard" class="font-medium text-blue-700 dark:text-blue-300">-</span>
                         </div>
                         <div class="flex justify-between">
-                            <span style="color: var(--text-secondary);">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
-                            <span id="logicShape" class="font-medium text-blue-700">-</span>
+                            <span class="text-gray-700 dark:text-gray-300">Logic Shape <span class="text-gray-500">(weight: 30%)</span>:</span>
+                            <span id="logicShape" class="font-medium text-blue-700 dark:text-blue-300">-</span>
                         </div>
-                        <div id="logicShapeNA" class="hidden text-xs italic" style="color: var(--text-muted-slate);">
+                        <div id="logicShapeNA" class="hidden text-xs text-gray-500 dark:text-gray-400 italic">
                             N/A - Logic shape not computed when all atoms are identical (proven event equivalence)
                         </div>
-                        <div class="pt-2 border-t border-blue-200 flex justify-between">
-                            <span class="font-semibold" style="color: var(--text-secondary);">Weighted Total:</span>
-                            <span id="weightedTotal" class="font-medium text-blue-700">-</span>
+                        <div class="pt-2 border-t border-blue-200 dark:border-blue-700 flex justify-between">
+                            <span class="text-gray-700 dark:text-gray-300 font-semibold">Weighted Total:</span>
+                            <span id="weightedTotal" class="font-medium text-blue-700 dark:text-blue-300">-</span>
                         </div>
                     </div>
                 </div>
@@ -121,23 +121,23 @@
 
             <!-- Explainability -->
             <div id="explainabilitySection" class="mb-6 hidden">
-                <h4 class="text-md font-semibold mb-3" style="color: var(--text-secondary);">📊 Explainability</h4>
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">📊 Explainability</h4>
                 <div class="space-y-4">
                     <div id="sharedAtomsSection" class="hidden">
-                        <h5 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">Shared Atoms:</h5>
-                        <div id="sharedAtoms" class="bg-green-50 border border-green-200 rounded p-3 text-xs font-mono text-gray-900"></div>
+                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Shared Atoms:</h5>
+                        <div id="sharedAtoms" class="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
                 </div>
                     <div id="addedAtomsSection" class="hidden">
-                        <h5 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">Atoms in Rule A (not in Rule B):</h5>
-                        <div id="addedAtoms" class="bg-yellow-50 border border-yellow-200 rounded p-3 text-xs font-mono text-gray-900"></div>
+                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in Rule A (not in Rule B):</h5>
+                        <div id="addedAtoms" class="bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
                     </div>
                     <div id="removedAtomsSection" class="hidden">
-                        <h5 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">Atoms in Rule B (not in Rule A):</h5>
-                        <div id="removedAtoms" class="bg-orange-50 border border-orange-200 rounded p-3 text-xs font-mono text-gray-900"></div>
+                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Atoms in Rule B (not in Rule A):</h5>
+                        <div id="removedAtoms" class="bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
                     </div>
                     <div id="filterDifferencesSection" class="hidden">
-                        <h5 class="text-sm font-semibold mb-2" style="color: var(--text-secondary);">Filter Differences (NOT logic):</h5>
-                        <div id="filterDifferences" class="bg-purple-50 border border-purple-200 rounded p-3 text-xs font-mono text-gray-900"></div>
+                        <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Filter Differences (NOT logic):</h5>
+                        <div id="filterDifferences" class="bg-purple-50 dark:bg-purple-900 border border-purple-200 dark:border-purple-700 rounded p-3 text-xs font-mono text-gray-900 dark:text-gray-100"></div>
                     </div>
                 </div>
             </div>
@@ -146,10 +146,10 @@
     </div>
 
     <!-- Error Display -->
-    <div id="errorDisplay" class="hidden bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+    <div id="errorDisplay" class="hidden bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
         <div class="flex items-center">
-            <span class="font-semibold mr-2" style="color: var(--action-danger);">❌ Error:</span>
-            <span id="errorMessage" class="text-red-800"></span>
+            <span class="text-red-600 dark:text-red-400 font-semibold mr-2">❌ Error:</span>
+            <span id="errorMessage" class="text-red-800 dark:text-red-200"></span>
         </div>
     </div>
 </div>
@@ -486,45 +486,45 @@ tags:
                 : 'N/A';
             
             return `
-                <div class="border rounded-lg p-4 mb-3" style="border-color: var(--mlops-card-border);">
+                <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-3">
                     <div class="flex justify-between items-start mb-2">
                         <div>
-                            <h4 class="font-semibold" style="color: var(--text-primary);">${escapeHtml(match.title || 'Unknown')}</h4>
-                            <p class="text-sm" style="color: var(--text-muted-slate);">${escapeHtml(match.rule_id || '')}</p>
+                            <h4 class="font-semibold text-gray-900 dark:text-white">${escapeHtml(match.title || 'Unknown')}</h4>
+                            <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHtml(match.rule_id || '')}</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-2xl font-bold" style="color: var(--action-info);">${similarity}%</div>
-                            <div class="text-xs" style="color: var(--text-muted-slate);">Similarity</div>
+                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">${similarity}%</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-400">Similarity</div>
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-2 text-sm mt-3">
                         <div>
-                            <span style="color: var(--text-muted-slate);">Atom Jaccard:</span>
+                            <span class="text-gray-600 dark:text-gray-400">Atom Jaccard:</span>
                             <span class="font-medium ml-2">${atomJaccard}%</span>
                         </div>
                         <div>
-                            <span style="color: var(--text-muted-slate);">Logic Shape:</span>
+                            <span class="text-gray-600 dark:text-gray-400">Logic Shape:</span>
                             <span class="font-medium ml-2">${logicShape}</span>
                         </div>
                     </div>
                     ${match.shared_atoms && match.shared_atoms.length > 0 ? `
                         <div class="mt-2 text-xs">
-                            <span style="color: var(--text-muted-slate);">Shared atoms:</span>
-                            <span class="font-mono" style="color: var(--text-secondary);">${match.shared_atoms.slice(0, 3).join(', ')}${match.shared_atoms.length > 3 ? '...' : ''}</span>
+                            <span class="text-gray-600 dark:text-gray-400">Shared atoms:</span>
+                            <span class="font-mono text-gray-700 dark:text-gray-300">${match.shared_atoms.slice(0, 3).join(', ')}${match.shared_atoms.length > 3 ? '...' : ''}</span>
                         </div>
                     ` : ''}
                 </div>
             `;
         }).join('') : `
             <div class="text-center py-8">
-                <div class="w-16 h-16 mx-auto mb-4 text-green-500 flex items-center justify-center">
+                <div class="w-16 h-16 mx-auto mb-4 text-green-500 dark:text-green-400 flex items-center justify-center">
                     <svg class="w-full h-full" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                     </svg>
                 </div>
-                <p class="text-lg font-semibold mb-2" style="color: var(--text-primary);">✨ Novel Detection Pattern</p>
-                <p class="mb-1" style="color: var(--text-muted-slate);">No similar rules found in indexed repositories</p>
-                <p class="text-sm text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing indexed rules.</p>
+                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">✨ Novel Detection Pattern</p>
+                <p class="text-gray-600 dark:text-gray-400 mb-1">No similar rules found in indexed repositories</p>
+                <p class="text-sm text-gray-500 dark:text-gray-500 mt-2">This rule represents a unique detection pattern that is not currently covered by existing indexed rules.</p>
             </div>
         `;
         
@@ -533,8 +533,8 @@ tags:
         repoResultsDiv.id = 'repositoryResults';
         repoResultsDiv.className = 'bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6';
         repoResultsDiv.innerHTML = `
-            <h3 class="text-xl font-semibold mb-4" style="color: var(--text-primary);">Repository Comparison Results</h3>
-            <div class="mb-4 text-sm" style="color: var(--text-muted-slate);">
+            <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">Repository Comparison Results</h3>
+            <div class="mb-4 text-sm text-gray-600 dark:text-gray-400">
                 Found ${matches.length} most similar rules (behavioral novelty assessment) (sorted by similarity)
             </div>
             <div class="space-y-3 max-h-96 overflow-y-auto">

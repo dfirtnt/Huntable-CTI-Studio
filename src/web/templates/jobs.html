@@ -5,68 +5,68 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">🔄 Job Monitor</h1>
-        <p style="color: var(--text-muted-slate);">Monitor Celery background tasks and job queues</p>
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔄 Job Monitor</h1>
+        <p class="text-gray-600 dark:text-gray-400">Monitor Celery background tasks and job queues</p>
     </div>
 
     <!-- Auto-refresh toggle -->
     <div class="mb-6 flex items-center justify-between">
         <div class="flex items-center space-x-4">
             <label class="flex items-center">
-                <input type="checkbox" id="autoRefresh" class="rounded shadow-sm" style="accent-color: var(--purple-primary);" checked>
-                <span class="ml-2 text-sm" style="color: var(--text-secondary);">Auto-refresh (5s)</span>
+                <input type="checkbox" id="autoRefresh" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" checked>
+                <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Auto-refresh (5s)</span>
             </label>
-            <button id="refreshBtn" class="btn-analyze px-4 py-2 text-white rounded-md transition-colors">
+            <button id="refreshBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                 🔄 Refresh Now
             </button>
         </div>
-        <div class="text-sm" style="color: var(--text-muted-slate);">
+        <div class="text-sm text-gray-500 dark:text-gray-400">
             Last updated: <span id="lastUpdated">Never</span>
         </div>
     </div>
 
     <!-- Worker Status -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-            <h2 class="text-xl font-semibold mb-4" style="color: var(--text-primary);">👥 Worker Status</h2>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">👥 Worker Status</h2>
             <div id="workerStatus" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 rounded w-3/4" style="background-color: var(--panel-bg-4);"></div>
-                    <div class="h-4 rounded w-1/2 mt-2" style="background-color: var(--panel-bg-4);"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
                 </div>
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-            <h2 class="text-xl font-semibold mb-4" style="color: var(--text-primary);">📊 Queue Status</h2>
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Queue Status</h2>
             <div id="queueStatus" class="space-y-3">
                 <div class="animate-pulse">
-                    <div class="h-4 rounded w-3/4" style="background-color: var(--panel-bg-4);"></div>
-                    <div class="h-4 rounded w-1/2 mt-2" style="background-color: var(--panel-bg-4);"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Active Tasks -->
-    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-        <h2 class="text-xl font-semibold mb-4" style="color: var(--text-primary);">⚡ Active Tasks</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">⚡ Active Tasks</h2>
         <div id="activeTasks" class="space-y-3">
             <div class="animate-pulse">
-                <div class="h-4 rounded w-full" style="background-color: var(--panel-bg-4);"></div>
-                <div class="h-4 rounded w-2/3 mt-2" style="background-color: var(--panel-bg-4);"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3 mt-2"></div>
             </div>
         </div>
     </div>
 
     <!-- Recent Job History -->
-    <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
-        <h2 class="text-xl font-semibold mb-4" style="color: var(--text-primary);">📋 Recent Job History</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📋 Recent Job History</h2>
         <div id="jobHistory" class="space-y-3">
             <div class="animate-pulse">
-                <div class="h-4 rounded w-full" style="background-color: var(--panel-bg-4);"></div>
-                <div class="h-4 rounded w-3/4 mt-2" style="background-color: var(--panel-bg-4);"></div>
-                <div class="h-4 rounded w-1/2 mt-2" style="background-color: var(--panel-bg-4);"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mt-2"></div>
+                <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mt-2"></div>
             </div>
         </div>
     </div>
@@ -178,12 +178,12 @@ function updateWorkerStatus(data) {
     console.log('Updating worker status with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div style="color: var(--action-danger);">❌ Error loading worker status</div>';
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading worker status</div>';
         return;
     }
     
     if (data.status === 'timeout') {
-        container.innerHTML = '<div style="color: var(--action-warning);">⚠️ Worker status timeout - workers may be unresponsive</div>';
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Worker status timeout - workers may be unresponsive</div>';
         return;
     }
 
@@ -194,7 +194,7 @@ function updateWorkerStatus(data) {
     console.log('Worker stats:', workerStats);
     
     if (activeWorkers.length === 0) {
-        container.innerHTML = '<div style="color: var(--action-warning);">⚠️ No active workers</div>';
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ No active workers</div>';
         return;
     }
 
@@ -205,16 +205,16 @@ function updateWorkerStatus(data) {
         const totalTasks = stats.total ? Object.values(stats.total).reduce((a, b) => a + b, 0) : 0;
         
         html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-3);">
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                    <div class="font-medium" style="color: var(--text-primary);">${worker}</div>
-                    <div class="text-sm" style="color: var(--text-muted-slate);">
+                    <div class="font-medium text-gray-900 dark:text-white">${worker}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
                         Pool: ${processCount} processes
                     </div>
                 </div>
                 <div class="text-right">
-                    <div class="text-sm " style="color: var(--action-execute);">✅ Active</div>
-                    <div class="text-xs" style="color: var(--text-muted-slate);">
+                    <div class="text-sm text-green-600 dark:text-green-400">✅ Active</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
                         Tasks: ${totalTasks}
                     </div>
                 </div>
@@ -230,7 +230,7 @@ function updateQueueStatus(data) {
     console.log('Updating queue status with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div style="color: var(--action-danger);">❌ Error loading queue status</div>';
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading queue status</div>';
         return;
     }
 
@@ -240,18 +240,18 @@ function updateQueueStatus(data) {
     let html = '';
     
     Object.entries(queues).forEach(([queueName, length]) => {
-        const statusColor = length > 0 ? '" style="color: var(--chart-orange);' : '" style="color: var(--action-execute);';
+        const statusColor = length > 0 ? 'text-orange-600 dark:text-orange-400' : 'text-green-600 dark:text-green-400';
         const statusIcon = length > 0 ? '⏳' : '✅';
         
         html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-3);">
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                    <div class="font-medium" style="color: var(--text-primary);">${queueName}</div>
-                    <div class="text-sm" style="color: var(--text-muted-slate);">Queue length</div>
+                    <div class="font-medium text-gray-900 dark:text-white">${queueName}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">Queue length</div>
                 </div>
                 <div class="text-right">
                     <div class="text-lg font-bold ${statusColor}">${length}</div>
-                    <div class="text-xs" style="color: var(--text-muted-slate);">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">${statusIcon} ${length > 0 ? 'Pending' : 'Empty'}</div>
                 </div>
             </div>
         `;
@@ -265,12 +265,12 @@ function updateActiveTasks(data) {
     console.log('Updating active tasks with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div style="color: var(--action-danger);">❌ Error loading active tasks</div>';
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading active tasks</div>';
         return;
     }
     
     if (data.status === 'timeout') {
-        container.innerHTML = '<div style="color: var(--action-warning);">⚠️ Active tasks timeout - workers may be unresponsive</div>';
+        container.innerHTML = '<div class="text-yellow-600 dark:text-yellow-400">⚠️ Active tasks timeout - workers may be unresponsive</div>';
         return;
     }
 
@@ -290,7 +290,7 @@ function updateActiveTasks(data) {
     console.log('All tasks:', allTasks);
     
     if (allTasks.length === 0) {
-        container.innerHTML = '<div style="color: var(--text-muted-slate); text-center py-8">No active tasks</div>';
+        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No active tasks</div>';
         return;
     }
 
@@ -301,16 +301,16 @@ function updateActiveTasks(data) {
         const sourceId = task.args && task.args[0] ? `Source ${task.args[0]}` : 'Unknown Source';
         
         html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-3);">
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                    <div class="font-medium" style="color: var(--text-primary);">${taskName}</div>
-                    <div class="text-sm" style="color: var(--text-muted-slate);">
+                    <div class="font-medium text-gray-900 dark:text-white">${taskName}</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
                         ${sourceId} | Started: ${startTime}
                     </div>
                 </div>
                 <div class="text-right">
-                    <div class="text-sm " style="color: var(--action-info);">🔄 Running</div>
-                    <div class="text-xs" style="color: var(--text-muted-slate);">ID: ${task.id.substring(0, 8)}...</div>
+                    <div class="text-sm text-blue-600 dark:text-blue-400">🔄 Running</div>
+                    <div class="text-xs text-gray-500 dark:text-gray-400">ID: ${task.id.substring(0, 8)}...</div>
                 </div>
             </div>
         `;
@@ -324,7 +324,7 @@ function updateJobHistory(data) {
     console.log('Updating job history with data:', data);
     
     if (data.status === 'error') {
-        container.innerHTML = '<div style="color: var(--action-danger);">❌ Error loading job history</div>';
+        container.innerHTML = '<div class="text-red-600 dark:text-red-400">❌ Error loading job history</div>';
         return;
     }
 
@@ -332,7 +332,7 @@ function updateJobHistory(data) {
     console.log('Recent tasks:', tasks);
     
     if (tasks.length === 0) {
-        container.innerHTML = '<div style="color: var(--text-muted-slate); text-center py-8">No recent tasks</div>';
+        container.innerHTML = '<div class="text-gray-600 dark:text-gray-400 text-center py-8">No recent tasks</div>';
         return;
     }
 
@@ -344,16 +344,16 @@ function updateJobHistory(data) {
         const resultText = task.result ? JSON.stringify(task.result).substring(0, 50) + '...' : 'No result';
         
         html += `
-            <div class="flex items-center justify-between p-3 rounded-lg" style="background-color: var(--panel-bg-3);">
+            <div class="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div>
-                    <div class="font-medium" style="color: var(--text-primary);">${task.task_id.substring(0, 8)}...</div>
-                    <div class="text-sm" style="color: var(--text-muted-slate);">
+                    <div class="font-medium text-gray-900 dark:text-white">${task.task_id.substring(0, 8)}...</div>
+                    <div class="text-sm text-gray-600 dark:text-gray-400">
                         Completed: ${dateDone}
                     </div>
                 </div>
                 <div class="text-right">
                     <div class="text-sm ${statusColor}">${statusIcon} ${task.status}</div>
-                    <div class="text-xs" style="color: var(--text-muted-slate);">
+                    <div class="text-xs text-gray-500 dark:text-gray-400">
                         ${resultText}
                     </div>
                 </div>
@@ -366,11 +366,11 @@ function updateJobHistory(data) {
 
 function getStatusColor(status) {
     switch (status) {
-        case 'SUCCESS': return '" style="color: var(--action-execute);';
-        case 'FAILURE': return '" style="color: var(--action-danger);';
-        case 'PENDING': return '" style="color: var(--action-warning);';
-        case 'RETRY': return '" style="color: var(--chart-orange);';
-        default: return '" style="color: var(--text-muted-slate);';
+        case 'SUCCESS': return 'text-green-600 dark:text-green-400';
+        case 'FAILURE': return 'text-red-600 dark:text-red-400';
+        case 'PENDING': return 'text-yellow-600 dark:text-yellow-400';
+        case 'RETRY': return 'text-orange-600 dark:text-orange-400';
+        default: return 'text-gray-600 dark:text-gray-400';
     }
 }
 
@@ -390,8 +390,7 @@ function showError(message) {
     
     // Show error in the UI
     const errorDiv = document.createElement('div');
-    errorDiv.className = 'fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50';
-    errorDiv.style.cssText = 'background-color: var(--action-danger); color: var(--text-emphasis);';
+    errorDiv.className = 'fixed top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
     errorDiv.textContent = message;
     document.body.appendChild(errorDiv);
     

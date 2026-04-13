@@ -631,7 +631,7 @@ async function loadActiveConfig() {
         console.error('Error loading active config:', error);
         const configDisplay = document.getElementById('configDisplay');
         if (configDisplay) {
-            configDisplay.innerHTML = '<p class="text-sm" style="color: var(--action-danger);">Error loading config</p>';
+            configDisplay.innerHTML = '<p class="text-sm text-red-600 dark:text-red-400">Error loading config</p>';
         }
     }
 }
@@ -648,7 +648,7 @@ async function loadEvalArticles() {
     
     loadBtn.disabled = true;
     loadBtn.textContent = 'Loading...';
-    articleList.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">Loading articles...</p>';
+    articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading articles...</p>';
     
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${apiSubagent}`);
@@ -669,8 +669,8 @@ async function loadEvalArticles() {
         selectedArticleUrls.clear();
         
         if (evalArticles.length === 0) {
-            articleList.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">No eval articles found for this subagent.</p>' +
-                '<p class="text-xs mt-1" style="color: var(--text-muted);">Article snapshots live in <code class="bg-gray-700 px-1 rounded">config/eval_articles_data/</code> and are seeded at startup. Ensure the repo has the latest committed JSON files. See <strong>Getting Started → Installation → Agent evals</strong> in the docs.</p>';
+            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No eval articles found for this subagent.</p>' +
+                '<p class="text-xs text-gray-400 dark:text-gray-500 mt-1">Article snapshots live in <code class="bg-gray-700 px-1 rounded">config/eval_articles_data/</code> and are seeded at startup. Ensure the repo has the latest committed JSON files. See <strong>Getting Started → Installation → Agent evals</strong> in the docs.</p>';
             loadBtn.disabled = false;
             loadBtn.textContent = 'Load Eval Articles';
             return;
@@ -678,7 +678,7 @@ async function loadEvalArticles() {
         
         evalArticles.forEach((article) => {
             const div = document.createElement('div');
-            div.className = 'flex items-center gap-3 p-2 border rounded';
+            div.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
@@ -687,7 +687,7 @@ async function loadEvalArticles() {
             checkbox.className = 'w-4 h-4 text-green-600 rounded';
             checkbox.checked = true; // Auto-select all by default
             selectedArticleUrls.add(article.url);
-            checkbox.addEventListener('change', (e) = style="border-color: var(--border-muted);"> {
+            checkbox.addEventListener('change', (e) => {
                 if (e.target.checked) {
                     selectedArticleUrls.add(article.url);
                 } else {
@@ -698,21 +698,21 @@ async function loadEvalArticles() {
             
             const label = document.createElement('label');
             label.htmlFor = `article-${article.url}`;
-            label.className = 'flex-1 text-sm cursor-pointer';
+            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
             
             // Show title when available, otherwise truncated URL; full URL in tooltip
-            const displayText = (article.title && article.title.trim()) ? article.title.trim() : (article.url.length  style="color: var(--text-secondary);"> 60 ? article.url.substring(0, 60) + '...' : article.url);
+            const displayText = (article.title && article.title.trim()) ? article.title.trim() : (article.url.length > 60 ? article.url.substring(0, 60) + '...' : article.url);
             const escapedDisplay = displayText.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             const escapedUrl = (article.url || '').replace(/"/g, '&quot;');
             const foundBadge = article.found ? 
-                '<span class="text-xs px-2 py-1 rounded ml-2" style="color: var(--action-execute); background-color: rgba(34,197,94,0.15);">Found</span>' :
-                '<span class="text-xs px-2 py-1 rounded ml-2" style="color: var(--action-warning, #eab308); background-color: rgba(245,158,11,0.15);">Not Found</span>';
+                '<span class="text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-2 py-1 rounded ml-2">Found</span>' :
+                '<span class="text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded ml-2">Not Found</span>';
             
             const expectedCountDisplay = `Expected: ${article.expected_count !== undefined ? article.expected_count : 'N/A'}`;
             
             label.innerHTML = `
                 <span class="font-medium" title="${escapedUrl}">${escapedDisplay}</span>
-                <span class=" ml-2" style="color: var(--text-muted-slate);">${expectedCountDisplay}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">${expectedCountDisplay}</span>
                 ${foundBadge}
             `;
             
@@ -723,7 +723,7 @@ async function loadEvalArticles() {
         
         // Show success message
         const successMsg = document.createElement('p');
-        successMsg.className = 'text-sm mt-2';
+        successMsg.className = 'text-sm text-green-600 dark:text-green-400 mt-2';
         successMsg.textContent = `✅ Loaded ${evalArticles.length} article(s)`;
         articleList.appendChild(successMsg);
         
@@ -733,7 +733,7 @@ async function loadEvalArticles() {
         console.error('Error loading eval articles:', error);
         articleList.textContent = '';
         const errP = document.createElement('p');
-        errP.className = 'text-sm';
+        errP.className = 'text-sm text-red-600 dark:text-red-400';
         errP.textContent = 'Error: ' + error.message;
         articleList.appendChild(errP);
         showNotification('Failed to load eval articles: ' + error.message, 'error');
@@ -751,7 +751,7 @@ async function loadDataset() {
     
     loadBtn.disabled = true;
     loadBtn.textContent = 'Loading...';
-    articleList.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">Loading articles...</p>';
+    articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading articles...</p>';
     
     try {
         const response = await fetch(`/api/evaluations/dataset/${datasetName}/items`);
@@ -773,7 +773,7 @@ async function loadDataset() {
         console.log('Loaded dataset items:', datasetItems);
         
         if (datasetItems.length === 0) {
-            articleList.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">No articles found in dataset.</p>';
+            articleList.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No articles found in dataset.</p>';
             loadBtn.disabled = false;
             loadBtn.textContent = 'Load Articles';
             return;
@@ -799,15 +799,15 @@ async function loadDataset() {
                 if (item.lookup_failed) {
                     // Show item with manual article_id input
                     const div = document.createElement('div');
-                    div.className = 'flex flex-col gap-2 p-3 border rounded';
+                    div.className = 'flex flex-col gap-2 p-3 border border-yellow-500 dark:border-yellow-600 rounded bg-yellow-50 dark:bg-yellow-900/20';
                     div.id = `manual-article-${item.id}`;
                     
                     const warningDiv = document.createElement('div');
                     warningDiv.className = 'flex-1';
                     warningDiv.innerHTML = `
-                        <p class="text-sm font-medium" style="color: var(--action-warning, #eab308); background-color: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.4);">⚠️ Article ID lookup failed</p>
-                        <p class="text-xs" style="color: var(--action-warning, #eab308);">Dataset item: ${item.id}</p>
-                        <p class="text-xs" style="color: var(--action-warning, #eab308);">Expected count: ${item.expected_count || 'N/A'}</p>
+                        <p class="text-sm text-yellow-700 dark:text-yellow-300 font-medium">⚠️ Article ID lookup failed</p>
+                        <p class="text-xs text-yellow-600 dark:text-yellow-400">Dataset item: ${item.id}</p>
+                        <p class="text-xs text-yellow-600 dark:text-yellow-400">Expected count: ${item.expected_count || 'N/A'}</p>
                     `;
                     
                     const inputDiv = document.createElement('div');
@@ -815,13 +815,13 @@ async function loadDataset() {
                     const input = document.createElement('input');
                     input.type = 'number';
                     input.placeholder = 'Enter article ID manually';
-                    input.className = 'px-2 py-1 border rounded bg-gray-800 border border-gray-700 text-sm';
+                    input.className = 'px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-gray-800 border border-gray-700 text-gray-900 dark:text-white text-sm';
                     input.id = `manual-article-id-${item.id}`;
                     
                     const button = document.createElement('button');
                     button.textContent = 'Use This ID';
                     button.className = 'px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700';
-                    button.onclick = () = style="color: var(--text-primary); border-color: var(--border-muted);"> {
+                    button.onclick = () => {
                         const manualId = parseInt(input.value);
                         if (manualId && !isNaN(manualId)) {
                             // Add to selected articles
@@ -829,7 +829,7 @@ async function loadDataset() {
                             
                             // Replace this div with a normal checkbox item
                             const newDiv = document.createElement('div');
-                            newDiv.className = 'flex items-center gap-3 p-2 border rounded';
+                            newDiv.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
                             
                             const checkbox = document.createElement('input');
                             checkbox.type = 'checkbox';
@@ -849,11 +849,11 @@ async function loadDataset() {
                             
                             const label = document.createElement('label');
                             label.htmlFor = `article-${manualId}`;
-                            label.className = 'flex-1 text-sm cursor-pointer';
+                            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
                             label.innerHTML = `
                                 <span class="font-medium">Article ${manualId}</span>
-                                <span class=" ml-2" style="color: var(--text-muted-slate);">Expected: ${item.expected_count || 'N/A'}</span>
-                                <span class="text-xs ml-2" style="color: var(--action-info);">(manual)</span>
+                                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${item.expected_count || 'N/A'}</span>
+                                <span class="text-xs text-blue-600 dark:text-blue-400 ml-2">(manual)</span>
                             `;
                             
                             newDiv.appendChild(checkbox);
@@ -881,14 +881,14 @@ async function loadDataset() {
             const expectedCount = item.expected_count || (item.expected_output && item.expected_output.expected_count) || 'N/A';
             
             const div = document.createElement('div');
-            div.className = 'flex items-center gap-3 p-2 border rounded';
+            div.className = 'flex items-center gap-3 p-2 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-800';
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.value = articleId;
             checkbox.id = `article-${articleId}`;
             checkbox.className = 'w-4 h-4 text-green-600 rounded';
-            checkbox.addEventListener('change', (e) = style="border-color: var(--border-muted);"> {
+            checkbox.addEventListener('change', (e) => {
                 const articleId = parseInt(e.target.value);
                 if (e.target.checked) {
                     selectedArticles.add(articleId);
@@ -900,10 +900,10 @@ async function loadDataset() {
             
             const label = document.createElement('label');
             label.htmlFor = `article-${articleId}`;
-            label.className = 'flex-1 text-sm cursor-pointer';
+            label.className = 'flex-1 text-sm text-gray-700 dark:text-gray-300 cursor-pointer';
             label.innerHTML = `
-                <span class="font-medium" style="color: var(--text-secondary);">Article ${articleId}</span>
-                <span class=" ml-2" style="color: var(--text-muted-slate);">Expected: ${expectedCount}</span>
+                <span class="font-medium">Article ${articleId}</span>
+                <span class="text-gray-500 dark:text-gray-400 ml-2">Expected: ${expectedCount}</span>
             `;
             
             div.appendChild(checkbox);
@@ -913,7 +913,7 @@ async function loadDataset() {
         
         // Show success message
         const successMsg = document.createElement('p');
-        successMsg.className = 'text-sm mt-2';
+        successMsg.className = 'text-sm text-green-600 dark:text-green-400 mt-2';
         successMsg.textContent = `✅ Loaded ${datasetItems.length} article(s)`;
         articleList.appendChild(successMsg);
         
@@ -921,7 +921,7 @@ async function loadDataset() {
         console.error('Error loading dataset:', error);
         articleList.textContent = '';
         const errP = document.createElement('p');
-        errP.className = 'text-sm';
+        errP.className = 'text-sm text-red-600 dark:text-red-400';
         errP.textContent = 'Error: ' + error.message;
         articleList.appendChild(errP);
         showNotification('Failed to load dataset: ' + error.message, 'error');
@@ -942,7 +942,7 @@ function showHelp(fieldName) {
     const helpTexts = {
         'evalCurrentConfig': {
             title: 'Eval Configuration Constraints',
-            content: `<p class="mb-2" style="color: var(--action-execute);">These values reflect the active agent config only.</p>
+            content: `<p class="mb-2">These values reflect the active agent config only.</p>
                       <p class="mb-2"><strong>Hardcoded constraints:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Rank agent is skipped in eval runs.</li>
@@ -969,15 +969,15 @@ function showHelp(fieldName) {
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
-                    <h3 class="text-xl font-semibold" style="color: var(--text-primary);">${help.title}</h3>
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
                     <button onclick="this.closest('.fixed').remove()" 
-                            class="text-gray-400 hover:text-gray-600 focus:outline-none">
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                         </svg>
                     </button>
                 </div>
-                <div class=" prose prose-sm max-w-none" style="color: var(--text-secondary);">
+                <div class="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
                     ${help.content}
                 </div>
                 <div class="mt-6 flex justify-end">
@@ -1059,7 +1059,7 @@ async function runEvaluation() {
         if (executions.length > 0) {
             // Some or all articles used workflow executions (DB path) — poll until they complete
             statusText.textContent = `✅ Triggered ${executions.length} executions. Polling for results...`;
-            statusText.className = 'text-sm';
+            statusText.className = 'text-sm text-gray-600 dark:text-gray-400';
             executionResults = {};
             for (const exec of executions) {
                 executionResults[exec.execution_id] = {
@@ -1074,15 +1074,15 @@ async function runEvaluation() {
         } else {
             // All articles were evaluated from static files (no workflow executions) — refresh results immediately
             statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
-            statusText.className = 'text-sm';
-            setTimeout(() = style="color: var(--text-muted-slate);"> {
+            statusText.className = 'text-sm text-green-600 dark:text-green-400';
+            setTimeout(() => {
                 loadPreviousResults();
             }, 100);
         }
     } catch (error) {
         console.error('Error running evaluation:', error);
         statusText.textContent = `❌ Error: ${error.message}`;
-        statusText.className = 'text-sm';
+        statusText.className = 'text-sm text-red-600 dark:text-red-400';
     } finally {
         runBtn.disabled = false;
     }
@@ -1244,7 +1244,7 @@ async function pollSubagentResults(executions) {
                 isPolling = false;
                 
                 statusText.textContent = `✅ All executions completed. Refreshing results and chart...`;
-                statusText.className = 'text-sm';
+                statusText.className = 'text-sm text-green-600 dark:text-green-400';
                 
                 // Full refresh: refetch results, reload aggregates/chart, render pivot (same as Load Previous Results)
                 setTimeout(() => {
@@ -1262,7 +1262,7 @@ async function pollSubagentResults(executions) {
             }
             isPolling = false;
             statusText.textContent = `❌ Error polling results: ${error.message}`;
-            statusText.className = 'text-sm';
+            statusText.className = 'text-sm text-red-600 dark:text-red-400';
         }
     };
     
@@ -1275,17 +1275,17 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     const resultsTable = document.getElementById('resultsTable');
     
     if (!articleRows || articleRows.length === 0) {
-        resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">No results available.</p>';
+        resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
         return;
     }
     
     // Build table with horizontal scrolling wrapper
     let html = '<div id="resultsTableScrollContainer" class="overflow-x-auto">';
-    html += '<table class="min-w-full divide-y divide-gray-200" style="min-width: 600px;">';
-    html += '<thead class="" style="background-color: var(--panel-bg-1);">';
+    html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
+    html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase sticky left-0 z-10" style="width: 280px; min-width: 280px; max-width: 360px; color: var(--text-secondary); background-color: var(--panel-bg-1);">Article</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase whitespace-nowrap sticky z-9" style="left: 280px; width: 90px; min-width: 90px; color: var(--text-secondary); background-color: var(--panel-bg-1);">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 280px; min-width: 280px; max-width: 360px;">Article</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 280px; width: 90px; min-width: 90px;">Expected</th>';
     
     // Add one column per config version/run (v40a, v40b, ...) with tooltip and export button
     configVersions.forEach(version => {
@@ -1300,15 +1300,15 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         // Escape HTML in tooltip text
         const escapedTooltip = tooltipText.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         const baseVersionNum = parseInt(baseVersion, 10) || 0;
-        html += `<th class="px-4 py-3 text-center text-xs font-medium uppercase whitespace-nowrap" style="min-width: 96px; color: var(--text-secondary);" title="${escapedTooltip}">`;
+        html += `<th class="px-4 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap" style="min-width: 96px;" title="${escapedTooltip}">`;
         html += `<div class="flex flex-col items-center gap-0.5">`;
         html += `<div class="flex items-center gap-1">`;
         html += `<span class="cursor-help">v${version}</span>`;
-        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum})" class="p-0.5 rounded hover:text-orange-600" style="color: var(--text-muted-slate);" title="Export bundles for all articles (v${baseVersion})">📦</button>`;
+        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum})" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export bundles for all articles (v${baseVersion})">📦</button>`;
         html += `</div></div></th>`;
     });
     
-    html += '</tr></thead><tbody class=" divide-y divide-gray-200" style="background-color: var(--panel-bg-1);">';
+    html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
     articleRows.forEach((article, rowIndex) => {
         const expectedCount = article.expected_count || 0;
@@ -1324,17 +1324,17 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         if (showTitle) {
             const escapedTitle = article.title.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             articleIdCell = articleId != null
-                ? `<a href="/articles/${articleId}" class=" hover:underline block truncate" title="${tooltip}" style="color: var(--action-info);">${escapedTitle}</a>`
-                : `<span class=" block truncate" title="${tooltip}" style="color: var(--text-secondary);">${escapedTitle}</span>`;
+                ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline block truncate" title="${tooltip}">${escapedTitle}</a>`
+                : `<span class="text-gray-700 dark:text-gray-300 block truncate" title="${tooltip}">${escapedTitle}</span>`;
         } else {
             articleIdCell = articleId != null
-                ? `<a href="/articles/${articleId}" class=" hover:underline font-mono" title="${tooltip}" style="color: var(--action-info);">${articleId}</a>`
-                : `<span class=" font-mono" title="${tooltip}" style="color: var(--text-secondary);">#${ordinal}</span>`;
+                ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${tooltip}">${articleId}</a>`
+                : `<span class="text-gray-700 dark:text-gray-300 font-mono" title="${tooltip}">#${ordinal}</span>`;
         }
         
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm sticky left-0 z-10 overflow-hidden" style="width: 280px; min-width: 280px; max-width: 360px; color: var(--text-secondary); background-color: var(--panel-bg-1);"><div class="truncate">${articleIdCell}</div></td>`;
-        html += `<td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-center sticky z-9" style="left: 280px; width: 90px; min-width: 90px; color: var(--text-secondary); background-color: var(--panel-bg-1);">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 sticky left-0 bg-white dark:bg-gray-900 z-10 overflow-hidden" style="width: 280px; min-width: 280px; max-width: 360px;"><div class="truncate">${articleIdCell}</div></td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-9" style="left: 280px; width: 90px; min-width: 90px;">${expectedCount}</td>`;
         
         // Add one cell per config version
         configVersions.forEach(version => {
@@ -1342,7 +1342,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
             
             if (!result) {
                 // No result for this version
-                html += `<td class="px-4 py-3 text-sm whitespace-nowrap text-center" style="min-width: 96px; color: var(--text-muted);">-</td>`;
+                html += `<td class="px-4 py-3 text-sm text-gray-400 dark:text-gray-600 whitespace-nowrap text-center" style="min-width: 96px;">-</td>`;
             } else {
                 const actualCount = result.actual_count !== null ? result.actual_count : '-';
                 // Delta relative to row Expected so displayed scores match "Expected" column
@@ -1382,23 +1382,23 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 
                 // Make cell clickable if completed and has execution_id
                 const isClickable = result.status === 'completed' && result.execution_id;
-                const clickClass = isClickable ? 'cursor-pointer transition-colors' : '';
+                const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
                 const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
                 
                 html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" style="min-width: 96px;" ${onClickAttr}>`;
                 html += `<div class="flex flex-col items-center gap-1.5">`;
                 if (actualCount !== '-') {
                     // Main count: larger, prominent
-                    html += `<span class="text-lg font-semibold" style="color: var(--text-secondary);">${actualCount}</span>`;
+                    html += `<span class="text-lg font-semibold text-gray-700 dark:text-gray-200">${actualCount}</span>`;
                     // Difference and error on same line for better readability
                     if (scoreBadge) {
                         html += `<div class="flex items-center gap-1.5 text-xs">`;
-                        html += `<span class="" style="color: var(--text-muted-slate);">${scoreDisplay}</span>`;
+                        html += `<span class="text-gray-500 dark:text-gray-400">${scoreDisplay}</span>`;
                         html += `<span class="status-badge ${scoreClass} px-1.5 py-0.5">${scoreBadge}</span>`;
                         html += `</div>`;
                     }
                 } else {
-                    html += `<span class="" style="color: var(--text-muted);">-</span>`;
+                    html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
                 }
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
@@ -1436,20 +1436,20 @@ function renderSubagentResults(results) {
     const resultsTable = document.getElementById('resultsTable');
     
     if (!results || results.length === 0) {
-        resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">No results available.</p>';
+        resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No results available.</p>';
         return;
     }
     
     // Build table
-    let html = '<table class="min-w-full divide-y divide-gray-200">';
-    html += '<thead class="" style="background-color: var(--panel-bg-1);">';
+    let html = '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">';
+    html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase" style="color: var(--text-secondary);">Article</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase" style="color: var(--text-secondary);">Expected</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase" style="color: var(--text-secondary);">Actual</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase" style="color: var(--text-secondary);">Score</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium uppercase" style="color: var(--text-secondary);">Status</th>';
-    html += '</tr></thead><tbody class=" divide-y divide-gray-200" style="background-color: var(--panel-bg-1);">';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Article</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Actual</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Score</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>';
+    html += '</tr></thead><tbody class="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">';
     
     results.forEach((result, rowIndex) => {
         const expectedCount = result.expected_count || 0;
@@ -1466,12 +1466,12 @@ function renderSubagentResults(results) {
             const escapedTitle = result.title.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
             const displayTitle = escapedTitle.length > 50 ? escapedTitle.substring(0, 47) + '…' : escapedTitle;
             articleIdCell = articleId != null
-                ? `<a href="/articles/${articleId}" class=" hover:underline" title="${tooltip}" style="color: var(--action-info);">${displayTitle}</a>`
-                : `<span class="" title="${tooltip}" style="color: var(--text-secondary);">${displayTitle}</span>`;
+                ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${tooltip}">${displayTitle}</a>`
+                : `<span class="text-gray-700 dark:text-gray-300" title="${tooltip}">${displayTitle}</span>`;
         } else {
             articleIdCell = articleId != null
-                ? `<a href="/articles/${articleId}" class=" hover:underline font-mono" title="${tooltip}" style="color: var(--action-info);">${articleId}</a>`
-                : `<span class=" font-mono" title="${tooltip}" style="color: var(--text-secondary);">#${ordinal}</span>`;
+                ? `<a href="/articles/${articleId}" class="text-blue-600 dark:text-blue-400 hover:underline font-mono" title="${tooltip}">${articleId}</a>`
+                : `<span class="text-gray-700 dark:text-gray-300 font-mono" title="${tooltip}">#${ordinal}</span>`;
         }
         
         // Determine color coding based on score
@@ -1506,13 +1506,13 @@ function renderSubagentResults(results) {
         
         // Make result cell clickable if completed and has execution_id
         const isClickable = result.status === 'completed' && result.execution_id;
-        const clickClass = isClickable ? 'cursor-pointer transition-colors' : '';
+        const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
         const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
         
         html += '<tr>';
-        html += `<td class="px-4 py-3 text-sm" style="color: var(--text-primary);">${articleIdCell}</td>`;
-        html += `<td class="px-4 py-3 text-sm font-medium" style="color: var(--text-primary);">${expectedCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr} style="color: var(--text-primary);">${actualCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${articleIdCell}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
         html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
         html += `<div class="flex items-center gap-2">`;
         html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
@@ -2027,71 +2027,71 @@ async function loadAggregateScores() {
             });
             
             const card = document.createElement('div');
-            card.className = 'p-4 border rounded-lg bg-gray-800 border border-gray-700';
+            card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700';
             
             const configParams = configParamsByVersion[agg.config_version] || {};
             const paramsHtml = configParams.agentModel && configParams.agentModel !== 'N/A' ? `
-                <div class="mt-3 pt-3 border-t" style="border-color: var(--mlops-card-border);">
-                    <div class="text-xs font-medium mb-2" style="color: var(--text-muted-slate);">Agent Configuration:</div>
+                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Agent Configuration:</div>
                     <div class="grid grid-cols-2 gap-2 text-xs">
-                        <div><strong class="" style="color: var(--text-secondary);">LLM Provider:</strong> <span class="" style="color: var(--text-muted);">${configParams.agentProvider || 'N/A'}</span></div>
-                        <div><strong class="" style="color: var(--text-secondary);">LLM Model:</strong> <span class="" style="color: var(--text-muted);">${configParams.agentModel || 'N/A'}</span></div>
-                        <div><strong class="" style="color: var(--text-secondary);">Temp:</strong> <span class="" style="color: var(--text-muted);">${configParams.temperature || 'N/A'}</span></div>
-                        <div><strong class="" style="color: var(--text-secondary);">Top_P:</strong> <span class="" style="color: var(--text-muted);">${configParams.topP || 'N/A'}</span></div>
-                        <div class="col-span-2"><strong class="" style="color: var(--text-secondary);">QA Agent Status:</strong> <span class="" style="color: var(--text-muted);">${configParams.qaStatus || 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">LLM Provider:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.agentProvider || 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">LLM Model:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.agentModel || 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.temperature || 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.topP || 'N/A'}</span></div>
+                        <div class="col-span-2"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.qaStatus || 'N/A'}</span></div>
                     </div>
                 </div>
             ` : '';
             
             let metricsHtml = '';
             if (agg.mean_score !== null) {
-                const nmaeClass = agg.mean_absolute_error <= 0.2 ? '' : 
-                                 agg.mean_absolute_error <= 0.5 ? '' : 
-                                 '';
+                const nmaeClass = agg.mean_absolute_error <= 0.2 ? 'text-green-600 dark:text-green-400' : 
+                                 agg.mean_absolute_error <= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 
+                                 'text-red-600 dark:text-red-400';
                 
                 // Build diagnostic info for nMAE - always show if available
                 let diagnosticHtml = '';
                 if (typeof agg.raw_mae === 'number' || agg.raw_mae != null) {
-                    diagnosticHtml += `<div class="text-xs mt-1" style="color: var(--text-muted);">Raw MAE: ${Number(agg.raw_mae).toFixed(4)}</div>`;
+                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Raw MAE: ${Number(agg.raw_mae).toFixed(4)}</div>`;
                 }
                 if (typeof agg.mean_expected_count === 'number' || agg.mean_expected_count != null) {
-                    diagnosticHtml += `<div class="text-xs" style="color: var(--text-muted);">Mean Expected: ${Number(agg.mean_expected_count).toFixed(4)}</div>`;
+                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500">Mean Expected: ${Number(agg.mean_expected_count).toFixed(4)}</div>`;
                 }
                 
                 metricsHtml = `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
-                            <div class="" style="color: var(--text-muted-slate);">Mean Score</div>
-                            <div class="font-semibold" style="color: var(--text-primary);">${agg.mean_score}</div>
+                            <div class="text-gray-500 dark:text-gray-400">Mean Score</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.mean_score}</div>
                         </div>
                         <div>
-                            <div class="" style="color: var(--text-muted-slate);">Normalized MAE (nMAE)</div>
+                            <div class="text-gray-500 dark:text-gray-400">Normalized MAE (nMAE)</div>
                             <div class="font-semibold ${nmaeClass}">${agg.mean_absolute_error !== null ? agg.mean_absolute_error.toFixed(4) : 'N/A'}</div>
                             ${diagnosticHtml}
                         </div>
                         <div>
-                            <div class="" style="color: var(--text-muted-slate);">Perfect Matches</div>
-                            <div class="font-semibold" style="color: var(--text-primary);">${agg.perfect_matches}/${agg.completed} (${agg.perfect_match_percentage}%)</div>
+                            <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.perfect_matches}/${agg.completed} (${agg.perfect_match_percentage}%)</div>
                         </div>
                         <div>
-                            <div class="" style="color: var(--text-muted-slate);">Score Distribution</div>
-                            <div class="font-semibold text-xs" style="color: var(--text-primary);">
-                                <span class="" style="color: var(--action-execute);">${agg.score_distribution.exact} exact</span>, 
-                                <span class="" style="color: var(--action-warning, #eab308);">${agg.score_distribution.within_2} ±1-2</span>, 
-                                <span class="" style="color: var(--action-danger);">${agg.score_distribution.over_2} ±3+</span>
+                            <div class="text-gray-500 dark:text-gray-400">Score Distribution</div>
+                            <div class="font-semibold text-gray-900 dark:text-white text-xs">
+                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>, 
+                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>, 
+                                <span class="text-red-600 dark:text-red-400">${agg.score_distribution.over_2} ±3+</span>
                             </div>
                         </div>
                     </div>
                     ${paramsHtml}
                 `;
             } else {
-                metricsHtml = `<p class="text-sm" style="color: var(--text-muted-slate);">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>${paramsHtml}`;
+                metricsHtml = `<p class="text-sm text-gray-500 dark:text-gray-400">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>${paramsHtml}`;
             }
             
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
-                    <h4 class="text-md font-semibold" style="color: var(--text-primary);">Config Version ${agg.config_version}</h4>
-                    <span class="text-xs" style="color: var(--text-muted-slate);">${agg.completed}/${agg.total_articles} completed</span>
+                    <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed</span>
                 </div>
                 ${metricsHtml}
             `;
@@ -2113,7 +2113,7 @@ async function loadPreviousResults() {
     const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
     
-    resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">Loading previous results...</p>';
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
     
     // Load aggregate scores
     await loadAggregateScores();
@@ -2132,7 +2132,7 @@ async function loadPreviousResults() {
         // No filtering needed - hunt_queries is now a single type
         
         if (results.length === 0) {
-            resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">No previous results found for this subagent.</p>';
+            resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">No previous results found for this subagent.</p>';
             return;
         }
         
@@ -2252,7 +2252,7 @@ async function loadPreviousResults() {
         console.error('Error loading previous results:', error);
         resultsTable.textContent = '';
         const errEl = document.createElement('p');
-        errEl.className = 'text-sm';
+        errEl.className = 'text-sm text-red-600 dark:text-red-400';
         errEl.textContent = 'Error: ' + error.message;
         resultsTable.appendChild(errEl);
     }
@@ -2265,7 +2265,7 @@ async function backfillEvalRecords() {
     const apiSubagent = subagentSelect === 'hunt_queries' ? 'hunt_queries' : subagentSelect;
     const resultsTable = document.getElementById('resultsTable');
 
-    resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">Updating pending records...</p>';
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Updating pending records...</p>';
 
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-backfill?subagent=${apiSubagent}`, {
@@ -2282,12 +2282,12 @@ async function backfillEvalRecords() {
         // Show success message
         resultsTable.textContent = '';
         const msgEl = document.createElement('p');
-        msgEl.className = 'text-sm';
+        msgEl.className = 'text-sm text-green-600 dark:text-green-400';
         msgEl.textContent = data.message;
         resultsTable.appendChild(msgEl);
 
         // Reload results to show updated list
-        setTimeout(() = style="color: var(--action-execute);"> {
+        setTimeout(() => {
             loadPreviousResults();
         }, 1000);
 
@@ -2295,7 +2295,7 @@ async function backfillEvalRecords() {
         console.error('Error backfilling eval records:', error);
         resultsTable.textContent = '';
         const errEl = document.createElement('p');
-        errEl.className = 'text-sm';
+        errEl.className = 'text-sm text-red-600 dark:text-red-400';
         errEl.textContent = 'Error: ' + error.message;
         resultsTable.appendChild(errEl);
     }
@@ -2313,7 +2313,7 @@ async function clearPendingRecords() {
         return;
     }
 
-    resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">Clearing pending records...</p>';
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Clearing pending records...</p>';
 
     try {
         const response = await fetch(`/api/evaluations/subagent-eval-clear-pending?subagent=${apiSubagent}`, {
@@ -2330,12 +2330,12 @@ async function clearPendingRecords() {
         // Show success message
         resultsTable.textContent = '';
         const msgEl2 = document.createElement('p');
-        msgEl2.className = 'text-sm';
+        msgEl2.className = 'text-sm text-green-600 dark:text-green-400';
         msgEl2.textContent = data.message;
         resultsTable.appendChild(msgEl2);
 
         // Reload results to show updated list (without pending records)
-        setTimeout(() = style="color: var(--action-execute);"> {
+        setTimeout(() => {
             loadPreviousResults();
         }, 1000);
 
@@ -2343,7 +2343,7 @@ async function clearPendingRecords() {
         console.error('Error clearing pending records:', error);
         resultsTable.textContent = '';
         const errEl = document.createElement('p');
-        errEl.className = 'text-sm';
+        errEl.className = 'text-sm text-red-600 dark:text-red-400';
         errEl.textContent = 'Error: ' + error.message;
         resultsTable.appendChild(errEl);
     }
@@ -2382,7 +2382,7 @@ function getEffectiveSubagent() {
 document.getElementById('subagentSelect').addEventListener('change', () => {
     // Clear current results
     const resultsTable = document.getElementById('resultsTable');
-    resultsTable.innerHTML = '<p class="text-sm" style="color: var(--text-muted-slate);">Loading previous results...</p>';
+    resultsTable.innerHTML = '<p class="text-sm text-gray-500 dark:text-gray-400">Loading previous results...</p>';
     
     // Clear aggregate scores section to prevent showing wrong subagent's data
     const aggregateScoresContent = document.getElementById('aggregateScoresContent');
@@ -2448,7 +2448,7 @@ async function showCommandlines(executionId, articleUrl, count) {
         modal.classList.remove('hidden');
     }
     
-    content.innerHTML = '<p class="" style="color: var(--text-muted-slate);">Loading extraction results...</p>';
+    content.innerHTML = '<p class="text-gray-500 dark:text-gray-400">Loading extraction results...</p>';
     
     try {
         const response = await fetch(`/api/evaluations/execution/${executionId}/commandlines`);
@@ -2504,8 +2504,8 @@ async function showCommandlines(executionId, articleUrl, count) {
             }
             content.innerHTML = `
                 <div class="text-center py-8">
-                    <p class="" style="color: var(--text-muted-slate);">${emptyMessage}</p>
-                    <p class="text-sm mt-2" style="color: var(--text-muted);">Article: <a href="/articles/${data.article_id}" class=" hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}" style="color: var(--action-info);">${articleDisplayEscaped}</a></p>
+                    <p class="text-gray-500 dark:text-gray-400">${emptyMessage}</p>
+                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a></p>
                 </div>
             `;
             return;
@@ -2514,12 +2514,12 @@ async function showCommandlines(executionId, articleUrl, count) {
         // Display results
         let html = `
             <div class="mb-4">
-                <p class="text-sm" style="color: var(--text-muted-slate);">
-                    Found <strong class="" style="color: var(--text-secondary);">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)'} 
-                    from execution <strong class="" style="color: var(--text-secondary);">#${executionId}</strong>
+                <p class="text-sm text-gray-500 dark:text-gray-400">
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)'} 
+                    from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
                 </p>
-                <p class="text-xs mt-1" style="color: var(--text-muted);">
-                    Article: <a href="/articles/${data.article_id}" class=" hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}" style="color: var(--action-info);">${articleDisplayEscaped}</a>
+                <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a>
                 </p>
             </div>
         `;
@@ -2549,7 +2549,7 @@ async function showCommandlines(executionId, articleUrl, count) {
                         const queryType = item.type || item.platform || 'unknown';
                         const context = item.context || item.source_context || '';
                         const contextDisplay = context ? ` - ${escapeHtml(context)}` : '';
-                        displayContent = `<span class="px-2 py-1 text-xs rounded" style="color: var(--action-info); background-color: rgba(59,130,246,0.15);">${escapeHtml(queryType)}</span> <span class="font-mono">${escapeHtml(String(query))}</span>${contextDisplay}`;
+                        displayContent = `<span class="px-2 py-1 text-xs rounded bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">${escapeHtml(queryType)}</span> <span class="font-mono">${escapeHtml(String(query))}</span>${contextDisplay}`;
                     } else {
                         displayContent = escapeHtml(String(item));
                     }
@@ -2559,10 +2559,10 @@ async function showCommandlines(executionId, articleUrl, count) {
                 }
                 
                 html += `
-                    <div class="p-3 rounded border" style="background-color: var(--panel-bg-4); border-color: var(--border-muted);">
+                    <div class="p-3 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
                         <div class="flex items-start gap-3">
-                            <span class="text-xs font-mono mt-1" style="color: var(--text-muted);">${index + 1}.</span>
-                            <div class="flex-1 text-sm ${(resultType === 'process_lineage' || subagentEval === 'process_lineage' || resultType === 'hunt_queries' || subagentEval === 'hunt_queries') ? '' : 'font-mono break-all'}" style="color: var(--text-primary);">${displayContent}</div>
+                            <span class="text-xs font-mono text-gray-400 dark:text-gray-500 mt-1">${index + 1}.</span>
+                            <div class="flex-1 text-sm ${(resultType === 'process_lineage' || subagentEval === 'process_lineage' || resultType === 'hunt_queries' || subagentEval === 'hunt_queries') ? 'text-gray-800 dark:text-gray-200' : 'font-mono text-gray-800 dark:text-gray-200 break-all'}">${displayContent}</div>
                         </div>
                     </div>
                 `;
@@ -2577,7 +2577,7 @@ async function showCommandlines(executionId, articleUrl, count) {
         console.error('Error loading extraction results:', error);
         content.innerHTML = `
             <div class="text-center py-8">
-                <p class="" style="color: var(--action-danger);">Error loading extraction results: ${error.message}</p>
+                <p class="text-red-600 dark:text-red-400">Error loading extraction results: ${error.message}</p>
             </div>
         `;
     }

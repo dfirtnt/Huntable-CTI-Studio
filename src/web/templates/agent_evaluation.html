@@ -4,29 +4,15 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
-    <!-- Breadcrumb -->
-    <nav class="flex mb-4" aria-label="Breadcrumb">
-        <ol class="inline-flex items-center space-x-1 md:space-x-3">
-            <li class="inline-flex items-center">
-                <a href="/evaluations" style="color: var(--text-secondary);" class="inline-flex items-center text-sm font-medium hover:underline">Evaluations</a>
-            </li>
-            <li>
-                <div class="flex items-center">
-                    <svg class="w-4 h-4 mx-1" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
-                    <span class="text-sm font-medium" style="color: var(--text-muted-slate);">{{ agent_name }}</span>
-                </div>
-            </li>
-        </ol>
-    </nav>
     <!-- Header -->
     <div class="mb-8">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">{{ agent_name }} Evaluations</h1>
-                <p style="color: var(--text-muted-slate);">Performance metrics and improvement tracking</p>
+                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">{{ agent_name }} Evaluations</h1>
+                <p class="text-gray-600 dark:text-gray-400">Performance metrics and improvement tracking</p>
             </div>
-            <a href="/evaluations" class="btn-workflow px-4 py-2 text-white rounded-md transition-colors">
-                Back to All Evaluations
+            <a href="/evaluations" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
+                ← Back to All Evaluations
             </a>
         </div>
     </div>
@@ -34,36 +20,36 @@
     <!-- Subagents Section (ExtractAgent only) -->
     {% if agent_name == 'ExtractAgent' %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Subagents</h2>
- <p class="mb-4" style="color: var(--text-muted-slate);">ExtractAgent uses specialized subagents for different extraction tasks:</p>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Subagents</h2>
+        <p class="text-gray-600 dark:text-gray-400 mb-4">ExtractAgent uses specialized subagents for different extraction tasks:</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
- <a href="/evaluations/ExtractAgent/CmdlineExtract" class="rounded-lg p-4 transition-colors hover:bg-blue-800" style="background-color: rgba(59,130,246,0.15);">
+            <a href="/evaluations/ExtractAgent/CmdlineExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
- <h3 class="text-lg font-semibold" style="color: var(--text-primary);">CmdlineExtract</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">CmdlineExtract</h3>
                     <span class="text-2xl">💻</span>
                 </div>
- <p class="text-sm" style="color: var(--text-muted-slate);">Command-line patterns and executed commands</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Command-line patterns and executed commands</p>
             </a>
- <a href="/evaluations/ExtractAgent/ProcTreeExtract" class="rounded-lg p-4 transition-colors hover:bg-blue-800" style="background-color: rgba(59,130,246,0.15);">
+            <a href="/evaluations/ExtractAgent/ProcTreeExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
- <h3 class="text-lg font-semibold" style="color: var(--text-primary);">ProcTreeExtract</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ProcTreeExtract</h3>
                     <span class="text-2xl">🌳</span>
                 </div>
- <p class="text-sm" style="color: var(--text-muted-slate);">Process lineage and parent-child relationships</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Process lineage and parent-child relationships</p>
             </a>
- <a href="/evaluations/ExtractAgent/HuntQueriesExtract" class="rounded-lg p-4 transition-colors hover:bg-blue-800" style="background-color: rgba(59,130,246,0.15);">
+            <a href="/evaluations/ExtractAgent/HuntQueriesExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
- <h3 class="text-lg font-semibold" style="color: var(--text-primary);">HuntQueriesExtract</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">HuntQueriesExtract</h3>
                     <span class="text-2xl">🔍</span>
                 </div>
- <p class="text-sm" style="color: var(--text-muted-slate);">Hunting queries (KQL, Splunk, Sigma, etc.)</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Hunting queries (KQL, Splunk, Sigma, etc.)</p>
             </a>
- <a href="/evaluations/ExtractAgent/RegistryExtract" class="rounded-lg p-4 transition-colors hover:bg-blue-800" style="background-color: rgba(59,130,246,0.15);">
+            <a href="/evaluations/ExtractAgent/RegistryExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
- <h3 class="text-lg font-semibold" style="color: var(--text-primary);">RegistryExtract</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">RegistryExtract</h3>
                     <span class="text-2xl">🗝️</span>
                 </div>
- <p class="text-sm" style="color: var(--text-muted-slate);">Windows registry artifacts and modifications</p>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Windows registry artifacts and modifications</p>
             </a>
         </div>
     </div>
@@ -72,25 +58,25 @@
     <!-- Latest Evaluation Summary -->
     {% if latest %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Latest Evaluation</h2>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Latest Evaluation</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
- <div class="text-sm" style="color: var(--text-muted-slate);">Type</div>
- <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ latest.evaluation_type }}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.evaluation_type }}</div>
             </div>
             <div>
- <div class="text-sm" style="color: var(--text-muted-slate);">Model</div>
- <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ latest.model_version or 'N/A' }}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.model_version or 'N/A' }}</div>
             </div>
             <div>
- <div class="text-sm" style="color: var(--text-muted-slate);">Articles Tested</div>
- <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ latest.total_articles }}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400">Articles Tested</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ latest.total_articles }}</div>
             </div>
         </div>
         
         <!-- Metrics Display -->
         <div id="latest-metrics" class="mt-4">
- <h3 class="text-lg font-semibold mb-2" style="color: var(--text-primary);">Key Metrics</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Key Metrics</h3>
             <div id="metrics-content" class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 Loading metrics...
             </div>
@@ -100,29 +86,29 @@
 
     <!-- Evaluation History -->
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Evaluation History</h2>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation History</h2>
         <div class="overflow-x-auto">
- <table class="min-w-full divide-y" style="--tw-divide-color: var(--mlops-card-border);">
- <thead style="background-color: var(--panel-bg-1);">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-900">
                     <tr>
- <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Type</th>
- <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Model</th>
- <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Articles</th>
- <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Date</th>
- <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Model</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Articles</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
- <tbody id="history-table" class="bg-gray-800 border border-gray-700 divide-y" style="--tw-divide-color: var(--mlops-card-border);">
+                <tbody id="history-table" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                     {% for eval in history %}
- <tr class="hover:bg-gray-700 {% if selected_evaluation and eval.id == selected_evaluation.id %}bg-blue-900{% endif %}">
- <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" style="color: var(--text-primary);">{{ eval.evaluation_type }}</td>
- <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">{{ eval.model_version or 'N/A' }}</td>
- <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">{{ eval.total_articles }}</td>
- <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">{{ eval.created_at[:10] if eval.created_at else 'N/A' }}</td>
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700 {% if selected_evaluation and eval.id == selected_evaluation.id %}bg-blue-50 dark:bg-blue-900{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{{ eval.evaluation_type }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.model_version or 'N/A' }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.total_articles }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{{ eval.created_at[:10] if eval.created_at else 'N/A' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
- <a href="/evaluations/{{ agent_name }}?evaluation_id={{ eval.id }}" class="hover:underline mr-3" style="color: var(--action-info);">View</a>
+                            <a href="/evaluations/{{ agent_name }}?evaluation_id={{ eval.id }}" class="text-blue-600 dark:text-blue-400 hover:underline mr-3">View</a>
                             {% if loop.index > 1 %}
- <a href="/evaluations/compare?baseline_id={{ history[loop.index - 1].id }}&current_id={{ eval.id }}" class="hover:underline" style="color: var(--action-execute);">Compare</a>
+                            <a href="/evaluations/compare?baseline_id={{ history[loop.index - 1].id }}&current_id={{ eval.id }}" class="text-green-600 dark:text-green-400 hover:underline">Compare</a>
                             {% endif %}
                         </td>
                     </tr>
@@ -135,19 +121,19 @@
     <!-- Selected Evaluation Details -->
     {% if selected_evaluation %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Evaluation Details</h2>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation Details</h2>
         <div id="evaluation-details">
             <div class="mb-4">
- <div class="text-sm mb-1" style="color: var(--text-muted-slate);">Evaluation ID</div>
- <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ selected_evaluation.id }}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Evaluation ID</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ selected_evaluation.id }}</div>
             </div>
             <div class="mb-4">
- <div class="text-sm mb-1" style="color: var(--text-muted-slate);">Type</div>
- <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ selected_evaluation.evaluation_type }}</div>
+                <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Type</div>
+                <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ selected_evaluation.evaluation_type }}</div>
             </div>
             <div id="metrics-display" class="mt-6">
- <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Metrics</h3>
- <pre class="p-4 rounded-lg overflow-x-auto text-sm" style="background-color: var(--panel-bg-1);">{{ selected_evaluation.metrics | tojson(indent=2) }}</pre>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Metrics</h3>
+                <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg overflow-x-auto text-sm">{{ selected_evaluation.metrics | tojson(indent=2) }}</pre>
             </div>
         </div>
     </div>
@@ -156,24 +142,24 @@
     <!-- Manual Test Results (ObservablesCountAgent or ExtractAgent) -->
     {% if agent_name == 'ObservablesCountAgent' or agent_name == 'ExtractAgent' %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8" id="observables-count-results">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Model Comparison - Observables Count</h2>
- <div id="observables-results-loading" style="color: var(--text-muted-slate);">Loading observables count results...</div>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Model Comparison - Observables Count</h2>
+        <div id="observables-results-loading" class="text-gray-500 dark:text-gray-400">Loading observables count results...</div>
         <div id="observables-results-content" class="hidden">
             <!-- Model Summary -->
             <div class="mb-6">
- <h3 class="text-lg font-semibold mb-3" style="color: var(--text-primary);">Model Performance Summary</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Model Performance Summary</h3>
                 <div id="model-summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
             </div>
             <!-- Results Table -->
             <div class="overflow-x-auto">
- <table class="min-w-full divide-y text-sm" style="--tw-divide-color: var(--mlops-card-border);">
- <thead class="sticky top-0" style="background-color: var(--panel-bg-1);">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0">
                         <tr id="observables-table-header">
- <th class="px-3 py-2 text-left text-xs font-medium uppercase" style="color: var(--text-muted-slate);">URL</th>
- <th class="px-3 py-2 text-left text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Title</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">URL</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
                         </tr>
                     </thead>
- <tbody id="observables-results-table-body" class="bg-gray-800 border border-gray-700 divide-y" style="--tw-divide-color: var(--mlops-card-border);">
+                    <tbody id="observables-results-table-body" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                     </tbody>
                 </table>
             </div>
@@ -184,42 +170,42 @@
     <!-- Manual Test Results (OSDetection only) -->
     {% if agent_name == 'OSDetection' %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8" id="manual-test-results">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Manual Test Results - Model Comparison</h2>
- <div id="manual-results-loading" style="color: var(--text-muted-slate);">Loading manual test results...</div>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Manual Test Results - Model Comparison</h2>
+        <div id="manual-results-loading" class="text-gray-500 dark:text-gray-400">Loading manual test results...</div>
         <div id="manual-results-content" class="hidden">
             <!-- Accuracy Summary -->
             <div class="mb-6">
- <h3 class="text-lg font-semibold mb-3" style="color: var(--text-primary);">Model Accuracy Summary</h3>
+                <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-3">Model Accuracy Summary</h3>
                 <div id="accuracy-summary" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3"></div>
             </div>
             <!-- Results Table -->
             <div class="overflow-x-auto">
- <table class="min-w-full divide-y text-sm" style="--tw-divide-color: var(--mlops-card-border);">
- <thead class="sticky top-0" style="background-color: var(--panel-bg-1);">
+                <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                    <thead class="bg-gray-50 dark:bg-gray-900 sticky top-0">
                         <tr>
- <th class="px-3 py-2 text-left text-xs font-medium uppercase" style="color: var(--text-muted-slate);">URL</th>
- <th class="px-3 py-2 text-left text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Title</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Sonnet 4.5</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Haiku 4.5</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">GPT-4o</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">GPT-5.1</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">SEC-BERT</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">CTI-BERT</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">DeepSeek R1</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Qwen2-7B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Qwen3-4B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Llama 3.1-8B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Llama 3-8B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Llama 3-13B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Llama 3.3-70B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Phi-3 Mini</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Llama 3.2-1B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Mistral-7B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Mixtral 8x7B</th>
- <th class="px-3 py-2 text-center text-xs font-medium uppercase" style="background-color: rgba(245,158,11,0.15); color: var(--text-muted-slate);">Human</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">URL</th>
+                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Sonnet 4.5</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Haiku 4.5</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GPT-4o</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">GPT-5.1</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">SEC-BERT</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">CTI-BERT</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">DeepSeek R1</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Qwen2-7B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Qwen3-4B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Llama 3.1-8B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Llama 3-8B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Llama 3-13B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Llama 3.3-70B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Phi-3 Mini</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Llama 3.2-1B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Mistral-7B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Mixtral 8x7B</th>
+                            <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase bg-yellow-100 dark:bg-yellow-900">Human</th>
                         </tr>
                     </thead>
- <tbody id="manual-results-table-body" class="bg-gray-800 border border-gray-700 divide-y" style="--tw-divide-color: var(--mlops-card-border);">
+                    <tbody id="manual-results-table-body" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
                     </tbody>
                 </table>
             </div>
@@ -229,16 +215,16 @@
 
     <!-- Run Evaluation Section -->
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Run New Evaluation</h2>
- <div class="p-4 rounded-lg mb-4" style="background-color: rgba(59,130,246,0.15);">
- <p class="text-sm" style="color: var(--text-secondary);">
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Run New Evaluation</h2>
+        <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
+            <p class="text-sm text-gray-700 dark:text-gray-300">
                 <strong>Note:</strong> Evaluations should be run via CLI scripts for full control. 
                 Use the command below with your test dataset path.
             </p>
         </div>
- <div class="p-4 rounded-lg font-mono text-sm" style="background-color: var(--panel-bg-1);">
- <div class="mb-2" style="color: var(--text-muted-slate);">Command:</div>
- <div id="eval-command" style="color: var(--text-primary);">
+        <div class="bg-gray-100 dark:bg-gray-900 p-4 rounded-lg font-mono text-sm">
+            <div class="text-gray-600 dark:text-gray-400 mb-2">Command:</div>
+            <div id="eval-command" class="text-gray-900 dark:text-white">
                 {% if agent_name == 'ExtractAgent' %}
                 python scripts/eval_extract_agent.py --test-data &lt;your_dataset.json&gt; --evaluation-type baseline --save-to-db
                 {% elif agent_name == 'RankAgent' %}
@@ -261,7 +247,7 @@
 
     <!-- Trend Charts -->
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Performance Trends</h2>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Performance Trends</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <canvas id="trend-chart-1"></canvas>
@@ -275,19 +261,19 @@
     <!-- RankAgent Benchmark Graphs -->
     {% if agent_name == 'RankAgent' %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8" id="rank-agent-benchmarks">
- <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">📊 Benchmark Graphs</h2>
- <div id="benchmarks-loading" class="mb-4" style="color: var(--text-muted-slate);">Loading benchmark data...</div>
+        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">📊 Benchmark Graphs</h2>
+        <div id="benchmarks-loading" class="text-gray-500 dark:text-gray-400 mb-4">Loading benchmark data...</div>
         <div id="benchmarks-content" class="hidden">
             <!-- Score Distribution and Model Comparison -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div>
- <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Score Distribution</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Score Distribution</h3>
                     <div class="h-64">
                         <canvas id="score-distribution-chart"></canvas>
                     </div>
                 </div>
                 <div>
- <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Model Comparison</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Model Comparison</h3>
                     <div class="h-64">
                         <canvas id="model-comparison-chart"></canvas>
                     </div>
@@ -297,13 +283,13 @@
             <!-- Threshold Accuracy and Score Mean Trends -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div>
- <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Threshold Accuracy Over Time</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Threshold Accuracy Over Time</h3>
                     <div class="h-64">
                         <canvas id="threshold-accuracy-chart"></canvas>
                     </div>
                 </div>
                 <div>
- <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Score Mean & Std Dev Trends</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Score Mean & Std Dev Trends</h3>
                     <div class="h-64">
                         <canvas id="score-trends-chart"></canvas>
                     </div>
@@ -334,40 +320,40 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (agentName === 'ExtractAgent') {
         if (metrics.json_validity_rate !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(34,197,94,0.15); color: var(--text-muted-slate);"><div class="text-xs">JSON Validity</div><div class="text-2xl font-bold">${(metrics.json_validity_rate * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">JSON Validity</div><div class="text-2xl font-bold">${(metrics.json_validity_rate * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.field_completeness_rate !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(59,130,246,0.15); color: var(--text-muted-slate);"><div class="text-xs">Field Completeness</div><div class="text-2xl font-bold">${(metrics.field_completeness_rate * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Field Completeness</div><div class="text-2xl font-bold">${(metrics.field_completeness_rate * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.avg_discrete_count !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(168,85,247,0.15); color: var(--text-muted-slate);"><div class="text-xs">Avg Observables</div><div class="text-2xl font-bold">${metrics.avg_discrete_count.toFixed(1)}</div></div>`;
+            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Observables</div><div class="text-2xl font-bold">${metrics.avg_discrete_count.toFixed(1)}</div></div>`;
         }
         if (metrics.total_commandlines !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(245,158,11,0.15); color: var(--text-muted-slate);"><div class="text-xs">Total Command-lines</div><div class="text-2xl font-bold">${metrics.total_commandlines}</div></div>`;
+            metricsHtml += `<div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Total Command-lines</div><div class="text-2xl font-bold">${metrics.total_commandlines}</div></div>`;
         }
     } else if (agentName === 'RankAgent') {
         if (metrics.score_mean !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(34,197,94,0.15); color: var(--text-muted-slate);"><div class="text-xs">Avg Score</div><div class="text-2xl font-bold">${metrics.score_mean.toFixed(2)}</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Score</div><div class="text-2xl font-bold">${metrics.score_mean.toFixed(2)}</div></div>`;
         }
         if (metrics.threshold_accuracy !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(59,130,246,0.15); color: var(--text-muted-slate);"><div class="text-xs">Threshold Accuracy</div><div class="text-2xl font-bold">${(metrics.threshold_accuracy * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Threshold Accuracy</div><div class="text-2xl font-bold">${(metrics.threshold_accuracy * 100).toFixed(1)}%</div></div>`;
         }
     } else if (agentName === 'SigmaAgent') {
         if (metrics.avg_huntability_score !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(34,197,94,0.15); color: var(--text-muted-slate);"><div class="text-xs">Huntability Score</div><div class="text-2xl font-bold">${metrics.avg_huntability_score.toFixed(1)}/10</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Huntability Score</div><div class="text-2xl font-bold">${metrics.avg_huntability_score.toFixed(1)}/10</div></div>`;
         }
         if (metrics.structural_validation_pass_rate !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(59,130,246,0.15); color: var(--text-muted-slate);"><div class="text-xs">Validation Pass Rate</div><div class="text-2xl font-bold">${(metrics.structural_validation_pass_rate * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Validation Pass Rate</div><div class="text-2xl font-bold">${(metrics.structural_validation_pass_rate * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.avg_semantic_similarity !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(168,85,247,0.15); color: var(--text-muted-slate);"><div class="text-xs">Semantic Similarity</div><div class="text-2xl font-bold">${(metrics.avg_semantic_similarity * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Semantic Similarity</div><div class="text-2xl font-bold">${(metrics.avg_semantic_similarity * 100).toFixed(1)}%</div></div>`;
         }
     } else if (agentName === 'OSDetection') {
         if (metrics.accuracy !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(34,197,94,0.15); color: var(--text-muted-slate);"><div class="text-xs">Accuracy</div><div class="text-2xl font-bold">${(metrics.accuracy * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Accuracy</div><div class="text-2xl font-bold">${(metrics.accuracy * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.avg_confidence !== undefined) {
- metricsHtml += `<div class="p-3 rounded" style="background-color: rgba(59,130,246,0.15); color: var(--text-muted-slate);"><div class="text-xs">Avg Confidence</div><div class="text-2xl font-bold">${(metrics.avg_confidence * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Confidence</div><div class="text-2xl font-bold">${(metrics.avg_confidence * 100).toFixed(1)}%</div></div>`;
         }
     }
     
@@ -450,15 +436,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const parseRate = summary.parse_success_rate || 0;
                 const avgTotal = summary.avg_total_observables || 0;
                 
-                const colorClass = parseRate >= 0.9 ? 'bg-green-900' :
-                                 parseRate >= 0.7 ? 'bg-yellow-900' :
-                                 'bg-red-900';
+                const colorClass = parseRate >= 0.9 ? 'bg-green-100 dark:bg-green-900' : 
+                                 parseRate >= 0.7 ? 'bg-yellow-100 dark:bg-yellow-900' : 
+                                 'bg-red-100 dark:bg-red-900';
                 
                 summaryHtml += `
                     <div class="${colorClass} p-3 rounded">
- <div class="text-xs" style="color: var(--text-muted-slate);">${summary.description || modelKey}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400">${summary.description || modelKey}</div>
                         <div class="text-xl font-bold">${(parseRate * 100).toFixed(1)}%</div>
- <div class="text-xs mt-1" style="color: var(--text-muted-slate);">Avg: ${avgTotal.toFixed(1)}</div>
+                        <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Avg: ${avgTotal.toFixed(1)}</div>
                     </div>
                 `;
             }
@@ -467,13 +453,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Build table header with model columns
             const headerRow = document.getElementById('observables-table-header');
             let headerHtml = `
- <th class="px-3 py-2 text-left text-xs font-medium uppercase" style="color: var(--text-muted-slate);">URL</th>
- <th class="px-3 py-2 text-left text-xs font-medium uppercase" style="color: var(--text-muted-slate);">Title</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">URL</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Title</th>
             `;
             for (const modelKey of sortedModels) {
                 const summary = data.model_summaries[modelKey];
                 const displayName = summary?.description || modelKey;
- headerHtml += `<th class="px-3 py-2 text-center text-xs font-medium uppercase" style="color: var(--text-muted-slate);">${displayName}</th>`;
+                headerHtml += `<th class="px-3 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">${displayName}</th>`;
             }
             headerRow.innerHTML = headerHtml;
             
@@ -483,13 +469,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             for (const row of data.results) {
                 tableHtml += `
- <tr class="hover:bg-gray-700">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td class="px-3 py-2 text-xs">
- <a href="${row.url}" target="_blank" class="hover:underline max-w-xs truncate block" style="color: var(--action-info);">
+                            <a href="${row.url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline max-w-xs truncate block">
                                 ${row.url.length > 40 ? row.url.substring(0, 40) + '...' : row.url}
                             </a>
                         </td>
- <td class="px-3 py-2 text-xs max-w-xs truncate" style="color: var(--text-primary);" title="${row.title}">
+                        <td class="px-3 py-2 text-xs text-gray-900 dark:text-white max-w-xs truncate" title="${row.title}">
                             ${row.title}
                         </td>
                 `;
@@ -501,10 +487,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         tableHtml += `<td class="px-3 py-2 text-center text-xs text-gray-400">-</td>`;
                     } else if (modelResult.parse_success && modelResult.total !== null) {
                         const total = modelResult.total;
-                        const colorClass = total > 0 ? 'text-green-400 font-semibold' : 'text-gray-400';
+                        const colorClass = total > 0 ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-gray-400';
                         tableHtml += `<td class="px-3 py-2 text-center text-xs ${colorClass}">${total}</td>`;
                     } else {
- tableHtml += `<td class="px-3 py-2 text-center text-xs" style="color: var(--action-danger);">✗</td>`;
+                        tableHtml += `<td class="px-3 py-2 text-center text-xs text-red-600 dark:text-red-400">✗</td>`;
                     }
                 }
                 
@@ -838,12 +824,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             for (const [key, name] of Object.entries(modelNames)) {
                 const accuracy = data.accuracies[key];
                 if (accuracy !== undefined) {
-                    const colorClass = accuracy >= 0.9 ? 'bg-green-900' :
-                                     accuracy >= 0.7 ? 'bg-yellow-900' :
-                                     'bg-red-900';
+                    const colorClass = accuracy >= 0.9 ? 'bg-green-100 dark:bg-green-900' : 
+                                     accuracy >= 0.7 ? 'bg-yellow-100 dark:bg-yellow-900' : 
+                                     'bg-red-100 dark:bg-red-900';
                     summaryHtml += `
                         <div class="${colorClass} p-3 rounded">
- <div class="text-xs" style="color: var(--text-muted-slate);">${name}</div>
+                            <div class="text-xs text-gray-600 dark:text-gray-400">${name}</div>
                             <div class="text-xl font-bold">${(accuracy * 100).toFixed(1)}%</div>
                         </div>
                     `;
@@ -859,7 +845,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const human = row.human;
                 const getCellClass = (value) => {
                     if (!value || value === 'Unknown') return 'text-gray-400';
-                    return value === human ? 'text-green-400 font-semibold' : 'text-red-400';
+                    return value === human ? 'text-green-600 dark:text-green-400 font-semibold' : 'text-red-600 dark:text-red-400';
                 };
                 
                 const getCellContent = (value) => {
@@ -869,13 +855,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 };
                 
                 tableHtml += `
- <tr class="hover:bg-gray-700">
+                    <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td class="px-3 py-2 text-xs">
- <a href="${row.url}" target="_blank" class="hover:underline max-w-xs truncate block" style="color: var(--action-info);">
+                            <a href="${row.url}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline max-w-xs truncate block">
                                 ${row.url.length > 40 ? row.url.substring(0, 40) + '...' : row.url}
                             </a>
                         </td>
- <td class="px-3 py-2 text-xs max-w-xs truncate" style="color: var(--text-primary);" title="${row.title}">
+                        <td class="px-3 py-2 text-xs text-gray-900 dark:text-white max-w-xs truncate" title="${row.title}">
                             ${row.title}
                         </td>
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.sonnet_4_5)}">${getCellContent(row.sonnet_4_5)}</td>
@@ -895,7 +881,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.llama_3_2_1b)}">${getCellContent(row.llama_3_2_1b)}</td>
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.mistral_7b)}">${getCellContent(row.mistral_7b)}</td>
                         <td class="px-3 py-2 text-center text-xs ${getCellClass(row.mixtral_8x7b)}">${getCellContent(row.mixtral_8x7b)}</td>
- <td class="px-3 py-2 text-center text-xs font-bold" style="background-color: rgba(245,158,11,0.15); color: var(--text-warning);">${human}</td>
+                        <td class="px-3 py-2 text-center text-xs font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900">${human}</td>
                     </tr>
                 `;
             }

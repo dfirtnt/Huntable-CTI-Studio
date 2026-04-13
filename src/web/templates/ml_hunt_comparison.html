@@ -1007,8 +1007,7 @@
         function showRetrainHoverWarning() {
             const tooltip = document.createElement('div');
             tooltip.id = 'retrainTooltip';
-            tooltip.className = 'absolute z-50 px-3 py-2 text-sm rounded-lg shadow-lg border';
-            tooltip.style.cssText = 'background-color: var(--panel-bg-4); color: var(--action-warning); border-color: var(--action-warning);';
+            tooltip.className = 'absolute z-50 px-3 py-2 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 text-sm rounded-lg shadow-lg border border-amber-300 dark:border-amber-700';
             tooltip.innerHTML = '⚠️ You have unprocessed articles. Consider processing them first for complete ML vs Hunt comparison workflow.';
             
             const btn = document.getElementById('retrainModelBtn');
@@ -1278,20 +1277,20 @@
                 <!-- Retraining Summary -->
                 <div class="text-green-600 font-semibold text-lg">✅ Retraining Complete</div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                        <div class="text-sm" style="color: var(--text-secondary);">New Version</div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">New Version</div>
                         <div class="text-xl font-bold text-blue-600">v${status.new_version || 'Unknown'}</div>
                     </div>
-                    <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                        <div class="text-sm" style="color: var(--text-secondary);">Training Samples</div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Training Samples</div>
                         <div class="text-xl font-bold text-green-600">${status.training_samples || 'Unknown'}</div>
                     </div>
-                    <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                        <div class="text-sm" style="color: var(--text-secondary);">Training Accuracy</div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Training Accuracy</div>
                         <div class="text-xl font-bold text-purple-600">${status.training_accuracy ? (status.training_accuracy * 100).toFixed(1) + '%' : 'N/A'}</div>
                     </div>
-                    <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                        <div class="text-sm" style="color: var(--text-secondary);">Duration</div>
+                    <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                        <div class="text-sm text-gray-600 dark:text-gray-300">Duration</div>
                         <div class="text-xl font-bold text-orange-600">${status.training_duration || 'Unknown'}</div>
                     </div>
                 </div>
@@ -1299,40 +1298,40 @@
                 ${evalMetrics.accuracy ? `
                 <!-- Evaluation Results -->
                 <div class="border-t pt-4">
-                    <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">📊 Evaluation Results</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Evaluation Results</h3>
                     
                     <!-- Overall Metrics -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                            <div class="text-sm" style="color: var(--text-secondary);">Test Accuracy</div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Test Accuracy</div>
                             <div class="text-2xl font-bold text-blue-600">${(evalMetrics.accuracy * 100).toFixed(1)}%</div>
                         </div>
-                        <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                            <div class="text-sm" style="color: var(--text-secondary);">Avg Confidence</div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Avg Confidence</div>
                             <div class="text-2xl font-bold text-green-600">${evalMetrics.avg_confidence ? (evalMetrics.avg_confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
                         </div>
-                        <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                            <div class="text-sm" style="color: var(--text-secondary);">Total Chunks</div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Total Chunks</div>
                             <div class="text-2xl font-bold text-purple-600">${evalMetrics.total_chunks || evalMetrics.total_eval_chunks || 'N/A'}</div>
                         </div>
-                        <div class="p-3 rounded" style="background-color: var(--panel-bg-4);">
-                            <div class="text-sm" style="color: var(--text-secondary);">Misclassified</div>
+                        <div class="bg-white dark:bg-gray-600 p-3 rounded">
+                            <div class="text-sm text-gray-600 dark:text-gray-300">Misclassified</div>
                             <div class="text-2xl font-bold text-red-600">${evalMetrics.misclassified_count || 'N/A'}</div>
                         </div>
                     </div>
                     
                     <!-- Per-Class Metrics -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                        <div class="p-4 rounded" style="background-color: var(--panel-bg-4);">
-                            <h4 class="font-semibold mb-2" style="color: var(--text-primary);">Huntable Class</h4>
+                        <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Huntable Class</h4>
                             <div class="space-y-1 text-sm">
                                 <div>Precision: <span class="font-mono">${evalMetrics.precision_huntable ? (evalMetrics.precision_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
                                 <div>Recall: <span class="font-mono">${evalMetrics.recall_huntable ? (evalMetrics.recall_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
                                 <div>F1 Score: <span class="font-mono">${evalMetrics.f1_score_huntable ? (evalMetrics.f1_score_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
                             </div>
                         </div>
-                        <div class="p-4 rounded" style="background-color: var(--panel-bg-4);">
-                            <h4 class="font-semibold mb-2" style="color: var(--text-primary);">Not Huntable Class</h4>
+                        <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                            <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Not Huntable Class</h4>
                             <div class="space-y-1 text-sm">
                                 <div>Precision: <span class="font-mono">${evalMetrics.precision_not_huntable ? (evalMetrics.precision_not_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
                                 <div>Recall: <span class="font-mono">${evalMetrics.recall_not_huntable ? (evalMetrics.recall_not_huntable * 100).toFixed(1) + '%' : 'N/A'}</span></div>
@@ -1343,18 +1342,18 @@
                     
                     <!-- Confusion Matrix -->
                     ${evalMetrics.confusion_matrix ? `
-                    <div class="p-4 rounded" style="background-color: var(--panel-bg-4);">
-                        <h4 class="font-semibold mb-2" style="color: var(--text-primary);">Confusion Matrix</h4>
+                    <div class="bg-white dark:bg-gray-600 p-4 rounded">
+                        <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Confusion Matrix</h4>
                         <div class="grid grid-cols-3 gap-2 text-sm">
                             <div></div>
                             <div class="text-center font-semibold">Predicted Not Huntable</div>
                             <div class="text-center font-semibold">Predicted Huntable</div>
                             <div class="font-semibold">Actual Not Huntable</div>
-                            <div class="text-center p-2 rounded" style="background-color: rgba(34, 197, 94, 0.2);">${evalMetrics.confusion_matrix.true_negative}</div>
-                            <div class="text-center p-2 rounded" style="background-color: rgba(239, 68, 68, 0.2);">${evalMetrics.confusion_matrix.false_positive}</div>
+                            <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${evalMetrics.confusion_matrix.true_negative}</div>
+                            <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${evalMetrics.confusion_matrix.false_positive}</div>
                             <div class="font-semibold">Actual Huntable</div>
-                            <div class="text-center p-2 rounded" style="background-color: rgba(239, 68, 68, 0.2);">${evalMetrics.confusion_matrix.false_negative}</div>
-                            <div class="text-center p-2 rounded" style="background-color: rgba(34, 197, 94, 0.2);">${evalMetrics.confusion_matrix.true_positive}</div>
+                            <div class="text-center bg-red-100 dark:bg-red-800 p-2 rounded">${evalMetrics.confusion_matrix.false_negative}</div>
+                            <div class="text-center bg-green-100 dark:bg-green-800 p-2 rounded">${evalMetrics.confusion_matrix.true_positive}</div>
                         </div>
                     </div>
                     ` : ''}
