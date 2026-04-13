@@ -157,4 +157,4 @@ The runtime normalizer in `sigma_novelty_service.py` is a transition shim. After
 ## Related Issues
 
 - `docs/features/sigma-rules.md` -- "No Similarity Results" troubleshooting section covers infra causes (sync/index/backfill) but not this case-sensitivity root cause. Consider adding an entry.
-- No existing GitHub issues or solution docs cover this problem.
+- [Cross-Field Soft Matching (2026-04-12)](sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md) -- downstream fallback added when strict atom intersection is still zero after normalization. Extracts executable values from process-related fields and awards 50%-dampened partial Jaccard credit for shared values across different fields (e.g., `Image` vs `CommandLine`).

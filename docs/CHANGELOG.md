@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Release branch lock/unlock scripts** (2026-04-13): `scripts/release_lock.sh` and `scripts/release_unlock.sh` wrap `gh api` calls to toggle GitHub branch protection on `main` between releases. Lock sets `lock_branch=true`, `enforce_admins=true`, `allow_force_pushes=false`, `allow_deletions=false`; unlock is idempotent against 404 "Branch not protected". Release flow: unlock -> merge dev-io -> lock.
+- **Cross-field soft matching solution doc** (2026-04-12): `docs/solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md` documents the root cause, rejected embedding fallback approach, and the three-function allow-list + extractor + soft-Jaccard fix. Cross-linked from the 2026-04-08 case-sensitive atom matching solution doc as the downstream fallback.
+
 ### Fixed
 - **Cross-field soft matching for SIGMA similarity** (2026-04-12): Rules detecting the same executable (e.g., `\rundll32.exe`) via different SIGMA fields (`Image` vs `CommandLine`) previously scored 0% Jaccard because atoms never intersected. Added value-based soft matching across process-executable fields (`Image`, `CommandLine`, `ParentImage`, `ParentCommandLine`, `OriginalFileName`) with 50%-dampened partial credit. Applied to both deterministic (precomputed atoms) and legacy (YAML re-parsed) comparison paths. Frontend and backend now filter out 0% matches from similar-rules display. Includes interactive visualization at `docs/diagrams/similarity-engine-explained.html`.
 - **Queue table shows 0.0% similarity until manual re-search** (2026-04-09): `run_similarity_search` computed `max_similarity` from threshold-filtered matches only — when the best match was below threshold (e.g. 13% vs 50% threshold), the filtered list was empty and `max_similarity` was stored as 0.0. Now computed from ALL candidates before filtering. Also stores top-10 unfiltered matches in `similar_rules` so the queue entry has data without a manual re-search.

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIGMA Similarity Engine — How It Works</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #242836;
+    --border: #2e3347;
+    --text: #e0e4f0;
+    --text-dim: #8890a8;
+    --purple: #a78bfa;
+    --purple-bg: rgba(167,139,250,0.12);
+    --blue: #60a5fa;
+    --blue-bg: rgba(96,165,250,0.12);
+    --green: #34d399;
+    --green-bg: rgba(52,211,153,0.10);
+    --orange: #fb923c;
+    --orange-bg: rgba(251,146,60,0.10);
+    --red: #f87171;
+    --red-bg: rgba(248,113,113,0.10);
+    --yellow: #fbbf24;
+    --yellow-bg: rgba(251,191,36,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; line-height: 1.6; padding: 2rem; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.25rem; font-weight: 600; margin: 2.5rem 0 1rem; color: var(--purple); }
+  h3 { font-size: 1rem; font-weight: 600; margin: 1.5rem 0 0.75rem; }
+  p, li { color: var(--text-dim); font-size: 0.9rem; }
+  .subtitle { color: var(--text-dim); font-size: 0.95rem; margin-bottom: 2rem; }
+  code { background: var(--surface2); padding: 0.15em 0.4em; border-radius: 4px; font-size: 0.85em; color: var(--purple); font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin: 1rem 0; }
+  .card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; }
+  .badge { display: inline-block; padding: 0.2em 0.6em; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+  .badge-purple { background: var(--purple-bg); color: var(--purple); }
+  .badge-blue { background: var(--blue-bg); color: var(--blue); }
+  .badge-green { background: var(--green-bg); color: var(--green); }
+  .badge-orange { background: var(--orange-bg); color: var(--orange); }
+  .badge-red { background: var(--red-bg); color: var(--red); }
+  .badge-yellow { background: var(--yellow-bg); color: var(--yellow); }
+
+  /* Pipeline diagram */
+  .pipeline { display: flex; flex-direction: column; gap: 0; position: relative; }
+  .stage { display: flex; align-items: stretch; gap: 0; }
+  .stage-marker { width: 48px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+  .stage-dot { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; color: var(--bg); flex-shrink: 0; }
+  .stage-line { flex: 1; width: 2px; background: var(--border); margin: 0 auto; min-height: 16px; }
+  .stage-content { flex: 1; padding: 0.25rem 0 1.5rem 1rem; }
+  .stage-title { font-weight: 600; font-size: 0.95rem; color: var(--text); margin-bottom: 0.25rem; }
+  .stage-desc { font-size: 0.85rem; color: var(--text-dim); }
+
+  /* Atom comparison viz */
+  .atom-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0.75rem; align-items: start; margin: 1rem 0; }
+  .atom-col { display: flex; flex-direction: column; gap: 0.35rem; }
+  .atom-col-header { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.25rem; }
+  .atom { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.6rem; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; line-height: 1.4; white-space: nowrap; }
+  .atom-field { color: var(--blue); }
+  .atom-op { color: var(--text-dim); }
+  .atom-value { color: var(--green); }
+  .atom-match { border-color: var(--green); background: var(--green-bg); }
+  .atom-soft { border-color: var(--orange); background: var(--orange-bg); border-style: dashed; }
+  .atom-miss { opacity: 0.5; }
+  .vs-col { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 1.5rem; }
+  .vs-label { color: var(--text-dim); font-size: 0.75rem; font-weight: 600; }
+
+  /* Score bar */
+  .score-row { display: flex; align-items: center; gap: 0.75rem; margin: 0.5rem 0; }
+  .score-label { font-size: 0.8rem; color: var(--text-dim); width: 140px; flex-shrink: 0; }
+  .score-bar-bg { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .score-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+  .score-val { font-size: 0.8rem; font-weight: 600; width: 50px; text-align: right; flex-shrink: 0; }
+
+  /* Formula */
+  .formula { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; margin: 0.75rem 0; overflow-x: auto; }
+  .formula .op { color: var(--text-dim); }
+  .formula .num { color: var(--orange); }
+  .formula .var { color: var(--purple); }
+  .formula .result { color: var(--green); font-weight: 700; }
+
+  /* Flow arrow */
+  .flow-arrow { text-align: center; color: var(--text-dim); font-size: 1.2rem; margin: 0.5rem 0; }
+
+  /* Two-column example */
+  .example-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  @media (max-width: 700px) { .example-grid { grid-template-columns: 1fr; } }
+
+  /* Interactive toggle */
+  .toggle-group { display: flex; gap: 0.5rem; margin: 1rem 0; }
+  .toggle-btn { padding: 0.4rem 1rem; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+  .toggle-btn.active { background: var(--purple-bg); border-color: var(--purple); color: var(--purple); }
+  .toggle-btn:hover { border-color: var(--purple); }
+  .toggle-panel { display: none; }
+  .toggle-panel.active { display: block; }
+
+  .highlight-box { border-left: 3px solid var(--orange); padding: 0.75rem 1rem; background: var(--orange-bg); border-radius: 0 8px 8px 0; margin: 1rem 0; }
+  .highlight-box p { color: var(--text); }
+  .highlight-box strong { color: var(--orange); }
+
+  .new-badge { display: inline-block; padding: 0.15em 0.5em; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: var(--green-bg); color: var(--green); vertical-align: middle; margin-left: 0.5rem; letter-spacing: 0.05em; }
+</style>
+</head>
+<body>
+
+<h1>SIGMA Similarity Engine</h1>
+<p class="subtitle">How Huntable CTI Studio determines whether a proposed detection rule overlaps with existing SigmaHQ coverage</p>
+
+<!-- ─── PIPELINE OVERVIEW ─── -->
+<h2>Pipeline Overview</h2>
+<p>When you click <strong>Similarity Search</strong> on a queued rule, this pipeline runs:</p>
+
+<div class="pipeline" style="margin-top: 1.25rem;">
+  <div class="stage">
+    <div class="stage-marker">
+      <div class="stage-dot" style="background: var(--blue);">1</div>
+      <div class="stage-line"></div>
+    </div>
+    <div class="stage-content">
+      <div class="stage-title">Parse & Canonicalize</div>
+      <div class="stage-desc">The queued rule's YAML is parsed. Logsource is normalized to a key like <code>windows|process_creation</code>. If the <code>sigma_similarity</code> package is installed, the rule is decomposed into a <strong>canonical class</strong> (e.g. <code>windows.process_creation</code>) and precomputed <strong>atom sets</strong>.</div>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="stage-marker">
+      <div class="stage-dot" style="background: var(--purple);">2</div>
+      <div class="stage-line"></div>
+    </div>
+    <div class="stage-content">
+      <div class="stage-title">Retrieve Candidates</div>
+      <div class="stage-desc"><strong>Deterministic mode:</strong> all SigmaHQ rules with the same <code>canonical_class</code> (no limit). <strong>Legacy mode:</strong> rules matching <code>logsource_key</code>, limited to top 20. This is a <em>hard gate</em> — rules from a different log source are never compared.</div>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="stage-marker">
+      <div class="stage-dot" style="background: var(--green);">3</div>
+      <div class="stage-line"></div>
+    </div>
+    <div class="stage-content">
+      <div class="stage-title">Compute Atom Jaccard</div>
+      <div class="stage-desc">Each candidate is compared atom-by-atom. Atoms are the irreducible predicates — e.g. <code>Image|endswith|\rundll32.exe</code>. The Jaccard index measures set overlap. <strong>New: cross-field soft matching</strong> catches rules targeting the same executable via different fields.</div>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="stage-marker">
+      <div class="stage-dot" style="background: var(--orange);">4</div>
+      <div class="stage-line"></div>
+    </div>
+    <div class="stage-content">
+      <div class="stage-title">Score & Rank</div>
+      <div class="stage-desc">Final similarity = <code>0.70 × atom_jaccard + 0.30 × logic_shape − penalties</code>. Penalties apply for service mismatches and filter divergence. Top 20 results are returned; those with <code>jaccard &gt; 0</code> appear in the UI.</div>
+    </div>
+  </div>
+  <div class="stage">
+    <div class="stage-marker">
+      <div class="stage-dot" style="background: var(--red);">5</div>
+    </div>
+    <div class="stage-content">
+      <div class="stage-title">Classify Novelty</div>
+      <div class="stage-desc"><span class="badge badge-red">DUPLICATE</span> jaccard &gt; 0.95 + logic &gt; 0.95 &nbsp; <span class="badge badge-orange">SIMILAR</span> jaccard &gt; 0.80 &nbsp; <span class="badge badge-green">NOVEL</span> everything else</div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── WHAT IS AN ATOM? ─── -->
+<h2>What Is an Atom?</h2>
+<p>An <strong>atom</strong> is one irreducible behavioral constraint from a SIGMA rule's detection block. It captures exactly one field-operator-value check.</p>
+
+<div class="card">
+  <div class="formula">
+    <span class="var">field</span> <span class="op">|</span> <span class="var">operator</span> <span class="op">|</span> <span class="var">op_type</span> <span class="op">|</span> <span class="var">value</span>
+  </div>
+  <div class="example-grid" style="margin-top: 1rem;">
+    <div>
+      <h3 style="margin-top:0;">SIGMA YAML</h3>
+      <div class="formula" style="font-size: 0.8rem;">
+<span class="var">detection</span>:
+  <span class="var">selection</span>:
+    <span class="atom-field">ParentImage</span><span class="op">|endswith</span>: <span class="atom-value">'\services.exe'</span>
+    <span class="atom-field">Image</span><span class="op">|endswith</span>: <span class="atom-value">'\rundll32.exe'</span>
+  <span class="var">condition</span>: selection
+      </div>
+    </div>
+    <div>
+      <h3 style="margin-top:0;">Extracted Atoms</h3>
+      <div style="display: flex; flex-direction: column; gap: 0.35rem;">
+        <div class="atom"><span class="atom-field">ParentImage</span><span class="atom-op">|endswith|literal|</span><span class="atom-value">\services.exe</span></div>
+        <div class="atom"><span class="atom-field">Image</span><span class="atom-op">|endswith|literal|</span><span class="atom-value">\rundll32.exe</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ATOM JACCARD ─── -->
+<h2>Atom Jaccard — Strict vs Soft Matching</h2>
+<p>Jaccard index = <code>|A ∩ B| / |A ∪ B|</code>. Two atoms match if their <strong>entire key</strong> is identical (field + operator + value). This is the <strong>strict match</strong>.</p>
+
+<div class="toggle-group">
+  <button class="toggle-btn active" onclick="showPanel('strict')">Strict Match (Before Fix)</button>
+  <button class="toggle-btn" onclick="showPanel('soft')">With Soft Match (After Fix)</button>
+</div>
+
+<!-- STRICT MATCH PANEL -->
+<div id="panel-strict" class="toggle-panel active">
+  <div class="card">
+    <div class="card-header">
+      <span class="badge badge-red">Jaccard = 0.0%</span>
+      <span style="color: var(--text-dim); font-size: 0.85rem;">No atoms share the same field + operator + value</span>
+    </div>
+    <div class="atom-grid">
+      <div class="atom-col">
+        <div class="atom-col-header" style="color: var(--blue);">Proposed Rule</div>
+        <div class="atom atom-miss"><span class="atom-field">ParentImage</span><span class="atom-op">|endswith|</span><span class="atom-value">\services.exe</span></div>
+        <div class="atom atom-miss"><span class="atom-field">Image</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32.exe</span></div>
+      </div>
+      <div class="vs-col">
+        <div class="vs-label">vs</div>
+        <div style="color: var(--red); font-size: 1.5rem; margin-top: 0.25rem;">✗</div>
+      </div>
+      <div class="atom-col">
+        <div class="atom-col-header" style="color: var(--purple);">SigmaHQ Rule</div>
+        <div class="atom atom-miss"><span class="atom-field">CommandLine</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32.exe</span></div>
+        <div class="atom atom-miss"><span class="atom-field">CommandLine</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32.exe"</span></div>
+        <div class="atom atom-miss"><span class="atom-field">CommandLine</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32</span></div>
+      </div>
+    </div>
+    <p style="text-align: center; font-size: 0.8rem;">Different fields → <code>Image|...|rundll32.exe</code> ≠ <code>CommandLine|...|rundll32.exe</code> → zero intersection</p>
+    <div class="formula" style="margin-top: 1rem;">
+      <span class="var">strict_jaccard</span> <span class="op">=</span> <span class="num">0</span> <span class="op">/</span> <span class="num">5</span> <span class="op">=</span> <span class="result">0.0</span>
+    </div>
+  </div>
+</div>
+
+<!-- SOFT MATCH PANEL -->
+<div id="panel-soft" class="toggle-panel">
+  <div class="card">
+    <div class="card-header">
+      <span class="badge badge-orange">Jaccard = 8.3%</span>
+      <span class="new-badge">NEW</span>
+      <span style="color: var(--text-dim); font-size: 0.85rem;">Cross-field value match on <code>\rundll32.exe</code></span>
+    </div>
+    <div class="atom-grid">
+      <div class="atom-col">
+        <div class="atom-col-header" style="color: var(--blue);">Proposed Rule</div>
+        <div class="atom atom-miss"><span class="atom-field">ParentImage</span><span class="atom-op">|endswith|</span><span class="atom-value">\services.exe</span></div>
+        <div class="atom atom-soft"><span class="atom-field">Image</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32.exe</span> <span style="color: var(--orange);">⟵ soft</span></div>
+      </div>
+      <div class="vs-col">
+        <div class="vs-label">vs</div>
+        <div style="color: var(--orange); font-size: 1.5rem; margin-top: 0.25rem;">≈</div>
+      </div>
+      <div class="atom-col">
+        <div class="atom-col-header" style="color: var(--purple);">SigmaHQ Rule</div>
+        <div class="atom atom-soft"><span class="atom-field">CommandLine</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32.exe</span> <span style="color: var(--orange);">⟵ soft</span></div>
+        <div class="atom atom-miss"><span class="atom-field">CommandLine</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32.exe"</span></div>
+        <div class="atom atom-miss"><span class="atom-field">CommandLine</span><span class="atom-op">|endswith|</span><span class="atom-value">\rundll32</span></div>
+      </div>
+    </div>
+
+    <div class="highlight-box">
+      <p><strong>How soft matching works:</strong> When strict jaccard = 0, the engine extracts executable values from process-related fields (<code>Image</code>, <code>CommandLine</code>, <code>ParentImage</code>, etc.) and checks for shared values. Same exe, different field → partial credit at 50% weight.</p>
+    </div>
+
+    <div class="formula">
+      <span class="var">shared_exe_values</span> <span class="op">=</span> {<span class="atom-value">\rundll32.exe</span>}  <span class="op">→</span> <span class="num">1</span> match<br>
+      <span class="var">union_atoms</span> <span class="op">=</span> <span class="num">5</span> total unique atoms (2 proposed + 3 SigmaHQ)<br><br>
+      <span class="var">soft_jaccard</span> <span class="op">=</span> (<span class="num">1</span> <span class="op">/</span> <span class="num">5</span>) <span class="op">×</span> <span class="num">0.5</span> <span class="op">=</span> <span class="result">0.10</span>  <span class="op">// deterministic path (precomputed atoms)</span><br>
+      <span class="var">soft_jaccard</span> <span class="op">=</span> (<span class="num">1</span> <span class="op">/</span> <span class="num">6</span>) <span class="op">×</span> <span class="num">0.5</span> <span class="op">=</span> <span class="result">0.083</span> <span class="op">// legacy path (includes CommandLine:'' atom)</span>
+    </div>
+  </div>
+</div>
+
+<!-- ─── PROCESS EXE FIELD GROUP ─── -->
+<h2>Process Executable Field Group</h2>
+<p>Soft matching only applies to fields that reference executables/binaries. These fields form a semantic group — the same <code>\rundll32.exe</code> value in any of them means "this rule is about rundll32":</p>
+
+<div class="card">
+  <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+    <span class="badge badge-blue">Image</span>
+    <span class="badge badge-blue">ParentImage</span>
+    <span class="badge badge-blue">CommandLine</span>
+    <span class="badge badge-blue">ParentCommandLine</span>
+    <span class="badge badge-blue">OriginalFileName</span>
+    <span class="badge badge-purple">process.image</span>
+    <span class="badge badge-purple">process.parent_image</span>
+    <span class="badge badge-purple">process.command_line</span>
+    <span class="badge badge-purple">process.parent_command_line</span>
+    <span class="badge badge-purple">process.original_file_name</span>
+  </div>
+  <p style="margin-top: 0.75rem; font-size: 0.8rem;"><span class="badge badge-blue">Blue</span> = legacy atom names (from YAML field parsing) &nbsp; <span class="badge badge-purple">Purple</span> = canonical names (from <code>sigma_similarity</code> deterministic engine)</p>
+  <p style="margin-top: 0.5rem; font-size: 0.8rem;">Fields <em>not</em> in this group (e.g. <code>dns.query</code>, <code>TargetFilename</code>, <code>registry.path</code>) are <strong>never</strong> soft-matched. A DNS rule and a process rule won't get false overlap.</p>
+</div>
+
+<!-- ─── SCORING FORMULA ─── -->
+<h2>Final Scoring Formula</h2>
+
+<div class="card">
+  <div class="formula" style="font-size: 0.9rem; line-height: 2;">
+    <span class="var">weighted_similarity</span> <span class="op">=</span> <span class="num">0.70</span> <span class="op">×</span> <span class="var">atom_jaccard</span> <span class="op">+</span> <span class="num">0.30</span> <span class="op">×</span> <span class="var">logic_shape</span> <span class="op">−</span> <span class="var">service_penalty</span> <span class="op">−</span> <span class="var">filter_penalty</span>
+  </div>
+
+  <div style="margin-top: 1.25rem;">
+    <div class="score-row">
+      <span class="score-label">Atom Jaccard (70%)</span>
+      <div class="score-bar-bg"><div class="score-bar" style="width: 8.3%; background: var(--orange);"></div></div>
+      <span class="score-val" style="color: var(--orange);">8.3%</span>
+    </div>
+    <div class="score-row">
+      <span class="score-label">Logic Shape (30%)</span>
+      <div class="score-bar-bg"><div class="score-bar" style="width: 65%; background: var(--blue);"></div></div>
+      <span class="score-val" style="color: var(--blue);">~65%</span>
+    </div>
+    <div class="score-row">
+      <span class="score-label">Service Penalty</span>
+      <div class="score-bar-bg"><div class="score-bar" style="width: 0%; background: var(--red);"></div></div>
+      <span class="score-val">0.0%</span>
+    </div>
+    <div class="score-row">
+      <span class="score-label">Filter Penalty</span>
+      <div class="score-bar-bg"><div class="score-bar" style="width: 5%; background: var(--red);"></div></div>
+      <span class="score-val" style="color: var(--red);">~5%</span>
+    </div>
+    <div style="border-top: 1px solid var(--border); margin-top: 0.75rem; padding-top: 0.75rem;">
+      <div class="score-row">
+        <span class="score-label" style="font-weight: 600; color: var(--text);">Final Score</span>
+        <div class="score-bar-bg"><div class="score-bar" style="width: 20%; background: linear-gradient(90deg, var(--orange), var(--green));"></div></div>
+        <span class="score-val" style="color: var(--green);">~20%</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="formula" style="margin-top: 1rem; font-size: 0.8rem;">
+    <span class="op">// For this rundll32 example:</span><br>
+    <span class="num">0.70</span> <span class="op">×</span> <span class="num">0.083</span> <span class="op">+</span> <span class="num">0.30</span> <span class="op">×</span> <span class="num">0.65</span> <span class="op">−</span> <span class="num">0</span> <span class="op">−</span> <span class="num">0.05</span> <span class="op">=</span> <span class="num">0.058</span> <span class="op">+</span> <span class="num">0.195</span> <span class="op">−</span> <span class="num">0.05</span> <span class="op">=</span> <span class="result">≈ 20%</span>
+  </div>
+</div>
+
+<!-- ─── TWO PATHS ─── -->
+<h2>Deterministic vs Legacy Path</h2>
+<p>The engine has two comparison modes depending on whether <code>sigma_similarity</code> is installed:</p>
+
+<div class="example-grid">
+  <div class="card">
+    <div class="card-header">
+      <span class="badge badge-green">Deterministic</span>
+      <span style="font-size: 0.8rem; color: var(--text-dim);">when sigma_similarity installed</span>
+    </div>
+    <ul style="padding-left: 1.2rem; font-size: 0.85rem;">
+      <li>Atoms precomputed at index time, stored in DB</li>
+      <li>Fields normalized to canonical <code>process.*</code> namespace</li>
+      <li>No YAML re-parsing at query time — pure set math</li>
+      <li>Candidates filtered by <code>canonical_class</code>, no limit</li>
+      <li>Uses <code>compute_containment()</code> for logic scoring</li>
+      <li style="color: var(--green);">Soft match via <code>_soft_exe_jaccard_from_atom_strings()</code></li>
+    </ul>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <span class="badge badge-yellow">Legacy</span>
+      <span style="font-size: 0.8rem; color: var(--text-dim);">fallback when package unavailable</span>
+    </div>
+    <ul style="padding-left: 1.2rem; font-size: 0.85rem;">
+      <li>Atoms extracted at query time from YAML</li>
+      <li>Fields title-cased (e.g. <code>Image</code>, <code>CommandLine</code>)</li>
+      <li>Full YAML parsing per candidate</li>
+      <li>Candidates filtered by <code>logsource_key</code>, limit 20</li>
+      <li>Uses <code>compute_logic_shape_similarity()</code></li>
+      <li style="color: var(--green);">Soft match via <code>_exe_values()</code> inner function</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ─── BEFORE/AFTER ─── -->
+<h2>Before vs After This Fix</h2>
+
+<div class="example-grid">
+  <div class="card" style="border-color: var(--red);">
+    <div class="card-header">
+      <span class="badge badge-red">Before</span>
+    </div>
+    <p>Rule 282 (rundll32 via services.exe) → Similarity Search → <strong>"No Behavioral Overlap Found"</strong></p>
+    <p style="margin-top: 0.5rem;">Preview showed 5 rules at 0.0% from cached data. The modal filtered them out (jaccard = 0). Fundamentally: different fields meant zero atom intersection, even when both rules detect the same binary.</p>
+  </div>
+  <div class="card" style="border-color: var(--green);">
+    <div class="card-header">
+      <span class="badge badge-green">After</span>
+    </div>
+    <p>Same rule → Similarity Search → finds <strong>"Rundll32 Execution Without CommandLine Parameters"</strong> and similar rules with non-zero scores.</p>
+    <p style="margin-top: 0.5rem;">Cross-field soft matching recognizes <code>\rundll32.exe</code> as shared across <code>Image</code> and <code>CommandLine</code> fields. Preview and modal are now consistent — both filter <code>jaccard &gt; 0</code>.</p>
+  </div>
+</div>
+
+<!-- ─── WHAT CHANGED ─── -->
+<h2>Files Changed</h2>
+
+<div class="card">
+  <table style="width: 100%; font-size: 0.85rem; border-collapse: collapse;">
+    <thead>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <th style="text-align: left; padding: 0.5rem; color: var(--text-dim);">File</th>
+        <th style="text-align: left; padding: 0.5rem; color: var(--text-dim);">Change</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem;"><code>sigma_novelty_service.py</code></td>
+        <td style="padding: 0.5rem;">Added <code>_PROCESS_EXE_CANONICAL_FIELDS</code>, <code>_extract_exe_value()</code>, <code>_soft_exe_jaccard_from_atom_strings()</code> module-level helpers. Added <code>_PROCESS_EXE_FIELDS</code> class attribute + soft matching in <code>compute_atom_jaccard()</code>. Integrated soft fallback into deterministic precomputed-atom path.</td>
+      </tr>
+      <tr style="border-bottom: 1px solid var(--border);">
+        <td style="padding: 0.5rem;"><code>sigma_queue.html</code></td>
+        <td style="padding: 0.5rem;">Added <code>jaccard &gt; 0</code> filter to <code>mapSimilarityResponseFromCache()</code> to match existing filter in <code>mapSimilarityResponse()</code>. Preview and modal now consistent.</td>
+      </tr>
+      <tr>
+        <td style="padding: 0.5rem;"><code>sigma_queue.py</code></td>
+        <td style="padding: 0.5rem;">Backend storage filter: only persist matches with <code>jaccard &gt; 0</code> to <code>similarity_scores</code> JSONB column. Prevents stale 0% entries in cached data.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ─── RUNTIME ─── -->
+<h2>Where It Runs</h2>
+<div class="card">
+  <p>Everything runs <strong>in the main app container</strong> (<code>Dockerfile</code>, Python 3.11 slim). There is no separate similarity service.</p>
+  <div class="formula" style="margin-top: 0.75rem; font-size: 0.8rem;">
+<span class="op">// sigma_semantic_similarity is a local workspace package</span>
+pyproject.toml → <span class="var">members</span> = [<span class="atom-value">"sigma_semantic_similarity"</span>]
+Dockerfile:71  → <span class="var">COPY</span> sigma_semantic_similarity/ ./sigma_semantic_similarity/
+Dockerfile:72  → <span class="var">uv sync --frozen</span>  <span class="op">// installs it as editable dep</span>
+  </div>
+  <p style="margin-top: 0.75rem;">The <strong>deterministic path</strong> is only active inside Docker (where the package is installed). Your local dev shell uses the <strong>legacy path</strong> since <code>sigma_similarity</code> isn't in the local venv.</p>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem;">
+    <div style="padding: 0.75rem; background: var(--green-bg); border-radius: 8px; border: 1px solid rgba(52,211,153,0.2);">
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--green);">Docker Container</div>
+      <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem;">sigma_similarity ✓ → deterministic path<br>1000+ candidates per class, precomputed atoms</div>
+    </div>
+    <div style="padding: 0.75rem; background: var(--yellow-bg); border-radius: 8px; border: 1px solid rgba(251,191,36,0.2);">
+      <div style="font-size: 0.8rem; font-weight: 600; color: var(--yellow);">Local Dev Shell</div>
+      <div style="font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem;">sigma_similarity ✗ → legacy path<br>Top 20 by logsource_key, YAML re-parsed</div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top: 2rem; color: var(--text-dim); font-size: 0.8rem; text-align: center;">
+  Huntable CTI Studio v5.3.0-callisto · Similarity Engine v1.2 + cross-field soft matching
+</p>
+
+<script>
+function showPanel(name) {
+  document.querySelectorAll('.toggle-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
