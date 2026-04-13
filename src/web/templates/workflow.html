@@ -830,6 +830,18 @@
   border-spacing: 0;
 }
 
+.q-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.q-sortable:hover {
+  color: var(--text-emphasis, #e2e8f0);
+}
+.q-sort-ind {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
 .q-table thead th {
   padding: 10px 14px;
   font-family: 'JetBrains Mono', monospace;
@@ -2572,13 +2584,13 @@
                 <thead>
                     <tr>
                         <th class="q-status-indicator-header" aria-hidden="true"></th>
-                        <th style="padding-left:24px">ID</th>
-                        <th>Article</th>
-                        <th>Rule Title</th>
-                        <th>Obs Used</th>
-                        <th>Similarity</th>
-                        <th>Status</th>
-                        <th>Created</th>
+                        <th style="padding-left:24px" class="q-sortable" data-sort-key="id">ID <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="article_title">Article <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="rule_title">Rule Title <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="obs_used">Obs Used <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="max_similarity">Similarity <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="status">Status <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="created_at">Created <span class="q-sort-ind"></span></th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -12772,12 +12784,68 @@ async function loadQueue() {
     }
 }
 
+// --- Queue column sort state ---
+let _qSortKey = null;
+let _qSortAsc = true;
+
+(function initQueueSortHeaders() {
+    document.querySelectorAll('.q-sortable[data-sort-key]').forEach(th => {
+        th.addEventListener('click', () => {
+            const key = th.dataset.sortKey;
+            if (_qSortKey === key) {
+                _qSortAsc = !_qSortAsc;
+            } else {
+                _qSortKey = key;
+                _qSortAsc = (key === 'article_title' || key === 'rule_title' || key === 'status');
+            }
+            renderQueue();
+        });
+    });
+})();
+
+function _qSortVal(rule, key) {
+    switch (key) {
+        case 'id': return rule.id;
+        case 'article_title': return (rule.article_title || '').toLowerCase();
+        case 'rule_title': return ((rule.rule_metadata || {}).title || '').toLowerCase();
+        case 'obs_used': return getObservablesUsedCount(rule);
+        case 'max_similarity': return typeof rule.max_similarity === 'number' ? rule.max_similarity : -1;
+        case 'status': return rule.status || '';
+        case 'created_at': return rule.created_at || '';
+        default: return '';
+    }
+}
+
+function _qSortedQueue() {
+    if (!_qSortKey) return queue;
+    return [...queue].sort((a, b) => {
+        const va = _qSortVal(a, _qSortKey);
+        const vb = _qSortVal(b, _qSortKey);
+        let cmp;
+        if (typeof va === 'number' && typeof vb === 'number') {
+            cmp = va - vb;
+        } else {
+            cmp = String(va).localeCompare(String(vb), undefined, {sensitivity: 'base'});
+        }
+        return _qSortAsc ? cmp : -cmp;
+    });
+}
+
+function _updateQSortIndicators() {
+    document.querySelectorAll('.q-sortable[data-sort-key]').forEach(th => {
+        const ind = th.querySelector('.q-sort-ind');
+        if (!ind) return;
+        ind.textContent = (th.dataset.sortKey === _qSortKey) ? (_qSortAsc ? ' \u25B2' : ' \u25BC') : '';
+    });
+}
+
 function renderQueue() {
     const tbody = document.getElementById('queueTableBody');
     if (!tbody) {
         console.error('queueTableBody element not found');
         return;
     }
+    _updateQSortIndicators();
     
     if (queue.length === 0) {
         tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
@@ -12786,8 +12854,8 @@ function renderQueue() {
         return;
     }
     
-    /* Pre-existing innerHTML pattern — all values from own DB, not user input. */
-    tbody.innerHTML = queue.map(rule => {
+    /* Pre-existing innerHTML pattern -- all values from own DB, not user input. */
+    tbody.innerHTML = _qSortedQueue().map(rule => {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
         const observablesUsedCount = getObservablesUsedCount(rule);

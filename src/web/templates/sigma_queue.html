@@ -53,12 +53,12 @@
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rule Title</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Max Similarity</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-200" data-sort-key="id">ID <span class="sort-indicator"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-200" data-sort-key="article_title">Article <span class="sort-indicator"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-200" data-sort-key="rule_title">Rule Title <span class="sort-indicator"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-200" data-sort-key="max_similarity">Max Similarity <span class="sort-indicator"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-200" data-sort-key="status">Status <span class="sort-indicator"></span></th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer select-none hover:text-gray-200" data-sort-key="created_at">Created <span class="sort-indicator"></span></th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -247,8 +247,69 @@ async function loadQueue() {
     }
 }
 
+// --- Sortable column state ---
+let _qSortKey = null;
+let _qSortAsc = true;
+
+function _initQueueSortHeaders() {
+    document.querySelectorAll('th[data-sort-key]').forEach(th => {
+        if (th._sortBound) return;
+        th._sortBound = true;
+        th.addEventListener('click', () => {
+            const key = th.dataset.sortKey;
+            if (_qSortKey === key) {
+                _qSortAsc = !_qSortAsc;
+            } else {
+                _qSortKey = key;
+                _qSortAsc = (key === 'article_title' || key === 'rule_title' || key === 'status');
+            }
+            renderQueue();
+        });
+    });
+}
+
+function _getSortValue(rule, key) {
+    switch (key) {
+        case 'id': return rule.id;
+        case 'article_title': return (rule.article_title || '').toLowerCase();
+        case 'rule_title': return ((rule.rule_metadata || {}).title || '').toLowerCase();
+        case 'max_similarity': return typeof rule.max_similarity === 'number' ? rule.max_similarity : -1;
+        case 'status': return rule.status || '';
+        case 'created_at': return rule.created_at || '';
+        default: return '';
+    }
+}
+
+function _sortedQueue() {
+    if (!_qSortKey) return queue;
+    return [...queue].sort((a, b) => {
+        let va = _getSortValue(a, _qSortKey);
+        let vb = _getSortValue(b, _qSortKey);
+        let cmp;
+        if (typeof va === 'number' && typeof vb === 'number') {
+            cmp = va - vb;
+        } else {
+            cmp = String(va).localeCompare(String(vb), undefined, {sensitivity: 'base'});
+        }
+        return _qSortAsc ? cmp : -cmp;
+    });
+}
+
+function _updateQueueSortIndicators() {
+    document.querySelectorAll('th[data-sort-key]').forEach(th => {
+        const ind = th.querySelector('.sort-indicator');
+        if (!ind) return;
+        if (th.dataset.sortKey === _qSortKey) {
+            ind.textContent = _qSortAsc ? ' \u25B2' : ' \u25BC';
+        } else {
+            ind.textContent = '';
+        }
+    });
+}
+
 function renderQueue() {
     const tbody = document.getElementById('queueTableBody');
+    _updateQueueSortIndicators();
     
     if (queue.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
@@ -257,7 +318,7 @@ function renderQueue() {
         return;
     }
     
-    tbody.innerHTML = queue.map(rule => {
+    tbody.innerHTML = _sortedQueue().map(rule => {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
         
@@ -1676,6 +1737,7 @@ window.addEventListener('popstate', function(event) {
 setInterval(loadQueue, 30000);
 
 // Load on page load
+_initQueueSortHeaders();
 loadQueue();
 
 // Check URL parameter on initial load (in case data is already loaded)
