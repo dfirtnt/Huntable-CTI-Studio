@@ -7,8 +7,8 @@
     <div class="mb-8">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">📥 SIGMA Rule Queue</h1>
-                <p class="text-gray-600 dark:text-gray-400">Review and manage SIGMA rules pending PR submission</p>
+                <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">📥 SIGMA Rule Queue</h1>
+                <p style="color: var(--text-muted-slate);">Review and manage SIGMA rules pending PR submission</p>
             </div>
             <div class="flex space-x-4">
                 <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
@@ -17,7 +17,7 @@
                 <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     📤 Submit PR
                 </button>
-                <select id="statusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
+                <select id="statusFilter" onchange="filterQueue()" class="px-3 py-2 border rounded-md" style="border-color: var(--border-muted);">
                     <option value="">All Status</option>
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
@@ -31,46 +31,46 @@
     <!-- Queue Statistics -->
     <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-            <div class="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
+            <div class="text-sm" style="color: var(--text-muted-slate);">Pending Review</div>
             <div class="text-2xl font-bold text-amber-400" id="pendingCount">-</div>
         </div>
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-            <div class="text-sm text-gray-600 dark:text-gray-400">Approved</div>
+            <div class="text-sm" style="color: var(--text-muted-slate);">Approved</div>
             <div class="text-2xl font-bold text-emerald-400" id="approvedCount">-</div>
         </div>
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-            <div class="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
-            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
+            <div class="text-sm" style="color: var(--text-muted-slate);">Rejected</div>
+            <div class="text-2xl font-bold" id="rejectedCount" style="color: var(--action-danger);">-</div>
         </div>
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
-            <div class="text-sm text-gray-600 dark:text-gray-400">Submitted</div>
-            <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
+            <div class="text-sm" style="color: var(--text-muted-slate);">Submitted</div>
+            <div class="text-2xl font-bold text-purple-600" id="submittedCount">-</div>
         </div>
     </div>
 
     <!-- Queue Table -->
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead class="bg-gray-50 dark:bg-gray-900">
+        <table class="min-w-full divide-y">
+            <thead style="background-color: var(--panel-bg-1);">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Rule Title</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Max Similarity</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">ID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Article</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Rule Title</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Max Similarity</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Created</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Actions</th>
                 </tr>
             </thead>
             <tbody id="queueTableBody" class="bg-gray-800 divide-y divide-gray-700">
                 <tr>
-                    <td colspan="7" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                    <td colspan="7" class="px-6 py-4 text-center" style="color: var(--text-muted-slate);">Loading...</td>
                 </tr>
             </tbody>
         </table>
     </div>
     <div id="queuePaginationBar" class="flex items-center justify-between px-4 py-2 border-t border-gray-700 bg-gray-800 rounded-b-lg">
-        <span class="text-sm text-gray-600 dark:text-gray-400">Loading...</span>
+        <span class="text-sm" style="color: var(--text-muted-slate);">Loading...</span>
     </div>
 
     <!-- Rule Preview Modal -->
@@ -112,74 +112,74 @@
     <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-xl bg-gray-800 max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 pb-2 border-b border-gray-700">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white">✨ AI-Assisted Rule Enrichment</h3>
+                <h3 class="text-xl font-bold" style="color: var(--text-primary);">✨ AI-Assisted Rule Enrichment</h3>
                 <div class="flex items-center gap-3">
-                    <div id="llmProviderIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
+                    <div id="llmProviderIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100 border" style="border-color: var(--border-muted);">
                         <span id="llmProviderIcon" class="text-lg">🤖</span>
-                        <span id="llmProviderName" class="text-sm font-medium text-gray-700 dark:text-gray-300">Loading...</span>
+                        <span id="llmProviderName" class="text-sm font-medium" style="color: var(--text-secondary);">Loading...</span>
                     </div>
                     <button onclick="closeEnrichModal()" class="text-gray-400 hover:text-gray-600">✕</button>
                 </div>
             </div>
             <div class="space-y-4 max-h-[70vh] overflow-y-auto">
-                <div class="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
-                    <input type="checkbox" id="includeArticleContent" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
-                    <label for="includeArticleContent" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
+                <div class="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <input type="checkbox" id="includeArticleContent" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2">
+                    <label for="includeArticleContent" class="text-sm font-medium cursor-pointer" style="color: var(--text-secondary);">
                         Include article content (0.8 junk-filtered) in enrichment prompt
                     </label>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         Enrichment Instructions (optional):
                     </label>
-                    <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.</textarea>
+                    <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border rounded-md bg-white" style="color: var(--text-primary); border-color: var(--border-muted);">Improve and enrich this SIGMA rule with better detection logic, more comprehensive conditions, and proper metadata.</textarea>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         Original Rule:
                     </label>
                     <textarea id="enrichOriginalRule" readonly rows="15" class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 font-mono text-sm leading-relaxed resize-none"></textarea>
                 </div>
                 <div id="enrichLoading" class="hidden text-center py-4">
                     <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                    <p class="mt-2 text-gray-600 dark:text-gray-400">Enriching rule with AI...</p>
+                    <p class="mt-2" style="color: var(--text-muted-slate);">Enriching rule with AI...</p>
                 </div>
                 <div id="enrichResult" class="hidden">
                     <div class="mb-3 flex items-center justify-between">
-                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label class="block text-sm font-medium" style="color: var(--text-secondary);">
                             Enriched Rule:
                         </label>
                         <div class="flex space-x-2">
-                            <button onclick="toggleEnrichView()" id="toggleViewBtn" class="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
+                            <button onclick="toggleEnrichView()" id="toggleViewBtn" class="px-3 py-1 text-xs border rounded-md bg-white hover:bg-gray-50" style="color: var(--text-secondary); border-color: var(--border-muted);">
                                 📊 Show Comparison
                             </button>
                         </div>
                     </div>
                     <div id="enrichComparisonView" class="hidden mb-4">
-                        <div class="mb-2 text-xs text-gray-600 dark:text-gray-400" id="enrichIterationInfo"></div>
+                        <div class="mb-2 text-xs" id="enrichIterationInfo" style="color: var(--text-muted-slate);"></div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900">
-                                <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2" id="enrichLeftLabel">Original Rule</h6>
-                                <pre id="enrichOriginalComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                            <div class="border rounded-md p-3" style="background-color: var(--panel-bg-1); border-color: var(--border-muted);">
+                                <h6 class="text-xs font-bold mb-2" id="enrichLeftLabel" style="color: var(--text-secondary);">Original Rule</h6>
+                                <pre id="enrichOriginalComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900" style="border-color: var(--mlops-card-border);"></pre>
                             </div>
-                            <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
-                                <h6 class="text-xs font-bold text-green-700 dark:text-green-300 mb-2" id="enrichRightLabel">Enriched Rule</h6>
-                                <pre id="enrichedComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                            <div class="border rounded-md p-3 bg-green-50" style="border-color: var(--border-muted);">
+                                <h6 class="text-xs font-bold text-green-700 mb-2" id="enrichRightLabel">Enriched Rule</h6>
+                                <pre id="enrichedComparison" class="text-xs bg-gray-800 border border-gray-700 p-2 rounded border overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900" style="border-color: var(--mlops-card-border);"></pre>
                             </div>
                         </div>
                     </div>
-                    <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-xs"></textarea>
+                    <textarea id="enrichedRuleYaml" rows="20" class="w-full px-3 py-2 border rounded-md bg-white font-mono text-xs" style="color: var(--text-primary); border-color: var(--border-muted);"></textarea>
                     <div class="mt-4">
-                        <button onclick="toggleRawResponse()" class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-left text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-md border border-gray-300 dark:border-gray-600 cursor-pointer" role="button" aria-expanded="false" id="rawResponseToggle">
+                        <button onclick="toggleRawResponse()" class="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-left hover:bg-gray-100 rounded-md border cursor-pointer" role="button" aria-expanded="false" id="rawResponseToggle" style="color: var(--text-secondary); background-color: var(--panel-bg-4); border-color: var(--border-muted);">
                             <span>📄 Raw LLM Response</span>
                             <span id="rawResponseCaret" class="transform transition-transform">▼</span>
                         </button>
                         <div id="rawResponseContent" class="hidden mt-2">
-                            <pre id="rawResponseText" class="text-xs bg-gray-50 dark:bg-gray-900 p-3 rounded border border-gray-200 dark:border-gray-700 overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900 dark:text-gray-100"></pre>
+                            <pre id="rawResponseText" class="text-xs p-3 rounded border overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto text-gray-900" style="background-color: var(--panel-bg-1); border-color: var(--mlops-card-border);"></pre>
                         </div>
                     </div>
                 </div>
-                <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
+                <div id="enrichError" class="hidden p-4 bg-red-50 border border-red-200 rounded-md text-red-800"></div>
                     <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t border-gray-700 sticky bottom-0 bg-gray-800">
                     <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
                         ✅ Apply Enriched Rule
@@ -190,7 +190,7 @@
                     <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
                         🔄 Enrich Further
                     </button>
-                    <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                    <button onclick="closeEnrichModal()" class="px-4 py-2 border rounded-md" style="border-color: var(--border-muted);">
                         Cancel
                     </button>
                 </div>
@@ -215,10 +215,10 @@ let queueLimit = 50;
 
 function getStatusBadge(status) {
     const badges = {
-        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">Pending</span>',
-        'approved': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:bg-green-200">Approved</span>',
-        'rejected': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:bg-red-200">Rejected</span>',
-        'submitted': '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:bg-purple-200">Submitted</span>'
+        'pending': '<span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Pending</span>',
+        'approved': '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Approved</span>',
+        'rejected': '<span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">Rejected</span>',
+        'submitted': '<span class="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800">Submitted</span>'
     };
     return badges[status] || '<span class="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">' + status + '</span>';
 }
@@ -262,26 +262,26 @@ function renderQueue() {
         const title = metadata.title || 'Untitled Rule';
         
         return `
-            <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-primary);">${rule.id}</td>
                 <td class="px-6 py-4 text-sm">
-                    <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
+                    <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800">
                         ${rule.article_title || 'Article ' + rule.article_id}
                     </a>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td class="px-6 py-4 text-sm" style="color: var(--text-primary);">${title}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">${getStatusBadge(rule.status)}</td>
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">
                     ${new Date(rule.created_at).toLocaleString()}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm">
-                    <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 dark:text-blue-400 mr-2">Preview</button>
+                    <button onclick="previewRule(${rule.id})" class="text-blue-600 hover:text-blue-800 mr-2">Preview</button>
                     ${rule.status === 'pending' ? `
                         <button onclick="approveRule(${rule.id})" class="text-blue-400 hover:text-blue-300 hover:underline mr-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">Approve</button>
-                        <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800 dark:text-red-400">Reject</button>
+                        <button onclick="rejectRule(${rule.id})" class="text-red-600 hover:text-red-800">Reject</button>
                     ` : ''}
                 </td>
             </tr>
@@ -313,7 +313,7 @@ function updateQueuePagination() {
     const end = Math.min(queuePage * queueLimit, queueTotal);
     const totalPages = Math.max(1, Math.ceil(queueTotal / queueLimit));
     bar.innerHTML = `
-        <span class="text-sm text-gray-600 dark:text-gray-400">Showing ${start}&ndash;${end} of ${queueTotal}</span>
+        <span class="text-sm" style="color: var(--text-muted-slate);">Showing ${start}&ndash;${end} of ${queueTotal}</span>
         <div class="flex gap-2">
             <button type="button" onclick="goToQueuePage(${queuePage - 1})" ${queuePage <= 1 ? 'disabled' : ''} class="px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-700 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">Prev</button>
             <button type="button" onclick="goToQueuePage(${queuePage + 1})" ${queuePage >= totalPages ? 'disabled' : ''} class="px-3 py-1.5 text-sm rounded border border-gray-600 bg-gray-700 text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
@@ -446,21 +446,21 @@ function renderRulePreview(rule, observablesData) {
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
                 <h4 class="font-semibold">Rule YAML:</h4>
-                <button onclick="cancelEdit()" class="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                <button onclick="cancelEdit()" class="text-sm text-gray-600 hover:text-gray-800">
                     Cancel
                 </button>
             </div>
-            <textarea id="yamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs" rows="20" style="font-family: 'Courier New', monospace;">${escapeHtml(editedYaml)}</textarea>
+            <textarea id="yamlEditor" class="w-full bg-gray-100 p-4 rounded border font-mono text-xs" rows="20" style="font-family: 'Courier New', monospace; border-color: var(--border-muted);">${escapeHtml(editedYaml)}</textarea>
         </div>
     ` : `
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
                 <h4 class="font-semibold">Rule YAML:</h4>
-                <button onclick="enableEditMode()" class="text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400">
+                <button onclick="enableEditMode()" class="text-sm text-blue-600 hover:text-blue-800">
                     ✏️ Edit
                 </button>
             </div>
-            <pre class="bg-gray-100 dark:bg-gray-900 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(editedYaml)}</code></pre>
+            <pre class="bg-gray-100 p-4 rounded overflow-x-auto text-xs"><code>${escapeHtml(editedYaml)}</code></pre>
         </div>
     `;
     
@@ -542,7 +542,7 @@ function updateActionButtons() {
             <button onclick="saveYamlEdit()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                 💾 Save Changes
             </button>
-            <button onclick="cancelEdit()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+            <button onclick="cancelEdit()" class="px-4 py-2 border rounded-md" style="border-color: var(--border-muted);">
                 Cancel Edit
             </button>
         `;
@@ -563,7 +563,7 @@ function updateActionButtons() {
             <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                 🔍 Similarity Search
             </button>
-            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+            <button onclick="closeRuleModal()" class="px-4 py-2 border rounded-md" style="border-color: var(--border-muted);">
                 Cancel
             </button>
         `;
@@ -588,15 +588,15 @@ function buildSimilarityDetailHtml(m) {
         if (!atoms || !atoms.length) return '';
         const pal = { green: ['bg-green-950 text-green-400','bg-green-950/40 text-green-300'], amber: ['bg-amber-950 text-amber-300','bg-amber-950/40 text-amber-200'], red: ['bg-red-950 text-red-300','bg-red-950/40 text-red-200'] };
         const [h, r] = pal[color] || pal.green;
-        return `<div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 ${h}">${label} (${atoms.length})</div>${atoms.map(a => `<div class="text-xs font-mono px-2 py-1 ${r} border-t border-black/20 break-all">${_escHtml(a)}</div>`).join('')}</div>`;
+        return `<div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 ${h}">${label} (${atoms.length})</div>${atoms.map(a => `<div class="text-xs font-mono px-2 py-1 ${r} border-t border-black/20 break-all" style="color: var(--text-secondary); background-color: var(--panel-bg-4);">${_escHtml(a)}</div>`).join('')}</div>`;
     };
     const detCur = m.detection_cur != null ? m.detection_cur : 'not available';
     const detCand = m.detection_cand != null ? m.detection_cand : 'not available';
     const sourceFromRepo = (m.rule_id && String(m.rule_id).startsWith('cust-')) || (m.file_path && String(m.file_path).startsWith('customer/'));
     const sourceLabel = sourceFromRepo ? 'Your repo' : 'SigmaHQ';
     const sourceBadgeCls = sourceFromRepo
-        ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200'
-        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
+        ? 'bg-amber-100 text-amber-800'
+        : ' ';
     return `<div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">score summary</div>
     <div class="grid grid-cols-4 gap-2">
       <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">similarity</div><div class="text-lg font-medium text-purple-400">${simVal.toFixed(1)}%</div></div>
@@ -722,8 +722,8 @@ function renderSimilarityChips(config) {
         const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
         return `
     <button class="text-xs px-3 py-1.5 rounded-lg text-left w-full cursor-pointer
-                   bg-purple-900/40 text-purple-300 border border-purple-700
-                   hover:bg-purple-800/60 transition-colors"
+ bg-purple-900/40 text-purple-300 border border-purple-700
+ hover:bg-purple-800/60 transition-colors"
             data-index="${i}">
       ${_escHtml(m.title)}
       <span class="ml-2 text-gray-400">· ${simVal.toFixed(1)}%</span>
@@ -901,8 +901,8 @@ async function validateRule() {
         <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 dark:text-gray-300">Validating rule with workflow Sigma agent (LLM + pySIGMA)...</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take up to 3 attempts</p>
+                <p style="color: var(--text-secondary);">Validating rule with workflow Sigma agent (LLM + pySIGMA)...</p>
+                <p class="text-sm mt-2" style="color: var(--text-muted-slate);">This may take up to 3 attempts</p>
             </div>
         </div>
     `;
@@ -936,7 +936,7 @@ async function validateRule() {
         
         if (!response.ok) {
             // Server error (e.g. 400 no workflow config, 404, 500)
-            resultContainer.className += ' bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700';
+            resultContainer.className += ' bg-red-50 border-red-200';
             const msg = data.detail || data.message || `Request failed (${response.status})`;
             resultContainer.innerHTML = `
                 <div class="flex items-start">
@@ -946,14 +946,14 @@ async function validateRule() {
                         </svg>
                     </div>
                     <div class="ml-3 flex-1">
-                        <h4 class="text-sm font-medium text-red-800 dark:text-red-200">Validation request failed</h4>
-                        <p class="mt-1 text-sm text-red-700 dark:text-red-300">${escapeHtml(typeof msg === 'string' ? msg : JSON.stringify(msg))}</p>
+                        <h4 class="text-sm font-medium text-red-800">Validation request failed</h4>
+                        <p class="mt-1 text-sm text-red-700">${escapeHtml(typeof msg === 'string' ? msg : JSON.stringify(msg))}</p>
                     </div>
                 </div>
             `;
         } else if (data.success) {
             // Validation succeeded
-            resultContainer.className += ' bg-green-50 dark:bg-green-900 border-green-200 dark:border-green-700';
+            resultContainer.className += ' bg-green-50 border-green-200';
             resultContainer.innerHTML = `
                 <div class="flex items-start">
                     <div class="flex-shrink-0">
@@ -965,7 +965,7 @@ async function validateRule() {
                         <h4 class="text-sm font-medium text-emerald-400">
                             ✓ Validation Successful
                         </h4>
-                        <p class="mt-1 text-sm text-green-700 dark:text-green-300">
+                        <p class="mt-1 text-sm text-green-700">
                             Rule validated successfully after ${data.attempts} attempt(s). The validated rule has been enriched and passed pySIGMA validation.
                         </p>
                         <div class="mt-3">
@@ -981,10 +981,10 @@ async function validateRule() {
             window.validatedYaml = data.validated_yaml;
         } else {
             // Validation failed
-            resultContainer.className += ' bg-red-50 dark:bg-red-900 border-red-200 dark:border-red-700';
+            resultContainer.className += ' bg-red-50 border-red-200';
             const errorsHtml = data.errors && data.errors.length > 0 
-                ? `<ul class="mt-2 list-disc list-inside text-sm text-red-700 dark:text-red-300">${data.errors.map(err => `<li>${escapeHtml(err)}</li>`).join('')}</ul>`
-                : '<p class="mt-2 text-sm text-red-700 dark:text-red-300">Validation failed after 3 attempts.</p>';
+                ? `<ul class="mt-2 list-disc list-inside text-sm text-red-700">${data.errors.map(err => `<li>${escapeHtml(err)}</li>`).join('')}</ul>`
+                : '<p class="mt-2 text-sm text-red-700">Validation failed after 3 attempts.</p>';
             
             resultContainer.innerHTML = `
                 <div class="flex items-start">
@@ -994,16 +994,16 @@ async function validateRule() {
                         </svg>
                     </div>
                     <div class="ml-3 flex-1">
-                        <h4 class="text-sm font-medium text-red-800 dark:text-red-200">
+                        <h4 class="text-sm font-medium text-red-800">
                             ✗ Validation Failed
                         </h4>
-                        <p class="mt-1 text-sm text-red-700 dark:text-red-300">
+                        <p class="mt-1 text-sm text-red-700">
                             ${data.message || 'Validation failed after 3 attempts'}
                         </p>
                         ${errorsHtml}
                         ${data.validated_yaml ? `
                             <div class="mt-3">
-                                <p class="text-sm text-red-700 dark:text-red-300 mb-2">Last attempt's rule:</p>
+                                <p class="text-sm text-red-700 mb-2">Last attempt's rule:</p>
                                 <pre class="text-xs bg-panel-0 border border-red-500/30 p-2 rounded-lg overflow-x-auto max-h-48 overflow-y-auto text-gray-300">${escapeHtml(data.validated_yaml)}</pre>
                             </div>
                         ` : ''}
@@ -1703,8 +1703,8 @@ async function checkSimilarRulesForQueue() {
         <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 dark:text-gray-300">Searching for similar rules across indexed repositories...</p>
-                <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">This may take 20-30 seconds</p>
+                <p style="color: var(--text-secondary);">Searching for similar rules across indexed repositories...</p>
+                <p class="text-sm mt-2" style="color: var(--text-muted-slate);">This may take 20-30 seconds</p>
             </div>
         </div>
     `;
@@ -1964,10 +1964,10 @@ function _similarityCandidateFilterHint(config) {
     const cc = config?.canonical_class;
     const lk = config?.logsource_key;
     if (cc && cc !== '—') {
-        return ` <span class="text-gray-500 dark:text-gray-500">(canonical class: ${escapeHtml(cc)})</span>`;
+        return ` <span class="text-gray-500">(canonical class: ${escapeHtml(cc)})</span>`;
     }
     if (lk && lk !== '|') {
-        return ` <span class="text-gray-500 dark:text-gray-500">(logsource: ${escapeHtml(lk)})</span>`;
+        return ` <span class="text-gray-500">(logsource: ${escapeHtml(lk)})</span>`;
     }
     return '';
 }
@@ -2020,10 +2020,10 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
             : 'No indexed rules share detection logic with this rule.';
         matchesHtml = `
             <div class="text-center py-8">
-                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
-                <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">${emptyTitle}</p>
-                ${hasMetadata ? `<p class="text-sm text-gray-600 dark:text-gray-400 mb-2">${totalCandidatesEvaluated.toLocaleString()} candidates evaluated${filterHintHtml}</p>` : ''}
-                <p class="text-gray-600 dark:text-gray-400">${emptySubtitle}</p>
+                <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 text-slate-700 mb-4">Deterministic Semantic Engine</span>
+                <p class="text-lg font-semibold mb-2" style="color: var(--text-primary);">${emptyTitle}</p>
+                ${hasMetadata ? `<p class="text-sm mb-2" style="color: var(--text-muted-slate);">${totalCandidatesEvaluated.toLocaleString()} candidates evaluated${filterHintHtml}</p>` : ''}
+                <p style="color: var(--text-muted-slate);">${emptySubtitle}</p>
             </div>
         `;
     } else {

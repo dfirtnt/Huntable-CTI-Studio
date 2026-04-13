@@ -4,15 +4,29 @@
 
 {% block content %}
 <div class="container mx-auto px-4 py-8">
+    <!-- Breadcrumb -->
+    <nav class="flex mb-4" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="/evaluations" style="color: var(--text-secondary);" class="inline-flex items-center text-sm font-medium hover:underline">Evaluations</a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <svg class="w-4 h-4 mx-1" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path></svg>
+                    <span class="text-sm font-medium" style="color: var(--text-muted-slate);">Comparison</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
     <!-- Header -->
     <div class="mb-8">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Evaluation Comparison</h1>
-                <p class="text-gray-600 dark:text-gray-400">Compare baseline vs current evaluation</p>
+                <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">Evaluation Comparison</h1>
+                <p style="color: var(--text-muted-slate);">Compare baseline vs current evaluation</p>
             </div>
-            <a href="/evaluations" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
-                ← Back to Evaluations
+            <a href="/evaluations" class="btn-workflow px-4 py-2 text-white rounded-md transition-colors">
+                Back to Evaluations
             </a>
         </div>
     </div>
@@ -21,38 +35,38 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <!-- Baseline -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Baseline</h2>
+ <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Baseline</h2>
             <div class="space-y-2">
                 <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
-                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.baseline.evaluation_type }}</div>
+ <div class="text-sm" style="color: var(--text-muted-slate);">Type</div>
+ <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ comparison.baseline.evaluation_type }}</div>
                 </div>
                 <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
-                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.baseline.model_version or 'N/A' }}</div>
+ <div class="text-sm" style="color: var(--text-muted-slate);">Model</div>
+ <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ comparison.baseline.model_version or 'N/A' }}</div>
                 </div>
                 <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Date</div>
-                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.baseline.created_at[:10] if comparison.baseline.created_at else 'N/A' }}</div>
+ <div class="text-sm" style="color: var(--text-muted-slate);">Date</div>
+ <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ comparison.baseline.created_at[:10] if comparison.baseline.created_at else 'N/A' }}</div>
                 </div>
             </div>
         </div>
 
         <!-- Current -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-            <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Current</h2>
+ <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Current</h2>
             <div class="space-y-2">
                 <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
-                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.current.evaluation_type }}</div>
+ <div class="text-sm" style="color: var(--text-muted-slate);">Type</div>
+ <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ comparison.current.evaluation_type }}</div>
                 </div>
                 <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Model</div>
-                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.current.model_version or 'N/A' }}</div>
+ <div class="text-sm" style="color: var(--text-muted-slate);">Model</div>
+ <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ comparison.current.model_version or 'N/A' }}</div>
                 </div>
                 <div>
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Date</div>
-                    <div class="text-lg font-semibold text-gray-900 dark:text-white">{{ comparison.current.created_at[:10] if comparison.current.created_at else 'N/A' }}</div>
+ <div class="text-sm" style="color: var(--text-muted-slate);">Date</div>
+ <div class="text-lg font-semibold" style="color: var(--text-primary);">{{ comparison.current.created_at[:10] if comparison.current.created_at else 'N/A' }}</div>
                 </div>
             </div>
         </div>
@@ -60,27 +74,27 @@
 
     <!-- Improvements -->
     {% if comparison.comparison.improvements %}
-    <div class="bg-green-50 dark:bg-green-900 rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">✅ Improvements</h2>
+ <div class="rounded-lg shadow-lg p-6 mb-8" style="background-color: rgba(34,197,94,0.15);">
+ <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">✅ Improvements</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full">
                 <thead>
-                    <tr class="border-b border-green-200 dark:border-green-700">
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Metric</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Baseline</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Current</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Change</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">% Change</th>
+ <tr class="border-b" style="border-color: rgba(34,197,94,0.3);">
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Metric</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Baseline</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Current</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Change</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">% Change</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for metric, data in comparison.comparison.improvements.items() %}
-                    <tr class="border-b border-green-100 dark:border-green-800">
-                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ metric }}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.baseline) }}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.current) }}</td>
-                        <td class="px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400">+{{ "%.3f"|format(data.diff) }}</td>
-                        <td class="px-4 py-2 text-sm font-semibold text-green-600 dark:text-green-400">+{{ "%.1f"|format(data.pct_change) }}%</td>
+ <tr class="border-b" style="border-color: rgba(34,197,94,0.2);">
+ <td class="px-4 py-2 text-sm" style="color: var(--text-primary);">{{ metric }}</td>
+ <td class="px-4 py-2 text-sm" style="color: var(--text-muted-slate);">{{"%.3f"|format(data.baseline) }}</td>
+ <td class="px-4 py-2 text-sm" style="color: var(--text-muted-slate);">{{"%.3f"|format(data.current) }}</td>
+ <td class="px-4 py-2 text-sm font-semibold" style="color: var(--action-execute);">+{{"%.3f"|format(data.diff) }}</td>
+ <td class="px-4 py-2 text-sm font-semibold" style="color: var(--action-execute);">+{{"%.1f"|format(data.pct_change) }}%</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -91,27 +105,27 @@
 
     <!-- Degradations -->
     {% if comparison.comparison.degradations %}
-    <div class="bg-red-50 dark:bg-red-900 rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">⚠️ Degradations</h2>
+ <div class="rounded-lg shadow-lg p-6 mb-8" style="background-color: rgba(220,38,38,0.15);">
+ <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">⚠️ Degradations</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full">
                 <thead>
-                    <tr class="border-b border-red-200 dark:border-red-700">
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Metric</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Baseline</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Current</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Change</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">% Change</th>
+ <tr class="border-b" style="border-color: rgba(220,38,38,0.3);">
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Metric</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Baseline</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Current</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Change</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">% Change</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for metric, data in comparison.comparison.degradations.items() %}
-                    <tr class="border-b border-red-100 dark:border-red-800">
-                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ metric }}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.baseline) }}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.current) }}</td>
-                        <td class="px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400">{{ "%.3f"|format(data.diff) }}</td>
-                        <td class="px-4 py-2 text-sm font-semibold text-red-600 dark:text-red-400">{{ "%.1f"|format(data.pct_change) }}%</td>
+ <tr class="border-b" style="border-color: rgba(220,38,38,0.2);">
+ <td class="px-4 py-2 text-sm" style="color: var(--text-primary);">{{ metric }}</td>
+ <td class="px-4 py-2 text-sm" style="color: var(--text-muted-slate);">{{"%.3f"|format(data.baseline) }}</td>
+ <td class="px-4 py-2 text-sm" style="color: var(--text-muted-slate);">{{"%.3f"|format(data.current) }}</td>
+ <td class="px-4 py-2 text-sm font-semibold" style="color: var(--action-danger);">{{"%.3f"|format(data.diff) }}</td>
+ <td class="px-4 py-2 text-sm font-semibold" style="color: var(--action-danger);">{{"%.1f"|format(data.pct_change) }}%</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -122,21 +136,21 @@
 
     <!-- Unchanged -->
     {% if comparison.comparison.unchanged %}
-    <div class="bg-gray-50 dark:bg-gray-800 rounded-lg shadow-lg p-6">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">➡️ Unchanged</h2>
+ <div class="rounded-lg shadow-lg p-6" style="background-color: var(--mlops-card-bg);">
+ <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">➡️ Unchanged</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full">
                 <thead>
-                    <tr class="border-b border-gray-200 dark:border-gray-700">
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Metric</th>
-                        <th class="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Value</th>
+ <tr class="border-b" style="border-color: var(--mlops-card-border);">
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Metric</th>
+ <th class="px-4 py-2 text-left text-sm font-medium" style="color: var(--text-secondary);">Value</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for metric, data in comparison.comparison.unchanged.items() %}
-                    <tr class="border-b border-gray-100 dark:border-gray-700">
-                        <td class="px-4 py-2 text-sm text-gray-900 dark:text-white">{{ metric }}</td>
-                        <td class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{{ "%.3f"|format(data.current) }}</td>
+ <tr class="border-b" style="border-color: var(--mlops-card-border);">
+ <td class="px-4 py-2 text-sm" style="color: var(--text-primary);">{{ metric }}</td>
+ <td class="px-4 py-2 text-sm" style="color: var(--text-muted-slate);">{{"%.3f"|format(data.current) }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

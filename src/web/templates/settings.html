@@ -63,7 +63,7 @@
             </li>
             <li aria-current="page">
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
                     <span class="ml-1 text-sm font-medium" style="color:var(--text-secondary);">Settings</span>
@@ -86,16 +86,16 @@
         <div class="settings-card acc-doc">
             <div id="documentation-header" data-collapsible-panel="documentation" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold settings-section-header">📚 Documentation</h2>
-                <span id="documentation-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <span id="documentation-toggle" class="transform transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
                 </span>
             </div>
             <div id="documentation-content" class="space-y-4 hidden">
-                <p class="text-sm text-gray-600 dark:text-gray-400">Open the MkDocs documentation site. If the page does not load, run MkDocs in the background from the project root:</p>
+                <p class="text-sm" style="color: var(--text-muted-slate);">Open the MkDocs documentation site. If the page does not load, run MkDocs in the background from the project root:</p>
                 <pre class="text-sm bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto"><code>nohup .venv/bin/python3 -m mkdocs serve -a 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &lt;/dev/null &amp;</code></pre>
-                <p class="text-xs text-gray-500 dark:text-gray-400">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
+                <p class="text-xs" style="color: var(--text-muted-slate);">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
                 <a id="launchMkdocsBtn"
                    href="http://127.0.0.1:8000"
                    target="_blank"
@@ -113,7 +113,7 @@
         <div class="settings-card acc-backup">
             <div id="backupConfig-header" data-collapsible-panel="backupConfig" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold settings-section-header">💾 Backup Configuration</h2>
-                <span id="backupConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <span id="backupConfig-toggle" class="transform transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -123,37 +123,37 @@
             <div id="backupConfig-content" class="space-y-6 hidden">
                 <!-- Backup Schedule -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🕐 Schedule</h3>
+                    <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">🕐 Schedule</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="backupTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="backupTime" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Daily Backup Time
                             </label>
                             <input type="time" 
                                    id="backupTime" 
                                    value="02:00"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for daily automated backups</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Time for daily automated backups</p>
                         </div>
                         <div>
-                            <label for="cleanupTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="cleanupTime" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Weekly Cleanup Time
                             </label>
                             <input type="time" 
                                    id="cleanupTime" 
                                    value="03:00"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Time for weekly cleanup (Sundays)</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Time for weekly cleanup (Sundays)</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Retention Policy -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📊 Retention Policy</h3>
+                    <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">📊 Retention Policy</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <div>
-                            <label for="dailyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="dailyRetention" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Daily Backups
                             </label>
                             <input type="number" 
@@ -162,10 +162,10 @@
                                    min="0" 
                                    max="30"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N daily backups</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Keep last N daily backups</p>
                         </div>
                         <div>
-                            <label for="weeklyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="weeklyRetention" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Weekly Backups
                             </label>
                             <input type="number" 
@@ -174,10 +174,10 @@
                                    min="0" 
                                    max="12"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N weekly backups</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Keep last N weekly backups</p>
                         </div>
                         <div>
-                            <label for="monthlyRetention" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="monthlyRetention" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Monthly Backups
                             </label>
                             <input type="number" 
@@ -186,10 +186,10 @@
                                    min="0" 
                                    max="12"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Keep last N monthly backups</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Keep last N monthly backups</p>
                         </div>
                         <div>
-                            <label for="maxSizeGb" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="maxSizeGb" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Max Size (GB)
                             </label>
                             <input type="number" 
@@ -199,21 +199,21 @@
                                    max="1000"
                                    step="1"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Maximum total backup size</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Maximum total backup size</p>
                         </div>
                     </div>
                 </div>
 
                 <!-- Backup Components -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🧩 Backup Components</h3>
+                    <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">🧩 Backup Components</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div class="flex items-center">
                             <input type="checkbox" 
                                    id="backupDatabase" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupDatabase" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="backupDatabase" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Database
                             </label>
                         </div>
@@ -222,7 +222,7 @@
                                    id="backupModels" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupModels" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="backupModels" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 ML Models
                             </label>
                         </div>
@@ -231,7 +231,7 @@
                                    id="backupConfig" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupConfig" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="backupConfig" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Configuration
                             </label>
                         </div>
@@ -240,7 +240,7 @@
                                    id="backupOutputs" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupOutputs" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="backupOutputs" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Training Data
                             </label>
                         </div>
@@ -249,7 +249,7 @@
                                    id="backupLogs" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupLogs" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="backupLogs" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Logs
                             </label>
                         </div>
@@ -258,7 +258,7 @@
                                    id="backupDockerVolumes" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="backupDockerVolumes" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="backupDockerVolumes" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Docker Volumes
                             </label>
                         </div>
@@ -267,20 +267,20 @@
 
                 <!-- Backup Settings -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">⚙️ Backup Settings</h3>
+                    <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">⚙️ Backup Settings</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="backupDirectory" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="backupDirectory" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Backup Directory
                             </label>
                             <input type="text" 
                                    id="backupDirectory" 
                                    value="backups"
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Directory to store backups</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Directory to store backups</p>
                         </div>
                         <div>
-                            <label for="backupType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="backupType" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Backup Type
                             </label>
                             <select id="backupType" 
@@ -289,7 +289,7 @@
                                 <option value="database">Database Only</option>
                                 <option value="files">Files Only</option>
                             </select>
-                            <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Type of backup to create</p>
+                            <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Type of backup to create</p>
                         </div>
                     </div>
                     <div class="mt-4 space-y-3">
@@ -298,7 +298,7 @@
                                    id="enableCompression" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="enableCompression" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="enableCompression" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Enable Compression
                             </label>
                         </div>
@@ -307,7 +307,7 @@
                                    id="enableVerification" 
                                    checked
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="enableVerification" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="enableVerification" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Enable Verification
                             </label>
                         </div>
@@ -316,7 +316,7 @@
 
                 <!-- Backup Actions -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">🚀 Backup Actions</h3>
+                    <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">🚀 Backup Actions</h3>
                     <div class="flex flex-wrap gap-3">
                         <button id="createBackupBtn" class="settings-btn-primary">Create Backup Now</button>
                         <button id="listBackupsBtn" class="settings-btn-secondary">List Backups</button>
@@ -327,9 +327,9 @@
 
                 <!-- Restore from backup file -->
                 <div>
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📁 Restore from Backup File</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Upload a backup file (.sql or .sql.gz) to restore the database.</p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">Pick the <strong class="text-gray-700 dark:text-gray-300">main database dump</strong> (e.g. <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">cti_scraper_backup_YYYYMMDD_HHMMSS.sql.gz</code>, usually the largest .sql.gz file). Do not use the small <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">postgres_data_*.tar.gz</code> or <code class="text-xs bg-gray-200 dark:bg-gray-600 px-1 rounded">redis_data_*.tar.gz</code> files.</p>
+                    <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">📁 Restore from Backup File</h3>
+                    <p class="text-sm mb-3" style="color: var(--text-muted-slate);">Upload a backup file (.sql or .sql.gz) to restore the database.</p>
+                    <p class="text-sm mb-3" style="color: var(--text-muted-slate);">Pick the <strong style="color: var(--text-secondary);">main database dump</strong> (e.g. <code class="text-xs bg-gray-200 px-1 rounded">cti_scraper_backup_YYYYMMDD_HHMMSS.sql.gz</code>, usually the largest .sql.gz file). Do not use the small <code class="text-xs bg-gray-200 px-1 rounded">postgres_data_*.tar.gz</code> or <code class="text-xs bg-gray-200 px-1 rounded">redis_data_*.tar.gz</code> files.</p>
                     <div class="flex flex-wrap items-center gap-3">
                         <input type="file"
                                id="restoreBackupFileInput"
@@ -367,8 +367,8 @@
 
                  <!-- Data Export -->
                  <div>
-                     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3">📤 Data Export</h3>
-                     <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Download all text classifications (huntable/not huntable) as a CSV file</p>
+                     <h3 class="text-lg font-medium mb-3" style="color: var(--text-primary);">📤 Data Export</h3>
+                     <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Download all text classifications (huntable/not huntable) as a CSV file</p>
 
                      <button id="exportAnnotationsBtn" class="settings-btn-primary">
                          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -391,7 +391,7 @@
         <div class="settings-card acc-jobs">
             <div id="scheduledJobs-header" data-collapsible-panel="scheduledJobs" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold settings-section-header">🗓️ Scheduled Jobs</h2>
-                <span id="scheduledJobs-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <span id="scheduledJobs-toggle" class="transform transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -401,10 +401,10 @@
             <div id="scheduledJobs-content" class="space-y-6 hidden">
                 <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                     <div>
-                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                        <p class="text-sm" style="color: var(--text-muted-slate);">
                             Configure the non-source Celery schedules documented for this app. Source checks stay in their existing UI.
                         </p>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        <p class="text-xs mt-2" style="color: var(--text-muted-slate);">
                             These schedules run in <span id="scheduledJobsTimezoneLabel">UTC</span>. Saving reloads the scheduler container so changes take effect immediately.
                         </p>
                     </div>
@@ -430,7 +430,7 @@
                 </div>
 
                 <div id="scheduledJobsList" class="space-y-4">
-                    <div class="text-sm text-gray-500 dark:text-gray-400">Loading scheduled jobs...</div>
+                    <div class="text-sm" style="color: var(--text-muted-slate);">Loading scheduled jobs...</div>
                 </div>
             </div>
         </div>
@@ -439,7 +439,7 @@
         <div class="settings-card acc-workflow">
             <div data-collapsible-panel="agenticWorkflowConfig" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold settings-section-header">🤖 Agentic Workflow Configuration</h2>
-                <span id="agenticWorkflowConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <span id="agenticWorkflowConfig-toggle" class="transform transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -449,10 +449,10 @@
             <div id="agenticWorkflowConfig-content" class="space-y-4 hidden">
                 <!-- Model Provider Selection -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    <label class="block text-sm font-medium mb-3" style="color: var(--text-secondary);">
                         Model Providers
                     </label>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Select one or more AI providers for agentic workflows</p>
+                    <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Select one or more AI providers for agentic workflows</p>
 
                     <div class="space-y-3">
                         <!-- OpenAI Provider -->
@@ -460,7 +460,7 @@
                             <input type="checkbox"
                                    id="workflowOpenaiEnabled"
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="workflowOpenaiEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="workflowOpenaiEnabled" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 OpenAI
                             </label>
                         </div>
@@ -470,7 +470,7 @@
                             <input type="checkbox"
                                    id="workflowAnthropicEnabled"
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="workflowAnthropicEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="workflowAnthropicEnabled" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 Anthropic
                             </label>
                         </div>
@@ -480,7 +480,7 @@
                             <input type="checkbox"
                                    id="workflowLmstudioEnabled"
                                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                            <label for="workflowLmstudioEnabled" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label for="workflowLmstudioEnabled" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                                 LMStudio (Local)
                             </label>
                         </div>
@@ -490,10 +490,10 @@
                 <!-- OpenAI API Key Section -->
                 <div id="workflowOpenaiApiKeySection" style="display: none;">
                     <div class="flex items-center gap-2 mb-2">
-                        <label for="workflowOpenaiApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label for="workflowOpenaiApiKey" class="text-sm font-medium" style="color: var(--text-secondary);">
                             OpenAI API Key
                         </label>
-                        <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
+                        <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </span>
                     </div>
@@ -512,7 +512,7 @@
                         </button>
                     </div>
                     <div class="flex items-center justify-between mt-2">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Required for OpenAI-powered agentic workflows</p>
+                        <p class="text-sm" style="color: var(--text-muted-slate);">Required for OpenAI-powered agentic workflows</p>
                         <button id="testWorkflowOpenaiApiKey"
                                 class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             Test
@@ -524,10 +524,10 @@
                 <!-- Anthropic API Key Section -->
                 <div id="workflowAnthropicApiKeySection" style="display: none;">
                     <div class="flex items-center gap-2 mb-2">
-                        <label for="workflowAnthropicApiKey" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <label for="workflowAnthropicApiKey" class="text-sm font-medium" style="color: var(--text-secondary);">
                             Anthropic API Key
                         </label>
-                        <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
+                        <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 cursor-help" role="img" aria-label="Help" title="If you set an API key during setup, it is already in use—no need to enter it here. Add or change a key in this field to override; the value you save here takes precedence.">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                         </span>
                     </div>
@@ -546,7 +546,7 @@
                         </button>
                     </div>
                     <div class="flex items-center justify-between mt-2">
-                        <p class="text-sm text-gray-500 dark:text-gray-400">Required for Anthropic-powered agentic workflows</p>
+                        <p class="text-sm" style="color: var(--text-muted-slate);">Required for Anthropic-powered agentic workflows</p>
                         <button id="testWorkflowAnthropicApiKey"
                                 class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                             Test
@@ -557,28 +557,28 @@
 
                  <!-- LMStudio API Key Section -->
                  <div id="workflowLmstudioApiKeySection" style="display: none;">
-                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                     <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                          LM Studio Configuration
                      </label>
-                     <p class="text-sm text-gray-500 dark:text-gray-400 mb-3">LM Studio runs locally and doesn't require API keys. Set the server URL if it's not on the default host/port (e.g. different IP).</p>
+                     <p class="text-sm mb-3" style="color: var(--text-muted-slate);">LM Studio runs locally and doesn't require API keys. Set the server URL if it's not on the default host/port (e.g. different IP).</p>
                      <div class="mb-4">
-                         <label for="lmstudioApiUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio server URL (base)</label>
+                         <label for="lmstudioApiUrl" class="block text-sm font-medium mb-1" style="color: var(--text-muted-slate);">LM Studio server URL (base)</label>
                          <input type="text"
                                 id="lmstudioApiUrl"
                                 placeholder="http://localhost:1234/v1 or http://192.168.1.65:1234/v1"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
+                         <p class="text-xs mt-1" style="color: var(--text-muted-slate);">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
                      </div>
                      <div class="mb-4">
-                         <label for="lmstudioEmbeddingUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio embedding URL</label>
+                         <label for="lmstudioEmbeddingUrl" class="block text-sm font-medium mb-1" style="color: var(--text-muted-slate);">LM Studio embedding URL</label>
                          <input type="text"
                                 id="lmstudioEmbeddingUrl"
                                 placeholder="http://localhost:1234/v1/embeddings or http://192.168.1.65:1234/v1/embeddings"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for Sigma rule embeddings (e.g. sigma index). Leave blank for default.</p>
+                         <p class="text-xs mt-1" style="color: var(--text-muted-slate);">Used for Sigma rule embeddings (e.g. sigma index). Leave blank for default.</p>
                      </div>
                      <div class="flex items-center justify-between">
-                         <p class="text-sm text-gray-500 dark:text-gray-400">Test connection to local LM Studio server</p>
+                         <p class="text-sm" style="color: var(--text-muted-slate);">Test connection to local LM Studio server</p>
                          <button id="testWorkflowLmstudioApiKey"
                                  class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                              Get Models
@@ -588,12 +588,12 @@
                  </div>
 
                  <!-- Langfuse Configuration -->
-                 <div id="langfuseApiKeySection" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Langfuse Configuration</h3>
+                 <div id="langfuseApiKeySection" class="mt-6 pt-6 border-t" style="border-color: var(--mlops-card-border);">
+                     <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Langfuse Configuration</h3>
                      <form onsubmit="event.preventDefault(); return false;">
                      <!-- Langfuse Public Key -->
                      <div class="mb-4">
-                         <label for="langfusePublicKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                         <label for="langfusePublicKey" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                              Langfuse Public Key
                          </label>
                          <div class="relative">
@@ -603,19 +603,19 @@
                                     class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                              <button type="button"
                                      id="toggleLangfusePublicKey"
-                                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                                  </svg>
                              </button>
                          </div>
-                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Required for Langfuse observability and tracing</p>
+                         <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Required for Langfuse observability and tracing</p>
                      </div>
 
                      <!-- Langfuse Secret Key -->
                      <div class="mb-4">
-                         <label for="langfuseSecretKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                         <label for="langfuseSecretKey" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                              Langfuse Secret Key
                          </label>
                          <div class="relative">
@@ -625,7 +625,7 @@
                                     class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 pr-10 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                              <button type="button"
                                      id="toggleLangfuseSecretKey"
-                                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                     class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                                  <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
@@ -636,30 +636,30 @@
 
                      <!-- Langfuse Host -->
                      <div class="mb-4">
-                         <label for="langfuseHost" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                         <label for="langfuseHost" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                              Langfuse Host URL
                          </label>
                          <input type="text"
                                 id="langfuseHost"
                                 placeholder="https://cloud.langfuse.com"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Defaults to https://cloud.langfuse.com</p>
+                         <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Optional: Defaults to https://cloud.langfuse.com</p>
                      </div>
 
                      <!-- Langfuse Project ID -->
                      <div class="mb-4">
-                         <label for="langfuseProjectId" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                         <label for="langfuseProjectId" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                              Langfuse Project ID
                          </label>
                          <input type="text"
                                 id="langfuseProjectId"
                                 placeholder="your-project-id"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Optional: Found in your Langfuse URL (e.g., https://us.cloud.langfuse.com/project/{project_id}/traces)</p>
+                         <p class="text-sm mt-1" style="color: var(--text-muted-slate);">Optional: Found in your Langfuse URL (e.g., https://us.cloud.langfuse.com/project/{project_id}/traces)</p>
                      </div>
 
                      <!-- Langfuse Test Button -->
-                     <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                     <div class="mt-6 pt-6 border-t" style="border-color: var(--mlops-card-border);">
                          <button type="button" id="testLangfuseConnection" class="settings-btn-secondary">
                              🧪 Test Langfuse Connection
                          </button>
@@ -669,14 +669,14 @@
                   </div>
 
                   <!-- Auto-Processing Thresholds -->
-                  <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">⚡ Auto-Processing Thresholds</h3>
-                      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  <div class="mt-6 pt-6 border-t" style="border-color: var(--mlops-card-border);">
+                      <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">⚡ Auto-Processing Thresholds</h3>
+                      <p class="text-sm mb-4" style="color: var(--text-muted-slate);">
                           Control which articles are automatically processed by the agentic workflow.
                       </p>
                       
                       <div>
-                          <label for="autoTriggerHuntScoreThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <label for="autoTriggerHuntScoreThreshold" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                               Auto-Trigger Hunt Score Threshold
                           </label>
                           <div class="flex items-center gap-4">
@@ -687,11 +687,11 @@
                                      max="100" 
                                      step="1"
                                      class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                              <span class="text-sm text-gray-500 dark:text-gray-400">
+                              <span class="text-sm" style="color: var(--text-muted-slate);">
                                   (0-100, default: 60.0)
                               </span>
                           </div>
-                          <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                          <p class="text-sm mt-2" style="color: var(--text-muted-slate);">
                               Articles with a hunt score at or above this threshold will be automatically processed. 
                               Set to 0 to disable auto-processing, or 100 to require maximum confidence.
                           </p>
@@ -705,7 +705,7 @@
         <div class="settings-card acc-healing">
             <div data-collapsible-panel="sourceHealing" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold settings-section-header">🩹 Source Auto-Healing</h2>
-                <span id="sourceHealing-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <span id="sourceHealing-toggle" class="transform transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -713,7 +713,7 @@
             </div>
 
             <div id="sourceHealing-content" class="space-y-4 hidden">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                <p class="text-sm mb-4" style="color: var(--text-muted-slate);">
                     When enabled, an AI agent autonomously diagnoses and repairs sources that exceed the
                     consecutive failure threshold. The agent probes source URLs, analyzes error history,
                     and may update the source's URL, RSS feed, scraping method, or active status.
@@ -723,62 +723,62 @@
                 <div class="flex items-center gap-3">
                     <input type="checkbox" id="sourceHealingEnabled"
                            class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="sourceHealingEnabled" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label for="sourceHealingEnabled" class="text-sm font-medium" style="color: var(--text-secondary);">
                         Enable Source Auto-Healing
                     </label>
                 </div>
 
                 <!-- Check interval -->
                 <div>
-                    <label for="sourceHealingCheckInterval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="sourceHealingCheckInterval" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         Check Interval (hours)
                     </label>
                     <div class="flex items-center gap-4">
                         <input type="number" id="sourceHealingCheckInterval"
                                min="1" max="168" step="1" value="1"
                                class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">(1-168, default: 1)</span>
+                        <span class="text-sm" style="color: var(--text-muted-slate);">(1-168, default: 1)</span>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p class="text-sm mt-1" style="color: var(--text-muted-slate);">
                         How often to scan for sources that need healing.
                     </p>
                 </div>
 
                 <!-- Failure threshold -->
                 <div>
-                    <label for="sourceHealingThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="sourceHealingThreshold" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         Failure Threshold
                     </label>
                     <div class="flex items-center gap-4">
                         <input type="number" id="sourceHealingThreshold"
                                min="1" max="10000" step="1" value="100"
                                class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">(1-10000, default: 100)</span>
+                        <span class="text-sm" style="color: var(--text-muted-slate);">(1-10000, default: 100)</span>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p class="text-sm mt-1" style="color: var(--text-muted-slate);">
                         Minimum consecutive failures before a source is eligible for healing.
                     </p>
                 </div>
 
                 <!-- Max healing attempts -->
                 <div>
-                    <label for="sourceHealingMaxAttempts" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="sourceHealingMaxAttempts" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         Max Healing Attempts
                     </label>
                     <div class="flex items-center gap-4">
                         <input type="number" id="sourceHealingMaxAttempts"
                                min="1" max="50" step="1" value="5"
                                class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">(1-50, default: 5)</span>
+                        <span class="text-sm" style="color: var(--text-muted-slate);">(1-50, default: 5)</span>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    <p class="text-sm mt-1" style="color: var(--text-muted-slate);">
                         After this many attempts, the source is flagged on the dashboard as needing user attention.
                     </p>
                 </div>
 
                 <!-- Provider selection -->
                 <div>
-                    <label for="sourcehealing-provider" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="sourcehealing-provider" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         AI Provider
                     </label>
                     <select id="sourcehealing-provider"
@@ -792,7 +792,7 @@
 
                 <!-- Model (conditional per provider, same pattern as workflow agent config) -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
+                    <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">Model</label>
                     <div data-agent-prefix="sourcehealing" data-provider="lmstudio">
                         <select id="sourcehealing-model"
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
@@ -815,8 +815,8 @@
 
                 <!-- Dedicated API key -->
                 <div>
-                    <label for="sourceHealingApiKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        API Key <span class="text-gray-500 dark:text-gray-400 font-normal">(optional override)</span>
+                    <label for="sourceHealingApiKey" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
+                        API Key <span class="font-normal" style="color: var(--text-muted-slate);">(optional override)</span>
                     </label>
                     <input type="password" id="sourceHealingApiKey"
                            placeholder="Leave blank to use the key from Agentic Workflow Configuration"
@@ -824,7 +824,7 @@
                 </div>
 
                 <!-- Save button -->
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div class="mt-4 pt-4 border-t" style="border-color: var(--mlops-card-border);">
                     <button type="button" id="saveSourceHealingBtn" class="settings-btn-primary">
                         Save Auto-Healing Settings
                     </button>
@@ -837,7 +837,7 @@
         <div class="settings-card acc-github">
             <div data-collapsible-panel="githubPRConfig" class="flex items-center justify-between cursor-pointer">
                 <h2 class="text-xl font-semibold settings-section-header">📤 GitHub PR Configuration</h2>
-                <span id="githubPRConfig-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
+                <span id="githubPRConfig-toggle" class="transform transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -845,73 +845,73 @@
             </div>
 
             <div id="githubPRConfig-content" class="space-y-4 hidden">
-                <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <p class="text-sm mb-4" style="color: var(--text-muted-slate);">
                     Configure GitHub authentication and repository settings for submitting approved SIGMA rules as Pull Requests.
                 </p>
                 <form onsubmit="event.preventDefault(); return false;">
                 <!-- GitHub Token -->
                 <div>
-                    <label for="githubToken" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="githubToken" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         GitHub Personal Access Token
                     </label>
                     <div class="relative">
                         <input type="password"
                                id="githubToken"
                                placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
-                               class="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white">
+                               class="w-full px-3 py-2 pr-10 border rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" style="background-color: var(--panel-bg-4); border-color: var(--border-muted);">
                         <button type="button"
                                 id="toggleGithubToken"
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
                             </svg>
                         </button>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Required for creating PRs. Token needs <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">repo</code> scope.
-                        <a href="https://github.com/settings/tokens" target="_blank" class="text-blue-600 dark:text-blue-400 hover:underline">Create token →</a>
+                    <p class="text-sm mt-1" style="color: var(--text-muted-slate);">
+                        Required for creating PRs. Token needs <code class="bg-gray-100 px-1 rounded" style="background-color: var(--panel-bg-4);">repo</code> scope.
+                        <a href="https://github.com/settings/tokens" target="_blank" class="hover:underline" style="color: var(--action-info);">Create token →</a>
                     </p>
                 </div>
 
                 <!-- Repository Path -->
                 <div>
-                    <label for="sigmaRepoPath" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="sigmaRepoPath" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         SIGMA Repository Path
                     </label>
                     <input type="text"
                            id="sigmaRepoPath"
                            placeholder="sigma-repo"
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Path to your SIGMA rules repo (relative to app root). Default <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">sigma-repo</code>. Docker mounts <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">../Huntable-SIGMA-Rules</code> there.
+                    <p class="text-sm mt-1" style="color: var(--text-muted-slate);">
+                        Path to your SIGMA rules repo (relative to app root). Default <code class="bg-gray-100 px-1 rounded" style="background-color: var(--panel-bg-4);">sigma-repo</code>. Docker mounts <code class="bg-gray-100 px-1 rounded">../Huntable-SIGMA-Rules</code> there.
                     </p>
                 </div>
 
                 <!-- GitHub Repository -->
                 <div>
-                    <label for="githubRepo" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label for="githubRepo" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                         GitHub Repository
                     </label>
                     <input type="text"
                            id="githubRepo"
                            placeholder=""
                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Repository in format <code class="bg-gray-100 dark:bg-gray-700 px-1 rounded">owner/repo</code>
+                    <p class="text-sm mt-1" style="color: var(--text-muted-slate);">
+                        Repository in format <code class="bg-gray-100 px-1 rounded" style="background-color: var(--panel-bg-4);">owner/repo</code>
                     </p>
                 </div>
 
                 <!-- Git User Configuration -->
-                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Git Configuration</h3>
-                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <div class="mt-6 pt-6 border-t" style="border-color: var(--mlops-card-border);">
+                    <h3 class="text-lg font-semibold mb-4" style="color: var(--text-primary);">Git Configuration</h3>
+                    <p class="text-sm mb-4" style="color: var(--text-muted-slate);">
                         Git user identity for commits (required for creating PRs)
                     </p>
                     
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label for="gitUserName" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="gitUserName" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Git User Name
                             </label>
                             <input type="text"
@@ -920,7 +920,7 @@
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         </div>
                         <div>
-                            <label for="gitUserEmail" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            <label for="gitUserEmail" class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                                 Git User Email
                             </label>
                             <input type="email"
@@ -929,13 +929,13 @@
                                    class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                         </div>
                     </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    <p class="text-sm mt-2" style="color: var(--text-muted-slate);">
                         Used as commit author when creating PRs. Defaults shown if not set.
                     </p>
                 </div>
 
                 <!-- Test Connection Button -->
-                <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div class="mt-6 pt-6 border-t" style="border-color: var(--mlops-card-border);">
                     <button type="button" id="testGitHubConnection" class="settings-btn-secondary">
                         🧪 Test GitHub Connection
                     </button>
@@ -967,7 +967,7 @@
     <div class="rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" style="background:var(--mlops-card-bg); border:1px solid var(--mlops-card-border);">
         <div class="p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">🔄 Restore from Backup</h3>
+                <h3 class="text-xl font-semibold" style="color: var(--text-primary);">🔄 Restore from Backup</h3>
                 <button id="closeRestoreModal" class="text-gray-400 hover:text-gray-200">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -976,7 +976,7 @@
             </div>
             
             <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">
                     Select Backup to Restore
                 </label>
                 <div id="restoreBackupList" class="space-y-2 max-h-64 overflow-y-auto border border-gray-700 rounded-lg p-3">
@@ -989,11 +989,11 @@
                     <input type="checkbox" 
                            id="restoreForce" 
                            class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
-                    <label for="restoreForce" class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label for="restoreForce" class="ml-2 text-sm font-medium" style="color: var(--text-secondary);">
                         Skip snapshot creation (faster but no rollback option)
                     </label>
                 </div>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-6">
+                <p class="text-xs mt-1 ml-6" style="color: var(--text-muted-slate);">
                     Note: A snapshot allows you to rollback if the restore fails. Skipping it is faster but less safe.
                 </p>
             </div>
@@ -1555,7 +1555,7 @@
         }
 
         if (!jobs.length) {
-            list.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400">No configurable scheduled jobs found.</div>';
+            list.innerHTML = '<div class="text-sm" style="color: var(--text-muted-slate);">No configurable scheduled jobs found.</div>';
             return;
         }
 
@@ -1679,7 +1679,7 @@
         }
 
         if (!state.jobs || state.jobs.length === 0) {
-            jobsList.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400">No cron jobs found.</div>';
+            jobsList.innerHTML = '<div class="text-sm" style="color: var(--text-muted-slate);">No cron jobs found.</div>';
             return;
         }
 
@@ -1927,22 +1927,22 @@
                 });
                 if (response.ok) {
                     statusElement.textContent = '✓ Saved';
-                    statusElement.className = 'text-sm mt-2 text-green-600 dark:text-green-400';
+                    statusElement.className = 'text-sm mt-2';
                     setTimeout(() => {
                         statusElement.textContent = '';
                     }, 3000);
                 } else {
                     const error = await response.json();
                     statusElement.textContent = `Error: ${error.detail || 'Failed to save'}`;
-                    statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+                    statusElement.className = 'text-sm mt-2';
                 }
             } catch (error) {
                 statusElement.textContent = `Error: ${error.message}`;
-                statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+                statusElement.className = 'text-sm mt-2';
             }
         } else {
             statusElement.textContent = 'Error: Threshold must be between 0 and 100';
-            statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+            statusElement.className = 'text-sm mt-2';
         }
 
         try {
@@ -2028,7 +2028,7 @@
         testButton.disabled = true;
         testButton.textContent = '🧪 Testing...';
         statusElement.textContent = '⏳ Testing Langfuse connection...';
-        statusElement.className = 'ml-3 text-sm text-gray-600 dark:text-gray-400';
+        statusElement.className = 'ml-3 text-sm';
         
         try {
             const response = await fetch('/api/test-langfuse-connection', {
@@ -2043,19 +2043,19 @@
                 const result = await response.json();
                 if (result.valid) {
                     statusElement.textContent = `✅ ${result.message}`;
-                    statusElement.className = 'ml-3 text-sm text-green-600 dark:text-green-400';
+                    statusElement.className = 'ml-3 text-sm';
                 } else {
                     statusElement.textContent = `❌ ${result.message}`;
-                    statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                    statusElement.className = 'ml-3 text-sm';
                 }
             } else {
                 const error = await response.json();
                 statusElement.textContent = `❌ ${error.detail || 'Connection test failed'}`;
-                statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+                statusElement.className = 'ml-3 text-sm';
             }
         } catch (error) {
             statusElement.textContent = '❌ Network error - please try again';
-            statusElement.className = 'ml-3 text-sm text-red-600 dark:text-red-400';
+            statusElement.className = 'ml-3 text-sm';
         } finally {
             // Re-enable button
             testButton.disabled = false;
@@ -2739,7 +2739,7 @@
             html += '<div class="space-y-2">';
             backups.forEach(backup => {
                 html += `
-                    <div class="flex justify-between items-center p-2 bg-gray-100 dark:bg-gray-600 rounded">
+                    <div class="flex justify-between items-center p-2 bg-gray-100 rounded">
                         <span class="font-mono text-sm">${backup.name}</span>
                         <span class="text-sm text-gray-500">${backup.size_mb} MB</span>
                     </div>

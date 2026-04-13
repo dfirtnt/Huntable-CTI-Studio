@@ -7,7 +7,7 @@
     <nav class="flex mb-8" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
-                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                <a href="/" class="inline-flex items-center text-sm font-medium hover:underline" style="color: var(--text-secondary);">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
                     </svg>
@@ -16,17 +16,17 @@
             </li>
             <li aria-current="page">
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-4 h-4 mx-1" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Articles</span>
+                    <span class="text-sm font-medium" style="color: var(--text-muted-slate);">Articles</span>
                 </div>
             </li>
         </ol>
     </nav>
     <div class="mb-8">
         <div class="flex items-center justify-between mb-2">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <h1 class="text-3xl font-bold flex items-center gap-3" style="color: var(--text-primary);">
                 <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[63px] h-[63px]" />
                 Threat Intelligence Articles
             </h1>
@@ -37,14 +37,14 @@
             </a>
             {% endif %}
         </div>
-        <p class="text-gray-600 dark:text-gray-400">Browse and search collected threat intelligence articles</p>
+        <p style="color: var(--text-muted-slate);">Browse and search collected threat intelligence articles</p>
     </div>
 
     <!-- Filters & Sorting -->
-    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--color-bg-card);">
-        <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔍 Filters, Search & Sorting</h2>
-            <span id="filters-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--mlops-card-bg);">
+        <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg transition-colors">
+            <h2 class="text-xl font-semibold" style="color: var(--text-primary);">🔍 Filters, Search & Sorting</h2>
+            <span id="filters-toggle" class="transition-transform duration-200" style="color: var(--text-muted-slate);" aria-hidden="true">
                 <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                 </svg>
@@ -57,11 +57,11 @@
             <input type="hidden" name="sort_order" value="{{ filters.sort_order or 'desc' }}">
             
             <!-- Sorting Controls Row -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 pb-4 border-b" style="border-color: var(--mlops-card-border);">
                 <!-- Sort By -->
                 <div>
-                    <label for="sort-by" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sort By</label>
-                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                    <label for="sort-by" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">Sort By</label>
+                    <select name="sort_by" id="sort-by" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                         <option value="discovered_at" {% if filters.sort_by == 'discovered_at' %}selected{% endif %}>Discovery Date</option>
                         <option value="published_at" {% if filters.sort_by == 'published_at' %}selected{% endif %}>Publication Date</option>
                         <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
@@ -76,8 +76,8 @@
                 
                 <!-- Sort Order -->
                 <div>
-                    <label for="sort-order" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Order</label>
-                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                    <label for="sort-order" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">Order</label>
+                    <select name="sort_order" id="sort-order" class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                         <option value="desc" {% if filters.sort_order == 'desc' %}selected{% endif %}>Desc</option>
                         <option value="asc" {% if filters.sort_order == 'asc' %}selected{% endif %}>Asc</option>
                     </select>
@@ -91,12 +91,12 @@
             
             <!-- Search -->
             <div>
-                <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Search</label>
+                <label for="search" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">Search</label>
                 <div class="relative">
                     <input type="text" name="search" id="search" autofocus value="{{ filters.search or '' }}" 
                            placeholder="Search titles, content, or use boolean logic..." 
                            title="{{ filters.search or '' }}"
-                           class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm font-mono" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                           class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-sm font-mono" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                     <button type="submit" class="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
@@ -110,14 +110,14 @@
                     </button>
                 </div>
                 <div class="mt-2">
-                    <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                    <label class="flex items-center text-sm" style="color: var(--text-secondary);">
                         <input type="checkbox" name="title_only" id="title-only" value="1" 
                                {% if filters.title_only %}checked{% endif %}
-                               class="mr-2 h-4 w-4 border-gray-300 rounded" style="accent-color: var(--color-brand);">
+                               class="mr-2 h-4 w-4 border-gray-300 rounded" style="accent-color: var(--purple-primary);">
                         Search titles only
                     </label>
                 </div>
-                <div id="search-help" class="hidden mt-2 p-3 rounded-md text-sm" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-secondary);">
+                <div id="search-help" class="hidden mt-2 p-3 rounded-md text-sm" style="background-color: var(--panel-bg-4); border: 1px solid var(--border-muted); color: var(--text-secondary);">
                     <h4 class="font-medium mb-2">Search Syntax:</h4>
                     <ul class="space-y-1 text-xs">
                         <li>• <strong>Simple terms:</strong> malware, ransomware</li>
@@ -141,26 +141,26 @@
                         <h5 class="font-medium mb-2">🎯 Predefined Intelligence Search Patterns:</h5>
                         <div class="space-y-2 text-xs">
                             <div class="p-2 bg-panel-0 border border-gray-700 rounded">
-                                <div class="font-medium" style="color: var(--color-text-primary);">High-Value Detection Content:</div>
+                                <div class="font-medium" style="color: var(--text-primary);">High-Value Detection Content:</div>
                                 <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">("sigma rule" OR "detection rule") AND ("parentimage" OR "commandline" OR "process chain")</code>
                                 <a href="/articles?search=%28%22sigma%20rule%22%20OR%20%22detection%20rule%22%29%20AND%20%28%22parentimage%22%20OR%20%22commandline%22%20OR%20%22process%20chain%22%29" 
-                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--color-bg-panel); color: var(--color-info);">
+                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--panel-bg-4); color: var(--action-info);">
                                     Use This Search
                                 </a>
                             </div>
                             <div class="p-2 bg-panel-0 border border-gray-700 rounded">
-                                <div class="font-medium" style="color: var(--color-text-primary);">Technical Intelligence:</div>
+                                <div class="font-medium" style="color: var(--text-primary);">Technical Intelligence:</div>
                                 <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">("mitre att&ck" OR "T[0-9]") AND ("registry run" OR "appdata" OR "suspicious path")</code>
                                 <a href="/articles?search=%28%22mitre%20att%26ck%22%20OR%20%22T%5B0-9%5D%22%29%20AND%20%28%22registry%20run%22%20OR%20%22appdata%22%20OR%20%22suspicious%20path%22%29" 
-                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--color-bg-panel); color: var(--color-info);">
+                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--panel-bg-4); color: var(--action-info);">
                                     Use This Search
                                 </a>
                             </div>
                             <div class="p-2 bg-panel-0 border border-gray-700 rounded">
-                                <div class="font-medium" style="color: var(--color-brand);">Actionable Intelligence Content:</div>
+                                <div class="font-medium" style="color: var(--purple-primary);">Actionable Intelligence Content:</div>
                                 <code class="text-xs bg-gray-800 px-1 rounded text-gray-300">("hunting" OR "detection") AND ("powershell" OR "cmd.exe" OR "process spawning")</code>
                                 <a href="/articles?search=%28%22hunting%22%20OR%20%22detection%22%29%20AND%20%28%22powershell%22%20OR%20%22cmd.exe%22%20OR%20%22process%20spawning%22%29" 
-                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--purple-bg-10); color: var(--color-brand);">
+                                   class="ml-2 px-2 py-1 text-xs rounded transition-colors inline-block" style="background-color: var(--purple-bg-10); color: var(--purple-primary);">
                                     Use This Search
                                 </a>
                             </div>
@@ -175,9 +175,9 @@
 
             <!-- Source Filter -->
             <div>
-                <label for="source" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Source</label>
+                <label for="source" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">Source</label>
                 <select name="source" id="source" 
-                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                     <option value="">All Sources</option>
                     {% for source in sources %}
                     <option value="{{ source.id }}" {% if filters.source|string == source.id|string or filters.source_id == source.id %}selected{% endif %}>
@@ -189,9 +189,9 @@
 
             <!-- Per Page -->
             <div>
-                <label for="per_page" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Per Page</label>
+                <label for="per_page" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">Per Page</label>
                 <select name="per_page" id="per_page" 
-                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                     <option value="20" {% if pagination.per_page|string == "20" %}selected{% endif %}>20</option>
                     <option value="50" {% if pagination.per_page|string == "50" %}selected{% endif %}>50</option>
                     <option value="100" {% if pagination.per_page|string == "100" %}selected{% endif %}>100</option>
@@ -200,9 +200,9 @@
 
             <!-- RegexHuntScore Range -->
             <div>
-                <label for="threat_hunting_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">RegexHuntScore</label>
+                <label for="threat_hunting_range" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">RegexHuntScore</label>
                 <select name="threat_hunting_range" id="threat_hunting_range" 
-                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                     <option value="">All Scores</option>
                     <option value="80-100" {% if filters.threat_hunting_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
                     <option value="60-79" {% if filters.threat_hunting_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
@@ -216,9 +216,9 @@
 
             <!-- MLHuntScore Range -->
             <div>
-                <label for="ml_hunt_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">MLHunt Score</label>
+                <label for="ml_hunt_range" class="block text-sm font-medium mb-1" style="color: var(--text-secondary);">MLHunt Score</label>
                 <select name="ml_hunt_range" id="ml_hunt_range" 
-                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
+                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--panel-bg-4); border-color: var(--border-muted); color: var(--text-primary);">
                     <option value="">All Scores</option>
                     <option value="80-100" {% if filters.ml_hunt_range == "80-100" %}selected{% endif %}>🎯 Excellent (80-100)</option>
                     <option value="60-79" {% if filters.ml_hunt_range == "60-79" %}selected{% endif %}>🟡 Good (60-79)</option>
@@ -233,7 +233,7 @@
         </form>
 
         <!-- Save Default Filters Button -->
-        <div class="mt-4 flex items-center justify-between p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
+        <div class="mt-4 flex items-center justify-between p-3 rounded-md" style="background-color: var(--panel-bg-4); border: 1px solid var(--border-muted);">
             <div class="flex items-center space-x-2">
                 <button type="button" onclick="saveDefaultFilters()" 
                         class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors">
@@ -243,13 +243,13 @@
                     Set as Default Filters
                 </button>
                 <button type="button" onclick="clearDefaultFilters()" 
-                        class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border); color: var(--color-text-secondary);">
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--panel-bg-4); border: 1px solid var(--border-muted); color: var(--text-secondary);">
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                     </svg>
                     Clear Defaults
                 </button>
-                <span id="default-filters-indicator" class="hidden text-sm text-success font-medium" style="color: var(--color-success);">
+                <span id="default-filters-indicator" class="hidden text-sm text-success font-medium" style="color: var(--action-execute);">
                     ✓ Default filters active
                 </span>
             </div>
@@ -257,14 +257,14 @@
 
         <!-- Filter Summary -->
         {% if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range %}
-        <div class="mt-4 p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
-            <p class="text-sm" style="color: var(--color-text-secondary);">
+        <div class="mt-4 p-3 rounded-md" style="background-color: var(--panel-bg-4); border: 1px solid var(--border-muted);">
+            <p class="text-sm" style="color: var(--text-secondary);">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
                 {% if filters.threat_hunting_range %}RegexHuntScore: {{ filters.threat_hunting_range }}{% endif %}
                 {% if filters.ml_hunt_range %}MLHunt Score: {{ filters.ml_hunt_range }}{% endif %}
-                <a href="/articles" class="ml-2 underline" style="color: var(--color-info);">Clear all</a>
+                <a href="/articles" class="ml-2 underline" style="color: var(--action-info);">Clear all</a>
             </p>
         </div>
         {% endif %}
@@ -272,16 +272,16 @@
     </div>
 
     <!-- Articles List -->
-    <div class="rounded-lg shadow p-6" style="background-color: var(--color-bg-card);">
+    <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg);">
         <div class="mb-6">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                    <h2 class="text-xl font-semibold" style="color: var(--text-primary);">
                         📰 Articles ({{ pagination.start_idx }}-{{ pagination.end_idx }} of {{ pagination.total_articles }})
                     </h2>
                     {% if articles %}
-                    <label class="flex items-center text-sm text-gray-600 dark:text-gray-300">
-                        <input type="checkbox" 
+                    <label class="flex items-center text-sm" style="color: var(--text-secondary);">
+                        <input type="checkbox"
                                id="select-all-matching" 
                                class="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                                onchange="toggleSelectAllMatching()">
@@ -289,27 +289,27 @@
                     </label>
                     {% endif %}
                 </div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">
+                <div class="text-sm" style="color: var(--text-muted-slate);">
                     Page {{ pagination.page }} of {{ pagination.total_pages }}
                 </div>
             </div>
         </div>
 
         <!-- Bulk Actions Toolbar -->
-        <div id="bulk-actions-toolbar" class="hidden px-6 py-3 border-b" style="background-color: var(--color-bg-panel); border-color: var(--color-border);">
+        <div id="bulk-actions-toolbar" class="hidden px-6 py-3 border-b" style="background-color: var(--panel-bg-4); border-color: var(--border-muted);">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm font-medium" style="color: var(--color-text-primary);">
+                    <span class="text-sm font-medium" style="color: var(--text-primary);">
                         <span id="selected-count">0</span> articles selected
                     </span>
                     <div class="flex items-center space-x-2">
                         <button onclick="selectAllVisible()" 
-                                class="text-sm underline" style="color: var(--color-info);">
+                                class="text-sm underline" style="color: var(--action-info);">
                             Select All Visible
                         </button>
-                        <span style="color: var(--color-text-muted);">|</span>
+                        <span style="color: var(--text-muted-slate);">|</span>
                         <button onclick="clearSelection()" 
-                                class="text-sm underline" style="color: var(--color-info);">
+                                class="text-sm underline" style="color: var(--action-info);">
                             Clear Selection
                         </button>
                     </div>
@@ -326,9 +326,9 @@
         {% if articles %}
         <div class="space-y-4">
             {% for article in articles %}
-            <div class="p-6 rounded-lg hover:shadow-md transition-all duration-200 relative" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
+            <div class="p-6 rounded-lg hover:shadow-md transition-all duration-200 relative" style="background-color: var(--panel-bg-4); border: 1px solid var(--border-muted);">
                 <button onclick="copyArticleContent({{ article.id }})" 
-                        class="absolute right-4 top-4 p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 z-10"
+                        class="absolute right-4 top-4 p-2 transition-colors rounded-lg z-10" style="color: var(--text-muted-slate);"
                         title="Copy article content">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
@@ -337,24 +337,24 @@
                 <div class="flex items-start justify-between">
                     <div class="flex items-start space-x-3">
                         <input type="checkbox" 
-                               class="bulk-select-checkbox mt-1 h-4 w-4 border-gray-300 rounded" style="accent-color: var(--color-brand);" 
+                               class="bulk-select-checkbox mt-1 h-4 w-4 border-gray-300 rounded" style="accent-color: var(--purple-primary);" 
                                data-article-id="{{ article.id }}"
                                onchange="updateBulkActions()">
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center space-x-2 mb-3">
-                            <a href="/articles/{{ article.id }}" class="text-lg font-semibold underline" style="color: var(--color-info);">
+                            <a href="/articles/{{ article.id }}" class="text-lg font-semibold underline" style="color: var(--action-info);">
                                 {{ article.title }}
                             </a>
-                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium" style="background-color: var(--panel-bg-4); color: var(--text-secondary);">
                                 #{{ article.id }}
                             </span>
                         </div>
                         
-                        <div class="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        <div class="flex items-center space-x-4 text-sm mb-3" style="color: var(--text-muted-slate);">
                             <span>Source: 
                                 {% set source_name = source_lookup[article.source_id].name if article.source_id in source_lookup else article.source_id %}
                                 {% if article.canonical_url %}
-                                    <a href="{{ article.canonical_url }}" target="_blank" class="hover:underline" style="color: var(--color-info);">
+                                    <a href="{{ article.canonical_url }}" target="_blank" class="hover:underline" style="color: var(--action-info);">
                                         {{ source_name }}
                                     </a>
                                 {% else %}
@@ -369,19 +369,19 @@
                             <span>RegexHuntScore: 
                                 {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                                 {% if score >= 80 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success);">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--action-execute-fill); color: var(--action-execute); border-color: var(--action-execute);">
                                         🟢 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% elif score >= 60 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: rgba(245, 158, 11, 0.1); color: var(--border-warning); border-color: var(--border-warning);">
                                         🟡 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% elif score >= 40 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: rgba(245, 158, 11, 0.1); color: var(--border-warning); border-color: var(--border-warning);">
                                         🟠 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error);">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--action-danger-fill); color: var(--action-danger); border-color: var(--action-danger);">
                                         🔴 {{ "%.1f"|format(score) }}
                                     </span>
                                 {% endif %}
@@ -391,24 +391,24 @@
                                 {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
                                     {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
                                     {% if ml_score >= 80 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success);">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--action-execute-fill); color: var(--action-execute); border-color: var(--action-execute);">
                                             🟢 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% elif ml_score >= 60 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: rgba(245, 158, 11, 0.1); color: var(--border-warning); border-color: var(--border-warning);">
                                             🟡 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% elif ml_score >= 40 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: rgba(245, 158, 11, 0.1); color: var(--border-warning); border-color: var(--border-warning);">
                                             🟠 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% else %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error);">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--action-danger-fill); color: var(--action-danger); border-color: var(--action-danger);">
                                             🔴 {{ "%.1f"|format(ml_score) }}
                                         </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 relative group cursor-help" 
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border relative group cursor-help" style="background-color: var(--panel-bg-4); color: var(--text-muted-slate); border-color: var(--mlops-card-border);"
                                           title="ML Hunt Score not yet calculated. Run chunk analysis to generate this score.">
                                         TBD
                                     </span>
@@ -418,11 +418,11 @@
                             <span>Annotations: 
                                 {% set annotation_count = article.article_metadata.get('annotation_count', 0) %}
                                 {% if annotation_count > 0 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border" style="background-color: var(--panel-bg-4); color: var(--text-secondary); border-color: var(--border-muted);">
                                         📝 {{ annotation_count }}
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border" style="background-color: var(--panel-bg-4); color: var(--text-muted-slate); border-color: var(--mlops-card-border);">
                                         📝 {{ annotation_count }}
                                     </span>
                                 {% endif %}
@@ -436,12 +436,12 @@
                             <div class="flex flex-wrap gap-1">
                                 {% if article.article_metadata.get('perfect_keyword_matches') %}
                                     {% for keyword in article.article_metadata.get('perfect_keyword_matches', [])[:3] %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);" title="Perfect Discriminator">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--panel-bg-4); color: var(--text-secondary); border-color: var(--border-muted);" title="Perfect Discriminator">
                                         ✅ {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.article_metadata.get('perfect_keyword_matches', [])|length > 3 %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--panel-bg-4); color: var(--text-secondary);">
                                             +{{ article.article_metadata.get('perfect_keyword_matches', [])|length - 3 }}
                                     </span>
                                     {% endif %}
@@ -449,12 +449,12 @@
                                 
                                 {% if article.article_metadata.get('good_keyword_matches') %}
                                     {% for keyword in article.article_metadata.get('good_keyword_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);" title="Good Discriminator">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--panel-bg-4); color: var(--text-secondary); border-color: var(--border-muted);" title="Good Discriminator">
                                         🟡 {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.article_metadata.get('good_keyword_matches', [])|length > 2 %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--panel-bg-4); color: var(--text-secondary);">
                                             +{{ article.article_metadata.get('good_keyword_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
@@ -462,12 +462,12 @@
                                 
                                 {% if article.article_metadata.get('lolbas_matches') %}
                                     {% for keyword in article.article_metadata.get('lolbas_matches', [])[:2] %}
-                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary); border-color: var(--color-border);" title="LOLBAS Executable">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border" style="background-color: var(--panel-bg-4); color: var(--text-secondary); border-color: var(--border-muted);" title="LOLBAS Executable">
                                         🔧 {{ keyword }}
                                     </span>
                                     {% endfor %}
                                     {% if article.article_metadata.get('lolbas_matches', [])|length > 2 %}
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--color-bg-panel); color: var(--color-text-secondary);">
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium" style="background-color: var(--panel-bg-4); color: var(--text-secondary);">
                                             +{{ article.article_metadata.get('lolbas_matches', [])|length - 2 }}
                                     </span>
                                     {% endif %}
@@ -477,13 +477,13 @@
                         </div>
                         {% endif %}
 
-                        <p class="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
+                        <p class="mb-4 leading-relaxed" style="color: var(--text-secondary);">
                             {{ article.content[:300] }}{% if article.content|length > 300 %}...{% endif %}
                         </p>
 
                         <div class="flex items-center space-x-2">
                             {% if article.canonical_url %}
-                            <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">
+                            <a href="{{ article.canonical_url }}" target="_blank" class="inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md transition-colors" style="border-color: var(--mlops-card-border); color: var(--text-secondary); background-color: var(--panel-bg-4);">
                                 📖 Original Source
                             </a>
                             {% endif %}
@@ -496,9 +496,9 @@
         </div>
         {% else %}
         <div class="text-center py-12">
-            <div class="text-gray-400 dark:text-gray-500 text-6xl mb-4">📰</div>
-            <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No articles found</h3>
-            <p class="text-gray-500 dark:text-gray-400">
+            <div class="text-6xl mb-4" style="color: var(--text-muted-slate);">📰</div>
+            <h3 class="text-lg font-medium mb-2" style="color: var(--text-primary);">No articles found</h3>
+            <p style="color: var(--text-muted-slate);">
                 {% if filters.search or filters.source or filters.quality_min %}
                 Try adjusting your filters or search terms.
                 {% else %}
@@ -510,9 +510,9 @@
 
         <!-- Pagination -->
         {% if pagination.total_pages > 1 %}
-        <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
+        <div class="mt-6 pt-4 border-t" style="border-color: var(--mlops-card-border);">
             <div class="flex items-center justify-between">
-                <div class="text-sm text-gray-700 dark:text-gray-300">
+                <div class="text-sm" style="color: var(--text-secondary);">
                     Showing {{ pagination.start_idx }} to {{ pagination.end_idx }} of {{ pagination.total_articles }} results
                 </div>
                 <div class="flex items-center space-x-2">
@@ -525,7 +525,7 @@
 
                     {% for page_num in range(1, pagination.total_pages + 1) %}
                         {% if page_num == pagination.page %}
-                        <span class="px-3 py-2 border rounded-md text-sm font-medium" style="border-color: var(--color-brand); color: var(--color-brand); background-color: var(--purple-bg-10);">
+                        <span class="px-3 py-2 border rounded-md text-sm font-medium" style="border-color: var(--purple-primary); color: var(--purple-primary); background-color: var(--purple-bg-10);">
                             {{ page_num }}
                         </span>
                         {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}

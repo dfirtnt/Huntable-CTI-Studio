@@ -218,7 +218,7 @@
     <nav class="flex mb-8" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
-                <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
+                <a href="/" class="inline-flex items-center text-sm font-medium hover:underline" style="color: var(--text-secondary);">
                     <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                         <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"></path>
                     </svg>
@@ -227,18 +227,18 @@
             </li>
             <li>
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-4 h-4 mx-1" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <a href="/articles" class="ml-1 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 md:ml-2">Articles</a>
+                    <a href="/articles" class="text-sm font-medium hover:underline" style="color: var(--text-secondary);">Articles</a>
                 </div>
             </li>
             <li aria-current="page">
                 <div class="flex items-center">
-                    <svg class="w-6 h-6 text-gray-400 dark:text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-4 h-4 mx-1" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                     </svg>
-                    <span class="ml-1 text-sm font-medium text-gray-500 dark:text-gray-400 md:ml-2">Article #{{ article.id }}</span>
+                    <span class="text-sm font-medium" style="color: var(--text-muted-slate);">Article #{{ article.id }}</span>
                 </div>
             </li>
         </ol>
@@ -248,14 +248,14 @@
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
         <div class="flex items-start justify-between">
             <div class="flex-1">
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">{{ article.title }}</h1>
+ <h1 class="text-3xl font-bold mb-6 leading-tight" style="color: var(--text-primary)">{{ article.title }}</h1>
                 
-                <div class="flex items-center space-x-6 text-sm text-gray-600 dark:text-gray-400 mb-6">
+ <div class="flex items-center space-x-6 text-sm mb-6" style="color: var(--text-muted-slate)">
                     <div class="flex items-center">
                         <span class="mr-2">📰</span>
                         <span>Source: 
                             {% if article.canonical_url %}
-                                <a href="{{ article.canonical_url }}" target="_blank" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:underline">
+ <a href="{{ article.canonical_url }}" target="_blank" class="hover:text-blue-800 hover:underline" style="color: var(--action-info)">
                                     {{ source.name if source else article.source_id }}
                                 </a>
                             {% else %}
@@ -283,19 +283,19 @@
                         <span>RegexHuntScore: 
                             {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
                             {% if score >= 80 %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--action-execute); background-color: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3)">
                                     🎯 {{ "%.1f"|format(score) }}
                                 </span>
                             {% elif score >= 60 %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--text-secondary); background-color: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3)">
                                     🟡 {{ "%.1f"|format(score) }}
                                 </span>
                             {% elif score >= 40 %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--text-secondary); background-color: rgba(249,115,22,0.15); border-color: rgba(249,115,22,0.3)">
                                     🟠 {{ "%.1f"|format(score) }}
                                 </span>
                             {% else %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--action-danger); background-color: rgba(220,38,38,0.15); border-color: rgba(220,38,38,0.3)">
                                     🔴 {{ "%.1f"|format(score) }}
                                 </span>
                             {% endif %}
@@ -308,26 +308,26 @@
                             {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
                                 {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
                                 {% if ml_score >= 80 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--action-execute); background-color: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3)">
                                         🤖 {{ "%.1f"|format(ml_score) }}
                                     </span>
                                 {% elif ml_score >= 60 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--text-secondary); background-color: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3)">
                                         🟡 {{ "%.1f"|format(ml_score) }}
                                     </span>
                                 {% elif ml_score >= 40 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--text-secondary); background-color: rgba(249,115,22,0.15); border-color: rgba(249,115,22,0.3)">
                                         🟠 {{ "%.1f"|format(ml_score) }}
                                     </span>
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="color: var(--action-danger); background-color: rgba(220,38,38,0.15); border-color: rgba(220,38,38,0.3)">
                                         🔴 {{ "%.1f"|format(ml_score) }}
                                     </span>
                                 {% endif %}
                             {% else %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 relative group cursor-help">
+ <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border relative group cursor-help" style="color: var(--text-muted-slate); background-color: var(--mlops-card-bg); border-color: var(--mlops-card-border)">
                                     TBD
-                                    <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible pointer-events-none whitespace-pre-line z-50 w-72 text-left shadow-lg">
+ <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible pointer-events-none whitespace-pre-line z-50 w-72 text-left shadow-lg">
                                         <strong>ML Hunt Score: To Be Determined</strong><br><br>
                                         This score requires chunk analysis to be run first.<br><br>
                                         <strong>How to generate:</strong><br>
@@ -377,13 +377,13 @@
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
         <div 
             data-collapsible-panel="keyword-matches"
-            class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg cursor-pointer -m-6 py-6 px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+ class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg cursor-pointer -m-6 py-6 px-6 hover:bg-gray-50 transition-colors"
         >
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white my-0 flex items-center">🎯 Keyword Matches</h2>
+ <h2 class="text-xl font-bold my-0 flex items-center" style="color: var(--text-primary)">🎯 Keyword Matches</h2>
             <span id="keyword-matches-toggle">
                 <svg 
                     id="keyword-matches-chevron" 
-                    class="w-6 h-6 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" 
+ class="w-6 h-6 transform transition-transform duration-200" style="color: var(--text-muted-slate)" 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -396,13 +396,13 @@
         
         <div id="keyword-matches-content" class="hidden mt-11">
             <div class="mb-4 space-y-3">
-                <p class="text-sm text-gray-600 dark:text-gray-300">
+ <p class="text-sm" style="color: var(--text-secondary)">
                     Automatic keyword highlights use one precedence-aware match per span. If a term belongs to multiple automatic categories, the highest-priority category owns the rendered highlight.
                 </p>
                 <div class="flex flex-wrap items-center gap-3">
-                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Automatic keyword highlights</span>
+ <span class="text-sm font-medium" style="color: var(--text-secondary)">Automatic keyword highlights</span>
                     {% for legend in keyword_resolution.automatic_legends %}
-                    <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium text-gray-900 dark:text-gray-100 {{ legend.classes }}" title="{{ legend.title }}">
+ <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium {{ legend.classes }}" style="color: var(--text-primary)" title="{{ legend.title }}">
                         <span class="w-3 h-3 rounded border border-current/30 {{ legend.classes }}"></span>
                         {{ legend.label }}
                     </span>
@@ -428,7 +428,7 @@
                     </span>
                     {% endfor %}
                     {% if not group['items'] %}
-                    <span class="text-xs text-gray-500 dark:text-gray-400 italic">No matches</span>
+ <span class="text-xs italic" style="color: var(--text-muted-slate)">No matches</span>
                     {% endif %}
                 </div>
             </div>
@@ -440,33 +440,33 @@
     {% endif %}
 
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
-        <h2 class="text-xl font-bold text-gray-900 dark:text-white mb-6">📄 Article Content</h2>
+ <h2 class="text-xl font-bold mb-6" style="color: var(--text-primary)">📄 Article Content</h2>
         
-        <div class="bg-gray-100 dark:bg-gray-900 rounded-lg p-6">
+ <div class="bg-gray-100 rounded-lg p-6">
             <div class="flex items-center justify-between mb-6">
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200">Article Content</h3>
+ <h3 class="text-lg font-semibold" style="color: var(--text-secondary)">Article Content</h3>
                     <div class="flex items-center space-x-4">
                     <div class="flex items-center space-x-2">
-                        <span class="text-sm text-gray-600 dark:text-gray-400">Select text to annotate</span>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Manual huntability annotations</span>
+ <span class="text-sm" style="color: var(--text-muted-slate)">Select text to annotate</span>
+ <span class="text-sm font-medium" style="color: var(--text-secondary)">Manual huntability annotations</span>
                         <div class="flex items-center space-x-1">
-                            <span class="w-3 h-3 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 rounded"></span>
-                            <span class="text-xs text-gray-600 dark:text-gray-400">Huntable</span>
+ <span class="w-3 h-3 border rounded" style="background-color: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.3)"></span>
+ <span class="text-xs" style="color: var(--text-muted-slate)">Huntable</span>
                         </div>
                         <div class="flex items-center space-x-1">
-                            <span class="w-3 h-3 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></span>
-                            <span class="text-xs text-gray-600 dark:text-gray-400">Not Huntable</span>
+ <span class="w-3 h-3 border border-red-300 rounded" style="background-color: rgba(220,38,38,0.15)"></span>
+ <span class="text-xs" style="color: var(--text-muted-slate)">Not Huntable</span>
                         </div>
                         </div>
                     </div>
                     <div class="flex flex-wrap items-center gap-3 mt-4 relative z-10">
-                        <div class="inline-flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
-                            <button id="annotation-mode-huntability" disabled class="px-3 py-1 text-xs font-semibold text-gray-500 dark:text-gray-400 bg-gray-300 dark:bg-gray-700 cursor-not-allowed opacity-60 relative z-10" style="pointer-events: none;">
+ <div class="inline-flex rounded-lg border overflow-hidden" style="border-color: var(--border-muted)">
+ <button id="annotation-mode-huntability" disabled class="px-3 py-1 text-xs font-semibold cursor-not-allowed opacity-60 relative z-10" style="pointer-events: none; color: var(--text-muted-slate); background-color: var(--panel-bg-4)">
                                 Huntability Mode
                             </button>
                             <!-- INACTIVE: Observables Mode - Planned for future release -->
                             <!--
-                            <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white border-l border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors relative z-10" style="pointer-events: auto;">
+ <button id="annotation-mode-observables" onclick="setAnnotationMode('observables')" class="px-3 py-1 text-xs font-semibold bg-white border-l hover:bg-gray-50 cursor-pointer transition-colors relative z-10" style="pointer-events: auto; color: var(--text-secondary); border-color: var(--border-muted)">
                                 Observables Mode
                             </button>
                             -->
@@ -474,31 +474,31 @@
                         <!-- INACTIVE: Observable Type Picker - Planned for future release -->
                         <!--
                         <div id="observable-type-picker" class="hidden items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Observable Type:</span>
-                            <div class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
-                                <button data-observable-type="CMD" onclick="setObservableType('CMD')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+ <span class="text-xs font-semibold" style="color: var(--text-secondary)">Observable Type:</span>
+ <div class="inline-flex rounded-lg border overflow-hidden" style="border-color: var(--purple-primary)">
+ <button data-observable-type="CMD" onclick="setObservableType('CMD')" class="px-3 py-1 text-xs font-semibold bg-white" style="color: var(--text-secondary)">
                                     CMD
                                 </button>
-                                <button data-observable-type="PROC_LINEAGE" onclick="setObservableType('PROC_LINEAGE')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-400 border-l border-purple-200 dark:border-purple-600" style="background-color: var(--color-border-subtle);">
+ <button data-observable-type="PROC_LINEAGE" onclick="setObservableType('PROC_LINEAGE')" class="px-3 py-1 text-xs font-semibold bg-gray-400 border-l" style="background-color: var(--border-subtle); color: var(--text-secondary); border-color: var(--purple-primary)">
                                     PROC_LINEAGE
                                 </button>
                             </div>
                         </div>
                         <div id="observable-usage-picker" class="hidden items-center gap-2">
-                            <span class="text-xs font-semibold text-gray-600 dark:text-gray-300">Dataset:</span>
-                            <div id="observableUsageButtons" class="inline-flex rounded-lg border border-purple-300 dark:border-purple-700 overflow-hidden">
-                                <button data-dataset-usage="train" onclick="setObservableDatasetUsage('train')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white">
+ <span class="text-xs font-semibold" style="color: var(--text-secondary)">Dataset:</span>
+ <div id="observableUsageButtons" class="inline-flex rounded-lg border overflow-hidden" style="border-color: var(--purple-primary)">
+ <button data-dataset-usage="train" onclick="setObservableDatasetUsage('train')" class="px-3 py-1 text-xs font-semibold bg-white" style="color: var(--text-secondary)">
                                     Training
                                 </button>
-                                <button data-dataset-usage="eval" onclick="setObservableDatasetUsage('eval')" class="px-3 py-1 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-gray-400 border-l border-purple-200 dark:border-purple-600">
+ <button data-dataset-usage="eval" onclick="setObservableDatasetUsage('eval')" class="px-3 py-1 text-xs font-semibold bg-gray-400 border-l" style="color: var(--text-secondary); border-color: var(--purple-primary)">
                                     Evaluation
                                 </button>
-                                <button data-dataset-usage="gold" onclick="setObservableDatasetUsage('gold')" class="px-3 py-1 text-xs font-semibold text-gray-600 dark:text-gray-300 bg-white border-l border-purple-200 dark:border-purple-600">
+ <button data-dataset-usage="gold" onclick="setObservableDatasetUsage('gold')" class="px-3 py-1 text-xs font-semibold bg-white border-l" style="color: var(--text-secondary); border-color: var(--purple-primary)">
                                     Gold <span class="text-[10px] text-gray-400">(locked)</span>
                                 </button>
                             </div>
                         </div>
-                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold btn-workflow text-white rounded-lg transition-colors" onclick="markObservablesReviewed({{ article.id }})">
+                        <button id="mark-observable-reviewed" class="hidden px-3 py-1 text-xs font-semibold btn-workflow text-white rounded-md transition-colors" onclick="markObservablesReviewed({{ article.id }})">
                             Reviewed (No Observables)
                         </button>
                         -->
@@ -507,36 +507,36 @@
                 <div class="prose max-w-none relative">
                 <div class="absolute top-4 right-4 flex items-center space-x-2 z-50">
                     <button id="toggle-annotations-btn" onclick="toggleAnnotationSystem()" 
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 bg-gray-800 border border-gray-700 shadow-md border border-gray-200 dark:border-gray-700"
+ class="p-2 hover:text-gray-700 transition-colors rounded-lg hover:bg-gray-100 bg-gray-800 border border-gray-700 shadow-md border" style="color: var(--text-muted-slate); border-color: var(--mlops-card-border)"
                             title="Toggle annotation system">
                         <svg id="toggle-annotations-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                         </svg>
                     </button>
                     <button onclick="copyArticleContentToClipboard()" 
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+ class="p-2 hover:text-gray-700 transition-colors rounded-lg hover:bg-gray-100" style="color: var(--text-muted-slate)"
                             title="Copy article content">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
                     </button>
                     <button onclick="copyShareLink({{ article.id }})"
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+ class="p-2 hover:text-gray-700 transition-colors rounded-lg hover:bg-gray-100" style="color: var(--text-muted-slate)"
                             title="Copy share link (summary view)">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 13a5 5 0 007.07 0l1.5-1.5a5 5 0 00-7.07-7.07L10 5m4 6a5 5 0 01-7.07 0L5.5 9.5a5 5 0 017.07-7.07L14 3"></path>
                         </svg>
                     </button>
                     <button onclick="exportArticleToPDF()" 
-                            class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+ class="p-2 hover:text-gray-700 transition-colors rounded-lg hover:bg-gray-100" style="color: var(--text-muted-slate)"
                             title="Export to PDF and print">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
                         </svg>
                     </button>
                 </div>
-                <div id="article-content" class="whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-body-dark);">{{ article.content|highlight_keywords(keyword_resolution.matches)|safe }}</div>
-                <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base text-gray-900 dark:text-gray-100 font-mono leading-relaxed select-text bg-stone-100 dark:bg-gray-800 px-6 pt-20 pb-6 rounded-lg border-2 border-gray-300 dark:border-gray-600 shadow-inner" style="color: var(--text-print); background-color: var(--surface-plain-bg); border: 1px solid var(--border-warning); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05);">{{ article.content|e }}</div>
+ <div id="article-content" class="whitespace-pre-wrap text-base font-mono leading-relaxed select-text px-6 pt-20 pb-6 rounded-lg border-2 shadow-inner" style="color: var(--text-body-dark); background-color: var(--mlops-card-bg); border-color: var(--border-muted)">{{ article.content|highlight_keywords(keyword_resolution.matches)|safe }}</div>
+ <div id="article-content-plain" class="hidden whitespace-pre-wrap text-base font-mono leading-relaxed select-text px-6 pt-20 pb-6 rounded-lg border-2 shadow-inner" style="color: var(--text-print); background-color: var(--surface-plain-bg); border: 1px solid var(--border-warning); box-shadow: 0px 0px 0px 0px rgba(0, 0, 0, 0), 0px 0px 0px 0px rgba(0, 0, 0, 0), inset 0px 2px 4px 0px rgba(0, 0, 0, 0.05)">{{ article.content|e }}</div>
             </div>
         </div>
     </div>
@@ -545,13 +545,13 @@
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-8">
         <div 
             data-collapsible-panel="article-metadata"
-            class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg cursor-pointer -m-6 py-6 px-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+ class="flex items-center justify-between w-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg cursor-pointer -m-6 py-6 px-6 hover:bg-gray-50 transition-colors"
         >
-            <h2 class="text-xl font-bold text-gray-900 dark:text-white my-0 flex items-center">📋 Article Metadata</h2>
+ <h2 class="text-xl font-bold my-0 flex items-center" style="color: var(--text-primary)">📋 Article Metadata</h2>
             <span id="article-metadata-toggle">
                 <svg 
                     id="article-metadata-chevron" 
-                    class="w-6 h-6 text-gray-500 dark:text-gray-400 transform transition-transform duration-200" 
+ class="w-6 h-6 transform transition-transform duration-200" style="color: var(--text-muted-slate)" 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -564,41 +564,41 @@
         <div id="article-metadata-content" class="hidden">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Basic Information</h3>
+ <h3 class="text-lg font-semibold mb-4" style="color: var(--text-secondary)">Basic Information</h3>
                 <dl class="space-y-3">
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Article ID</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">#{{ article.id }}</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Article ID</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">#{{ article.id }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Source ID</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.source_id }}</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Source ID</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">{{ article.source_id }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Published At</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.published_at.strftime('%Y-%m-%d %H:%M:%S') if article.published_at else 'N/A' }}</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Published At</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">{{ article.published_at.strftime('%Y-%m-%d %H:%M:%S') if article.published_at else 'N/A' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Discovered At</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.discovered_at.strftime('%Y-%m-%d %H:%M:%S') if article.discovered_at else 'N/A' }}</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Discovered At</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">{{ article.discovered_at.strftime('%Y-%m-%d %H:%M:%S') if article.discovered_at else 'N/A' }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Processing Status</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.processing_status }}</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Processing Status</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">{{ article.processing_status }}</dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Word Count</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.word_count or 'N/A' }}</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Word Count</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">{{ article.word_count or 'N/A' }}</dd>
                     </div>
                 </dl>
             </div>
             
             <div>
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-gray-200 mb-4">Content Details</h3>
+ <h3 class="text-lg font-semibold mb-4" style="color: var(--text-secondary)">Content Details</h3>
                 <dl class="space-y-3">
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Content Length</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">{{ article.content|length }} characters</dd>
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Content Length</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">{{ article.content|length }} characters</dd>
                     </div>
                     <div>
                         <dt class="text-sm font-medium text-gray-400">Content Hash</dt>
@@ -607,8 +607,8 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Authors</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Authors</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">
                             {% if article.authors %}
                                 {{ article.authors|join(', ') }}
                             {% else %}
@@ -617,8 +617,8 @@
                         </dd>
                     </div>
                     <div>
-                        <dt class="text-sm font-medium text-gray-600 dark:text-gray-400">Tags</dt>
-                        <dd class="text-sm text-gray-900 dark:text-gray-100">
+ <dt class="text-sm font-medium" style="color: var(--text-muted-slate)">Tags</dt>
+ <dd class="text-sm" style="color: var(--text-primary)">
                             {% if article.tags %}
                                 {{ article.tags|join(', ') }}
                             {% else %}
@@ -978,42 +978,42 @@ Generate all applicable SIGMA rules from the threat intelligence above.`;
         document.addEventListener('keydown', handleEsc);
         
         modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-6 border w-11/12 max-w-6xl shadow-xl rounded-lg bg-gray-800 dark:bg-gray-900 border-gray-700 dark:border-gray-600">
-                <div class="flex justify-between items-center mb-5 pb-3 border-b border-gray-700 dark:border-gray-600">
-                    <h3 class="text-xl font-semibold text-gray-100 dark:text-white">🔍 One Shot - SIGMA Generation Prompt</h3>
-                    <button onclick="closeHelpModal()" class="text-gray-400 dark:text-gray-500 hover:text-gray-200 dark:hover:text-gray-300 transition-colors">
+ <div class="relative top-10 mx-auto p-6 border w-11/12 max-w-6xl shadow-xl rounded-lg" style="background-color: var(--panel-bg-1); border-color: var(--border-muted)">
+ <div class="flex justify-between items-center mb-5 pb-3 border-b" style="border-color: var(--border-muted)">
+ <h3 class="text-xl font-semibold" style="color: var(--text-primary)">🔍 One Shot - SIGMA Generation Prompt</h3>
+ <button onclick="closeHelpModal()" class="hover:text-gray-200 transition-colors" style="color: var(--text-muted-slate)">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
                     </button>
                 </div>
                 
-                <div class="mb-5 text-sm text-gray-300 dark:text-gray-400 bg-gray-700/50 dark:bg-gray-800 p-3 rounded-md border border-gray-700 dark:border-gray-600">
-                    <span class="font-semibold text-gray-200 dark:text-gray-300">Prompt Template:</span> Edit the System and User prompts below. Changes are saved to the workflow configuration.
+ <div class="mb-5 text-sm p-3 rounded-md border" style="color: var(--text-muted-slate); background-color: var(--mlops-card-bg); border-color: var(--border-muted)">
+ <span class="font-semibold" style="color: var(--text-secondary)">Prompt Template:</span> Edit the System and User prompts below. Changes are saved to the workflow configuration.
                 </div>
                 
                 <div class="space-y-5">
                     <div>
-                        <label class="block text-sm font-semibold text-gray-200 dark:text-gray-300 mb-2">System Prompt</label>
-                        <textarea id="sigmaSystemPrompt" class="w-full h-32 p-3 border-2 border-gray-600 dark:border-gray-700 rounded-md font-mono text-sm bg-gray-900 dark:bg-black text-gray-100 dark:text-gray-200 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 transition-colors" style="resize: vertical;">${escapeHtml(systemPrompt)}</textarea>
+ <label class="block text-sm font-semibold mb-2" style="color: var(--text-secondary)">System Prompt</label>
+ <textarea id="sigmaSystemPrompt" class="w-full h-32 p-3 border-2 rounded-md font-mono text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-colors" style="resize: vertical; color: var(--text-secondary); background-color: #000; border-color: var(--border-muted)">${escapeHtml(systemPrompt)}</textarea>
                     </div>
                     
                     <div>
-                        <label class="block text-sm font-semibold text-gray-200 dark:text-gray-300 mb-2">User Prompt</label>
-                        <textarea id="sigmaUserPrompt" class="w-full h-96 p-3 border-2 border-gray-600 dark:border-gray-700 rounded-md font-mono text-sm bg-gray-900 dark:bg-black text-gray-100 dark:text-gray-200 focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/50 dark:focus:ring-blue-400/50 transition-colors" style="resize: vertical;">${escapeHtml(userPrompt)}</textarea>
+ <label class="block text-sm font-semibold mb-2" style="color: var(--text-secondary)">User Prompt</label>
+ <textarea id="sigmaUserPrompt" class="w-full h-96 p-3 border-2 rounded-md font-mono text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 transition-colors" style="resize: vertical; color: var(--text-secondary); background-color: #000; border-color: var(--border-muted)">${escapeHtml(userPrompt)}</textarea>
                     </div>
                 </div>
                 
-                <div class="mt-6 flex justify-end space-x-3 pt-4 border-t border-gray-700 dark:border-gray-600">
-                    <button onclick="closeHelpModal()" class="px-5 py-2.5 border-2 border-gray-600 dark:border-gray-700 rounded-md text-sm font-medium text-gray-200 dark:text-gray-300 hover:bg-gray-700 dark:hover:bg-gray-800 hover:border-gray-500 dark:hover:border-gray-600 transition-colors">
+ <div class="mt-6 flex justify-end space-x-3 pt-4 border-t" style="border-color: var(--border-muted)">
+ <button onclick="closeHelpModal()" class="px-5 py-2.5 border-2 rounded-md text-sm font-medium hover:bg-gray-700 hover:border-gray-500 transition-colors" style="color: var(--text-secondary); border-color: var(--border-muted)">
                         Cancel
                     </button>
-                    <button onclick="saveSigmaPrompts()" class="px-5 py-2.5 bg-blue-600 dark:bg-blue-500 text-white rounded-md text-sm font-medium hover:bg-blue-700 dark:hover:bg-blue-600 shadow-sm hover:shadow transition-all">
+ <button onclick="saveSigmaPrompts()" class="px-5 py-2.5 text-white rounded-md text-sm font-medium hover:bg-blue-700 hover:shadow transition-all" style="background-color: var(--action-info)">
                         Save Prompts
                     </button>
                 </div>
                 
-                <div id="sigmaPromptSaveStatus" class="mt-3 text-sm text-gray-300 dark:text-gray-400"></div>
+ <div id="sigmaPromptSaveStatus" class="mt-3 text-sm" style="color: var(--text-muted-slate)"></div>
             </div>
         `;
         
@@ -1387,19 +1387,19 @@ Please provide a detailed analysis based on the article content and the user's s
     const ANNOTATION_STYLE_MAP = {
         huntable: {
             label: 'Huntable',
-            highlightClass: 'bg-blue-100 dark:bg-blue-900 border-blue-300 dark:border-blue-700 text-blue-800 dark:text-blue-200'
+            highlightClass: 'bg-blue-900 border-blue-700 text-blue-200'
         },
         not_huntable: {
             label: 'Not Huntable',
-            highlightClass: 'bg-red-100 dark:bg-red-900 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
+            highlightClass: 'bg-red-900 border-red-700 text-red-200'
         },
         CMD: {
             label: 'CMD',
-            highlightClass: 'bg-purple-100 dark:bg-purple-900 border-purple-300 dark:border-purple-700 text-purple-800 dark:text-purple-200'
+            highlightClass: 'bg-purple-900 border-purple-700 text-purple-200'
         },
         PROC_LINEAGE: {
             label: 'Process Lineage',
-            highlightClass: 'bg-amber-100 dark:bg-amber-900 border-amber-300 dark:border-amber-600 text-amber-800 dark:text-amber-200'
+            highlightClass: 'bg-amber-900 border-amber-600 text-amber-200'
         }
     };
 
@@ -1488,21 +1488,21 @@ Please provide a detailed analysis based on the article content and the user's s
 
             if (huntabilityBtn) {
                 if (this.annotationMode === HUNTABILITY_MODE) {
-                    huntabilityBtn.classList.add('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
-                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                    huntabilityBtn.classList.add('bg-blue-600', 'text-white');
+                    huntabilityBtn.classList.remove('bg-white', 'text-gray-700');
                 } else {
-                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
-                    huntabilityBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                    huntabilityBtn.classList.remove('bg-blue-600', 'text-white');
+                    huntabilityBtn.classList.add('bg-white', 'text-gray-700');
                 }
             }
 
             if (observablesBtn) {
                 if (this.annotationMode === OBSERVABLE_MODE) {
-                    observablesBtn.classList.add('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
-                    observablesBtn.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                    observablesBtn.classList.add('bg-blue-600', 'text-white');
+                    observablesBtn.classList.remove('bg-white', 'text-gray-700');
                 } else {
-                    observablesBtn.classList.remove('bg-blue-600', 'text-white', 'dark:bg-blue-600', 'dark:text-white');
-                    observablesBtn.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                    observablesBtn.classList.remove('bg-blue-600', 'text-white');
+                    observablesBtn.classList.add('bg-white', 'text-gray-700');
                 }
             }
 
@@ -3960,10 +3960,10 @@ Please provide a detailed analysis based on the article content and the user's s
             const btnUsage = (button.dataset.datasetUsage || 'train').toLowerCase();
             if (btnUsage === currentUsage) {
                 button.classList.add('btn-workflow', 'text-white');
-                button.classList.remove('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                button.classList.remove('bg-white', 'text-gray-700');
             } else {
                 button.classList.remove('btn-workflow', 'text-white');
-                button.classList.add('bg-white', 'text-gray-700', 'dark:text-gray-200');
+                button.classList.add('bg-white', 'text-gray-700');
             }
         });
     }
@@ -6572,7 +6572,7 @@ Please provide a detailed analysis based on the article content and the user's s
                 ${hasFailure ? '' : `
                 <div class="mt-4">
                     <h4 class="text-md font-medium text-gray-900 mb-2">📝 SIGMA Rules</h4>
-                    <div class="p-4 rounded-lg max-h-96 overflow-y-auto" style="background-color: var(--color-text-secondary);">
+                    <div class="p-4 rounded-lg max-h-96 overflow-y-auto" style="background-color: var(--text-secondary);">
                         <pre class="text-sm font-mono whitespace-pre-wrap text-gray-800">${sigmaRulesText}</pre>
                     </div>
                 </div>
@@ -6602,24 +6602,24 @@ Please provide a detailed analysis based on the article content and the user's s
                             🔄 Regenerate
                         </button>
                         <button id="checkSimilarRulesBtn" onclick="checkSimilarSigmaRules(false)" 
-                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Search for similar rules across indexed repositories"
                                 disabled>
                             🔍 Similarity Search
                         </button>
                         <button id="regenerateSimilarRulesBtn" onclick="checkSimilarSigmaRules(true)"
-                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed hidden"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed hidden"
                                 title="Re-run similar rules search (forces re-check)">
                             🔄 Regenerate Similar
                         </button>
                         <button id="embedArticleBtn" onclick="generateArticleEmbedding()" 
-                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Generate article embedding for semantic search"
                                 disabled>
                             🧬 Embed Article
                         </button>
                         <button id="sendToQueueBtn" onclick="sendRuleToQueue()" 
-                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                                class="px-4 py-2 btn-workflow text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 title="Send generated rule to SIGMA Queue for review"
                                 disabled>
                             📋 Send to Queue
@@ -8043,9 +8043,9 @@ Please provide a detailed analysis based on the article content and the user's s
         if (!matches || matches.length === 0) {
             matchesHtml = `
                 <div class="text-center py-8">
-                    <span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-4">Deterministic Semantic Engine</span>
-                    <p class="text-lg font-semibold text-gray-900 dark:text-white mb-2">No Behavioral Overlap Found</p>
-                    <p class="text-gray-600 dark:text-gray-400">No indexed rules share detection logic with this rule.</p>
+ <span class="inline-block px-2 py-0.5 rounded text-xs font-medium mb-4" style="color: var(--text-secondary); background-color: var(--panel-bg-4)">Deterministic Semantic Engine</span>
+ <p class="text-lg font-semibold mb-2" style="color: var(--text-primary)">No Behavioral Overlap Found</p>
+ <p class="" style="color: var(--text-muted-slate)">No indexed rules share detection logic with this rule.</p>
                 </div>
             `;
         } else {

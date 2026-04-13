@@ -5,11 +5,11 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+        <h1 class="text-3xl font-bold mb-2 flex items-center gap-3" style="color: var(--text-primary);">
             <img src="/static/icons/analytics-icon.svg" alt="Analytics" class="w-[63px] h-[63px]" />
             Analytics Dashboard
         </h1>
-        <p class="text-gray-600 dark:text-gray-400">Comprehensive analytics and metrics for threat intelligence collection and analysis</p>
+        <p style="color: var(--text-muted-slate);">Comprehensive analytics and metrics for threat intelligence collection and analysis</p>
     </div>
 
     <!-- Analytics Grid -->
@@ -24,11 +24,11 @@
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Scraper Metrics</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Collection Performance</p>
+                    <h3 class="text-lg font-semibold" style="color: var(--text-primary);">Scraper Metrics</h3>
+                    <p class="text-sm" style="color: var(--text-muted-slate);">Collection Performance</p>
                 </div>
             </div>
-            <p class="text-gray-600 dark:text-gray-300 mb-4">Monitor article collection performance, source health, ingestion rates, and scraper efficiency metrics.</p>
+            <p class="mb-4" style="color: var(--text-secondary);">Monitor article collection performance, source health, ingestion rates, and scraper efficiency metrics.</p>
             <a href="/analytics/scraper-metrics" class="inline-flex items-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                 View Metrics
                 <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -40,17 +40,17 @@
         <!-- Hunt Scoring Metrics -->
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 hover:shadow-xl transition-shadow">
             <div class="flex items-center mb-4">
-                <div class="bg-purple-100 dark:bg-purple-900 p-3 rounded-lg mr-4">
-                    <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="p-3 rounded-lg mr-4" style="background-color: rgba(147,51,234,0.15);">
+                    <svg class="w-6 h-6" style="color: var(--purple-primary);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
                     </svg>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Hunt Scoring Metrics</h3>
-                    <p class="text-sm text-gray-500 dark:text-gray-400">Threat Intelligence Quality</p>
+                    <h3 class="text-lg font-semibold" style="color: var(--text-primary);">Hunt Scoring Metrics</h3>
+                    <p class="text-sm" style="color: var(--text-muted-slate);">Threat Intelligence Quality</p>
                 </div>
             </div>
-            <p class="text-gray-600 dark:text-gray-300 mb-4">Analyze threat hunting content quality, keyword performance, and scoring distribution across collected articles.</p>
+            <p class="mb-4" style="color: var(--text-secondary);">Analyze threat hunting content quality, keyword performance, and scoring distribution across collected articles.</p>
             <a href="/analytics/hunt-metrics" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
                 View Metrics
                 <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,23 +64,23 @@
 
     <!-- Quick Stats Section -->
     <div class="mt-12 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">📈 Quick Overview</h2>
+        <h2 class="text-xl font-semibold mb-6" style="color: var(--text-primary);">📈 Quick Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div class="text-center">
-                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="totalArticles">-</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">Total Articles</div>
+                <div class="text-2xl font-bold" style="color: var(--action-info);" id="totalArticles">-</div>
+                <div class="text-sm" style="color: var(--text-muted-slate);">Total Articles</div>
             </div>
             <div class="text-center">
                 <div class="text-2xl font-bold text-emerald-400" id="activeSources">-</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">Active Sources</div>
+                <div class="text-sm" style="color: var(--text-muted-slate);">Active Sources</div>
             </div>
             <div class="text-center">
-                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400" id="avgHuntScore">-</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">Avg Hunt Score</div>
+                <div class="text-2xl font-bold" style="color: var(--purple-primary);" id="avgHuntScore">-</div>
+                <div class="text-sm" style="color: var(--text-muted-slate);">Avg Hunt Score</div>
             </div>
             <div class="text-center">
-                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400" id="filterEfficiency">-</div>
-                <div class="text-sm text-gray-500 dark:text-gray-400">Filter Efficiency</div>
+                <div class="text-2xl font-bold" style="color: var(--action-warning, #f59e0b);" id="filterEfficiency">-</div>
+                <div class="text-sm" style="color: var(--text-muted-slate);">Filter Efficiency</div>
             </div>
         </div>
     </div>

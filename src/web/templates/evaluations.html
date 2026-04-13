@@ -6,88 +6,88 @@
 <div class="container mx-auto px-4 py-8">
     <!-- Header -->
     <div class="mb-8">
-        <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">Agent Evaluations</h1>
-        <p class="text-gray-600 dark:text-gray-400">Track and compare agent performance over time</p>
+        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">Agent Evaluations</h1>
+        <p style="color: var(--text-muted-slate);">Track and compare agent performance over time</p>
     </div>
 
     <!-- Agent Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <!-- Extract Agent -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/ExtractAgent'">
+        <div class="rounded-lg shadow-lg p-6 card-hover cursor-pointer" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);" onclick="window.location.href='/evaluations/ExtractAgent'">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Extract Agent</h3>
+                <h3 class="text-xl font-semibold" style="color: var(--text-primary);">Extract Agent</h3>
                 <span class="text-3xl">🔍</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Extracts behavioral observables and command-lines from articles</p>
-            <div id="extract-agent-stats" class="text-sm text-gray-500 dark:text-gray-400">
+            <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Extracts behavioral observables and command-lines from articles</p>
+            <div id="extract-agent-stats" class="text-sm" style="color: var(--text-muted-slate);">
                 Loading...
             </div>
         </div>
 
         <!-- Rank Agent -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/RankAgent'">
+        <div class="rounded-lg shadow-lg p-6 card-hover cursor-pointer" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);" onclick="window.location.href='/evaluations/RankAgent'">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">Rank Agent</h3>
+                <h3 class="text-xl font-semibold" style="color: var(--text-primary);">Rank Agent</h3>
                 <span class="text-3xl">📊</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Ranks articles by huntability and relevance</p>
-            <div id="rank-agent-stats" class="text-sm text-gray-500 dark:text-gray-400">
+            <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Ranks articles by huntability and relevance</p>
+            <div id="rank-agent-stats" class="text-sm" style="color: var(--text-muted-slate);">
                 Loading...
             </div>
         </div>
 
         <!-- SIGMA Agent -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/SigmaAgent'">
+        <div class="rounded-lg shadow-lg p-6 card-hover cursor-pointer" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);" onclick="window.location.href='/evaluations/SigmaAgent'">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">SIGMA Agent</h3>
+                <h3 class="text-xl font-semibold" style="color: var(--text-primary);">SIGMA Agent</h3>
                 <span class="text-3xl">🛡️</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Generates SIGMA detection rules from articles</p>
-            <div id="sigma-agent-stats" class="text-sm text-gray-500 dark:text-gray-400">
+            <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Generates SIGMA detection rules from articles</p>
+            <div id="sigma-agent-stats" class="text-sm" style="color: var(--text-muted-slate);">
                 Loading...
             </div>
         </div>
 
         <!-- OS Detection -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/evaluations/OSDetection'">
+        <div class="rounded-lg shadow-lg p-6 card-hover cursor-pointer" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);" onclick="window.location.href='/evaluations/OSDetection'">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">OS Detection</h3>
+                <h3 class="text-xl font-semibold" style="color: var(--text-primary);">OS Detection</h3>
                 <span class="text-3xl">💻</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Detects operating system from article content</p>
-            <div id="os-detection-stats" class="text-sm text-gray-500 dark:text-gray-400">
+            <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Detects operating system from article content</p>
+            <div id="os-detection-stats" class="text-sm" style="color: var(--text-muted-slate);">
                 Loading...
             </div>
         </div>
 
         <!-- SIGMA Similarity Test -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 card-hover cursor-pointer" onclick="window.location.href='/sigma-similarity-test'">
+        <div class="rounded-lg shadow-lg p-6 card-hover cursor-pointer" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);" onclick="window.location.href='/sigma-similarity-test'">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-xl font-semibold text-gray-900 dark:text-white">SIGMA Similarity Test</h3>
+                <h3 class="text-xl font-semibold" style="color: var(--text-primary);">SIGMA Similarity Test</h3>
                 <span class="text-3xl">🔍</span>
             </div>
-            <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">Test SIGMA rule cosine similarity using embedding models</p>
+            <p class="text-sm mb-4" style="color: var(--text-muted-slate);">Test SIGMA rule cosine similarity using embedding models</p>
         </div>
     </div>
 
     <!-- Recent Evaluations Table -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Recent Evaluations</h2>
+    <div class="rounded-lg shadow-lg p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <h2 class="text-2xl font-semibold mb-4" style="color: var(--text-primary);">Recent Evaluations</h2>
         <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-900">
+            <table class="min-w-full">
+                <thead style="background-color: var(--panel-bg-1);">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Agent</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Model</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Articles</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Date</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Agent</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Model</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Articles</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider" style="color: var(--text-muted-slate);">Actions</th>
                     </tr>
                 </thead>
-                <tbody id="recent-evaluations" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="recent-evaluations" style="background-color: var(--mlops-card-bg); border-top: 1px solid var(--border-muted);">
                     <tr>
-                        <td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">Loading...</td>
+                        <td colspan="6" class="px-6 py-4 text-center" style="color: var(--text-muted-slate);">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -124,14 +124,14 @@ async function loadAgentStats(agentName, elementId) {
                 statsHtml += `</div>`;
                 document.getElementById(elementId).innerHTML = statsHtml;
             } else {
-                document.getElementById(elementId).innerHTML = '<div class="text-gray-400">No evaluations yet</div>';
+                document.getElementById(elementId).innerHTML = '<div style="color: var(--text-muted-slate);">No evaluations yet</div>';
             }
         } else {
-            document.getElementById(elementId).innerHTML = '<div class="text-gray-400">No evaluations yet</div>';
+            document.getElementById(elementId).innerHTML = '<div style="color: var(--text-muted-slate);">No evaluations yet</div>';
         }
     } catch (error) {
         console.error(`Error loading stats for ${agentName}:`, error);
-        document.getElementById(elementId).innerHTML = '<div class="text-gray-400">Error loading</div>';
+        document.getElementById(elementId).innerHTML = '<div style="color: var(--text-muted-slate);">Error loading</div>';
     }
 }
 
@@ -157,24 +157,24 @@ async function loadRecentEvaluations() {
         
         const tbody = document.getElementById('recent-evaluations');
         if (recent.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500 dark:text-gray-400">No evaluations found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center" style="color: var(--text-muted-slate);">No evaluations found</td></tr>';
         } else {
             tbody.innerHTML = recent.map(eval => `
-                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">${eval.agent_name}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${eval.evaluation_type}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${eval.model_version || 'N/A'}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${eval.total_articles}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">${new Date(eval.created_at).toLocaleDateString()}</td>
+                <tr style="border-bottom: 1px solid var(--border-muted);">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium" style="color: var(--text-primary);">${eval.agent_name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">${eval.evaluation_type}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">${eval.model_version || 'N/A'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">${eval.total_articles}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm" style="color: var(--text-muted-slate);">${new Date(eval.created_at).toLocaleDateString()}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        <a href="/evaluations/${eval.agent_name}?evaluation_id=${eval.id}" class="text-blue-600 dark:text-blue-400 hover:underline">View</a>
+                        <a href="/evaluations/${eval.agent_name}?evaluation_id=${eval.id}" style="color: var(--action-info);" class="hover:underline">View</a>
                     </td>
                 </tr>
             `).join('');
         }
     } catch (error) {
         console.error('Error loading recent evaluations:', error);
-        document.getElementById('recent-evaluations').innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Error loading evaluations</td></tr>';
+        document.getElementById('recent-evaluations').innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center" style="color: var(--action-danger);">Error loading evaluations</td></tr>';
     }
 }
 
