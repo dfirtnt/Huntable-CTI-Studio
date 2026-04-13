@@ -8,6 +8,7 @@ from collections import defaultdict
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
+from sqlalchemy import text as sa_text
 
 from src.database.async_manager import async_db_manager
 from src.web.dependencies import logger
@@ -35,11 +36,31 @@ async def api_scraper_overview():
         sources = await async_db_manager.list_sources()
         active_sources = len([s for s in sources if getattr(s, "active", True)])
 
-        # Calculate average response time (placeholder - would need actual timing data)
-        avg_response_time = 250  # ms placeholder
-
-        # Calculate error rate (placeholder - would need actual error tracking)
-        error_rate = 2.5  # % placeholder
+        # Real metrics from source_checks (last 7 days)
+        avg_response_time = 0
+        error_rate = 0.0
+        try:
+            async with async_db_manager.get_session() as session:
+                result = await session.execute(
+                    sa_text("""
+                    SELECT
+                        COUNT(*) AS total,
+                        COUNT(*) FILTER (WHERE NOT success) AS failures,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (
+                            ORDER BY response_time
+                        ) FILTER (WHERE response_time IS NOT NULL AND response_time > 0)
+                        AS median_response_time
+                    FROM source_checks
+                    WHERE check_time >= NOW() - INTERVAL '7 days'
+                """)
+                )
+                row = result.fetchone()
+                if row and row.total > 0:
+                    error_rate = round(row.failures / row.total * 100, 1)
+                if row and row.median_response_time:
+                    avg_response_time = round(row.median_response_time * 1000)
+        except Exception as inner_exc:
+            logger.warning("Could not compute overview metrics: %s", inner_exc)
 
         return {
             "articles_today": articles_today,
@@ -153,9 +174,37 @@ async def api_scraper_source_performance():
         sources = await async_db_manager.list_sources()
         ingestion_data = await async_db_manager.get_ingestion_analytics()
 
-        # Get source breakdown data
+        # Get source breakdown data (last 7 days)
         source_breakdown = ingestion_data.get("source_breakdown", [])
         source_breakdown_dict = {item.get("source_name"): item for item in source_breakdown}
+
+        # Per-source error rates and median response times from source_checks (last 7 days)
+        source_error_rates: dict[int, float] = {}
+        source_median_rt: dict[int, int] = {}
+        try:
+            async with async_db_manager.get_session() as session:
+                result = await session.execute(
+                    sa_text("""
+                    SELECT
+                        source_id,
+                        COUNT(*) AS total,
+                        COUNT(*) FILTER (WHERE NOT success) AS failures,
+                        PERCENTILE_CONT(0.5) WITHIN GROUP (
+                            ORDER BY response_time
+                        ) FILTER (WHERE response_time IS NOT NULL AND response_time > 0)
+                        AS median_rt
+                    FROM source_checks
+                    WHERE check_time >= NOW() - INTERVAL '7 days'
+                    GROUP BY source_id
+                """)
+                )
+                for row in result.fetchall():
+                    rate = round(row.failures / row.total * 100, 1) if row.total > 0 else 0.0
+                    source_error_rates[row.source_id] = rate
+                    if row.median_rt:
+                        source_median_rt[row.source_id] = round(row.median_rt * 1000)
+        except Exception as inner_exc:
+            logger.warning("Could not compute per-source metrics: %s", inner_exc)
 
         performance_data = []
         for source in sources:
@@ -164,22 +213,21 @@ async def api_scraper_source_performance():
                 continue
 
             source_name = getattr(source, "name", "Unknown")
+            source_id = getattr(source, "id", None)
 
-            # Get articles count for today from source breakdown
-            articles_today = 0
+            # Get articles count from source breakdown (7-day window)
+            articles_7d = 0
             if source_name in source_breakdown_dict:
-                articles_today = source_breakdown_dict[source_name].get("articles_count", 0)
+                articles_7d = source_breakdown_dict[source_name].get("articles_count", 0)
 
             # Determine status
             last_success = getattr(source, "last_success", None)
             status = "healthy"
             if last_success:
                 try:
-                    # Handle both datetime objects and strings
                     if isinstance(last_success, datetime):
                         last_success_date = last_success.date()
                     elif isinstance(last_success, str):
-                        # Handle different date formats
                         if last_success.endswith("Z"):
                             last_success_date = datetime.fromisoformat(last_success.replace("Z", "+00:00")).date()
                         else:
@@ -201,10 +249,10 @@ async def api_scraper_source_performance():
                 {
                     "name": source_name,
                     "status": status,
-                    "articles_today": articles_today,
+                    "articles_7d": articles_7d,
                     "last_success": last_success or "Never",
-                    "error_rate": 0,  # Placeholder
-                    "avg_response": 200,  # Placeholder
+                    "error_rate": source_error_rates.get(source_id, 0.0),
+                    "avg_response": source_median_rt.get(source_id, 0),
                 }
             )
 

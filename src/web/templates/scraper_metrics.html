@@ -8,81 +8,81 @@
         <nav class="flex mb-4" aria-label="Breadcrumb">
             <ol class="inline-flex items-center space-x-1 md:space-x-3">
                 <li class="inline-flex items-center">
-                    <a href="/analytics" class="text-gray-700 hover:text-blue-600 dark:text-gray-300 dark:hover:text-blue-400">Analytics</a>
+                    <a href="/analytics" style="color: var(--text-secondary);" class="hover:underline">Analytics</a>
                 </li>
                 <li>
                     <div class="flex items-center">
-                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="w-6 h-6" style="color: var(--text-muted);" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"></path>
                         </svg>
-                        <span class="ml-1 text-gray-500 md:ml-2 dark:text-gray-400">Scraper Metrics</span>
+                        <span class="ml-1 md:ml-2" style="color: var(--text-muted-slate);">Scraper Metrics</span>
                     </div>
                 </li>
             </ol>
         </nav>
-        
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">⚡ Scraper Metrics</h1>
-        <p class="text-gray-600 dark:text-gray-400">Monitor article collection performance and source health</p>
+
+        <h1 class="text-3xl font-bold mb-2" style="color: var(--text-primary);">⚡ Scraper Metrics</h1>
+        <p style="color: var(--text-muted-slate);">Monitor article collection performance and source health</p>
         <div class="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-sm font-medium">
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M10.29 3.86l-8.6 14.86A1 1 0 0 0 2.56 21h18.88a1 1 0 0 0 .87-1.28l-8.6-14.86a1 1 0 0 0-1.72 0z"/></svg>
-            Non-production &mdash; data has not been validated for accuracy
+            Non-production -- data has not been validated for accuracy
         </div>
     </div>
 
     <!-- Metrics Overview -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
             <div class="flex items-center">
-                <div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-                    <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="p-2 rounded-lg" style="background-color: rgba(34,197,94,0.15);">
+                    <svg class="w-6 h-6" style="color: var(--action-success-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                     </svg>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Articles Today</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="articlesToday">-</p>
+                    <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Articles Today</p>
+                    <p class="text-2xl font-semibold" style="color: var(--text-primary);" id="articlesToday">-</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
             <div class="flex items-center">
-                <div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                    <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="p-2 rounded-lg" style="background-color: var(--action-info-fill);">
+                    <svg class="w-6 h-6" style="color: var(--action-info);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"></path>
                     </svg>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Active Sources</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="activeSources">-</p>
+                    <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Active Sources</p>
+                    <p class="text-2xl font-semibold" style="color: var(--text-primary);" id="activeSources">-</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
             <div class="flex items-center">
-                <div class="p-2 bg-yellow-100 dark:bg-yellow-900 rounded-lg">
-                    <svg class="w-6 h-6 text-yellow-600 dark:text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="p-2 rounded-lg" style="background-color: rgba(234,179,8,0.15);">
+                    <svg class="w-6 h-6" style="color: var(--action-warning);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                     </svg>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg Response Time</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="avgResponseTime">-</p>
+                    <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Median Response</p>
+                    <p class="text-2xl font-semibold" style="color: var(--text-primary);" id="avgResponseTime">-</p>
                 </div>
             </div>
         </div>
 
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
             <div class="flex items-center">
-                <div class="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
-                    <svg class="w-6 h-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div class="p-2 rounded-lg" style="background-color: var(--action-danger-fill);">
+                    <svg class="w-6 h-6" style="color: var(--action-danger);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"></path>
                     </svg>
                 </div>
                 <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Error Rate</p>
-                    <p class="text-2xl font-semibold text-gray-900 dark:text-white" id="errorRate">-</p>
+                    <p class="text-sm font-medium" style="color: var(--text-muted-slate);">Error Rate</p>
+                    <p class="text-2xl font-semibold" style="color: var(--text-primary);" id="errorRate">-</p>
                 </div>
             </div>
         </div>
@@ -91,16 +91,16 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Collection Rate Chart -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📈 Collection Rate (Last 7 Days)</h3>
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+            <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4">📈 Collection Rate (Last 7 Days)</h3>
             <div class="h-64">
                 <canvas id="collectionRateChart"></canvas>
             </div>
         </div>
 
         <!-- Source Health Chart -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🏥 Source Health Distribution</h3>
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+            <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4">🏥 Source Health Distribution</h3>
             <div class="h-64">
                 <canvas id="sourceHealthChart"></canvas>
             </div>
@@ -110,16 +110,16 @@
     <!-- Ingestion Analytics Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         <!-- Hunt Score Ranges Chart -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🎯 Hunt Score Ranges (Last 30 Days)</h3>
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+            <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4">🎯 Hunt Score Ranges (Last 30 Days)</h3>
             <div class="h-64">
                 <canvas id="huntScoreChart"></canvas>
             </div>
         </div>
 
         <!-- Hourly Distribution Chart -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">🕐 Hourly Distribution (Today)</h3>
+        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+            <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4">🕐 Hourly Distribution (Today)</h3>
             <div class="h-64">
                 <canvas id="hourlyChart"></canvas>
             </div>
@@ -127,11 +127,11 @@
     </div>
 
     <!-- Source Performance Table -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow">
-        <div data-collapsible-panel="source-performance" class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer">
+    <div class="rounded-lg shadow" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div data-collapsible-panel="source-performance" class="px-6 py-4 transition-colors cursor-pointer" style="border-bottom: 1px solid var(--border-muted);">
             <div class="flex items-center justify-between">
-                <h3 class="text-lg font-semibold text-gray-900 dark:text-white">📊 Source Performance Details</h3>
-                <span id="source-performance-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
+                <h3 class="text-lg font-semibold" style="color: var(--text-primary);">📊 Source Performance Details</h3>
+                <span id="source-performance-toggle" style="color: var(--text-muted-slate);" class="transition-transform duration-200" aria-hidden="true">
                     <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                     </svg>
@@ -139,18 +139,18 @@
             </div>
         </div>
         <div id="source-performance-content" class="overflow-x-auto hidden">
-            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead class="bg-gray-50 dark:bg-gray-700">
+            <table class="min-w-full">
+                <thead style="background-color: var(--panel-bg-3);">
                     <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Source</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Articles Today</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Last Success</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Error Rate</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Avg Response</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors" style="color: var(--text-muted-slate);" data-sort-key="name">Source <span class="sort-indicator"></span></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors" style="color: var(--text-muted-slate);" data-sort-key="status">Status <span class="sort-indicator"></span></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors" style="color: var(--text-muted-slate);" data-sort-key="articles_7d">7d Count <span class="sort-indicator"></span></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors" style="color: var(--text-muted-slate);" data-sort-key="last_success">Last Success <span class="sort-indicator"></span></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors" style="color: var(--text-muted-slate);" data-sort-key="error_rate">Error Rate <span class="sort-indicator"></span></th>
+                        <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors" style="color: var(--text-muted-slate);" data-sort-key="avg_response">Avg Response <span class="sort-indicator"></span></th>
                     </tr>
                 </thead>
-                <tbody id="sourcePerformanceTable" class="bg-gray-800 border border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody id="sourcePerformanceTable" style="background-color: var(--mlops-card-bg); border-top: 1px solid var(--border-muted);">
                     <!-- Table content will be loaded dynamically -->
                 </tbody>
             </table>
@@ -169,8 +169,10 @@ async function loadScraperMetrics() {
         
         document.getElementById('articlesToday').textContent = overviewData.articles_today || '-';
         document.getElementById('activeSources').textContent = overviewData.active_sources || '-';
-        document.getElementById('avgResponseTime').textContent = overviewData.avg_response_time ? 
-            overviewData.avg_response_time + 'ms' : '-';
+        const rtMs = overviewData.avg_response_time;
+        document.getElementById('avgResponseTime').textContent = rtMs
+            ? (rtMs >= 1000 ? (rtMs / 1000).toFixed(1) + 's' : rtMs + 'ms')
+            : '-';
         document.getElementById('errorRate').textContent = overviewData.error_rate ? 
             overviewData.error_rate + '%' : '-';
 
@@ -251,39 +253,115 @@ function renderSourceHealthChart(data) {
     });
 }
 
-// Render source performance table
-function renderSourcePerformanceTable(data) {
-    const tbody = document.getElementById('sourcePerformanceTable');
-    tbody.innerHTML = '';
+// Source performance table with sortable columns
+let _sourceData = [];
+let _sortKey = 'name';
+let _sortAsc = true;
 
-    data.sources?.forEach(source => {
+function renderSourcePerformanceTable(data) {
+    _sourceData = data.sources || [];
+    _renderSortedTable();
+    _initSortHeaders();
+}
+
+function _initSortHeaders() {
+    document.querySelectorAll('th[data-sort-key]').forEach(th => {
+        if (th._sortBound) return;
+        th._sortBound = true;
+        th.addEventListener('click', () => {
+            const key = th.dataset.sortKey;
+            if (_sortKey === key) {
+                _sortAsc = !_sortAsc;
+            } else {
+                _sortKey = key;
+                // Default ascending for text columns, descending for numeric
+                _sortAsc = key === 'name' || key === 'status';
+            }
+            _renderSortedTable();
+        });
+    });
+}
+
+function _formatResponseTime(ms) {
+    if (!ms) return '-';
+    return ms >= 1000 ? (ms / 1000).toFixed(1) + 's' : ms + 'ms';
+}
+
+function _statusBadgeClass(status) {
+    if (status === 'healthy') return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
+    if (status === 'warning') return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
+    return 'px-2 inline-flex text-xs leading-5 font-semibold rounded-full';
+}
+function _statusBadgeStyle(status) {
+    if (status === 'healthy') return 'background-color: rgba(34,197,94,0.2); color: var(--action-success-light);';
+    if (status === 'warning') return 'background-color: rgba(234,179,8,0.2); color: var(--action-warning);';
+    return 'background-color: rgba(239,68,68,0.2); color: var(--action-danger);';
+}
+
+function _renderSortedTable() {
+    const sorted = [..._sourceData].sort((a, b) => {
+        let va = a[_sortKey], vb = b[_sortKey];
+        // Treat 'Never' as earliest for last_success sorting
+        if (_sortKey === 'last_success') {
+            va = va === 'Never' ? '' : va;
+            vb = vb === 'Never' ? '' : vb;
+        }
+        if (typeof va === 'string') {
+            const cmp = va.localeCompare(vb, undefined, {sensitivity: 'base'});
+            return _sortAsc ? cmp : -cmp;
+        }
+        return _sortAsc ? (va || 0) - (vb || 0) : (vb || 0) - (va || 0);
+    });
+
+    // Update sort indicators on headers
+    document.querySelectorAll('th[data-sort-key]').forEach(th => {
+        const ind = th.querySelector('.sort-indicator');
+        if (th.dataset.sortKey === _sortKey) {
+            ind.textContent = _sortAsc ? ' \u25B2' : ' \u25BC';
+        } else {
+            ind.textContent = '';
+        }
+    });
+
+    const tbody = document.getElementById('sourcePerformanceTable');
+    tbody.replaceChildren();
+    sorted.forEach(source => {
         const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                ${source.name}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    source.status === 'healthy' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
-                    source.status === 'warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                    'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
-                }">
-                    ${source.status}
-                </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${source.articles_today || 0}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${source.last_success || 'Never'}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${source.error_rate ? source.error_rate + '%' : '0%'}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                ${source.avg_response ? source.avg_response + 'ms' : '-'}
-            </td>
-        `;
+
+        const tdName = document.createElement('td');
+        tdName.className = 'px-6 py-4 whitespace-nowrap text-sm font-medium';
+        tdName.style.color = 'var(--text-primary)';
+        tdName.textContent = source.name;
+
+        const tdStatus = document.createElement('td');
+        tdStatus.className = 'px-6 py-4 whitespace-nowrap';
+        const badge = document.createElement('span');
+        badge.className = _statusBadgeClass(source.status);
+        badge.style.cssText = _statusBadgeStyle(source.status);
+        badge.textContent = source.status;
+        tdStatus.appendChild(badge);
+
+        const tdCount = document.createElement('td');
+        tdCount.className = 'px-6 py-4 whitespace-nowrap text-sm';
+        tdCount.style.color = 'var(--text-muted-slate)';
+        tdCount.textContent = source.articles_7d || 0;
+
+        const tdLast = document.createElement('td');
+        tdLast.className = 'px-6 py-4 whitespace-nowrap text-sm';
+        tdLast.style.color = 'var(--text-muted-slate)';
+        tdLast.textContent = source.last_success || 'Never';
+
+        const tdErr = document.createElement('td');
+        tdErr.className = 'px-6 py-4 whitespace-nowrap text-sm';
+        tdErr.style.color = 'var(--text-muted-slate)';
+        tdErr.textContent = source.error_rate ? source.error_rate + '%' : '0%';
+
+        const tdRt = document.createElement('td');
+        tdRt.className = 'px-6 py-4 whitespace-nowrap text-sm';
+        tdRt.style.color = 'var(--text-muted-slate)';
+        tdRt.textContent = _formatResponseTime(source.avg_response);
+
+        row.append(tdName, tdStatus, tdCount, tdLast, tdErr, tdRt);
         tbody.appendChild(row);
     });
 }
