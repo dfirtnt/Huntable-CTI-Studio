@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="920" viewBox="0 0 1800 920" role="img" aria-labelledby="title desc">
+  <title id="title">Sigma Signal Refinement Loop</title>
+  <desc id="desc">A multi-stage filter pipeline that repeatedly improves signal quality for Sigma rule generation.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0B1220"/>
+      <stop offset="50%" stop-color="#121B2F"/>
+      <stop offset="100%" stop-color="#0C1629"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#16253E"/>
+      <stop offset="100%" stop-color="#101B31"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#173A3A"/>
+      <stop offset="100%" stop-color="#0F2E2F"/>
+    </linearGradient>
+    <linearGradient id="feedback" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#F6B24E"/>
+      <stop offset="100%" stop-color="#E88C2F"/>
+    </linearGradient>
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrowCyan" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#39D7E8"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,0 L12,6 L0,12 Z" fill="#F0A542"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1800" height="920" fill="url(#bg)"/>
+
+  <text x="900" y="72" fill="#EAF2FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="40" text-anchor="middle" font-weight="700">
+    Sigma Signal Refinement Loop
+  </text>
+  <text x="900" y="106" fill="#AFC2DE" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" text-anchor="middle">
+    Repeated filter passes convert noisy CTI into high-confidence, review-ready Sigma signal
+  </text>
+
+  <g fill="none" stroke="#39D7E8" stroke-width="6" marker-end="url(#arrowCyan)">
+    <path d="M260 320 L350 320"/>
+    <path d="M540 320 L630 320"/>
+    <path d="M820 320 L910 320"/>
+    <path d="M1100 320 L1190 320"/>
+    <path d="M1380 320 L1470 320"/>
+  </g>
+
+  <g>
+    <rect x="70" y="250" rx="26" ry="26" width="190" height="140" fill="url(#card)" stroke="#31C8D9" stroke-width="4"/>
+    <text x="165" y="302" fill="#E5F8FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">Raw CTI</text>
+    <text x="165" y="333" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" text-anchor="middle">article stream</text>
+  </g>
+
+  <g>
+    <rect x="350" y="250" rx="26" ry="26" width="190" height="140" fill="url(#card)" stroke="#31C8D9" stroke-width="4"/>
+    <text x="445" y="296" fill="#E5F8FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">OS Filter</text>
+    <text x="445" y="327" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">keep Windows</text>
+    <text x="445" y="350" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">relevant content</text>
+  </g>
+
+  <g>
+    <rect x="630" y="250" rx="26" ry="26" width="190" height="140" fill="url(#card)" stroke="#31C8D9" stroke-width="4"/>
+    <text x="725" y="296" fill="#E5F8FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">Junk Filter</text>
+    <text x="725" y="327" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">discard low-value</text>
+    <text x="725" y="350" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">and noisy content</text>
+  </g>
+
+  <g>
+    <rect x="910" y="250" rx="26" ry="26" width="190" height="140" fill="url(#card)" stroke="#31C8D9" stroke-width="4"/>
+    <text x="1005" y="296" fill="#E5F8FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">Rank Filter</text>
+    <text x="1005" y="327" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">retain strongest</text>
+    <text x="1005" y="350" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">hunting signal</text>
+  </g>
+
+  <g>
+    <rect x="1190" y="250" rx="26" ry="26" width="190" height="140" fill="url(#card)" stroke="#31C8D9" stroke-width="4"/>
+    <text x="1285" y="296" fill="#E5F8FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">Extraction</text>
+    <text x="1285" y="327" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">keep actionable</text>
+    <text x="1285" y="350" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">observables</text>
+  </g>
+
+  <g>
+    <rect x="1470" y="250" rx="26" ry="26" width="260" height="140" fill="url(#core)" stroke="#38D6B4" stroke-width="4"/>
+    <text x="1600" y="286" fill="#E8FFF7" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">Sigma + Validation</text>
+    <text x="1600" y="314" fill="#A6D8CA" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">generate then pySigma-check</text>
+    <text x="1600" y="337" fill="#A6D8CA" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">retry failed candidates</text>
+    <text x="1600" y="360" fill="#A6D8CA" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">before promotion</text>
+  </g>
+
+  <g fill="none" stroke="#39D7E8" stroke-width="6" marker-end="url(#arrowCyan)">
+    <path d="M1600 390 L1600 460"/>
+  </g>
+
+  <g>
+    <rect x="1320" y="460" rx="26" ry="26" width="280" height="140" fill="url(#card)" stroke="#31C8D9" stroke-width="4"/>
+    <text x="1460" y="508" fill="#E5F8FF" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="22" text-anchor="middle" font-weight="700">Novelty Filter</text>
+    <text x="1460" y="539" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">remove duplicate / near-</text>
+    <text x="1460" y="562" fill="#A3B9D8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" text-anchor="middle">duplicate Sigma behavior</text>
+  </g>
+
+  <g fill="none" stroke="#39D7E8" stroke-width="6" marker-end="url(#arrowCyan)">
+    <path d="M1460 602 L1460 690"/>
+  </g>
+
+  <g>
+    <rect x="1220" y="690" rx="28" ry="28" width="480" height="150" fill="#102B29" stroke="#4AE3B6" stroke-width="5" filter="url(#softGlow)"/>
+    <text x="1460" y="744" fill="#E6FFF7" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="30" text-anchor="middle" font-weight="800">Reliably Valuable Sigma Signal</text>
+    <text x="1460" y="777" fill="#9EDAC8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" text-anchor="middle">Queue for analyst review and production decisioning</text>
+  </g>
+
+  <g>
+    <rect x="90" y="520" rx="26" ry="26" width="460" height="180" fill="#2C1F14" stroke="#F0A542" stroke-width="4"/>
+    <text x="320" y="575" fill="#FFECD2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="26" text-anchor="middle" font-weight="700">Feedback Loop</text>
+    <text x="320" y="612" fill="#F7C990" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" text-anchor="middle">Analyst outcomes tune thresholds,</text>
+    <text x="320" y="641" fill="#F7C990" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" text-anchor="middle">prompts, and extraction heuristics.</text>
+    <text x="320" y="670" fill="#F7C990" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="20" text-anchor="middle">Filter quality improves each cycle.</text>
+  </g>
+
+  <g fill="none" stroke="url(#feedback)" stroke-width="7" marker-end="url(#arrowOrange)">
+    <path d="M1220 760 C1080 760, 940 760, 780 710"/>
+    <path d="M780 710 C610 660, 480 610, 550 390"/>
+    <path d="M550 390 C565 340, 600 320, 630 320"/>
+    <path d="M780 710 C930 680, 1020 620, 1005 390"/>
+    <path d="M780 710 C1180 700, 1300 640, 1285 390"/>
+    <path d="M780 710 C1400 690, 1510 650, 1460 600"/>
+  </g>
+
+  <g fill="#F16B6B" font-family="Inter,Segoe UI,Arial,sans-serif">
+    <text x="632" y="430" font-size="18">x Noise dropped</text>
+    <text x="910" y="430" font-size="18">x Weak signal dropped</text>
+    <text x="1188" y="430" font-size="18">x Non-actionable dropped</text>
+    <text x="1590" y="430" font-size="18">x Invalid Sigma dropped</text>
+    <text x="1320" y="635" font-size="18">x Duplicates dropped</text>
+  </g>
+</svg>

@@ -41,6 +41,12 @@ There are two entry paths into the SIGMA detection system:
 Article → Match Existing Rules → Classify Coverage → Generate New Rules (if needed) → Similarity Check → Store
 ```
 
+### Signal Refinement Loop (Filter-Over-Filter)
+
+This visualization shows how the workflow repeatedly applies filters to concentrate on high-value Sigma signal, then feeds outcomes back into threshold and prompt tuning.
+
+![Sigma signal refinement loop](../diagrams/sigma-signal-refinement-loop.svg)
+
 ### Key Benefits
 
 - **Prevents Duplication**: Identifies existing coverage before generating new rules
