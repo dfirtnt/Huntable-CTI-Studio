@@ -33,6 +33,7 @@ The SIGMA Detection Rules System combines three powerful features:
 
 There are two entry paths into the SIGMA detection system:
 
+<!-- TODO: verify: endpoint `POST /api/articles/{id}/analyze` not found in src/web/routes; likely should reference `POST /api/workflow/articles/{id}/trigger` -->
 - **Web/API path**: Triggered via `POST /api/articles/{id}/analyze` — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store
 - **Agentic Workflow path**: Triggered via LangGraph pipeline — OS Detection → Junk Filter → Rank → Extract → Generate SIGMA → Similarity Search → Promote to Queue
 
@@ -286,6 +287,8 @@ Enhances "Generate SIGMA Rules" by comparing proposed/generated rules against in
 When the **sigma_semantic_similarity** package is installed (`pip install -e sigma_semantic_similarity/` from the repo root), the app uses its deterministic engine for pairwise rule comparison in novelty assessment and (when no LLM is configured) in eval semantic scoring. It uses canonical telemetry class, DNF normalization, Jaccard, containment, and filter penalties—no embeddings. If the package is not installed, the app uses the existing in-app or LLM/embedding logic.
 
 The engine's `atom_extractor.py` uses case-insensitive field resolution (`_FIELD_ALIAS_MAP_LOWER`) and operator-aware value folding (`_CASE_INSENSITIVE_OPS`) so that LLM-generated rules using lowercase/snake_case field names (e.g., `image`, `command_line`) produce the same atom identities as standard PascalCase Sigma fields.
+
+**Cross-field soft matching**: When strict atom intersection is empty, the novelty service applies value-based soft matching across process-executable fields (`Image`, `CommandLine`, `ParentImage`, `ParentCommandLine`, `OriginalFileName`, and their canonical `process.*` variants). If the same executable value (e.g., `\rundll32.exe`) appears in different fields across two rules, a 50%-dampened partial Jaccard credit is awarded. This prevents rules detecting the same executable via different SIGMA fields from showing 0% similarity.
 
 ### How It Works
 

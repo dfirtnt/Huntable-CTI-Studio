@@ -425,7 +425,7 @@ python3 scripts/maintenance/reset_gold_eval_training_flag.py
 ```
 
 ### `maintenance/update_provider_model_catalogs.py`
-**Purpose**: Fetch latest OpenAI and Anthropic models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns. The catalog is filtered: **OpenAI** — chat-only, latest only (no `-YYYY-MM-DD` dated variants); **Anthropic** — one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5).  
+**Purpose**: Fetch latest OpenAI and Anthropic models from provider APIs and update the curated list used by the workflow UI. Keeps `config/provider_model_catalog.json` in sync so new models appear in dropdowns. The catalog is filtered: **OpenAI** — chat-only, latest only (no `-YYYY-MM-DD` dated variants), then narrowed to the project workflow allowlist (`gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `o3-mini`, `o4-mini`); **Anthropic** — one main/latest per family (e.g. one Sonnet 4.5, one Haiku 4.5). The OpenAI allowlist is defined in `src/utils/model_validation.py` (`PROJECT_OPENAI_ALLOWLIST`).  
 **Usage**:
 ```bash
 # Preview only (no write)

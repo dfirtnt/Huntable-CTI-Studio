@@ -20,7 +20,7 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 The ranking step includes a QA retry loop. After `LLMService.rank_article()` produces a score, the QA agent validates the ranking for consistency and compliance. If the QA check fails, the ranking is retried up to `qa_max_retries` times (configurable in `agentic_workflow_configs`).
 
-**QA Prompt**: `QAAgentBase` (with ranking-specific context)
+**QA Prompt**: `RankAgentQA` (with ranking-specific context)
 **Max Retries**: Configurable via workflow config (`qa_max_retries`)
 **Failure Behavior**: Falls back to the last valid score or terminates with `rank_below_threshold`
 

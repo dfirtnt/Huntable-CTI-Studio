@@ -16,7 +16,7 @@
 | 2 | `cleanup-old-data-daily` | `cleanup_old_data` | `0 2 * * *` | Daily 02:00 UTC | `maintenance` |
 | 3 | `embed-new-articles-daily` | `embed_new_articles` | `0 15 * * *` | Daily 15:00 UTC | `default` |
 | 4 | `sync-sigma-rules-weekly` | `sync_sigma_rules` | `0 4 * * 0` | Sunday 04:00 UTC | `maintenance` |
-| 5 | `update-provider-model-catalogs-daily` | `update_provider_model_catalogs` | `0 4 * * *` | Daily 04:00 UTC | `maintenance` — refreshes **OpenAI, Anthropic** model lists → `config/provider_model_catalog.json` |
+| 5 | `update-provider-model-catalogs-daily` | `update_provider_model_catalogs` | `0 4 * * *` | Daily 04:00 UTC | `maintenance` — refreshes **OpenAI** (project allowlist only), **Anthropic** model lists → `config/provider_model_catalog.json` |
 
 **Disabled (commented in code):**
 

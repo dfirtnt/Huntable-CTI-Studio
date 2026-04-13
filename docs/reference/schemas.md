@@ -81,7 +81,7 @@ Known `subresults` keys (one per sub-agent):
 |-----|-----------|
 | `cmdline` | CmdlineExtract |
 | `process_lineage` | ProcTreeExtract |
-| `sigma_queries` | HuntQueriesExtract |
+| `hunt_queries` | HuntQueriesExtract |
 | `registry_artifacts` | RegistryExtract |
 
 ## Workflow Config V2
