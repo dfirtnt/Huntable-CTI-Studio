@@ -119,6 +119,69 @@ class RollbackRequest(BaseModel):
     version_id: int
 
 
+class ResetPromptsToDefaultsRequest(BaseModel):
+    """Request model for resetting agent prompts to on-disk defaults.
+
+    If agent_names is omitted or empty, all agents with available disk defaults are reset.
+    Other agents' customizations in the active config are preserved untouched.
+    """
+
+    agent_names: list[str] | None = None
+
+
+def _merge_default_prompts(
+    existing_prompts: dict[str, Any],
+    defaults: dict[str, Any],
+    agent_names: list[str] | None,
+) -> tuple[dict[str, Any], list[str]]:
+    """Merge on-disk default prompts into existing prompts for specified agents.
+
+    Selectively replaces the ``prompt`` and ``instructions`` fields for each requested
+    agent with values from ``defaults``. Per-agent customizations outside the requested
+    set (and the ``model`` field of each requested agent) are preserved.
+
+    Args:
+        existing_prompts: The current ``agent_prompts`` dict from the active config.
+            May be empty. Not mutated — a shallow copy is returned.
+        defaults: On-disk defaults as returned by ``get_default_agent_prompts()``.
+            Each entry must have a ``prompt`` key; ``instructions`` and ``model``
+            are optional.
+        agent_names: Agents to reset. If ``None`` or empty, every key present in
+            ``defaults`` is reset.
+
+    Returns:
+        Tuple of (merged_prompts_dict, reset_agent_names).
+
+    Raises:
+        ValueError: If any requested agent name is not present in ``defaults``.
+    """
+    if not defaults:
+        raise ValueError("No on-disk default prompts available")
+
+    requested = list(agent_names) if agent_names else list(defaults.keys())
+    missing = [name for name in requested if name not in defaults]
+    if missing:
+        raise ValueError(f"No on-disk defaults available for: {', '.join(sorted(missing))}")
+
+    merged = dict(existing_prompts or {})
+    reset_names: list[str] = []
+    for name in requested:
+        default_entry = defaults[name]
+        if not isinstance(default_entry, dict) or not default_entry.get("prompt"):
+            # Skip entries that lack a prompt — treat as "no default available"
+            continue
+        prior = merged.get(name) if isinstance(merged.get(name), dict) else {}
+        merged[name] = {
+            "prompt": default_entry["prompt"],
+            "instructions": default_entry.get("instructions", ""),
+            # Preserve user model selection; fall back to default's model hint
+            "model": (prior or {}).get("model") or default_entry.get("model", "Not configured"),
+        }
+        reset_names.append(name)
+
+    return merged, reset_names
+
+
 class SaveConfigPresetRequest(BaseModel):
     """Request model for saving a workflow config preset."""
 
@@ -1629,6 +1692,122 @@ async def bootstrap_prompts_from_files(request: Request):
         raise
     except Exception as e:
         logger.error(f"Error bootstrapping prompts: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/config/prompts/reset-to-defaults")
+async def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDefaultsRequest):
+    """Selectively reset agent prompts to on-disk defaults.
+
+    Unlike ``/config/prompts/bootstrap`` (which wholesale replaces every prompt),
+    this endpoint accepts an optional ``agent_names`` list and only refreshes
+    those agents. Other agents' customizations are preserved. Model selection on
+    each reset agent is also preserved.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            current_config = (
+                db_session.query(AgenticWorkflowConfigTable)
+                .filter(AgenticWorkflowConfigTable.is_active == True)
+                .order_by(AgenticWorkflowConfigTable.version.desc())
+                .with_for_update()
+                .first()
+            )
+
+            if not current_config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+
+            defaults = get_default_agent_prompts()
+            if not defaults:
+                raise HTTPException(status_code=404, detail="No on-disk default prompts available")
+
+            existing_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
+
+            try:
+                merged_prompts, reset_agents = _merge_default_prompts(
+                    existing_prompts=existing_prompts,
+                    defaults=defaults,
+                    agent_names=reset_request.agent_names,
+                )
+            except ValueError as ve:
+                raise HTTPException(status_code=400, detail=str(ve)) from ve
+
+            if not reset_agents:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No agents were reset (requested agents had no valid disk defaults)",
+                )
+
+            # Deactivate current config and create a new version
+            current_config.is_active = False
+            db_session.flush()
+            new_version = current_config.version + 1
+
+            new_config = AgenticWorkflowConfigTable(
+                min_hunt_score=current_config.min_hunt_score,
+                ranking_threshold=current_config.ranking_threshold,
+                similarity_threshold=current_config.similarity_threshold,
+                junk_filter_threshold=current_config.junk_filter_threshold,
+                auto_trigger_hunt_score_threshold=getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0),
+                version=new_version,
+                is_active=True,
+                description=f"Reset prompts to defaults: {', '.join(reset_agents)}",
+                agent_prompts=merged_prompts,
+                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
+                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
+                sigma_fallback_enabled=getattr(current_config, "sigma_fallback_enabled", False),
+                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                rank_agent_enabled=getattr(current_config, "rank_agent_enabled", True),
+                qa_max_retries=getattr(current_config, "qa_max_retries", 5),
+                cmdline_attention_preprocessor_enabled=getattr(
+                    current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+            )
+
+            db_session.add(new_config)
+            db_session.flush()
+
+            # Record per-agent version history so a rollback path exists
+            for agent_name in reset_agents:
+                entry = merged_prompts.get(agent_name) or {}
+                max_version = (
+                    db_session.query(func.max(AgentPromptVersionTable.version))
+                    .filter(AgentPromptVersionTable.agent_name == agent_name)
+                    .scalar()
+                    or 0
+                )
+                db_session.add(
+                    AgentPromptVersionTable(
+                        agent_name=agent_name,
+                        prompt=entry.get("prompt", ""),
+                        instructions=entry.get("instructions", ""),
+                        version=max_version + 1,
+                        workflow_config_version=new_version,
+                        change_description="Reset to on-disk default",
+                    )
+                )
+
+            db_session.commit()
+            db_session.refresh(new_config)
+
+            logger.info(f"Reset {len(reset_agents)} prompts to defaults: {reset_agents}")
+
+            return {
+                "success": True,
+                "message": f"Reset {len(reset_agents)} agent prompts to on-disk defaults",
+                "version": new_version,
+                "reset_agents": reset_agents,
+            }
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resetting prompts to defaults: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
