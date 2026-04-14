@@ -1579,46 +1579,46 @@
         <div class="oc-shell">
 
           <!-- ── Left: Pipeline Rail ──────────────────── -->
-          <nav class="oc-rail" id="oc-rail" aria-label="Pipeline steps">
+          <nav class="oc-rail collapsed" id="oc-rail" aria-label="Pipeline steps">
             <button type="button" class="btn-toggle btn-toggle--circle oc-rail-toggle" onclick="togglePipelineRail()" title="Toggle pipeline rail"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg></button>
             <div class="pipeline-label" style="padding: 0 12px 8px; font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.3);">PIPELINE</div>
 
-            <div class="rail-item c0 active" onclick="scrollToStep(0)" role="button" tabindex="0">
+            <div class="rail-item c0 active" onclick="scrollToStep(0)" role="button" tabindex="0" title="Step 0: OS Detection (os-detect)">
               <div class="rail-node">0</div>
               <div class="rail-label">OS Detection</div>
               <div class="rail-sublabel">os-detect</div>
             </div>
             <div class="rail-connector"></div>
 
-            <div class="rail-item c1" onclick="scrollToStep(1)" role="button" tabindex="0">
+            <div class="rail-item c1" onclick="scrollToStep(1)" role="button" tabindex="0" title="Step 1: Junk Filter (threshold)">
               <div class="rail-node">1</div>
               <div class="rail-label">Junk Filter</div>
               <div class="rail-sublabel">threshold</div>
             </div>
             <div class="rail-connector"></div>
 
-            <div class="rail-item c2" onclick="scrollToStep(2)" role="button" tabindex="0">
+            <div class="rail-item c2" onclick="scrollToStep(2)" role="button" tabindex="0" title="Step 2: LLM Ranking (rank-agent)">
               <div class="rail-node">2</div>
               <div class="rail-label">LLM Ranking</div>
               <div class="rail-sublabel">rank-agent</div>
             </div>
             <div class="rail-connector"></div>
 
-            <div class="rail-item c3" onclick="scrollToStep(3)" role="button" tabindex="0">
+            <div class="rail-item c3" onclick="scrollToStep(3)" role="button" tabindex="0" title="Step 3: Extract Agent (supervisor)">
               <div class="rail-node">3</div>
               <div class="rail-label">Extract Agent</div>
               <div class="rail-sublabel">supervisor</div>
             </div>
             <div class="rail-connector"></div>
 
-            <div class="rail-item c4" onclick="scrollToStep(4)" role="button" tabindex="0">
+            <div class="rail-item c4" onclick="scrollToStep(4)" role="button" tabindex="0" title="Step 4: Generate SIGMA (sigma-agent)">
               <div class="rail-node">4</div>
               <div class="rail-label">Generate SIGMA</div>
               <div class="rail-sublabel">sigma-agent</div>
             </div>
             <div class="rail-connector"></div>
 
-            <div class="rail-item c5" onclick="scrollToStep(5)" role="button" tabindex="0">
+            <div class="rail-item c5" onclick="scrollToStep(5)" role="button" tabindex="0" title="Step 5: Similarity Search (dedup)">
               <div class="rail-node">5</div>
               <div class="rail-label">Similarity Search</div>
               <div class="rail-sublabel">dedup</div>
@@ -1632,7 +1632,7 @@
               <!-- ══ STEP 0: OS DETECTION ══════════════════ -->
               <section id="s0" class="step-section open">
                 <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s0')">
+                <div class="section-header" onclick="scrollToStep(0)">
                   <span class="step-badge">STEP 0</span>
                   <span class="section-title">OS Detection</span>
                   <span class="section-meta">model · prompt</span>
@@ -1648,7 +1648,7 @@
               <!-- ══ STEP 1: JUNK FILTER ════════════════════ -->
               <section id="s1" class="step-section">
                 <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s1')">
+                <div class="section-header" onclick="scrollToStep(1)">
                   <span class="step-badge">STEP 1</span>
                   <span class="section-title">Junk Filter</span>
                   <span class="section-meta">threshold</span>
@@ -1678,7 +1678,7 @@
               <!-- ══ STEP 2: LLM RANKING ════════════════════ -->
               <section id="s2" class="step-section">
                 <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s2')">
+                <div class="section-header" onclick="scrollToStep(2)">
                   <span class="step-badge">STEP 2</span>
                   <span class="section-title">LLM Ranking</span>
                   <span id="rank-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
@@ -1828,7 +1828,7 @@
               <!-- ══ STEP 3: EXTRACT AGENT ═══════════════════ -->
               <section id="s3" class="step-section">
                 <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s3')">
+                <div class="section-header" onclick="scrollToStep(3)">
                   <span class="step-badge">STEP 3</span>
                   <span class="section-title">Extract Agent</span>
                   <span class="px-2 py-0.5 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 font-medium">Supervisor</span>
@@ -2259,7 +2259,7 @@
               <!-- ══ STEP 4: GENERATE SIGMA ══════════════════ -->
               <section id="s4" class="step-section">
                 <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s4')">
+                <div class="section-header" onclick="scrollToStep(4)">
                   <span class="step-badge">STEP 4</span>
                   <span class="section-title">Generate SIGMA</span>
                   <span class="section-meta">sigma-agent · content-source</span>
@@ -2297,7 +2297,7 @@
               <!-- ══ STEP 5: SIMILARITY SEARCH ══════════════ -->
               <section id="s5" class="step-section">
                 <div class="section-tint"></div>
-                <div class="section-header" onclick="toggle('s5')">
+                <div class="section-header" onclick="scrollToStep(5)">
                   <span class="step-badge">STEP 5</span>
                   <span class="section-title">Similarity Search</span>
                   <span class="section-meta">dedup threshold</span>
@@ -2390,8 +2390,23 @@
 
         function togglePipelineRail() {
           const rail = document.getElementById('oc-rail');
-          if (rail) rail.classList.toggle('collapsed');
+          if (!rail) return;
+          rail.classList.toggle('collapsed');
+          try {
+            localStorage.setItem('oc-rail-collapsed', rail.classList.contains('collapsed') ? '1' : '0');
+          } catch (e) { /* storage unavailable */ }
         }
+
+        // Restore prior state; default (no stored value) stays collapsed.
+        (function () {
+          try {
+            const stored = localStorage.getItem('oc-rail-collapsed');
+            if (stored === '0') {
+              const rail = document.getElementById('oc-rail');
+              if (rail) rail.classList.remove('collapsed');
+            }
+          } catch (e) { /* storage unavailable */ }
+        })();
 
         /* ── Expanded Prompt Editor ─────────────────── */
         var _expandedPromptAgent = null;
@@ -2491,28 +2506,9 @@
           });
         }
 
-        (function initRailObserver() {
-          var content = document.getElementById('config-content');
-          if (!content || typeof IntersectionObserver === 'undefined') return;
-          var observer = new IntersectionObserver(function(entries) {
-            entries.forEach(function(entry) {
-              if (entry.isIntersecting) {
-                var idx = parseInt(entry.target.dataset.stepIndex, 10);
-                document.querySelectorAll('.rail-item').forEach(function(el, i) {
-                  el.classList.toggle('active', i === idx);
-                });
-              }
-            });
-          }, {
-            root: content,
-            rootMargin: '-10% 0px -85% 0px',
-            threshold: 0
-          });
-          document.querySelectorAll('.step-section').forEach(function(el, i) {
-            el.dataset.stepIndex = i;
-            observer.observe(el);
-          });
-        })();
+        // Rail active state is derived from the open step (single source of truth:
+        // scrollToStep opens exactly one section and flags the matching rail item).
+        // No IntersectionObserver here — it would fight the accordion invariant.
         </script>
         </form>
 
