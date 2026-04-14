@@ -50,13 +50,16 @@ DIAGNOSTIC PLAYBOOK — follow this order:
 Set rss_url to null to force fallback to scraping tiers.
 2. If blog page text is very short (<500 chars) but HTML is large → page is JS-rendered. \
 Set "use_playwright": true in config.
-3. Check sitemap sample URLs to learn the ACTUAL URL pattern before writing post_url_regex. \
+3. Check RSS sample_urls (if RSS is available) to learn the ACTUAL URL pattern of articles. \
+If RSS sample URLs show "/research/" paths, use that in post_url_regex — do NOT guess \
+"/threat-research/" or other patterns. Use only what you observe in sample_urls.
+4. Check sitemap sample URLs to learn the ACTUAL URL pattern before writing post_url_regex. \
 Never guess URL patterns — use what you observe in the probe data.
-4. For WordPress sites, check if wp-json API returns content. If it returns posts with \
+5. For WordPress sites, check if wp-json API returns content. If it returns posts with \
 content, configure wp_json discovery (endpoints + url_field_priority).
-5. If the blog page has post links visible, use a listing discovery strategy with the \
+6. If the blog page has post links visible, use a listing discovery strategy with the \
 appropriate CSS selector.
-6. Look at the working source examples to see what configs succeed for similar site types.
+7. Look at the working source examples to see what configs succeed for similar site types.
 
 PLATFORM CAPABILITIES:
 - Fetch tiers: RSS → Playwright (if use_playwright=true) → Modern scraping → Legacy scraping
@@ -352,8 +355,13 @@ class SourceHealingService:
                     entries = _re.findall(r"<entry[\s>]", body, _re.IGNORECASE)
                     count = len(items) + len(entries)
                     titles = _re.findall(r"<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>", body)
+                    # Extract URLs from <link> tags (RSS) and <link href="..."> (Atom)
+                    rss_links = _re.findall(r"<link[^>]*>([^<]+)</link>", body, _re.IGNORECASE)
+                    atom_links = _re.findall(r'<link[^>]+href="([^"]+)"', body, _re.IGNORECASE)
+                    all_links = rss_links + atom_links
                     rss_info["item_count"] = count
                     rss_info["sample_titles"] = [t.strip() for t in titles[1:4]]  # skip channel title
+                    rss_info["sample_urls"] = [link.strip() for link in all_links[:5]]  # first 5 article URLs
                     rss_info["verdict"] = "has_items" if count > 0 else "EMPTY_FEED"
                 elif resp:
                     rss_info["verdict"] = f"HTTP_{resp.status_code}"
@@ -683,6 +691,8 @@ class SourceHealingService:
                     parts.append(f"  Items in feed: {probe['item_count']}")
                 if probe.get("sample_titles"):
                     parts.append(f"  Sample titles: {probe['sample_titles']}")
+                if probe.get("sample_urls"):
+                    parts.append(f"  Sample article URLs: {probe['sample_urls']}")
 
             elif label == "blog_page_analysis":
                 parts.append("- Blog Page Analysis:")
