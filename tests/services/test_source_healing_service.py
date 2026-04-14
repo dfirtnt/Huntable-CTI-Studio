@@ -279,3 +279,100 @@ class TestHealingErrorDetails:
         assert persisted_event.source_id == 17
         assert persisted_event.diagnosis == "LLM call failed: ConnectError"
         assert persisted_event.error_message == "No address associated with hostname"
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_llm_retries_on_json_parse_failure(self):
+        """Test that LLM response retry logic works when JSON parsing fails."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        service = SourceHealingService(SourceHealingConfig(enabled=True))
+
+        source_snapshot = {"id": 27, "name": "Microsoft MSRC"}
+
+        # First response: malformed JSON
+        first_response = {
+            "choices": [{"message": {"content": "This is not valid JSON at all!"}}],
+            "stop_reason": None,
+        }
+
+        # Second response (retry): valid JSON
+        retry_response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"diagnosis": "RSS feed is empty", "actions": [{"field": "rss_url", "value": null}]}'
+                    }
+                }
+            ],
+            "stop_reason": None,
+        }
+
+        with (
+            patch("src.services.source_healing_service.LLMService") as mock_llm_cls,
+            patch("src.utils.langfuse_client.trace_llm_call") as mock_trace,
+            patch("src.utils.langfuse_client.get_langfuse_setting", return_value="test"),
+            patch("src.utils.langfuse_client.log_llm_completion") as mock_log,
+        ):
+            mock_trace.return_value.__enter__.return_value = object()
+            mock_trace.return_value.__exit__.return_value = False
+
+            llm = AsyncMock()
+            llm._canonicalize_provider.return_value = "openai"
+            # First call returns malformed JSON, second call returns valid JSON
+            llm.request_chat.side_effect = [first_response, retry_response]
+            mock_llm_cls.return_value = llm
+
+            result = await service._analyze_with_llm(source_snapshot, [], [])
+
+        # Should have successfully parsed the retry response
+        assert result["diagnosis"] == "RSS feed is empty"
+        assert result["actions"] == [{"field": "rss_url", "value": None}]
+
+        # Should have called LLM twice (initial + retry)
+        assert llm.request_chat.call_count == 2
+
+        # Second call should have retry messages with clarification
+        retry_call_messages = llm.request_chat.call_args_list[1].kwargs["messages"]
+        assert len(retry_call_messages) == 4  # system, user, assistant (failed), user (clarification)
+        assert "could not be parsed as valid JSON" in retry_call_messages[3]["content"]
+
+    @pytest.mark.asyncio
+    async def test_analyze_with_llm_gives_up_after_one_retry(self):
+        """Test that retry logic gives up if retry also returns invalid JSON."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        service = SourceHealingService(SourceHealingConfig(enabled=True))
+
+        source_snapshot = {"id": 27, "name": "Microsoft MSRC"}
+
+        # Both responses: malformed JSON
+        bad_response = {
+            "choices": [{"message": {"content": "Still not JSON!"}}],
+            "stop_reason": None,
+        }
+
+        with (
+            patch("src.services.source_healing_service.LLMService") as mock_llm_cls,
+            patch("src.utils.langfuse_client.trace_llm_call") as mock_trace,
+            patch("src.utils.langfuse_client.get_langfuse_setting", return_value="test"),
+            patch("src.utils.langfuse_client.log_llm_completion") as mock_log,
+        ):
+            mock_trace.return_value.__enter__.return_value = object()
+            mock_trace.return_value.__exit__.return_value = False
+
+            llm = AsyncMock()
+            llm._canonicalize_provider.return_value = "openai"
+            # Both calls return malformed JSON
+            llm.request_chat.side_effect = [bad_response, bad_response]
+            mock_llm_cls.return_value = llm
+
+            result = await service._analyze_with_llm(source_snapshot, [], [])
+
+        # Should still fail with parse error after retry
+        assert result["diagnosis"] == "Failed to parse LLM response"
+        assert result["actions"] == []
+
+        # Should have called LLM twice (initial + retry), then given up
+        assert llm.request_chat.call_count == 2

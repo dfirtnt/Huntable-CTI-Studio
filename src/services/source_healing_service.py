@@ -603,12 +603,56 @@ class SourceHealingService:
                     )
 
                 result = self._parse_llm_response(content if content is not None else "")
+
+                # Retry once if JSON parsing failed
+                if result.get("diagnosis") == "Failed to parse LLM response":
+                    logger.warning(
+                        "[AutoHeal] JSON parse failed for source %s -- retrying with clarification prompt",
+                        source_snapshot.get("id"),
+                    )
+
+                    retry_messages = messages + [
+                        {"role": "assistant", "content": content},
+                        {
+                            "role": "user",
+                            "content": (
+                                "Your previous response could not be parsed as valid JSON. "
+                                "Please respond with ONLY valid JSON in this exact format:\n\n"
+                                '{"diagnosis": "brief description of the problem", '
+                                '"actions": [{"field": "rss_url", "value": null}, '
+                                '{"field": "config", "value": {...}}]}\n\n'
+                                "Do not include any explanatory text outside the JSON structure. "
+                                "Do not use markdown code fences."
+                            ),
+                        },
+                    ]
+
+                    try:
+                        retry_response = await llm.request_chat(
+                            provider=self.config.provider,
+                            model_name=self.config.model,
+                            messages=retry_messages,
+                            max_tokens=1024,
+                            temperature=0.0,
+                            timeout=45.0,
+                            failure_context="SourceHealingAgent_Retry",
+                        )
+
+                        retry_content = retry_response.get("choices", [{}])[0].get("message", {}).get("content", "")
+                        result = self._parse_llm_response(retry_content if retry_content else "")
+                        log_llm_completion(generation, retry_messages, retry_content)
+                    except Exception as retry_exc:
+                        logger.warning(
+                            "[AutoHeal] Retry failed for source %s: %s", source_snapshot.get("id"), retry_exc
+                        )
+
                 if result.get("diagnosis") == "Empty LLM response":
                     sr = response.get("stop_reason")
                     if isinstance(sr, str) and sr:
                         result["diagnosis"] = f"Empty LLM response (stop_reason={sr})"
+                elif result.get("diagnosis") != "Failed to parse LLM response":
+                    log_llm_completion(generation, messages, content)
 
-                log_llm_completion(generation, messages, content)
                 return result
 
         except httpx.HTTPStatusError as exc:
