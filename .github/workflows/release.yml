@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  # `release` job needs write access to create the GitHub Release.
+  # `verify` job needs only read, but the runner-level token is shared;
+  # the least-privilege boundary lives at the job/step level.
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify tag consistency
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Verify tag matches pyproject and CHANGELOG
+        env:
+          # Pass via env (not inline expression) so the script arg is not
+          # subject to workflow-expression injection. GITHUB_REF_NAME is set
+          # automatically by the runner for tag pushes.
+          TAG_NAME: ${{ github.ref_name }}
+        run: python3 scripts/verify_release_tag.py "$TAG_NAME"
+
+  release:
+    name: Create GitHub Release
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Extract release notes from CHANGELOG
+        id: notes
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Strip the leading `v` to get the version number.
+          VERSION="${TAG_NAME#v}"
+          # Extract notes to a file; capture codename line from stderr.
+          python3 scripts/extract_changelog_section.py "$VERSION" \
+            > release_notes.md 2> extract.err
+          # Emit codename (after the `codename: ` prefix) as a step output.
+          CODENAME=$(sed -n 's/^codename: //p' extract.err | head -n1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "codename=$CODENAME" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        env:
+          # gh uses GITHUB_TOKEN automatically when set in the environment.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+          VERSION: ${{ steps.notes.outputs.version }}
+          CODENAME: ${{ steps.notes.outputs.codename }}
+        run: |
+          set -euo pipefail
+          # Title: `v5.3.0 "Callisto"` when codename is present,
+          #        `v5.3.0` otherwise.
+          if [ -n "$CODENAME" ]; then
+            TITLE="${TAG_NAME} \"${CODENAME}\""
+          else
+            TITLE="${TAG_NAME}"
+          fi
+          gh release create "$TAG_NAME" \
+            --title "$TITLE" \
+            --notes-file release_notes.md \
+            --verify-tag

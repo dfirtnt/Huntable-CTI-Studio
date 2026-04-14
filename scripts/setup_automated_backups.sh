@@ -107,6 +107,31 @@ check_cron() {
     fi
 }
 
+# Function to persist shared automation state for the web UI
+write_automation_state() {
+    local enabled=$1
+    local backend=$2
+    local project_dir=$3
+
+    python3 - "$enabled" "$backend" "$project_dir/config/backup_automation_state.json" <<'PY'
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+enabled = sys.argv[1].lower() == "true"
+backend = sys.argv[2]
+state_file = Path(sys.argv[3])
+state_file.parent.mkdir(parents=True, exist_ok=True)
+payload = {
+    "enabled": enabled,
+    "backend": backend,
+    "updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+}
+state_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+PY
+}
+
 # Function to setup automated backups
 setup_automated_backups() {
     local backup_time=$1
@@ -180,7 +205,9 @@ $cleanup_cron
     print_status "Creating initial backup..."
     cd "$project_dir"
     ./scripts/backup_restore.sh create --type full
-    
+
+    write_automation_state true cron "$project_dir"
+
     print_status "Setup complete! Check logs/backup.log for backup activity."
 }
 
@@ -196,7 +223,10 @@ uninstall_automated_backups() {
     
     # Install cleaned crontab
     echo "$new_crontab" | crontab -
-    
+
+    local project_dir=$(get_project_dir)
+    write_automation_state false cron "$project_dir"
+
     print_status "Automated backups removed successfully!"
     print_warning "Existing backup files are preserved. Remove manually if needed."
 }

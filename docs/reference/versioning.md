@@ -13,8 +13,8 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v5.2.0 "Ganymede"** - Current stable release
-**v5.0.0 "Callisto"** - Previous stable release
+**v5.3.0 "Callisto"** - Current stable release
+**v5.2.0 "Ganymede"** - Previous stable release
 **v4.0.0 "Kepler"** - Earlier stable release
 
 ## Planetary Moon Naming System
@@ -37,9 +37,19 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 
 ## Version History
 
-<!-- TODO: verify: v5.1.0 "Callisto" and v5.2.0 "Ganymede" history entries are missing; add dates and feature lists from CHANGELOG.md when available -->
+### v5.3.0 "Callisto" (Unreleased)
+<!-- TODO: verify: fill Significance and Features once 5.3.0 is cut; in-progress changes are tracked under `[Unreleased]` in docs/CHANGELOG.md. -->
+- **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons (codename reused from the 5.0.0/5.1.0 line)
 
-### v5.0.0 "Callisto" (2026-01-28)
+### v5.2.0 "Ganymede" (2026-03-26)
+- **Named After**: Largest moon in the solar system (Jupiter)
+- **Features**: Read-only `huntable_mcp` MCP server; `sigma_corpus` embedding stats via `GET /api/embeddings/stats`; multi-round source auto-healing with audit trail; Langfuse from Settings; v3 deep probes (RSS, sitemap, WordPress API, JS-render cues); Zscaler ThreatLabz source; Red Canary removed from default `config/sources.yaml`
+
+### v5.1.0 "Callisto" (2026-03-13)
+<!-- TODO: verify: fill Significance and Features from docs/CHANGELOG.md entries between 2026-01-15 and 2026-03-13. -->
+- **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons
+
+### v5.0.0 "Callisto" (2026-01-15)
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons
 - **Significance**: Represents stability, maturity, and advanced capabilities
 - **Features**: Stabilized agentic workflow and evaluation datasets, advanced SIGMA rule management with similarity searching, AI-assisted editing and enrichment, GitHub repository integration

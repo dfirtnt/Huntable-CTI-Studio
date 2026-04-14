@@ -254,6 +254,29 @@ class TestBackupConfiguration:
 
     @pytest.mark.ui
     @pytest.mark.settings
+    def test_backup_cron_controls_display(self, page: Page):
+        """Test automated backup cron controls display."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/settings")
+        page.wait_for_load_state("load")
+
+        backup_content = page.locator("#backupConfig-content")
+        if "hidden" in (backup_content.get_attribute("class") or ""):
+            page.locator("h2:has-text('💾 Backup Configuration')").locator("..").click()
+            page.wait_for_timeout(200)
+
+        expect(page.locator("#refreshBackupCronBtn")).to_be_visible()
+        expect(page.locator("#saveCronEditorBtn")).to_be_visible()
+        expect(page.locator("#applyBackupCronBtn")).to_be_visible()
+        expect(page.locator("#disableBackupCronBtn")).to_be_visible()
+        expect(page.locator("#backupCronAvailability")).to_be_visible()
+        expect(page.locator("#backupCronManagedStatus")).to_be_visible()
+        expect(page.locator("#backupCronJobCount")).to_be_visible()
+        expect(page.locator("#cronEditor")).to_be_visible()
+        expect(page.locator("#backupCronJobsList")).to_be_visible()
+
+    @pytest.mark.ui
+    @pytest.mark.settings
     def test_backup_status_display(self, page: Page):
         """Test backup status display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

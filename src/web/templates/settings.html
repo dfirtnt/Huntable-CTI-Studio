@@ -365,6 +365,57 @@
                      </div>
                  </div>
 
+                 <!-- Automated Backup Cron -->
+                 <div class="space-y-4 rounded-lg border border-gray-700 bg-gray-900/40 p-4">
+                     <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                         <div>
+                             <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Automated Backup Cron</h3>
+                             <p class="text-sm text-gray-500 dark:text-gray-400">
+                                 Inspect the managed crontab entries used for automated backups. When the web app runs in a container,
+                                 the host crontab may be unavailable even if backups are configured on the host.
+                             </p>
+                         </div>
+                         <div class="flex flex-wrap gap-3">
+                             <button id="refreshBackupCronBtn" class="settings-btn-secondary">Refresh Cron</button>
+                             <button id="saveCronEditorBtn" class="settings-btn-primary">Save Crontab</button>
+                             <button id="applyBackupCronBtn" class="settings-btn-primary">Apply Backup Schedule</button>
+                             <button id="disableBackupCronBtn" class="settings-btn-danger">Disable Backup Schedule</button>
+                         </div>
+                     </div>
+
+                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                         <div class="settings-inner-panel">
+                             <div class="text-sm settings-muted">Availability</div>
+                             <div id="backupCronAvailability" class="mt-1 text-sm font-medium text-gray-200">Unknown</div>
+                         </div>
+                         <div class="settings-inner-panel">
+                             <div class="text-sm settings-muted">Managed Backups</div>
+                             <div id="backupCronManagedStatus" class="mt-1 text-sm font-medium text-gray-200">Unknown</div>
+                         </div>
+                         <div class="settings-inner-panel">
+                             <div class="text-sm settings-muted">Managed Jobs</div>
+                             <div id="backupCronJobCount" class="mt-1 text-sm font-medium text-gray-200">0</div>
+                         </div>
+                     </div>
+
+                     <div>
+                         <label for="cronEditor" class="block text-sm font-medium text-gray-300 mb-2">
+                             Raw Crontab
+                         </label>
+                         <textarea id="cronEditor"
+                                   rows="8"
+                                   class="w-full rounded-lg border border-gray-700 bg-panel-0 px-3 py-2 font-mono text-sm text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                                   placeholder="# Paste crontab contents here"></textarea>
+                         <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                             The raw editor replaces the full crontab for the current user.
+                         </p>
+                     </div>
+
+                     <div id="backupCronJobsList" class="space-y-3">
+                         <div class="text-sm text-gray-500 dark:text-gray-400">Loading backup cron state...</div>
+                     </div>
+                 </div>
+ 
                  <!-- Data Export -->
                  <div>
                      <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-3"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg> Data Export</h3>
@@ -1655,6 +1706,9 @@
         const jobsList = document.getElementById('backupCronJobsList');
         const cronEditor = document.getElementById('cronEditor');
         const saveCronEditorBtn = document.getElementById('saveCronEditorBtn');
+        const refreshCronBtn = document.getElementById('refreshBackupCronBtn');
+        const applyBackupCronBtn = document.getElementById('applyBackupCronBtn');
+        const disableBackupCronBtn = document.getElementById('disableBackupCronBtn');
 
         if (!availability || !managedStatus || !jobCount || !jobsList) {
             return;
@@ -1672,9 +1726,22 @@
         if (saveCronEditorBtn) {
             saveCronEditorBtn.disabled = !state.cron_available;
         }
+        if (refreshCronBtn) {
+            refreshCronBtn.disabled = false;
+        }
+        if (applyBackupCronBtn) {
+            applyBackupCronBtn.disabled = !state.cron_available;
+        }
+        if (disableBackupCronBtn) {
+            disableBackupCronBtn.disabled = !state.cron_available;
+        }
 
         if (!state.cron_available) {
-            jobsList.innerHTML = '<div class="text-sm text-red-400">crontab is not available on this host.</div>';
+            if (state.automated) {
+                jobsList.innerHTML = '<div class="text-sm text-yellow-400">Managed backup automation is marked enabled in shared state, but this container cannot inspect the host crontab.</div>';
+            } else {
+                jobsList.innerHTML = '<div class="text-sm text-red-400">crontab is not available on this host.</div>';
+            }
             return;
         }
 

@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.docs
+
 
 class TestMkDocsBuild:
     """Test that MkDocs documentation builds successfully."""

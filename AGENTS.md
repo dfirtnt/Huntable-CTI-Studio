@@ -154,6 +154,12 @@ The agent MUST stop and report when ANY condition is met:
 - Prefer deletions, tightening, or constraint enforcement over additions
 - All changes must be reviewable and diffable
 - Prefer the existing startup, CLI, and workflow entrypoints over ad-hoc scripts when validating behavior
+- **ASCII only** in source files, shell scripts, config, and commit/PR messages. No Unicode
+  ellipsis (`...` not the single-character form), em-dash (`--`), curly quotes, or other
+  Unicode punctuation. Unicode in shell scripts is a silent correctness hazard: under
+  `set -u`, bytes like `...` get absorbed into identifier parsing and produce
+  `unbound variable` failures rather than syntax errors. Unicode is acceptable only in
+  genuinely user-facing display strings (UI labels, rendered markdown, chat output).
 
 ---
 
@@ -344,6 +350,83 @@ LIMIT 10;
 ```
 
 3. If the user asks for training/classification-specific filtering, ensure the query considers `article_metadata.training_category` (used for training gates).
+
+### Release branch protection
+
+`main` is held **read-only between releases** via GitHub branch protection
+(`lock_branch: true`, `enforce_admins: true`, `allow_force_pushes: false`,
+`allow_deletions: false`). Feature work lands on `dev-io`; `main` only moves during
+release cuts. Admin accounts are not exempt -- even `git push --force` from an admin
+is rejected while the lock is in place.
+
+Two helper scripts wrap the GitHub REST API to flip state:
+
+- `scripts/release_unlock.sh` -- DELETEs the protection object (idempotent; treats
+  "Branch not protected" as a no-op).
+- `scripts/release_lock.sh` -- PUTs the full protection payload, restoring the lock.
+
+Release flow:
+
+```bash
+# On dev-io, working tree clean, in sync with origin:
+scripts/release_cut.py 5.4.0 Triton --summary "<one-line>"
+#   - bumps pyproject.toml
+#   - rolls docs/CHANGELOG.md [Unreleased] -> dated section
+#   - updates docs/reference/versioning.md history
+#   - updates README.md version line
+#   - runs scripts/verify_release_tag.py as a pre-flight guard
+#   - commits as `release: vX.Y.Z "Codename"` and creates annotated tag
+
+scripts/release_unlock.sh      # remove protection
+git push origin dev-io
+# open PR dev-io -> main; merge after CI green
+git push origin v5.4.0         # triggers .github/workflows/release.yml
+scripts/release_lock.sh        # restore read-only lock
+```
+
+`.github/workflows/release.yml` re-runs the verifier on the pushed tag and
+then creates the GitHub Release from the matching `docs/CHANGELOG.md`
+section. If either fails, the tag stays but no Release is published; fix
+the discrepancy, delete the tag, and re-cut.
+
+All scripts default to `REPO=dfirtnt/Huntable-CTI-Studio` and `BRANCH=main`;
+override via environment variables for forks or other branches. The lock/
+unlock scripts require `gh` CLI authenticated with `repo` scope.
+
+**Do not** attempt to land commits on `main` outside this flow. If a commit reaches
+`main` unintentionally, cherry-pick it to `dev-io`, reset `main` to the last release
+tag, and force-push with explicit user confirmation -- this is a destructive action
+and outside the Autonomy Envelope.
+
+### Release tagging convention
+
+Tags are the machine identifier; codenames are human flavor. Keep them separate
+so `git describe`, `git tag --sort=-v:refname`, PyPI-style parsers, and shell
+globs all work without special cases.
+
+- **Canonical tag name:** `vMAJOR.MINOR.PATCH` only (e.g. `v5.3.0`, `v5.4.1`).
+  No codename suffix, no prefix variants (`kepler-v4.2`, `v5.0.0-ganymede-start`
+  are historical artifacts -- do not extend the pattern).
+- **Codename:** lives in the annotated tag *message* and the `docs/CHANGELOG.md`
+  heading, not the tag name.
+- **Annotated, not lightweight:** always `git tag -a`, never a lightweight tag.
+  Signed (`git tag -s`) preferred once signing is set up.
+- **Pre-releases:** `vMAJOR.MINOR.PATCH-rc.N` (e.g. `v6.0.0-rc.1`), cut from a
+  `release/vMAJOR` branch forked off `dev-io`.
+- **Marker tags** (for non-release events like "Ganymede work begins here") go
+  under a `codename/` namespace: `codename/ganymede-start`. Grep-able, but
+  will not collide with release tools that filter `v*.*.*`.
+
+Cut a release tag from the release-cut commit on `main`:
+
+```bash
+git tag -a v5.3.0 -m "Callisto (5.3 line) -- <one-line summary>"
+git push origin v5.3.0     # triggers release.yml guards + GitHub Release
+```
+
+The `release.yml` CI workflow enforces the pieces a human is most likely to
+miss: tag version matching `pyproject.toml`, and a dated `[X.Y.Z]` section in
+`docs/CHANGELOG.md`.
 
 ---
 

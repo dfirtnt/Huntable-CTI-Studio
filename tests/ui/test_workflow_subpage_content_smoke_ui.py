@@ -352,7 +352,6 @@ def test_workflow_config_rail_collapse_persists(fresh_page: Page):
     # Reload: the IIFE restore block should honour the stored preference.
     fresh_page.reload(wait_until="domcontentloaded")
     fresh_page.wait_for_load_state("load")
-    fresh_page.wait_for_timeout(300)
     expect(rail).not_to_have_class(re.compile(r"\bcollapsed\b"))
 
     _assert_no_js_errors(fresh_page, errors, "/workflow#config rail persistence")

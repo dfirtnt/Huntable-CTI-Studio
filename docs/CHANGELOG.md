@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [5.3.0 "Callisto"] - 2026-04-14
+
 ### Added
 - **ServicesExtract sub-agent** (2026-04-13): New extraction sub-agent for Windows services artifacts (service_name, display_name, binary_path, start_type, operation_type). Full-stack integration: schema, config pipeline, migration, services, routes, UI templates, presets, eval data (`config/eval_articles_data/windows_services/`), and wiring tests. Includes ServicesQA validation agent.
 - **Unified traceability schema across all extract sub-agents** (2026-04-13): All five extract sub-agents (Cmdline, ProcTree, HuntQueries, Registry, Services) now emit a uniform per-item traceability envelope: `value`, `source_evidence` (verbatim source paragraph), `extraction_justification` (which prompt rule fired), and `confidence_score` (numeric 0.0-1.0). Replaces the prior split of `raw_text_snippet` / `confidence_level` on some agents and ad-hoc fields on others. Runtime `_traceability_block` in `llm_service.py` enforces the same contract. ProcTreeExtract migrated to the shared template envelope (`role` / `user_template` / `task` / `json_example` / `instructions`) alongside Registry and Services.
