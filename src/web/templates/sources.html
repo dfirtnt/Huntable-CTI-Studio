@@ -894,6 +894,8 @@ async function resetHealing(sourceId) {
     }
 }
 
+let _healingHistoryPollInterval = null;
+
 async function openHealingHistory(sourceId, sourceName) {
     var overlay = document.getElementById('healingPanelOverlay');
     var panel = document.getElementById('healingPanel');
@@ -905,6 +907,17 @@ async function openHealingHistory(sourceId, sourceName) {
     overlay.classList.add('open');
     panel.classList.add('open');
 
+    // Load history immediately
+    await loadHealingHistory(sourceId, sourceName, body);
+
+    // Start auto-refresh every 3 seconds
+    if (_healingHistoryPollInterval) clearInterval(_healingHistoryPollInterval);
+    _healingHistoryPollInterval = setInterval(async function() {
+        await loadHealingHistory(sourceId, sourceName, body);
+    }, 3000);
+}
+
+async function loadHealingHistory(sourceId, sourceName, body) {
     try {
         var response = await fetch('/api/sources/' + sourceId + '/healing-history');
         var data = await response.json();
@@ -1077,6 +1090,11 @@ async function openHealingHistory(sourceId, sourceName) {
 }
 
 function closeHealingPanel() {
+    // Stop auto-refresh when panel closes
+    if (_healingHistoryPollInterval) {
+        clearInterval(_healingHistoryPollInterval);
+        _healingHistoryPollInterval = null;
+    }
     document.getElementById('healingPanelOverlay').classList.remove('open');
     document.getElementById('healingPanel').classList.remove('open');
 }
