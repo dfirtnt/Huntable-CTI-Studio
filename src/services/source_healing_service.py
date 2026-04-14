@@ -980,8 +980,31 @@ class SourceHealingService:
                 return fail_result
 
             start_time = time.monotonic()
-            async with ContentFetcher() as fetcher:
-                fetch_result = await fetcher.fetch_source(source)
+
+            # Add timeout to prevent validation from hanging indefinitely
+            # Long validation times (60+ seconds) often indicate JS-heavy sites or platform limitations
+            VALIDATION_TIMEOUT = 60.0
+            try:
+                async with ContentFetcher() as fetcher:
+                    fetch_result = await asyncio.wait_for(
+                        fetcher.fetch_source(source),
+                        timeout=VALIDATION_TIMEOUT,
+                    )
+            except TimeoutError:
+                response_time = time.monotonic() - start_time
+                logger.warning(
+                    "[AutoHeal] Validation timed out after %.1fs for source '%s' (id=%s) -- "
+                    "may indicate JS-heavy site or slow response",
+                    response_time,
+                    source.name if source else "unknown",
+                    source_id,
+                )
+                fail_result["error"] = (
+                    f"Validation timed out after {VALIDATION_TIMEOUT}s (may indicate JS-rendered content or slow server)"
+                )
+                fail_result["response_time"] = round(response_time, 2)
+                fail_result["method"] = "timeout"
+                return fail_result
 
             response_time = time.monotonic() - start_time
             success = bool(fetch_result and fetch_result.success)
