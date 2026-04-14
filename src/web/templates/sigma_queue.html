@@ -12,10 +12,10 @@
             </div>
             <div class="flex space-x-4">
                 <button onclick="loadQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors">
-                    🔄 Refresh
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Refresh
                 </button>
                 <button onclick="submitPR()" id="submitPRBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    📤 Submit PR
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 7.5m0 0L7.5 12M12 7.5v9"/></svg> Submit PR
                 </button>
                 <select id="statusFilter" onchange="filterQueue()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
                     <option value="">All Status</option>
@@ -30,26 +30,26 @@
 
     <!-- Queue Statistics -->
     <div id="queueStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Pending Review</div>
             <div class="text-lg font-bold text-amber-400" id="pendingCount">-</div>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Approved</div>
             <div class="text-lg font-bold text-emerald-400" id="approvedCount">-</div>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Rejected</div>
             <div class="text-lg font-bold text-red-600 dark:text-red-400" id="rejectedCount">-</div>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Submitted</div>
             <div class="text-lg font-bold text-purple-600 dark:text-purple-400" id="submittedCount">-</div>
         </div>
     </div>
 
     <!-- Queue Table -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-x-auto">
+    <div class="card-elevated overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
@@ -86,19 +86,19 @@
                 </div>
             <div id="actionButtons" class="flex space-x-4 pt-4 border-t border-gray-700 sticky bottom-0 bg-gray-800">
                 <button onclick="approveRule(currentRuleId)" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                    ✅ Approve
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Approve
                 </button>
                 <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 border border-red-500 text-red-400 hover:bg-red-500/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                    ❌ Reject
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Reject
                 </button>
                 <button onclick="validateRule()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
-                    ✓ Validate
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Validate
                 </button>
                 <button onclick="openEnrichModal()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                    ✨ Enrich
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg> Enrich
                 </button>
                 <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                    🔍 Similarity Search
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Similarity Search
                 </button>
                 <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                     Cancel
@@ -151,7 +151,7 @@
                         </label>
                         <div class="flex space-x-2">
                             <button onclick="toggleEnrichView()" id="toggleViewBtn" class="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600">
-                                📊 Show Comparison
+                                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Show Comparison
                             </button>
                         </div>
                     </div>
@@ -182,13 +182,13 @@
                 <div id="enrichError" class="hidden p-4 bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-md text-red-800 dark:text-red-200"></div>
                     <div id="enrichActionButtons" class="flex space-x-4 pt-4 border-t border-gray-700 sticky bottom-0 bg-gray-800">
                     <button onclick="applyEnrichedRule()" id="applyEnrichBtn" class="hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md">
-                        ✅ Apply Enriched Rule
+                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Apply Enriched Rule
                     </button>
                     <button onclick="enrichRule()" id="enrichBtn" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
-                        ✨ Enrich Rule
+                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg> Enrich Rule
                     </button>
                     <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
-                        🔄 Enrich Further
+                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Enrich Further
                     </button>
                     <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
                         Cancel
@@ -959,7 +959,7 @@ async function validateRule() {
     loadingMsg.id = 'validationLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <div class="card p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Validating rule with workflow Sigma agent (LLM + pySIGMA)...</p>
@@ -1762,7 +1762,7 @@ async function checkSimilarRulesForQueue() {
     loadingMsg.id = 'similarRulesLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <div class="card p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Searching for similar rules across indexed repositories...</p>

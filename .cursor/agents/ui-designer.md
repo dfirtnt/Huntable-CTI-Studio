@@ -156,6 +156,101 @@ Use Tailwind spacing utilities. These are the canonical values:
 
 ## 5. Component Contracts
 
+### 5.0 Cards and Panels (Unified System)
+
+All cards and panels MUST use the semantic classes defined in `base.html`. Do NOT stack ad-hoc Tailwind utilities (`bg-gray-800 border border-gray-700 rounded-lg shadow p-6`) for card containers -- this pattern fragments the app visually and is now forbidden.
+
+| Class | Appearance | Use |
+|-------|-----------|-----|
+| `.card` | `--panel-bg-1` background, subtle border, 8px radius | Default content cards. Static, no hover. |
+| `.card-elevated` | `--panel-bg-3` background, slightly brighter border, subtle shadow | Higher-emphasis cards (stat summaries, featured content) |
+| `.card-interactive` | Adds cursor, transition, and purple-accent border on hover. Can combine with `.card` or `.card-elevated`. | Clickable cards (source cards, article tiles, queue rows) |
+| `.panel-toggle` | Hover background tint only (no border change) | Collapsible panel headers. Auto-applied by `initCollapsiblePanels()`. Do NOT confuse with `.card-header` used by sources.html for source-tile header rows. |
+| `.card-hover` (legacy) | Translates up 2px + larger shadow on hover | Retained for marketing/dashboard tiles. Do not use for new UI. |
+
+**Hover behavior (locked):**
+- `.card-interactive` hover: background steps up one depth token (e.g. `--panel-bg-1` -> `--panel-bg-3`) AND border-color becomes purple (`rgba(139, 92, 246, 0.35)`)
+- `.card-header` hover: subtle purple tint (`rgba(139, 92, 246, 0.06)`) -- enough to confirm interactivity without visual noise
+- Focus-visible on `.card-interactive`: 2px purple outline with 2px offset
+
+**Examples:**
+
+```html
+<!-- Default content card -->
+<div class="card p-4">
+  <h3 class="text-lg font-semibold">Stat Title</h3>
+  <div class="text-xs text-gray-400">Description</div>
+</div>
+
+<!-- Clickable card (source tile, article row) -->
+<a href="/sources/123" class="card card-interactive p-4 block">
+  <h3>The DFIR Report</h3>
+  <div>Last check: 4h ago</div>
+</a>
+
+<!-- Collapsible panel -->
+<div data-collapsible-panel="my-panel" class="flex items-center justify-between p-4">
+  <!-- .panel-toggle class + ARIA auto-added by initCollapsiblePanels() -->
+  <h3>Panel Title</h3>
+  <span id="my-panel-toggle">&#9660;</span>
+</div>
+<div id="my-panel-content" class="hidden p-4"><!-- content --></div>
+```
+
+**Padding:** Cards ALWAYS use Tailwind padding utilities (`p-3`, `p-4`, `p-6`) on the `.card` element itself, NOT baked into the class definition. This keeps the spacing visible in the markup.
+
+**Anti-pattern:** Do not write `class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6"`. Write `class="card p-6"`.
+
+**Migration rule:** If you encounter `bg-gray-800 border border-gray-700 rounded-lg` (with or without `shadow`, `shadow-lg`, padding) in an existing template, replace it with the unified class on that edit. This pattern is deprecated.
+
+### 5.0.1 Reserved Class Names (Do NOT redefine)
+
+Some class names already have non-obvious semantic meaning elsewhere in the app. Do NOT redefine them in `base.html` without namespacing. Do NOT use them for unrelated purposes.
+
+| Reserved name | Where defined | Purpose |
+|---------------|---------------|---------|
+| `.card-header` | `sources.html` `<style>` block | Source tile header row (flex container for tile name + meta). Has no hover treatment. |
+| `.card-title`, `.card-name`, `.card-meta`, `.card-actions`, `.card-title-row` | `sources.html` | Source tile sub-components |
+| `.diag-card`, `.diag-card-title`, `.diag-card-meta` | `diags.html` | Diagnostic panel components |
+| `.nav-item` | `base.html` | Top/mobile navigation items (with `.active` state) |
+| `.quality-excellent` / `good` / `fair` / `limited` | `base.html` | Hunt-score/quality badges (use purple, not status colors) |
+| `.priority-high` / `medium` / `low` | `base.html` | Priority badges (use semantic status colors) |
+
+When adding a new global class, search these files first: `base.html`, `sources.html`, `diags.html`, `theme-variables.css`. If the name is already in use, pick a different one (prefer noun-verb like `.panel-toggle`, `.card-interactive`).
+
+### 5.0.2 Auto-Applied Classes (by runtime JS)
+
+Certain classes are added automatically by scripts in `base.html`. Do NOT manually duplicate them on template markup -- the runtime will handle it. Do NOT remove them either (they are intentional).
+
+| Class | Applied by | Applied to | Effect |
+|-------|-----------|------------|--------|
+| `.panel-toggle` | `initCollapsiblePanels()` in `base.html` | Any element with `data-collapsible-panel="id"` | Adds cursor: pointer + purple hover tint |
+| `data-collapsible-initialized="true"` | `initCollapsiblePanels()` | Same | Idempotency marker; do not remove |
+| `role="button"`, `tabindex="0"`, `aria-controls`, `aria-expanded` | `initCollapsiblePanels()` | Same | Accessibility wiring |
+
+If you add a new collapsible panel, you ONLY need: (1) `data-collapsible-panel="panelId"` on the trigger, (2) `id="panelId-content"` on the content div, (3) `id="panelId-toggle"` on the chevron. Everything else is auto-wired.
+
+### 5.0.3 Emoji Exceptions (When Emoji Are Allowed)
+
+Section 10 forbids emoji "as icons." That means emoji in UI chrome (buttons, headings, tab labels, badges). The following usages are acceptable:
+
+| Allowed | Example | Why |
+|---------|---------|-----|
+| JS notification/toast strings | `showToast('✓ Saved')` | Ephemeral, content-like |
+| Help text, descriptions, paragraph body | `<p>⚠ Warning: this deletes the record.</p>` | Decorative within prose |
+| Score/quality indicators in table cells | `<td>⬤⬤⬤⬤◯ 4/5</td>` | Content, not control |
+| Unicode functional glyphs in controls | `▼ ▲ ◀ ▶ ✕ ✓ ✗ ← → ? ⚠` | These ARE the canonical ASCII-adjacent icons |
+| Empty-state decorative art | `<div class="text-xl">📭 Nothing here yet</div>` | Content illustration |
+
+**Forbidden** (use inline SVG):
+- Emoji in tab labels (`⚙️ Configuration`)
+- Emoji in primary action buttons (`💾 Save`)
+- Emoji in page titles and section headings (`🎯 Hunt Metrics`)
+- Emoji in modal headers
+- Emoji in nav links
+
+SVG replacement convention: `<svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="..."/></svg>` using Heroicons 2 Outline paths.
+
 ### 5.1 Buttons
 
 | Class | Appearance | Use |
@@ -425,13 +520,34 @@ UI change completed.
 
 ## 10. Anti-Patterns (Do NOT)
 
+### Typography
 - Do NOT use `text-2xl` or larger in app UI
 - Do NOT introduce new font families
 - Do NOT use inline `style="font-size: ..."` -- use Tailwind classes
-- Do NOT create modals with ad-hoc `onclick` show/hide -- use `modal-manager.js`
-- Do NOT hardcode hex colors -- use CSS custom properties
+- Do NOT use font-size values outside the locked scale (10, 12, 14, 16, 18, 20 px; 0.625, 0.75, 0.875, 1, 1.25 rem)
+
+### Cards & Layout
+- Do NOT write `bg-gray-800 border border-gray-700 rounded-lg shadow p-X` -- use `.card p-X` (or `.card-elevated` for higher emphasis)
+- Do NOT redefine reserved class names (`.card-header`, `.card-title`, `.nav-item`, `.diag-card`, `.quality-*`, `.priority-*`) -- see §5.0.1
+- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically
 - Do NOT stack margin+padding on the same element to create spacing (pick one)
-- Do NOT use emoji as icons in production UI (use inline SVG)
-- Do NOT create overlays that close more than one level on Escape
 - Do NOT use `py-4` or larger on form controls (selects, inputs) -- max `py-2`
+
+### Color & Theme
+- Do NOT hardcode hex colors in inline `style=""` -- use CSS custom properties
+- Do NOT remove `class="dark"` from `<html>` in `base.html`
+- Do NOT remove the inline `tailwind.config = { darkMode: 'class' }` block
+- Do NOT rely on `dark:` variants without the `darkMode: 'class'` config above
+
+### Icons & Emoji
+- Do NOT use emoji as icons in UI chrome (buttons, tab labels, headings, modal headers) -- use inline SVG
+- DO allow emoji in: JS toast/notification strings, help text, empty-state illustrations, functional Unicode glyphs (▼ ✕ ✓ ←)
+
+### Modals
+- Do NOT create modals with ad-hoc `onclick` show/hide -- use `modal-manager.js`
+- Do NOT create overlays that close more than one level on Escape (Escape = one level back only)
+- Do NOT swallow Ctrl+Enter / Cmd+Enter in modal inputs -- they must always trigger the primary action
+
+### Consistency
 - Do NOT duplicate labels (if a JS-rendered card has a title, the parent h4 is redundant)
+- Do NOT create a new CSS class without first grepping for existing uses of that name across `templates/` and `theme-variables.css`

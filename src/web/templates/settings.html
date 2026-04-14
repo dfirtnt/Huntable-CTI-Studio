@@ -22,7 +22,7 @@
 .settings-card.acc-healing::before { background:var(--step-3,#a78bfa); }
 .settings-card.acc-github::before { background:var(--step-4,#fb923c); }
 .settings-card.acc-langfuse::before { background:var(--step-5,#f472b6); }
-.settings-section-header { font-family:'DM Sans',sans-serif; font-size:1.05rem; font-weight:600; color:var(--text-primary); }
+.settings-section-header { font-family:'DM Sans',sans-serif; font-size: 1rem; font-weight:600; color:var(--text-primary); }
 .settings-inner-panel {
   background:var(--panel-bg-4); border:1px solid var(--border-muted);
   border-radius:6px; padding:0.75rem 1rem;
@@ -30,20 +30,20 @@
 .settings-btn-primary {
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.4rem 0.9rem; background:var(--purple-primary); color:#fff;
-  border:none; border-radius:6px; font-size:0.8rem; font-weight:600;
+  border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
   cursor:pointer; font-family:'DM Sans',sans-serif; transition:background 0.15s;
 }
 .settings-btn-primary:hover { background:var(--purple-hover); }
 .settings-btn-secondary {
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.4rem 0.9rem; background:var(--panel-bg-4); color:var(--text-primary);
-  border:1px solid var(--border-muted); border-radius:6px; font-size:0.8rem; font-weight:500;
+  border:1px solid var(--border-muted); border-radius:6px; font-size: 0.75rem; font-weight:500;
   cursor:pointer; font-family:'DM Sans',sans-serif; transition:border-color 0.15s, background 0.15s;
 }
 .settings-btn-secondary:hover { background:var(--panel-bg-5); border-color:var(--border-subtle); }
 .settings-btn-danger {
   padding:0.4rem 0.9rem; background:var(--action-danger); color:#fff;
-  border:none; border-radius:6px; font-size:0.8rem; font-weight:600;
+  border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
   cursor:pointer; transition:background 0.15s;
 }
 .settings-btn-danger:hover { background:var(--action-danger-hover); }
@@ -72,7 +72,7 @@
         </ol>
     </nav>
     <div class="mb-6">
-        <h1 class="text-xl font-bold mb-2 flex items-center gap-3 settings-section-header" style="font-size:1.75rem;">
+        <h1 class="text-xl font-bold mb-2 flex items-center gap-3 settings-section-header" style="font-size: 1.25rem;">
             <img src="/static/icons/settings-icon.svg" alt="Settings" class="w-[54px] h-[54px]" />
             Settings
         </h1>
@@ -661,7 +661,7 @@
                      <!-- Langfuse Test Button -->
                      <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                          <button type="button" id="testLangfuseConnection" class="settings-btn-secondary">
-                             🧪 Test Langfuse Connection
+                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg> Test Langfuse Connection
                          </button>
                          <span id="langfuseTestStatus" class="ml-3 text-sm"></span>
                      </div>
@@ -937,7 +937,7 @@
                 <!-- Test Connection Button -->
                 <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <button type="button" id="testGitHubConnection" class="settings-btn-secondary">
-                        🧪 Test GitHub Connection
+                        <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg> Test GitHub Connection
                     </button>
                     <span id="githubTestStatus" class="ml-3 text-sm"></span>
                 </div>
@@ -948,7 +948,7 @@
         <!-- Save Button -->
         <div class="flex justify-end">
             <button id="saveSettings" class="settings-btn-primary px-6 py-3 text-base">
-                💾 Save Settings
+                <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5h18M3 7.5v10.875A2.625 2.625 0 005.625 21h12.75A2.625 2.625 0 0021 18.375V7.5m-18 0l2.25-4.5h13.5L21 7.5M7.5 11.25h9"/></svg> Save Settings
             </button>
         </div>
     </div>

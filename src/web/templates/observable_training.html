@@ -29,27 +29,27 @@
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6" id="observableMetrics">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Observable Types</h3>
             <div class="text-xl font-bold text-indigo-600" id="metricSupportedTypes">-</div>
             <p class="text-xs text-gray-500 mt-1">Supported observable categories tracked by the training pipeline.</p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Total Annotations</h3>
             <div class="text-xl font-bold text-blue-600" id="metricTotalAnnotations">-</div>
             <p class="text-xs text-gray-500 mt-1">All CMD and process lineage annotations recorded.</p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Unused Annotations</h3>
             <div class="text-xl font-bold text-emerald-600" id="metricUnusedAnnotations">-</div>
             <p class="text-xs text-gray-500 mt-1"><span id="metricUnusedRatio">-</span> waiting for retraining.</p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Artifacts Tracked</h3>
             <div class="text-xl font-bold text-amber-600" id="metricArtifactHistoryCount">-</div>
             <p class="text-xs text-gray-500 mt-1">Versioned extractor artifacts stored in the manifests.</p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Latest Artifact</h3>
             <div class="text-lg font-bold text-purple-600" id="metricLatestArtifactVersion">-</div>
             <p class="text-xs text-gray-500 mt-1" id="metricLatestArtifactTime">-</p>
@@ -57,7 +57,7 @@
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4" id="observableStats">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4" id="primaryTypeCard">
+        <div class="card p-4" id="primaryTypeCard">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                 <span id="primaryTypeLabel">CMD</span> Annotations
             </h3>
@@ -66,7 +66,7 @@
                 <span id="primaryUnused">0</span> unused · <span id="primaryUsed">0</span> used
             </p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4" id="secondaryTypeCard">
+        <div class="card p-4" id="secondaryTypeCard">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                 <span id="secondaryTypeLabel">Process Lineage</span>
             </h3>
@@ -75,14 +75,14 @@
                 <span id="secondaryUnused">0</span> unused · <span id="secondaryUsed">0</span> used
             </p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
                 Last Training Run (<span id="activeTypeLabel">CMD</span>)
             </h3>
             <div class="text-xl font-bold text-green-600" id="lastTrainingCount">-</div>
             <p class="text-xs text-gray-500 mt-1" id="lastTrainingTime">-</p>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Dataset Directory</h3>
             <div class="text-xs font-mono text-gray-700 dark:text-gray-200 truncate" id="datasetDir">-</div>
             <p class="text-xs text-gray-500 mt-1">Artifacts stored under <span id="artifactDir">-</span></p>
@@ -101,7 +101,7 @@
         </div>
     </div>
 
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
             <div>
                 <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12 6.75a5.25 5.25 0 100 10.5 5.25 5.25 0 000-10.5zM12 3.75a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5z"/></svg> <span id="trainingTypeLabel">CMD</span> Extractor Retraining</h2>
@@ -116,7 +116,7 @@
         <div id="trainingAlert" class="hidden mt-4 p-3 rounded-md bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-900 dark:text-blue-100 dark:border-blue-700"></div>
     </div>
 
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+    <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg> Recent Artifacts</h2>
             <span class="text-xs text-gray-500 dark:text-gray-400">Newest first</span>
@@ -141,7 +141,7 @@
         </div>
     </div>
 
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+    <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.897L16.863 4.487zm0 0L19.5 7.125"/></svg> CMD Annotations Management</h2>
             <button id="refreshAnnotationsBtn" class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm">Refresh</button>
@@ -186,7 +186,7 @@
     </div>
 
     <!-- Observable Extraction Evaluation Metrics -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <div class="flex items-center justify-between mb-4">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12 6.75a5.25 5.25 0 100 10.5 5.25 5.25 0 000-10.5zM12 3.75a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5z"/></svg> Observable Extraction Evaluation</h2>
             <button id="runObservableEvaluationBtn" 
@@ -493,7 +493,7 @@
         const modal = document.createElement("div");
         modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="card-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Annotation ${id}</h3>
                 <div class="space-y-3 text-sm">
                     <div><strong>Article ID:</strong> <a href="/articles/${ann.article_id}" class="text-blue-600 dark:text-blue-400">${ann.article_id}</a></div>
@@ -532,7 +532,7 @@
         const modal = document.createElement("div");
         modal.className = "fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50";
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="card-xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white mb-4">Edit Annotation ${id}</h3>
                 <form id="editAnnotationForm" class="space-y-4">
                     <div>

@@ -121,6 +121,42 @@ For full details on what the healer can and cannot fix, see [`docs/internals/sou
 
 Key config fields the healer modifies: `url`, `rss_url`, and `config` (merged). It **cannot** change `active` status — that is operator-only.
 
+## Source health status (dashboard badges)
+
+The `/analytics/scraper-metrics` "Source Performance Details" table shows a status badge per source. The badge reflects **scraper reachability**, not publisher cadence.
+
+| Badge | Meaning | Threshold |
+|-------|---------|-----------|
+| `healthy` | Scraper reached and parsed the feed today | `last_success` is today |
+| `warning` | 1-2 days since the scraper successfully reached the feed | 1 <= days since `last_success` <= 2 |
+| `error`   | More than 2 days since a successful reach, or timestamp is missing/unparseable | days since `last_success` > 2 |
+
+Thresholds live in `src/web/routes/analytics.py` (see the `days_since_success` branches).
+
+### What counts as success
+
+A collection run sets `last_success = now()` when **any** of these is true (see `src/worker/celery_app.py`):
+
+- Fetch succeeded and new articles were saved.
+- Fetch succeeded and zero new articles were found (explicitly treated as success: "No articles is still a successful check").
+- Fetch succeeded and all returned articles were duplicates.
+
+A run is recorded as a failure only when:
+
+- `fetch_result.success` is false (HTTP/RSS/connection error).
+- An exception was raised during collection.
+
+This means a weekly-cadence blog polled hourly will keep flipping to `healthy` every poll, regardless of whether new articles were published.
+
+### Status vs. error rate
+
+The `status` column (freshness) and the `error_rate` column (reliability over the last 7 days) are independent signals:
+
+- A source can be `healthy` with a high error rate (succeeded today, but failed often recently).
+- A source can be `warning` with 0% error rate (no failures, but no successful poll today).
+
+Use `status` to detect "is this source reachable right now?" and `error_rate` to detect "is this source flaky?" `consecutive_failures` (persisted across restarts, reset on any success) is the complementary alerting signal.
+
 ## Best Practices
 
 1. **Always backup both** database and `config/sources.yaml`

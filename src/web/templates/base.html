@@ -96,19 +96,63 @@
             opacity: 0.85;
         }
         
-        .card-hover {
-            transition: all 0.3s ease;
-        }
-        
-        .card-hover:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px var(--shadow-card);
-        }
-        
+        /* ============================================================
+           UNIFIED CARD/PANEL SYSTEM -- use these classes for consistency
+           ============================================================
+           .card            -- base content card (static, no hover)
+           .card-elevated   -- higher-emphasis card (thicker border, shadow)
+           .card-interactive-- clickable card (cursor, hover border + bg lift)
+           .card-header     -- collapsible panel header (inherits -interactive)
+           Prefer these over ad-hoc "bg-gray-800 border border-gray-700 rounded-lg" stacks.
+        */
         .card {
             position: relative;
             overflow: hidden;
             box-sizing: border-box;
+            background: var(--panel-bg-1);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+        }
+
+        .card-elevated {
+            background: var(--panel-bg-3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        .card-interactive {
+            cursor: pointer;
+            transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+        }
+        .card-interactive:hover {
+            background: var(--panel-bg-3);
+            border-color: rgba(139, 92, 246, 0.35); /* purple accent on hover */
+        }
+        .card-interactive:active {
+            transform: translateY(1px);
+        }
+        .card-interactive:focus-visible {
+            outline: 2px solid var(--purple-primary);
+            outline-offset: 2px;
+        }
+
+        /* Collapsible panel header -- auto-applied by initCollapsiblePanels() */
+        .panel-toggle {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        .panel-toggle:hover {
+            background: rgba(139, 92, 246, 0.06);
+        }
+
+        /* Legacy marketing-style lift-on-hover (retained for compatibility; prefer .card-interactive) */
+        .card-hover {
+            transition: all 0.3s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px var(--shadow-card);
         }
         
         /* Quality - Use purple for hunt scores/quality (not status) */
@@ -163,7 +207,7 @@
         }
         
         .article-link-compact a {
-            font-size: 11px;
+            font-size: 12px;
             line-height: 1.1;
         }
         
@@ -481,11 +525,16 @@
                 
                 // Mark as initialized to prevent duplicate handlers
                 header.setAttribute('data-collapsible-initialized', 'true');
-                
+
                 // Set up accessibility attributes
                 header.setAttribute('role', 'button');
                 header.setAttribute('tabindex', '0');
                 header.setAttribute('aria-controls', `${panelId}-content`);
+
+                // Apply unified panel-toggle hover treatment for UX consistency
+                if (!header.classList.contains('panel-toggle')) {
+                    header.classList.add('panel-toggle');
+                }
                 header.style.cursor = 'pointer';
                 
                 // Mark toggle icon as decorative

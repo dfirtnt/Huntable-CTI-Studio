@@ -31,7 +31,7 @@
     </div>
 
     <!-- Control Panel -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75"/></svg> Visualization Controls</h3>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -81,7 +81,7 @@
     <!-- Visualization Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Hunt Score vs ML Confidence Scatter Plot -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="card p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12 6.75a5.25 5.25 0 100 10.5 5.25 5.25 0 000-10.5zM12 3.75a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5z"/></svg> Hunt Score vs ML Confidence</h3>
             <div class="h-96">
                 <div id="scatterPlot" class="w-full h-full"></div>
@@ -92,7 +92,7 @@
         </div>
 
         <!-- Source Performance Bubble Chart -->
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
+        <div class="card p-6">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Source Performance Matrix</h3>
             <div class="h-96">
                 <div id="bubbleChart" class="w-full h-full"></div>
@@ -104,7 +104,7 @@
     </div>
 
     <!-- Keyword Co-occurrence Network -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 6.087c0-.355.186-.676.401-.959.221-.29.349-.634.349-1.003 0-1.036-1.007-1.875-2.25-1.875s-2.25.84-2.25 1.875c0 .369.128.713.349 1.003.215.283.401.604.401.959v0a.64.64 0 01-.657.643 48.627 48.627 0 01-4.098-.337c-.498-.074-.91.474-.706.935.258.585.614 1.118 1.048 1.577.187.198.259.46.193.72a3.003 3.003 0 01-2.46 2.38c-.3.05-.503.298-.457.599.054.35.116.697.186 1.04a.6.6 0 00.588.488h.001c2.854 0 5.167-2.312 5.167-5.165v0"/></svg> Keyword Co-occurrence Network</h3>
         <div class="flex justify-between items-center mb-4">
             <div class="flex space-x-4">
@@ -124,7 +124,7 @@
     </div>
 
     <!-- Temporal Performance Dashboard -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg> Temporal Performance Dashboard</h3>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
@@ -143,7 +143,7 @@
     </div>
 
     <!-- Content Quality Matrix -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Content Quality Matrix</h3>
         <div class="h-96">
             <div id="qualityMatrix" class="w-full h-full"></div>
@@ -154,7 +154,7 @@
     </div>
 
     <!-- ML Model Performance Radar Chart -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12 6.75a5.25 5.25 0 100 10.5 5.25 5.25 0 000-10.5zM12 3.75a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5z"/></svg> ML Model Performance Radar</h3>
         <div class="h-96">
             <div id="radarChart" class="w-full h-full"></div>
@@ -165,7 +165,7 @@
     </div>
 
     <!-- Interactive Keyword Explorer -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6 mb-6">
+    <div class="card p-6 mb-6">
         <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Interactive Keyword Explorer</h3>
         <div class="mb-4">
             <input type="text" id="keywordSearch" placeholder="Search keywords..." class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">

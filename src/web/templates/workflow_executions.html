@@ -12,16 +12,16 @@
             </div>
             <div class="flex space-x-4">
                 <button onclick="openExecuteModal()" class="px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                    ▶️ Execute Workflow
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 010 1.972l-11.54 6.347a1.125 1.125 0 01-1.667-.986V5.653z"/></svg> Execute Workflow
                 </button>
                 <button onclick="refreshExecutions()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
-                    🔄 Refresh
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Refresh
                 </button>
                 <button onclick="triggerStuckExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" id="triggerStuckBtn">
-                    ⚡ Trigger Stuck
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> Trigger Stuck
                 </button>
                 <button onclick="cleanupStaleExecutions()" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors" title="Mark running or pending executions older than 15 minutes as failed">
-                    🧹 Cleanup Stale
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg> Cleanup Stale
                 </button>
                 <select id="statusFilter" onchange="filterExecutions()" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
                     <option value="">All Status</option>
@@ -36,26 +36,26 @@
 
     <!-- Statistics -->
     <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
             <div class="text-lg font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
             <div class="text-lg font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
             <div class="text-lg font-bold text-emerald-400" id="completedExecutions">-</div>
         </div>
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
+        <div class="card p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
             <div class="text-lg font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
         </div>
     </div>
 
     <!-- Executions Table -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg overflow-hidden">
+    <div class="card-elevated overflow-hidden">
         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
@@ -882,7 +882,7 @@ async function viewExecution(executionId) {
                                             const attemptBadgeColor = idx === conversationLog.length - 1 ? 'bg-emerald-500' : 'bg-blue-500';
                                             const attemptIcon = idx === conversationLog.length - 1 ? '✅' : '🔄';
 
-                                            html += '<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
+                                            html += '<div class="p-3 card border-2 ' + (idx === conversationLog.length - 1 ? 'border-green-300 dark:border-green-700' : 'border-blue-300 dark:border-blue-700') + '">';
                                             html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + attemptBadgeColor + ' mr-2">' + attemptIcon + ' Attempt ' + attempt + '</span>';
                                             html += entry.all_valid ? '<span class="text-xs text-emerald-400 font-semibold">All Rules Valid</span>' : '<span class="text-xs text-orange-400 font-semibold">Has Validation Errors</span>';
                                             html += '</div>';
@@ -954,7 +954,7 @@ async function viewExecution(executionId) {
                                             const validationIcon = vr.is_valid ? '✅' : '❌';
                                             const validationColor = vr.is_valid ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400';
                                             const borderColor = vr.is_valid ? 'border-green-300 dark:border-green-700' : 'border-red-300 dark:border-red-700';
-                                            html += '<div class="p-3 bg-gray-800 border border-gray-700 rounded-lg border-2 ' + borderColor + '">';
+                                            html += '<div class="p-3 card border-2 ' + borderColor + '">';
                                             html += '<div class="flex items-center mb-2"><span class="px-2 py-1 rounded text-xs font-semibold text-white ' + (vr.is_valid ? 'bg-emerald-500' : 'bg-red-500') + ' mr-2">' + validationIcon + ' Attempt ' + (idx + 1) + '</span>';
                                             html += '<span class="font-semibold ' + validationColor + ' text-xs">' + (vr.is_valid ? 'Valid' : 'Invalid') + '</span></div>';
                                             if (vr.errors && vr.errors.length > 0) {
@@ -2216,7 +2216,7 @@ async function checkSimilarRulesForQueuedRule() {
     loadingMsg.id = 'similarRulesLoading';
     loadingMsg.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 z-50 flex items-center justify-center';
     loadingMsg.innerHTML = `
-        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6">
+        <div class="card p-6">
             <div class="text-center">
                 <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
                 <p class="text-gray-700 dark:text-gray-300">Searching for similar rules across indexed repositories...</p>

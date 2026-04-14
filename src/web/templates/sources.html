@@ -23,11 +23,11 @@
 
 .filter-bar { display:flex; gap:0.625rem; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
 .src-search-wrap { flex:1; min-width:200px; position:relative; }
-.src-search-icon { position:absolute; left:0.7rem; top:50%; transform:translateY(-50%); color:var(--text-muted-slate); font-size:0.8rem; pointer-events:none; }
+.src-search-icon { position:absolute; left:0.7rem; top:50%; transform:translateY(-50%); color:var(--text-muted-slate); font-size: 0.75rem; pointer-events:none; }
 .src-search-input {
   width:100%; background:var(--panel-bg-3,#141c30); border:1px solid var(--border-muted);
   border-radius:8px; padding:0.45rem 0.75rem 0.45rem 2.1rem;
-  font-size:0.83rem; color:var(--text-primary); outline:none; font-family:inherit;
+  font-size: 0.875rem; color:var(--text-primary); outline:none; font-family:inherit;
   transition:border-color 0.15s;
 }
 .src-search-input::placeholder { color:var(--text-muted-slate); }
@@ -35,7 +35,7 @@
 .src-filter-select {
   background:var(--panel-bg-3,#141c30); border:1px solid var(--border-muted);
   border-radius:8px; padding:0.45rem 1.9rem 0.45rem 0.7rem;
-  font-size:0.83rem; color:var(--text-secondary); outline:none; cursor:pointer;
+  font-size: 0.875rem; color:var(--text-secondary); outline:none; cursor:pointer;
   appearance:none; font-family:inherit; transition:border-color 0.15s;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
   background-repeat:no-repeat; background-position:right 0.55rem center;
@@ -67,17 +67,17 @@
 .card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:0.6rem; margin-bottom:0.55rem; }
 .card-title-row { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; flex:1; min-width:0; }
 .card-name {
-  font-size:0.88rem; font-weight:600; color:var(--action-info);
+  font-size: 0.875rem; font-weight:600; color:var(--action-info);
   text-decoration:none; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;
 }
 .card-name:hover { text-decoration:underline; }
 .count-block { display:flex; flex-direction:column; align-items:flex-end; gap:0.05rem; flex-shrink:0; }
-.article-count { font-size:1.05rem; font-weight:700; color:var(--text-primary); line-height:1; }
-.article-count-label { font-size:0.62rem; color:var(--text-muted-slate); }
+.article-count { font-size: 1rem; font-weight:700; color:var(--text-primary); line-height:1; }
+.article-count-label { font-size: 0.625rem; color:var(--text-muted-slate); }
 
 .src-status-badge {
   display:inline-flex; align-items:center; gap:0.25rem;
-  padding:0.15rem 0.5rem; border-radius:999px; font-size:0.67rem; font-weight:600; flex-shrink:0;
+  padding:0.15rem 0.5rem; border-radius:999px; font-size: 0.625rem; font-weight:600; flex-shrink:0;
 }
 .src-status-badge.active   { background:rgba(34,197,94,0.2);  color:#86efac; }
 .src-status-badge.inactive { background:rgba(239,68,68,0.2);  color:#fca5a5; }
@@ -85,7 +85,7 @@
 
 .method-badge {
   display:inline-flex; align-items:center;
-  padding:0.15rem 0.5rem; border-radius:999px; font-size:0.65rem; font-weight:600; flex-shrink:0;
+  padding:0.15rem 0.5rem; border-radius:999px; font-size: 0.625rem; font-weight:600; flex-shrink:0;
 }
 .method-badge.rss        { background:rgba(59,130,246,0.2);  color:#93c5fd; }
 .method-badge.playwright { background:rgba(249,115,22,0.2);  color:#fdba74; }
@@ -95,8 +95,8 @@
 /* Card meta */
 .card-meta { display:flex; gap:1.1rem; flex-wrap:wrap; margin-bottom:0.55rem; }
 .meta-item { display:flex; flex-direction:column; gap:0.08rem; }
-.meta-label { font-size:0.63rem; color:var(--text-muted-slate); font-weight:500; text-transform:uppercase; letter-spacing:0.04em; }
-.meta-value { font-size:0.79rem; color:var(--text-secondary); font-weight:500; }
+.meta-label { font-size: 0.625rem; color:var(--text-muted-slate); font-weight:500; text-transform:uppercase; letter-spacing:0.04em; }
+.meta-value { font-size: 0.75rem; color:var(--text-secondary); font-weight:500; }
 .meta-value a { color:var(--text-muted-slate); text-decoration:none; font-size:0.75rem; }
 .meta-value a:hover { color:var(--action-info); text-decoration:underline; }
 .meta-time-ok     { color:var(--action-success-light,#22c55e) !important; }
@@ -106,7 +106,7 @@
 /* Failure note */
 .failure-note {
   display:flex; align-items:center; gap:0.4rem;
-  font-size:0.7rem; border-radius:6px; padding:0.2rem 0.55rem; margin-bottom:0.55rem;
+  font-size: 0.75rem; border-radius:6px; padding:0.2rem 0.55rem; margin-bottom:0.55rem;
 }
 .failure-note.warn { background:rgba(234,179,8,0.15); color:#fde047; border:1px solid rgba(234,179,8,0.2); }
 .failure-note.crit { background:rgba(239,68,68,0.15); color:#fca5a5; border:1px solid rgba(239,68,68,0.2); }
@@ -119,7 +119,7 @@
 .btn-collect {
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.33rem 0.7rem; background:var(--purple-primary); color:#fff;
-  border:none; border-radius:6px; font-size:0.73rem; font-weight:600;
+  border:none; border-radius:6px; font-size: 0.75rem; font-weight:600;
   cursor:pointer; font-family:inherit; transition:background 0.15s;
 }
 .btn-collect:hover:not(:disabled) { background:var(--purple-hover); }
@@ -130,7 +130,7 @@
   display:inline-flex; align-items:center; justify-content:center;
   width:28px; height:28px; background:var(--panel-bg-4,#161e34);
   border:1px solid var(--border-muted); border-radius:6px;
-  font-size:0.9rem; color:var(--text-muted-slate); cursor:pointer;
+  font-size: 0.875rem; color:var(--text-muted-slate); cursor:pointer;
   font-family:inherit; transition:border-color 0.15s, color 0.15s;
   letter-spacing:-1px; line-height:1;
 }
@@ -144,7 +144,7 @@
 .src-dropdown.open { display:block; }
 .dd-item {
   display:flex; align-items:center; gap:0.55rem;
-  padding:0.5rem 0.8rem; font-size:0.78rem; color:var(--text-secondary);
+  padding:0.5rem 0.8rem; font-size: 0.75rem; color:var(--text-secondary);
   cursor:pointer; border:none; background:none; width:100%; text-align:left;
   font-family:inherit; transition:background 0.1s;
 }
@@ -152,17 +152,17 @@
 
 /* Footer link */
 .src-footer { margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border-muted); text-align:center; }
-.src-footer a { color:var(--text-muted-slate); font-size:0.8rem; text-decoration:none; transition:color 0.15s; }
+.src-footer a { color:var(--text-muted-slate); font-size: 0.75rem; text-decoration:none; transition:color 0.15s; }
 .src-footer a:hover { color:var(--purple-light); }
 
 /* Empty filter state */
-.src-empty { text-align:center; padding:3rem; color:var(--text-muted-slate); font-size:0.88rem; display:none; }
+.src-empty { text-align:center; padding:3rem; color:var(--text-muted-slate); font-size: 0.875rem; display:none; }
 
 /* Heal / Reset buttons */
 .btn-heal {
   display:inline-flex; align-items:center; gap:0.3rem;
   padding:0.33rem 0.7rem; background:rgba(167,139,250,0.2); color:#c4b5fd;
-  border:1px solid rgba(167,139,250,0.3); border-radius:6px; font-size:0.73rem; font-weight:600;
+  border:1px solid rgba(167,139,250,0.3); border-radius:6px; font-size: 0.75rem; font-weight:600;
   cursor:pointer; font-family:inherit; transition:background 0.15s, border-color 0.15s;
 }
 .btn-heal:hover:not(:disabled) { background:rgba(167,139,250,0.35); border-color:rgba(167,139,250,0.5); }
@@ -171,7 +171,7 @@
 .btn-heal.btn-reset:hover:not(:disabled) { background:rgba(234,179,8,0.3); border-color:rgba(234,179,8,0.4); }
 .heal-exhausted-badge {
   display:inline-flex; align-items:center; gap:0.2rem;
-  padding:0.1rem 0.4rem; border-radius:999px; font-size:0.62rem; font-weight:600;
+  padding:0.1rem 0.4rem; border-radius:999px; font-size: 0.625rem; font-weight:600;
   background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3);
 }
 .healing-panel-overlay {
@@ -193,7 +193,7 @@
 .healing-panel-title { font-size:1rem; font-weight:600; color:var(--text-primary); }
 .healing-panel-close {
   background:none; border:none; color:var(--text-muted-slate); cursor:pointer;
-  font-size:1.2rem; padding:0.3rem;
+  font-size: 1.25rem; padding:0.3rem;
 }
 .healing-panel-close:hover { color:var(--text-primary); }
 .healing-panel-body { padding:1rem 1.2rem; }
@@ -202,36 +202,36 @@
   border:1px solid var(--border-muted); background:var(--panel-bg-3,#141c30);
 }
 .heal-event-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; }
-.heal-event-round { font-size:0.72rem; font-weight:600; color:var(--purple-light); }
-.heal-event-time { font-size:0.68rem; color:var(--text-muted-slate); }
-.heal-event-summary { font-size:0.8rem; font-weight:500; color:var(--text-primary,#e2e8f0); margin-bottom:0.4rem; line-height:1.4; }
-.heal-event-actions { font-size:0.72rem; color:var(--text-muted-slate); margin-bottom:0.4rem; }
-.heal-event-actions code { font-size:0.68rem; background:rgba(139,92,246,0.12); color:var(--purple-light,#a78bfa); padding:0.1rem 0.35rem; border-radius:3px; }
+.heal-event-round { font-size: 0.75rem; font-weight:600; color:var(--purple-light); }
+.heal-event-time { font-size: 0.625rem; color:var(--text-muted-slate); }
+.heal-event-summary { font-size: 0.75rem; font-weight:500; color:var(--text-primary,#e2e8f0); margin-bottom:0.4rem; line-height:1.4; }
+.heal-event-actions { font-size: 0.75rem; color:var(--text-muted-slate); margin-bottom:0.4rem; }
+.heal-event-actions code { font-size: 0.625rem; background:rgba(139,92,246,0.12); color:var(--purple-light,#a78bfa); padding:0.1rem 0.35rem; border-radius:3px; }
 .heal-event-actions .action-line { padding:0.15rem 0; display:flex; align-items:baseline; gap:0.4rem; }
 .heal-event-actions .action-val { color:var(--text-secondary,#94a3b8); word-break:break-all; }
 .heal-event-validation {
-  font-size:0.72rem; color:var(--text-secondary,#94a3b8); margin-bottom:0.4rem;
+  font-size: 0.75rem; color:var(--text-secondary,#94a3b8); margin-bottom:0.4rem;
   padding:0.35rem 0.5rem; border-radius:4px; background:rgba(34,211,238,0.04);
   border-left:2px solid var(--purple-light,#a78bfa); line-height:1.5;
 }
 .heal-event-val-label { font-weight:600; color:var(--text-muted-slate); }
 .heal-event-config-toggle {
-  font-size:0.68rem; color:var(--purple-light,#a78bfa); cursor:pointer; background:none; border:none;
+  font-size: 0.625rem; color:var(--purple-light,#a78bfa); cursor:pointer; background:none; border:none;
   padding:0.15rem 0; text-decoration:underline; text-underline-offset:2px; opacity:0.8;
 }
 .heal-event-config-toggle:hover { opacity:1; }
 .heal-event-config-block {
   display:none; margin-top:0.35rem; padding:0.5rem; border-radius:4px;
   background:rgba(0,0,0,0.25); border:1px solid var(--border-muted);
-  font-family:'JetBrains Mono',monospace; font-size:0.65rem; color:var(--text-muted-slate);
+  font-family:'JetBrains Mono',monospace; font-size: 0.625rem; color:var(--text-muted-slate);
   white-space:pre-wrap; word-break:break-all; max-height:10rem; overflow-y:auto;
 }
 .heal-event-config-block.open { display:block; }
-.heal-event-diagnosis { font-size:0.72rem; color:var(--text-muted-slate); margin-top:0.3rem; line-height:1.4; display:none; }
+.heal-event-diagnosis { font-size: 0.75rem; color:var(--text-muted-slate); margin-top:0.3rem; line-height:1.4; display:none; }
 .heal-event-diagnosis.open { display:block; }
 .heal-event-result {
   display:inline-flex; padding:0.1rem 0.4rem; border-radius:999px;
-  font-size:0.65rem; font-weight:600;
+  font-size: 0.625rem; font-weight:600;
 }
 .heal-event-result.pass { background:rgba(34,197,94,0.2); color:#86efac; }
 .heal-event-result.fail { background:rgba(239,68,68,0.2); color:#fca5a5; }
@@ -303,7 +303,7 @@
                 <h3 class="text-sm font-medium" style="color:var(--color-warning-text);">Database Status</h3>
                 <p class="text-sm" style="color:var(--color-warning-text);">The database is experiencing temporary locking issues. Source status changes may not persist until you refresh.</p>
             </div>
-            <button onclick="window.location.reload()" class="ml-auto rounded-md px-3 py-1 text-sm font-medium text-white" style="background-color:var(--color-warning);">🔄 Refresh</button>
+            <button onclick="window.location.reload()" class="ml-auto rounded-md px-3 py-1 text-sm font-medium text-white" style="background-color:var(--color-warning);"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Refresh</button>
         </div>
     </div>
 
@@ -502,11 +502,11 @@
                 </div>
             </div>
             <div class="card-actions">
-                <button class="btn-collect" disabled style="opacity:0.4;cursor:not-allowed;">🚀 Collect Now</button>
+                <button class="btn-collect" disabled style="opacity:0.4;cursor:not-allowed;"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.125A59.769 59.769 0 0121.485 12 59.768 59.768 0 013.27 20.875L5.999 12zm0 0h7.5"/></svg> Collect Now</button>
                 <div class="overflow-wrap">
                     <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for Manual source" aria-expanded="false">···</button>
                     <div class="src-dropdown">
-                        <button class="dd-item" onclick="showSourceStats({{ source.id }})">📊 Stats</button>
+                        <button class="dd-item" onclick="showSourceStats({{ source.id }})"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Stats</button>
                     </div>
                 </div>
                 <span class="text-xs ml-1" style="color:var(--text-muted);">Configure/Toggle disabled</span>
@@ -529,7 +529,7 @@
 
     <!-- PDF upload footer link -->
     <div class="src-footer">
-        <a href="/pdf-upload">📄 Upload a PDF threat intelligence report →</a>
+        <a href="/pdf-upload"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg> Upload a PDF threat intelligence report →</a>
     </div>
 
 <!-- Healing History Slide-Out Panel -->
@@ -540,7 +540,7 @@
         <button type="button" class="healing-panel-close" onclick="closeHealingPanel()" title="Close healing history" aria-label="Close">&times;</button>
     </div>
     <div class="healing-panel-body" id="healingPanelBody">
-        <div style="color:var(--text-muted-slate); font-size:0.85rem;">Loading...</div>
+        <div style="color:var(--text-muted-slate); font-size: 0.875rem;">Loading...</div>
     </div>
 </div>
 

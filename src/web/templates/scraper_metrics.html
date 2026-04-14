@@ -31,7 +31,7 @@
 
     <!-- Metrics Overview -->
     <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <div class="flex items-center">
                 <div class="p-2 rounded-lg" style="background-color: rgba(34,197,94,0.15);">
                     <svg class="w-6 h-6" style="color: var(--action-success-light);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -45,7 +45,7 @@
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <div class="flex items-center">
                 <div class="p-2 rounded-lg" style="background-color: var(--action-info-fill);">
                     <svg class="w-6 h-6" style="color: var(--action-info);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,7 +59,7 @@
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <div class="flex items-center">
                 <div class="p-2 rounded-lg" style="background-color: rgba(234,179,8,0.15);">
                     <svg class="w-6 h-6" style="color: var(--action-warning);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +73,7 @@
             </div>
         </div>
 
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <div class="flex items-center">
                 <div class="p-2 rounded-lg" style="background-color: var(--action-danger-fill);">
                     <svg class="w-6 h-6" style="color: var(--action-danger);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -91,7 +91,7 @@
     <!-- Charts Section -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Collection Rate Chart -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941"/></svg> Collection Rate (Last 7 Days)</h3>
             <div class="h-64">
                 <canvas id="collectionRateChart"></canvas>
@@ -99,7 +99,7 @@
         </div>
 
         <!-- Source Health Chart -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Source Health Distribution</h3>
             <div class="h-64">
                 <canvas id="sourceHealthChart"></canvas>
@@ -110,7 +110,7 @@
     <!-- Ingestion Analytics Charts -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <!-- Hunt Score Ranges Chart -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75a2.25 2.25 0 100 4.5 2.25 2.25 0 000-4.5zM12 6.75a5.25 5.25 0 100 10.5 5.25 5.25 0 000-10.5zM12 3.75a8.25 8.25 0 100 16.5 8.25 8.25 0 000-16.5z"/></svg> Hunt Score Ranges (Last 30 Days)</h3>
             <div class="h-64">
                 <canvas id="huntScoreChart"></canvas>
@@ -118,7 +118,7 @@
         </div>
 
         <!-- Hourly Distribution Chart -->
-        <div class="rounded-lg shadow p-6" style="background-color: var(--mlops-card-bg); border: 1px solid var(--mlops-card-border);">
+        <div class="card p-6">
             <h3 class="text-lg font-semibold" style="color: var(--text-primary); mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Hourly Distribution (Today)</h3>
             <div class="h-64">
                 <canvas id="hourlyChart"></canvas>

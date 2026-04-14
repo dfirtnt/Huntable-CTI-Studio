@@ -78,6 +78,38 @@ class TestHealthMetricsCard:
 
     @pytest.mark.ui
     @pytest.mark.dashboard
+    def test_uptime_text_fits_inside_ring(self, page: Page):
+        """Regression: uptime percentage text must fit inside the SVG ring.
+
+        The ring uses r=35 in a 100x100 viewBox rendered at 96px, giving an
+        inner diameter of ~67px (2 * 35 * 96/100). The rendered "NN.N%" text
+        width and height must stay inside that circle, otherwise glyphs bleed
+        past the stroke (as seen pre-fix with font-size: 1.25rem).
+        """
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/")
+        page.wait_for_load_state("load")
+
+        uptime_value = page.locator("#uptime-value")
+        expect(uptime_value).to_be_visible()
+
+        # Force a known-wide value so the test does not depend on live data.
+        page.evaluate("document.getElementById('uptime-value').textContent = '88.8%';")
+
+        box = uptime_value.bounding_box()
+        assert box is not None, "uptime value has no bounding box"
+
+        # Ring inner diameter in px: 2 * r(35) scaled by 96/100 viewBox.
+        ring_inner_diameter = 2 * 35 * (96 / 100)
+        assert box["width"] <= ring_inner_diameter, (
+            f"uptime text width {box['width']}px exceeds ring inner diameter {ring_inner_diameter}px"
+        )
+        assert box["height"] <= ring_inner_diameter, (
+            f"uptime text height {box['height']}px exceeds ring inner diameter {ring_inner_diameter}px"
+        )
+
+    @pytest.mark.ui
+    @pytest.mark.dashboard
     def test_total_sources_display(self, page: Page):
         """Test total sources count display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

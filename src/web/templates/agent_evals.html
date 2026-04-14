@@ -37,7 +37,7 @@
     }
     .eval-mono {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
     }
 
     /* ── Panel System ────────────────────────────────────────── */
@@ -70,7 +70,7 @@
     /* ── Section Label (instrument-style) ────────────────────── */
     .eval-section-label {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
+        font-size: 0.625rem;
         font-weight: 700;
         letter-spacing: 0.15em;
         text-transform: uppercase;
@@ -80,7 +80,7 @@
     .eval-section-title {
         font-family: 'Inter', system-ui, sans-serif;
         font-weight: 600;
-        font-size: 1.1rem;
+        font-size: 1rem;
         color: var(--text-primary);
     }
 
@@ -107,7 +107,7 @@
         align-items: center;
         gap: 0.5rem;
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         letter-spacing: 0.05em;
         color: var(--text-muted-slate);
         opacity: 0.6;
@@ -138,7 +138,7 @@
     .eval-hero h1 {
         font-family: 'Inter', system-ui, sans-serif;
         font-weight: 700;
-        font-size: 1.75rem;
+        font-size: 1.25rem;
         color: var(--text-emphasis);
         line-height: 1.2;
         margin: 0;
@@ -164,7 +164,7 @@
     /* ── Select / Input Styling ──────────────────────────────── */
     .eval-select {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         background: var(--panel-bg-4);
         border: 1px solid rgba(139, 92, 246, 0.12);
         border-radius: 8px;
@@ -188,7 +188,7 @@
     .eval-btn {
         font-family: 'Inter', system-ui, sans-serif;
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         border-radius: 8px;
         padding: 0.5rem 1rem;
         border: none;
@@ -244,7 +244,7 @@
         border-color: rgba(220, 38, 38, 0.3);
     }
     .eval-btn--sm {
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         padding: 0.35rem 0.75rem;
         border-radius: 6px;
     }
@@ -253,7 +253,7 @@
     .eval-run-btn {
         font-family: 'JetBrains Mono', monospace;
         font-weight: 700;
-        font-size: 0.95rem;
+        font-size: 1rem;
         letter-spacing: 0.05em;
         text-transform: uppercase;
         width: 100%;
@@ -361,7 +361,7 @@
         transform: rotate(-180deg);
         white-space: nowrap;
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.65rem;
+        font-size: 0.625rem;
         font-weight: 400;
         color: var(--text-muted-slate);
         letter-spacing: 0.05em;
@@ -382,7 +382,7 @@
     /* ── Chart Navigation ────────────────────────────────────── */
     .eval-chart-nav {
         font-family: 'JetBrains Mono', monospace;
-        font-size: 0.7rem;
+        font-size: 0.75rem;
         padding: 0.3rem 0.65rem;
         border-radius: 5px;
         border: 1px solid rgba(139, 92, 246, 0.1);
@@ -450,7 +450,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <span class="eval-status-dot eval-status-dot--live"></span>
-                <span class="eval-mono" style="color: var(--action-execute); font-size: 0.7rem;">ACTIVE</span>
+                <span class="eval-mono" style="color: var(--action-execute); font-size: 0.75rem;">ACTIVE</span>
             </div>
         </div>
         <div class="eval-panel-body">
@@ -493,7 +493,7 @@
         </div>
         <div class="eval-panel-body">
             <div id="articleList" class="eval-article-list space-y-2">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.8rem;">Load a dataset to see articles.</p>
+                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Load a dataset to see articles.</p>
             </div>
         </div>
     </div>
@@ -562,8 +562,8 @@
                     onmouseover="this.style.background='rgba(139,92,246,0.04)'"
                     onmouseout="this.style.background='transparent'"
                 >
-                    <h3 class="eval-section-title" style="font-size: 0.95rem;">Aggregate Scores by Config Version</h3>
-                    <span id="aggregate-scores-panel-toggle" style="color: var(--text-muted-slate); font-size: 0.8rem; transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
+                    <h3 class="eval-section-title" style="font-size: 1rem;">Aggregate Scores by Config Version</h3>
+                    <span id="aggregate-scores-panel-toggle" style="color: var(--text-muted-slate); font-size: 0.75rem; transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
                 </div>
                 <div id="aggregate-scores-panel-content" class="hidden p-4" style="border-top: 1px solid rgba(139, 92, 246, 0.06);">
                     <div id="aggregateScoresContent" class="space-y-4"></div>
@@ -574,10 +574,10 @@
             <div id="maeChartContainer" class="mb-6 hidden">
                 <div style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-                        <h3 class="eval-section-title" style="font-size: 0.95rem;">MAE Metrics by Config Version</h3>
+                        <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
                         <div class="flex items-center gap-2">
                             <button id="chartPrevBtn" class="eval-chart-nav" disabled>&larr; Prev</button>
-                            <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.65rem; padding: 0 0.25rem;"></span>
+                            <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.625rem; padding: 0 0.25rem;"></span>
                             <button id="chartNextBtn" class="eval-chart-nav" disabled>Next &rarr;</button>
                         </div>
                     </div>
@@ -595,7 +595,7 @@
             </div>
 
             <div id="resultsTable" class="comparison-table">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.8rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
             </div>
         </div>
     </div>
@@ -968,7 +968,7 @@ function showHelp(fieldName) {
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     modal.innerHTML = `
-        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="card-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>

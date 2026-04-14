@@ -255,6 +255,9 @@ async def get_workflow_config(request: Request):
         finally:
             db_session.close()
 
+    except HTTPException:
+        # Preserve deliberate 4xx (e.g. validation) raised above; don't re-wrap as 500.
+        raise
     except Exception as e:
         logger.error(f"Error getting workflow config: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
