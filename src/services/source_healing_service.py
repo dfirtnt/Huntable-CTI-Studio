@@ -334,16 +334,46 @@ class SourceHealingService:
                     results.append({"label": label, "url": url, "reachable": False, "error": "Connection failed"})
                 else:
                     final_url = str(resp.url)
-                    results.append(
-                        {
-                            "label": label,
-                            "url": url,
-                            "reachable": True,
-                            "status_code": resp.status_code,
-                            "final_url": final_url if final_url != url else None,
-                            "content_type": resp.headers.get("content-type", ""),
-                        }
-                    )
+                    probe_result = {
+                        "label": label,
+                        "url": url,
+                        "reachable": True,
+                        "status_code": resp.status_code,
+                        "final_url": final_url if final_url != url else None,
+                        "content_type": resp.headers.get("content-type", ""),
+                    }
+
+                    # Check for bot protection (CloudFront, Akamai, etc.)
+                    if resp.status_code == 403:
+                        body_lower = resp.text[:5000].lower()
+                        server_header = resp.headers.get("server", "").lower()
+                        cf_id = resp.headers.get("x-amz-cf-id")
+
+                        bot_protection_provider = None
+                        if "cloudfront" in body_lower or "cloudfront" in server_header or cf_id:
+                            bot_protection_provider = "CloudFront"
+                        elif "akamai" in body_lower or "akamai" in server_header:
+                            bot_protection_provider = "Akamai"
+                        elif any(
+                            phrase in body_lower for phrase in ["request blocked", "access denied", "bot protection"]
+                        ):
+                            bot_protection_provider = "Unknown WAF"
+
+                        if bot_protection_provider:
+                            probe_result["bot_protection_detected"] = True
+                            probe_result["bot_protection_provider"] = bot_protection_provider
+                            # Add dedicated result for easy detection
+                            results.append(
+                                {
+                                    "label": "bot_protection_detected",
+                                    "url": url,
+                                    "provider": bot_protection_provider,
+                                    "status_code": 403,
+                                    "message": f"Site uses {bot_protection_provider} bot protection that blocks automated requests",
+                                }
+                            )
+
+                    results.append(probe_result)
 
             # ── 2. RSS content inspection ──
             if rss_url and rss_url.startswith(("http://", "https://")):
@@ -521,6 +551,21 @@ class SourceHealingService:
         working_examples: list[dict] | None = None,
     ) -> dict:
         """Call the configured LLM to diagnose and propose fixes."""
+
+        # Check for bot protection detection - skip LLM if detected
+        bot_protection_result = next(
+            (r for r in probe_results if r.get("label") == "bot_protection_detected"),
+            None,
+        )
+        if bot_protection_result:
+            provider = bot_protection_result.get("provider", "Unknown")
+            return {
+                "diagnosis": f"BLOCKED: Site uses {provider} bot protection that blocks automated requests. "
+                f"Auto-healing cannot bypass bot protection systems. Manual configuration or browser automation required.",
+                "actions": [],
+                "platform_limitation": "bot_protection",
+            }
+
         user_message = self._build_user_prompt(
             source_snapshot,
             error_history,
