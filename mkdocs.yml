@@ -34,6 +34,7 @@ nav:
   - Guides:
       - Add a Feed: guides/add-feed.md
       - Extract Observables: guides/extract-observables.md
+      - Edit Agent Prompts: guides/edit-prompts.md
       - Langfuse Setup: guides/langfuse-setup.md
       - Generate Sigma Rules: guides/generate-sigma.md
       - Evaluate Models: guides/evaluate-models.md
