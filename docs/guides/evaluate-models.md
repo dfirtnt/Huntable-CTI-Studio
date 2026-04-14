@@ -4,7 +4,7 @@ Use the built-in evaluation scripts to measure Extract Agent quality before and 
 
 ## Prerequisites
 - Stack running (PostgreSQL available) so article lookups and metadata writes succeed
-- Test dataset present: `outputs/training_data/test_finetuning_data.json` (ships with high-scoring articles)
+- Test dataset present at the path passed to `--test-data` (default: `outputs/training_data/test_finetuning_data.json`). `outputs/` is not tracked in git; generate or copy a dataset to this path before running the script.
 
 ## Metrics captured
 - JSON validity and field completeness (`behavioral_observables`, `observable_list`, `discrete_huntables_count`, `content`, `url`)
