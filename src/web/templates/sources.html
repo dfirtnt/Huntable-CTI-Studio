@@ -895,6 +895,8 @@ async function resetHealing(sourceId) {
 }
 
 let _healingHistoryPollInterval = null;
+let _healingHistoryLastCount = 0;
+let _healingHistoryPollStartTime = null;
 
 async function openHealingHistory(sourceId, sourceName) {
     var overlay = document.getElementById('healingPanelOverlay');
@@ -906,6 +908,10 @@ async function openHealingHistory(sourceId, sourceName) {
     body.textContent = 'Loading...';
     overlay.classList.add('open');
     panel.classList.add('open');
+
+    // Reset tracking
+    _healingHistoryLastCount = 0;
+    _healingHistoryPollStartTime = Date.now();
 
     // Load history immediately
     await loadHealingHistory(sourceId, sourceName, body);
@@ -931,9 +937,32 @@ async function loadHealingHistory(sourceId, sourceName, body) {
         while (body.firstChild) body.removeChild(body.firstChild);
 
         if (!data.events || data.events.length === 0) {
-            body.textContent = 'No healing events recorded yet.';
+            // Show helpful progress message if no events yet
+            var elapsedSec = Math.floor((Date.now() - _healingHistoryPollStartTime) / 1000);
+            if (elapsedSec < 60) {
+                var progressDiv = document.createElement('div');
+                progressDiv.style.cssText = 'display:flex; align-items:center; gap:0.75rem; padding:1rem; background-color:var(--border-muted); border:1px solid var(--border-subtle); border-radius:0.5rem;';
+                var spinner = document.createElement('div');
+                spinner.className = 'animate-spin rounded-full';
+                spinner.style.cssText = 'width:1rem; height:1rem; border:2px solid var(--action-info); border-top-color:transparent;';
+                var message = document.createElement('div');
+                message.style.cssText = 'color:var(--text-secondary); font-size:0.875rem;';
+                message.innerHTML = '<strong>Healing in progress...</strong><br>Waiting for first round to complete (~20-30s). <br><span style="color:var(--text-muted-slate);">Probing URLs, analyzing with LLM, and validating fixes.</span>';
+                progressDiv.appendChild(spinner);
+                progressDiv.appendChild(message);
+                body.appendChild(progressDiv);
+            } else {
+                body.textContent = 'No healing events recorded yet.';
+            }
             return;
         }
+
+        // Track if new events arrived
+        var currentCount = data.events.length;
+        if (currentCount > _healingHistoryLastCount && _healingHistoryLastCount > 0) {
+            // New event(s) arrived - could show a subtle flash/animation here
+        }
+        _healingHistoryLastCount = currentCount;
 
         /* Translate a config field name into a human-readable action description */
         function describeAction(field, value) {
@@ -1095,6 +1124,10 @@ function closeHealingPanel() {
         clearInterval(_healingHistoryPollInterval);
         _healingHistoryPollInterval = null;
     }
+    // Reset tracking
+    _healingHistoryLastCount = 0;
+    _healingHistoryPollStartTime = null;
+    
     document.getElementById('healingPanelOverlay').classList.remove('open');
     document.getElementById('healingPanel').classList.remove('open');
 }
