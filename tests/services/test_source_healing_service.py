@@ -1243,3 +1243,131 @@ class TestProbeJSRenderingDetection:
         page = next(r for r in results if r["label"] == "blog_page_analysis")
         assert page["is_likely_js_rendered"] is False
         assert page["visible_text_length"] > 500
+
+
+class TestBuildUserPrompt:
+    """Test _build_user_prompt renders probe results correctly for the LLM."""
+
+    def _build(self, probe_results, **kwargs):
+        from src.services.source_healing_service import SourceHealingService
+
+        snapshot = kwargs.pop("source_snapshot", {"name": "Test", "url": "https://test.com"})
+        return SourceHealingService._build_user_prompt(
+            source_snapshot=snapshot,
+            error_history=kwargs.pop("error_history", []),
+            probe_results=probe_results,
+            **kwargs,
+        )
+
+    def test_sitemap_with_post_sitemap_sample_renders(self):
+        """Post-specific sitemap URLs appear in the prompt."""
+        prompt = self._build(
+            [
+                {
+                    "label": "sitemap_discovery",
+                    "sitemap_url": "https://test.com/sitemap.xml",
+                    "total_locs": 10,
+                    "post_sitemaps": ["https://test.com/post-sitemap.xml"],
+                    "post_sitemap_sample": [
+                        "https://test.com/2026/01/apt-report",
+                        "https://test.com/2026/02/malware-analysis",
+                    ],
+                    "post_sitemap_total": 42,
+                }
+            ]
+        )
+        assert "Sitemap found: https://test.com/sitemap.xml" in prompt
+        assert "Post sitemap URL count: 42" in prompt
+        assert "apt-report" in prompt
+        assert "Article-like URLs found" not in prompt  # should NOT render the generic branch
+
+    def test_sitemap_with_sample_urls_renders(self):
+        """Generic sitemap filtered to article-like URLs renders the new branch."""
+        prompt = self._build(
+            [
+                {
+                    "label": "sitemap_discovery",
+                    "sitemap_url": "https://test.com/sitemap.xml",
+                    "total_locs": 50,
+                    "post_sitemaps": [],
+                    "sample_urls": [
+                        "https://test.com/research/apt29-update",
+                        "https://test.com/research/ransomware-trends",
+                    ],
+                    "sample_urls_total": 12,
+                }
+            ]
+        )
+        assert "Article-like URLs found: 12" in prompt
+        assert "Sample article URLs:" in prompt
+        assert "apt29-update" in prompt
+        # Should NOT render the raw sample_locs fallback
+        assert "Sample URLs:" not in prompt
+
+    def test_sitemap_with_sample_locs_fallback_renders(self):
+        """Raw sample_locs fallback renders when no article-like URLs found."""
+        prompt = self._build(
+            [
+                {
+                    "label": "sitemap_discovery",
+                    "sitemap_url": "https://test.com/sitemap.xml",
+                    "total_locs": 5,
+                    "post_sitemaps": [],
+                    "sample_locs": [
+                        "https://test.com/about",
+                        "https://test.com/contact",
+                    ],
+                }
+            ]
+        )
+        assert "Sample URLs:" in prompt
+        assert "about" in prompt
+        # Should NOT render the article-like branch
+        assert "Article-like URLs found" not in prompt
+
+    def test_sitemap_not_found_renders(self):
+        """No sitemap renders the verdict."""
+        prompt = self._build([{"label": "sitemap_discovery", "verdict": "no_sitemap_found"}])
+        assert "Sitemap: no_sitemap_found" in prompt
+
+    def test_rss_sample_urls_renders(self):
+        """RSS probe sample_urls appear in the prompt."""
+        prompt = self._build(
+            [
+                {
+                    "label": "rss_content_analysis",
+                    "verdict": "has_items",
+                    "item_count": 5,
+                    "sample_titles": ["APT Report"],
+                    "sample_urls": [
+                        "https://test.com/research/apt-q1",
+                        "https://test.com/research/ransomware-2026",
+                    ],
+                }
+            ]
+        )
+        assert "RSS Feed Content: has_items" in prompt
+        assert "Items in feed: 5" in prompt
+        assert "Sample article URLs:" in prompt
+        assert "apt-q1" in prompt
+
+    def test_url_redirect_renders(self):
+        """HTTP probe redirect appears in the prompt."""
+        prompt = self._build(
+            [
+                {
+                    "label": "url",
+                    "url": "https://old.com/blog",
+                    "reachable": True,
+                    "status_code": 200,
+                    "final_url": "https://new.com/blog",
+                    "content_type": "text/html",
+                }
+            ]
+        )
+        assert "redirected to https://new.com/blog" in prompt
+
+    def test_empty_probe_results(self):
+        """Empty probe results renders the fallback message."""
+        prompt = self._build([])
+        assert "No probe results available." in prompt
