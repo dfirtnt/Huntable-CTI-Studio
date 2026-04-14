@@ -25,7 +25,7 @@ from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable, SourceTable
 from src.workflows.agentic_workflow import run_workflow
 
-_LMSTUDIO_BASE_URL = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1").rstrip("/")
+_LMSTUDIO_BASE_URL = (os.getenv("LMSTUDIO_API_URL") or "http://localhost:1234/v1").rstrip("/")
 _MODEL_HINT = "google/gemma-3-1b"
 _FIXTURE_PATH = Path(__file__).resolve().parent.parent / "fixtures" / "workflow" / "minimal-lmstudio-gemma3-1b.json"
 

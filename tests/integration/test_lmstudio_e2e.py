@@ -56,7 +56,7 @@ from src.workflows.agentic_workflow import run_workflow
 
 # ── LMStudio availability (evaluated once at collection time) ─────────────────
 
-_LMSTUDIO_BASE_URL: str = os.getenv("LMSTUDIO_API_URL", "http://localhost:1234/v1").rstrip("/")
+_LMSTUDIO_BASE_URL: str = (os.getenv("LMSTUDIO_API_URL") or "http://localhost:1234/v1").rstrip("/")
 _REQUIRED_MODELS: tuple[str, ...] = ("qwen3-8b", "qwen3-14b")
 
 
