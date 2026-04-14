@@ -53,7 +53,7 @@ Use this map to orient before searching broadly:
 | `src/config/` | Workflow config schema, loaders, and migrations |
 | `src/database/` | SQLAlchemy models and database access layers |
 | `src/core/` | Ingestion, scraping, processing, and source management |
-| `src/prompts/` | Prompt source files used to build workflow presets and runtime prompt defaults |
+| `src/prompts/` | Seed/default prompts only -- NOT live runtime prompts. Live prompts live in the DB workflow config's `agent_prompts` field. Disk files are read only on config bootstrap, empty-prompt fallback, or explicit reset via `/api/workflow/config/prompts/{bootstrap,reset-to-defaults}`. Loader: `src/utils/default_agent_prompts.py`. To change live behavior, edit via the workflow config UI (creates a versioned entry) or the config API. See `src/prompts/README.md`. |
 | `config/` | Versioned source YAML, workflow presets, eval article data, provider catalogs |
 | `tests/` | Pytest suites, Playwright specs, fixtures, and test infrastructure |
 | `docs/` | Human-facing docs; useful orientation aid but subordinate to code when they diverge |
