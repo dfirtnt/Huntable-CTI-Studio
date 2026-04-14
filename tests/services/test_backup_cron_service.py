@@ -9,7 +9,7 @@ import pytest
 import yaml
 
 from src.services.backup_cron_service import BackupCronService
-from src.utils.backup_config import BackupConfigManager
+from src.utils.backup_config import BackupConfigManager, set_backup_automation_state
 
 pytestmark = pytest.mark.unit
 
@@ -91,6 +91,24 @@ def test_install_backup_schedule_preserves_external_jobs(monkeypatch):
     assert any(
         job["command"].startswith("cd /repo && ./scripts/backup_restore.sh prune") for job in result["managed_jobs"]
     )
+
+
+def test_get_snapshot_uses_persisted_automation_state_when_crontab_unavailable(tmp_path, monkeypatch):
+    """Snapshot should fall back to the shared automation marker when crontab is unavailable."""
+    state_file = tmp_path / "config" / "backup_automation_state.json"
+    assert set_backup_automation_state(True, state_file=state_file) is True
+
+    def fake_run(*args, **kwargs):
+        raise FileNotFoundError("crontab")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    snapshot = BackupCronService(project_root=tmp_path).get_snapshot()
+
+    assert snapshot["cron_available"] is False
+    assert snapshot["automated"] is True
+    assert snapshot["jobs"] == []
+    assert snapshot["managed_jobs"] == []
 
 
 def test_save_config_preserves_unknown_top_level_sections(tmp_path):

@@ -126,6 +126,15 @@ class SourceHealingService:
         working_examples = await self._get_working_source_examples(db, source_id)
         previous_attempts: list[dict] = []
 
+        # Snapshot mutable fields so we can rollback if all rounds exhaust
+        import copy
+
+        _original_config = {
+            "url": source_snapshot.get("url"),
+            "rss_url": source_snapshot.get("rss_url"),
+            "config": copy.deepcopy(source_snapshot.get("config") or {}),
+        }
+
         for round_num in range(1, self.config.max_attempts + 1):
             logger.info(
                 "[AutoHeal] Source '%s' (id=%s) — round %d/%d",
@@ -223,19 +232,39 @@ class SourceHealingService:
             if round_num < self.config.max_attempts:
                 await asyncio.sleep(_RETRY_DELAY_SECONDS)
 
-        # All rounds exhausted — mark source as healing_exhausted
+        # All rounds exhausted — rollback config to pre-healing state and mark exhausted
         logger.warning(
-            "[AutoHeal] Source '%s' (id=%s) exhausted %d healing rounds",
+            "[AutoHeal] Source '%s' (id=%s) exhausted %d healing rounds — rolling back config",
             source_snapshot.get("name", "?") if source_snapshot else "?",
             source_id,
             self.config.max_attempts,
         )
         try:
-            from src.models.source import SourceUpdate
+            from src.models.source import SourceConfig, SourceUpdate
 
-            await db.update_source(source_id, SourceUpdate(healing_exhausted=True))
+            rollback_kwargs: dict = {"healing_exhausted": True}
+            # Only rollback fields that were actually changed during healing
+            current = await self._get_source_snapshot(db, source_id)
+            if current:
+                if current.get("url") != _original_config["url"]:
+                    rollback_kwargs["url"] = _original_config["url"]
+                if current.get("rss_url") != _original_config["rss_url"]:
+                    rollback_kwargs["rss_url"] = _original_config["rss_url"]
+                if current.get("config") != _original_config["config"]:
+                    rollback_kwargs["config"] = SourceConfig(**_original_config["config"])
+
+                if any(k in rollback_kwargs for k in ("url", "rss_url", "config")):
+                    rolled_back = [k for k in ("url", "rss_url", "config") if k in rollback_kwargs]
+                    logger.info(
+                        "[AutoHeal] Rolling back %s for source '%s' (id=%s) to pre-healing values",
+                        ", ".join(rolled_back),
+                        current.get("name", "?"),
+                        source_id,
+                    )
+
+            await db.update_source(source_id, SourceUpdate(**rollback_kwargs))
         except Exception:
-            logger.exception("[AutoHeal] Failed to mark source %s as healing_exhausted", source_id)
+            logger.exception("[AutoHeal] Failed to rollback/mark source %s as healing_exhausted", source_id)
 
     # ── Step 1: Gather context ──────────────────────────────────────────
 
@@ -318,20 +347,19 @@ class SourceHealingService:
             parsed = urlparse(source_url)
             base_domain = f"{parsed.scheme}://{parsed.netloc}"
 
-        async with httpx.AsyncClient(
-            timeout=httpx.Timeout(15.0),
-            follow_redirects=True,
-            max_redirects=5,
-        ) as client:
-            # ── 1. Basic HTTP probe for url and rss_url ──
+        # ── Probe coroutines (run concurrently) ────────────────────────
+
+        async def _probe_http(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 1: Basic HTTP reachability + bot protection detection."""
+            out: list[dict] = []
             for label, url in [("url", source_url), ("rss_url", rss_url)]:
                 if not url or not url.startswith(("http://", "https://")):
                     if url:
-                        results.append({"label": label, "url": url, "reachable": False, "error": "Invalid scheme"})
+                        out.append({"label": label, "url": url, "reachable": False, "error": "Invalid scheme"})
                     continue
                 resp = await _fetch(client, url)
                 if resp is None:
-                    results.append({"label": label, "url": url, "reachable": False, "error": "Connection failed"})
+                    out.append({"label": label, "url": url, "reachable": False, "error": "Connection failed"})
                 else:
                     final_url = str(resp.url)
                     probe_result = {
@@ -343,7 +371,6 @@ class SourceHealingService:
                         "content_type": resp.headers.get("content-type", ""),
                     }
 
-                    # Check for bot protection (CloudFront, Akamai, etc.)
                     if resp.status_code == 403:
                         body_lower = resp.text[:5000].lower()
                         server_header = resp.headers.get("server", "").lower()
@@ -362,8 +389,7 @@ class SourceHealingService:
                         if bot_protection_provider:
                             probe_result["bot_protection_detected"] = True
                             probe_result["bot_protection_provider"] = bot_protection_provider
-                            # Add dedicated result for easy detection
-                            results.append(
+                            out.append(
                                 {
                                     "label": "bot_protection_detected",
                                     "url": url,
@@ -373,72 +399,73 @@ class SourceHealingService:
                                 }
                             )
 
-                    results.append(probe_result)
+                    out.append(probe_result)
+            return out
 
-            # ── 2. RSS content inspection ──
-            if rss_url and rss_url.startswith(("http://", "https://")):
-                resp = await _fetch(client, rss_url)
-                rss_info: dict = {"label": "rss_content_analysis"}
-                if resp and resp.status_code == 200:
-                    body = resp.text[:50_000]
-                    items = _re.findall(r"<item[\s>]", body, _re.IGNORECASE)
-                    entries = _re.findall(r"<entry[\s>]", body, _re.IGNORECASE)
-                    count = len(items) + len(entries)
-                    titles = _re.findall(r"<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>", body)
-                    # Extract URLs from <link> tags (RSS) and <link href="..."> (Atom)
-                    rss_links = _re.findall(r"<link[^>]*>([^<]+)</link>", body, _re.IGNORECASE)
-                    atom_links = _re.findall(r'<link[^>]+href="([^"]+)"', body, _re.IGNORECASE)
-                    all_links = rss_links + atom_links
-                    rss_info["item_count"] = count
-                    rss_info["sample_titles"] = [t.strip() for t in titles[1:4]]  # skip channel title
-                    rss_info["sample_urls"] = [link.strip() for link in all_links[:5]]  # first 5 article URLs
-                    rss_info["verdict"] = "has_items" if count > 0 else "EMPTY_FEED"
-                elif resp:
-                    rss_info["verdict"] = f"HTTP_{resp.status_code}"
-                else:
-                    rss_info["verdict"] = "unreachable"
-                results.append(rss_info)
+        async def _probe_rss(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 2: RSS/Atom content inspection."""
+            if not rss_url or not rss_url.startswith(("http://", "https://")):
+                return []
+            resp = await _fetch(client, rss_url)
+            rss_info: dict = {"label": "rss_content_analysis"}
+            if resp and resp.status_code == 200:
+                body = resp.text[:50_000]
+                items = _re.findall(r"<item[\s>]", body, _re.IGNORECASE)
+                entries = _re.findall(r"<entry[\s>]", body, _re.IGNORECASE)
+                count = len(items) + len(entries)
+                titles = _re.findall(r"<title[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</title>", body)
+                rss_links = _re.findall(r"<link[^>]*>([^<]+)</link>", body, _re.IGNORECASE)
+                atom_links = _re.findall(r'<link[^>]+href="([^"]+)"', body, _re.IGNORECASE)
+                all_links = rss_links + atom_links
+                rss_info["item_count"] = count
+                rss_info["sample_titles"] = [t.strip() for t in titles[1:4]]
+                rss_info["sample_urls"] = [link.strip() for link in all_links[:5]]
+                rss_info["verdict"] = "has_items" if count > 0 else "EMPTY_FEED"
+            elif resp:
+                rss_info["verdict"] = f"HTTP_{resp.status_code}"
+            else:
+                rss_info["verdict"] = "unreachable"
+            return [rss_info]
 
-            # ── 3. Blog page content analysis (JS-rendering detection) ──
-            if source_url and source_url.startswith(("http://", "https://")):
-                resp = await _fetch(client, source_url)
-                page_info: dict = {"label": "blog_page_analysis"}
-                if resp and resp.status_code == 200:
-                    body = resp.text
-                    page_info["html_length"] = len(body)
-                    # Strip tags to measure visible text
-                    clean = _re.sub(r"<script[^>]*>.*?</script>", "", body, flags=_re.DOTALL)
-                    clean = _re.sub(r"<style[^>]*>.*?</style>", "", clean, flags=_re.DOTALL)
-                    clean = _re.sub(r"<[^>]+>", " ", clean)
-                    clean = _re.sub(r"\s+", " ", clean).strip()
-                    page_info["visible_text_length"] = len(clean)
-                    page_info["is_likely_js_rendered"] = len(clean) < 500 and len(body) > 10_000
+        async def _probe_blog_page(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 3: Blog page content analysis (JS-rendering detection)."""
+            if not source_url or not source_url.startswith(("http://", "https://")):
+                return []
+            resp = await _fetch(client, source_url)
+            page_info: dict = {"label": "blog_page_analysis"}
+            if resp and resp.status_code == 200:
+                body = resp.text
+                page_info["html_length"] = len(body)
+                clean = _re.sub(r"<script[^>]*>.*?</script>", "", body, flags=_re.DOTALL)
+                clean = _re.sub(r"<style[^>]*>.*?</style>", "", clean, flags=_re.DOTALL)
+                clean = _re.sub(r"<[^>]+>", " ", clean)
+                clean = _re.sub(r"\s+", " ", clean).strip()
+                page_info["visible_text_length"] = len(clean)
+                page_info["is_likely_js_rendered"] = len(clean) < 500 and len(body) > 10_000
 
-                    # Extract blog post links from the page
-                    href_pattern = _re.compile(r'href="([^"]+)"')
-                    all_hrefs = href_pattern.findall(body)
-                    # Heuristic: blog post links usually contain the source domain + /blog/ or similar
-                    from urllib.parse import urljoin
+                href_pattern = _re.compile(r'href="([^"]+)"')
+                all_hrefs = href_pattern.findall(body)
+                from urllib.parse import urljoin
 
-                    post_links = set()
-                    for href in all_hrefs:
-                        full = urljoin(source_url, href)
-                        # Skip the listing page itself, anchors, assets
-                        if full == source_url or full.rstrip("/") == source_url.rstrip("/"):
-                            continue
-                        if any(x in full for x in [".png", ".jpg", ".css", ".js", ".xml", ".ico"]):
-                            continue
-                        if full.startswith(source_url.rstrip("/") + "/") and full.count("/") > source_url.count("/"):
-                            post_links.add(full)
-                    page_info["post_links_found"] = len(post_links)
-                    page_info["sample_post_links"] = sorted(post_links)[:5]
-                elif resp:
-                    page_info["status_code"] = resp.status_code
-                else:
-                    page_info["error"] = "unreachable"
-                results.append(page_info)
+                post_links = set()
+                for href in all_hrefs:
+                    full = urljoin(source_url, href)
+                    if full == source_url or full.rstrip("/") == source_url.rstrip("/"):
+                        continue
+                    if any(x in full for x in [".png", ".jpg", ".css", ".js", ".xml", ".ico"]):
+                        continue
+                    if full.startswith(source_url.rstrip("/") + "/") and full.count("/") > source_url.count("/"):
+                        post_links.add(full)
+                page_info["post_links_found"] = len(post_links)
+                page_info["sample_post_links"] = sorted(post_links)[:5]
+            elif resp:
+                page_info["status_code"] = resp.status_code
+            else:
+                page_info["error"] = "unreachable"
+            return [page_info]
 
-            # ── 4. Sitemap discovery ──
+        async def _probe_sitemap(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 4: Sitemap discovery."""
             sitemap_info: dict = {"label": "sitemap_discovery"}
             sitemap_urls_to_try = []
             if base_domain:
@@ -449,15 +476,12 @@ class SourceHealingService:
             for sm_url in sitemap_urls_to_try:
                 resp = await _fetch(client, sm_url)
                 if resp and resp.status_code == 200 and "<loc>" in resp.text.lower():
-                    # Found a sitemap — extract sub-sitemaps or post URLs
                     locs = _re.findall(r"<loc>(.*?)</loc>", resp.text)
-                    # Look for a post/blog-specific sitemap
                     post_sitemaps = [loc for loc in locs if any(k in loc.lower() for k in ["post", "blog", "article"])]
                     sitemap_info["sitemap_url"] = sm_url
                     sitemap_info["total_locs"] = len(locs)
                     sitemap_info["post_sitemaps"] = post_sitemaps[:5]
 
-                    # If we found a post-specific sitemap, sample its URLs
                     if post_sitemaps:
                         psm_resp = await _fetch(client, post_sitemaps[0])
                         if psm_resp and psm_resp.status_code == 200:
@@ -465,13 +489,28 @@ class SourceHealingService:
                             sitemap_info["post_sitemap_sample"] = post_urls[:5]
                             sitemap_info["post_sitemap_total"] = len(post_urls)
                     elif locs:
-                        sitemap_info["sample_locs"] = locs[:5]
+                        source_prefix = source_url.rstrip("/") + "/"
+                        article_locs = [
+                            loc
+                            for loc in locs
+                            if loc.startswith(source_prefix)
+                            and loc != source_url
+                            and loc.rstrip("/") != source_url.rstrip("/")
+                            and not any(loc.endswith(ext) for ext in (".xml", ".png", ".jpg", ".css", ".js"))
+                            and loc.count("/") > source_url.count("/")
+                        ]
+                        if article_locs:
+                            sitemap_info["sample_urls"] = article_locs[:5]
+                            sitemap_info["sample_urls_total"] = len(article_locs)
+                        else:
+                            sitemap_info["sample_locs"] = locs[:5]
                     break
             else:
                 sitemap_info["verdict"] = "no_sitemap_found"
-            results.append(sitemap_info)
+            return [sitemap_info]
 
-            # ── 5. WordPress JSON API check ──
+        async def _probe_wp_json(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 5: WordPress JSON API check."""
             wp_info: dict = {"label": "wp_json_api_check"}
             if base_domain:
                 for wp_path in ["/wp-json/wp/v2/posts?per_page=3", "/wp-json/wp/v2/blog_post?per_page=3"]:
@@ -503,7 +542,24 @@ class SourceHealingService:
                             pass
                 if "endpoint" not in wp_info:
                     wp_info["verdict"] = "not_available"
-            results.append(wp_info)
+            return [wp_info]
+
+        # ── Run all probes concurrently ──────────────────────────────────
+
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(15.0),
+            follow_redirects=True,
+            max_redirects=5,
+        ) as client:
+            probe_batches = await asyncio.gather(
+                _probe_http(client),
+                _probe_rss(client),
+                _probe_blog_page(client),
+                _probe_sitemap(client),
+                _probe_wp_json(client),
+            )
+            for batch in probe_batches:
+                results.extend(batch)
 
         return results
 
@@ -565,6 +621,30 @@ class SourceHealingService:
                 "actions": [],
                 "platform_limitation": "bot_protection",
             }
+
+        # Check for URL redirect - deterministic fix, no LLM needed.
+        # Only on first round (no previous_attempts) to avoid loops if the
+        # redirect itself was already tried and didn't fix the issue.
+        if not previous_attempts:
+            url_probe = next(
+                (r for r in probe_results if r.get("label") == "url" and r.get("final_url")),
+                None,
+            )
+            if url_probe:
+                original_url = source_snapshot.get("url", "")
+                redirected_url = url_probe["final_url"]
+                # Only trigger for meaningful redirects (not just trailing-slash normalization)
+                if redirected_url.rstrip("/") != original_url.rstrip("/"):
+                    logger.info(
+                        "[AutoHeal] Source '%s' (id=%s) — URL redirected to %s, applying without LLM",
+                        source_snapshot.get("name", "?"),
+                        source_snapshot.get("id"),
+                        redirected_url,
+                    )
+                    return {
+                        "diagnosis": f"URL redirected: {original_url} → {redirected_url}",
+                        "actions": [{"field": "url", "value": redirected_url}],
+                    }
 
         user_message = self._build_user_prompt(
             source_snapshot,
@@ -806,6 +886,9 @@ class SourceHealingService:
                     if probe.get("post_sitemap_sample"):
                         parts.append(f"  Post sitemap URL count: {probe.get('post_sitemap_total', '?')}")
                         parts.append(f"  Sample post URLs: {json.dumps(probe['post_sitemap_sample'])}")
+                    elif probe.get("sample_urls"):
+                        parts.append(f"  Article-like URLs found: {probe.get('sample_urls_total', '?')}")
+                        parts.append(f"  Sample article URLs: {json.dumps(probe['sample_urls'])}")
                     elif probe.get("sample_locs"):
                         parts.append(f"  Sample URLs: {json.dumps(probe['sample_locs'])}")
                 else:

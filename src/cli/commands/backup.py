@@ -276,7 +276,10 @@ def backup_cron_show(ctx: CLIContext):
         sys.exit(1)
 
     if not state["cron_available"]:
-        click.echo("⚠️ crontab is not available on this host.")
+        if state["automated"]:
+            click.echo("Host crontab is not available here, but backup automation is marked enabled in shared state.")
+        else:
+            click.echo("⚠️ crontab is not available on this host.")
         return
 
     click.echo(f"Automated backups: {'enabled' if state['automated'] else 'disabled'}")

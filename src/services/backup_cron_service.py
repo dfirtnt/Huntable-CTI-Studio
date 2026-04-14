@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from src.utils.backup_config import BackupConfig
+from src.utils.backup_config import BackupConfig, get_backup_automation_state
 
 MANAGED_COMMENT_PREFIX = "# CTI Scraper backup"
 BACKUP_COMMAND_FRAGMENT = "./scripts/backup_restore.sh create"
@@ -66,12 +66,13 @@ class BackupCronService:
 
     def get_snapshot(self) -> dict[str, Any]:
         """Return current cron availability, raw text, and parsed jobs."""
+        automation_state = get_backup_automation_state(self.project_root / "config" / "backup_automation_state.json")
         try:
             raw = self._read_crontab()
         except CronUnavailableError:
             return {
                 "cron_available": False,
-                "automated": False,
+                "automated": automation_state["enabled"],
                 "jobs": [],
                 "managed_jobs": [],
                 "raw": "",

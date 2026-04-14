@@ -204,6 +204,140 @@ class TestMultiRoundHealing:
             mock_sleep.assert_called_once_with(_RETRY_DELAY_SECONDS)
 
 
+class TestConfigRollback:
+    """Test that config is rolled back when all healing rounds exhaust."""
+
+    @pytest.mark.asyncio
+    async def test_rollback_restores_original_config_on_exhaustion(self):
+        """When all rounds fail, the source config should be restored to pre-healing state."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        config = SourceHealingConfig(enabled=True, max_attempts=2)
+        service = SourceHealingService(config)
+
+        original_snapshot = {
+            "id": 1,
+            "name": "Broken Source",
+            "url": "https://original.com/blog",
+            "rss_url": "https://original.com/feed",
+            "active": True,
+            "config": {"use_playwright": False, "lookback_days": 90},
+            "consecutive_failures": 200,
+            "last_check": None,
+            "last_success": None,
+        }
+
+        # After round 1 applies changes, the snapshot is re-read with modified values
+        modified_snapshot = {
+            **original_snapshot,
+            "url": "https://wrong-guess.com/blog",
+            "config": {"use_playwright": True, "lookback_days": 90},
+        }
+
+        # Calls: (1) initial, (2) re-read after round 1, (3) re-read after round 2,
+        # (4) rollback comparison in exhaustion handler
+        snapshot_calls = iter([original_snapshot, modified_snapshot, modified_snapshot, modified_snapshot])
+
+        with (
+            patch.object(service, "_get_source_snapshot", side_effect=lambda *a: next(snapshot_calls)),
+            patch.object(service, "_get_error_history", return_value=[]),
+            patch.object(service, "_get_working_source_examples", return_value=[]),
+            patch.object(service, "_probe_urls", return_value=[]),
+            patch.object(
+                service,
+                "_analyze_with_llm",
+                return_value={
+                    "diagnosis": "Try new URL",
+                    "actions": [{"field": "url", "value": "https://wrong-guess.com/blog"}],
+                },
+            ),
+            patch.object(
+                service,
+                "_apply_actions",
+                return_value=[{"field": "url", "value": "https://wrong-guess.com/blog"}],
+            ),
+            patch.object(
+                service,
+                "_validate_fix",
+                return_value={
+                    "success": False,
+                    "error": "No articles",
+                    "method": "rss",
+                    "articles_found": 0,
+                    "response_time": 2.0,
+                    "rss_parsing_stats": {},
+                },
+            ),
+            patch("src.services.source_healing_service.AsyncDatabaseManager") as mock_db_cls,
+            patch("src.services.source_healing_service.asyncio.sleep", new_callable=AsyncMock),
+        ):
+            mock_db = AsyncMock()
+            mock_db_cls.return_value = mock_db
+
+            await service._run_inner(1)
+
+            # Should have exhausted all rounds
+            assert service._analyze_with_llm.call_count == 2
+
+            # The final update_source call should rollback config + mark exhausted
+            final_update = mock_db.update_source.await_args
+            assert final_update is not None
+            update_obj = final_update.args[1]
+            assert update_obj.healing_exhausted is True
+            assert update_obj.url == "https://original.com/blog"
+            assert update_obj.config.use_playwright is False
+
+    @pytest.mark.asyncio
+    async def test_no_rollback_when_config_unchanged(self):
+        """When LLM proposes no actions every round, no config rollback needed."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        config = SourceHealingConfig(enabled=True, max_attempts=1)
+        service = SourceHealingService(config)
+
+        snapshot = {
+            "id": 1,
+            "name": "Unfixable",
+            "url": "https://unfixable.com/",
+            "rss_url": None,
+            "active": True,
+            "config": {"lookback_days": 30},
+            "consecutive_failures": 200,
+            "last_check": None,
+            "last_success": None,
+        }
+
+        with (
+            patch.object(service, "_get_source_snapshot", return_value=snapshot),
+            patch.object(service, "_get_error_history", return_value=[]),
+            patch.object(service, "_get_working_source_examples", return_value=[]),
+            patch.object(service, "_probe_urls", return_value=[]),
+            patch.object(
+                service,
+                "_analyze_with_llm",
+                return_value={"diagnosis": "Cannot fix", "actions": []},
+            ),
+            patch.object(service, "_apply_actions", return_value=[]),
+            patch("src.services.source_healing_service.AsyncDatabaseManager") as mock_db_cls,
+        ):
+            mock_db = AsyncMock()
+            mock_db.get_source = AsyncMock(return_value=None)
+            mock_db_cls.return_value = mock_db
+
+            await service._run_inner(1)
+
+            # update_source should only set healing_exhausted, not rollback fields
+            final_update = mock_db.update_source.await_args
+            assert final_update is not None
+            update_obj = final_update.args[1]
+            assert update_obj.healing_exhausted is True
+            # No URL or config rollback since nothing was changed
+            assert update_obj.url is None
+            assert update_obj.config is None
+
+
 class TestHealingErrorDetails:
     """Test that healing failures retain actionable detail."""
 
@@ -496,6 +630,127 @@ Request blocked. Generated by cloudfront (CloudFront)
         assert len(bot_protection_results) == 0
 
 
+class TestRedirectPreFilter:
+    """Test redirect-based pre-filter that skips LLM for URL redirects."""
+
+    @pytest.mark.asyncio
+    async def test_redirect_skips_llm_on_first_round(self):
+        """When URL probe shows a redirect, LLM is bypassed and redirect fix is returned."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        service = SourceHealingService(SourceHealingConfig(enabled=True))
+        source_snapshot = {"id": 5, "name": "Migrated Blog", "url": "https://old.example.com/blog"}
+
+        probe_results = [
+            {
+                "label": "url",
+                "url": "https://old.example.com/blog",
+                "reachable": True,
+                "status_code": 200,
+                "final_url": "https://new.example.com/blog",
+                "content_type": "text/html",
+            },
+        ]
+
+        # No previous attempts = first round
+        result = await service._analyze_with_llm(source_snapshot, [], probe_results)
+
+        assert "redirected" in result["diagnosis"].lower()
+        assert result["actions"] == [{"field": "url", "value": "https://new.example.com/blog"}]
+
+    @pytest.mark.asyncio
+    async def test_redirect_ignored_on_retry_rounds(self):
+        """On subsequent rounds (previous_attempts non-empty), redirect pre-filter is skipped."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        service = SourceHealingService(SourceHealingConfig(enabled=True))
+        source_snapshot = {"id": 5, "name": "Migrated Blog", "url": "https://old.example.com/blog"}
+
+        probe_results = [
+            {
+                "label": "url",
+                "url": "https://old.example.com/blog",
+                "reachable": True,
+                "status_code": 200,
+                "final_url": "https://new.example.com/blog",
+                "content_type": "text/html",
+            },
+        ]
+
+        previous_attempts = [
+            {"round": 1, "diagnosis": "URL redirected", "actions_applied": [], "validation_result": "FAIL"}
+        ]
+
+        # Should fall through to LLM (which we mock to fail so the test doesn't need full LLM setup)
+        with (
+            patch("src.services.source_healing_service.LLMService") as mock_llm_cls,
+            patch("src.utils.langfuse_client.trace_llm_call") as mock_trace,
+            patch("src.utils.langfuse_client.get_langfuse_setting", return_value="test"),
+        ):
+            mock_trace.return_value.__enter__.return_value = object()
+            mock_trace.return_value.__exit__.return_value = False
+
+            llm = AsyncMock()
+            llm._canonicalize_provider.return_value = "openai"
+            llm.request_chat.return_value = {
+                "choices": [{"message": {"content": '{"diagnosis": "Need different fix", "actions": []}'}}],
+                "stop_reason": None,
+            }
+            mock_llm_cls.return_value = llm
+
+            result = await service._analyze_with_llm(
+                source_snapshot, [], probe_results, previous_attempts=previous_attempts
+            )
+
+        # Should have called LLM (not short-circuited)
+        llm.request_chat.assert_called_once()
+        assert result["diagnosis"] == "Need different fix"
+
+    @pytest.mark.asyncio
+    async def test_trailing_slash_redirect_not_treated_as_migration(self):
+        """Trailing-slash normalization (e.g. /blog → /blog/) should not trigger the pre-filter."""
+        from src.services.source_healing_config import SourceHealingConfig
+        from src.services.source_healing_service import SourceHealingService
+
+        service = SourceHealingService(SourceHealingConfig(enabled=True))
+        source_snapshot = {"id": 5, "name": "Some Blog", "url": "https://example.com/blog"}
+
+        probe_results = [
+            {
+                "label": "url",
+                "url": "https://example.com/blog",
+                "reachable": True,
+                "status_code": 200,
+                "final_url": "https://example.com/blog/",
+                "content_type": "text/html",
+            },
+        ]
+
+        # Should fall through to LLM since trailing slash is not a meaningful redirect
+        with (
+            patch("src.services.source_healing_service.LLMService") as mock_llm_cls,
+            patch("src.utils.langfuse_client.trace_llm_call") as mock_trace,
+            patch("src.utils.langfuse_client.get_langfuse_setting", return_value="test"),
+        ):
+            mock_trace.return_value.__enter__.return_value = object()
+            mock_trace.return_value.__exit__.return_value = False
+
+            llm = AsyncMock()
+            llm._canonicalize_provider.return_value = "openai"
+            llm.request_chat.return_value = {
+                "choices": [{"message": {"content": '{"diagnosis": "Some other issue", "actions": []}'}}],
+                "stop_reason": None,
+            }
+            mock_llm_cls.return_value = llm
+
+            result = await service._analyze_with_llm(source_snapshot, [], probe_results)
+
+        # Should have called LLM (trailing slash is not a redirect)
+        llm.request_chat.assert_called_once()
+
+
 class TestValidationTimeout:
     """Test validation timeout enforcement."""
 
@@ -602,3 +857,389 @@ class TestValidationTimeout:
         error_lower = result["error"].lower()
         assert "timed out" in error_lower
         assert any(phrase in error_lower for phrase in ["js-rendered", "slow server"])
+
+
+# ── Helpers for deep diagnostic probe tests ──────────────────────────
+
+
+def _make_response(url: str, status_code: int = 200, text: str = "", headers: dict | None = None) -> Mock:
+    """Build a mock httpx.Response for a given URL."""
+    resp = Mock(spec=httpx.Response)
+    resp.status_code = status_code
+    resp.url = httpx.URL(url)
+    resp.headers = headers or {"content-type": "text/html"}
+    resp.text = text
+    return resp
+
+
+def _url_router(routes: dict[str, Mock | None]):
+    """Return an async side_effect function that dispatches by URL.
+
+    Tries exact match first, then longest prefix match, so more specific
+    routes take priority over shorter ones.
+    """
+
+    async def _get(url, **kwargs):
+        url_str = str(url)
+        # Exact match first
+        if url_str in routes:
+            if routes[url_str] is None:
+                raise httpx.ConnectError("Connection failed")
+            return routes[url_str]
+        # Longest prefix match
+        best_match = None
+        best_len = 0
+        for pattern, response in routes.items():
+            if url_str.startswith(pattern) and len(pattern) > best_len:
+                best_match = response
+                best_len = len(pattern)
+        if best_len > 0:
+            if best_match is None:
+                raise httpx.ConnectError("Connection failed")
+            return best_match
+        raise httpx.ConnectError(f"No route for {url_str}")
+
+    return _get
+
+
+class TestProbeRSSContentAnalysis:
+    """Test the RSS content analysis probe."""
+
+    @pytest.mark.asyncio
+    async def test_rss_probe_has_items_with_sample_urls(self):
+        """RSS probe extracts item count, titles, and sample article URLs."""
+        from src.services.source_healing_service import SourceHealingService
+
+        rss_body = """<?xml version="1.0"?>
+        <rss version="2.0">
+        <channel>
+            <title>Threat Intel Blog</title>
+            <item>
+                <title>APT Report Q1</title>
+                <link>https://ti.example.com/research/apt-q1</link>
+            </item>
+            <item>
+                <title>Ransomware Trends</title>
+                <link>https://ti.example.com/research/ransomware-2026</link>
+            </item>
+        </channel>
+        </rss>"""
+
+        rss_response = _make_response(
+            "https://feeds.example.com/ti-feed",
+            text=rss_body,
+            headers={"content-type": "application/rss+xml"},
+        )
+
+        routes = {
+            "https://ti.example.com/": _make_response("https://ti.example.com/", text="<html>ok</html>"),
+            "https://feeds.example.com/ti-feed": rss_response,
+            "https://ti.example.com/sitemap": None,
+            "https://ti.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://ti.example.com/",
+            "rss_url": "https://feeds.example.com/ti-feed",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        rss = next(r for r in results if r["label"] == "rss_content_analysis")
+        assert rss["verdict"] == "has_items"
+        assert rss["item_count"] == 2
+        assert len(rss["sample_titles"]) == 2
+        assert "https://ti.example.com/research/apt-q1" in rss["sample_urls"]
+        assert "https://ti.example.com/research/ransomware-2026" in rss["sample_urls"]
+
+    @pytest.mark.asyncio
+    async def test_rss_probe_empty_feed(self):
+        """RSS with HTTP 200 but zero items is detected as EMPTY_FEED."""
+        from src.services.source_healing_service import SourceHealingService
+
+        empty_rss = """<?xml version="1.0"?>
+        <rss version="2.0"><channel><title>Empty Feed</title></channel></rss>"""
+
+        routes = {
+            "https://empty.example.com/": _make_response("https://empty.example.com/", text="<html>ok</html>"),
+            "https://feeds.example.com/empty": _make_response(
+                "https://feeds.example.com/empty",
+                text=empty_rss,
+                headers={"content-type": "application/rss+xml"},
+            ),
+            "https://empty.example.com/sitemap": None,
+            "https://empty.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://empty.example.com/",
+            "rss_url": "https://feeds.example.com/empty",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        rss = next(r for r in results if r["label"] == "rss_content_analysis")
+        assert rss["verdict"] == "EMPTY_FEED"
+        assert rss["item_count"] == 0
+
+
+class TestProbeSitemapDiscovery:
+    """Test the sitemap discovery probe."""
+
+    @pytest.mark.asyncio
+    async def test_sitemap_with_post_specific_sub_sitemap(self):
+        """Sitemap index with a post-specific sub-sitemap extracts post URLs."""
+        from src.services.source_healing_service import SourceHealingService
+
+        sitemap_index = """<?xml version="1.0"?>
+        <sitemapindex>
+            <sitemap><loc>https://ti.example.com/page-sitemap.xml</loc></sitemap>
+            <sitemap><loc>https://ti.example.com/post-sitemap.xml</loc></sitemap>
+        </sitemapindex>"""
+
+        post_sitemap = """<?xml version="1.0"?>
+        <urlset>
+            <url><loc>https://ti.example.com/threat-intel/apt29-update</loc></url>
+            <url><loc>https://ti.example.com/threat-intel/malware-analysis-2026</loc></url>
+            <url><loc>https://ti.example.com/threat-intel/phishing-trends</loc></url>
+        </urlset>"""
+
+        routes = {
+            "https://ti.example.com/blog": _make_response("https://ti.example.com/blog", text="<html>ok</html>"),
+            "https://ti.example.com/sitemap.xml": _make_response(
+                "https://ti.example.com/sitemap.xml", text=sitemap_index
+            ),
+            "https://ti.example.com/post-sitemap.xml": _make_response(
+                "https://ti.example.com/post-sitemap.xml", text=post_sitemap
+            ),
+            "https://ti.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://ti.example.com/blog",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        sm = next(r for r in results if r["label"] == "sitemap_discovery")
+        assert sm["sitemap_url"] == "https://ti.example.com/sitemap.xml"
+        assert "https://ti.example.com/post-sitemap.xml" in sm["post_sitemaps"]
+        assert sm["post_sitemap_total"] == 3
+        assert "https://ti.example.com/threat-intel/apt29-update" in sm["post_sitemap_sample"]
+
+    @pytest.mark.asyncio
+    async def test_sitemap_generic_filters_article_urls(self):
+        """Generic sitemap (no post sub-sitemap) filters article-like URLs using source URL prefix."""
+        from src.services.source_healing_service import SourceHealingService
+
+        # Use a domain without "post", "blog", or "article" in any URL so the
+        # post-specific sub-sitemap filter doesn't match any <loc> entries.
+        generic_sitemap = """<?xml version="1.0"?>
+        <urlset>
+            <url><loc>https://ti.example.com/research/apt29-report</loc></url>
+            <url><loc>https://ti.example.com/research/ransomware-q1</loc></url>
+            <url><loc>https://ti.example.com/about</loc></url>
+            <url><loc>https://ti.example.com/contact</loc></url>
+            <url><loc>https://other-domain.com/unrelated</loc></url>
+        </urlset>"""
+
+        routes = {
+            "https://ti.example.com/research": _make_response(
+                "https://ti.example.com/research", text="<html>listing</html>"
+            ),
+            "https://ti.example.com/sitemap.xml": _make_response(
+                "https://ti.example.com/sitemap.xml", text=generic_sitemap
+            ),
+            "https://ti.example.com/sitemap_index.xml": None,
+            "https://ti.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://ti.example.com/research",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        sm = next(r for r in results if r["label"] == "sitemap_discovery")
+        # Should have filtered to article-like URLs under source prefix
+        assert "sample_urls" in sm
+        assert "https://ti.example.com/research/apt29-report" in sm["sample_urls"]
+        assert "https://ti.example.com/research/ransomware-q1" in sm["sample_urls"]
+        assert sm["sample_urls_total"] == 2
+        # Non-article URLs should be excluded
+        for url in sm.get("sample_urls", []):
+            assert "about" not in url
+            assert "contact" not in url
+            assert "other-domain" not in url
+
+    @pytest.mark.asyncio
+    async def test_sitemap_not_found(self):
+        """No sitemap available results in no_sitemap_found verdict."""
+        from src.services.source_healing_service import SourceHealingService
+
+        routes = {
+            "https://nosm.example.com/": _make_response("https://nosm.example.com/", text="<html>ok</html>"),
+            "https://nosm.example.com/sitemap.xml": _make_response(
+                "https://nosm.example.com/sitemap.xml", status_code=404, text="Not found"
+            ),
+            "https://nosm.example.com/sitemap_index.xml": _make_response(
+                "https://nosm.example.com/sitemap_index.xml", status_code=404, text="Not found"
+            ),
+            "https://nosm.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://nosm.example.com/",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        sm = next(r for r in results if r["label"] == "sitemap_discovery")
+        assert sm["verdict"] == "no_sitemap_found"
+
+
+class TestProbeWPJsonDetection:
+    """Test the WordPress JSON API detection probe."""
+
+    @pytest.mark.asyncio
+    async def test_wp_json_detected_with_content(self):
+        """WP JSON endpoint with posts and rendered content is detected."""
+        import json as _json
+
+        from src.services.source_healing_service import SourceHealingService
+
+        wp_posts = [
+            {
+                "title": {"rendered": "Threat Analysis 2026"},
+                "link": "https://wp.example.com/2026/04/threat-analysis",
+                "date": "2026-04-10T12:00:00",
+                "content": {"rendered": "<p>" + "A" * 200 + "</p>"},
+            },
+        ]
+
+        routes = {
+            "https://wp.example.com/blog": _make_response(
+                "https://wp.example.com/blog", text="<html>WordPress blog</html>"
+            ),
+            "https://wp.example.com/sitemap.xml": _make_response(
+                "https://wp.example.com/sitemap.xml", status_code=404, text=""
+            ),
+            "https://wp.example.com/sitemap_index.xml": _make_response(
+                "https://wp.example.com/sitemap_index.xml", status_code=404, text=""
+            ),
+            "https://wp.example.com/wp-json/wp/v2/posts": _make_response(
+                "https://wp.example.com/wp-json/wp/v2/posts?per_page=3",
+                text=_json.dumps(wp_posts),
+                headers={"content-type": "application/json"},
+            ),
+        }
+
+        source_snapshot = {
+            "url": "https://wp.example.com/blog",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        wp = next(r for r in results if r["label"] == "wp_json_api_check")
+        assert "endpoint" in wp
+        assert wp["has_content"] is True
+        assert wp["post_count_sample"] == 1
+        assert wp["sample_posts"][0]["title"] == "Threat Analysis 2026"
+
+    @pytest.mark.asyncio
+    async def test_wp_json_not_available(self):
+        """WP JSON endpoint returning 404 is correctly flagged as unavailable."""
+        from src.services.source_healing_service import SourceHealingService
+
+        routes = {
+            "https://nowp.example.com/": _make_response("https://nowp.example.com/", text="<html>ok</html>"),
+            "https://nowp.example.com/sitemap": _make_response(
+                "https://nowp.example.com/sitemap.xml", status_code=404, text=""
+            ),
+            "https://nowp.example.com/wp-json": _make_response(
+                "https://nowp.example.com/wp-json/wp/v2/posts?per_page=3", status_code=404, text="Not found"
+            ),
+        }
+
+        source_snapshot = {
+            "url": "https://nowp.example.com/",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        wp = next(r for r in results if r["label"] == "wp_json_api_check")
+        assert "endpoint" not in wp
+
+
+class TestProbeJSRenderingDetection:
+    """Test the blog page JS-rendering detection probe."""
+
+    @pytest.mark.asyncio
+    async def test_js_rendered_page_detected(self):
+        """Large HTML with tiny visible text is flagged as JS-rendered."""
+        from src.services.source_healing_service import SourceHealingService
+
+        # Simulate JS-heavy SPA: large HTML (scripts/styles) but minimal visible text
+        js_heavy_html = (
+            "<html><head>" + "<script>" + "x" * 15000 + "</script></head><body><div id='app'></div></body></html>"
+        )
+
+        routes = {
+            "https://spa.example.com/blog": _make_response("https://spa.example.com/blog", text=js_heavy_html),
+            "https://spa.example.com/sitemap": _make_response(
+                "https://spa.example.com/sitemap.xml", status_code=404, text=""
+            ),
+            "https://spa.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://spa.example.com/blog",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        page = next(r for r in results if r["label"] == "blog_page_analysis")
+        assert page["is_likely_js_rendered"] is True
+        assert page["html_length"] > 10_000
+        assert page["visible_text_length"] < 500
+
+    @pytest.mark.asyncio
+    async def test_normal_page_not_flagged_as_js_rendered(self):
+        """Normal HTML page with substantial visible text is not flagged."""
+        from src.services.source_healing_service import SourceHealingService
+
+        normal_html = "<html><body>" + "<p>Threat intelligence report. " * 100 + "</p></body></html>"
+
+        routes = {
+            "https://normal.example.com/blog": _make_response("https://normal.example.com/blog", text=normal_html),
+            "https://normal.example.com/sitemap": _make_response(
+                "https://normal.example.com/sitemap.xml", status_code=404, text=""
+            ),
+            "https://normal.example.com/wp-json": None,
+        }
+
+        source_snapshot = {
+            "url": "https://normal.example.com/blog",
+            "rss_url": "",
+        }
+
+        with patch("httpx.AsyncClient.get", side_effect=_url_router(routes)):
+            results = await SourceHealingService._probe_urls(source_snapshot)
+
+        page = next(r for r in results if r["label"] == "blog_page_analysis")
+        assert page["is_likely_js_rendered"] is False
+        assert page["visible_text_length"] > 500

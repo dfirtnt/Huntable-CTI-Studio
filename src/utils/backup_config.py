@@ -6,15 +6,18 @@ This module handles backup configuration loading, validation, and management.
 Supports YAML configuration files with environment-specific overrides.
 """
 
+import json
 import logging
 import os
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 logger = logging.getLogger(__name__)
+BACKUP_AUTOMATION_STATE_FILE = "config/backup_automation_state.json"
 
 
 @dataclass
@@ -411,6 +414,57 @@ class BackupConfigManager:
         except Exception as e:
             logger.error(f"Error saving configuration to {config_path}: {e}")
             return False
+
+
+def get_backup_automation_state(state_file: str | Path | None = None) -> dict[str, Any]:
+    """Return persisted backup automation state."""
+    state_path = Path(state_file or BACKUP_AUTOMATION_STATE_FILE)
+    default_state = {
+        "enabled": False,
+        "backend": None,
+        "updated_at": None,
+    }
+
+    if not state_path.exists():
+        return default_state
+
+    try:
+        with open(state_path) as f:
+            data = json.load(f)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Unable to read backup automation state from {state_path}: {exc}")
+        return default_state
+
+    if not isinstance(data, dict):
+        return default_state
+
+    return {
+        "enabled": bool(data.get("enabled", False)),
+        "backend": data.get("backend"),
+        "updated_at": data.get("updated_at"),
+    }
+
+
+def set_backup_automation_state(
+    enabled: bool, backend: str | None = "cron", state_file: str | Path | None = None
+) -> bool:
+    """Persist backup automation state for shared host/container visibility."""
+    state_path = Path(state_file or BACKUP_AUTOMATION_STATE_FILE)
+
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "enabled": enabled,
+            "backend": backend,
+            "updated_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        }
+        with open(state_path, "w") as f:
+            json.dump(payload, f, indent=2, sort_keys=True)
+            f.write("\n")
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(f"Unable to write backup automation state to {state_path}: {exc}")
+        return False
 
 
 # Global configuration instance

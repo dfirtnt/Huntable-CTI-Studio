@@ -58,3 +58,47 @@ def test_batch_submission_increments_countdown_per_task():
     # All task args must map to their execution.
     assert observed[0][0] == (10, 201)
     assert observed[2][0] == (12, 203)
+
+
+def test_duplicate_article_ids_submit_distinct_tasks():
+    """Regression: the Agent Evals "Runs per article" multiplier expands the
+    selected URL list client-side to run the same article N times. That only
+    works if the submission loop treats duplicates as distinct executions
+    (no dedupe, no set()), so N copies of the same article_id must yield N
+    apply_async calls with distinct, strictly increasing countdowns.
+    """
+    # Same article_id appears 3 times (simulating multiplier=3 on 1 article),
+    # each with its own execution_id since the endpoint creates one per mapping.
+    executions = [
+        {"article_id": 42, "execution_id": 501},
+        {"article_id": 42, "execution_id": 502},
+        {"article_id": 42, "execution_id": 503},
+    ]
+
+    observed = []
+
+    class _FakeAsyncResult:
+        id = "fake-task"
+
+    def _capture(args, countdown):
+        observed.append((tuple(args), countdown))
+        return _FakeAsyncResult()
+
+    with patch.object(evaluation_api.trigger_agentic_workflow, "apply_async", side_effect=_capture):
+        for idx, exec_info in enumerate(executions):
+            evaluation_api.trigger_agentic_workflow.apply_async(
+                args=[exec_info["article_id"], exec_info["execution_id"]],
+                countdown=idx * evaluation_api._EVAL_STAGGER_SECONDS,
+            )
+
+    # Must not be deduped: one task per repeat.
+    assert len(observed) == 3
+    # Each repeat carries the same article_id but a distinct execution_id.
+    article_ids = [args[0] for args, _ in observed]
+    execution_ids = [args[1] for args, _ in observed]
+    assert article_ids == [42, 42, 42]
+    assert len(set(execution_ids)) == 3
+    # Countdowns strictly increase so forked workers don't collide.
+    countdowns = [c for _, c in observed]
+    assert countdowns == sorted(countdowns)
+    assert countdowns[0] < countdowns[-1]
