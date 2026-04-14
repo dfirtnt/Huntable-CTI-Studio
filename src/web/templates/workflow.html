@@ -2325,8 +2325,12 @@
               </section>
 
               <!-- ── Config Display ────────────────────────── -->
-              <details class="mt-2 mb-2" style="border-radius: 8px; overflow: hidden;">
-                <summary class="px-4 py-2 text-xs font-medium cursor-pointer select-none" style="background: var(--panel-bg-3); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; list-style: none;">&#9654; Current Configuration</summary>
+              <style>
+                details.current-config > summary .caret { display: inline-block; transition: transform 0.15s ease; transform: rotate(0deg); }
+                details.current-config[open] > summary .caret { transform: rotate(90deg); }
+              </style>
+              <details class="mt-2 mb-2 current-config" style="border-radius: 8px; overflow: hidden;">
+                <summary class="px-4 py-2 text-xs font-medium cursor-pointer select-none" style="background: var(--panel-bg-3); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; list-style: none;"><span class="caret">&#9654;</span> Current Configuration</summary>
                 <div class="mt-1">{% include 'components/workflow_config_snippet.html' %}</div>
               </details>
 
