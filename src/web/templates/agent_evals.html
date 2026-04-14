@@ -501,6 +501,22 @@
     <!-- ═══ Run Evaluation ═══ -->
     <div class="eval-panel mb-5 eval-animate-in">
         <div class="eval-panel-body" style="padding: 1.25rem 1.5rem;">
+            <div class="flex items-center gap-3 mb-3" style="flex-wrap: wrap;">
+                <label for="evalMultiplier" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">
+                    Runs per article
+                </label>
+                <input
+                    id="evalMultiplier"
+                    type="number"
+                    min="1"
+                    max="50"
+                    value="1"
+                    class="eval-mono"
+                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"
+                    title="Number of evaluation runs per selected article (1-50)"
+                />
+                <span id="evalMultiplierHint" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.7rem;"></span>
+            </div>
             <button id="runEvalBtn" class="eval-run-btn" disabled>
                 RUN EVALUATION
             </button>
@@ -937,6 +953,17 @@ async function loadDataset() {
 function updateRunButton() {
     const runBtn = document.getElementById('runEvalBtn');
     runBtn.disabled = selectedArticleUrls.size === 0;
+    const hint = document.getElementById('evalMultiplierHint');
+    const multInput = document.getElementById('evalMultiplier');
+    if (hint && multInput) {
+        let m = parseInt(multInput.value, 10);
+        if (!Number.isFinite(m) || m < 1) m = 1;
+        if (m > 50) m = 50;
+        const n = selectedArticleUrls.size;
+        hint.textContent = n === 0
+            ? ''
+            : (m > 1 ? `= ${n * m} total executions (${n} x ${m})` : `= ${n} execution${n === 1 ? '' : 's'}`);
+    }
 }
 
 // Help modal function
@@ -1024,21 +1051,33 @@ async function runEvaluation() {
     const runBtn = document.getElementById('runEvalBtn');
     const statusDiv = document.getElementById('evalStatus');
     const statusText = document.getElementById('evalStatusText');
-    
+    const multiplierInput = document.getElementById('evalMultiplier');
+    let multiplier = parseInt(multiplierInput ? multiplierInput.value : '1', 10);
+    if (!Number.isFinite(multiplier) || multiplier < 1) multiplier = 1;
+    if (multiplier > 50) multiplier = 50;
+
+    const baseUrls = Array.from(selectedArticleUrls);
+    const repeatedUrls = [];
+    for (let i = 0; i < multiplier; i++) {
+        repeatedUrls.push(...baseUrls);
+    }
+
     runBtn.disabled = true;
     statusDiv.classList.remove('hidden');
-    statusText.textContent = `Triggering ${selectedArticleUrls.size} workflow executions...`;
-    
+    statusText.textContent = multiplier > 1
+        ? `Triggering ${repeatedUrls.length} workflow executions (${baseUrls.length} articles x ${multiplier} runs)...`
+        : `Triggering ${repeatedUrls.length} workflow executions...`;
+
     try {
         // Use current subagent directly
         const subagentForRun = currentSubagent;
-        
+
         const response = await fetch('/api/evaluations/run-subagent-eval', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 subagent_name: subagentForRun,
-                article_urls: Array.from(selectedArticleUrls),
+                article_urls: repeatedUrls,
                 use_active_config: true,
             }),
         });
@@ -2355,6 +2394,7 @@ async function clearPendingRecords() {
 // Event listeners
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
+document.getElementById('evalMultiplier').addEventListener('input', updateRunButton);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
 document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
