@@ -8,12 +8,15 @@
 
 The healing pipeline runs when a source hits the `failure_threshold` (default: 100 consecutive failures). It executes up to `max_attempts` rounds per session (default: 5), each round following this cycle:
 
-1. **Gather context** — source config, error history, working source examples
-2. **Deep diagnostic probe** — RSS content, sitemap, WP JSON API, JS-rendering detection
-3. **LLM analysis** — proposes config changes based on probe data
-4. **Apply actions** — merges proposed config into the source
-5. **Validate** — runs a real fetch and records the result as a source check
-6. **Decide** — stop if healed, retry with validation logs if not
+1. **Gather context** — source config, error history, working source examples (once, shared across rounds)
+2. **Snapshot mutable fields** — deep-copy `url`, `rss_url`, `config` for rollback if all rounds exhaust
+3. **Deep diagnostic probe** — 5 concurrent probes (HTTP, RSS content, blog page, sitemap, WP JSON) via `asyncio.gather`
+4. **Deterministic pre-filters** — bot protection and URL redirect checks bypass the LLM entirely when the fix is obvious
+5. **LLM analysis** — proposes config changes based on probe data; retries once on JSON parse failure
+6. **Apply actions** — merges proposed config into the source
+7. **Validate** — runs a real fetch (with 60-second timeout) and records the result as a source check
+8. **Decide** — stop if healed, retry with validation logs if not
+9. **Rollback** — if all rounds exhaust, restore `url`/`rss_url`/`config` to pre-healing snapshot and mark `healing_exhausted`
 
 ## Dispatch And Eligibility
 
@@ -27,19 +30,33 @@ For scheduled scans, a source is eligible only when all are true:
 - `active = true`
 - `consecutive_failures >= failure_threshold`
 - `healing_exhausted = false`
-- `last_success` is either null or older than 24 hours (grace period for transient failures)
+- `last_success` is either null or older than 24 hours (`_RECENT_SUCCESS_GRACE_PERIOD` — prevents healing for transient failures like container restarts or network blips)
 
 ## Deep Diagnostic Probes
 
-The probe phase (`_probe_urls`) runs five checks before the LLM sees anything:
+The probe phase (`_probe_urls`) runs five probes **concurrently** via `asyncio.gather`, sharing a single `httpx.AsyncClient` (15-second timeout, up to 5 redirects). All five probes execute in parallel before the LLM sees anything:
 
 | Probe | What it detects | Key fields |
 |---|---|---|
-| **HTTP probe** | Status codes, redirects, content-type | `status_code`, `final_url` |
-| **RSS content analysis** | Empty feeds (200 OK but 0 items) | `item_count`, `verdict: EMPTY_FEED` |
-| **Blog page analysis** | JS-rendered pages (large HTML, tiny visible text) | `visible_text_length`, `is_likely_js_rendered`, `sample_post_links` |
-| **Sitemap discovery** | Available sitemaps, post-specific sitemaps, URL patterns | `post_sitemaps`, `post_sitemap_sample` |
+| **HTTP probe** | Status codes, redirects, content-type, bot protection (CloudFront, Akamai, WAF) | `status_code`, `final_url`, `bot_protection_detected`, `bot_protection_provider` |
+| **RSS content analysis** | Empty feeds (200 OK but 0 items), article URL patterns from `<link>` elements | `item_count`, `verdict: EMPTY_FEED`, `sample_urls`, `sample_titles` |
+| **Blog page analysis** | JS-rendered pages (large HTML, tiny visible text), post link discovery | `visible_text_length`, `is_likely_js_rendered`, `sample_post_links` |
+| **Sitemap discovery** | Available sitemaps, post-specific sitemaps, article-like URL filtering from generic sitemaps | `post_sitemaps`, `post_sitemap_sample`, `sample_urls` (filtered), `sample_locs` (fallback) |
 | **WP JSON API check** | WordPress REST API availability and content | `endpoint`, `has_content`, `sample_posts` |
+
+### Sitemap Article-URL Filtering
+
+When no post-specific sub-sitemap is found (e.g., `post-sitemap.xml`), the sitemap probe filters generic sitemap URLs to extract article-like entries. A URL qualifies as article-like when it:
+- Starts with the source URL prefix
+- Is not the homepage itself
+- Does not end in a static-asset extension (`.xml`, `.png`, `.jpg`, `.css`, `.js`)
+- Has more path segments than the source URL
+
+This produces the `sample_urls` field (up to 5 URLs + `sample_urls_total` count). If no article-like URLs survive the filter, the raw `sample_locs` fallback provides the first 5 sitemap URLs unfiltered.
+
+### RSS Article-URL Extraction
+
+The RSS probe now extracts `<link>` URLs from RSS/Atom entries (both `<link>text</link>` and `<link href="..."/>` forms) and passes them as `sample_urls`. This gives the LLM real URL patterns to inform `post_url_regex` corrections — instead of guessing `/threat-research/` when the actual pattern is `/research/`.
 
 ### Why This Matters
 
@@ -102,6 +119,49 @@ These are problems the LLM can resolve by changing `url`, `rss_url`, or `config`
 - **Signal:** HTTP 403 with challenge headers, or HTML contains challenge JS
 - **LLM should:** Report "site uses bot protection" and stop
 
+## Deterministic Pre-Filters
+
+Before calling the LLM, the pipeline checks for two cases where the fix is deterministic and doesn't need AI reasoning:
+
+### Bot Protection Detection
+
+If the HTTP probe returns a 403 with bot-protection signatures (CloudFront, Akamai, or generic WAF phrases like "request blocked", "access denied"), the pipeline short-circuits immediately:
+- Returns a diagnosis identifying the provider
+- Returns empty actions (auto-healing cannot bypass bot protection)
+- Saves an LLM call and avoids futile retry rounds
+
+### URL Redirect Pre-Filter
+
+On **round 1 only** (no `previous_attempts`), if the HTTP probe shows the source URL redirects to a different domain/path:
+- Applies `{"field": "url", "value": "<redirected_url>"}` without calling the LLM
+- Ignores trailing-slash-only differences (e.g., `example.com/blog` vs `example.com/blog/`)
+- Skipped on retry rounds — if the redirect was already tried and didn't fix the issue, the LLM takes over
+
+## Config Rollback on Exhaustion
+
+When all healing rounds exhaust without success, the pipeline **restores the source to its pre-healing state** instead of leaving it in a partially-modified (potentially worse) configuration:
+
+1. Before the loop starts, a deep copy of `url`, `rss_url`, and `config` is saved
+2. After exhaustion, the current values are compared to the originals
+3. Only fields that were actually changed during healing are rolled back
+4. `healing_exhausted` is always set to `true`
+
+This prevents the scenario where a healing attempt changes `rss_url` to `null` (to try scraping), fails across all rounds, and leaves the source permanently unable to use its original RSS feed.
+
+## LLM JSON Retry
+
+If the LLM returns a response that cannot be parsed as valid JSON (markdown fences are already stripped), the pipeline retries **once** with a clarification prompt:
+- Appends the failed response as an `assistant` message
+- Adds a `user` message requesting strict JSON format with an exact schema example
+- If the retry also fails, the original parse-failure diagnosis stands
+
+## Validation Timeout
+
+Each validation fetch has a **60-second timeout** (`asyncio.wait_for`). If the fetch exceeds this:
+- The validation is recorded as failed with `method: "timeout"`
+- The error message includes context: "may indicate JS-rendered content or slow server"
+- The next LLM round sees this timeout in its validation details, helping it diagnose JS-rendering issues
+
 ## Futility Detection
 
 If 3+ rounds produce the same fundamental outcome (e.g., "0 articles" regardless of config), it's likely not a config problem. The system prompt instructs the LLM to recognize this and return an empty actions list with a diagnostic explaining the suspected platform limitation.
@@ -114,8 +174,9 @@ The LLM receives configs from up to 3 healthy sources (sorted by article count) 
 
 Each validation attempt records a `source_check` entry with an `[AutoHeal validation]` prefix. This means:
 - The check history shows what each healing round's fix actually produced
-- Subsequent LLM rounds see their predecessor's validation results
+- Subsequent LLM rounds see their predecessor's validation results (method, articles_found, error, rss_parsing_stats)
 - The healing history UI displays validation details (`method`, `articles_found`, `error`) when present
+- Validation timeouts (>60s) are recorded with `method: "timeout"` and a descriptive error
 - If no validation summary exists (for example, LLM transport/runtime failure before apply/validate), the UI shows `Details:` with the stored `error_detail`
 
 ## Config Fields the LLM Can Modify
