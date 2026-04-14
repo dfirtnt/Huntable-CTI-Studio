@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "thresholds": {
+    "ranking_threshold": 6.0,
+    "similarity_threshold": 0.5,
+    "junk_filter_threshold": 0.8,
+    "min_hunt_score": 97.0,
+    "auto_trigger_hunt_score_threshold": 60.0
+  },
+  "agent_models": {
+    "RankAgent_provider": "lmstudio",
+    "RankAgent": "google/gemma-3-1b",
+    "ExtractAgent_provider": "lmstudio",
+    "ExtractAgent": "google/gemma-3-1b",
+    "CmdlineExtract_provider": "lmstudio",
+    "CmdlineExtract_model": "google/gemma-3-1b",
+    "SigmaAgent_provider": "lmstudio",
+    "SigmaAgent": "google/gemma-3-1b"
+  },
+  "agent_prompts": {
+    "RankAgent": {
+      "prompt": "You are a strict cyber threat-intelligence analyst. Score the article for SIGMA detection rule potential.",
+      "instructions": ""
+    },
+    "ExtractAgent": {
+      "prompt": "You are a supervisor detection engineering agent. Merge structured outputs from subagents.",
+      "instructions": ""
+    },
+    "CmdlineExtract": {
+      "prompt": "{\"role\":\"You are a deterministic Windows command-line extraction agent.\",\"task\":\"Extract literal single-line Windows command-line observables only.\",\"instructions\":\"Output JSON only.\"}",
+      "instructions": ""
+    },
+    "SigmaAgent": {
+      "prompt": "Generate Sigma detection rules strictly from provided structured observables.",
+      "instructions": ""
+    }
+  },
+  "qa_enabled": {},
+  "qa_max_retries": 1,
+  "sigma_fallback_enabled": false,
+  "osdetection_fallback_enabled": false,
+  "rank_agent_enabled": false,
+  "cmdline_attention_preprocessor_enabled": true,
+  "extract_agent_settings": {
+    "disabled_agents": [
+      "ProcTreeExtract",
+      "HuntQueriesExtract",
+      "RegistryExtract",
+      "ServicesExtract"
+    ]
+  },
+  "description": "Minimal LMStudio Gemma 3 1B workflow config for committed end-to-end test",
+  "created_at": "2026-04-14T00:00:00Z"
+}
