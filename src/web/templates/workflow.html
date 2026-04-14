@@ -107,7 +107,7 @@
     color: var(--text-emphasis) !important;
 }
 
-/* All text in execution detail view should be var(--text-body-dark) in dark mode */
+/* Keep execution detail text readable in dark mode */
 /* Apply to all elements except colored status elements, process-lineage-extraction, and View summaries */
 .dark #executionDetailContent,
 .dark #executionDetailContent div:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
@@ -115,7 +115,16 @@
 .dark #executionDetailContent p:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
 .dark #executionDetailContent strong:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]),
 .dark #executionDetailContent li:not([class*="text-red"]):not([class*="text-green"]):not([class*="text-yellow"]):not([class*="text-blue"]):not([class*="text-purple"]):not([class*="text-cyan"]):not([class*="text-indigo"]):not(button):not(a):not([style*="color"]) {
-    color: var(--text-body-dark) !important;
+    color: var(--text-secondary) !important;
+}
+
+.dark #executionDetailContent h1,
+.dark #executionDetailContent h2,
+.dark #executionDetailContent h3,
+.dark #executionDetailContent h4,
+.dark #executionDetailContent h5,
+.dark #executionDetailContent h6 {
+    color: var(--text-primary) !important;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
