@@ -3,12 +3,12 @@
 {% block title %}Share - {{ article.title[:60] }}{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-6">
         <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
             <div class="space-y-2">
                 <div class="text-xs uppercase tracking-widest text-gray-400">Shareable Hunt Snapshot</div>
-                <h1 class="text-2xl font-bold text-white">{{ article.title }}</h1>
+                <h1 class="text-xl font-bold text-white">{{ article.title }}</h1>
                 <div class="text-sm text-gray-400">
                     {{ source.name if source else 'Unknown Source' }}
                     <span class="mx-2">·</span>

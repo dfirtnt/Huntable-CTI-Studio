@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,6 +18,10 @@
     
     <!-- Tailwind CSS via CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Force class-based dark mode so `dark:` variants always activate on our dark-only theme
+      tailwind.config = { darkMode: 'class' };
+    </script>
     
     <!-- HTMX for dynamic interactions -->
     <script src="https://unpkg.com/htmx.org@1.9.6"></script>
@@ -38,7 +42,7 @@
     <script src="/static/js/modal-manager.js?v=20260122"></script>
     
     <!-- Workflow Configuration Display Component -->
-    <script src="/static/js/components/workflow-config-display.js?v=20260402b"></script>
+    <script src="/static/js/components/workflow-config-display.js?v=20260413a"></script>
     
     <!-- Custom styles (theme vars from theme-variables.css only) -->
     <style>

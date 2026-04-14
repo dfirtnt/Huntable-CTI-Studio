@@ -39,6 +39,8 @@ function orderModelsByWorkflow(models) {
         'HuntQueriesQA',
         'RegistryExtract',
         'RegistryQA',
+        'ServicesExtract',
+        'ServicesQA',
         'SIGMA',
         'OS Fallback'
     ];
@@ -49,6 +51,7 @@ function orderModelsByWorkflow(models) {
         'ProcTreeExtract',
         'HuntQueriesExtract',
         'RegistryExtract',
+        'ServicesExtract',
         'RankAgentQA'
     ]);
     
@@ -57,7 +60,8 @@ function orderModelsByWorkflow(models) {
         'CmdLineQA',
         'ProcTreeQA',
         'HuntQueriesQA',
-        'RegistryQA'
+        'RegistryQA',
+        'ServicesQA'
     ]);
     
     // Create a map for quick lookup
@@ -163,7 +167,8 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             { id: 'CmdlineExtract', name: 'CmdlineExtract', qa: 'CmdLineQA' },
             { id: 'ProcTreeExtract', name: 'ProcTreeExtract', qa: 'ProcTreeQA' },
             { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' },
-            { id: 'RegistryExtract', name: 'RegistryExtract', qa: 'RegistryQA' }
+            { id: 'RegistryExtract', name: 'RegistryExtract', qa: 'RegistryQA' },
+            { id: 'ServicesExtract', name: 'ServicesExtract', qa: 'ServicesQA' }
         ];
         
         // Disabled state from config only so Workflow and Agent-evals show the same status

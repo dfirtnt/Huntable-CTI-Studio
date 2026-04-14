@@ -3,7 +3,7 @@
 {% block title %}RAG Chat - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
     <nav class="flex mb-6" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
@@ -25,7 +25,7 @@
         </ol>
     </nav>
     <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔍 RAG Search</h1>
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> RAG Search</h1>
         <p class="text-gray-600 dark:text-gray-400">AI-powered semantic search across threat intelligence content</p>
     </div>
     
@@ -591,7 +591,7 @@
                 <div className="bg-gray-800 border-b border-gray-700 p-3">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-white">🔍 Threat Intelligence Chat</h2>
+                            <h2 className="text-lg font-semibold text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Threat Intelligence Chat</h2>
                             <p className="text-xs text-gray-300">
                                 Ask questions about cybersecurity threats, malware, and security vulnerabilities
                             </p>
@@ -740,7 +740,7 @@
                 <div className="flex-1 overflow-y-auto p-3 space-y-4 bg-gray-900">
                     {messages.length === 1 && !isLoading ? (
                         <div className="text-center py-12">
-                            <div className="text-4xl mb-4">🔍</div>
+                            <div className="text-xl mb-4">🔍</div>
                             <h3 className="text-lg font-medium text-gray-50 mb-2">What would you like to find?</h3>
                             <p className="text-gray-400 mb-6">Search across your threat intelligence articles</p>
                             
@@ -829,7 +829,7 @@
                                 </div>
                                 <button
                                     onClick={closeYamlModal}
-                                    className="ml-4 text-gray-400 hover:text-white text-2xl font-bold leading-none flex-shrink-0"
+                                    className="ml-4 text-gray-400 hover:text-white text-lg font-bold leading-none flex-shrink-0"
                                 >
                                     ×
                                 </button>
@@ -875,10 +875,10 @@
                             onClick={(e) => e.stopPropagation()}
                         >
                             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
-                                <h2 className="text-xl font-bold text-white">📋 RAG Presets</h2>
+                                <h2 className="text-xl font-bold text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg> RAG Presets</h2>
                                 <button
                                     onClick={() => setRagPresetModalOpen(false)}
-                                    className="text-gray-400 hover:text-white text-2xl font-bold leading-none"
+                                    className="text-gray-400 hover:text-white text-lg font-bold leading-none"
                                 >
                                     ×
                                 </button>

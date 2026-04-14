@@ -3,12 +3,12 @@
 {% block title %}{{ agent_name }} Evaluations - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
     <!-- Header -->
-    <div class="mb-8">
+    <div class="mb-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-2">{{ agent_name }} Evaluations</h1>
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2">{{ agent_name }} Evaluations</h1>
                 <p class="text-gray-600 dark:text-gray-400">Performance metrics and improvement tracking</p>
             </div>
             <a href="/evaluations" class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600">
@@ -19,37 +19,44 @@
 
     <!-- Subagents Section (ExtractAgent only) -->
     {% if agent_name == 'ExtractAgent' %}
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Subagents</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Subagents</h2>
         <p class="text-gray-600 dark:text-gray-400 mb-4">ExtractAgent uses specialized subagents for different extraction tasks:</p>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <a href="/evaluations/ExtractAgent/CmdlineExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">CmdlineExtract</h3>
-                    <span class="text-2xl">💻</span>
+                    <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-400">Command-line patterns and executed commands</p>
             </a>
             <a href="/evaluations/ExtractAgent/ProcTreeExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ProcTreeExtract</h3>
-                    <span class="text-2xl">🌳</span>
+                    <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12M8.25 17.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-400">Process lineage and parent-child relationships</p>
             </a>
             <a href="/evaluations/ExtractAgent/HuntQueriesExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">HuntQueriesExtract</h3>
-                    <span class="text-2xl">🔍</span>
+                    <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-400">Hunting queries (KQL, Splunk, Sigma, etc.)</p>
             </a>
             <a href="/evaluations/ExtractAgent/RegistryExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="text-lg font-semibold text-gray-900 dark:text-white">RegistryExtract</h3>
-                    <span class="text-2xl">🗝️</span>
+                    <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z"/></svg>
                 </div>
                 <p class="text-sm text-gray-600 dark:text-gray-400">Windows registry artifacts and modifications</p>
+            </a>
+            <a href="/evaluations/ExtractAgent/ServicesExtract" class="bg-blue-50 dark:bg-blue-900 rounded-lg p-4 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white">ServicesExtract</h3>
+                    <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/></svg>
+                </div>
+                <p class="text-sm text-gray-600 dark:text-gray-400">Adversary-installed Windows services</p>
             </a>
         </div>
     </div>
@@ -57,8 +64,8 @@
 
     <!-- Latest Evaluation Summary -->
     {% if latest %}
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Latest Evaluation</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Latest Evaluation</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div>
                 <div class="text-sm text-gray-500 dark:text-gray-400">Type</div>
@@ -85,8 +92,8 @@
     {% endif %}
 
     <!-- Evaluation History -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation History</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Evaluation History</h2>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                 <thead class="bg-gray-50 dark:bg-gray-900">
@@ -121,7 +128,7 @@
     <!-- Selected Evaluation Details -->
     {% if selected_evaluation %}
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Evaluation Details</h2>
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Evaluation Details</h2>
         <div id="evaluation-details">
             <div class="mb-4">
                 <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Evaluation ID</div>
@@ -141,8 +148,8 @@
 
     <!-- Manual Test Results (ObservablesCountAgent or ExtractAgent) -->
     {% if agent_name == 'ObservablesCountAgent' or agent_name == 'ExtractAgent' %}
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8" id="observables-count-results">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Model Comparison - Observables Count</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-6" id="observables-count-results">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Model Comparison - Observables Count</h2>
         <div id="observables-results-loading" class="text-gray-500 dark:text-gray-400">Loading observables count results...</div>
         <div id="observables-results-content" class="hidden">
             <!-- Model Summary -->
@@ -169,8 +176,8 @@
 
     <!-- Manual Test Results (OSDetection only) -->
     {% if agent_name == 'OSDetection' %}
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8" id="manual-test-results">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Manual Test Results - Model Comparison</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-6" id="manual-test-results">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Manual Test Results - Model Comparison</h2>
         <div id="manual-results-loading" class="text-gray-500 dark:text-gray-400">Loading manual test results...</div>
         <div id="manual-results-content" class="hidden">
             <!-- Accuracy Summary -->
@@ -214,8 +221,8 @@
     {% endif %}
 
     <!-- Run Evaluation Section -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Run New Evaluation</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Run New Evaluation</h2>
         <div class="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg mb-4">
             <p class="text-sm text-gray-700 dark:text-gray-300">
                 <strong>Note:</strong> Evaluations should be run via CLI scripts for full control. 
@@ -246,8 +253,8 @@
     </div>
 
     <!-- Trend Charts -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">Performance Trends</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Performance Trends</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
                 <canvas id="trend-chart-1"></canvas>
@@ -260,8 +267,8 @@
 
     <!-- RankAgent Benchmark Graphs -->
     {% if agent_name == 'RankAgent' %}
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-8" id="rank-agent-benchmarks">
-        <h2 class="text-2xl font-semibold text-gray-900 dark:text-white mb-4">📊 Benchmark Graphs</h2>
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mt-6" id="rank-agent-benchmarks">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Benchmark Graphs</h2>
         <div id="benchmarks-loading" class="text-gray-500 dark:text-gray-400 mb-4">Loading benchmark data...</div>
         <div id="benchmarks-content" class="hidden">
             <!-- Score Distribution and Model Comparison -->
@@ -320,40 +327,40 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (agentName === 'ExtractAgent') {
         if (metrics.json_validity_rate !== undefined) {
-            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">JSON Validity</div><div class="text-2xl font-bold">${(metrics.json_validity_rate * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">JSON Validity</div><div class="text-lg font-bold">${(metrics.json_validity_rate * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.field_completeness_rate !== undefined) {
-            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Field Completeness</div><div class="text-2xl font-bold">${(metrics.field_completeness_rate * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Field Completeness</div><div class="text-lg font-bold">${(metrics.field_completeness_rate * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.avg_discrete_count !== undefined) {
-            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Observables</div><div class="text-2xl font-bold">${metrics.avg_discrete_count.toFixed(1)}</div></div>`;
+            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Observables</div><div class="text-lg font-bold">${metrics.avg_discrete_count.toFixed(1)}</div></div>`;
         }
         if (metrics.total_commandlines !== undefined) {
-            metricsHtml += `<div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Total Command-lines</div><div class="text-2xl font-bold">${metrics.total_commandlines}</div></div>`;
+            metricsHtml += `<div class="bg-yellow-100 dark:bg-yellow-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Total Command-lines</div><div class="text-lg font-bold">${metrics.total_commandlines}</div></div>`;
         }
     } else if (agentName === 'RankAgent') {
         if (metrics.score_mean !== undefined) {
-            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Score</div><div class="text-2xl font-bold">${metrics.score_mean.toFixed(2)}</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Score</div><div class="text-lg font-bold">${metrics.score_mean.toFixed(2)}</div></div>`;
         }
         if (metrics.threshold_accuracy !== undefined) {
-            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Threshold Accuracy</div><div class="text-2xl font-bold">${(metrics.threshold_accuracy * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Threshold Accuracy</div><div class="text-lg font-bold">${(metrics.threshold_accuracy * 100).toFixed(1)}%</div></div>`;
         }
     } else if (agentName === 'SigmaAgent') {
         if (metrics.avg_huntability_score !== undefined) {
-            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Huntability Score</div><div class="text-2xl font-bold">${metrics.avg_huntability_score.toFixed(1)}/10</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Huntability Score</div><div class="text-lg font-bold">${metrics.avg_huntability_score.toFixed(1)}/10</div></div>`;
         }
         if (metrics.structural_validation_pass_rate !== undefined) {
-            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Validation Pass Rate</div><div class="text-2xl font-bold">${(metrics.structural_validation_pass_rate * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Validation Pass Rate</div><div class="text-lg font-bold">${(metrics.structural_validation_pass_rate * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.avg_semantic_similarity !== undefined) {
-            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Semantic Similarity</div><div class="text-2xl font-bold">${(metrics.avg_semantic_similarity * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-purple-100 dark:bg-purple-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Semantic Similarity</div><div class="text-lg font-bold">${(metrics.avg_semantic_similarity * 100).toFixed(1)}%</div></div>`;
         }
     } else if (agentName === 'OSDetection') {
         if (metrics.accuracy !== undefined) {
-            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Accuracy</div><div class="text-2xl font-bold">${(metrics.accuracy * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-green-100 dark:bg-green-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Accuracy</div><div class="text-lg font-bold">${(metrics.accuracy * 100).toFixed(1)}%</div></div>`;
         }
         if (metrics.avg_confidence !== undefined) {
-            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Confidence</div><div class="text-2xl font-bold">${(metrics.avg_confidence * 100).toFixed(1)}%</div></div>`;
+            metricsHtml += `<div class="bg-blue-100 dark:bg-blue-900 p-3 rounded"><div class="text-xs text-gray-600 dark:text-gray-400">Avg Confidence</div><div class="text-lg font-bold">${(metrics.avg_confidence * 100).toFixed(1)}%</div></div>`;
         }
     }
     

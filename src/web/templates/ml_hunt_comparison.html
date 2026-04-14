@@ -3,7 +3,6 @@
 {% block title %}ML vs Hunt Scoring Comparison - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
 /* ── MLOps Model Performance ─ page-level overrides ──────── */
@@ -41,7 +40,7 @@
 
 /* ── Section titles ──────────────────────────────────────── */
 .mlops-section-title {
-    font-family: 'Barlow Condensed', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     font-weight: 600;
@@ -202,7 +201,7 @@
     margin-bottom: 1.75rem;
 }
 .mlops-page-title {
-    font-family: 'Barlow Condensed', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     font-weight: 700;
     font-size: 1.75rem;
     letter-spacing: 0.04em;
@@ -221,7 +220,7 @@
 }
 </style>
 
-<div class="mlops-perf-page container mx-auto px-4 py-8" style="max-width: 90rem;">
+<div class="mlops-perf-page container mx-auto px-4 pt-4 pb-6" style="max-width: 90rem;">
     <!-- Page Header -->
     <div class="mlops-page-header mlops-rise">
         <div class="flex items-center gap-3">
@@ -234,7 +233,7 @@
     </div>
     
     <!-- KPI Strip -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
         <div class="kpi-card kpi-purple mlops-rise mlops-rise-1">
             <div class="kpi-label">Model Versions</div>
             <div class="kpi-value" id="totalModelVersions">-</div>
@@ -399,7 +398,7 @@
     <div id="rollbackConfirmModal" class="hidden fixed inset-0 flex items-center justify-center z-50" style="background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);">
         <div class="w-full max-w-sm mx-4 rounded-xl overflow-hidden" style="background: var(--panel-bg-2); border: 1px solid var(--border-subtle); box-shadow: 0 24px 80px rgba(0,0,0,0.5);">
             <div class="px-5 pt-5 pb-4">
-                <h3 class="text-sm font-bold mb-2" style="font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary);">Confirm Rollback</h3>
+                <h3 class="text-sm font-bold mb-2" style="font-family: 'Inter', system-ui, sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-primary);">Confirm Rollback</h3>
                 <p id="rollbackConfirmText" class="text-xs mb-3" style="color: var(--text-secondary);"></p>
                 <div class="rounded-md p-2.5 text-xs" style="background: var(--panel-bg-4); color: var(--text-muted-slate);">
                     All chunk classifications will be re-scored with the restored model. This may take a few minutes.
@@ -1298,25 +1297,25 @@
                 ${evalMetrics.accuracy ? `
                 <!-- Evaluation Results -->
                 <div class="border-t pt-4">
-                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">📊 Evaluation Results</h3>
+                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Evaluation Results</h3>
                     
                     <!-- Overall Metrics -->
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                         <div class="bg-white dark:bg-gray-600 p-3 rounded">
                             <div class="text-sm text-gray-600 dark:text-gray-300">Test Accuracy</div>
-                            <div class="text-2xl font-bold text-blue-600">${(evalMetrics.accuracy * 100).toFixed(1)}%</div>
+                            <div class="text-lg font-bold text-blue-600">${(evalMetrics.accuracy * 100).toFixed(1)}%</div>
                         </div>
                         <div class="bg-white dark:bg-gray-600 p-3 rounded">
                             <div class="text-sm text-gray-600 dark:text-gray-300">Avg Confidence</div>
-                            <div class="text-2xl font-bold text-green-600">${evalMetrics.avg_confidence ? (evalMetrics.avg_confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
+                            <div class="text-lg font-bold text-green-600">${evalMetrics.avg_confidence ? (evalMetrics.avg_confidence * 100).toFixed(1) + '%' : 'N/A'}</div>
                         </div>
                         <div class="bg-white dark:bg-gray-600 p-3 rounded">
                             <div class="text-sm text-gray-600 dark:text-gray-300">Total Chunks</div>
-                            <div class="text-2xl font-bold text-purple-600">${evalMetrics.total_chunks || evalMetrics.total_eval_chunks || 'N/A'}</div>
+                            <div class="text-lg font-bold text-purple-600">${evalMetrics.total_chunks || evalMetrics.total_eval_chunks || 'N/A'}</div>
                         </div>
                         <div class="bg-white dark:bg-gray-600 p-3 rounded">
                             <div class="text-sm text-gray-600 dark:text-gray-300">Misclassified</div>
-                            <div class="text-2xl font-bold text-red-600">${evalMetrics.misclassified_count || 'N/A'}</div>
+                            <div class="text-lg font-bold text-red-600">${evalMetrics.misclassified_count || 'N/A'}</div>
                         </div>
                     </div>
                     

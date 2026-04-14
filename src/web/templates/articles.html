@@ -3,8 +3,8 @@
 {% block title %}Articles - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <nav class="flex mb-8" aria-label="Breadcrumb">
+<div class="container mx-auto px-4 pt-4 pb-6">
+    <nav class="flex mb-6" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
             <li class="inline-flex items-center">
                 <a href="/" class="inline-flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400">
@@ -24,15 +24,15 @@
             </li>
         </ol>
     </nav>
-    <div class="mb-8">
+    <div class="mb-6">
         <div class="flex items-center justify-between mb-2">
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <h1 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
                 <img src="/static/icons/articles-icon.svg" alt="Articles" class="w-[63px] h-[63px]" />
                 Threat Intelligence Articles
             </h1>
             {% if rag_enabled %}
             <a href="/chat" class="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center space-x-2 font-medium shadow-lg" title="AI-powered semantic search across threat intelligence content">
-                <span>🔍</span>
+                <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
                 <span>RAG Search</span>
             </a>
             {% endif %}
@@ -41,9 +41,9 @@
     </div>
 
     <!-- Filters & Sorting -->
-    <div class="rounded-lg shadow p-6 mb-8" style="background-color: var(--color-bg-card);">
+    <div class="rounded-lg shadow p-6 mb-6" style="background-color: var(--color-bg-card);">
         <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">🔍 Filters, Search & Sorting</h2>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Filters, Search &amp; Sorting</h2>
             <span id="filters-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
                 <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -496,7 +496,7 @@
         </div>
         {% else %}
         <div class="text-center py-12">
-            <div class="text-gray-400 dark:text-gray-500 text-6xl mb-4">📰</div>
+            <div class="text-gray-400 dark:text-gray-500 text-xl mb-4">📰</div>
             <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No articles found</h3>
             <p class="text-gray-500 dark:text-gray-400">
                 {% if filters.search or filters.source or filters.quality_min %}

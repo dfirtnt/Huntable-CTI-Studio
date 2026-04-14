@@ -38,6 +38,8 @@ FIDELITY_HUNTQUERIES_ENABLED = True
 FIDELITY_HUNTQUERIES_QA_ENABLED = True
 FIDELITY_REGISTRY_ENABLED = True
 FIDELITY_REGISTRY_QA_ENABLED = True
+FIDELITY_SERVICES_ENABLED = True
+FIDELITY_SERVICES_QA_ENABLED = True
 FIDELITY_SIGMA_THRESHOLD = 0.42
 FIDELITY_SIGMA_FULL_ARTICLE = True
 FIDELITY_DISABLED_AGENTS: list[str] = []  # all enabled
@@ -130,6 +132,17 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "QAEnabled": FIDELITY_REGISTRY_QA_ENABLED,
             "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
             "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " RegistryQA", "instructions": ""},
+        },
+        "ServicesExtract": {
+            "Enabled": FIDELITY_SERVICES_ENABLED,
+            "Provider": "anthropic",
+            "Model": "claude-sonnet-4-5",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Services", "instructions": ""},
+            "QAEnabled": FIDELITY_SERVICES_QA_ENABLED,
+            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
+            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ServicesQA", "instructions": ""},
         },
         "SigmaAgent": {
             "Provider": "anthropic",

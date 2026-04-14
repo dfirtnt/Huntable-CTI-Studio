@@ -676,9 +676,9 @@ class TestTraceabilityNormalization:
         """
         resp = (
             '{"registry_artifacts": ['
-            '{"value": "HKLM\\\\Run", "confidence_level": "high", "raw_text_snippet": "test"},'
-            '{"value": "HKCU\\\\Run", "confidence_level": "medium", "raw_text_snippet": "test"},'
-            '{"value": "HKU\\\\Run", "confidence_level": "low", "raw_text_snippet": "test"}'
+            '{"value": "HKLM\\\\Run", "confidence_level": "high", "source_evidence": "test"},'
+            '{"value": "HKCU\\\\Run", "confidence_level": "medium", "source_evidence": "test"},'
+            '{"value": "HKU\\\\Run", "confidence_level": "low", "source_evidence": "test"}'
             '], "count": 3}'
         )
         result = await self._run_extraction(llm_service, resp, agent_name="RegistryExtract")

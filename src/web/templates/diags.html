@@ -124,7 +124,7 @@
 .diag-checkbox:focus { border-color:var(--border-focus); box-shadow:0 0 0 2px var(--purple-border-15); }
 </style>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
     <!-- Breadcrumb -->
     <nav class="flex mb-4" aria-label="Breadcrumb">
         <ol class="inline-flex items-center space-x-1 md:space-x-3">
@@ -144,7 +144,7 @@
 
     <!-- Page header -->
     <div class="mb-4">
-        <h1 class="text-3xl font-bold mb-2 flex items-center gap-3" style="color:var(--text-primary); font-family:'DM Sans',sans-serif;">
+        <h1 class="text-xl font-bold mb-2 flex items-center gap-3" style="color:var(--text-primary); font-family:'DM Sans',sans-serif;">
             <img src="/static/icons/diags-icon.svg" alt="Diags" class="w-[54px] h-[54px]" />
             System Diagnostics & Health
         </h1>
@@ -173,7 +173,7 @@
 
     <!-- Action bar (Quick Actions) -->
     <div class="diag-action-bar" data-testid="quick-actions">
-        <span class="text-sm font-medium" style="color:var(--text-secondary);">⚡ Quick Actions</span>
+        <span class="text-sm font-medium" style="color:var(--text-secondary);"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg> Quick Actions</span>
         <button id="runAllHealthChecks" type="button" class="btn-primary">
             Run All Health Checks
         </button>
@@ -193,7 +193,7 @@
     </div>
 
     <!-- Card grid -->
-    <div class="diag-grid mb-8">
+    <div class="diag-grid mb-6">
         <!-- System Health -->
         <div class="diag-card health-neutral" id="cardSystemHealth">
             <h2 class="diag-card-title">System Health</h2>
@@ -614,7 +614,7 @@ async function updateOverallHealthStatus() {
         </div>
         <div class="diag-inner-panel">
             <div class="flex items-center gap-2">
-                <span class="text-xl">🕒</span>
+                <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                 <div>
                     <div class="text-xs diag-muted">Last Check</div>
                     <div class="font-mono text-sm" style="color:var(--text-secondary);">${formatTimestamp(data.timestamp)}</div>
@@ -623,7 +623,7 @@ async function updateOverallHealthStatus() {
         </div>
         <div class="diag-inner-panel">
             <div class="flex items-center gap-2">
-                <span class="text-xl">📦</span>
+                <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
                 <div>
                     <div class="text-xs diag-muted">Version</div>
                     <div class="font-mono text-sm" style="color:var(--text-secondary);">${data.version || '1.0.0'}</div>

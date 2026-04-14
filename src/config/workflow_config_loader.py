@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 
 # Canonical agent group order (for tests and other consumers that expect group ordering).
 CORE_AGENTS = ["RankAgent", "ExtractAgent", "SigmaAgent"]
-EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]
-QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA"]
+EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
 UTILITY_AGENTS = ["OSDetectionFallback"]
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
@@ -41,6 +41,8 @@ AGENTS_ORDER_UI = [
     "HuntQueriesQA",
     "RegistryExtract",
     "RegistryQA",
+    "ServicesExtract",
+    "ServicesQA",
     "SigmaAgent",
 ]
 
@@ -81,6 +83,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "ProcTreeExtract",
     "HuntQueriesExtract",
     "RegistryExtract",
+    "ServicesExtract",
     "SigmaAgent",
 ]
 
@@ -148,6 +151,10 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ),
     (
         "RegistryExtract",
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+    ),
+    (
+        "ServicesExtract",
         ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
     ),
     (
@@ -256,6 +263,7 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         ("ProcTreeExtract", "ProcTreeQA"),
         ("HuntQueriesExtract", "HuntQueriesQA"),
         ("RegistryExtract", "RegistryQA"),
+        ("ServicesExtract", "ServicesQA"),
     ]:
         cfg = _agent_cfg(agents, base)
         qa_cfg = _agent_cfg(agents, qa_name)
@@ -389,6 +397,20 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
+    (
+        "ServicesExtract",
+        {
+            "Enabled": False,
+            "Provider": "",
+            "Model": "",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": "", "instructions": ""},
+            "QAEnabled": False,
+            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
+            "QAPrompt": {"prompt": "", "instructions": ""},
+        },
+    ),
 ]
 
 
@@ -470,6 +492,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         ("ProcTreeExtract", "ProcTreeQA"),
         ("HuntQueriesExtract", "HuntQueriesQA"),
         ("RegistryExtract", "RegistryQA"),
+        ("ServicesExtract", "ServicesQA"),
     ]:
         block = ui.get(base) or {}
         if not block:

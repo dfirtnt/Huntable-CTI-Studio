@@ -3,9 +3,9 @@
 {% block title %}SIGMA Similarity Test - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔍 SIGMA Cosine Similarity Test</h1>
+<div class="container mx-auto px-4 pt-4 pb-6">
+    <div class="mb-6">
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> SIGMA Cosine Similarity Test</h1>
         <p class="text-gray-600 dark:text-gray-400">Test SIGMA rule similarity search against indexed repositories</p>
     </div>
 
@@ -359,7 +359,7 @@ tags:
                         <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">${match.description || 'No description'}</p>
                     </div>
                     <div class="ml-4 flex flex-col items-end">
-                        <div class="text-3xl font-bold text-${statusColor}-600 dark:text-${statusColor}-400">${similarityPercent}%</div>
+                        <div class="text-xl font-bold text-${statusColor}-600 dark:text-${statusColor}-400">${similarityPercent}%</div>
                         <div class="text-xs text-${statusColor}-600 dark:text-${statusColor}-400 bg-${statusColor}-100 dark:bg-${statusColor}-900 px-2 py-1 rounded mt-1">
                             ${statusIcon} Similar
                         </div>

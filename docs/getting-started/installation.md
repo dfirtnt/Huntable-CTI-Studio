@@ -185,7 +185,7 @@ See `configuration.md` for detailed port configuration.
 
 **MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
 
-The committed eval article directories cover all four extraction sub-agents:
+The committed eval article directories cover all five extraction sub-agents:
 
 | Directory | Sub-agent |
 |-----------|-----------|
@@ -193,6 +193,7 @@ The committed eval article directories cover all four extraction sub-agents:
 | `config/eval_articles_data/process_lineage/` | ProcTreeExtract |
 | `config/eval_articles_data/hunt_queries/` | HuntQueriesExtract |
 | `config/eval_articles_data/registry_artifacts/` | RegistryExtract |
+| `config/eval_articles_data/windows_services/` | ServicesExtract |
 
 ## Next Steps
 

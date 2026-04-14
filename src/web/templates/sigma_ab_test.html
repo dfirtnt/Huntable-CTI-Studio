@@ -3,9 +3,9 @@
 {% block title %}SIGMA Rule A/B Testing - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🧪 SIGMA Rule A/B Comparison</h1>
+<div class="container mx-auto px-4 pt-4 pb-6">
+    <div class="mb-6">
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 21c-2.773 0-5.491-.235-8.135-.687-1.718-.293-2.3-2.379-1.067-3.61L5 14.5"/></svg> SIGMA Rule A/B Comparison</h1>
         <p class="text-gray-600 dark:text-gray-400">Compare two SIGMA rules using behavioral novelty assessment</p>
     </div>
 
@@ -82,7 +82,7 @@
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">Weighted Similarity</span>
                     <div class="flex items-center space-x-4">
-                    <span id="overallSimilarity" class="text-3xl font-bold text-blue-600 dark:text-blue-400">-</span>
+                    <span id="overallSimilarity" class="text-xl font-bold text-blue-600 dark:text-blue-400">-</span>
                         <span id="noveltyLabel" class="px-3 py-1 rounded text-sm font-semibold"></span>
                     </div>
                 </div>
@@ -97,7 +97,7 @@
 
             <!-- Behavioral Similarity Breakdown -->
             <div class="mb-6">
-                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">🔍 Behavioral Similarity Breakdown</h4>
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Behavioral Similarity Breakdown</h4>
                 <div class="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
                     <div class="grid grid-cols-1 gap-2 text-sm">
                         <div class="flex justify-between">
@@ -121,7 +121,7 @@
 
             <!-- Explainability -->
             <div id="explainabilitySection" class="mb-6 hidden">
-                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">📊 Explainability</h4>
+                <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Explainability</h4>
                 <div class="space-y-4">
                     <div id="sharedAtomsSection" class="hidden">
                         <h5 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Shared Atoms:</h5>
@@ -493,7 +493,7 @@ tags:
                             <p class="text-sm text-gray-600 dark:text-gray-400">${escapeHtml(match.rule_id || '')}</p>
                         </div>
                         <div class="text-right">
-                            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">${similarity}%</div>
+                            <div class="text-lg font-bold text-blue-600 dark:text-blue-400">${similarity}%</div>
                             <div class="text-xs text-gray-500 dark:text-gray-400">Similarity</div>
                         </div>
                     </div>

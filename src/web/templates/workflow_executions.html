@@ -3,11 +3,11 @@
 {% block title %}Workflow Executions - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
+    <div class="mb-6">
         <div class="flex items-center justify-between">
             <div>
-                <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">🔄 Workflow Executions</h1>
+                <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Workflow Executions</h1>
                 <p class="text-gray-600 dark:text-gray-400">Monitor agentic workflow execution history and status</p>
             </div>
             <div class="flex space-x-4">
@@ -38,19 +38,19 @@
     <div id="executionStats" class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Total Executions</div>
-            <div class="text-2xl font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
+            <div class="text-lg font-bold text-gray-900 dark:text-white" id="totalExecutions">-</div>
         </div>
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Running</div>
-            <div class="text-2xl font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
+            <div class="text-lg font-bold text-blue-600 dark:text-blue-400" id="runningExecutions">-</div>
         </div>
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Completed</div>
-            <div class="text-2xl font-bold text-emerald-400" id="completedExecutions">-</div>
+            <div class="text-lg font-bold text-emerald-400" id="completedExecutions">-</div>
         </div>
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4">
             <div class="text-sm text-gray-600 dark:text-gray-400">Failed</div>
-            <div class="text-2xl font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
+            <div class="text-lg font-bold text-red-600 dark:text-red-400" id="failedExecutions">-</div>
         </div>
     </div>
 
@@ -81,7 +81,7 @@
         <div class="relative top-20 mx-auto p-5 border border-gray-700 w-11/12 md:w-1/2 shadow-lg rounded-xl bg-gray-800">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execute Workflow</h3>
-                <button onclick="closeExecuteModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
+                <button onclick="closeExecuteModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
             </div>
             <div class="space-y-4">
                 <div>
@@ -113,7 +113,7 @@
         <div class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-xl bg-gray-800">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white">Execution Details - Step-by-Step Inputs & Outputs</h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
+                <button onclick="closeModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">✕</button>
             </div>
             <div id="executionDetailContent" class="space-y-4 max-h-[85vh] overflow-y-auto">
                 <!-- Content loaded dynamically -->
@@ -498,7 +498,8 @@ async function viewExecution(executionId) {
                                     { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: 'Command Line Extraction', icon: '💻', order: 1 },
                                     { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 2 },
                                     { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 },
-                                    { key: 'registry_artifacts', name: 'RegistryExtract', qaName: 'RegistryQA', display: 'Registry Artifacts Extraction', icon: '🗝️', order: 4 }
+                                    { key: 'registry_artifacts', name: 'RegistryExtract', qaName: 'RegistryQA', display: 'Registry Artifacts Extraction', icon: '🗝️', order: 4 },
+                                    { key: 'windows_services', name: 'ServicesExtract', qaName: 'ServicesQA', display: 'Windows Services Extraction', icon: '⚙️', order: 5 }
                                 ];
                                 
                                 // Get QA results from error_log if available
@@ -1564,8 +1565,8 @@ function showSimilarRuleDetails(ruleIdx, resultIdx) {
         modal.innerHTML = `
             <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700" style="margin-bottom: 50px;">
                 <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900 dark:text-white">🔍 Similar Rule Details</h3>
-                    <button onclick="closeSimilarRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Similar Rule Details</h3>
+                    <button onclick="closeSimilarRuleModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
                         </svg>
@@ -1727,8 +1728,8 @@ async function openLiveExecutionView(executionId) {
     modal.innerHTML = `
         <div class="bg-gray-900 dark:bg-gray-800 rounded-lg shadow-xl w-11/12 max-w-6xl h-5/6 flex flex-col">
             <div class="flex justify-between items-center p-4 border-b border-gray-700">
-                <h2 class="text-xl font-bold text-white">📺 Live Execution View - Execution ${executionId}</h2>
-                <button onclick="closeLiveExecutionView()" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                <h2 class="text-xl font-bold text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125z"/></svg> Live Execution View - Execution ${executionId}</h2>
+                <button onclick="closeLiveExecutionView()" aria-label="Close" class="text-gray-400 hover:text-white text-lg">&times;</button>
             </div>
             <div id="liveExecutionOutput" class="flex-1 overflow-y-auto p-4 font-mono text-sm text-emerald-400 bg-black rounded m-4" style="min-height: 400px;">
                 <div class="text-gray-500">Connecting to execution stream...</div>
@@ -2008,7 +2009,7 @@ function renderQueuedRulePreview(rule) {
                     Cancel
                 </button>
             </div>
-            <textarea id="yamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs" rows="20" style="font-family: 'Courier New', monospace;">${escapeHtml(editedYaml)}</textarea>
+            <textarea id="yamlEditor" class="w-full bg-gray-100 dark:bg-gray-900 p-4 rounded border border-gray-300 dark:border-gray-600 font-mono text-xs" rows="20" style="font-family: 'JetBrains Mono', monospace;">${escapeHtml(editedYaml)}</textarea>
         </div>
     ` : `
         <div class="mt-4">
@@ -2290,7 +2291,7 @@ function closeRuleModal() {
     <div class="relative top-10 mx-auto p-5 border w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
         <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 border border-gray-700 pb-2 border-b">
             <h3 class="text-xl font-bold text-gray-900 dark:text-white">SIGMA Rule Preview</h3>
-            <button onclick="closeRuleModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+            <button onclick="closeRuleModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
         </div>
         <div class="space-y-4 max-h-[70vh] overflow-y-auto">
             <div id="rulePreviewContent">

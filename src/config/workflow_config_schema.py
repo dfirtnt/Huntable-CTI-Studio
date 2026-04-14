@@ -2,7 +2,7 @@
 Pydantic schema for workflow config v2.
 
 PascalCase convention. All agent definitions require Provider, Model, Temperature, TopP, Enabled.
-ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract)
+ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract)
 inherit provider/model when not configured.
 
 Strict export: Prompts may only contain canonical prompt-bearing agent names (no ExtractAgentSettings).
@@ -109,8 +109,8 @@ class MetadataConfig(BaseModel):
 
 # Agent names in canonical order (main, sub-agents, QA, special)
 AGENT_NAMES_MAIN = ["RankAgent", "ExtractAgent", "SigmaAgent"]
-AGENT_NAMES_SUB = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]
-AGENT_NAMES_QA = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA"]
+AGENT_NAMES_SUB = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+AGENT_NAMES_QA = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
 AGENT_NAMES_SPECIAL = ["OSDetectionFallback"]
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
 
@@ -124,6 +124,7 @@ BASE_AGENT_TO_QA: dict[str, str] = {
     "ProcTreeExtract": "ProcTreeQA",
     "HuntQueriesExtract": "HuntQueriesQA",
     "RegistryExtract": "RegistryQA",
+    "ServicesExtract": "ServicesQA",
 }
 QA_AGENT_TO_BASE: dict[str, str] = {qa: base for base, qa in BASE_AGENT_TO_QA.items()}
 
@@ -215,8 +216,8 @@ class WorkflowConfigV2(BaseModel):
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        qa_agents = {"RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA"}
-        sub_agents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"}
+        qa_agents = {"RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
+        sub_agents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"}
         # Legacy flat keys expected by UI and services (v2 CmdlineQA -> CmdLineQA)
         legacy_flat_prefix: dict[str, str] = {"CmdlineQA": "CmdLineQA"}
         for agent_name, agent in self.Agents.items():

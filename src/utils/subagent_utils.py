@@ -8,6 +8,7 @@ AGENT_TO_SUBAGENT = {
     "proctreeextract": "process_lineage",
     "huntqueriesextract": "hunt_queries",
     "registryextract": "registry_artifacts",
+    "servicesextract": "windows_services",
 }
 
 # Reverse map from canonical alias to agent name (CamelCase)
@@ -38,6 +39,11 @@ SUBAGENT_CANONICAL = {
     "registry-artifacts": "registry_artifacts",
     "registryextract": "registry_artifacts",
     "registry": "registry_artifacts",
+    "windows_services": "windows_services",
+    "windowsservices": "windows_services",
+    "windows-services": "windows_services",
+    "servicesextract": "windows_services",
+    "services": "windows_services",
 }
 
 __all__ = [

@@ -3,9 +3,9 @@
 {% block title %}Agentic Workflow Configuration - Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 py-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
+<div class="container mx-auto px-4 pt-4 pb-6">
+    <div class="mb-6">
+        <h1 class="text-xl font-bold text-gray-900 dark:text-white mb-2 flex items-center gap-3">
             <img src="/static/icons/agents-icon.svg" alt="Agents" class="w-[63px] h-[63px]" />
             Agentic Workflow Configuration
         </h1>
@@ -13,7 +13,7 @@
     </div>
 
     <!-- Configuration Form -->
-    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-8">
+    <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6 mb-6">
         <form id="workflowConfigForm" class="space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <!-- Min Hunt Score -->
@@ -106,34 +106,34 @@
 
     <!-- Workflow Overview -->
     <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">📊 Workflow Overview</h2>
+        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/></svg> Workflow Overview</h2>
         <div class="grid grid-cols-1 md:grid-cols-7 gap-4">
             <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border-2 border-blue-300 dark:border-blue-600">
-                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">0</div>
+                <div class="text-lg font-bold text-blue-600 dark:text-blue-400">0</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">OS Detection</div>
             </div>
             <div class="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-blue-600 dark:text-blue-400">1</div>
+                <div class="text-lg font-bold text-blue-600 dark:text-blue-400">1</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Junk Filter</div>
             </div>
             <div class="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-green-600 dark:text-green-400">2</div>
+                <div class="text-lg font-bold text-green-600 dark:text-green-400">2</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">LLM Ranking</div>
             </div>
             <div class="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">3</div>
+                <div class="text-lg font-bold text-yellow-600 dark:text-yellow-400">3</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Extract Agent</div>
             </div>
             <div class="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-orange-600 dark:text-orange-400">4</div>
+                <div class="text-lg font-bold text-orange-600 dark:text-orange-400">4</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Generate SIGMA</div>
             </div>
             <div class="text-center p-4 bg-pink-50 dark:bg-pink-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-pink-600 dark:text-pink-400">5</div>
+                <div class="text-lg font-bold text-pink-600 dark:text-pink-400">5</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Similarity Search</div>
             </div>
             <div class="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                <div class="text-2xl font-bold text-purple-600 dark:text-purple-400">6</div>
+                <div class="text-lg font-bold text-purple-600 dark:text-purple-400">6</div>
                 <div class="text-xs text-gray-600 dark:text-gray-400 mt-1">Queue</div>
             </div>
         </div>

@@ -3,7 +3,7 @@
 {% block title %}Dashboard — Huntable CTI Studio{% endblock %}
 
 {% block content %}
-<link href="https://fonts.googleapis.com/css2?family=Teko:wght@400;500;600;700&family=Barlow:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Barlow+Condensed:wght@400;500;600;700&display=swap" rel="stylesheet">
+
 
 <style>
     /* ─── Dashboard Color System ─── */
@@ -67,7 +67,7 @@
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.65rem;
         font-weight: 700;
         letter-spacing: 0.18em;
@@ -93,7 +93,7 @@
     }
 
     .dash-title {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 1rem;
         font-weight: 600;
         letter-spacing: 0.1em;
@@ -148,7 +148,7 @@
 
     /* ─── Card title ─── */
     .card-title {
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.65rem;
         font-weight: 700;
         letter-spacing: 0.18em;
@@ -219,7 +219,7 @@
     }
 
     .uptime-pct {
-        font-family: 'Teko', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 1.25rem;
         font-weight: 600;
         line-height: 1;
@@ -228,7 +228,7 @@
     }
 
     .uptime-sublabel {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.5rem;
         letter-spacing: 0.1em;
         text-transform: uppercase;
@@ -247,7 +247,7 @@
     .metric-row:last-child { border-bottom: none; }
 
     .metric-label {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.78rem;
         color: var(--d-sub);
         font-weight: 400;
@@ -278,7 +278,7 @@
 
     /* ─── Big stat ─── */
     .big-stat-val {
-        font-family: 'Teko', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-weight: 600;
         font-size: 3.25rem;
         line-height: 1;
@@ -287,7 +287,7 @@
     }
 
     .big-stat-label {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.7rem;
         color: var(--d-sub);
         margin-top: 2px;
@@ -312,7 +312,7 @@
     }
 
     .fail-name {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.78rem;
         color: var(--d-text);
         font-weight: 500;
@@ -330,7 +330,7 @@
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .fail-badge-heal {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.6rem;
         font-weight: 600;
         color: #fbbf24;
@@ -386,7 +386,7 @@
     }
 
     .article-headline {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.8rem;
         color: var(--d-text);
         line-height: 1.45;
@@ -394,7 +394,7 @@
     }
 
     .article-score {
-        font-family: 'Teko', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 1.5rem;
         font-weight: 600;
         line-height: 1;
@@ -431,7 +431,7 @@
     }
 
     .activity-msg {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.78rem;
         color: var(--d-text);
         flex: 1;
@@ -449,7 +449,7 @@
         border: 1px solid var(--btn-clr, rgba(34,211,238,0.25));
         background: transparent;
         color: var(--btn-clr, var(--d-cyan));
-        font-family: 'Barlow Condensed', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.78rem;
         font-weight: 600;
         letter-spacing: 0.07em;
@@ -476,7 +476,7 @@
     .chart-wrap { position: relative; height: 8.5rem; }
 
     .chart-sublabel {
-        font-family: 'Barlow', sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
         font-size: 0.68rem;
         color: var(--d-sub);
         margin-bottom: 0.5rem;
@@ -545,10 +545,10 @@
                     </div>
                 </div>
                 <div style="flex:1;">
-                    <div style="font-family:'Barlow Condensed',sans-serif; font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--d-sub); margin-bottom:0.3rem;">Source Health</div>
+                    <div style="font-family:'Inter', system-ui, sans-serif; font-size:0.62rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--d-sub); margin-bottom:0.3rem;">Source Health</div>
                     <div style="display:flex; align-items:center;">
                         <span class="health-dot" id="health-dot"></span>
-                        <span style="font-family:'Barlow',sans-serif; font-size:0.82rem; color:var(--d-green); font-weight:500;" id="health-status-text">Nominal</span>
+                        <span style="font-family:'Inter', system-ui, sans-serif; font-size:0.82rem; color:var(--d-green); font-weight:500;" id="health-status-text">Nominal</span>
                     </div>
                 </div>
             </div>
@@ -911,7 +911,7 @@
                 });
 
                 if (data.top_articles.length === 0) {
-                    feedEl.innerHTML = '<div style="font-family:\'Barlow\',sans-serif; font-size:0.78rem; color:var(--d-sub); padding:0.5rem 0;">No high-score articles available.</div>';
+                    feedEl.innerHTML = '<div style="font-family:\'Inter\', system-ui, sans-serif; font-size:0.78rem; color:var(--d-sub); padding:0.5rem 0;">No high-score articles available.</div>';
                 }
             }
 

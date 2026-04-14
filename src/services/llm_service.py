@@ -302,7 +302,13 @@ class LLMService:
             return self.top_p_extract
         if agent_name == "SigmaAgent":
             return self.top_p_sigma
-        if agent_name in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]:
+        if agent_name in [
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+        ]:
             # Sub-agents fall back to ExtractAgent top_p
             return self.top_p_extract
 
@@ -3208,6 +3214,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
+                    "ServicesExtract",
                 ):
                     user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
 
@@ -3450,6 +3457,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                             "process_lineage",
                                             "sigma_queries",
                                             "registry_artifacts",
+                                            "windows_services",
                                             "count",
                                         ]
                                         if success and parsed and any(k in parsed for k in expected_keys):
@@ -3503,6 +3511,10 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                 count = len(last_result.get("registry_artifacts", []))
                                 logger.info(f"{agent_name} found {count} registry_artifacts")
                                 last_result["items"] = last_result.pop("registry_artifacts")
+                            elif "windows_services" in last_result:
+                                count = len(last_result.get("windows_services", []))
+                                logger.info(f"{agent_name} found {count} windows_services")
+                                last_result["items"] = last_result.pop("windows_services")
                             elif "items" in last_result:
                                 count = len(last_result.get("items", []))
                                 logger.info(f"{agent_name} found {count} items")
@@ -3559,7 +3571,14 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                 out["confidence_score"] = mapped
                         return out
 
-                    for key in ("cmdline_items", "items", "registry_artifacts", "queries", "process_lineage"):
+                    for key in (
+                        "cmdline_items",
+                        "items",
+                        "registry_artifacts",
+                        "windows_services",
+                        "queries",
+                        "process_lineage",
+                    ):
                         if key not in last_result or not isinstance(last_result[key], list):
                             continue
                         last_result[key] = [_normalize_traceability_item(it, agent_name) for it in last_result[key]]
@@ -3578,7 +3597,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                         if "cmdline_items" in last_result:
                             output_for_langfuse["cmdline_items"] = last_result["cmdline_items"]
                         # Include any other result fields that might be useful
-                        for key in ["process_lineage", "sigma_queries", "registry_artifacts"]:
+                        for key in ["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]:
                             if key in last_result:
                                 output_for_langfuse[key] = last_result[key]
                         # Include error if present

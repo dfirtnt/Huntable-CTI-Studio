@@ -40,6 +40,7 @@ _SUBAGENT_TO_AGENT = {
     "process_lineage": "ProcTreeExtract",
     "hunt_queries": "HuntQueriesExtract",
     "registry_artifacts": "RegistryExtract",
+    "windows_services": "ServicesExtract",
 }
 
 
@@ -59,6 +60,9 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
         return len(items) if isinstance(items, list) else agent_result.get("count")
     if subagent_name == "registry_artifacts":
         items = agent_result.get("registry_artifacts") or agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    if subagent_name == "windows_services":
+        items = agent_result.get("windows_services") or agent_result.get("items", [])
         return len(items) if isinstance(items, list) else agent_result.get("count")
     n = agent_result.get("count")
     if n is not None:
@@ -600,6 +604,10 @@ async def get_execution_commandlines(
                         commandlines = [
                             obs.get("value", str(obs)) for obs in observables if obs.get("type") == "registry_artifacts"
                         ]
+                    elif result_key == "windows_services":
+                        commandlines = [
+                            obs.get("value", str(obs)) for obs in observables if obs.get("type") == "windows_services"
+                        ]
 
                 # Also check subresults
                 if not commandlines:
@@ -636,6 +644,14 @@ async def get_execution_commandlines(
                             )
                             if isinstance(registry_result, dict):
                                 items = registry_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
+                        elif result_key == "windows_services":
+                            services_result = subresults.get("windows_services", {}) or subresults.get(
+                                "ServicesExtract", {}
+                            )
+                            if isinstance(services_result, dict):
+                                items = services_result.get("items", [])
                                 if items:
                                     commandlines = items if isinstance(items, list) else [items]
 
@@ -1573,7 +1589,13 @@ async def get_config_versions_models(
                     model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider or 'not configured'})")
 
                 # Sub-agents (only if enabled and has model)
-                for agent in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"]:
+                for agent in [
+                    "CmdlineExtract",
+                    "ProcTreeExtract",
+                    "HuntQueriesExtract",
+                    "RegistryExtract",
+                    "ServicesExtract",
+                ]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
                         provider = agent_models.get(f"{agent}_provider") or ""
@@ -1738,6 +1760,7 @@ _SUBAGENT_TO_BUNDLE_AGENT = {
     "hunt_queries": "HuntQueriesExtract",
     "hunt_queries_edr": "HuntQueriesExtract",
     "registry_artifacts": "RegistryExtract",
+    "windows_services": "ServicesExtract",
 }
 
 

@@ -238,7 +238,7 @@
 .heal-event-result.pending { background:rgba(71,85,105,0.4); color:var(--text-muted-slate); }
 </style>
 
-<div class="container mx-auto px-4 py-8">
+<div class="container mx-auto px-4 pt-4 pb-6">
 
     <!-- Breadcrumb -->
     <nav class="flex mb-4" aria-label="Breadcrumb">
@@ -259,7 +259,7 @@
 
     <!-- Page header -->
     <div class="mb-4">
-        <h1 class="text-3xl font-bold mb-3 flex items-center gap-3" style="color:var(--text-primary);">
+        <h1 class="text-xl font-bold mb-3 flex items-center gap-3" style="color:var(--text-primary);">
             <img src="/static/icons/sources-icon.svg" alt="Sources" class="w-[54px] h-[54px]" />
             Threat Intelligence Sources
         </h1>
@@ -310,7 +310,7 @@
     <!-- Filter bar -->
     <div class="filter-bar">
         <div class="src-search-wrap">
-            <span class="src-search-icon">🔍</span>
+            <span class="src-search-icon"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
             <input class="src-search-input" type="text" id="sourceSearch" placeholder="Search sources…" oninput="filterSources()" aria-label="Search sources">
         </div>
         <select class="src-filter-select" id="statusFilter" onchange="syncChipHighlight(); filterSources()" aria-label="Filter by status">
@@ -330,7 +330,7 @@
 
     <!-- Section header -->
     <div class="flex items-center justify-between mb-3">
-        <span class="text-sm font-medium" style="color:var(--text-secondary);">🔗 Configured Sources</span>
+        <span class="text-sm font-medium" style="color:var(--text-secondary);"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/></svg> Configured Sources</span>
         <span class="text-xs" style="color:var(--purple-light);">↓ Hunt Score</span>
     </div>
 
@@ -454,7 +454,7 @@
                     History
                 </button>
                 <div class="overflow-wrap">
-                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}">...</button>
+                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}" aria-expanded="false">...</button>
                     <div class="src-dropdown">
                         <button class="dd-item" onclick="openSourceConfig({{ source.id }}, {{ source.lookback_days }}, {{ source.check_frequency // 60 }}, {{ source.config.min_content_length if source.config and source.config.min_content_length else 200 }})">Configure</button>
                         <button class="dd-item" onclick="toggleSourceStatus({{ source.id }})">Toggle Status</button>
@@ -504,7 +504,7 @@
             <div class="card-actions">
                 <button class="btn-collect" disabled style="opacity:0.4;cursor:not-allowed;">🚀 Collect Now</button>
                 <div class="overflow-wrap">
-                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for Manual source">···</button>
+                    <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for Manual source" aria-expanded="false">···</button>
                     <div class="src-dropdown">
                         <button class="dd-item" onclick="showSourceStats({{ source.id }})">📊 Stats</button>
                     </div>
@@ -518,7 +518,7 @@
     </div>
     {% else %}
     <div class="text-center py-12">
-        <div class="text-6xl mb-4">🔗</div>
+        <div class="text-xl mb-4">🔗</div>
         <h3 class="text-lg font-medium mb-2" style="color:var(--text-primary);">No sources configured</h3>
         <p style="color:var(--text-muted-slate);">Configure threat intelligence sources to start collecting data.</p>
     </div>
@@ -656,11 +656,14 @@ function toggleOverflow(btn) {
     event.stopPropagation();
     const dd = btn.nextElementSibling;
     const allDDs = document.querySelectorAll('.src-dropdown');
+    document.querySelectorAll('.btn-overflow').forEach(b => { if (b !== btn) b.setAttribute('aria-expanded', 'false'); });
     allDDs.forEach(d => { if (d !== dd) d.classList.remove('open'); });
     dd.classList.toggle('open');
+    btn.setAttribute('aria-expanded', dd.classList.contains('open') ? 'true' : 'false');
 }
 document.addEventListener('click', () => {
     document.querySelectorAll('.src-dropdown').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.btn-overflow').forEach(b => b.setAttribute('aria-expanded', 'false'));
 });
 
 // ── Chip highlight sync ──
@@ -1317,7 +1320,7 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
                 <button type="submit" id="scrapeUrlBtn"
                         onclick="event.preventDefault(); event.stopPropagation(); handleAdhocUrlSubmit(event); return false;"
                         class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500" style="background-color: var(--color-brand);">
-                    <span class="mr-2">🔍</span>
+                    <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>
                     Scrape URLs
                 </button>
             </div>
@@ -1392,7 +1395,7 @@ function handleAdhocUrlSubmit(event) {
         showNotification('Failed to scrape URLs: ' + (error.message || 'Unknown error'), 'error');
         setTimeout(() => statusDiv.classList.add('hidden'), 5000);
     })
-    .finally(() => { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="mr-2">🔍</span>Scrape URLs'; });
+    .finally(() => { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg></span>Scrape URLs'; });
     return false;
 }
 

@@ -496,4 +496,4 @@ class TestLLMServiceNormalizationKeys:
         llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
         source = llm_service_path.read_text()
         # Find the Langfuse output loop line
-        assert 'for key in ["process_lineage", "sigma_queries", "registry_artifacts"]' in source
+        assert 'for key in ["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]' in source

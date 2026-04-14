@@ -28,7 +28,7 @@ Minimum task-specific reading:
 
 | Change type | Read first | Verify with |
 |---|---|---|
-| UI or page behavior | `src/web/modern_main.py`, `src/web/routes/__init__.py`, relevant `src/web/routes/*.py`, relevant templates/static assets, `docs/development/testing.md` | `python3 run_tests.py ui` or `python3 run_tests.py e2e` |
+| UI or page behavior | `src/web/modern_main.py`, `src/web/routes/__init__.py`, relevant `src/web/routes/*.py`, relevant templates/static assets, `docs/development/testing.md`, **`.cursor/agents/ui-designer.md` (UX contract)** | `python3 run_tests.py ui` or `python3 run_tests.py e2e` |
 | API behavior | `src/web/routes/__init__.py`, relevant route module, `src/database/models.py`, `docs/reference/api.md` | `python3 run_tests.py api` |
 | Workflow execution | `src/workflows/agentic_workflow.py`, `src/services/workflow_trigger_service.py`, `src/worker/celery_app.py`, `docs/architecture/workflow-data-flow.md` | `python3 run_tests.py integration` plus browser verification if UI changed |
 | Workflow config / presets / prompts | `src/config/workflow_config_schema.py`, `src/config/workflow_config_loader.py`, `config/presets/AgentConfigs/README.md`, `src/prompts/` | relevant config/unit/integration tests plus UI verification if edited via UI |
