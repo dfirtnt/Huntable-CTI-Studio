@@ -1,4 +1,9 @@
 # See https://pre-commit.com for more information
+#
+# Install (one-time): `pre-commit install` for pre-commit hooks,
+# `pre-commit install --hook-type commit-msg` for the Conventional
+# Commits check below. `uv sync --group dev` will pull the pre-commit
+# CLI itself.
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.14
@@ -13,3 +18,13 @@ repos:
     rev: v2.14
     hooks:
       - id: vulture
+
+  - repo: local
+    hooks:
+      - id: conventional-commit-msg
+        name: Conventional Commits subject check
+        entry: python3 scripts/check_commit_msg.py
+        language: system
+        stages: [commit-msg]
+        # Merge/revert/fixup subjects are allowed by the script; no extra
+        # exclusion needed here.

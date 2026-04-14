@@ -263,3 +263,96 @@ def test_workflow_tab_switch_populates_target_panel_content(fresh_page: Page):
     expect(fresh_page.locator("#s0")).to_be_visible()
 
     _assert_no_js_errors(fresh_page, errors, "/workflow click-switch round trip")
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Pipeline rail nav contract
+#
+# Invariant we assert:
+#   - Exactly one step-section is `.open` at a time.
+#   - The matching `.rail-item` is the only one with `.active`.
+#   - All four input paths (rail click, header click, initial load, toggle-and-reload)
+#     converge on this invariant. Prior to the unification there was an
+#     IntersectionObserver path that could race with the accordion and leave
+#     `.active` on a step other than the one open — this test locks that out.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+def _assert_single_open_matches_rail(page: Page, expected_index: int) -> None:
+    """Exactly one .step-section is .open, and the matching rail item is .active."""
+    open_ids = page.evaluate("() => Array.from(document.querySelectorAll('.step-section.open')).map(e => e.id)")
+    assert open_ids == [f"s{expected_index}"], f"Expected only s{expected_index} open, got {open_ids}"
+    active_indices = page.evaluate(
+        "() => Array.from(document.querySelectorAll('.rail-item'))"
+        "  .map((e, i) => e.classList.contains('active') ? i : -1)"
+        "  .filter(i => i >= 0)"
+    )
+    assert active_indices == [expected_index], f"Expected rail index {expected_index} active, got {active_indices}"
+
+
+@pytest.mark.ui
+@pytest.mark.workflow
+def test_workflow_config_rail_nav_contract(fresh_page: Page):
+    """Rail click, section-header click, and initial state all honour the
+    "one open step = one active rail item" invariant."""
+    errors = _goto_workflow(fresh_page, "#config")
+    fresh_page.locator("#tab-content-config").wait_for(state="visible", timeout=10000)
+
+    # --- Initial state: rail collapsed by default; s0 open and active.
+    rail = fresh_page.locator("#oc-rail")
+    expect(rail).to_have_class(re.compile(r"\bcollapsed\b"))
+    _assert_single_open_matches_rail(fresh_page, 0)
+
+    # --- Every rail item has a title tooltip (the hover affordance that
+    # makes the collapsed, digit-only rail discoverable).
+    missing_titles = fresh_page.evaluate(
+        "() => Array.from(document.querySelectorAll('.rail-item'))"
+        "  .map((e, i) => ({i, t: e.getAttribute('title')}))"
+        "  .filter(x => !x.t || !x.t.trim())"
+    )
+    assert missing_titles == [], f"Rail items without title: {missing_titles}"
+
+    # --- Click a rail number -> that step opens, others close, rail follows.
+    fresh_page.locator(".rail-item.c3").click()
+    fresh_page.wait_for_timeout(150)  # smooth scroll + accordion settle
+    _assert_single_open_matches_rail(fresh_page, 3)
+
+    # --- Click a section header -> same contract as rail click.
+    fresh_page.locator("#s1 .section-header").click()
+    fresh_page.wait_for_timeout(150)
+    _assert_single_open_matches_rail(fresh_page, 1)
+
+    # --- Clicking the currently-open header must NOT close it (the prior
+    # plain-accordion toggle behaviour would have left zero sections open,
+    # breaking the invariant).
+    fresh_page.locator("#s1 .section-header").click()
+    fresh_page.wait_for_timeout(100)
+    _assert_single_open_matches_rail(fresh_page, 1)
+
+    _assert_no_js_errors(fresh_page, errors, "/workflow#config rail contract")
+
+
+@pytest.mark.ui
+@pytest.mark.workflow
+def test_workflow_config_rail_collapse_persists(fresh_page: Page):
+    """Toggling the rail writes to localStorage and a reload honours it."""
+    errors = _goto_workflow(fresh_page, "#config")
+    fresh_page.locator("#tab-content-config").wait_for(state="visible", timeout=10000)
+
+    rail = fresh_page.locator("#oc-rail")
+    expect(rail).to_have_class(re.compile(r"\bcollapsed\b"))
+
+    # Expand via the toggle button; localStorage should record "0".
+    fresh_page.locator(".oc-rail-toggle").click()
+    fresh_page.wait_for_timeout(100)
+    expect(rail).not_to_have_class(re.compile(r"\bcollapsed\b"))
+    stored = fresh_page.evaluate("() => localStorage.getItem('oc-rail-collapsed')")
+    assert stored == "0", f"Expected localStorage '0' after expand, got {stored!r}"
+
+    # Reload: the IIFE restore block should honour the stored preference.
+    fresh_page.reload(wait_until="domcontentloaded")
+    fresh_page.wait_for_load_state("load")
+    fresh_page.wait_for_timeout(300)
+    expect(rail).not_to_have_class(re.compile(r"\bcollapsed\b"))
+
+    _assert_no_js_errors(fresh_page, errors, "/workflow#config rail persistence")
