@@ -143,3 +143,109 @@ def test_history_panel_config_toggle_survives_poll(page: Page):
     page.wait_for_timeout(3500)
 
     expect(config_btn).to_have_text("Hide full config")
+
+
+_MOCK_HISTORY_IN_PROGRESS = {
+    "source_id": 17,
+    "source_name": "Test Source",
+    "events": _MOCK_EVENTS,
+    "max_attempts": 8,
+    "current_round": 2,
+    "status": "in_progress",
+    "healing_exhausted": False,
+}
+
+_MOCK_HISTORY_HEALED = {
+    "source_id": 17,
+    "source_name": "Test Source",
+    "events": [
+        {
+            "id": 3,
+            "source_id": 17,
+            "round_number": 3,
+            "diagnosis": "RSS endpoint changed. Updated rss_url.",
+            "actions_proposed": [],
+            "actions_applied": [],
+            "validation_success": True,
+            "error_message": None,
+            "created_at": "2026-04-15T03:00:00",
+        }
+    ],
+    "max_attempts": 8,
+    "current_round": 3,
+    "status": "healed",
+    "healing_exhausted": False,
+}
+
+_MOCK_HISTORY_EXHAUSTED = {
+    "source_id": 17,
+    "source_name": "Test Source",
+    "events": _MOCK_EVENTS,
+    "max_attempts": 8,
+    "current_round": 8,
+    "status": "exhausted",
+    "healing_exhausted": True,
+}
+
+
+@pytest.mark.ui
+@pytest.mark.sources
+def test_progress_container_renders_round_info(page: Page):
+    """When events exist, the progress container shows round N of M and the status badge."""
+    page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_IN_PROGRESS))
+
+    page.goto(f"{BASE_URL}/sources")
+    page.wait_for_load_state("load")
+
+    history_buttons = page.locator("button[aria-label^='View healing history for ']")
+    expect(history_buttons.first).to_be_visible()
+    history_buttons.first.click()
+
+    progress_label = page.locator("#healingPanelBody .healing-progress-label")
+    expect(progress_label).to_be_visible()
+    expect(progress_label).to_contain_text("2")
+    expect(progress_label).to_contain_text("8")
+
+    status_badge = page.locator("#healingPanelBody .healing-progress-status")
+    expect(status_badge).to_be_visible()
+    expect(status_badge).to_contain_text("In Progress")
+
+
+@pytest.mark.ui
+@pytest.mark.sources
+def test_healed_completion_banner_shows_success(page: Page):
+    """When status is 'healed', a success banner is rendered with the round number."""
+    page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_HEALED))
+
+    page.goto(f"{BASE_URL}/sources")
+    page.wait_for_load_state("load")
+
+    history_buttons = page.locator("button[aria-label^='View healing history for ']")
+    expect(history_buttons.first).to_be_visible()
+    history_buttons.first.click()
+
+    banner = page.locator("#healingPanelBody .healing-completion-banner.success")
+    expect(banner).to_be_visible()
+    expect(banner).to_contain_text("successfully healed")
+    expect(banner).to_contain_text("round 3")
+    expect(page.locator("#healingPanelBody .healing-completion-banner.failure")).not_to_be_visible()
+
+
+@pytest.mark.ui
+@pytest.mark.sources
+def test_exhausted_completion_banner_shows_failure(page: Page):
+    """When status is 'exhausted', a failure banner is rendered with max_attempts."""
+    page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_EXHAUSTED))
+
+    page.goto(f"{BASE_URL}/sources")
+    page.wait_for_load_state("load")
+
+    history_buttons = page.locator("button[aria-label^='View healing history for ']")
+    expect(history_buttons.first).to_be_visible()
+    history_buttons.first.click()
+
+    banner = page.locator("#healingPanelBody .healing-completion-banner.failure")
+    expect(banner).to_be_visible()
+    expect(banner).to_contain_text("Healing exhausted")
+    expect(banner).to_contain_text("8 rounds")
+    expect(page.locator("#healingPanelBody .healing-completion-banner.success")).not_to_be_visible()

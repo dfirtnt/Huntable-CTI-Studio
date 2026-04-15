@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from src.config.workflow_config_loader import (
@@ -458,11 +459,67 @@ class TestPresetFiles:
 class TestEvalArticlesPlaceholder:
     """Static eval articles directory exists for windows_services."""
 
+    _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+    _EVAL_DIR = _REPO_ROOT / "config" / "eval_articles_data" / "windows_services"
+    _YAML_PATH = _REPO_ROOT / "config" / "eval_articles.yaml"
+
     def test_eval_articles_directory_exists(self):
-        eval_dir = Path(__file__).resolve().parent.parent.parent / "config" / "eval_articles_data" / "windows_services"
-        assert eval_dir.exists(), f"Eval articles dir missing: {eval_dir}"
-        articles_file = eval_dir / "articles.json"
+        assert self._EVAL_DIR.exists(), f"Eval articles dir missing: {self._EVAL_DIR}"
+        articles_file = self._EVAL_DIR / "articles.json"
         assert articles_file.exists(), "articles.json placeholder missing"
+
+    def test_yaml_windows_services_key_present_and_non_empty(self):
+        """eval_articles.yaml has a non-empty windows_services list."""
+        data = yaml.safe_load(self._YAML_PATH.read_text())
+        subagents = data.get("subagents", {})
+        assert "windows_services" in subagents, "windows_services key missing from eval_articles.yaml"
+        entries = subagents["windows_services"]
+        assert isinstance(entries, list) and len(entries) > 0, (
+            "windows_services in eval_articles.yaml must be a non-empty list"
+        )
+
+    def test_articles_json_non_empty_and_valid(self):
+        """articles.json parses as a non-empty list."""
+        articles_file = self._EVAL_DIR / "articles.json"
+        articles = json.loads(articles_file.read_text())
+        assert isinstance(articles, list) and len(articles) > 0, "articles.json must be a non-empty list"
+
+    def test_articles_json_required_fields(self):
+        """Every entry in articles.json has url, title, content, and expected_count."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        required = {"url", "title", "content", "expected_count"}
+        for i, entry in enumerate(articles):
+            missing = required - set(entry.keys())
+            assert not missing, f"articles.json entry {i} missing fields: {missing}"
+
+    def test_articles_json_expected_count_non_negative_int(self):
+        """expected_count in every articles.json entry is a non-negative integer."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        for i, entry in enumerate(articles):
+            ec = entry.get("expected_count")
+            assert isinstance(ec, int), f"entry {i}: expected_count must be int, got {type(ec).__name__}"
+            assert ec >= 0, f"entry {i}: expected_count must be >= 0, got {ec}"
+
+    def test_articles_json_no_duplicate_urls(self):
+        """No two entries in articles.json share the same URL."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        urls = [a.get("url") for a in articles]
+        seen = set()
+        dupes = []
+        for u in urls:
+            if u in seen:
+                dupes.append(u)
+            seen.add(u)
+        assert not dupes, f"Duplicate URLs in articles.json: {dupes}"
+
+    def test_yaml_and_articles_json_count_match(self):
+        """Number of entries in eval_articles.yaml matches articles.json."""
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_entries = yaml_data["subagents"]["windows_services"]
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        assert len(yaml_entries) == len(articles), (
+            f"eval_articles.yaml has {len(yaml_entries)} windows_services entries but articles.json has {len(articles)}"
+        )
 
 
 # ===========================================================================
