@@ -7,7 +7,7 @@ The test suite uses containerized PostgreSQL and Redis instances to avoid confli
 - **PostgreSQL:** `cti_postgres_test` (port 5433)
 - **Redis:** `cti_redis_test` (port 6380)
 
-These containers are managed by `docker-compose.test.yml` and auto-started by `run_tests.py`.
+These containers are managed by `docker-compose.test.yml` and auto-started by `run_tests.py` if either one is missing.
 
 ---
 
@@ -15,7 +15,7 @@ These containers are managed by `docker-compose.test.yml` and auto-started by `r
 
 ### Run Tests with Test Database
 ```bash
-# Tests will auto-start containers if needed
+# Tests will auto-start both required containers if needed
 python run_tests.py api
 
 # Or set environment variables manually
@@ -310,8 +310,8 @@ docker logs cti_postgres_test
 ## Integration with run_tests.py
 
 The test runner automatically:
-1. Checks if test containers are running
-2. Starts them if needed via `docker-compose -f docker-compose.test.yml up -d`
+1. Checks if both test containers are running
+2. Starts `postgres_test` and `redis_test` if needed via `docker compose -f docker-compose.test.yml up -d postgres_test redis_test`
 3. Sets `TEST_DATABASE_URL` environment variable
 4. Waits for healthchecks to pass
 5. Runs tests

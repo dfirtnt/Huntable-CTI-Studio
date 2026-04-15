@@ -131,7 +131,7 @@ Cloud LLM API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `CHATGPT_API_KEY`) ar
 
 ### Lifecycle (Script-Driven)
 
-- **Start**: `make test-up` or `./scripts/test_setup.sh` — or let `run_tests.py` auto-start when running `api`, `ui`, `integration`, `e2e`, or `all`
+- **Start**: `make test-up` or `./scripts/test_setup.sh` — or let `run_tests.py` auto-start `cti_postgres_test` and `cti_redis_test` when running `api`, `ui`, `integration`, `e2e`, or `all`
 - **Run tests**: `make test` or `./scripts/run_tests.sh` (auto-configures env vars)
 - **Tear down**: `make test-down` or `./scripts/test_teardown.sh`
 
