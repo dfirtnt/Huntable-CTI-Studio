@@ -715,6 +715,8 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 query = select(ArticleTable).where(ArticleTable.archived == False)
+
+                # When not loading content, defer it for performance but we'll calculate length separately
                 if not load_content:
                     query = query.options(defer(ArticleTable.content))
 
@@ -861,15 +863,29 @@ class AsyncDatabaseManager:
                     for aid, cnt in count_result.all():
                         annotation_counts[aid] = int(cnt)
 
+                # Batch content lengths when not loading full content (one query instead of N lazy loads)
+                content_lengths: dict[int, int] = {}
+                if not load_content and article_ids:
+                    length_stmt = select(ArticleTable.id, func.char_length(ArticleTable.content)).where(
+                        ArticleTable.id.in_(article_ids)
+                    )
+                    length_result = await session.execute(length_stmt)
+                    for aid, length in length_result.all():
+                        content_lengths[aid] = int(length) if length is not None else 0
+
                 articles = []
                 for row in rows:
                     try:
                         db_article = row[0] if hasattr(row, "__getitem__") else row
+                        # Get content length from batch query if available
+                        content_len = content_lengths.get(db_article.id) if not load_content else None
                     except Exception as row_e:
                         logger.error(f"Error processing row: {row_e}")
                         continue
 
-                    article = self._db_article_to_model(db_article, skip_content=not load_content)
+                    article = self._db_article_to_model(
+                        db_article, skip_content=not load_content, content_length_override=content_len
+                    )
                     annotation_count = annotation_counts.get(article.id, 0)
                     if article.article_metadata is None:
                         article.article_metadata = {}
@@ -1305,11 +1321,14 @@ class AsyncDatabaseManager:
             updated_at=updated_at,
         )
 
-    def _db_article_to_model(self, db_article: ArticleTable, skip_content: bool = False) -> Article:
+    def _db_article_to_model(
+        self, db_article: ArticleTable, skip_content: bool = False, content_length_override: int | None = None
+    ) -> Article:
         """Convert database article to Pydantic model. When skip_content=True, content is not read (avoids loading deferred column)."""
         if skip_content:
             content = ""
-            content_length = 0
+            # Use the override if provided (from SQL char_length), otherwise default to 0
+            content_length = content_length_override if content_length_override is not None else 0
         else:
             content = db_article.content
             content_length = len(db_article.content) if db_article.content else None

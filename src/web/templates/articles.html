@@ -364,7 +364,7 @@
                             {% if article.published_at %}
                             <span>Published: {{ article.published_at.strftime('%Y-%m-%d %H:%M') }}</span>
                             {% endif %}
-                            <span>Content: {{ article.content|length }} characters</span>
+                            <span>Content: {{ article.content_length if article.content_length is not none else 0 }} characters</span>
                             {% if article.article_metadata and article.article_metadata.get('threat_hunting_score') is not none %}
                             <span>RegexHuntScore: 
                                 {% set score = article.article_metadata.get('threat_hunting_score', 0) %}
@@ -478,7 +478,7 @@
                         {% endif %}
 
                         <p class="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">
-                            {{ article.content[:300] }}{% if article.content|length > 300 %}...{% endif %}
+                            {{ article.content[:300] }}{% if article.content_length and article.content_length > 300 %}...{% endif %}
                         </p>
 
                         <div class="flex items-center space-x-2">
