@@ -1,10 +1,10 @@
 """Unit tests for similarity match filtering logic used in sigma_queue route.
 
-Tests the behavioral overlap filter and to_store filter that were added
-alongside the semantic embedding fallback (2026-04-12, dev-io branch).
+Tests the behavioral overlap filter and to_store filter that determine
+which similarity matches are persisted and displayed (2026-04-12, dev-io).
 
 These tests validate the *predicate logic* extracted from
-``get_similar_rules_for_queued_rule`` — the route handler applies these
+``get_similar_rules_for_queued_rule`` -- the route handler applies these
 filters inline, so we replicate the exact expressions here.
 """
 
@@ -22,8 +22,8 @@ def _has_behavioral_overlap(match: dict) -> bool:
 
 
 def _should_store(match: dict) -> bool:
-    """True if match should be persisted: behavioral overlap OR semantic engine."""
-    return _has_behavioral_overlap(match) or match.get("similarity_engine") == "semantic"
+    """True if match should be persisted: behavioral overlap (jaccard > 0)."""
+    return _has_behavioral_overlap(match)
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────
@@ -131,9 +131,9 @@ class TestToStoreFilter:
         """Zero-overlap deterministic matches should be excluded."""
         assert _should_store(zero_jaccard_match) is False
 
-    def test_semantic_fallback_stored(self, semantic_fallback_match):
-        """Semantic engine matches stored even with jaccard=0."""
-        assert _should_store(semantic_fallback_match) is True
+    def test_semantic_fallback_not_stored(self, semantic_fallback_match):
+        """Semantic engine matches with jaccard=0 are not stored (semantic fallback reverted)."""
+        assert _should_store(semantic_fallback_match) is False
 
     def test_mixed_batch_filtering(self, behavioral_match, zero_jaccard_match, semantic_fallback_match):
         """Replicate the actual list comprehension from the route handler."""
@@ -143,118 +143,48 @@ class TestToStoreFilter:
             m
             for m in similar_matches[:10]
             if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
-            or m.get("similarity_engine") == "semantic"
         ]
 
-        assert len(to_store) == 2
-        titles = {m["title"] for m in to_store}
-        assert behavioral_match["title"] in titles
-        assert semantic_fallback_match["title"] in titles
-        assert zero_jaccard_match["title"] not in titles
+        assert len(to_store) == 1
+        assert to_store[0]["title"] == behavioral_match["title"]
 
 
-# ── Semantic fallback match shape tests ───────────────────────────────────
+# ── Soft cross-field match filtering tests ────────────────────────────────
 
 
-class TestSemanticFallbackMatchShape:
-    """Validate the dict structure produced by the semantic embedding fallback."""
+class TestSoftCrossFieldMatchFiltering:
+    """Verify that soft cross-field matches (jaccard > 0 via dampened soft path)
+    are correctly stored and displayed."""
 
-    REQUIRED_KEYS = {
-        "id",
-        "rule_id",
-        "title",
-        "description",
-        "logsource",
-        "detection",
-        "tags",
-        "level",
-        "status",
-        "file_path",
-        "similarity",
-        "similarity_score",
-        "similarity_method",
-        "novelty_label",
-        "atom_jaccard",
-        "logic_shape_similarity",
-        "shared_atoms",
-        "added_atoms",
-        "removed_atoms",
-        "filter_differences",
-        "similarity_engine",
-        "semantic_details",
-    }
-
-    SEMANTIC_DETAILS_KEYS = {
-        "jaccard",
-        "containment_factor",
-        "filter_penalty",
-        "surface_score_a",
-        "surface_score_b",
-        "semantic_similarity",
-    }
-
-    def _build_semantic_match(self, sem_sim: float = 0.65) -> dict:
-        """Build a match dict identical to what the route handler produces."""
-        return {
-            "id": 42,
-            "rule_id": "abc123",
-            "title": "Test Semantic Rule",
-            "description": "A rule found by embedding similarity",
-            "logsource": {"category": "process_creation", "product": "windows"},
-            "detection": {"selection": {"Image|endswith": "\\cmd.exe"}, "condition": "selection"},
-            "tags": ["attack.execution"],
-            "level": "medium",
-            "status": "stable",
-            "file_path": "rules/windows/process_creation/test.yml",
-            "similarity": sem_sim,
-            "similarity_score": sem_sim,
-            "similarity_method": "semantic_embedding",
-            "novelty_label": "NOVEL",
-            "atom_jaccard": 0.0,
-            "logic_shape_similarity": None,
-            "shared_atoms": [],
-            "added_atoms": [],
-            "removed_atoms": [],
-            "filter_differences": [],
-            "similarity_engine": "semantic",
-            "semantic_details": {
-                "jaccard": 0.0,
-                "containment_factor": 0.0,
-                "filter_penalty": 0.0,
-                "surface_score_a": 0,
-                "surface_score_b": 0,
-                "semantic_similarity": sem_sim,
-            },
+    def test_soft_match_stored(self):
+        """A match with small but positive jaccard from soft matching is stored."""
+        soft_match = {
+            "title": "Rundll32 via CommandLine",
+            "atom_jaccard": 0.10,
+            "similarity_engine": "deterministic",
+            "semantic_details": {"jaccard": 0.10, "containment_factor": 0.0, "filter_penalty": 0.0},
         }
+        assert _should_store(soft_match) is True
 
-    def test_all_required_keys_present(self):
-        match = self._build_semantic_match()
-        assert self.REQUIRED_KEYS.issubset(match.keys())
+    def test_zero_jaccard_after_soft_matching_not_stored(self):
+        """If soft matching still yields 0 (no shared exe values), not stored."""
+        no_overlap = {
+            "title": "DNS rule vs process rule",
+            "atom_jaccard": 0.0,
+            "similarity_engine": "deterministic",
+            "semantic_details": {"jaccard": 0.0},
+        }
+        assert _should_store(no_overlap) is False
 
-    def test_semantic_details_shape(self):
-        match = self._build_semantic_match()
-        assert set(match["semantic_details"].keys()) == self.SEMANTIC_DETAILS_KEYS
-
-    def test_invariants(self):
-        """Semantic matches always have jaccard=0, engine=semantic, method=semantic_embedding."""
-        match = self._build_semantic_match(0.8)
-        assert match["atom_jaccard"] == 0.0
-        assert match["similarity_engine"] == "semantic"
-        assert match["similarity_method"] == "semantic_embedding"
-        assert match["novelty_label"] == "NOVEL"
-        assert match["semantic_details"]["jaccard"] == 0.0
-        assert match["semantic_details"]["semantic_similarity"] == 0.8
-
-    def test_similarity_threshold_respected(self):
-        """Route handler filters sem_sim < 0.3 — verify the threshold contract."""
-        below_threshold = 0.29
-        above_threshold = 0.31
-        # The route skips rows with sem_sim < 0.3
-        assert below_threshold < 0.3
-        assert above_threshold >= 0.3
-
-    def test_tags_always_list(self):
-        """Tags should be a list even when empty."""
-        match = self._build_semantic_match()
-        match["tags"] = []
-        assert isinstance(match["tags"], list)
+    def test_batch_with_soft_and_zero_matches(self):
+        """Mixed batch: soft matches kept, zeros dropped."""
+        matches = [
+            {"title": "Strong", "semantic_details": {"jaccard": 0.75}},
+            {"title": "Soft", "semantic_details": {"jaccard": 0.10}},
+            {"title": "Zero", "semantic_details": {"jaccard": 0.0}},
+            {"title": "Missing", "atom_jaccard": 0.0},
+        ]
+        stored = [m for m in matches if _should_store(m)]
+        assert len(stored) == 2
+        titles = {m["title"] for m in stored}
+        assert titles == {"Strong", "Soft"}
