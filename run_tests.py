@@ -286,7 +286,7 @@ class RunTestRunner:
 
     def _wait_for_test_containers(self, timeout_seconds: int = 90) -> bool:
         """Wait until required local test containers report healthy status."""
-        compose_base = ["docker", "compose", "-f", "docker-compose.test.yml"]
+        compose_base = ["docker", "compose", "-f", str(project_root / "docker-compose.test.yml")]
         required_services = ("postgres_test", "redis_test")
         deadline = time.time() + timeout_seconds
 
@@ -335,6 +335,75 @@ class RunTestRunner:
         logger.error("Timed out waiting for test containers to become healthy")
         return False
 
+    def _test_containers_running(self) -> tuple[bool, list[str]]:
+        """Return whether the required named test containers are running."""
+        required_containers = ("cti_postgres_test", "cti_redis_test")
+        statuses: list[str] = []
+        all_running = True
+
+        for container_name in required_containers:
+            result = subprocess.run(
+                ["docker", "ps", "--filter", f"name={container_name}", "--format", "{{.Names}}"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            running = container_name in (result.stdout or "")
+            statuses.append(f"{container_name}={'running' if running else 'missing'}")
+            if not running:
+                all_running = False
+
+        return all_running, statuses
+
+    def _start_test_containers(self) -> bool:
+        """Start the required local test containers."""
+        logger.info("Starting required test containers...")
+        result = subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(project_root / "docker-compose.test.yml"),
+                "up",
+                "-d",
+                "postgres_test",
+                "redis_test",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            logger.error("Failed to start test containers")
+            if result.stderr:
+                logger.error("Error: %s", result.stderr.strip())
+            return False
+
+        logger.info("Test containers started successfully")
+        return True
+
+    def _ensure_test_containers(self) -> bool:
+        """Ensure the required local test containers are running and healthy."""
+        running, statuses = self._test_containers_running()
+        if running:
+            logger.info("Test containers already running: %s", ", ".join(statuses))
+            if not self._wait_for_test_containers():
+                logger.error("Required test containers are not healthy")
+                return False
+            return True
+
+        logger.warning("Required test containers not running: %s", ", ".join(statuses))
+        logger.info("Starting postgres_test and redis_test from docker-compose.test.yml...")
+
+        if not self._start_test_containers():
+            return False
+
+        if not self._wait_for_test_containers():
+            logger.error("Required test containers are not healthy")
+            return False
+
+        return True
+
     async def setup_environment(self) -> bool:
         """Set up test environment."""
         # Check if test containers are needed for stateful tests
@@ -353,36 +422,14 @@ class RunTestRunner:
             in_ci = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
             if not in_ci:
                 logger.info("Stateful tests detected - checking for test containers...")
-                result = subprocess.run(
-                    ["docker", "ps", "--filter", "name=cti_postgres_test", "--format", "{{.Names}}"],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                if "cti_postgres_test" not in result.stdout:
-                    logger.warning("Test containers not running. Starting test containers...")
-                    logger.info("Run 'make test-up' or './scripts/test_setup.sh' to start containers")
-                    setup_script = Path("scripts/test_setup.sh")
-                    if setup_script.exists():
-                        result = subprocess.run([str(setup_script)], capture_output=True, text=True, check=False)
-                        if result.returncode != 0:
-                            logger.error("Failed to start test containers")
-                            logger.error(f"Error: {result.stderr}")
-                            return False
-                        logger.info("Test containers started successfully")
-                    else:
-                        logger.error("Test setup script not found. Please run 'make test-up' manually")
-                        return False
+                if not self._ensure_test_containers():
+                    return False
             else:
                 logger.info("CI detected - using GitHub Actions services (postgres/redis)")
 
             # In CI, GitHub Actions `services:` blocks provide Postgres/Redis with
             # their own health-checks.  _wait_for_test_containers inspects local
             # docker-compose containers which don't exist in CI, so skip it.
-            if not in_ci:
-                if not self._wait_for_test_containers():
-                    logger.error("Required test containers are not healthy")
-                    return False
 
         # Set up test environment variables
         os.environ["APP_ENV"] = "test"

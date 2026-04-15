@@ -5,7 +5,7 @@
 set -e
 
 echo "Starting test containers..."
-docker compose -f docker-compose.test.yml up -d
+docker compose -f docker-compose.test.yml up -d postgres_test redis_test
 
 echo "Waiting for containers to be healthy..."
 timeout=60

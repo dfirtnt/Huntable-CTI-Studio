@@ -3,6 +3,7 @@
 import os
 import subprocess
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -248,3 +249,92 @@ class TestUITestOptimizations:
             assert "--timeout=60" in cmd, f"--timeout=60 not in pytest command: {cmd}"
         except ImportError:
             pass  # pytest-timeout not installed — timeout guard disabled, that's fine
+
+
+class TestTestContainerStartup:
+    def test_test_containers_running_reports_both_names(self, runner, monkeypatch):
+        responses = {
+            "cti_postgres_test": "cti_postgres_test\n",
+            "cti_redis_test": "",
+        }
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, capture_output, text, check):
+            calls.append(cmd)
+            container_name = cmd[3].split("=", 1)[1]
+            return SimpleNamespace(returncode=0, stdout=responses[container_name], stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        running, statuses = runner._test_containers_running()
+
+        assert not running
+        assert statuses == ["cti_postgres_test=running", "cti_redis_test=missing"]
+        assert calls == [
+            ["docker", "ps", "--filter", "name=cti_postgres_test", "--format", "{{.Names}}"],
+            ["docker", "ps", "--filter", "name=cti_redis_test", "--format", "{{.Names}}"],
+        ]
+
+    def test_ensure_test_containers_starts_and_waits_when_missing(self, runner, monkeypatch):
+        called = {"start": 0, "wait": 0}
+
+        monkeypatch.setattr(
+            runner,
+            "_test_containers_running",
+            lambda: (False, ["cti_postgres_test=running", "cti_redis_test=missing"]),
+        )
+
+        def fake_start():
+            called["start"] += 1
+            return True
+
+        def fake_wait():
+            called["wait"] += 1
+            return True
+
+        monkeypatch.setattr(runner, "_start_test_containers", fake_start)
+        monkeypatch.setattr(runner, "_wait_for_test_containers", fake_wait)
+
+        assert runner._ensure_test_containers() is True
+        assert called == {"start": 1, "wait": 1}
+
+    def test_ensure_test_containers_waits_when_already_running(self, runner, monkeypatch):
+        called = {"wait": 0}
+
+        monkeypatch.setattr(
+            runner,
+            "_test_containers_running",
+            lambda: (True, ["cti_postgres_test=running", "cti_redis_test=running"]),
+        )
+
+        def fake_wait():
+            called["wait"] += 1
+            return True
+
+        monkeypatch.setattr(runner, "_wait_for_test_containers", fake_wait)
+
+        assert runner._ensure_test_containers() is True
+        assert called == {"wait": 1}
+
+    def test_start_test_containers_invokes_both_services(self, runner, monkeypatch):
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, capture_output, text, check):
+            calls.append(cmd)
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        assert runner._start_test_containers() is True
+        assert calls == [
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(PROJECT_ROOT / "docker-compose.test.yml"),
+                "up",
+                "-d",
+                "postgres_test",
+                "redis_test",
+            ]
+        ]
