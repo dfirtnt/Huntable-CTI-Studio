@@ -283,6 +283,18 @@
   border-radius:50%;
   animation:spin 1s linear infinite;
 }
+.healing-status-badge.healed {
+  background:rgba(34,197,94,0.15); color:#4ade80;
+  border-color:rgba(34,197,94,0.3);
+}
+.healing-status-badge.exhausted {
+  background:rgba(239,68,68,0.15); color:#fca5a5;
+  border-color:rgba(239,68,68,0.3);
+}
+.healing-status-badge.idle {
+  background:rgba(100,116,139,0.15); color:#94a3b8;
+  border-color:rgba(100,116,139,0.3);
+}
 @keyframes spin {
   to { transform:rotate(360deg); }
 }
@@ -739,22 +751,41 @@ async function updateHealingStatusBadges() {
 
             const data = await response.json();
 
-            statusContainer.innerHTML = '';
+            statusContainer.replaceChildren();
 
-            // Only show badge if healing is active
+            const badge = document.createElement('span');
+            const currentRound = data.current_round || 0;
+
             if (data.status === 'in_progress' || data.status === 'starting') {
-                const badge = document.createElement('span');
                 badge.className = 'healing-status-badge';
-
                 const spinner = document.createElement('div');
                 spinner.className = 'spinner';
                 badge.appendChild(spinner);
-
                 const text = document.createElement('span');
-                const currentRound = data.current_round || 0;
                 text.textContent = 'Healing: Round ' + currentRound + '/' + data.max_attempts;
                 badge.appendChild(text);
-
+                statusContainer.appendChild(badge);
+            } else if (data.status === 'exhausted') {
+                badge.className = 'healing-status-badge exhausted';
+                badge.textContent = 'AI healing failed (' + data.max_attempts + '/' + data.max_attempts + ' rounds)';
+                statusContainer.appendChild(badge);
+            } else if (data.status === 'healed') {
+                badge.className = 'healing-status-badge healed';
+                badge.textContent = 'Healed (round ' + currentRound + ')';
+                statusContainer.appendChild(badge);
+            } else if (data.status === 'idle' && _recentlyDispatched.has(String(sourceId))) {
+                // Optimistic badge: dispatch confirmed but backend event not in DB yet
+                badge.className = 'healing-status-badge';
+                const spinner = document.createElement('div');
+                spinner.className = 'spinner';
+                badge.appendChild(spinner);
+                const text = document.createElement('span');
+                text.textContent = 'Healing: Starting...';
+                badge.appendChild(text);
+                statusContainer.appendChild(badge);
+            } else if (data.status === 'idle' && currentRound > 0) {
+                badge.className = 'healing-status-badge idle';
+                badge.textContent = 'Healing paused (' + currentRound + '/' + data.max_attempts + ' rounds)';
                 statusContainer.appendChild(badge);
             }
         } catch (error) {
@@ -1012,6 +1043,10 @@ function saveSourceConfig() {
 }
 
 // ── Per-source healing ──
+// Tracks sourceIds dispatched within the last 30s so the badge shows
+// "Starting..." optimistically before the backend event lands in DB.
+const _recentlyDispatched = new Set();
+
 async function healSource(sourceId) {
     try {
         showLoadingModal('Healing Source', 'Dispatching AI healing...');
@@ -1019,8 +1054,10 @@ async function healSource(sourceId) {
         var result = await response.json();
         if (response.ok) {
             showModal('Healing Dispatched', 'AI healing has been dispatched for this source. Check the healing history panel for results.');
-            // Immediately update the healing status badge
-            setTimeout(updateHealingStatusBadges, 1000);
+            // Mark as recently dispatched; expires after 30s
+            _recentlyDispatched.add(String(sourceId));
+            setTimeout(function() { _recentlyDispatched.delete(String(sourceId)); }, 30000);
+            updateHealingStatusBadges();
         } else {
             showModal('Healing Failed', result.detail || 'Unknown error');
         }
@@ -1036,7 +1073,15 @@ async function resetHealing(sourceId) {
         var result = await response.json();
         if (response.ok) {
             showModal('Healing Reset', 'Healing state has been reset. The source is eligible for healing again.');
-            setTimeout(function() { window.location.reload(); }, 1500);
+            // In-place DOM update — preserve active filters
+            var card = document.querySelector('[data-source-id="' + sourceId + '"]');
+            if (card) {
+                var resetBtn = card.querySelector('.btn-reset');
+                if (resetBtn) resetBtn.remove();
+                var exhaustedBadge = card.querySelector('.heal-exhausted-badge');
+                if (exhaustedBadge) exhaustedBadge.remove();
+            }
+            updateHealingStatusBadges();
         } else {
             showModal('Reset Failed', result.detail || 'Unknown error');
         }
@@ -1084,7 +1129,21 @@ async function loadHealingHistory(sourceId, sourceName, body) {
             return;
         }
 
-        // Clear loading text
+        // Snapshot which event toggles are currently open so we can restore
+        // them after re-rendering (prevents poll ticks from collapsing expanded sections).
+        var openDiags = new Set();
+        var openConfigs = new Set();
+        body.querySelectorAll('.heal-event[data-event-key]').forEach(function(ec) {
+            var k = ec.dataset.eventKey;
+            if (ec.querySelector('.heal-event-diagnosis.open'))    openDiags.add(k);
+            if (ec.querySelector('.heal-event-config-block.open')) openConfigs.add(k);
+        });
+
+        // Preserve scroll position — the panel container (overflow-y:auto) scrolls, not body
+        var panel = document.getElementById('healingPanel');
+        var savedScrollTop = panel ? panel.scrollTop : 0;
+
+        // Clear and rebuild panel body
         while (body.firstChild) body.removeChild(body.firstChild);
 
         // Render progress indicator if healing config is available
@@ -1252,6 +1311,7 @@ async function loadHealingHistory(sourceId, sourceName, body) {
         data.events.forEach(function(ev, idx) {
             var card = document.createElement('div');
             card.className = 'heal-event';
+            card.dataset.eventKey = ev.created_at;  // stable key for toggle state restore
             if (newEventCount > 0 && idx < newEventCount) {
                 card.classList.add('new-event');
             }
@@ -1334,7 +1394,6 @@ async function loadHealingHistory(sourceId, sourceName, body) {
             }
 
             // ── Expandable: full config + LLM diagnosis ──
-            var uid = 'heal-detail-' + ev.round_number + '-' + Date.now();
             var toggleRow = document.createElement('div');
             toggleRow.style.display = 'flex';
             toggleRow.style.gap = '0.75rem';
@@ -1342,13 +1401,19 @@ async function loadHealingHistory(sourceId, sourceName, body) {
             var configToggle = document.createElement('button');
             configToggle.type = 'button';
             configToggle.className = 'heal-event-config-toggle';
-            configToggle.textContent = 'Show full config';
             var configBlock = document.createElement('div');
             configBlock.className = 'heal-event-config-block';
             // Build the full config object from actions
             var configObj = {};
             (ev.actions_applied || []).forEach(function(a) { configObj[a.field] = a.value; });
             configBlock.textContent = 'config \u2192 ' + JSON.stringify(configObj, null, 2);
+            // Restore open state if it was open before re-render
+            if (openConfigs.has(ev.created_at)) {
+                configBlock.classList.add('open');
+                configToggle.textContent = 'Hide full config';
+            } else {
+                configToggle.textContent = 'Show full config';
+            }
             configToggle.onclick = function() {
                 var isOpen = configBlock.classList.toggle('open');
                 configToggle.textContent = isOpen ? 'Hide full config' : 'Show full config';
@@ -1358,10 +1423,16 @@ async function loadHealingHistory(sourceId, sourceName, body) {
             var diagToggle = document.createElement('button');
             diagToggle.type = 'button';
             diagToggle.className = 'heal-event-config-toggle';
-            diagToggle.textContent = 'Show LLM reasoning';
             var diagEl = document.createElement('div');
             diagEl.className = 'heal-event-diagnosis';
             diagEl.textContent = ev.diagnosis;
+            // Restore open state if it was open before re-render
+            if (openDiags.has(ev.created_at)) {
+                diagEl.classList.add('open');
+                diagToggle.textContent = 'Hide LLM reasoning';
+            } else {
+                diagToggle.textContent = 'Show LLM reasoning';
+            }
             diagToggle.onclick = function() {
                 var isOpen = diagEl.classList.toggle('open');
                 diagToggle.textContent = isOpen ? 'Hide LLM reasoning' : 'Show LLM reasoning';
@@ -1380,6 +1451,8 @@ async function loadHealingHistory(sourceId, sourceName, body) {
 
             body.appendChild(card);
         });
+
+        if (panel) panel.scrollTop = savedScrollTop;
 
     } catch (error) {
         body.textContent = 'Error: ' + error.message;
