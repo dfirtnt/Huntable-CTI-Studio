@@ -93,6 +93,18 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 
 Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, and their QA counterparts (`RankAgentQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`).
 
+Each prompt object is a JSON dict with these fields:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `role` (or `system`) | string | Agent persona -- identity and expertise statement |
+| `task` (or `objective`) | string | What the agent does this run |
+| `instructions` | string | Rules, constraints, output format, JSON enforcement |
+| `json_example` | string or dict | Concrete output schema example |
+| `output_format` | dict | Legacy schema description (used if `json_example` absent) |
+
+The user message scaffold (Title/URL/Content headers, instructions footer) is assembled by the runtime and is not part of the prompt config. See [Prompt Architecture](../concepts/agents.md#prompt-architecture) for how prompts are assembled at runtime.
+
 The strict configuration contract is defined in `src/config/workflow_config_schema.py`.
 
 ### Settings And Integrations

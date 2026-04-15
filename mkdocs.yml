@@ -81,6 +81,15 @@ nav:
       - Multi-Instance: development/multi-instance.md
       - Workflow Queue: development/workflow-queue.md
       - Search Queries: development/search-queries.md
+  - Contracts:
+      - Extractor Standard: contracts/extractor-standard.md
+      - CmdLineExtract: contracts/cmdline-extract.md
+      - ProcTreeExtract: contracts/proctree-extract.md
+      - RegistryExtract: contracts/registry-extract.md
+      - ServicesExtract: contracts/services-extract.md
+      - HuntQueriesExtract: contracts/huntquery-extract.md
+      - Rank Agent: contracts/rank-agent.md
+      - Fail-Closed Protocol: contracts/fail-closed-protocol.md
   - Prompts:
       - Eval Bundle Analysis: prompts/eval-bundle.md
       - Hunt Query Eval: prompts/huntquery-eval.md
