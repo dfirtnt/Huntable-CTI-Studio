@@ -173,6 +173,7 @@ datasets/
 !config/eval_articles_data/**/articles.json
 !package.json
 !package-lock.json
+!browser-extension/manifest.json
 *.parquet
 
 
