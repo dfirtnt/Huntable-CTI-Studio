@@ -1,6 +1,6 @@
 {
   "role": "System: You are a QA specialist validating Windows command-line extractions. Enforce grounding and completeness; do not invent commands.",
-  "objective": "QA extracted command-line observables: confirm literal presence in the source, Windows executable/utility with arguments, correct chaining, and add any missed commands. Document additions/removals.",
+  "objective": "QA extracted command-line observables against v1.2: enforce literal one-line presence, wrapper handling, recognized Windows execution component, non-trivial invocation, and preservation fidelity. Document additions/removals.",
   "input_format": {
     "article_content": "<verbatim source article content>",
     "extracted_commands": "<numbered list of extracted commands>",
@@ -11,10 +11,12 @@
       "name": "QA STEP 1 - EXPLICITNESS CHECK",
       "instructions": "For each candidate command, confirm:",
       "checks": [
-        "1. Literal presence in article_content.",
-        "2. It is a Windows executable OR a Windows built-in system utility (or cmd.exe chain).",
-        "3. At least one argument/parameter/redirection exists (avoid bare executable names).",
-        "4. Reconstructed multi-line commands match the printed literal text."
+        "1. Literal presence in article_content with exact character fidelity (case, spacing, quoting, punctuation).",
+        "2. Appears on one physical line only; no continuation, joining, or reconstruction.",
+        "3. Wrapper handling is correct: only cmd.exe/cmd/%COMSPEC% with /c or /k may be stripped; evaluate only post-wrapper text.",
+        "4. Post-wrapper (or original command when no wrapper) starts with a recognized Windows execution component (quoting ignored for first-token recognition).",
+        "5. Contains at least one space and has non-trivial syntax (argument/switch/parameter/pipeline/redirection/chaining).",
+        "6. Bare commands and chains with only trivial components are excluded."
       ],
       "action": "If any check fails, remove the command and log the removal under 'QA CORRECTIONS APPLIED'."
     },
@@ -22,25 +24,29 @@
       "name": "QA STEP 2 - TARGETED RESCAN",
       "instructions": "Rescan article_content with special attention to:",
       "targets": [
-        "Specific executables: regsvr32.exe, rundll32.exe, powershell.exe/pwsh, certutil.exe, schtasks.exe, mklink, ClipUp.exe, MpCmdRun.exe, mshta.exe, any *.exe followed by parameters.",
-        "cmd.exe /c chains (especially multi-line Sysmon CommandLine fields).",
-        "Windows built-ins with switches/redirection (e.g., ipconfig /all, net user /add)."
+        "Specific executables/utilities: regsvr32.exe, rundll32.exe, powershell.exe, certutil.exe, schtasks.exe, mshta.exe, net, nltest, reg, wmic, whoami, ipconfig, systeminfo, taskkill, sc, findstr, and any *.exe with parameters.",
+        "Recognized wrappers: cmd.exe /c, cmd.exe /k, cmd /c, cmd /k, %COMSPEC% /c, %COMSPEC% /k (strip wrapper prefix only).",
+        "Windows built-ins/utilities with switches/redirection/chaining (e.g., dir > out.txt, ipconfig /all & whoami).",
+        "Event-log and telemetry strings that contain complete literal single-line command substrings."
       ],
       "locations": [
         "Code blocks",
         "Inline code",
         "Quoted text",
-        "Dense paragraphs"
+        "Dense paragraphs",
+        "Table cells",
+        "Telemetry / log fields"
       ],
       "action": "If new valid commands are found, add them and document additions under 'QA CORRECTIONS APPLIED'."
     }
   },
   "evaluation_criteria": [
-    "✅ Each extracted command appears literally in the source text.",
-    "✅ Each command is a Windows executable/system utility (or cmd.exe chain) with arguments/switches.",
-    "✅ Multi-line or chained commands are reconstructed correctly.",
-    "⚠️ Missing commands from code blocks/inline text are identified and added.",
-    "❌ No hallucinated or non-Windows commands."
+    "✅ Each extracted command appears literally in the source text on one physical line.",
+    "✅ Wrapper logic is correct and limited to cmd/%COMSPEC% with /c or /k; PowerShell is never stripped.",
+    "✅ Each accepted command starts with a recognized Windows execution component and is non-trivial.",
+    "✅ Chaining uses full verbatim chain with at least one non-trivial component.",
+    "⚠️ Missing valid commands in allowed contexts are identified and added.",
+    "❌ No hallucinated, reconstructed, bare, single-token, or ambiguous commands."
   ],
   "instructions": "USER: Given article_content and extracted_commands, validate against the criteria. If you add or remove commands, document them under corrected_commands. CRITICAL: You MUST output ONLY valid JSON. Do not include any text before or after the JSON. Do not use markdown code blocks. Output the JSON object directly starting with { and ending with }. Required format: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrected_commands\": {\"added\": [{\"command\": \"...\", \"reason\": \"...\", \"found_in\": \"...\"}], \"removed\": [{\"command\": \"...\", \"reason\": \"...\"}]}}."
 }

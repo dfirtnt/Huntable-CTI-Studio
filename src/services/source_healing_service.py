@@ -63,11 +63,20 @@ appropriate CSS selector.
 
 PLATFORM CAPABILITIES:
 - Fetch tiers: RSS → Playwright (if use_playwright=true) → Modern scraping → Legacy scraping
-- Discovery strategies: "listing" (CSS selector on listing page), "sitemap" (XML sitemap), \
-"wp_json" (WordPress REST API). Strategies can be bare strings like "sitemap" or dicts \
-like {"sitemap": {"urls": [...]}}.
-- wp_json config: {"endpoints": ["https://example.com/wp-json/wp/v2/posts?per_page=50"], \
-"url_field_priority": ["link", "guid.rendered"]}
+- Discovery strategies (HTML-based) live under config.discovery.strategies: "listing" \
+(CSS selector on listing page) and "sitemap" (XML sitemap). Strategies may be bare \
+strings like "sitemap" or single-key dicts like {"sitemap": {"urls": [...]}}.
+- "listing" strategy REQUIRED keys: both "urls" (list of listing page URLs to crawl) and \
+"post_link_selector" (CSS selector for post anchor tags). Without EITHER key the scraper \
+silently returns zero URLs. Do NOT use "selector" — the reader ignores it.
+  Example: {"listing": {"urls": ["https://example.com/blog/"], \
+"post_link_selector": "h2.entry-title a", "max_pages": 5}}
+- "sitemap" strategy config: {"sitemap": {"urls": ["https://example.com/sitemap.xml"]}}.
+- wp_json is NOT a discovery strategy. It is a TOP-LEVEL config field read from \
+config.wp_json by the scraper's fast path. Placing it under config.discovery.strategies \
+makes it a silent no-op. Shape: \
+{"wp_json": {"endpoints": ["https://<site>/wp-json/wp/v2/posts?per_page=50"], \
+"url_field_priority": ["link", "guid.rendered"]}}
 - Setting rss_url to null skips the RSS tier entirely.
 - Setting "use_playwright": true enables headless browser rendering for JS-heavy sites.
 - If RSS is reachable but returns zero articles, the fetcher will fall through to the next \
@@ -84,6 +93,15 @@ RULES:
   }
 - Valid field names: "url", "rss_url", "config".
 - For "config", the value must be a JSON object that will be merged into the existing config.
+- CANONICAL EXAMPLES of a "config" action value (copy these shapes exactly):
+  * WP JSON fast path: {"wp_json": {"endpoints": \
+["https://example.com/wp-json/wp/v2/posts?per_page=50"], \
+"url_field_priority": ["link", "guid.rendered"]}}
+  * Listing discovery: {"discovery": {"strategies": [{"listing": \
+{"urls": ["https://example.com/blog/"], "post_link_selector": "h2.entry-title a"}}]}}
+  * Sitemap discovery: {"discovery": {"strategies": [{"sitemap": \
+{"urls": ["https://example.com/post-sitemap.xml"]}}]}}
+  * Enable JS rendering: {"use_playwright": true}
 - If the source URL redirects to a new location (shown in probe results), update "url" to \
 the final redirect target.
 - If the RSS feed URL is broken but the main URL works, set "rss_url" to null.
@@ -978,6 +996,92 @@ class SourceHealingService:
     # ── Step 4: Apply actions ──────────────────────────────────────────
 
     @staticmethod
+    def _normalize_proposed_config(config_value: dict, source_snapshot: dict) -> tuple[dict, list[str]]:
+        """Rewrite structurally-plausible-but-semantically-wrong shapes that LLMs often emit.
+
+        Historical drift between the healing prompt and the scraper's reader has two
+        common consequences we correct here so the LLM's fix actually takes effect:
+
+        * ``wp_json`` belongs at the top level of config (``config.wp_json``). The
+          scraper's fast path (``modern_scraper._fetch_wp_json_articles``) reads it
+          only from that location; placing it under ``config.discovery.strategies``
+          is a silent no-op. We hoist it up.
+        * ``listing`` discovery requires both ``urls`` and ``post_link_selector``.
+          LLMs often emit a bare ``selector`` key (the prompt uses the word
+          "selector" informally) and/or omit ``urls``. We rename ``selector``
+          to ``post_link_selector`` when the correct key is missing, and default
+          ``urls`` to the source's own URL when absent.
+
+        Returns the normalized config plus a list of human-readable notes describing
+        what changed. An empty notes list means the LLM's shape was already correct.
+        """
+        import copy as _copy
+
+        notes: list[str] = []
+        if not isinstance(config_value, dict):
+            return config_value, notes
+        normalized = _copy.deepcopy(config_value)
+
+        discovery = normalized.get("discovery")
+        if not isinstance(discovery, dict):
+            return normalized, notes
+        strategies = discovery.get("strategies")
+        if not isinstance(strategies, list):
+            return normalized, notes
+
+        surviving: list = []
+        for strat in strategies:
+            if not isinstance(strat, dict) or len(strat) != 1:
+                surviving.append(strat)
+                continue
+            name, cfg = next(iter(strat.items()))
+
+            if name == "wp_json" and isinstance(cfg, dict) and cfg.get("endpoints"):
+                # Hoist to top-level so the scraper's fast path picks it up.
+                existing_top = normalized.get("wp_json")
+                if isinstance(existing_top, dict):
+                    normalized["wp_json"] = {**existing_top, **cfg}
+                else:
+                    normalized["wp_json"] = cfg
+                notes.append(
+                    "Hoisted wp_json from discovery.strategies to top-level "
+                    "config.wp_json (the scraper reads it only from there)"
+                )
+                continue
+
+            if name == "listing" and isinstance(cfg, dict):
+                fixed = dict(cfg)
+                rewrote = False
+                if "selector" in fixed and "post_link_selector" not in fixed:
+                    fixed["post_link_selector"] = fixed.pop("selector")
+                    rewrote = True
+                    notes.append(
+                        "Renamed listing.selector to listing.post_link_selector "
+                        "(required key name for the discovery reader)"
+                    )
+                if not fixed.get("urls"):
+                    source_url = source_snapshot.get("url")
+                    if isinstance(source_url, str) and source_url.startswith(("http://", "https://")):
+                        fixed["urls"] = [source_url]
+                        rewrote = True
+                        notes.append(
+                            f"Injected listing.urls=[{source_url}] from source URL "
+                            "(listing discovery returns zero URLs without it)"
+                        )
+                surviving.append({"listing": fixed} if rewrote else strat)
+                continue
+
+            surviving.append(strat)
+
+        if surviving:
+            discovery["strategies"] = surviving
+        else:
+            # Discovery section became empty after hoisting; drop it entirely.
+            normalized.pop("discovery", None)
+
+        return normalized, notes
+
+    @staticmethod
     async def _apply_actions(
         db: AsyncDatabaseManager, source_id: int, analysis: dict, source_snapshot: dict
     ) -> list[dict]:
@@ -1001,6 +1105,16 @@ class SourceHealingService:
                     # Merge LLM-proposed config over existing config to preserve existing keys
                     from src.models.source import SourceConfig
 
+                    normalized_value, normalization_notes = SourceHealingService._normalize_proposed_config(
+                        value, source_snapshot
+                    )
+                    if normalization_notes:
+                        logger.info(
+                            "[AutoHeal] Normalized LLM-proposed config for source %s: %s",
+                            source_id,
+                            "; ".join(normalization_notes),
+                        )
+                    value = normalized_value
                     existing_config = source_snapshot.get("config") or {}
                     merged = {**existing_config, **value}
                     update_kwargs["config"] = SourceConfig(**merged)

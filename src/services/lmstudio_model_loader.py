@@ -56,7 +56,10 @@ def get_model_context_length(model_name: str) -> int:
     return WORKFLOW_MIN_CONTEXT
 
 
-def extract_lmstudio_models(agent_models: dict[str, Any]) -> set[str]:
+def extract_lmstudio_models(
+    agent_models: dict[str, Any],
+    qa_enabled: dict[str, Any] | None = None,
+) -> set[str]:
     """
     Extract unique LMStudio model names from agent_models configuration.
 
@@ -70,6 +73,7 @@ def extract_lmstudio_models(agent_models: dict[str, Any]) -> set[str]:
         return set()
 
     models_to_load = set()
+    qa_enabled_map = qa_enabled if isinstance(qa_enabled, dict) else None
 
     # Main agents (model key = agent name)
     main_agents = ["RankAgent", "ExtractAgent", "SigmaAgent"]
@@ -91,8 +95,15 @@ def extract_lmstudio_models(agent_models: dict[str, Any]) -> set[str]:
                 models_to_load.add(model.strip())
 
     # QA agents (model key = agent name, no _model suffix)
-    qa_agents = ["CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RankAgentQA"]
-    for agent_name in qa_agents:
+    qa_agents = [
+        ("CmdLineQA", "CmdlineExtract"),
+        ("ProcTreeQA", "ProcTreeExtract"),
+        ("HuntQueriesQA", "HuntQueriesExtract"),
+        ("RankAgentQA", "RankAgent"),
+    ]
+    for agent_name, base_agent in qa_agents:
+        if qa_enabled_map is not None and not qa_enabled_map.get(base_agent, False):
+            continue
         model = agent_models.get(agent_name)
         if model and isinstance(model, str) and model.strip():
             provider = agent_models.get(f"{agent_name}_provider", "lmstudio")
@@ -166,7 +177,10 @@ def load_model(lms_cmd: str, model_name: str, context_length: int, timeout: int 
         return False, error_msg
 
 
-def auto_load_workflow_models(agent_models: dict[str, Any]) -> dict[str, Any]:
+def auto_load_workflow_models(
+    agent_models: dict[str, Any],
+    qa_enabled: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """
     Automatically load all required LMStudio models for a workflow.
 
@@ -201,7 +215,7 @@ def auto_load_workflow_models(agent_models: dict[str, Any]) -> dict[str, Any]:
     result["lmstudio_cli_available"] = True
 
     # Extract LMStudio models from config
-    models_to_load = extract_lmstudio_models(agent_models)
+    models_to_load = extract_lmstudio_models(agent_models, qa_enabled=qa_enabled)
 
     if not models_to_load:
         logger.info("No LMStudio models found in workflow configuration")

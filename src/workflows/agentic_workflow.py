@@ -2933,7 +2933,10 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         }
         if agent_models_for_loading and "lmstudio" in _lmstudio_providers:
             logger.info(f"[Workflow {execution.id}] Auto-loading LMStudio models...")
-            load_result = auto_load_workflow_models(agent_models_for_loading)
+            load_result = auto_load_workflow_models(
+                agent_models_for_loading,
+                qa_enabled=config.get("qa_enabled") if isinstance(config.get("qa_enabled"), dict) else {},
+            )
             if load_result["models_loaded"]:
                 logger.info(f"[Workflow {execution.id}] ✅ Loaded {len(load_result['models_loaded'])} model(s)")
             if load_result["models_failed"]:

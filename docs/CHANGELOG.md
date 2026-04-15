@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Articles page content length display** (2026-04-14): Articles list showed "Content: 0 characters" for all articles because `load_content=False` deferred the content field for performance but calculated length from the empty string. Now uses batch SQL `char_length()` query to fetch actual content lengths without loading full article text, mirroring the annotation count pattern.
+
+### Changed
+- **LMStudio context length detection** (2026-04-14): Trust `api_models_endpoint` reported context windows with 90% safety margin instead of rejecting values >65536 as "theoretical max". Added explicit context detection for extraction agents when provider is LMStudio, preventing fallback to generic 4096 caps.
+- **Command-line extraction v1.2** (2026-04-14): Updated CmdlineExtract and CmdLineQA prompts with stricter single-line literal matching, explicit wrapper handling rules (cmd/COMSPEC only, PowerShell never stripped), and chain validation requiring at least one non-trivial component. Excludes bare commands and reconstruction from multi-line sources.
+- **Source healing discovery guidance** (2026-04-14): Enhanced source-healing prompt with explicit warnings about common misconfigurations: wp_json must be top-level (not under discovery.strategies), listing strategy requires both `urls` and `post_link_selector` keys, and sitemap needs `urls` array. Added detection warnings in `modern_scraper.py` for wp_json placed under strategies.
+
 ## [5.3.0 "Callisto"] - 2026-04-14
 
 ### Added

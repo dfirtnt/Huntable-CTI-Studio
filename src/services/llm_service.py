@@ -621,8 +621,7 @@ class LLMService:
         detection_method = None
 
         # Method 1: Try to get context length from /models endpoint
-        # NOTE: This endpoint often returns theoretical max, not actual configured length
-        # So we only trust it if it's a reasonable value (not >65536)
+        # LMStudio reports the configured context window here when available.
         async with httpx.AsyncClient() as client:
             for lmstudio_url in lmstudio_urls:
                 try:
@@ -632,19 +631,9 @@ class LLMService:
                         for model in models_data.get("data", []):
                             if model.get("id") == model_name:
                                 # Check for context_length field (may vary by LMStudio version)
-                                # NOTE: This may return theoretical max, not actual configured length
                                 detected_context = model.get("context_length") or model.get("context_length_max")
                                 if detected_context:
-                                    # If detected context is very large (>65536), it's likely theoretical max
-                                    # Don't trust it - we'll use Method 2 (test request) instead
-                                    if detected_context > 65536:
-                                        logger.debug(
-                                            f"/models endpoint returned theoretical max "
-                                            f"({detected_context}) for {model_name}. "
-                                            f"Ignoring and will test actual configured length via request."
-                                        )
-                                        # Don't set context_length here - let Method 2 test it
-                                    elif detected_context >= threshold:
+                                    if detected_context >= threshold:
                                         # Reasonable value that meets threshold - trust it
                                         context_length = detected_context
                                         detection_method = "api_models_endpoint"
@@ -653,13 +642,12 @@ class LLMService:
                                             f"({context_length} tokens) from /models endpoint"
                                         )
                                         break
-                                    else:
-                                        # Value is below threshold - might be wrong, but log it
-                                        logger.warning(
-                                            f"/models endpoint returned {detected_context} for {model_name}, "
-                                            f"which is below threshold {threshold}. Will verify with test request."
-                                        )
-                                        # Don't trust it - let Method 2 verify
+                                    # Value is below threshold - might be wrong, but log it
+                                    logger.warning(
+                                        f"/models endpoint returned {detected_context} for {model_name}, "
+                                        f"which is below threshold {threshold}. Will verify with test request."
+                                    )
+                                    # Don't trust it - let Method 2 verify
                         if context_length:
                             break
                 except httpx.HTTPError:
@@ -1529,6 +1517,10 @@ class LLMService:
         if detection_method == "environment_override":
             # Trust manual override completely
             actual_context_length = detected_length
+        elif detection_method == "api_models_endpoint":
+            # LMStudio reported a configured context window directly; trust it with a safety margin.
+            actual_context_length = int(detected_length * 0.90)
+            logger.info(f"Trusting LMStudio reported context {detected_length} for {model_name}")
         elif 4096 <= detected_length <= model_max_context:
             # Detected context is in reasonable range - trust it (with small safety margin)
             actual_context_length = int(detected_length * 0.90)  # 10% safety margin
@@ -1906,6 +1898,9 @@ class LLMService:
         # Trust detected context if reasonable, otherwise use conservative caps
         if detection_method == "environment_override":
             actual_context_length = detected_length
+        elif detection_method == "api_models_endpoint":
+            actual_context_length = int(detected_length * 0.90)
+            logger.info(f"Trusting LMStudio reported context {detected_length} for {model_name}")
         elif 4096 <= detected_length <= model_max_context:
             actual_context_length = int(detected_length * 0.90)
             logger.info(f"Trusting detected context {detected_length} for {model_name} (method: {detection_method})")
@@ -2389,6 +2384,9 @@ class LLMService:
         # Trust detected context if reasonable, otherwise use conservative caps
         if detection_method == "environment_override":
             actual_context_length = detected_length
+        elif detection_method == "api_models_endpoint":
+            actual_context_length = int(detected_length * 0.90)
+            logger.info(f"Trusting LMStudio reported context {detected_length} for {model_name}")
         elif 4096 <= detected_length <= model_max_context:
             actual_context_length = int(detected_length * 0.90)
             logger.info(f"Trusting detected context {detected_length} for {model_name} (method: {detection_method})")
@@ -3067,6 +3065,21 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     effective_provider = self._canonicalize_provider(self.provider_extract) or resolved_provider
 
                 context_limit_tokens = self._get_context_limit_for_provider(effective_provider)
+                if effective_provider == "lmstudio" and model_name:
+                    try:
+                        context_check = await self.check_model_context_length(model_name=model_name)
+                        detected_context_limit = context_check.get("context_length")
+                        if isinstance(detected_context_limit, int) and detected_context_limit > 0:
+                            context_limit_tokens = detected_context_limit
+                            logger.info(
+                                f"{agent_name} using detected LMStudio context limit "
+                                f"{context_limit_tokens} for model {model_name} "
+                                f"(method: {context_check.get('method', 'unknown')})"
+                            )
+                    except Exception as e:
+                        logger.warning(
+                            f"{agent_name} could not determine LMStudio context length for {model_name}: {e}"
+                        )
 
                 # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
                 snippet_count: int | None = None

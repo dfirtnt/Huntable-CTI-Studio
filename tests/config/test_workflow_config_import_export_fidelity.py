@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -18,6 +19,9 @@ from src.config.workflow_config_loader import (
     is_ui_ordered_preset,
     load_workflow_config,
 )
+
+_QUICKSTART_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "presets" / "AgentConfigs" / "quickstart"
+_QUICKSTART_PRESETS = sorted(_QUICKSTART_DIR.glob("*.json"))
 
 # Unique non-default values so we can assert they survive import and export.
 FIDELITY_JUNK = 0.72
@@ -400,3 +404,47 @@ def test_legacy_import_fails_when_qa_max_retries_missing():
     }
     with pytest.raises(ValueError, match="missing or null"):
         load_workflow_config(legacy)
+
+
+# --- Quickstart preset files: import → export must be lossless ---
+
+
+@pytest.mark.parametrize("preset_path", _QUICKSTART_PRESETS, ids=lambda p: p.stem)
+def test_quickstart_preset_import_export_no_diff(preset_path: Path):
+    """
+    Evidence: importing then exporting a real quickstart preset file produces no diff.
+
+    Each quickstart JSON is loaded from disk, run through export_preset_as_canonical_v2
+    (which does the full import -> WorkflowConfigV2 -> export round-trip), and the result
+    is compared against the original file.  Any field silently dropped or overwritten by
+    a wrong default will surface here as a mismatch.
+
+    Metadata.CreatedAt is excluded from comparison because the exporter refreshes it.
+    """
+    assert preset_path.exists(), f"Quickstart preset missing: {preset_path}"
+    original = json.loads(preset_path.read_text())
+
+    exported = export_preset_as_canonical_v2(original)
+
+    orig_norm = _norm_export(original)
+    exp_norm = _norm_export(exported)
+
+    sections = list(orig_norm.keys())
+    mismatches: list[str] = []
+    for section in sections:
+        if section == "Metadata":
+            continue
+        orig_sec = orig_norm.get(section)
+        exp_sec = exp_norm.get(section)
+        if orig_sec != exp_sec:
+            mismatches.append(
+                f"\n  [{section}]\n"
+                f"    original: {json.dumps(orig_sec, indent=2)}\n"
+                f"    exported: {json.dumps(exp_sec, indent=2)}"
+            )
+
+    missing_from_export = set(orig_norm) - set(exp_norm) - {"Metadata"}
+    extra_in_export = set(exp_norm) - set(orig_norm)
+
+    assert not missing_from_export, f"Sections dropped by export: {missing_from_export}"
+    assert not mismatches, "Round-trip produced differences:" + "".join(mismatches)

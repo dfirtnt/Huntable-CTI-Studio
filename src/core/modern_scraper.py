@@ -79,6 +79,18 @@ class URLDiscovery:
                         # wp_json is handled separately in scrape_source —
                         # just mark that it was requested so discovery can
                         # be skipped if wp_json yields articles directly.
+                        # If endpoints appear here (a common misconfiguration),
+                        # log a warning so the mis-placement is discoverable
+                        # rather than silently ignored. The scraper's fast path
+                        # reads wp_json only from the top level of source.config.
+                        if isinstance(strategy_config, dict) and strategy_config.get("endpoints"):
+                            logger.warning(
+                                "Source %s has wp_json under discovery.strategies but the "
+                                "scraper reads it from top-level config.wp_json. Move "
+                                '{"wp_json": {...}} out of discovery.strategies to the '
+                                "top level of the source config for it to take effect.",
+                                source.name,
+                            )
                         pass
 
                 except Exception as e:

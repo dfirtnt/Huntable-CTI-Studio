@@ -1,5 +1,6 @@
 """Tests for LLM service functionality."""
 
+import contextlib
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -304,6 +305,76 @@ class TestLLMService:
             assert "context_length" in result
             assert "is_sufficient" in result
             assert result["is_sufficient"] is True
+
+    @pytest.mark.asyncio
+    async def test_check_model_context_length_uses_large_reported_window(self, service):
+        """LMStudio-reported large context windows should be returned as-is."""
+        service.provider_rank = "lmstudio"
+        with patch("httpx.AsyncClient") as mock_client_class:
+            mock_client = AsyncMock()
+            mock_response = Mock(
+                status_code=200, json=lambda: {"data": [{"id": "test-model", "context_length": 93835}]}
+            )
+            mock_client.get = AsyncMock(return_value=mock_response)
+            mock_client.post = AsyncMock(
+                return_value=Mock(status_code=200, json=lambda: {"choices": [{"message": {"content": "test"}}]})
+            )
+            mock_client_class.return_value.__aenter__.return_value = mock_client
+
+            result = await service.check_model_context_length(model_name="test-model", threshold=16384)
+
+            assert result["context_length"] == 93835
+            assert result["method"] == "api_models_endpoint"
+
+    @pytest.mark.asyncio
+    async def test_run_extraction_agent_uses_detected_lmstudio_context(self, service):
+        """run_extraction_agent should use the detected LMStudio window before truncating content."""
+        content = "x" * 10000
+        prompt_config = {
+            "objective": "Extract observables.",
+            "instructions": "Output valid JSON.",
+            "output_format": {"items": []},
+        }
+
+        truncate_calls = []
+
+        def capture_truncation(text, max_context_tokens, max_output_tokens, prompt_overhead=500):
+            truncate_calls.append((len(text), max_context_tokens, max_output_tokens, prompt_overhead))
+            return text
+
+        response_payload = {"choices": [{"message": {"content": '{"items": [], "count": 0}'}}], "usage": {}}
+
+        with (
+            patch.object(
+                service,
+                "check_model_context_length",
+                AsyncMock(return_value={"context_length": 93835, "method": "api_models_endpoint"}),
+            ),
+            patch.object(service, "_truncate_content", side_effect=capture_truncation),
+            patch.object(service, "request_chat", AsyncMock(return_value=response_payload)),
+            patch(
+                "src.services.llm_service.trace_llm_call",
+                side_effect=lambda *args, **kwargs: contextlib.nullcontext(Mock()),
+            ),
+            patch("src.services.llm_service.log_llm_completion"),
+            patch("src.services.llm_service.log_llm_error"),
+        ):
+            result = await service.run_extraction_agent(
+                agent_name="RegistryExtract",
+                content=content,
+                title="Test Article",
+                url="https://example.com/test",
+                prompt_config=prompt_config,
+                qa_prompt_config=None,
+                max_retries=1,
+                execution_id=None,
+                model_name="local-large-model",
+                provider="lmstudio",
+            )
+
+        assert truncate_calls
+        assert truncate_calls[0][1] == 93835
+        assert result["count"] == 0
 
 
 class TestPreprocessInvariantGuard:

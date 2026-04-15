@@ -1371,3 +1371,150 @@ class TestBuildUserPrompt:
         """Empty probe results renders the fallback message."""
         prompt = self._build([])
         assert "No probe results available." in prompt
+
+
+class TestNormalizeProposedConfig:
+    """Regression coverage for schema drift between the LLM prompt and the scraper reader.
+
+    Historical failure mode (VMRay Blog, 2026-04-14): the LLM proposed wp_json and
+    listing strategies in the shape the prompt described, but the scraper read
+    them from different locations. Every healing round silently produced zero
+    articles until healing_exhausted was set. The normalizer bridges the two
+    schemas so the LLM's structurally-plausible fixes actually take effect.
+    """
+
+    def _normalize(self, config_value, source_url="https://www.example.com/blog/"):
+        from src.services.source_healing_service import SourceHealingService
+
+        snapshot = {"url": source_url, "name": "Example"}
+        return SourceHealingService._normalize_proposed_config(config_value, snapshot)
+
+    def test_hoists_wp_json_from_discovery_strategies_to_top_level(self):
+        """wp_json under discovery.strategies is a silent no-op; hoist it to config.wp_json."""
+        proposed = {
+            "discovery": {
+                "strategies": [
+                    {
+                        "wp_json": {
+                            "endpoints": ["https://www.example.com/wp-json/wp/v2/posts?per_page=50"],
+                            "url_field_priority": ["link", "guid.rendered"],
+                        }
+                    }
+                ]
+            }
+        }
+
+        result, notes = self._normalize(proposed)
+
+        assert result["wp_json"]["endpoints"] == ["https://www.example.com/wp-json/wp/v2/posts?per_page=50"]
+        assert result["wp_json"]["url_field_priority"] == ["link", "guid.rendered"]
+        # Discovery section is dropped entirely when strategies becomes empty.
+        assert "discovery" not in result
+        assert any("Hoisted wp_json" in n for n in notes)
+
+    def test_hoists_wp_json_but_keeps_sibling_listing_strategy(self):
+        """Mixed strategies: hoist wp_json, preserve the listing entry."""
+        proposed = {
+            "discovery": {
+                "strategies": [
+                    {"wp_json": {"endpoints": ["https://x.com/wp-json/wp/v2/posts"]}},
+                    {
+                        "listing": {
+                            "urls": ["https://x.com/blog/"],
+                            "post_link_selector": "h2 a",
+                        }
+                    },
+                ]
+            }
+        }
+
+        result, notes = self._normalize(proposed, source_url="https://x.com/blog/")
+
+        assert result["wp_json"]["endpoints"] == ["https://x.com/wp-json/wp/v2/posts"]
+        assert result["discovery"]["strategies"] == [
+            {"listing": {"urls": ["https://x.com/blog/"], "post_link_selector": "h2 a"}}
+        ]
+        assert len(notes) == 1
+
+    def test_listing_selector_is_renamed_to_post_link_selector(self):
+        """LLMs often emit bare `selector`; rename to the key the reader expects."""
+        proposed = {"discovery": {"strategies": [{"listing": {"selector": "a[href^='https://x.com/blog/']"}}]}}
+
+        result, notes = self._normalize(proposed, source_url="https://x.com/blog/")
+
+        strat = result["discovery"]["strategies"][0]["listing"]
+        assert strat["post_link_selector"] == "a[href^='https://x.com/blog/']"
+        assert "selector" not in strat
+        # urls was also missing, so it should be defaulted from the source URL
+        assert strat["urls"] == ["https://x.com/blog/"]
+        assert any("Renamed listing.selector" in n for n in notes)
+        assert any("Injected listing.urls" in n for n in notes)
+
+    def test_listing_keeps_existing_post_link_selector_when_both_keys_present(self):
+        """If the LLM already set post_link_selector, do not overwrite from `selector`."""
+        proposed = {
+            "discovery": {
+                "strategies": [
+                    {
+                        "listing": {
+                            "urls": ["https://x.com/blog/"],
+                            "post_link_selector": "article a",
+                            "selector": "SHOULD_NOT_OVERWRITE",
+                        }
+                    }
+                ]
+            }
+        }
+
+        result, _notes = self._normalize(proposed, source_url="https://x.com/blog/")
+        strat = result["discovery"]["strategies"][0]["listing"]
+        assert strat["post_link_selector"] == "article a"
+        # The stray `selector` key is left untouched (non-destructive rewrite)
+        assert strat["selector"] == "SHOULD_NOT_OVERWRITE"
+
+    def test_well_formed_config_passes_through_unchanged(self):
+        """Correctly-shaped configs produce no notes and preserve structure."""
+        proposed = {
+            "wp_json": {"endpoints": ["https://x.com/wp-json/wp/v2/posts"]},
+            "discovery": {
+                "strategies": [
+                    {
+                        "listing": {
+                            "urls": ["https://x.com/blog/"],
+                            "post_link_selector": "h2.entry-title a",
+                        }
+                    }
+                ]
+            },
+            "use_playwright": True,
+        }
+
+        result, notes = self._normalize(proposed)
+        assert result == proposed
+        assert notes == []
+
+    def test_non_dict_value_is_returned_untouched(self):
+        """Guard clause: the normalizer must not explode on unexpected input shapes."""
+        result, notes = self._normalize("not-a-dict")
+        assert result == "not-a-dict"
+        assert notes == []
+
+    def test_missing_wp_json_endpoints_is_left_in_strategies(self):
+        """Only hoist when `endpoints` is present — an empty wp_json is useless anyway,
+        but we shouldn't silently rewrite it either. Leave for the LLM to notice."""
+        proposed = {"discovery": {"strategies": [{"wp_json": {}}]}}
+        result, notes = self._normalize(proposed)
+        assert result["discovery"]["strategies"] == [{"wp_json": {}}]
+        assert "wp_json" not in result or "endpoints" not in result.get("wp_json", {})
+        assert notes == []
+
+    def test_merges_with_existing_top_level_wp_json(self):
+        """If config already has a top-level wp_json, merge the hoisted one in."""
+        proposed = {
+            "wp_json": {"url_field_priority": ["guid.rendered"]},
+            "discovery": {"strategies": [{"wp_json": {"endpoints": ["https://x.com/wp-json/wp/v2/posts"]}}]},
+        }
+        result, _notes = self._normalize(proposed)
+        assert result["wp_json"]["endpoints"] == ["https://x.com/wp-json/wp/v2/posts"]
+        # New endpoint merged alongside existing url_field_priority
+        assert result["wp_json"]["url_field_priority"] == ["guid.rendered"]
