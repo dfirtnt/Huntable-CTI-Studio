@@ -62,7 +62,9 @@ See `_normalize_traceability_item` in `src/services/llm_service.py`.
 | `user_template` | String containing `{content}` and `{instructions}` placeholders |
 | `task` | One-line statement of the extraction goal |
 | `json_example` | A populated JSON example matching the required output schema |
-| `instructions` | Long-form rules: extraction scope, field rules, exclusions, validation checklist |
+| `instructions` | Long-form rules: extraction scope, field rules, exclusions, validation checklist. If absent, the runtime substitutes `"Output valid JSON only."` — no schema constraints are enforced. |
+
+**`role` is required.** If the parsed prompt config contains neither `role` nor `system`, `_validate_preprocess_invariants` in `src/services/llm_service.py` raises a `PreprocessInvariantError` and aborts the call before it reaches the model. This is classified as `infra_failed`, not a model failure, so it does not consume QA retries. The symptom is a silent extraction failure with no LLM response logged.
 
 `CmdlineExtract` and `HuntQueriesExtract` retain their older envelope style; they are field-compliant but not shape-migrated. Don't add new agents in the old style.
 
