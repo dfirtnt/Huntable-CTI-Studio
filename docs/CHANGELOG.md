@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Healing progress UI on sources page** (2026-04-15): Source cards with active healing now show a live "Healing: Round N/M" badge that polls every 5 seconds. Opening the healing history panel renders a progress bar (rounds completed vs. max), status badge (starting / in_progress / healed / exhausted), and a completion banner (success or failure with round number). New events get a brief flash animation. The `GET /api/sources/{id}/healing-history` endpoint now returns `status`, `current_round`, `max_attempts`, and `healing_exhausted` fields derived from event history and healing config.
+- **Langfuse v4 SDK compliance tests** (2026-04-15): `TestLangfuseEvalClientV4Api` (5 tests) verifies `create_experiment` and `create_trace` call `start_observation` (v4) and never the deprecated `start_span` (v3), that `session_id` flows through `TraceContext`, and that the removed `update_trace` method is not called. Guards against regressing to the v3 pattern.
+- **UI Stability Contracts in AGENTS.md** (2026-04-15): Documents contract-grade DOM IDs, JS function signatures, `agentPrefix` token map, CSS variable conventions, and the spec-required change policy for the sources/workflow UI. Prevents silent breakage from renames that span DOM IDs, `onchange` bindings, and API calls simultaneously.
+
 ### Fixed
 - **Articles page content length display** (2026-04-14): Articles list showed "Content: 0 characters" for all articles because `load_content=False` deferred the content field for performance but calculated length from the empty string. Now uses batch SQL `char_length()` query to fetch actual content lengths without loading full article text, mirroring the annotation count pattern.
 

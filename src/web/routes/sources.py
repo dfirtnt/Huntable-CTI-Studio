@@ -4,7 +4,7 @@ Source management API routes.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from celery import Celery
@@ -385,10 +385,40 @@ async def api_healing_history(source_id: int):
 
     try:
         events = await async_db_manager.get_healing_events(source_id, limit=50)
+
+        # Load healing config to get max_attempts
+        from src.services.source_healing_config import SourceHealingConfig
+
+        config = SourceHealingConfig.load()
+
+        # Determine healing status
+        # Status can be: "idle", "in_progress", "healed", "exhausted"
+        status = "idle"
+        current_round = 0
+
+        if events:
+            latest_event = events[0]
+            current_round = latest_event.round_number
+
+            if source.healing_exhausted:
+                status = "exhausted"
+            elif latest_event.validation_success is True:
+                status = "healed"
+            elif current_round < config.max_attempts:
+                if latest_event.created_at > datetime.now() - timedelta(minutes=5):
+                    status = "in_progress"
+        elif source.consecutive_failures >= config.threshold and not source.healing_exhausted:
+            # No events yet but eligible for healing - might be starting
+            status = "starting"
+
         return {
             "source_id": source_id,
             "source_name": source.name,
             "events": [e.model_dump(mode="json") for e in events],
+            "max_attempts": config.max_attempts,
+            "current_round": current_round,
+            "status": status,
+            "healing_exhausted": source.healing_exhausted,
         }
     except Exception as exc:
         logger.error("API healing history error: %s", exc)
