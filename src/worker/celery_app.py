@@ -114,7 +114,9 @@ def reset_db_connections_on_fork(**kwargs):
     fresh connection on next use, per child.
     """
     try:
-        from src.database.manager import DatabaseManager
+        from src.database.manager import (
+            DatabaseManager,  # noqa: PLC0415 -- deferred to avoid import cycle with celery tasks
+        )
 
         for engine in DatabaseManager._engine_cache.values():
             try:
@@ -744,9 +746,9 @@ def trigger_agentic_workflow(self, article_id: int, execution_id: int | None = N
         # the eval report doesn't report "pending" forever.
         if self.request.retries >= self.max_retries and execution_id is not None:
             try:
-                from src.database.manager import DatabaseManager
-                from src.database.models import AgenticWorkflowExecutionTable
-                from src.workflows.agentic_workflow import _mark_pending_subagent_evals_as_failed
+                from src.database.manager import DatabaseManager  # noqa: PLC0415 -- deferred to avoid import cycle
+                from src.database.models import AgenticWorkflowExecutionTable  # noqa: PLC0415
+                from src.workflows.agentic_workflow import _mark_pending_subagent_evals_as_failed  # noqa: PLC0415
 
                 cleanup_session = DatabaseManager().get_session()
                 try:

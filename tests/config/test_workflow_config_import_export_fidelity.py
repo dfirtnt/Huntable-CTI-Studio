@@ -444,7 +444,7 @@ def test_quickstart_preset_import_export_no_diff(preset_path: Path):
             )
 
     missing_from_export = set(orig_norm) - set(exp_norm) - {"Metadata"}
-    extra_in_export = set(exp_norm) - set(orig_norm)
+    _extra_in_export = set(exp_norm) - set(orig_norm)  # computed but not asserted; captures regressions visually
 
     assert not missing_from_export, f"Sections dropped by export: {missing_from_export}"
     assert not mismatches, "Round-trip produced differences:" + "".join(mismatches)

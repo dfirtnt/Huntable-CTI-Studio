@@ -60,6 +60,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -68,7 +69,7 @@ CODENAME_RE = re.compile(r"^[A-Z][a-zA-Z]+$")
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
-def _die(msg: str) -> None:
+def _die(msg: str) -> NoReturn:
     print(f"release-cut: FAIL: {msg}", file=sys.stderr)
     sys.exit(1)
 
@@ -142,7 +143,6 @@ def _roll_changelog(version: str, codename: str, date: str) -> tuple[Path, str]:
     match = heading_re.search(original)
     if not match:
         _die("docs/CHANGELOG.md is missing a `## [Unreleased]` heading")
-        return  # type: ignore[return-value]
 
     insertion = f'## [Unreleased]\n\n## [{version} "{codename}"] - {date}'
     new = original[: match.start()] + insertion + original[match.end() :]
@@ -165,7 +165,6 @@ def _update_versioning_doc(version: str, codename: str, date: str) -> tuple[Path
     match = current_block_re.search(original)
     if not match:
         _die("could not locate the Current Version block in docs/reference/versioning.md")
-        return  # type: ignore[return-value]
 
     new_block = (
         f"## Current Version\n\n"
@@ -182,7 +181,6 @@ def _update_versioning_doc(version: str, codename: str, date: str) -> tuple[Path
     history_match = history_re.search(new)
     if not history_match:
         _die("could not locate `## Version History` heading in versioning.md")
-        return  # type: ignore[return-value]
 
     history_entry = (
         f'### v{version} "{codename}" ({date})\n'

@@ -36,7 +36,7 @@ def _probe_lmstudio() -> tuple[bool, list[str]]:
         if response.status_code == 200:
             ids = [model.get("id", "") for model in response.json().get("data", [])]
             return True, ids
-    except Exception:
+    except Exception:  # noqa: BLE001 -- probe is best-effort; any failure means LMStudio is unreachable
         pass
     return False, []
 

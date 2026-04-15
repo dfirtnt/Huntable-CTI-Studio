@@ -148,7 +148,7 @@ def _mark_pending_subagent_evals_as_failed(
         )
         try:
             db_session.rollback()
-        except Exception:
+        except Exception:  # noqa: BLE001 -- best-effort rollback; original error already logged
             pass
         return 0
 
