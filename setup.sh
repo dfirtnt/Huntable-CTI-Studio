@@ -134,18 +134,19 @@ configure_llm() {
     echo "  3. Anthropic Claude API - Cloud-based Claude models"
     echo ""
     
-    # Check if running on Intel Mac (LM Studio requires Apple Silicon)
+    # Check if running on Intel Mac (LM Studio's macOS build requires Apple Silicon;
+    # Windows/Linux x86_64 builds of LM Studio exist and are unaffected by this check).
     IS_INTEL_MAC=false
     if [[ "$(uname)" == "Darwin" ]]; then
         if [[ "$(uname -m)" == "x86_64" ]]; then
             IS_INTEL_MAC=true
         fi
     fi
-    
+
     # Prompt for LM Studio
     if [[ "$IS_INTEL_MAC" == "true" ]]; then
-        print_warning "LM Studio is not compatible with Intel-based Macs (requires Apple Silicon)"
-        print_warning "Skipping LM Studio configuration. Use OpenAI or Anthropic APIs instead."
+        print_warning "LM Studio's macOS build requires Apple Silicon; no Intel-Mac build is available."
+        print_warning "Skipping LM Studio configuration on this Mac. Use OpenAI or Anthropic APIs instead."
         USE_LMSTUDIO=false
     elif prompt_yes_no "Do you have LM Studio installed and want to use it for local LLM? (If you only want cloud providers #2 and #3, select No)" "no"; then
         USE_LMSTUDIO=true

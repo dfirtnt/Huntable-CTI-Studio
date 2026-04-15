@@ -101,55 +101,6 @@ startup_apply_platform_compatibility() {
     local env_file="${1:-.env}"
     local non_interactive="${2:-false}"
     SKIP_SIGMA_INDEX=""
-
-    if [ "$(uname -s)" != "Darwin" ]; then
-        echo ""
-        echo "⚠️  WARNING: Not running on macOS + Apple Silicon + LMStudio (detected: $(uname -s))."
-        echo ""
-        echo "   This project has not been tested on Windows or Linux."
-        echo "   You may encounter compatibility or performance issues."
-        echo ""
-        if [ "$non_interactive" = "true" ]; then
-            echo "   Non-interactive mode: continuing in limited-env mode."
-            SKIP_SIGMA_INDEX=1
-        else
-            printf "   Do you want to continue the install? [y/N] "
-            read -r cont
-            case "${cont:-n}" in
-                [yY]|[yY][eE][sS]) SKIP_SIGMA_INDEX=1 ;;
-                *) echo "   Install cancelled."; return 1 ;;
-            esac
-        fi
-    elif [ "$(uname -m)" != "arm64" ]; then
-        echo ""
-        echo "⚠️  WARNING: Not running on Apple Silicon (detected: $(uname -m))."
-        echo ""
-        echo "   The app will not be fully functional on this architecture."
-        echo "   Working: CTI Article ingestion, regex scoring/annotation systems."
-        echo "   Limited: Many features that require embeddings will not work correctly."
-        echo ""
-        echo "   If LMStudio isn't running:"
-        echo "   • Local models — You can't list, load, or test local models in the app;"
-        echo "     that only works when LMStudio is available."
-        echo "   • Sigma rules in search — Sigma rules won't be indexed, so search/RAG"
-        echo "     won't use SigmaHQ rules."
-        echo ""
-        if [ "$non_interactive" = "true" ]; then
-            echo "   Non-interactive mode: continuing in limited-env mode."
-            SKIP_SIGMA_INDEX=1
-        else
-            printf "   Do you want to continue the install? [y/N] "
-            read -r cont
-            case "${cont:-n}" in
-                [yY]|[yY][eE][sS]) SKIP_SIGMA_INDEX=1 ;;
-                *) echo "   Install cancelled."; return 1 ;;
-            esac
-        fi
-    fi
-
-    if [ -n "$SKIP_SIGMA_INDEX" ] && [ -f "$env_file" ]; then
-        startup_disable_lmstudio "$env_file"
-    fi
 }
 
 startup_start_services() {
