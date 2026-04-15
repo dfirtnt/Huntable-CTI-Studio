@@ -454,7 +454,7 @@ class SourceHealingService:
             if resp and resp.status_code == 200:
                 body = resp.text
                 page_info["html_length"] = len(body)
-                clean = _re.sub(r"<script[^>]*>.*?</script>", "", body, flags=_re.DOTALL | _re.IGNORECASE)
+                clean = _re.sub(r"<script[^>]*>.*?</script\s*>", "", body, flags=_re.DOTALL | _re.IGNORECASE)
                 clean = _re.sub(r"<style[^>]*>.*?</style>", "", clean, flags=_re.DOTALL)
                 clean = _re.sub(r"<[^>]+>", " ", clean)
                 clean = _re.sub(r"\s+", " ", clean).strip()

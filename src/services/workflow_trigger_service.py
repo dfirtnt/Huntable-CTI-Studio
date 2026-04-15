@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable
 from src.utils.default_agent_prompts import get_default_agent_prompts
-from src.worker.celery_app import trigger_agentic_workflow
 
 logger = logging.getLogger(__name__)
 
@@ -207,6 +206,8 @@ class WorkflowTriggerService:
             logger.info(f"Triggering agentic workflow for article {article_id} (execution_id: {execution.id})")
 
             # Dispatch Celery task
+            from src.worker.celery_app import trigger_agentic_workflow  # noqa: PLC0415
+
             trigger_agentic_workflow.delay(article_id)
 
             return True, None

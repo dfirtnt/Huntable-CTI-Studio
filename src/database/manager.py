@@ -358,9 +358,12 @@ class DatabaseManager:
                     if hunt_score > 50:
                         try:
                             # Run chunk analysis in background (non-blocking)
-                            from src.worker.celery_app import run_chunk_analysis
+                            from celery import current_app as _celery
 
-                            run_chunk_analysis.delay(created_article.id)
+                            _celery.send_task(
+                                "src.worker.celery_app.run_chunk_analysis",
+                                args=[created_article.id],
+                            )
                             logger.info(
                                 f"Triggered automatic chunk analysis for article {created_article.id} (hunt_score: {hunt_score})"
                             )
