@@ -688,7 +688,7 @@ main() {
         # Align with start.sh startup path: validate pgvector index shape first.
         startup_migrate_pgvector_indexes
 
-        # RAG decision: chat with CTI articles and link to relevant Sigma rules (only when interactive and not already limited-env)
+        # RAG decision: chat with CTI articles and link to relevant Sigma rules (only when interactive and not already deferred)
         if [[ -z "$SKIP_SIGMA_INDEX" ]] && [[ "$NON_INTERACTIVE" != "true" ]]; then
             echo ""
             print_header "RAG (Chat + Sigma Rules)"

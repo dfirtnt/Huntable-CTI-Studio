@@ -174,7 +174,7 @@ startup_sigma_sync_and_index() {
         else
             # When user chose "No RAG" in setup, RAG_DISABLED_BY_USER is set; skip the warning (they already got instructions).
             if [ -z "${RAG_DISABLED_BY_USER:-}" ]; then
-                _startup_log_warn "Skipping Sigma embeddings (limited-env mode). Run \"./run_cli.sh sigma index-embeddings\" when ready."
+                _startup_log_warn "Skipping Sigma embeddings (deferred by user). Run \"./run_cli.sh sigma index-embeddings\" when ready."
             fi
         fi
     else
