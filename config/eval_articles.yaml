@@ -50,6 +50,23 @@ subagents:
       expected_count: 1
     - url: "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/"
       expected_count: 1
+  windows_services:
+    - url: "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/"
+      expected_count: 3
+    - url: "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/"
+      expected_count: 1
+    - url: "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/"
+      expected_count: 1
+    - url: "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company"
+      expected_count: 2
+    - url: "https://www.zscaler.com/blogs/security-research/latest-mustang-panda-arsenal-paklog-corklog-and-splatcloak-p2"
+      expected_count: 0
+    - url: "https://blog.talosintelligence.com/kraken-ransomware-group/"
+      expected_count: 0
+    - url: "https://www.huntress.com/blog/cephalus-ransomware"
+      expected_count: 4
+    - url: "https://unit42.paloaltonetworks.com/unit42-abusing-service-control-manager-establish-persistence-non-service-applications/"
+      expected_count: 0
   registry_keys: []
   registry_artifacts:
     - url: "https://www.zscaler.com/blogs/security-research/technical-analysis-xloader-versions-6-and-7-part-1"

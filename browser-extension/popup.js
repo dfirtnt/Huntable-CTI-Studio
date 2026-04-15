@@ -161,7 +161,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // Try to extract main content from various sources
         const contentSelectors = [
             'article',
-            'main',
+            '.content-column',
+            '.entry-content-wrapper',
             '.content',
             '.post-content',
             '.article-content',
@@ -184,6 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
             '.field--type-text-with-summary',
             '.field--name-field-body',
             // General content areas
+            'main',
             '#main-content',
             '#content',
             '.main-content',
@@ -202,11 +204,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (text.length > maxContentLength) {
                     maxContentLength = text.length;
                     bestContentElement = element;
-                }
-                // If we find substantial content, use it immediately
-                if (text.length > 500) {
-                    contentElement = element;
-                    break;
                 }
             }
         }

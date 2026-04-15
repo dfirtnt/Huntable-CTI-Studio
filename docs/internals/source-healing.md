@@ -13,10 +13,11 @@ The healing pipeline runs when a source hits the `failure_threshold` (default: 1
 3. **Deep diagnostic probe** — 5 concurrent probes (HTTP, RSS content, blog page, sitemap, WP JSON) via `asyncio.gather`
 4. **Deterministic pre-filters** — bot protection and URL redirect checks bypass the LLM entirely when the fix is obvious
 5. **LLM analysis** — proposes config changes based on probe data; retries once on JSON parse failure
-6. **Apply actions** — merges proposed config into the source
-7. **Validate** — runs a real fetch (with 60-second timeout) and records the result as a source check
-8. **Decide** — stop if healed, retry with validation logs if not
-9. **Rollback** — if all rounds exhaust, restore `url`/`rss_url`/`config` to pre-healing snapshot and mark `healing_exhausted`
+6. **Schema normalization** — rewrites structurally-plausible-but-semantically-wrong shapes (hoists misplaced `wp_json` to top-level, fixes `listing` key names) so LLM proposals match what the scraper actually reads
+7. **Apply actions** — merges normalized config into the source
+8. **Validate** — runs a real fetch (with 60-second timeout) and records the result as a source check
+9. **Decide** — stop if healed, retry with validation logs if not
+10. **Rollback** — if all rounds exhaust, restore `url`/`rss_url`/`config` to pre-healing snapshot and mark `healing_exhausted`
 
 ## Dispatch And Eligibility
 
@@ -95,7 +96,7 @@ These are problems the LLM can resolve by changing `url`, `rss_url`, or `config`
 
 ### 7. WordPress sites with accessible WP JSON API
 - **Signal:** `wp_json_api_check.has_content = true`
-- **Fix:** Set `discovery.strategies: [{"wp_json": {"endpoints": [...]}}]`
+- **Fix:** Set top-level `wp_json: {"endpoints": [...], "url_field_priority": [...]}` (NOT under `discovery.strategies` — the scraper reads it from the top level only)
 - **Example:** VMRay Blog — WP JSON returned full content without needing Playwright
 
 ## What Self-Healing CANNOT Fix
@@ -136,6 +137,55 @@ On **round 1 only** (no `previous_attempts`), if the HTTP probe shows the source
 - Applies `{"field": "url", "value": "<redirected_url>"}` without calling the LLM
 - Ignores trailing-slash-only differences (e.g., `example.com/blog` vs `example.com/blog/`)
 - Skipped on retry rounds — if the redirect was already tried and didn't fix the issue, the LLM takes over
+
+## Schema Normalization
+
+Between LLM analysis and config persistence, the pipeline runs `_normalize_proposed_config` to bridge historical drift between the healing prompt documentation and the scraper's reader code. This prevents structurally-plausible LLM proposals from producing silent no-ops.
+
+### wp_json Hoisting
+
+**Problem:** The system prompt historically described `wp_json` as a discovery strategy alongside `listing` and `sitemap`, leading LLMs to place it under `config.discovery.strategies`. But the scraper reads it from **top-level** `config.wp_json` (the fast path in `modern_scraper.scrape_source`). When misplaced, `wp_json` is explicitly ignored (`pass` at line 78-82 of `modern_scraper.py`).
+
+**Fix:** When the normalizer sees `{"discovery": {"strategies": [{"wp_json": {"endpoints": [...]}}]}}`, it hoists the `wp_json` entry to `config.wp_json` and removes it from the strategies list. If the strategies list becomes empty after hoisting, the entire `discovery` section is dropped.
+
+**Example:**
+```python
+# LLM proposes (wrong location):
+{"discovery": {"strategies": [{"wp_json": {"endpoints": ["https://x.com/wp-json/wp/v2/posts"]}}]}}
+
+# Normalizer rewrites to (correct location):
+{"wp_json": {"endpoints": ["https://x.com/wp-json/wp/v2/posts"]}}
+```
+
+### listing Strategy Key Fixes
+
+**Problem:** The prompt informally says "listing (CSS selector on listing page)" but doesn't document the exact required keys. LLMs often emit `selector` (matching the informal description) instead of the actual key `post_link_selector`, and omit the required `urls` array.
+
+**Fix:** 
+- When `listing` contains `selector` but not `post_link_selector`, rename `selector` → `post_link_selector`
+- When `listing` has no `urls` key, inject `urls: [source.url]` as a sensible default (the source's own homepage as the listing page)
+
+**Example:**
+```python
+# LLM proposes:
+{"discovery": {"strategies": [{"listing": {"selector": "h2 a"}}]}}
+
+# Normalizer rewrites to:
+{"discovery": {"strategies": [{"listing": {"urls": ["https://x.com/blog/"], "post_link_selector": "h2 a"}}]}}
+```
+
+### Audit Trail
+
+Each normalization produces a human-readable note logged at INFO level:
+```
+[AutoHeal] Normalized LLM-proposed config for source 2: Hoisted wp_json from discovery.strategies to top-level config.wp_json (the scraper reads it only from there); Injected listing.urls=[...] from source URL (listing discovery returns zero URLs without it)
+```
+
+The healing events table stores the **normalized** config in `actions_applied`, while `actions_proposed` preserves the raw LLM output. This lets you see both what the LLM intended and what actually landed in the database.
+
+### Passthrough Behavior
+
+Well-formed configs that already match the scraper's schema pass through unchanged. The normalizer is defensive — it only rewrites when it detects specific known drift patterns.
 
 ## Config Rollback on Exhaustion
 
