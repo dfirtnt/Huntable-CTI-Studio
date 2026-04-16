@@ -24,6 +24,7 @@ from src.config.workflow_config_loader import load_workflow_config
 from src.database.manager import DatabaseManager
 from src.database.models import AgenticWorkflowConfigTable, AgenticWorkflowExecutionTable, ArticleTable, SourceTable
 from src.workflows.agentic_workflow import run_workflow
+from tests.utils.test_database_url import build_test_database_url
 
 _LMSTUDIO_BASE_URL = (os.getenv("LMSTUDIO_API_URL") or "http://localhost:1234/v1").rstrip("/")
 _MODEL_HINT = "google/gemma-3-1b"
@@ -51,10 +52,7 @@ pytestmark = [
 
 
 def _test_db_url() -> str:
-    password = os.getenv("POSTGRES_PASSWORD", "cti_password")
-    default = f"postgresql://cti_user:{password}@localhost:5433/cti_scraper_test"
-    url = os.getenv("TEST_DATABASE_URL", default)
-    return url.replace("+asyncpg", "")
+    return build_test_database_url(asyncpg=False).replace("+asyncpg", "")
 
 
 @pytest.fixture(scope="module")

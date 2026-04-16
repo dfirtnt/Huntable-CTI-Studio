@@ -73,6 +73,8 @@ from pathlib import Path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
+from tests.utils.test_database_url import build_test_database_url
+
 # Augment PATH so subprocesses can find tools (e.g. Docker Desktop CLI on macOS)
 # installed outside the default non-login shell PATH.
 _EXTRA_PATH_DIRS = ["/usr/local/bin", "/opt/homebrew/bin", "/opt/homebrew/sbin"]
@@ -136,10 +138,7 @@ def _load_dotenv() -> None:
 # Import test environment utilities
 try:
     import tests.utils.database_connections  # noqa: F401
-    from tests.utils.test_environment import (
-        TestEnvironmentManager,
-        TestEnvironmentValidator,
-    )
+    from tests.utils.test_environment import TestEnvironmentManager, TestEnvironmentValidator
 
     ENVIRONMENT_UTILS_AVAILABLE = True
 except ImportError:
@@ -438,14 +437,9 @@ class RunTestRunner:
 
         # Set TEST_DATABASE_URL if not already set (password/port match running Postgres via .env)
         if "TEST_DATABASE_URL" not in os.environ:
-            postgres_password = os.getenv("POSTGRES_PASSWORD", "cti_password")
-            postgres_port = os.getenv("POSTGRES_PORT", "5433")
-            os.environ["TEST_DATABASE_URL"] = (
-                f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:{postgres_port}/cti_scraper_test"
-            )
+            os.environ["TEST_DATABASE_URL"] = build_test_database_url(asyncpg=True)
             logger.info(
-                "Auto-set TEST_DATABASE_URL (port %s, password from POSTGRES_PASSWORD / .env)",
-                postgres_port,
+                "Auto-set TEST_DATABASE_URL from POSTGRES_PASSWORD / .env",
             )
 
         # Use the test DB for DATABASE_URL in this process so the guard and any imports
@@ -842,7 +836,7 @@ class RunTestRunner:
 
     def _build_pytest_command(self) -> list[str]:
         """Build pytest command based on configuration."""
-        cmd = ["python3", "-m", "pytest", "-p", "no:langsmith_plugin"]
+        cmd = ["python3", "-m", "pytest"]
 
         # Add test paths
         if self.config.test_paths:
@@ -1133,11 +1127,7 @@ class RunTestRunner:
 
             # Ensure TEST_DATABASE_URL is set (required for stateful tests; matches running Postgres via .env)
             if "TEST_DATABASE_URL" not in env:
-                postgres_password = os.getenv("POSTGRES_PASSWORD", "cti_password")
-                postgres_port = os.getenv("POSTGRES_PORT", "5433")
-                env["TEST_DATABASE_URL"] = (
-                    f"postgresql+asyncpg://cti_user:{postgres_password}@localhost:{postgres_port}/cti_scraper_test"
-                )
+                env["TEST_DATABASE_URL"] = build_test_database_url(asyncpg=True)
 
             # Always pass test DATABASE_URL into pytest (validator module may be unavailable).
             td_url = env.get("TEST_DATABASE_URL")
