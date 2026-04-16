@@ -6,9 +6,13 @@
     "extracted_lineage": "<extracted JSON>"
   },
   "evaluation_criteria": [
-    "✅ Parent-child relationships are explicitly stated or clearly implied in the text.",
-    "✅ Process names and arguments match the text.",
-    "❌ No inferred relationships without evidence."
+    "[PASS] Parent-child relationships are explicitly stated or clearly implied in the text.",
+    "[PASS] Process names and arguments match the text.",
+    "[PASS] source_evidence contains the verbatim source text supporting the extraction.",
+    "[PASS] extraction_justification explains which rule triggered the extraction.",
+    "[PASS] confidence_score is a numeric value in [0.0, 1.0].",
+    "[WARN] Missing parent-child edges present in the source are identified and added.",
+    "[FAIL] No inferred relationships without evidence."
   ],
-  "instructions": "USER: Compare extracted_lineage to source_text. Flag any missing or invented parent-child edges. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": [...]}}."
+  "instructions": "USER: Compare extracted_lineage to source_text. Flag any missing or invented parent-child edges. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": []}}."
 }

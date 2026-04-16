@@ -42,6 +42,132 @@ class PreprocessInvariantError(Exception):
         self.debug_artifacts = debug_artifacts or {}
 
 
+_TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
+
+# Text tokens required by the Extractor Contract (extractor-standard.md).
+# HARD_FAIL checks raise ValueError -- missing these makes the prompt structurally broken.
+# WARN_ONLY checks log a warning -- existing prompts predate the v1.1 contract language;
+# promote to HARD_FAIL after all seed prompts are brought into conformance.
+_SYSTEM_HARD_FAIL: list[tuple[str, str]] = []
+_SYSTEM_WARN_ONLY: list[tuple[str, str]] = [
+    ("LITERAL TEXT EXTRACTOR", "ROLE block (sec 1)"),
+    ("sub-agent of ExtractAgent", "ARCHITECTURE CONTEXT (sec 3)"),
+    ("Do NOT use prior knowledge", "INPUT CONTRACT (sec 4)"),
+    ("Do NOT fetch", "INPUT CONTRACT fetch rule (sec 4)"),
+    ("[ ]", "VERIFICATION CHECKLIST (sec 12)"),
+]
+_INSTRUCTIONS_HARD_FAIL: list[tuple[str, str]] = []
+_INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
+    ("ONLY valid JSON", "JSON-only directive (sec 13)"),
+    ("When in doubt, OMIT", "FINAL REMINDER (sec 16)"),
+    ("source_evidence", "traceability field mention (sec 14)"),
+]
+
+
+def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str, Any]) -> None:
+    """Enforce Extractor Contract required fields (docs/contracts/extractor-standard.md).
+
+    Called once before the retry loop so a misconfigured prompt aborts immediately.
+    Raises ValueError on hard-fail violations; logs warnings for warn-only checks.
+
+    Hard-fail rules (contract sections mapped to config keys):
+      - user_template must NOT be present (code-owned scaffold; sec 5 note)
+      - system/role key: REQUIRED, non-empty (sections 1-12 -> system message)
+      - instructions key: REQUIRED, non-empty (sections 13-16 -> JSON schema footer)
+      - json_example traceability fields: REQUIRED if json_example is present (sec 14)
+
+    Warn-only rules (text pattern checks -- existing prompts predate v1.1 contract language):
+      - system body tokens: LITERAL TEXT EXTRACTOR, sub-agent of ExtractAgent, etc.
+      - instructions tokens: ONLY valid JSON, When in doubt OMIT, traceability fields
+    """
+    if "user_template" in prompt_config:
+        raise ValueError(
+            f"{agent_name}: prompt_config must not contain 'user_template'. "
+            "Extractor Contract (extractor-standard.md sec 5 note): the user message scaffold "
+            "is code-owned; preset authors must not write or edit user_template."
+        )
+
+    system_content = (prompt_config.get("system") or prompt_config.get("role") or "").strip()
+    if not system_content:
+        raise ValueError(
+            f"{agent_name}: prompt_config missing required 'system'/'role' key. "
+            "Extractor Contract (extractor-standard.md sec 1) mandates a non-empty system message."
+        )
+
+    instructions = (prompt_config.get("instructions") or "").strip()
+    if not instructions:
+        raise ValueError(
+            f"{agent_name}: prompt_config missing required 'instructions' key. "
+            "Extractor Contract (extractor-standard.md sec 2) mandates instructions "
+            "containing output schema + JSON enforcement."
+        )
+
+    # Text-pattern checks on system body (warn-only until seed prompts conform to v1.1)
+    for token, label in _SYSTEM_HARD_FAIL:
+        if token not in system_content:
+            raise ValueError(f"{agent_name}: system prompt missing required token for {label}: {token!r}")
+    for token, label in _SYSTEM_WARN_ONLY:
+        if token not in system_content:
+            logger.warning(
+                "%s: system prompt missing expected token for %s: %r "
+                "(WARN_ONLY -- promote to hard-fail after prompts conform to extractor-standard.md v1.1)",
+                agent_name,
+                label,
+                token,
+            )
+
+    # Text-pattern checks on instructions (warn-only until seed prompts conform to v1.1)
+    for token, label in _INSTRUCTIONS_HARD_FAIL:
+        if token not in instructions:
+            raise ValueError(f"{agent_name}: instructions missing required token for {label}: {token!r}")
+    for token, label in _INSTRUCTIONS_WARN_ONLY:
+        if token not in instructions:
+            logger.warning(
+                "%s: instructions missing expected token for %s: %r "
+                "(WARN_ONLY -- promote to hard-fail after prompts conform to extractor-standard.md v1.1)",
+                agent_name,
+                label,
+                token,
+            )
+
+    json_example = prompt_config.get("json_example")
+    if json_example is None:
+        raise ValueError(
+            f"{agent_name}: prompt_config missing required 'json_example'. "
+            "Extractor Contract (extractor-standard.md sec 4) requires json_example "
+            "including all traceability fields."
+        )
+
+    parsed_example: Any = json_example
+    if isinstance(json_example, str):
+        try:
+            parsed_example = json.loads(json_example)
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"{agent_name}: json_example is not valid JSON. "
+                "Extractor Contract requires a parseable json_example so the LLM receives a valid schema contract."
+            ) from exc
+
+    if not isinstance(parsed_example, dict):
+        return
+
+    # Locate the items array (first list value in the top-level dict)
+    item_fields: set[str] = set()
+    for v in parsed_example.values():
+        if isinstance(v, list) and v and isinstance(v[0], dict):
+            item_fields = set(v[0].keys())
+            break
+
+    if item_fields:
+        missing = _TRACEABILITY_FIELDS - item_fields
+        if missing:
+            raise ValueError(
+                f"{agent_name}: json_example items are missing traceability fields: {sorted(missing)}. "
+                "Extractor Contract (extractor-standard.md sec 3-4) requires "
+                "value, source_evidence, extraction_justification, confidence_score in every item."
+            )
+
+
 def _validate_preprocess_invariants(
     messages: list[dict[str, Any]],
     *,
@@ -1448,9 +1574,11 @@ class LLMService:
 
         prompt_template_str = prompt_template
         system_override = None
+        is_json_prompt = False
         try:
             parsed_prompt = json.loads(prompt_template_str)
             if isinstance(parsed_prompt, dict):
+                is_json_prompt = True
                 user_template = (
                     parsed_prompt.get("user") or parsed_prompt.get("user_template") or parsed_prompt.get("prompt") or ""
                 )
@@ -1461,6 +1589,13 @@ class LLMService:
                     prompt_template_str = system_override
         except json.JSONDecodeError:
             pass
+
+        if is_json_prompt and not system_override:
+            raise PreprocessInvariantError(
+                "RankAgent prompt resolved to an empty system message. "
+                "Ensure the prompt config contains a non-empty 'system' or 'role' key."
+            )
+
         logger.info(f"Using RankAgent prompt from workflow config (length: {len(prompt_template_str)} chars)")
 
         # Get actual model context length to use for truncation
@@ -2483,11 +2618,13 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
 
         # model_name already set above
 
-        # Build system message: prefer "system", then "role", else construct from task
-        system_content = prompt_config.get("system") or prompt_config.get("role")
+        # Build system message: prefer "system", then "role" — must be present in prompt config
+        system_content = (prompt_config.get("system") or prompt_config.get("role") or "").strip()
         if not system_content:
-            task = prompt_config.get("task", "Extract observables from threat intelligence content.")
-            system_content = f"You are a cybersecurity analyst. {task}"
+            raise PreprocessInvariantError(
+                "ExtractObservables prompt resolved to an empty system message. "
+                "Ensure the prompt config contains a non-empty 'system' or 'role' key."
+            )
 
         messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
 
@@ -3024,6 +3161,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
             error_msg = f"Empty prompt_config provided to {agent_name}. Cannot run extraction."
             logger.error(error_msg)
             raise ValueError(error_msg)
+        _validate_extraction_prompt_config(agent_name, prompt_config)
         logger.debug(f"{agent_name} prompt_config keys: {list(prompt_config.keys())}")
 
         current_try = 0
@@ -3692,7 +3830,12 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
 """
                 logger.debug(f"{agent_name} QA using legacy programmatic format (len={len(qa_prompt)} chars)")
 
-                qa_system = qa_prompt_config.get("system") or qa_prompt_config.get("role", "You are a QA agent.")
+                qa_system = (qa_prompt_config.get("system") or qa_prompt_config.get("role") or "").strip()
+                if not qa_system:
+                    raise PreprocessInvariantError(
+                        f"{agent_name} QA prompt resolved to an empty system message. "
+                        "Ensure the QA prompt config contains a non-empty 'system' or 'role' key."
+                    )
                 qa_user_content = (qa_prompt_config.get("user") or "").strip()
                 if qa_user_content:
                     qa_prompt = f"{qa_user_content}\n\n{qa_prompt}"

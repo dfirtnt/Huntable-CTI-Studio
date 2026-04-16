@@ -75,7 +75,16 @@ class QAAgentService:
                 qa_prompt_dict = self._get_default_qa_prompt()
 
             # Format QA evaluation prompt
-            qa_system_prompt = qa_prompt_dict.get("role", "") + "\n\n" + qa_prompt_dict.get("objective", "")
+            qa_system_prompt = (
+                (qa_prompt_dict.get("system") or qa_prompt_dict.get("role") or "").strip()
+                + "\n\n"
+                + qa_prompt_dict.get("objective", "")
+            ).strip()
+            if not qa_system_prompt:
+                raise ValueError(
+                    f"QA prompt for {agent_name} resolved to an empty system message. "
+                    "Ensure the prompt config contains a non-empty 'role' or 'system' key."
+                )
 
             # Build evaluation input
             evaluation_input = {
@@ -206,6 +215,10 @@ Please provide your evaluation in the following JSON format:
 
                 return qa_result
 
+        except ValueError:
+            # Configuration errors (e.g. empty system prompt) are programming mistakes -- re-raise
+            # so callers get a clear signal rather than a silent degraded verdict.
+            raise
         except Exception as e:
             logger.error(f"QA evaluation error for {agent_name}: {e}", exc_info=True)
             if "generation" in locals() and generation:

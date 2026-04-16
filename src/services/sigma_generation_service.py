@@ -144,6 +144,7 @@ class SigmaGenerationService:
         qa_feedback: str | None = None,
         sigma_prompt_template: str | None = None,
         sigma_system_prompt: str | None = None,
+        sigma_repair_template: str | None = None,
         extraction_result: dict[str, Any] | None = None,
         enable_multi_rule_expansion: bool = True,
         max_repair_attempts_per_rule: int = 3,
@@ -234,9 +235,10 @@ class SigmaGenerationService:
             if not sigma_prompt or not isinstance(sigma_prompt, str):
                 raise ValueError("Failed to load SIGMA generation prompt from both database and file")
 
-            # Always append observables section when available (DB template may lack {observables_section})
+            # Append observables section only if the template did not already substitute it via {observables_section}
             if observables_section and observables_section.strip():
-                sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
+                if not sigma_prompt_template or "{observables_section}" not in sigma_prompt_template:
+                    sigma_prompt = sigma_prompt.rstrip() + "\n\n" + observables_section.strip()
 
             # Handle context window limits for LMStudio
             if ai_model == "lmstudio":
@@ -282,6 +284,7 @@ class SigmaGenerationService:
                 execution_id=execution_id,
                 article_id=article_id,
                 sigma_system_prompt=sigma_system_prompt,
+                sigma_repair_template=sigma_repair_template,
             )
 
             # Combine valid and repaired rules
@@ -336,6 +339,7 @@ class SigmaGenerationService:
                             execution_id=execution_id,
                             article_id=article_id,
                             sigma_system_prompt=sigma_system_prompt,
+                            sigma_repair_template=sigma_repair_template,
                         )
                         expansion_rules = expansion_validation.valid_rules + expansion_repaired
                     else:
@@ -583,6 +587,7 @@ class SigmaGenerationService:
         execution_id: int | None,
         article_id: int | None,
         sigma_system_prompt: str | None,
+        sigma_repair_template: str | None = None,
     ) -> list[RuleValidationResult]:
         """Phase 3: Repair invalid rules one at a time."""
         repaired_rules = []
@@ -600,14 +605,20 @@ class SigmaGenerationService:
             repaired = False
             for attempt in range(max_repair_attempts_per_rule):
                 try:
-                    # Load repair prompt
-                    from src.utils.prompt_loader import format_prompt_async
+                    # Use DB repair template if available, otherwise load from file
+                    if sigma_repair_template:
+                        repair_prompt = sigma_repair_template.format(
+                            validation_errors=previous_errors_text,
+                            original_rule=previous_yaml_preview,
+                        )
+                    else:
+                        from src.utils.prompt_loader import format_prompt_async
 
-                    repair_prompt = await format_prompt_async(
-                        "sigma_repair_single",
-                        validation_errors=previous_errors_text,
-                        original_rule=previous_yaml_preview,
-                    )
+                        repair_prompt = await format_prompt_async(
+                            "sigma_repair_single",
+                            validation_errors=previous_errors_text,
+                            original_rule=previous_yaml_preview,
+                        )
 
                     # Call LLM API for repair
                     sigma_provider = self.llm_service.provider_sigma

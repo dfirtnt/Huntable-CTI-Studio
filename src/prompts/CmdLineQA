@@ -41,12 +41,15 @@
     }
   },
   "evaluation_criteria": [
-    "✅ Each extracted command appears literally in the source text on one physical line.",
-    "✅ Wrapper logic is correct and limited to cmd/%COMSPEC% with /c or /k; PowerShell is never stripped.",
-    "✅ Each accepted command starts with a recognized Windows execution component and is non-trivial.",
-    "✅ Chaining uses full verbatim chain with at least one non-trivial component.",
-    "⚠️ Missing valid commands in allowed contexts are identified and added.",
-    "❌ No hallucinated, reconstructed, bare, single-token, or ambiguous commands."
+    "[PASS] Each extracted command appears literally in the source text on one physical line.",
+    "[PASS] Wrapper logic is correct and limited to cmd/%COMSPEC% with /c or /k; PowerShell is never stripped.",
+    "[PASS] Each accepted command starts with a recognized Windows execution component and is non-trivial.",
+    "[PASS] Chaining uses full verbatim chain with at least one non-trivial component.",
+    "[PASS] source_evidence contains the verbatim source text supporting the extraction.",
+    "[PASS] extraction_justification explains which rule triggered the extraction.",
+    "[PASS] confidence_score is a numeric value in [0.0, 1.0].",
+    "[WARN] Missing valid commands in allowed contexts are identified and added.",
+    "[FAIL] No hallucinated, reconstructed, bare, single-token, or ambiguous commands."
   ],
   "instructions": "USER: Given article_content and extracted_commands, validate against the criteria. If you add or remove commands, document them under corrected_commands. CRITICAL: You MUST output ONLY valid JSON. Do not include any text before or after the JSON. Do not use markdown code blocks. Output the JSON object directly starting with { and ending with }. Required format: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrected_commands\": {\"added\": [{\"command\": \"...\", \"reason\": \"...\", \"found_in\": \"...\"}], \"removed\": [{\"command\": \"...\", \"reason\": \"...\"}]}}."
 }

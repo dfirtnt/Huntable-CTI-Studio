@@ -183,3 +183,52 @@ async def format_prompt_async(prompt_name: str, **kwargs: Any) -> str:
 def get_available_prompts() -> list[str]:
     """Get list of available prompts."""
     return prompt_loader.get_available_prompts()
+
+
+def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    """Extract (user_template, system_prompt) from a SigmaAgent DB record.
+
+    SigmaAgent's stored prompt has accumulated three shapes over time:
+      * Locked scaffold JSON: {"role": ..., "user_template": ...}
+      * Legacy simple JSON:   {"system": ..., "user": ...}
+      * Legacy raw text:      the template string verbatim (bootstrap default)
+
+    In every case the backend needs two values: the user-message template (with
+    placeholders like {title}/{content}) and the system persona. This helper
+    handles all three shapes plus the legacy sibling ``system_prompt`` key, and
+    is the single place that knows how to normalize SigmaAgent prompt data.
+
+    Returns a tuple (template, system). Either value may be None if not resolvable.
+    """
+    import json
+
+    if not sigma_prompt_data:
+        return (None, None)
+
+    raw_prompt = sigma_prompt_data.get("prompt", "")
+    template: str | None = None
+    system: str | None = None
+
+    if isinstance(raw_prompt, str) and raw_prompt:
+        try:
+            parsed = json.loads(raw_prompt)
+        except (ValueError, json.JSONDecodeError):
+            parsed = None
+
+        if isinstance(parsed, dict) and parsed.get("user_template"):
+            # Locked scaffold format
+            template = parsed["user_template"]
+            system = parsed.get("role") or parsed.get("system") or None
+        elif isinstance(parsed, dict) and (parsed.get("user") or parsed.get("system")):
+            # Legacy {system, user} format
+            template = parsed.get("user") or raw_prompt
+            system = parsed.get("system") or None
+        else:
+            # Legacy raw-text template (bootstrap default) — or unparseable blob
+            template = raw_prompt
+
+    # Legacy sibling key still honored when the locked JSON didn't carry a system.
+    if not system and isinstance(sigma_prompt_data.get("system_prompt"), str):
+        system = sigma_prompt_data["system_prompt"]
+
+    return (template, system)

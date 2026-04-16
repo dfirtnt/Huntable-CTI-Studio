@@ -97,18 +97,19 @@ class TestTraceabilityBlockAllowlist:
 
 
 class TestSystemFallback:
-    """Pin the system message fallback behavior."""
+    """Extractor Contract enforcement: missing system/role is a hard fail, not a silent fallback."""
 
     @pytest.mark.asyncio
     async def test_system_fallback_when_role_missing(self, llm_service):
-        """When prompt_config has no 'system' or 'role', fall back to default."""
+        """When prompt_config has no 'system' or 'role', raises ValueError (contract enforcement).
+
+        Previously the code silently substituted "You are a detection engineer." which masked
+        misconfigured prompts. The Extractor Contract (extractor-standard.md sec 1) requires a
+        hard fail so callers see the misconfiguration immediately.
+        """
         content = "x" * (MIN_USER_CONTENT_CHARS + 100)
 
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
+        with pytest.raises(ValueError, match="missing required 'system'/'role' key"):
             await llm_service.run_extraction_agent(
                 agent_name="CmdlineExtract",
                 content=content,
@@ -120,11 +121,6 @@ class TestSystemFallback:
                     "json_example": '{"items":[],"count":0}',
                 },
             )
-
-            call_args = mock_chat.call_args
-            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
-            system_msg = next(m["content"] for m in messages if m["role"] == "system")
-            assert system_msg == "You are a detection engineer."
 
     @pytest.mark.asyncio
     async def test_system_uses_role_field(self, llm_service):
@@ -190,18 +186,19 @@ class TestSystemFallback:
 
 
 class TestLegacyScaffold:
-    """Pin the hardcoded user message scaffold when user_template is absent."""
+    """Extractor Contract enforcement: user_template in preset is a hard fail (scaffold is code-owned)."""
 
     @pytest.mark.asyncio
     async def test_legacy_scaffold_ignores_user_template(self, llm_service):
-        """Legacy path keeps the hardcoded scaffold even if user_template is present."""
+        """prompt_config with user_template raises ValueError (was previously silently ignored).
+
+        The Extractor Contract (extractor-standard.md sec 5 note) states the user message scaffold
+        is code-owned; preset authors must not write or edit user_template. The check was promoted
+        from a silent no-op to a hard fail so misconfigured presets are caught immediately.
+        """
         content = "This is a test article about malware.\n" * 50
 
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
+        with pytest.raises(ValueError, match="must not contain 'user_template'"):
             await llm_service.run_extraction_agent(
                 agent_name="CmdlineExtract",
                 content=content,
@@ -215,17 +212,6 @@ class TestLegacyScaffold:
                     "output_format": {"items": [], "count": 0},
                 },
             )
-
-            call_args = mock_chat.call_args
-            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
-            user_msg = next(m["content"] for m in messages if m["role"] == "user")
-
-            assert "Title: Malware Analysis Report" in user_msg
-            assert "URL: https://example.com/report" in user_msg
-            assert "Content:" in user_msg
-            assert "Task: Extract commands." in user_msg
-            assert "CRITICAL INSTRUCTIONS: Output valid JSON." in user_msg
-            assert "IGNORED TEMPLATE" not in user_msg
 
     @pytest.mark.asyncio
     async def test_legacy_scaffold_json_nudge(self, llm_service):
@@ -247,6 +233,7 @@ class TestLegacyScaffold:
                     "task": "Extract.",
                     "instructions": "Output JSON.",
                     "output_format": {"items": [], "count": 0},
+                    "json_example": '{"items":[],"count":0}',
                 },
             )
 
@@ -281,6 +268,7 @@ class TestLegacyScaffold:
                     "objective": "Extract suspicious commands.",
                     "instructions": "Return only command lines tied to execution evidence.",
                     "output_format": {"items": [], "count": 0},
+                    "json_example": '{"items":[],"count":0}',
                 },
                 qa_prompt_config={
                     "role": "You are a QA reviewer.",

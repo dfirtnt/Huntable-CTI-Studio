@@ -1613,6 +1613,12 @@ async def bootstrap_prompts_from_files(request: Request):
                 with open(sigma_prompt_path) as f:
                     loaded_prompts["SigmaAgent"] = {"prompt": f.read(), "instructions": ""}
 
+            # SigmaRepair
+            sigma_repair_path = prompts_dir / "sigma_repair_single.txt"
+            if sigma_repair_path.exists():
+                with open(sigma_repair_path) as f:
+                    loaded_prompts["SigmaRepair"] = {"prompt": f.read(), "instructions": ""}
+
             # QAAgent
             qa_agent_path = prompts_dir / "QAAgentCMD"
             if qa_agent_path.exists():

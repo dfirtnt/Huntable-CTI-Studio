@@ -49,10 +49,6 @@ _RANK_PROMPT_TEMPLATE = (
 
 _EXTRACT_PROMPT_CFG = {
     "role": "You are an extractor.",
-    "user_template": (
-        "Title: {title}\nURL: {url}\nContent:\n{content}\n"
-        "Task: {task}\nJSON: {json_example}\nInstructions: {instructions}"
-    ),
     "task": "Extract",
     "instructions": "Output JSON",
     "json_example": "{}",
@@ -153,6 +149,190 @@ class TestRankArticle:
         user_msg = next((m for m in call_messages if m.get("role") == "user"), {})
         assert len(user_msg.get("content", "")) < len(long_content)
 
+    @pytest.mark.asyncio
+    async def test_rank_article_raises_when_json_prompt_has_empty_system(self, llm_service):
+        """JSON-format prompt with empty system/role keys must hard-fail (not silently use default).
+
+        Regression: previously silently fell back to a hardcoded cybersecurity-analyst persona
+        when the user's JSON prompt had an empty 'system'/'role' — masking misconfiguration.
+        """
+        prompt_with_empty_system = '{"system": "", "user": "Rank: {title} {source} {url} {content}"}'
+        with pytest.raises(PreprocessInvariantError, match="RankAgent prompt resolved to an empty system message"):
+            await llm_service.rank_article(
+                title="Test",
+                content="x" * 2000,
+                source="Blog",
+                url="https://example.com",
+                prompt_template=prompt_with_empty_system,
+            )
+
+    @pytest.mark.asyncio
+    async def test_rank_article_raises_when_json_prompt_missing_system_key(self, llm_service):
+        """JSON prompt without any system/role key must hard-fail."""
+        prompt_without_system = '{"user": "Rank: {title} {source} {url} {content}"}'
+        with pytest.raises(PreprocessInvariantError, match="RankAgent prompt resolved to an empty system message"):
+            await llm_service.rank_article(
+                title="Test",
+                content="x" * 2000,
+                source="Blog",
+                url="https://example.com",
+                prompt_template=prompt_without_system,
+            )
+
+    @pytest.mark.asyncio
+    async def test_rank_article_raw_text_prompt_does_not_hard_fail(self, llm_service):
+        """Non-JSON (raw text) prompt uses the hardcoded default persona — no hard-fail.
+
+        The hard-fail gate is specific to JSON-format prompts so that legacy raw-text
+        templates (bootstrap defaults, file-based prompts) continue to work.
+        """
+        raw_text_prompt = (
+            "Rank this article for huntability. Title: {title} Source: {source} URL: {url} Content: {content}"
+        )
+        llm_response = {
+            "choices": [{"message": {"content": '{"score": 7, "reasoning": "raw-text works"}'}}],
+            "usage": {},
+        }
+        with (
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response),
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            # Should not raise — the raw text falls through to the hardcoded-persona fallback
+            result = await llm_service.rank_article(
+                title="Test",
+                content="x" * 2000,
+                source="Blog",
+                url="https://example.com",
+                prompt_template=raw_text_prompt,
+            )
+        assert "score" in result
+
+
+# ---------------------------------------------------------------------------
+# extract_observables -- hard-fail on empty system/role
+# ---------------------------------------------------------------------------
+
+
+class TestExtractObservablesHardFail:
+    """Regression: empty system/role in ExtractObservables config must hard-fail (not silently fall back)."""
+
+    @pytest.mark.asyncio
+    async def test_extract_observables_raises_when_system_empty(self, llm_service, tmp_path):
+        """When prompt config has empty system AND role, raises PreprocessInvariantError.
+
+        Previously the code silently constructed a fallback system message from `task`,
+        masking misconfiguration. Now it fails loudly so the user sees the problem.
+        """
+        import json
+
+        prompt_file = tmp_path / "ExtractObservables_empty"
+        prompt_file.write_text(
+            json.dumps(
+                {
+                    "system": "",
+                    "role": "",
+                    "task": "Extract observables",
+                    "instructions": "Output JSON",
+                }
+            )
+        )
+
+        with (
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            with pytest.raises(
+                PreprocessInvariantError, match="ExtractObservables prompt resolved to an empty system message"
+            ):
+                await llm_service.extract_observables(
+                    content="x" * 2000,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_file_path=str(prompt_file),
+                )
+
+    @pytest.mark.asyncio
+    async def test_extract_observables_raises_when_system_and_role_missing(self, llm_service, tmp_path):
+        """When neither system nor role keys exist, raises PreprocessInvariantError."""
+        import json
+
+        prompt_file = tmp_path / "ExtractObservables_missing"
+        prompt_file.write_text(
+            json.dumps(
+                {
+                    "task": "Extract observables",
+                    "instructions": "Output JSON",
+                }
+            )
+        )
+
+        with (
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            with pytest.raises(
+                PreprocessInvariantError, match="ExtractObservables prompt resolved to an empty system message"
+            ):
+                await llm_service.extract_observables(
+                    content="x" * 2000,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_file_path=str(prompt_file),
+                )
+
+    @pytest.mark.asyncio
+    async def test_extract_observables_does_not_hard_fail_when_role_present(self, llm_service, tmp_path):
+        """When 'role' is populated (even if 'system' is missing), the hard-fail is NOT triggered.
+
+        We don't assert on downstream parsing success here — only that the specific
+        PreprocessInvariantError guarding the empty-system case does not fire.
+        Downstream errors (if any) are unrelated to the hard-fail rule under test.
+        """
+        import json
+
+        prompt_file = tmp_path / "ExtractObservables_role_only"
+        prompt_file.write_text(
+            json.dumps(
+                {
+                    "role": "You are an observables extractor.",
+                    "task": "Extract observables",
+                    "instructions": "Output JSON",
+                }
+            )
+        )
+        llm_response = {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"behavioral_observables": [], "observable_list": [], "discrete_huntables_count": 0}'
+                    }
+                }
+            ],
+            "usage": {},
+        }
+        with (
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response),
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            # Whatever happens downstream, it MUST NOT be the empty-system hard-fail.
+            raised_invariant = False
+            try:
+                await llm_service.extract_observables(
+                    content="x" * 2000,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_file_path=str(prompt_file),
+                )
+            except PreprocessInvariantError as e:
+                if "empty system message" in str(e):
+                    raised_invariant = True
+            except Exception:
+                # Other errors (response-shape parsing, etc.) are out of scope for this test.
+                pass
+            assert not raised_invariant, "Hard-fail should not fire when 'role' is populated"
+
 
 # ---------------------------------------------------------------------------
 # run_extraction_agent -- validation
@@ -196,7 +376,111 @@ class TestRunExtractionAgentValidation:
                 content="x" * MIN_USER_CONTENT_CHARS,
                 title="Test",
                 url="https://example.com",
-                prompt_config={"task": "extract"},
+                prompt_config={
+                    "role": "You are an extractor.",
+                    "instructions": "Output JSON.",
+                    "json_example": "{}",
+                },
+            )
+
+    @pytest.mark.asyncio
+    async def test_user_template_key_raises(self, llm_service):
+        """prompt_config with user_template key raises ValueError (scaffold is code-owned)."""
+        bad_cfg = {
+            "role": "You are an extractor.",
+            "instructions": "Output JSON only.",
+            "user_template": "Title: {title}\nContent: {content}",
+        }
+        with pytest.raises(ValueError, match="must not contain 'user_template'"):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
+            )
+
+    @pytest.mark.asyncio
+    async def test_missing_system_role_key_raises(self, llm_service):
+        """prompt_config without system or role raises ValueError before any LLM call."""
+        bad_cfg = {
+            "instructions": "Output JSON only.",
+            "json_example": "{}",
+        }
+        with pytest.raises(ValueError, match="missing required 'system'/'role' key"):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
+            )
+
+    @pytest.mark.asyncio
+    async def test_missing_instructions_key_raises(self, llm_service):
+        """prompt_config without instructions raises ValueError before any LLM call."""
+        bad_cfg = {
+            "role": "You are an extractor.",
+            "json_example": "{}",
+        }
+        with pytest.raises(ValueError, match="missing required 'instructions' key"):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
+            )
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_in_json_example_raises(self, llm_service):
+        """json_example that is not valid JSON raises ValueError."""
+        bad_cfg = {
+            "role": "You are an extractor.",
+            "instructions": "Output JSON only.",
+            "json_example": "{not valid json",
+        }
+        with pytest.raises(ValueError, match="json_example is not valid JSON"):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
+            )
+
+    @pytest.mark.asyncio
+    async def test_null_json_example_raises(self, llm_service):
+        """prompt_config with json_example: null raises ValueError."""
+        bad_cfg = {
+            "role": "You are an extractor.",
+            "instructions": "Output JSON only.",
+            "json_example": None,
+        }
+        with pytest.raises(ValueError, match="missing required 'json_example'"):
+            await llm_service.run_extraction_agent(
+                agent_name="HuntQueriesExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
+            )
+
+    @pytest.mark.asyncio
+    async def test_json_example_missing_traceability_fields_raises(self, llm_service):
+        """json_example present but missing traceability fields raises ValueError."""
+        bad_cfg = {
+            "role": "You are an extractor.",
+            "instructions": "Output JSON only.",
+            "json_example": '{"cmdline_items": [{"value": "cmd.exe"}], "count": 1}',
+        }
+        with pytest.raises(ValueError, match="missing traceability fields"):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
             )
 
 

@@ -1079,3 +1079,253 @@ level: low
         assert output.startswith("title: Test Rule")
         request_kwargs = service.llm_service.request_chat.call_args.kwargs
         assert request_kwargs["max_tokens"] == 4000
+
+
+# ---------------------------------------------------------------------------
+# Tests for changes made in this session
+# ---------------------------------------------------------------------------
+
+
+class TestObservablesDoubleInjectionGuard:
+    """Observables section must not appear twice when template already has {observables_section}."""
+
+    @pytest.fixture
+    def service(self):
+        mock_llm = Mock()
+        mock_llm.provider_sigma = "lmstudio"
+        mock_llm.lmstudio_model = "test-model-7b"
+        mock_llm._canonicalize_provider = Mock(return_value="lmstudio")
+        with patch("src.services.sigma_generation_service.LLMService", return_value=mock_llm):
+            return SigmaGenerationService()
+
+    @pytest.fixture
+    def valid_rule_yaml(self):
+        return (
+            "title: Test Rule\n"
+            "id: abc-123\n"
+            "description: Test\n"
+            "logsource:\n"
+            "  category: process_creation\n"
+            "  product: windows\n"
+            "detection:\n"
+            "  selection:\n"
+            "    CommandLine|contains: test\n"
+            "  condition: selection\n"
+            "level: low\n"
+        )
+
+    @pytest.mark.asyncio
+    async def test_observables_not_appended_when_template_has_placeholder(self, service, valid_rule_yaml):
+        """When DB template contains {observables_section}, section must not be appended again."""
+        # Template already contains the placeholder
+        template_with_placeholder = (
+            "Generate a rule for: {title}\nSource: {source}\nURL: {url}\nContent: {content}\n{observables_section}"
+        )
+        extraction_result = {"observables": [{"type": "cmdline", "value": "powershell -enc abc"}]}
+
+        captured_prompts = []
+
+        async def fake_call(prompt, *, provider, **kwargs):
+            captured_prompts.append(prompt)
+            return valid_rule_yaml
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_opt,
+            patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_val,
+            patch("src.services.sigma_generation_service.clean_sigma_rule", side_effect=lambda x: x),
+            patch.object(service, "_call_provider_for_sigma", side_effect=fake_call),
+        ):
+            mock_opt.return_value = {"success": True, "filtered_content": "article text", "tokens_saved": 0}
+            mock_val.return_value = ValidationResult(
+                is_valid=True, errors=[], warnings=[], metadata={}, content_preview=valid_rule_yaml
+            )
+
+            await service.generate_sigma_rules(
+                article_title="Test",
+                article_content="article text",
+                source_name="test",
+                url="http://example.com",
+                sigma_prompt_template=template_with_placeholder,
+                extraction_result=extraction_result,
+                enable_multi_rule_expansion=False,
+            )
+
+        assert captured_prompts, "LLM was not called"
+        prompt_used = captured_prompts[0]
+        # Observable value should appear exactly once
+        assert prompt_used.count("powershell -enc abc") == 1, "Observables section was injected twice into the prompt"
+
+    @pytest.mark.asyncio
+    async def test_observables_appended_when_template_lacks_placeholder(self, service, valid_rule_yaml):
+        """When DB template has no {observables_section}, section must be appended."""
+        template_without_placeholder = (
+            "Generate a rule for: {title}\nSource: {source}\nURL: {url}\nContent: {content}\n"
+        )
+        extraction_result = {"observables": [{"type": "cmdline", "value": "cmd.exe /c whoami"}]}
+
+        captured_prompts = []
+
+        async def fake_call(prompt, *, provider, **kwargs):
+            captured_prompts.append(prompt)
+            return valid_rule_yaml
+
+        with (
+            patch("src.services.sigma_generation_service.optimize_article_content") as mock_opt,
+            patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_val,
+            patch("src.services.sigma_generation_service.clean_sigma_rule", side_effect=lambda x: x),
+            patch.object(service, "_call_provider_for_sigma", side_effect=fake_call),
+        ):
+            mock_opt.return_value = {"success": True, "filtered_content": "article text", "tokens_saved": 0}
+            mock_val.return_value = ValidationResult(
+                is_valid=True, errors=[], warnings=[], metadata={}, content_preview=valid_rule_yaml
+            )
+
+            await service.generate_sigma_rules(
+                article_title="Test",
+                article_content="article text",
+                source_name="test",
+                url="http://example.com",
+                sigma_prompt_template=template_without_placeholder,
+                extraction_result=extraction_result,
+                enable_multi_rule_expansion=False,
+            )
+
+        assert captured_prompts, "LLM was not called"
+        assert "cmd.exe /c whoami" in captured_prompts[0], (
+            "Observables section was not appended when template lacked placeholder"
+        )
+
+
+class TestSigmaRepairTemplatePassthrough:
+    """sigma_repair_template from DB must be used in _repair_rules instead of disk file."""
+
+    @pytest.fixture
+    def service(self):
+        mock_llm = Mock()
+        mock_llm.provider_sigma = "lmstudio"
+        mock_llm.lmstudio_model = "test-model-7b"
+        mock_llm._canonicalize_provider = Mock(return_value="lmstudio")
+        with patch("src.services.sigma_generation_service.LLMService", return_value=mock_llm):
+            return SigmaGenerationService()
+
+    @pytest.fixture
+    def invalid_rule(self):
+        return (
+            "title: Broken Rule\n"
+            "id: broken-123\n"
+            "description: Missing detection\n"
+            "logsource:\n"
+            "  category: process_creation\n"
+            "  product: windows\n"
+        )
+
+    @pytest.fixture
+    def valid_rule(self):
+        return (
+            "title: Fixed Rule\n"
+            "id: fixed-123\n"
+            "description: Fixed\n"
+            "logsource:\n"
+            "  category: process_creation\n"
+            "  product: windows\n"
+            "detection:\n"
+            "  selection:\n"
+            "    CommandLine|contains: test\n"
+            "  condition: selection\n"
+            "level: low\n"
+        )
+
+    @pytest.mark.asyncio
+    async def test_repair_uses_db_template_when_provided(self, service, invalid_rule, valid_rule):
+        """When sigma_repair_template is provided, _repair_rules must format and use it."""
+        custom_template = "CUSTOM REPAIR PROMPT\nErrors: {validation_errors}\nRule: {original_rule}\nFix it."
+
+        captured_repair_prompts = []
+
+        async def fake_call(prompt, *, provider, **kwargs):
+            captured_repair_prompts.append(prompt)
+            return valid_rule
+
+        invalid_result = ValidationResult(
+            is_valid=False, errors=["Missing detection"], warnings=[], metadata={}, content_preview=invalid_rule
+        )
+        valid_result = ValidationResult(is_valid=True, errors=[], warnings=[], metadata={}, content_preview=valid_rule)
+
+        from src.services.sigma_generation_service import RuleValidationResult
+
+        rule = RuleValidationResult(
+            rule_id="test-id",
+            rule_yaml=invalid_rule,
+            validation_result=invalid_result,
+            rule_index=1,
+        )
+
+        with (
+            patch("src.services.sigma_generation_service.validate_sigma_rule", return_value=valid_result),
+            patch("src.services.sigma_generation_service.clean_sigma_rule", side_effect=lambda x: x),
+            patch.object(service, "_call_provider_for_sigma", side_effect=fake_call),
+        ):
+            await service._repair_rules(
+                invalid_rules=[rule],
+                max_repair_attempts_per_rule=1,
+                execution_id=None,
+                article_id=None,
+                sigma_system_prompt=None,
+                sigma_repair_template=custom_template,
+            )
+
+        assert captured_repair_prompts, "Repair LLM was not called"
+        assert "CUSTOM REPAIR PROMPT" in captured_repair_prompts[0], (
+            "DB repair template was not used; file-based prompt was used instead"
+        )
+        assert "Missing detection" in captured_repair_prompts[0]
+
+    @pytest.mark.asyncio
+    async def test_repair_falls_back_to_file_when_template_is_none(self, service, invalid_rule, valid_rule):
+        """When sigma_repair_template is None, _repair_rules must load from disk."""
+        captured_repair_prompts = []
+
+        async def fake_call(prompt, *, provider, **kwargs):
+            captured_repair_prompts.append(prompt)
+            return valid_rule
+
+        invalid_result = ValidationResult(
+            is_valid=False, errors=["Missing detection"], warnings=[], metadata={}, content_preview=invalid_rule
+        )
+        valid_result = ValidationResult(is_valid=True, errors=[], warnings=[], metadata={}, content_preview=valid_rule)
+
+        from src.services.sigma_generation_service import RuleValidationResult
+
+        rule = RuleValidationResult(
+            rule_id="test-id",
+            rule_yaml=invalid_rule,
+            validation_result=invalid_result,
+            rule_index=1,
+        )
+
+        file_prompt = "FILE-BASED REPAIR PROMPT\nErrors: {validation_errors}\nRule: {original_rule}"
+
+        with (
+            patch("src.services.sigma_generation_service.validate_sigma_rule", return_value=valid_result),
+            patch("src.services.sigma_generation_service.clean_sigma_rule", side_effect=lambda x: x),
+            patch.object(service, "_call_provider_for_sigma", side_effect=fake_call),
+            patch(
+                "src.utils.prompt_loader.format_prompt_async",
+                return_value=file_prompt.format(
+                    validation_errors="Missing detection", original_rule=invalid_rule[:500]
+                ),
+            ),
+        ):
+            await service._repair_rules(
+                invalid_rules=[rule],
+                max_repair_attempts_per_rule=1,
+                execution_id=None,
+                article_id=None,
+                sigma_system_prompt=None,
+                sigma_repair_template=None,
+            )
+
+        assert captured_repair_prompts, "Repair LLM was not called"
+        assert "FILE-BASED REPAIR PROMPT" in captured_repair_prompts[0], (
+            "File-based fallback was not used when sigma_repair_template=None"
+        )

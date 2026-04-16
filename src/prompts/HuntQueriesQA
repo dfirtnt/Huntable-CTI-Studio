@@ -6,11 +6,14 @@
     "extracted_queries": "<extracted JSON>"
   },
   "evaluation_criteria": [
-    "✅ Extracted queries appear literally or structurally in the source text.",
-    "✅ Query category/type (e.g., KQL, Splunk, Sigma, Elastic) matches the source.",
-    "✅ Query syntax is valid for the claimed type.",
-    "❌ No hallucinated queries or syntax not present in the source.",
-    "⚠️ Missing queries from code blocks or examples are identified and added."
+    "[PASS] Extracted queries appear literally or structurally in the source text.",
+    "[PASS] Query category/type (e.g., KQL, Splunk, Sigma, Elastic) matches the source.",
+    "[PASS] Query syntax is valid for the claimed type.",
+    "[PASS] source_evidence contains the verbatim source text supporting the extraction.",
+    "[PASS] extraction_justification explains which rule triggered the extraction.",
+    "[PASS] confidence_score is a numeric value in [0.0, 1.0].",
+    "[WARN] Missing queries from code blocks or examples are identified and added.",
+    "[FAIL] No hallucinated queries or syntax not present in the source."
   ],
   "instructions": "USER: Compare extracted_queries to source_text. If missing or miscategorized, flag issues. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness|syntax\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrected_queries\": {\"added\": [{\"query\": \"...\", \"type\": \"...\", \"reason\": \"...\", \"found_in\": \"...\"}], \"removed\": [{\"query\": \"...\", \"reason\": \"...\"}]}}."
 }

@@ -331,9 +331,11 @@ class TestLLMService:
         """run_extraction_agent should use the detected LMStudio window before truncating content."""
         content = "x" * 10000
         prompt_config = {
+            "role": "You are a registry extractor.",
             "objective": "Extract observables.",
             "instructions": "Output valid JSON.",
             "output_format": {"items": []},
+            "json_example": '{"items":[],"count":0}',
         }
 
         truncate_calls = []
@@ -504,10 +506,6 @@ class TestNewlineInvariantGuard:
                     url="https://example.com",
                     prompt_config={
                         "role": "You are an extractor.",
-                        "user_template": (
-                            "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\n"
-                            "JSON: {json_example}\nInstructions: {instructions}"
-                        ),
                         "task": "Extract",
                         "instructions": "Output JSON",
                         "json_example": "{}",
@@ -537,10 +535,6 @@ class TestNewlineInvariantGuard:
                     url="https://example.com",
                     prompt_config={
                         "role": "You are an extractor.",
-                        "user_template": (
-                            "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\n"
-                            "JSON: {json_example}\nInstructions: {instructions}"
-                        ),
                         "task": "Extract",
                         "instructions": "Output JSON",
                         "json_example": "{}",
@@ -572,10 +566,6 @@ class TestNewlineInvariantGuard:
                     url="https://example.com",
                     prompt_config={
                         "role": "You are an extractor.",
-                        "user_template": (
-                            "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\n"
-                            "JSON: {json_example}\nInstructions: {instructions}"
-                        ),
                         "task": "Extract",
                         "instructions": "Output JSON",
                         "json_example": "{}",
@@ -590,8 +580,6 @@ class TestNewlineInvariantGuard:
         api_error = RuntimeError("Temperature not supported for this model")
         prompt_cfg = {
             "role": "You are an extractor.",
-            "user_template": "Title: {title}\nContent:\n{content}\nTask: {task}\n"
-            "JSON: {json_example}\nInstructions: {instructions}",
             "task": "Extract",
             "instructions": "Output JSON",
             "json_example": "{}",
@@ -628,8 +616,6 @@ class TestNewlineInvariantGuard:
         mock_gen = Mock()
         prompt_cfg = {
             "role": "You are an extractor.",
-            "user_template": "Title: {title}\nContent:\n{content}\nTask: {task}\n"
-            "JSON: {json_example}\nInstructions: {instructions}",
             "task": "Extract",
             "instructions": "Output JSON",
             "json_example": "{}",
@@ -668,10 +654,6 @@ class TestTraceabilityNormalization:
 
     _PROMPT_CFG = {
         "role": "You are an extractor.",
-        "user_template": (
-            "Title: {title}\nURL: {url}\nContent:\n{content}\nTask: {task}\n"
-            "JSON: {json_example}\nInstructions: {instructions}"
-        ),
         "task": "Extract",
         "instructions": "Output JSON",
         "json_example": "{}",

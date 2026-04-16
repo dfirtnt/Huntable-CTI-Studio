@@ -2586,17 +2586,23 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Get SigmaAgent prompt from config if available
         sigma_prompt_template = None
         sigma_system_prompt = None
+        sigma_repair_template = None
+        if config and config.agent_prompts and "SigmaRepair" in config.agent_prompts:
+            repair_prompt_data = config.agent_prompts["SigmaRepair"]
+            if isinstance(repair_prompt_data.get("prompt"), str):
+                sigma_repair_template = repair_prompt_data["prompt"]
+                logger.info(f"Using SigmaRepair prompt from workflow config (len={len(sigma_repair_template)} chars)")
         if config and config.agent_prompts and "SigmaAgent" in config.agent_prompts:
-            sigma_prompt_data = config.agent_prompts["SigmaAgent"]
-            if isinstance(sigma_prompt_data.get("prompt"), str):
-                sigma_prompt_template = sigma_prompt_data["prompt"]
-                logger.info(f"Using SigmaAgent prompt from workflow config (len={len(sigma_prompt_template)} chars)")
-            if isinstance(sigma_prompt_data.get("system_prompt"), str):
-                sigma_system_prompt = sigma_prompt_data["system_prompt"]
+            from src.utils.prompt_loader import parse_sigma_agent_prompt_data
+
+            sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
+                config.agent_prompts["SigmaAgent"]
+            )
+            if sigma_prompt_template:
                 logger.info(
-                    f"Using SigmaAgent system prompt from workflow config (len={len(sigma_system_prompt)} chars)"
+                    f"Using SigmaAgent prompt from workflow config (template_len={len(sigma_prompt_template)} chars, system_len={len(sigma_system_prompt or '')} chars)"
                 )
-            if not isinstance(sigma_prompt_data.get("prompt"), str):
+            else:
                 logger.warning("SigmaAgent prompt in config is not a string, using default")
         else:
             logger.info("No SigmaAgent prompt in workflow config, using default prompt")
@@ -2662,6 +2668,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             qa_feedback=None,
             sigma_prompt_template=sigma_prompt_template,  # Use prompt from config if available
             sigma_system_prompt=sigma_system_prompt,  # Use system prompt from config if available
+            sigma_repair_template=sigma_repair_template,  # Use repair prompt from config if available
         )
 
         # Extract results from service

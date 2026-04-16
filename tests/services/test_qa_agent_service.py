@@ -236,3 +236,82 @@ class TestQAAgentService:
         assert prompt["evaluation_criteria"][0].startswith("[PASS]")
         assert prompt["evaluation_criteria"][2].startswith("[WARN]")
         assert prompt["evaluation_criteria"][4].startswith("[FAIL]")
+
+    @pytest.mark.asyncio
+    async def test_evaluate_agent_output_raises_on_empty_role(self, service, sample_article, sample_agent_output):
+        """Empty 'role' key in QA prompt config must raise ValueError, not silently degrade."""
+        config_obj = Mock()
+        config_obj.agent_prompts = {
+            "QAAgent": {
+                "prompt": json.dumps(
+                    {
+                        "role": "",
+                        "objective": "",
+                        "evaluation_criteria": [],
+                    }
+                )
+            }
+        }
+
+        with pytest.raises(ValueError, match="empty system message"):
+            await service.evaluate_agent_output(
+                article=sample_article,
+                agent_prompt="Rank this article",
+                agent_output=sample_agent_output,
+                agent_name="RankAgent",
+                config_obj=config_obj,
+            )
+
+    @pytest.mark.asyncio
+    async def test_evaluate_agent_output_raises_on_wrong_key_names(self, service, sample_article, sample_agent_output):
+        """Wrong JSON key names (e.g. 'system' instead of 'role') must raise, not silently use empty string."""
+        config_obj = Mock()
+        config_obj.agent_prompts = {
+            "QAAgent": {
+                "prompt": json.dumps(
+                    {
+                        "wrong_key": "You are a QA agent.",
+                        "also_wrong": "Evaluate outputs.",
+                        "evaluation_criteria": ["check something"],
+                    }
+                )
+            }
+        }
+
+        with pytest.raises(ValueError, match="empty system message"):
+            await service.evaluate_agent_output(
+                article=sample_article,
+                agent_prompt="Rank this article",
+                agent_output=sample_agent_output,
+                agent_name="RankAgent",
+                config_obj=config_obj,
+            )
+
+    @pytest.mark.asyncio
+    async def test_evaluate_agent_output_accepts_system_key_as_alternative_to_role(
+        self, service, sample_article, sample_agent_output, mock_llm_service
+    ):
+        """'system' key is a valid alternative to 'role' and must not raise."""
+        config_obj = Mock()
+        config_obj.agent_prompts = {
+            "QAAgent": {
+                "prompt": json.dumps(
+                    {
+                        "system": "You are a QA specialist.",
+                        "objective": "Verify outputs.",
+                        "evaluation_criteria": ["[PASS] Output is grounded."],
+                    }
+                )
+            }
+        }
+
+        result = await service.evaluate_agent_output(
+            article=sample_article,
+            agent_prompt="Rank this article",
+            agent_output=sample_agent_output,
+            agent_name="RankAgent",
+            config_obj=config_obj,
+        )
+
+        assert result is not None
+        assert "verdict" in result
