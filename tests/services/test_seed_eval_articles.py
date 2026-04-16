@@ -1,6 +1,7 @@
 """Unit tests for seed_eval_articles service (run return reason, _load_articles_by_url)."""
 
 import json
+import pathlib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,6 +9,58 @@ import pytest
 from src.services.seed_eval_articles import _load_articles_by_url, run
 
 pytestmark = pytest.mark.unit
+
+_EVAL_DATA_ROOT = pathlib.Path(__file__).resolve().parent.parent.parent / "config" / "eval_articles_data"
+_EVAL_SETS = (
+    [p.name for p in _EVAL_DATA_ROOT.iterdir() if (p / "articles.json").exists()] if _EVAL_DATA_ROOT.exists() else []
+)
+
+
+class TestEvalArticleDataIntegrity:
+    """Data integrity checks on config/eval_articles_data JSON files.
+
+    These are regression guards: failures here mean the seed data was
+    corrupted or reverted to a known-bad state.
+    """
+
+    @pytest.fixture(params=_EVAL_SETS)
+    def articles(self, request):
+        path = _EVAL_DATA_ROOT / request.param / "articles.json"
+        return request.param, json.loads(path.read_text())
+
+    def test_no_untitled_articles(self, articles):
+        """Regression: no entry may have the scraper fallback title 'Untitled Article'."""
+        set_name, data = articles
+        offenders = [a.get("url", "<no url>") for a in data if a.get("title") == "Untitled Article"]
+        assert offenders == [], f"{set_name}: {len(offenders)} article(s) still have 'Untitled Article': {offenders}"
+
+    def test_all_entries_have_non_empty_url(self, articles):
+        set_name, data = articles
+        missing = [i for i, a in enumerate(data) if not a.get("url", "").strip()]
+        assert missing == [], f"{set_name}: entries at indices {missing} are missing a url"
+
+    def test_all_entries_have_non_empty_title(self, articles):
+        set_name, data = articles
+        missing = [a.get("url", f"index:{i}") for i, a in enumerate(data) if not a.get("title", "").strip()]
+        assert missing == [], f"{set_name}: {len(missing)} article(s) have empty title: {missing}"
+
+    def test_all_entries_have_non_negative_expected_count(self, articles):
+        set_name, data = articles
+        bad = [
+            a.get("url", f"index:{i}")
+            for i, a in enumerate(data)
+            if not isinstance(a.get("expected_count"), int) or a["expected_count"] < 0
+        ]
+        assert bad == [], f"{set_name}: {len(bad)} article(s) have invalid expected_count: {bad}"
+
+    def test_process_lineage_titles_are_real(self):
+        """Regression: the 8 DFIR Report articles that were 'Untitled Article' must have real titles."""
+        path = _EVAL_DATA_ROOT / "process_lineage" / "articles.json"
+        data = json.loads(path.read_text())
+        dfir_articles = [a for a in data if "thedfirreport.com" in a.get("url", "")]
+        assert dfir_articles, "Expected at least one thedfirreport.com article in process_lineage"
+        offenders = [a["url"] for a in dfir_articles if a.get("title") in (None, "", "Untitled Article")]
+        assert offenders == [], f"DFIR Report articles still lack real titles: {offenders}"
 
 
 class TestLoadArticlesByUrl:
