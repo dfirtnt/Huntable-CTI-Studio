@@ -4,7 +4,7 @@ Detailed definitions of all parameters used in the content filter ML model, incl
 
 ## Overview
 
-The content filter uses a **RandomForestClassifier** with 27 features (or 31 with new features enabled). Features are **NOT weighted equally** - the model learns feature importances during training, with some features (like `hunt_score` and `perfect_pattern_count`) having significantly higher weights.
+The content filter uses a **RandomForestClassifier** with a fixed 27-feature base vector in training and production inference. The extractor can emit 4 additional hunt_score-derived debug fields, but the current training path does not populate them, so they are not learned by the shipped model. Features are **NOT weighted equally** - the model learns feature importances from the training data, but only for the columns actually passed into `fit()`.
 
 ---
 
@@ -371,6 +371,11 @@ The content filter uses a **RandomForestClassifier** with 27 features (or 31 wit
 - Normalization: `hunt_score / 100.0`
 - Calculated by `ThreatHuntingScorer.score_threat_hunting_content()`
 
+**Current training contract:**
+- `train_model()` does not pass `hunt_score` into `extract_features()`
+- `predict_huntability()` also uses the 27-feature base vector
+- The value is still used to adjust confidence at prediction time, but it is not part of the fitted RandomForest feature matrix
+
 **Calculation Method:**
 - Uses logarithmic bucket scoring with geometric series
 - Perfect discriminators: 75 points max
@@ -391,6 +396,10 @@ The content filter uses a **RandomForestClassifier** with 27 features (or 31 wit
 - Calculation: `1.0 if hunt_score >= 70 else 0.0`
 - Binary feature for high-quality threshold
 
+**Current training contract:**
+- Emitted only when a caller supplies `hunt_score` to `extract_features()`
+- Not part of the current fitted model feature matrix
+
 **Accuracy:** Exact
 
 ---
@@ -402,6 +411,10 @@ The content filter uses a **RandomForestClassifier** with 27 features (or 31 wit
 - Calculation: `1.0 if 30 <= hunt_score < 70 else 0.0`
 - Binary feature for medium-quality range
 
+**Current training contract:**
+- Emitted only when a caller supplies `hunt_score` to `extract_features()`
+- Not part of the current fitted model feature matrix
+
 **Accuracy:** Exact
 
 ---
@@ -412,6 +425,10 @@ The content filter uses a **RandomForestClassifier** with 27 features (or 31 wit
 **How it's identified:**
 - Calculation: `1.0 if hunt_score < 30 else 0.0`
 - Binary feature for low-quality threshold
+
+**Current training contract:**
+- Emitted only when a caller supplies `hunt_score` to `extract_features()`
+- Not part of the current fitted model feature matrix
 
 **Accuracy:** Exact
 
@@ -471,8 +488,8 @@ The system uses `ThreatHuntingScorer._keyword_matches()` for pattern matching:
 
 - **Algorithm:** RandomForestClassifier
 - **Training Data:** 278 historical samples (222 annotations + 81 feedback). Dataset labels reflect legacy "high/low signal" annotations and do not imply an active article-level classification UI.
-- **Features:** 27 base features (31 with new features enabled)
+- **Features:** 27 base features in training/inference, 31 only when the debug extractor is asked to emit the hunt_score-derived fields
 - **Feature Importances:** Learned during training (not equal weighting)
 - **Accuracy:** ~80% on test data
 
-The model learns which features are most important for classification, with features like `hunt_score`, `perfect_pattern_count`, and `huntable_pattern_count` typically having higher importances than structural features like `char_count` or `avg_word_length`.
+The model learns which features are most important for classification, but only among the features actually passed into the training matrix. In the current runtime path, the hunt_score bins are debug-only and do not contribute to the fitted forest unless the training code is changed to include them.

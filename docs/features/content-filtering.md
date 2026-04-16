@@ -129,9 +129,9 @@ This system enables threat intelligence experts to create high-quality, producti
 - **Intelligence indicators** (APT groups, campaigns, TTPs)
 - **Perfect discriminator protection** - chunks containing threat hunting keywords are never filtered
 - **Command line obfuscation pattern support** - advanced regex patterns for cmd.exe obfuscation
-- **Hunt score integration** - ML confidence enhanced by threat hunting scores
-- RandomForestClassifier with enhanced accuracy through hunt score features
-- 27+ extracted features per chunk (including hunt score features)
+- **Hunt score integration** - ML confidence can be adjusted by threat hunting scores
+- RandomForestClassifier trained on the 27-feature base vector; the extra hunt_score bins are debug-only today
+- 27 base features per chunk in training/inference, 31 only in debug output
 - Configurable confidence thresholds
 
 ### 2. LLM Optimizer (`src/utils/llm_optimizer.py`)
@@ -177,11 +177,12 @@ Each chunk is analyzed against:
 - **Not huntable patterns:** `acknowledgement|gratitude`, `contact.*mandiant`, etc.
 
 ### Step 3: ML Classification
-The ML model extracts 273 features and classifies each chunk:
+The ML model extracts 27 base features and classifies each chunk:
 - Pattern match counts
 - Text characteristics (length, word count)
 - Technical indicators (commands, URLs, IPs)
 - Quality ratios (technical vs marketing terms)
+- The debug route can also request 4 hunt_score-derived fields for inspection, but they are not part of the current fitted model
 
 ### Step 4: Filtering Decision
 Chunks are kept or removed based on:
@@ -323,7 +324,7 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 **Training Data:** 222 annotations (167 huntable, 55 not huntable) + 81 feedback samples
 **Latest Model:** Trained on 278 total samples
 **Accuracy:** 80% on test data (requires validation)
-**Features:** 27 extracted features per chunk
+**Features:** 27 extracted features per chunk in the fitted model, 31 only in debug output
 
 ### Feature Categories
 
@@ -365,6 +366,8 @@ The pattern-based classification uses the comprehensive Hunt Scoring keyword sys
 - `hunt_score_high`: Boolean for high-quality content (≥70)
 - `hunt_score_medium`: Boolean for medium-quality content (30-69)
 - `hunt_score_low`: Boolean for low-quality content (<30)
+
+Note: these four fields are only populated when callers pass `hunt_score` into `extract_features()`. The current training path does not supply that value, so the fitted model does not learn from the hunt_score bins unless the training code changes.
 
 ### Training Process
 
