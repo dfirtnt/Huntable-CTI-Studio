@@ -1606,9 +1606,9 @@
             </div>
             <div class="rail-connector"></div>
 
-            <div class="rail-item c2" onclick="scrollToStep(2)" role="button" tabindex="0" title="Step 2: LLM Ranking (rank-agent)">
+            <div class="rail-item c2" onclick="scrollToStep(2)" role="button" tabindex="0" title="Step 2: Rank Agent (rank-agent)">
               <div class="rail-node">2</div>
-              <div class="rail-label">LLM Ranking</div>
+              <div class="rail-label">Rank Agent</div>
               <div class="rail-sublabel">rank-agent</div>
             </div>
             <div class="rail-connector"></div>
@@ -1689,7 +1689,7 @@
                 <div class="section-tint"></div>
                 <div class="section-header" onclick="scrollToStep(2)">
                   <span class="step-badge">STEP 2</span>
-                  <span class="section-title">LLM Ranking</span>
+                  <span class="section-title">Rank Agent</span>
                   <span id="rank-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
                   <span id="rank-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                   <span class="section-meta">rank-agent · threshold · qa</span>
@@ -2452,10 +2452,67 @@
 
           document.getElementById('prompt-exp-system').value = sysVal === '(empty)' ? '' : sysVal;
           document.getElementById('prompt-exp-user').value = userVal === '(empty)' ? '' : userVal;
+
+          // Hide user prompt section when the agent has a locked user scaffold.
+          // Use inline style.display to override the parent flex-layout CSS.
+          const userLocked = (typeof isLockedExtractorPrompt === 'function' && isLockedExtractorPrompt(agentName))
+                          || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName));
+          const userSection = document.getElementById('prompt-exp-user-section');
+          const userLockedMsg = document.getElementById('prompt-exp-user-locked');
+          if (userSection && userLockedMsg) {
+            userSection.style.display = userLocked ? 'none' : '';
+            userLockedMsg.style.display = userLocked ? '' : 'none';
+          }
+
+          // Clear any previous validation result when re-opening the modal.
+          const prevValidateResult = document.getElementById('prompt-exp-validate-result');
+          if (prevValidateResult) {
+            prevValidateResult.style.display = 'none';
+            prevValidateResult.textContent = '';
+            prevValidateResult.className = 'mt-2';
+          }
+
+          // Apply view vs edit mode based on the inline-panel's current edit state
+          const isEditing = !!(typeof editingPrompts !== 'undefined' && editingPrompts[agentName]);
+          applyExpandedEditorMode(isEditing);
+
           updateExpandedCharCount();
 
           overlay.classList.add('visible');
           document.getElementById('prompt-exp-system').focus();
+        }
+
+        // Toggle the modal's read-only/edit affordances. Called on open, and
+        // when the user transitions from view to edit via the modal's Edit button.
+        function applyExpandedEditorMode(editing) {
+          const sysTA = document.getElementById('prompt-exp-system');
+          const usrTA = document.getElementById('prompt-exp-user');
+          const editBtn = document.getElementById('prompt-exp-edit-btn');
+          const validateBtn = document.getElementById('prompt-exp-validate-btn');
+          const saveBtn = document.getElementById('prompt-exp-save-btn');
+          const modeBadge = document.getElementById('prompt-exp-mode-badge');
+
+          if (sysTA) sysTA.readOnly = !editing;
+          if (usrTA) usrTA.readOnly = !editing;
+          if (editBtn) editBtn.style.display = editing ? 'none' : '';
+          if (validateBtn) validateBtn.style.display = editing ? '' : 'none';
+          if (saveBtn) saveBtn.style.display = editing ? '' : 'none';
+          if (modeBadge) modeBadge.textContent = editing ? 'Editing' : 'Read-only';
+        }
+
+        // Transition the modal (and the underlying inline panel) into edit mode.
+        function editExpandedPrompt() {
+          if (!_expandedPromptAgent) return;
+          const agentName = _expandedPromptAgent;
+          // Flip inline-panel state via the same mechanism as the inline Edit button
+          if (typeof editingPrompts !== 'undefined') editingPrompts[agentName] = true;
+          // Re-render all inline prompt panels so the underlying panel gains its textareas
+          if (typeof renderAgentPrompts === 'function') renderAgentPrompts();
+          // Flip the modal's affordances
+          applyExpandedEditorMode(true);
+          // Focus the system textarea so the user can start typing
+          const sysTA = document.getElementById('prompt-exp-system');
+          if (sysTA) sysTA.focus();
         }
 
         function closeExpandedPromptEditor() {
@@ -2474,6 +2531,10 @@
           const agentName = _expandedPromptAgent;
           const prefix = agentName === 'RankAgent' ? 'rankagent' : agentName === 'ExtractAgent' ? 'extractagent' : agentName === 'SigmaAgent' ? 'sigmaagent' : agentName.toLowerCase();
 
+          // Skip user prompt write when the agent has a locked user scaffold
+          const userLocked = (typeof isLockedExtractorPrompt === 'function' && isLockedExtractorPrompt(agentName))
+                          || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName));
+
           // Ensure we are in edit mode
           const sysTextarea = document.getElementById(prefix + '-prompt-system-2');
           if (!sysTextarea) {
@@ -2486,14 +2547,60 @@
             const sysTA = document.getElementById(prefix + '-prompt-system-2');
             const usrTA = document.getElementById(prefix + '-prompt-user-2');
             if (sysTA) sysTA.value = document.getElementById('prompt-exp-system').value;
-            if (usrTA) usrTA.value = document.getElementById('prompt-exp-user').value;
+            if (usrTA && !userLocked) usrTA.value = document.getElementById('prompt-exp-user').value;
             // Trigger save
             if (typeof saveAgentPrompt2 === 'function') saveAgentPrompt2(agentName);
             closeExpandedPromptEditor();
           }, 200);
         }
 
-        // Update char count on input + close overflow menu on outside click
+        function validateExpandedPrompt() {
+          if (!_expandedPromptAgent) return;
+          const resultDiv = document.getElementById('prompt-exp-validate-result');
+          const sysTA = document.getElementById('prompt-exp-system');
+          if (!resultDiv || !sysTA) return;
+
+          const issues = [];
+          const systemVal = (sysTA.value || '').trim();
+          // Only rule: system/role must not be empty (hard-fail at runtime if missing).
+          // User prompts are code-owned (locked templates) for every agent.
+          if (!systemVal) {
+            issues.push({ level: 'error', msg: 'System prompt (role) is empty. The agent will hard-fail at runtime.' });
+          }
+
+          // Render result using DOM methods (no user content as innerHTML)
+          resultDiv.textContent = '';
+          resultDiv.style.display = '';
+
+          if (issues.length === 0) {
+            resultDiv.className = 'mt-2 px-3 py-2 rounded-md text-sm bg-green-50 border border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300';
+            resultDiv.textContent = 'Validation passed. Prompt is ready to save.';
+            return;
+          }
+
+          const errorCount = issues.filter(i => i.level === 'error').length;
+          resultDiv.className = errorCount > 0
+            ? 'mt-2 px-3 py-2 rounded-md text-sm bg-red-50 border border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300'
+            : 'mt-2 px-3 py-2 rounded-md text-sm bg-yellow-50 border border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300';
+
+          const header = document.createElement('strong');
+          const label = errorCount > 0
+            ? errorCount + ' error' + (errorCount > 1 ? 's' : '')
+            : issues.filter(i => i.level === 'warn').length + ' warning' + (issues.filter(i => i.level === 'warn').length > 1 ? 's' : '');
+          header.textContent = 'Validation: ' + label;
+          resultDiv.appendChild(header);
+
+          const ul = document.createElement('ul');
+          ul.className = 'mt-1 list-disc list-inside space-y-1';
+          issues.forEach(function(issue) {
+            const li = document.createElement('li');
+            li.textContent = '[' + issue.level.toUpperCase() + '] ' + issue.msg;
+            ul.appendChild(li);
+          });
+          resultDiv.appendChild(ul);
+        }
+
+        // Update char count on input + close overflow menu on outside click + ESC closes expanded editor
         document.addEventListener('DOMContentLoaded', () => {
           const expSys = document.getElementById('prompt-exp-system');
           const expUsr = document.getElementById('prompt-exp-user');
@@ -2502,6 +2609,14 @@
           document.addEventListener('click', (e) => {
             const menu = document.getElementById('footer-overflow-menu');
             if (menu && !e.target.closest('.relative')) menu.classList.add('hidden');
+          });
+          // ESC key closes the expanded prompt editor when it's open
+          document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            const overlay = document.getElementById('prompt-expanded-overlay');
+            if (overlay && overlay.classList.contains('visible')) {
+              closeExpandedPromptEditor();
+            }
           });
         });
 
@@ -2604,18 +2719,25 @@
             <label class="block text-xs font-semibold mb-1" style="color: var(--text-primary);">System Prompt</label>
             <textarea id="prompt-exp-system" rows="10"></textarea>
           </div>
-          <div>
+          <div id="prompt-exp-user-section">
             <label class="block text-xs font-semibold mb-1" style="color: var(--text-primary);">User Prompt</label>
             <textarea id="prompt-exp-user" rows="8"></textarea>
           </div>
+          <div id="prompt-exp-user-locked" style="display: none; border-left: 4px solid #d97706; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: var(--text-muted);">
+            User scaffold is locked in runtime and is no longer editable from the UI.
+          </div>
+          <div id="prompt-exp-validate-result" style="display: none;" class="mt-2"></div>
         </div>
         <div class="prompt-exp-footer">
           <div class="flex items-center gap-2">
             <span id="prompt-exp-charcount" class="text-[10px]" style="color: var(--text-muted);"></span>
+            <span id="prompt-exp-mode-badge" class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--panel-bg-3); color: var(--text-muted);"></span>
           </div>
           <div class="flex items-center gap-2">
-            <button onclick="closeExpandedPromptEditor()" class="px-3 py-1.5 text-xs rounded" style="background: var(--panel-bg-3); color: var(--text-secondary); cursor: pointer;">Cancel</button>
-            <button onclick="saveExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Save Prompt</button>
+            <button type="button" onclick="closeExpandedPromptEditor()" class="px-3 py-1.5 text-xs rounded" style="background: var(--panel-bg-3); color: var(--text-secondary); cursor: pointer;">Cancel</button>
+            <button type="button" id="prompt-exp-edit-btn" onclick="editExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Edit</button>
+            <button type="button" id="prompt-exp-validate-btn" onclick="validateExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: #ca8a04; color: white; cursor: pointer;">Validate</button>
+            <button type="button" id="prompt-exp-save-btn" onclick="saveExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Save Prompt</button>
           </div>
         </div>
       </div>
@@ -4793,21 +4915,8 @@ function renderAgentModels() {
                         </p>
                     </div>
                     
-                    <!-- Fallback LLM Model Selection -->
-                    <div class="mb-3">
-                        <label for="${agentId}-fallback-model" class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
-                            Fallback LLM Model
-                        </label>
-                        <select id="${agentId}-fallback-model" 
-                                name="agent_models[OSDetectionAgent_fallback]"
-                                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-sm">
-                            <option value="">-- Select model --</option>
-                            <!-- Options will be populated by loadLMStudioModels() -->
-                        </select>
-                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            Optional - LLM fallback when embedding confidence is low (defaults to mistralai/mistral-7b-instruct-v0.3)
-                        </p>
-                    </div>
+                    <!-- UNRELEASED / FUTURE FEATURE: LLM fallback for OS detection. Hidden until multi-OS support is implemented. -->
+                    <div class="mb-3 hidden">
                     
                     <!-- OS Selection -->
                     <div>
@@ -5491,6 +5600,9 @@ const LOCKED_EXTRACTOR_AGENTS = [
     'HuntQueriesExtract',
     'RegistryExtract',
     'ServicesExtract',
+    'RankAgent',
+    'ExtractAgent',
+    'SigmaAgent',
 ];
 
 const LOCKED_QA_AGENTS = [
@@ -5502,7 +5614,66 @@ const LOCKED_QA_AGENTS = [
 ];
 
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
-const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nSource text:\n{article_content}\n\nExtracted data:\n{extracted_commands}\n\nTotal count: {total_count}\n\nEvaluation criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
+const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nArticle Title: {title}\nArticle URL: {url}\n\nOriginal Extraction Task: {task}\n\nOriginal Extraction Instructions:\n{extraction_instructions}\n\nOriginal Extraction Output Format:\n{extraction_output_format}\n\nSource Text:\n{article_content}\n\nExtracted Data:\n{extracted_commands}\n\nEvaluation Criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
+const LOCKED_RANK_USER_TEMPLATE = 'Article Title: {title}\nSource: {source}\nURL: {url}\n\nContent:\n{content}';
+// Mirrors src/prompts/ExtractAgentInstructions.txt — the supervisor's user message is built from
+// this template on the backend, with {prompt_config} expanded to the full JSON at runtime.
+const LOCKED_EXTRACTAGENT_USER_TEMPLATE = 'Title: {title}\n\nURL: {url}\n\nContent:\n\n{content}\n\nExtract telemetry-aware attacker behaviors and observables for Windows detection/hunting. Use only information explicitly present in the content. Do not invent or autofill missing pieces.\n\nPrompt config (schema and constraints):\n{prompt_config}\n\nOutput a single valid JSON object only. No markdown, no code fences, no prose outside JSON. If a category is empty, return an empty array for that field.';
+// Mirrors src/prompts/sigma_generate_multi.txt — SigmaAgent's user message template. The backend
+// formats this with {title}, {source}, {url}, {content}, {observables_section}.
+const LOCKED_SIGMA_USER_TEMPLATE = [
+    'Generate Sigma detection rules from the following threat intelligence. Produce multiple rules if the behaviors differ.',
+    '',
+    'Threat Intel Input:',
+    '- title: {title}',
+    '- source: {source}',
+    '- url: {url}',
+    '- content: {content}',
+    '{observables_section}',
+    '',
+    'Objectives:',
+    '- Extract every distinct behavioral TTP (command execution, process lineage, persistence, defense evasion, system modification).',
+    '- Create 1 rule per behavior when possible.',
+    '- Extract all command-line patterns with arguments; include all unique process-creation observables.',
+    '',
+    'Structural Requirements (YAML Syntax):',
+    '- Output ONLY valid YAML document structure.',
+    '- Use --- (three dashes) as separator between multiple rules.',
+    '- NO prose, explanations, comments, or narrative text of any kind.',
+    '- NO code fences.',
+    '- Start your response immediately with title: - nothing before it.',
+    '- 2-space indentation only; no tabs.',
+    '- All field names lowercase.',
+    '',
+    'CRITICAL: Your response will be parsed as YAML. If you include ANY narrative text before or within the YAML, parsing will fail. Output ONLY the YAML rule structure(s).',
+    '',
+    'Required Structure (per rule):',
+    'title: [descriptive rule title]',
+    'id: [UUID]',
+    'description: [behavior detected]',
+    'observables_used: [list of 0-based indices from the Observables list above that this rule uses; omit if no observables provided]',
+    'logsource:',
+    '  category: [process_creation/network_connection/registry_event/file_event/powershell/wmi]',
+    '  product: [windows/linux/macos]',
+    'detection:',
+    '  selection:',
+    '    [criteria]',
+    '  condition: selection',
+    'level: [low/medium/high/critical]',
+    'tags:',
+    '  - attack.[technique]',
+    'references:',
+    '  - {url}',
+    '',
+    'Behavioral Extraction Rules:',
+    '- For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.',
+    '- For system modification: include registry, services, scheduled tasks.',
+    '- For defense evasion: include AV disablement, AMSI bypass, obfuscation flags.',
+    '- For network activity: include C2 connections, lateral movement, data exfiltration.',
+    '',
+    'Final Instruction:',
+    'Generate all applicable SIGMA rules from the threat intelligence above. Use --- to separate multiple rules. Output ONLY YAML starting with title:.'
+].join('\n');
 
 function isLockedExtractorPrompt(agentName) {
     return LOCKED_EXTRACTOR_AGENTS.includes(agentName);
@@ -5513,6 +5684,9 @@ function isLockedQAPrompt(agentName) {
 }
 
 function getLockedUserTemplate(agentName) {
+    if (agentName === 'RankAgent') return LOCKED_RANK_USER_TEMPLATE;
+    if (agentName === 'ExtractAgent') return LOCKED_EXTRACTAGENT_USER_TEMPLATE;
+    if (agentName === 'SigmaAgent') return LOCKED_SIGMA_USER_TEMPLATE;
     if (isLockedExtractorPrompt(agentName)) return LOCKED_EXTRACTION_USER_TEMPLATE;
     if (isLockedQAPrompt(agentName)) return LOCKED_QA_USER_TEMPLATE;
     return '';
@@ -5623,13 +5797,18 @@ function renderAgentPrompts() {
                             </div>
                             <div class="flex gap-2">
                                 ${isEditing ? `
-                                    <button onclick="cancelEditPrompt('${agentName}')" 
+                                    <button type="button" onclick="cancelEditPrompt('${agentName}')"
                                             class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                                         Cancel
                                     </button>
-                                    <button onclick="saveAgentPrompt('${agentName}')" 
+                                    <button type="button" onclick="validateAgentPrompt('${agentName}')"
+                                            id="${agentId}-validate-btn"
+                                            class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors">
+                                        Validate
+                                    </button>
+                                    <button type="button" onclick="saveAgentPrompt('${agentName}')"
                                             class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
-                                        💾 Save
+                                        Save
                                     </button>
                                 ` : `
                                     <button onclick="showPromptHistory('${agentName}')" 
@@ -5653,10 +5832,11 @@ function renderAgentPrompts() {
                                     </label>
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
                                     ${isEditing ? `
-                                        <textarea id="${agentId}-prompt-system" 
+                                        <textarea id="${agentId}-prompt-system"
                                                   rows="8"
                                                   placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                        <div id="${agentId}-validate-result" class="hidden mt-2"></div>
                                     ` : `
                                         <div id="${agentId}-prompt-system-display" 
                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
@@ -5713,6 +5893,57 @@ function cancelEditPrompt(agentName) {
     loadAgentPrompts();
 }
 
+function validateAgentPrompt(agentName) {
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    // Support both the agent-prompts tab (no suffix) and per-agent panels (-2 suffix)
+    const resultDiv = document.getElementById(`${agentId}-validate-result`)
+                   || document.getElementById(`${agentId}-validate-result-2`);
+    const systemTextarea = document.getElementById(`${agentId}-prompt-system`)
+                        || document.getElementById(`${agentId}-prompt-system-2`);
+    if (!resultDiv || !systemTextarea) return;
+
+    const issues = [];
+    const systemVal = (systemTextarea.value || '').trim();
+
+    // Only rule: system/role must not be empty (hard-fail at runtime if missing).
+    // User prompts are code-owned (locked templates) for every agent, so there's
+    // nothing user-authored to validate on the user side.
+    if (!systemVal) {
+        issues.push({ level: 'error', msg: 'System prompt (role) is empty. The agent will hard-fail at runtime.' });
+    }
+
+    // Render result using DOM methods (no user content injected as HTML)
+    resultDiv.textContent = '';
+    resultDiv.classList.remove('hidden');
+
+    if (issues.length === 0) {
+        resultDiv.className = 'mt-2 px-3 py-2 rounded-md text-sm bg-green-50 border border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300';
+        resultDiv.textContent = 'Validation passed. Prompt is ready to save.';
+        return;
+    }
+
+    const errorCount = issues.filter(i => i.level === 'error').length;
+    resultDiv.className = errorCount > 0
+        ? 'mt-2 px-3 py-2 rounded-md text-sm bg-red-50 border border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300'
+        : 'mt-2 px-3 py-2 rounded-md text-sm bg-yellow-50 border border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300';
+
+    const header = document.createElement('strong');
+    const label = errorCount > 0
+        ? errorCount + ' error' + (errorCount > 1 ? 's' : '')
+        : issues.filter(i => i.level === 'warn').length + ' warning' + (issues.filter(i => i.level === 'warn').length > 1 ? 's' : '');
+    header.textContent = 'Validation: ' + label;
+    resultDiv.appendChild(header);
+
+    const ul = document.createElement('ul');
+    ul.className = 'mt-1 list-disc list-inside space-y-1';
+    issues.forEach(function(issue) {
+        const li = document.createElement('li');
+        li.textContent = '[' + issue.level.toUpperCase() + '] ' + issue.msg;
+        ul.appendChild(li);
+    });
+    resultDiv.appendChild(ul);
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -5741,16 +5972,25 @@ async function saveAgentPrompt(agentName) {
     let combinedPrompt;
     let instructions = null;
     if (isExtractionAgent) {
-        combinedPrompt = JSON.stringify({
+        // Preserve any extra keys already present in the DB JSON (e.g. ExtractAgent's
+        // objective/exclusions/output_format/constraints), then overwrite role and
+        // user_template, and drop legacy keys (user/system/prompt) that no longer apply.
+        const merged = {
+            ...parsed,
             role: systemVal,
             user_template: getLockedUserTemplate(agentName),
             task: parsed.task || "",
             json_example: parsed.json_example || "{}",
             instructions: parsed.instructions || ""
-        });
+        };
+        delete merged.user;
+        delete merged.system;
+        delete merged.prompt;
+        combinedPrompt = JSON.stringify(merged);
         instructions = parsed.instructions || null;
     } else if (isQAAgent) {
-        combinedPrompt = JSON.stringify({
+        const merged = {
+            ...parsed,
             role: systemVal,
             user_template: getLockedUserTemplate(agentName),
             objective: parsed.objective || "",
@@ -5759,7 +5999,11 @@ async function saveAgentPrompt(agentName) {
             input_format: parsed.input_format || {},
             qa_process: parsed.qa_process || {},
             output_format: parsed.output_format || {}
-        });
+        };
+        delete merged.user;
+        delete merged.system;
+        delete merged.prompt;
+        combinedPrompt = JSON.stringify(merged);
         instructions = parsed.instructions || null;
     } else {
         combinedPrompt = JSON.stringify({ system: systemVal, user: userVal });
@@ -5771,7 +6015,7 @@ async function saveAgentPrompt(agentName) {
         instructions: instructions,
         change_description: null
     };
-    
+
     try {
         console.log('Saving prompt for', agentName, ':', promptData);
         const response = await fetch('/api/workflow/config/prompts', {
@@ -6835,7 +7079,11 @@ function renderAgentModels(lmstudioModels) {
                         <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
                     </select>
                 </div>
-                <div class="mb-3">
+                <!-- UNRELEASED / FUTURE FEATURE: LLM fallback for OS detection.
+                     Hidden until multi-OS support is implemented.
+                     To re-enable: remove the "hidden" class from this div and
+                     re-enable _detect_with_llm_fallback in os_detection_service.py. -->
+                <div class="mb-3 hidden">
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback LLM (Optional)</label>
                         <label class="relative inline-flex items-center cursor-pointer">
@@ -8286,6 +8534,19 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     const promptParts = parsePromptParts(prompt);
     const isTemplateFormat = promptParts.isTemplateFormat;
     const templateData = promptParts.templateData || {};
+
+    // One-time migration: for agents whose user scaffold is now locked, if the DB has empty
+    // role/system but non-empty user content, treat the user content as the persona. This
+    // surfaces misplaced persona text in the editable System Prompt field so the user can
+    // save it back into the correct slot. Only applies when role/system is truly empty so
+    // we never overwrite legitimate persona content.
+    if ((isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName))
+        && !promptParts.system
+        && promptParts.user
+        && promptParts.user !== getLockedUserTemplate(agentName)) {
+        promptParts.system = promptParts.user;
+        promptParts.user = '';
+    }
     
     // Debug logging for prompt parsing
     if (agentName === 'CmdlineExtract') {
@@ -8323,29 +8584,31 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
                         </div>
                         <div class="flex gap-2">
-                            ${isExtractionAgent ? '' : `
-                            <button onclick="openExpandedPromptEditor('${agentName}')"
+                            <button type="button" onclick="openExpandedPromptEditor('${agentName}')"
                                     class="btn-toggle"
                                     title="Expand to full-page editor">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                                 Expand
                             </button>
-                            `}
                             ${isEditing ? `
-                                <button onclick="cancelEditPrompt2('${agentName}')"
+                                <button type="button" onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                                     Cancel
                                 </button>
-                                <button onclick="saveAgentPrompt2('${agentName}')"
+                                <button type="button" onclick="validateAgentPrompt('${agentName}')"
+                                        class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors">
+                                    Validate
+                                </button>
+                                <button type="button" onclick="saveAgentPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
                                     Save
                                 </button>
                             ` : `
-                                <button onclick="showPromptHistory('${agentName}')"
+                                <button type="button" onclick="showPromptHistory('${agentName}')"
                                         class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
                                     History
                                 </button>
-                                <button onclick="editPrompt('${agentName}')"
+                                <button type="button" onclick="editPrompt('${agentName}')"
                                         class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
                                     Edit
                                 </button>
@@ -8363,13 +8626,14 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                 </label>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Defines the agent's role, behavior, and instructions</p>
                             ${isEditing ? `
-                                    <textarea id="${agentId}-prompt-system-2" 
+                                    <textarea id="${agentId}-prompt-system-2"
                                           rows="8"
                                               aria-label="${escapeHtml(agentName)} System Prompt"
                                               data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
                                               data-derived-binding-kind="prompt-system"
                                               placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
+                                    <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                                 ` : `
                                     <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                                 `}
@@ -8457,14 +8721,12 @@ function renderQAPrompt(agentName, containerId) {
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
                         </div>
                         <div class="flex gap-2">
-                            ${isLockedScaffoldAgent ? '' : `
-                            <button onclick="openExpandedPromptEditor('${agentName}')"
+                            <button type="button" onclick="openExpandedPromptEditor('${agentName}')"
                                     class="btn-toggle"
                                     title="Expand to full-page editor">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                                 Expand
                             </button>
-                            `}
                             ${isEditing ? `
                                 <button onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
@@ -9826,16 +10088,25 @@ async function saveAgentPrompt2(agentName) {
     let combinedPrompt;
     let instructions = null;
     if (isExtractionAgent) {
-        combinedPrompt = JSON.stringify({
+        // Preserve any extra keys already present in the DB JSON (e.g. ExtractAgent's
+        // objective/exclusions/output_format/constraints), then overwrite role and
+        // user_template, and drop legacy keys (user/system/prompt) that no longer apply.
+        const merged = {
+            ...parsed,
             role: systemVal,
             user_template: getLockedUserTemplate(agentName),
             task: parsed.task || "",
             json_example: parsed.json_example || "{}",
             instructions: parsed.instructions || ""
-        });
+        };
+        delete merged.user;
+        delete merged.system;
+        delete merged.prompt;
+        combinedPrompt = JSON.stringify(merged);
         instructions = parsed.instructions || null;
     } else if (isQAAgent) {
-        combinedPrompt = JSON.stringify({
+        const merged = {
+            ...parsed,
             role: systemVal,
             user_template: getLockedUserTemplate(agentName),
             objective: parsed.objective || "",
@@ -9844,7 +10115,11 @@ async function saveAgentPrompt2(agentName) {
             input_format: parsed.input_format || {},
             qa_process: parsed.qa_process || {},
             output_format: parsed.output_format || {}
-        });
+        };
+        delete merged.user;
+        delete merged.system;
+        delete merged.prompt;
+        combinedPrompt = JSON.stringify(merged);
         instructions = parsed.instructions || null;
     } else {
         combinedPrompt = JSON.stringify({ system: systemVal, user: userVal });
@@ -16581,29 +16856,22 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.4-0.6 (0.5 is balanced). Lower = stricter (fewer duplicates), Higher = more lenient (more rules queued)</p>`
         },
         'osDetectionAgent': {
-            title: 'OS Detection Model',
+            title: 'OS Detection',
             content: `<p class="mb-2"><strong>Description:</strong></p>
-                      <p class="mb-2">Configures the models used for operating system detection from threat intelligence articles. OS detection determines which articles continue through the workflow (Windows-only by default).</p>
+                      <p class="mb-2">Determines the target operating system of each threat intelligence article. Articles that do not match the selected OS are filtered out before extraction begins.</p>
                       <p class="mb-2"><strong>Embedding Model:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (default)</li>
+                          <li><strong>CTI-BERT:</strong> Specialized for cybersecurity threat intelligence (recommended)</li>
                           <li><strong>SEC-BERT:</strong> Security-focused embeddings, alternative option</li>
-                      </ul>
-                      <p class="mb-2"><strong>Fallback Model (Optional):</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>LLM model used when embedding-based detection has low confidence</li>
-                          <li>Leave blank to use the primary OS detection model</li>
-                          <li>Typically used for ambiguous cases or when embedding confidence is low</li>
                       </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Step 1:</strong> Checks for Windows OS keywords (executables, paths, registry, etc.) - if ≥3 matches found, immediately returns Windows</li>
-                          <li><strong>Step 2:</strong> If <3 keyword matches, falls back to embedding-based classification (CTI-BERT or SEC-BERT)</li>
-                          <li><strong>Step 3:</strong> If embedding confidence is low, falls back to LLM-based detection (if configured)</li>
+                          <li><strong>Step 1:</strong> Keyword scan — if 3 or more Windows indicators are found (executables, registry paths, Event IDs, etc.), Windows is returned immediately</li>
+                          <li><strong>Step 2:</strong> Embedding classification — CTI-BERT or SEC-BERT compares the article against OS indicator profiles</li>
                           <li>Detects: Windows, Linux, MacOS, multiple, or Unknown</li>
-                          <li>Workflow continues only for Windows (or multiple if Windows is included)</li>
+                          <li>Workflow continues only for articles matching the selected Target OS</li>
                       </ul>
-                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> Use CTI-BERT for embedding model. The keyword-first approach provides fast Windows detection for articles with clear Windows indicators, while BERT handles ambiguous cases. Configure fallback model only if you need LLM-based detection for low-confidence cases.</p>`
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> CTI-BERT with default settings. No LLM is used — detection is fast and runs entirely on local embeddings.</p>`
         },
         'rankAgent': {
             title: 'Rank / Triage Agent Model',

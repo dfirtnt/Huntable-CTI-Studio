@@ -559,38 +559,12 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
         # Step 3: Fall back to similarity-based detection
         result = self._detect_with_similarity(content)
 
-        # If force_fallback is enabled, always use LLM fallback
-        if force_fallback and use_fallback:
-            llm_result = await self._detect_with_llm_fallback(
-                content,
-                fallback_model=fallback_model,
-                qa_feedback=qa_feedback,
-                provider=provider,
-                llm_service=llm_service,
-            )
-            if llm_result:
-                return llm_result
-
-        # Step 4: If similarity confidence is low and fallback is enabled, try LLM fallback
-        if use_fallback and result.get("confidence") == "low":
-            logger.info(
-                f"Similarity confidence is low ({result.get('max_similarity', 'unknown')}), attempting LLM fallback..."
-            )
-            llm_result = await self._detect_with_llm_fallback(
-                content,
-                fallback_model=fallback_model,
-                qa_feedback=qa_feedback,
-                provider=provider,
-                llm_service=llm_service,
-            )
-            if llm_result:
-                logger.info(
-                    f"LLM fallback succeeded: {llm_result.get('operating_system')} (method: {llm_result.get('method')})"
-                )
-                return llm_result
-            logger.warning(
-                f"LLM fallback failed or returned None, falling back to similarity result: {result.get('operating_system')}"
-            )
+        # UNRELEASED / FUTURE FEATURE: LLM fallback for OS detection.
+        # Intentionally disabled until multi-OS support is implemented.
+        # The _detect_with_llm_fallback method is preserved for future use.
+        # Re-enable by removing the early-return below and wiring up the
+        # OSDetectionFallback agent config in workflow_config_schema.py.
+        _ = (use_fallback, force_fallback, fallback_model, qa_feedback, provider, llm_service)
 
         return result
 
