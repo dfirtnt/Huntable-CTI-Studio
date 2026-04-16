@@ -83,7 +83,10 @@ def test_healing_history_shows_runtime_errors_as_details(page: Page):
 
     page.route("**/api/sources/*/healing-history", handle_history)
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("load")
+    # networkidle ensures the initial updateHealingStatusBadges() batch finishes
+    # before we interact with the panel, preventing concurrent route-handler
+    # contention from leaving the panel fetch unfulfilled.
+    page.wait_for_load_state("networkidle")
 
     history_buttons = page.locator("button[aria-label^='View healing history for ']")
     expect(history_buttons.first).to_be_visible()
@@ -102,7 +105,7 @@ def test_history_panel_toggle_survives_poll(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_IDLE))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("load")
+    page.wait_for_load_state("networkidle")
 
     history_buttons = page.locator("button[aria-label^='View healing history for ']")
     expect(history_buttons.first).to_be_visible()
@@ -129,7 +132,7 @@ def test_history_panel_config_toggle_survives_poll(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_IDLE))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("load")
+    page.wait_for_load_state("networkidle")
 
     history_buttons = page.locator("button[aria-label^='View healing history for ']")
     expect(history_buttons.first).to_be_visible()
@@ -195,7 +198,7 @@ def test_progress_container_renders_round_info(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_IN_PROGRESS))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("load")
+    page.wait_for_load_state("networkidle")
 
     history_buttons = page.locator("button[aria-label^='View healing history for ']")
     expect(history_buttons.first).to_be_visible()
@@ -218,7 +221,7 @@ def test_healed_completion_banner_shows_success(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_HEALED))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("load")
+    page.wait_for_load_state("networkidle")
 
     history_buttons = page.locator("button[aria-label^='View healing history for ']")
     expect(history_buttons.first).to_be_visible()
@@ -238,7 +241,7 @@ def test_exhausted_completion_banner_shows_failure(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_EXHAUSTED))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("load")
+    page.wait_for_load_state("networkidle")
 
     history_buttons = page.locator("button[aria-label^='View healing history for ']")
     expect(history_buttons.first).to_be_visible()
