@@ -413,8 +413,28 @@ class EvalRunner:
             "model": normalized_model,
         }
 
+        disabled_agents = set()
+        extract_settings = snapshot_data.get("extract_agent_settings", {})
+        if isinstance(extract_settings, dict):
+            raw_disabled = extract_settings.get("disabled_agents") or extract_settings.get("disabled_sub_agents") or []
+            if isinstance(raw_disabled, list):
+                disabled_agents.update(raw_disabled)
+
+        prompt_extract_settings = agent_prompts.get("ExtractAgentSettings")
+        if isinstance(prompt_extract_settings, dict):
+            raw_disabled = (
+                prompt_extract_settings.get("disabled_agents")
+                or prompt_extract_settings.get("disabled_sub_agents")
+                or []
+            )
+            if isinstance(raw_disabled, list):
+                disabled_agents.update(raw_disabled)
+
         # Check if QA is enabled for CmdlineExtract
         qa_enabled = snapshot_data.get("qa_enabled", {}).get("CmdlineExtract", False)
+        if "CmdlineExtract" in disabled_agents:
+            qa_enabled = False
+            logger.info("CmdlineExtract is disabled in snapshot settings; forcing CmdLineQA disabled for eval run")
         qa_prompt_config = None
         if qa_enabled:
             # Get CmdLineQA prompt config from snapshot

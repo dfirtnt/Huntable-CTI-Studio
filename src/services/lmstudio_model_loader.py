@@ -59,6 +59,7 @@ def get_model_context_length(model_name: str) -> int:
 def extract_lmstudio_models(
     agent_models: dict[str, Any],
     qa_enabled: dict[str, Any] | None = None,
+    disabled_agents: list[str] | set[str] | None = None,
 ) -> set[str]:
     """
     Extract unique LMStudio model names from agent_models configuration.
@@ -74,6 +75,7 @@ def extract_lmstudio_models(
 
     models_to_load = set()
     qa_enabled_map = qa_enabled if isinstance(qa_enabled, dict) else None
+    disabled_agents_set = set(disabled_agents) if disabled_agents else set()
 
     # Main agents (model key = agent name)
     main_agents = ["RankAgent", "ExtractAgent", "SigmaAgent"]
@@ -102,6 +104,8 @@ def extract_lmstudio_models(
         ("RankAgentQA", "RankAgent"),
     ]
     for agent_name, base_agent in qa_agents:
+        if base_agent in disabled_agents_set:
+            continue
         if qa_enabled_map is not None and not qa_enabled_map.get(base_agent, False):
             continue
         model = agent_models.get(agent_name)
@@ -180,6 +184,7 @@ def load_model(lms_cmd: str, model_name: str, context_length: int, timeout: int 
 def auto_load_workflow_models(
     agent_models: dict[str, Any],
     qa_enabled: dict[str, Any] | None = None,
+    disabled_agents: list[str] | set[str] | None = None,
 ) -> dict[str, Any]:
     """
     Automatically load all required LMStudio models for a workflow.
@@ -215,7 +220,11 @@ def auto_load_workflow_models(
     result["lmstudio_cli_available"] = True
 
     # Extract LMStudio models from config
-    models_to_load = extract_lmstudio_models(agent_models, qa_enabled=qa_enabled)
+    models_to_load = extract_lmstudio_models(
+        agent_models,
+        qa_enabled=qa_enabled,
+        disabled_agents=disabled_agents,
+    )
 
     if not models_to_load:
         logger.info("No LMStudio models found in workflow configuration")
