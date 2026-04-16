@@ -230,3 +230,36 @@ class TestEvalRunner:
 
         assert mock_llm.run_extraction_agent.await_count == 1
         assert mock_llm.run_extraction_agent.call_args.kwargs["qa_prompt_config"] is None
+
+    def test_run_extraction_keeps_cmdline_qa_when_enabled_and_not_disabled(self, runner):
+        """CmdLineQA should still run when QA is enabled and CmdlineExtract is not disabled."""
+        item = Mock()
+        item.input = {
+            "article_text": "powershell -enc AAAA" * 80,
+            "article_title": "Test article",
+            "article_url": "https://example.com/test",
+        }
+        snapshot_data = {
+            "agent_models": {
+                "CmdlineExtract_provider": "openai",
+                "CmdlineExtract_model": "gpt-4o-mini",
+                "CmdLineQA_provider": "openai",
+                "CmdLineQA": "gpt-4o-mini",
+            },
+            "agent_prompts": {
+                "CmdlineExtract": {"prompt": "extract", "instructions": "extract", "model": "gpt-4o-mini"},
+                "CmdLineQA": {"prompt": "qa", "instructions": "qa", "model": "gpt-4o-mini"},
+            },
+            "qa_enabled": {"CmdlineExtract": True},
+            "extract_agent_settings": {"disabled_agents": []},
+        }
+
+        with patch("src.services.evaluation.eval_runner.LLMService") as mock_llm_cls:
+            mock_llm = Mock()
+            mock_llm.run_extraction_agent = AsyncMock(return_value={"count": 0, "cmdline_items": []})
+            mock_llm_cls.return_value = mock_llm
+
+            runner._run_extraction(item, snapshot_data)
+
+        assert mock_llm.run_extraction_agent.await_count == 1
+        assert mock_llm.run_extraction_agent.call_args.kwargs["qa_prompt_config"] is not None
