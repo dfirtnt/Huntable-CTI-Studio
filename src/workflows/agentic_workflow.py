@@ -2072,6 +2072,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 else False
             )
 
+            # Use the same junk filter threshold the user configured so Sigma
+            # content filtering stays in sync with the rest of the pipeline.
+            sigma_min_confidence = (
+                config_obj.junk_filter_threshold if config_obj and hasattr(config_obj, "junk_filter_threshold") else 0.8
+            )
+
             # Check if QA is enabled for Sigma Agent
             qa_flags.get("SigmaAgent", False)
 
@@ -2086,23 +2092,23 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get agent prompt from database for SIGMA generation
             sigma_prompt_template = None
             sigma_system_prompt = None
+            sigma_repair_template = None
+            if config_obj and config_obj.agent_prompts and "SigmaRepair" in config_obj.agent_prompts:
+                repair_prompt_data = config_obj.agent_prompts["SigmaRepair"]
+                if isinstance(repair_prompt_data.get("prompt"), str):
+                    sigma_repair_template = repair_prompt_data["prompt"]
+                    logger.info(
+                        f"[Workflow {state['execution_id']}] Using database prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
+                    )
             if config_obj and config_obj.agent_prompts and "SigmaAgent" in config_obj.agent_prompts:
-                sigma_prompt_data = config_obj.agent_prompts["SigmaAgent"]
-                if isinstance(sigma_prompt_data.get("prompt"), str):
-                    sigma_prompt_template = sigma_prompt_data["prompt"]  # Use full prompt for generation
-                    sigma_prompt_template[:5000]  # Truncate for QA context
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (len={len(sigma_prompt_template)} chars)"
-                    )
-                if isinstance(sigma_prompt_data.get("system_prompt"), str):
-                    sigma_system_prompt = sigma_prompt_data["system_prompt"]
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Using database system prompt for SigmaAgent (len={len(sigma_system_prompt)} chars)"
-                    )
-                if not isinstance(sigma_prompt_data.get("prompt"), str):
-                    logger.warning(
-                        f"[Workflow {state['execution_id']}] SigmaAgent prompt in database is not a string, falling back to file"
-                    )
+                from src.utils.prompt_loader import parse_sigma_agent_prompt_data
+
+                sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
+                    config_obj.agent_prompts["SigmaAgent"]
+                )
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Using database prompt for SigmaAgent (template_len={len(sigma_prompt_template or '')} chars, system_len={len(sigma_system_prompt or '')} chars)"
+                )
             else:
                 logger.info(
                     f"[Workflow {state['execution_id']}] No SigmaAgent prompt in database, using file-based prompt"
@@ -2160,12 +2166,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 url=article.canonical_url or "",
                 ai_model="lmstudio",  # Provider resolved via config_models
                 max_attempts=3,
-                min_confidence=0.9,
+                min_confidence=sigma_min_confidence,
                 execution_id=state["execution_id"],
                 article_id=state["article_id"],
                 qa_feedback=qa_feedback,
                 sigma_prompt_template=sigma_prompt_template,  # Pass database prompt if available
                 sigma_system_prompt=sigma_system_prompt,  # Pass database system prompt if available
+                sigma_repair_template=sigma_repair_template,  # Pass database repair prompt if available
                 extraction_result=extraction_result,  # Pass extraction result for artifact-driven expansion
             )
 
