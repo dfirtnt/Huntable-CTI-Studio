@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **UI Stability Contracts in AGENTS.md** (2026-04-15): Documents contract-grade DOM IDs, JS function signatures, `agentPrefix` token map, CSS variable conventions, and the spec-required change policy for the sources/workflow UI. Prevents silent breakage from renames that span DOM IDs, `onchange` bindings, and API calls simultaneously.
 
 ### Fixed
+- **Workflow UI hygiene cleanup** (2026-04-16): Removed two stray prompt-save `console.log(...)` calls from `workflow.html` and cleared committed trailing whitespace in docs/templates so `git diff --check` stays clean before pushing `dev-io`.
 - **Healing UI polish on sources page** (2026-04-15): Persistent badges now show exhausted/healed/paused states on source cards (not just during active runs); "Heal Now" shows an optimistic "Starting..." badge while the backend event lands; Reset no longer clears active filters; history panel preserves expanded LLM reasoning and scroll position across poll ticks.
 - **Articles page content length display** (2026-04-14): Articles list showed "Content: 0 characters" for all articles because `load_content=False` deferred the content field for performance but calculated length from the empty string. Now uses batch SQL `char_length()` query to fetch actual content lengths without loading full article text, mirroring the annotation count pattern.
 

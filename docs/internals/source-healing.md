@@ -161,7 +161,7 @@ Between LLM analysis and config persistence, the pipeline runs `_normalize_propo
 
 **Problem:** The prompt informally says "listing (CSS selector on listing page)" but doesn't document the exact required keys. LLMs often emit `selector` (matching the informal description) instead of the actual key `post_link_selector`, and omit the required `urls` array.
 
-**Fix:** 
+**Fix:**
 - When `listing` contains `selector` but not `post_link_selector`, rename `selector` → `post_link_selector`
 - When `listing` has no `urls` key, inject `urls: [source.url]` as a sensible default (the source's own homepage as the listing page)
 
