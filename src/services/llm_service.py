@@ -3668,6 +3668,17 @@ Every item in the output array MUST be an object (not a plain string). The objec
 
                 qa_prompt = f"""Task: {qa_task}
 
+Article Title: {title}
+Article URL: {url}
+
+Original Extraction Task: {task}
+
+Original Extraction Instructions:
+{instructions}
+
+Original Extraction Output Format:
+{output_format}{json_example_str}
+
 Source Text:
 {truncated_content}
 

@@ -227,3 +227,12 @@ class TestQAAgentService:
         )
 
         assert result["verdict"] == "pass"
+
+    def test_default_qa_prompt_uses_ascii_evaluation_markers(self, service):
+        """Default QA criteria should remain ASCII-only for repo compliance."""
+        prompt = service._get_default_qa_prompt()
+
+        assert all(ord(char) < 128 for char in json.dumps(prompt))
+        assert prompt["evaluation_criteria"][0].startswith("[PASS]")
+        assert prompt["evaluation_criteria"][2].startswith("[WARN]")
+        assert prompt["evaluation_criteria"][4].startswith("[FAIL]")

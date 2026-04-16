@@ -255,6 +255,55 @@ class TestLegacyScaffold:
             user_msg = next(m["content"] for m in messages if m["role"] == "user")
             assert "must end with a valid JSON object" in user_msg
 
+    @pytest.mark.asyncio
+    async def test_subagent_qa_scaffold_includes_article_and_extraction_context(self, llm_service):
+        """Sub-agent QA receives article identity and the original extraction contract."""
+        content = "This is a test article about malware.\n" * 50
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.side_effect = [
+                {
+                    "choices": [{"message": {"content": '{"items":[{"value":"cmd.exe /c whoami"}],"count":1}'}}],
+                    "usage": {},
+                },
+                {
+                    "choices": [{"message": {"content": '{"passed": true, "issues": []}'}}],
+                    "usage": {},
+                },
+            ]
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Malware Analysis Report",
+                url="https://example.com/report",
+                prompt_config={
+                    "role": "You are an extractor.",
+                    "objective": "Extract suspicious commands.",
+                    "instructions": "Return only command lines tied to execution evidence.",
+                    "output_format": {"items": [], "count": 0},
+                },
+                qa_prompt_config={
+                    "role": "You are a QA reviewer.",
+                    "objective": "Review the extracted commands.",
+                    "instructions": "Return JSON with pass/fail findings.",
+                    "evaluation_criteria": ["Check grounding", "Check completeness"],
+                },
+                max_retries=1,
+            )
+
+            qa_messages = mock_chat.await_args_list[1].kwargs["messages"]
+            qa_user_msg = next(m["content"] for m in qa_messages if m["role"] == "user")
+
+            assert "Article Title: Malware Analysis Report" in qa_user_msg
+            assert "Article URL: https://example.com/report" in qa_user_msg
+            assert "Original Extraction Task: Extract suspicious commands." in qa_user_msg
+            assert "Original Extraction Instructions:" in qa_user_msg
+            assert "Return only command lines tied to execution evidence." in qa_user_msg
+            assert "Original Extraction Output Format:" in qa_user_msg
+            assert '"count": 0' in qa_user_msg
+            assert "Source Text:" in qa_user_msg
+            assert "Extracted Data:" in qa_user_msg
+
 
 # ---------------------------------------------------------------------------
 # QA feedback prepend
