@@ -197,7 +197,7 @@ class TestWorkflowTriggerService:
 
         mock_db_session.query.side_effect = query_side_effect
 
-        with patch("src.services.workflow_trigger_service.trigger_agentic_workflow") as mock_trigger:
+        with patch("src.worker.celery_app.trigger_agentic_workflow") as mock_trigger:
             mock_trigger.delay = Mock()
 
             result = service.trigger_workflow(article_id=1)
@@ -272,7 +272,7 @@ class TestWorkflowTriggerService:
 
         mock_db_session.query.side_effect = query_side_effect
 
-        with patch("src.services.workflow_trigger_service.trigger_agentic_workflow") as mock_trigger:
+        with patch("src.worker.celery_app.trigger_agentic_workflow") as mock_trigger:
             mock_trigger.delay = Mock()
 
             result = service.trigger_workflow(article_id=1, force=True)

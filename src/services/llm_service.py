@@ -3227,6 +3227,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
+                    "SigExtract",
                     "ServicesExtract",
                 ):
                     user_prompt = user_prompt.rstrip() + _traceability_block + "\n"

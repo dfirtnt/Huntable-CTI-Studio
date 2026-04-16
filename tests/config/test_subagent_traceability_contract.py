@@ -310,3 +310,8 @@ class TestRuntimeContractMatch:
             assert f'"{agent_name}"' in src, (
                 f"{agent_name} must appear in llm_service.py so the traceability block is appended to its prompt."
             )
+
+    def test_traceability_block_includes_sigextract(self):
+        """SigExtract keeps parity with the other extract agents for traceability fields."""
+        src = LLM_SERVICE_PATH.read_text(encoding="utf-8")
+        assert '"SigExtract"' in src, "SigExtract must remain in the traceability block allowlist."
