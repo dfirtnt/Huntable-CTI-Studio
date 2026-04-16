@@ -2018,13 +2018,22 @@ async function loadAggregateScores() {
                         if (configData && configData.agent_models) {
                             const models = configData.agent_models;
                             const qaEnabled = configData.qa_enabled || {};
+                            const firstPresent = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
                             
                             // Get agent-specific parameters
-                            const temperature = models[`${agentName}_temperature`] || models[`${agentName}_model_temperature`] || 'N/A';
-                            const topP = models[`${agentName}_top_p`] || models[`${agentName}_model_top_p`] || 'N/A';
-                            const agentProvider = models[`${agentName}_provider`] || '';
+                            const temperature = firstPresent(
+                                models[`${agentName}_temperature`],
+                                models[`${agentName}_model_temperature`],
+                                'N/A'
+                            );
+                            const topP = firstPresent(
+                                models[`${agentName}_top_p`],
+                                models[`${agentName}_model_top_p`],
+                                'N/A'
+                            );
+                            const agentProvider = firstPresent(models[`${agentName}_provider`], '');
                             const agentModelKey = `${agentName}_model`;
-                            const agentModel = models[agentModelKey] || 'N/A';
+                            const agentModel = firstPresent(models[agentModelKey], 'N/A');
                             
                             // Get QA agent status
                             const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
@@ -2078,8 +2087,8 @@ async function loadAggregateScores() {
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div><strong class="text-gray-300 dark:text-gray-300">LLM Provider:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.agentProvider || 'N/A'}</span></div>
                         <div><strong class="text-gray-300 dark:text-gray-300">LLM Model:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.agentModel || 'N/A'}</span></div>
-                        <div><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.temperature || 'N/A'}</span></div>
-                        <div><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.topP || 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.temperature ?? 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.topP ?? 'N/A'}</span></div>
                         <div class="col-span-2"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.qaStatus || 'N/A'}</span></div>
                     </div>
                 </div>
