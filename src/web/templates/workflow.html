@@ -5485,6 +5485,39 @@ async function bootstrapPromptsFromFiles() {
 
 let editingPrompts = {}; // Track which prompts are being edited
 
+const LOCKED_EXTRACTOR_AGENTS = [
+    'CmdlineExtract',
+    'ProcTreeExtract',
+    'HuntQueriesExtract',
+    'RegistryExtract',
+    'ServicesExtract',
+];
+
+const LOCKED_QA_AGENTS = [
+    'CmdLineQA',
+    'ProcTreeQA',
+    'HuntQueriesQA',
+    'RegistryQA',
+    'ServicesQA',
+];
+
+const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
+const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nSource text:\n{article_content}\n\nExtracted data:\n{extracted_commands}\n\nTotal count: {total_count}\n\nEvaluation criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
+
+function isLockedExtractorPrompt(agentName) {
+    return LOCKED_EXTRACTOR_AGENTS.includes(agentName);
+}
+
+function isLockedQAPrompt(agentName) {
+    return LOCKED_QA_AGENTS.includes(agentName);
+}
+
+function getLockedUserTemplate(agentName) {
+    if (isLockedExtractorPrompt(agentName)) return LOCKED_EXTRACTION_USER_TEMPLATE;
+    if (isLockedQAPrompt(agentName)) return LOCKED_QA_USER_TEMPLATE;
+    return '';
+}
+
 // Global function to parse prompts into system/user parts
 function parsePromptParts(rawPrompt) {
         let system = '';
@@ -5570,9 +5603,7 @@ function renderAgentPrompts() {
         const panelId = `${agentId}-prompt-panel`;
         const isTemplateFormat = promptParts.isTemplateFormat;
         const templateData = promptParts.templateData || {};
-        
-        // Check if this is an extraction agent (has template format)
-        const isExtractionAgent = isTemplateFormat || ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA'].includes(agentName);
+        const isLockedScaffoldAgent = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
         
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
@@ -5612,7 +5643,6 @@ function renderAgentPrompts() {
                                 `}
                             </div>
                         </div>
-                                        <!-- System and User prompt only -->
                             <div class="space-y-6">
                                 <div class="border-l-4 border-blue-500 pl-4">
                                     <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
@@ -5632,24 +5662,32 @@ function renderAgentPrompts() {
                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                                     `}
                                 </div>
-                                <div class="border-l-4 border-green-500 pl-4">
-                                    <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                        <span class="inline-flex items-center gap-2">
-                                            <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
-                                            <span>User Prompt</span>
-                                        </span>
-                                    </label>
-                                    <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
-                                    ${isEditing ? `
-                                        <textarea id="${agentId}-prompt-user" 
-                                                  rows="8"
-                                                  placeholder="Enter user prompt (task, query, or user message)..."
-                                                  class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
-                                    ` : `
-                                        <div id="${agentId}-prompt-user-display" 
-                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
-                                    `}
-                                </div>
+                                ${isLockedScaffoldAgent ? `
+                                    <div class="border-l-4 border-amber-500 pl-4">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
+                                            User scaffold is locked in runtime and is no longer editable from the UI.
+                                        </div>
+                                    </div>
+                                ` : `
+                                    <div class="border-l-4 border-green-500 pl-4">
+                                        <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                            <span class="inline-flex items-center gap-2">
+                                                <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
+                                                <span>User Prompt</span>
+                                            </span>
+                                        </label>
+                                        <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                                        ${isEditing ? `
+                                            <textarea id="${agentId}-prompt-user" 
+                                                      rows="8"
+                                                      placeholder="Enter user prompt (task, query, or user message)..."
+                                                      class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                        ` : `
+                                            <div id="${agentId}-prompt-user-display" 
+                                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                        `}
+                                    </div>
+                                `}
                             </div>
                     </div>
                 </div>
@@ -5685,17 +5723,18 @@ async function saveAgentPrompt(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
     const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
-    if (!promptSystemElement || !promptUserElement) {
+    const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
+    if (!promptSystemElement || (!promptUserElement && !lockedScaffold)) {
         showNotification('Prompt elements not found', 'error');
         return;
     }
     isSavingPrompt = true;
     if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
     const systemVal = promptSystemElement.value || "";
-    const userVal = promptUserElement.value || "";
+    const userVal = promptUserElement ? promptUserElement.value || "" : "";
 
-    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'].includes(agentName);
-    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA', 'QAAgent'].includes(agentName);
+    const isExtractionAgent = isLockedExtractorPrompt(agentName);
+    const isQAAgent = isLockedQAPrompt(agentName);
     const current = agentPrompts[agentName]?.prompt || '';
     let parsed = {};
     try { parsed = current ? JSON.parse(current) : {}; } catch (_) {}
@@ -5704,7 +5743,7 @@ async function saveAgentPrompt(agentName) {
     if (isExtractionAgent) {
         combinedPrompt = JSON.stringify({
             role: systemVal,
-            user_template: userVal,
+            user_template: getLockedUserTemplate(agentName),
             task: parsed.task || "",
             json_example: parsed.json_example || "{}",
             instructions: parsed.instructions || ""
@@ -5713,7 +5752,7 @@ async function saveAgentPrompt(agentName) {
     } else if (isQAAgent) {
         combinedPrompt = JSON.stringify({
             role: systemVal,
-            user_template: userVal,
+            user_template: getLockedUserTemplate(agentName),
             objective: parsed.objective || "",
             evaluation_criteria: parsed.evaluation_criteria || [],
             instructions: parsed.instructions || "",
@@ -8264,8 +8303,9 @@ function renderSinglePrompt(agentName, promptData, prefix) {
         });
     }
     
-    // Check if this is an extraction agent that uses template format
-    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'].includes(agentName);
+    // Check if this is one of the locked extractor prompts
+    const isExtractionAgent = isLockedExtractorPrompt(agentName);
+    const isLockedScaffoldAgent = isExtractionAgent || isLockedQAPrompt(agentName);
     
     return `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -8283,12 +8323,14 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
                         </div>
                         <div class="flex gap-2">
+                            ${isExtractionAgent ? '' : `
                             <button onclick="openExpandedPromptEditor('${agentName}')"
                                     class="btn-toggle"
                                     title="Expand to full-page editor">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                                 Expand
                             </button>
+                            `}
                             ${isEditing ? `
                                 <button onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
@@ -8332,6 +8374,13 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                     <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                                 `}
                             </div>
+                        ${isLockedScaffoldAgent ? `
+                            <div class="border-l-4 border-amber-500 pl-4">
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    User scaffold is locked in runtime and is no longer editable from the UI.
+                                </div>
+                            </div>
+                        ` : `
                             <div class="border-l-4 border-green-500 pl-4">
                                 <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
                                     <span class="inline-flex items-center gap-2">
@@ -8352,6 +8401,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                     <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
                                 `}
                             </div>
+                        `}
                         </div>
                 </div>
             </div>
@@ -8389,6 +8439,7 @@ function renderQAPrompt(agentName, containerId) {
     
     // Parse prompt to extract system and user parts
     const promptParts = parsePromptParts(prompt);
+    const isLockedScaffoldAgent = isLockedQAPrompt(agentName);
     
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -8406,12 +8457,14 @@ function renderQAPrompt(agentName, containerId) {
                             <p class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></p>
                         </div>
                         <div class="flex gap-2">
+                            ${isLockedScaffoldAgent ? '' : `
                             <button onclick="openExpandedPromptEditor('${agentName}')"
                                     class="btn-toggle"
                                     title="Expand to full-page editor">
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                                 Expand
                             </button>
+                            `}
                             ${isEditing ? `
                                 <button onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
@@ -8454,26 +8507,34 @@ function renderQAPrompt(agentName, containerId) {
                                 <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
                             `}
                         </div>
-                        <div class="border-l-4 border-green-500 pl-4">
-                            <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
-                                <span class="inline-flex items-center gap-2">
-                                    <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
-                                    <span>User Prompt</span>
-                                </span>
-                            </label>
-                            <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
-                            ${isEditing ? `
-                                <textarea id="${agentId}-prompt-user-2" 
-                                          rows="8"
-                                          aria-label="${escapeHtml(agentName)} User Prompt"
-                                          data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
-                                          data-derived-binding-kind="prompt-user"
-                                          placeholder="Enter user prompt (task, query, or user message)..."
-                                          class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
-                            ` : `
-                                <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
-                            `}
-                        </div>
+                        ${isLockedScaffoldAgent ? `
+                            <div class="border-l-4 border-amber-500 pl-4">
+                                <div class="text-xs text-gray-500 dark:text-gray-400">
+                                    User scaffold is locked in runtime and is no longer editable from the UI.
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="border-l-4 border-green-500 pl-4">
+                                <label class="block text-sm font-semibold text-gray-900 dark:text-white mb-2">
+                                    <span class="inline-flex items-center gap-2">
+                                        <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg></span>
+                                        <span>User Prompt</span>
+                                    </span>
+                                </label>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">User-facing message or task description</p>
+                                ${isEditing ? `
+                                    <textarea id="${agentId}-prompt-user-2" 
+                                              rows="8"
+                                              aria-label="${escapeHtml(agentName)} User Prompt"
+                                              data-derived-persist-key="agent_prompts.${escapeHtml(agentName)}.prompt"
+                                              data-derived-binding-kind="prompt-user"
+                                              placeholder="Enter user prompt (task, query, or user message)..."
+                                              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
+                                ` : `
+                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                `}
+                            </div>
+                        `}
                     </div>
                 </div>
             </div>
@@ -9746,17 +9807,18 @@ async function saveAgentPrompt2(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
     const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
-    if (!promptSystemElement || !promptUserElement) {
+    const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
+    if (!promptSystemElement || (!promptUserElement && !lockedScaffold)) {
         showNotification('Prompt elements not found for ' + agentName, 'error');
         return;
     }
     isSavingPrompt = true;
     if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
     const systemVal = promptSystemElement.value || "";
-    const userVal = promptUserElement.value || "";
+    const userVal = promptUserElement ? promptUserElement.value || "" : "";
 
-    const isExtractionAgent = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'].includes(agentName);
-    const isQAAgent = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA', 'QAAgent'].includes(agentName);
+    const isExtractionAgent = isLockedExtractorPrompt(agentName);
+    const isQAAgent = isLockedQAPrompt(agentName);
     const current = agentPrompts[agentName]?.prompt || '';
     let parsed = {};
     try { parsed = current ? JSON.parse(current) : {}; } catch (_) {}
@@ -9766,7 +9828,7 @@ async function saveAgentPrompt2(agentName) {
     if (isExtractionAgent) {
         combinedPrompt = JSON.stringify({
             role: systemVal,
-            user_template: userVal,
+            user_template: getLockedUserTemplate(agentName),
             task: parsed.task || "",
             json_example: parsed.json_example || "{}",
             instructions: parsed.instructions || ""
@@ -9775,7 +9837,7 @@ async function saveAgentPrompt2(agentName) {
     } else if (isQAAgent) {
         combinedPrompt = JSON.stringify({
             role: systemVal,
-            user_template: userVal,
+            user_template: getLockedUserTemplate(agentName),
             objective: parsed.objective || "",
             evaluation_criteria: parsed.evaluation_criteria || [],
             instructions: parsed.instructions || "",

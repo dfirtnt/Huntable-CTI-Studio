@@ -235,6 +235,36 @@ Only these fields are writable: `url`, `rss_url`, `config`.
 
 The LLM **cannot** set `active` (operator-only action) or change the source name/identifier.
 
+## Local LLM Support
+
+The healing pipeline is provider-agnostic. `SourceHealingConfig` loads `provider`, `model`, and
+optional `api_key` values from App Settings, then passes them to `LLMService`. In practice, this
+means the healer can use a local OpenAI-compatible backend such as LMStudio instead of a hosted
+API.
+
+Recommended local setup:
+
+- `SOURCE_HEALING_PROVIDER=lmstudio`
+- `SOURCE_HEALING_MODEL=<loaded local model>`
+- Leave `SOURCE_HEALING_API_KEY` empty for LMStudio
+
+Recommended models:
+
+- `Qwen2.5-14B-Instruct` for the best JSON discipline and the most reliable config rewrites
+- `Llama 3.1-8B-Instruct` when you want a lighter local fallback
+
+Why local models work well here:
+
+- The prompt is strict JSON with a fixed schema.
+- The service already handles deterministic cases like redirects and bot protection without LLM help.
+- Validation is bounded and mechanical, so the model mostly rewrites source config rather than
+  performing open-ended analysis.
+
+Local models are still subject to the same hard limits as hosted models:
+
+- Bot-protected sites cannot be healed by config changes alone.
+- Code-level failures and missing runtime dependencies should be reported, not worked around.
+
 ## Key Files
 
 | File | Purpose |

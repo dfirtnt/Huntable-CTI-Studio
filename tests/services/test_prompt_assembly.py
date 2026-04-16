@@ -46,8 +46,7 @@ def llm_service():
 class TestTraceabilityBlockAllowlist:
     """Pin which agents get the hardcoded traceability block appended."""
 
-    TRACEABILITY_AGENTS = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract"}
-    NON_TRACEABILITY_AGENTS = {"SigExtract"}
+    TRACEABILITY_AGENTS = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "SigExtract"}
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -57,6 +56,7 @@ class TestTraceabilityBlockAllowlist:
             "ProcTreeExtract",
             "HuntQueriesExtract",
             "RegistryExtract",
+            "SigExtract",
         ],
     )
     async def test_traceability_block_appended(self, llm_service, agent_name):
@@ -89,36 +89,6 @@ class TestTraceabilityBlockAllowlist:
             assert "source_evidence" in user_msg
             assert "extraction_justification" in user_msg
             assert "confidence_score" in user_msg
-
-    @pytest.mark.asyncio
-    async def test_sigextract_no_traceability_block(self, llm_service):
-        """SigExtract is NOT in the traceability allowlist (as of this writing)."""
-        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
-            await llm_service.run_extraction_agent(
-                agent_name="SigExtract",
-                content=content,
-                title="Test Article",
-                url="https://example.com/test",
-                prompt_config={
-                    "role": "You are a Sigma extractor.",
-                    "task": "Extract Sigma rules.",
-                    "instructions": "Output valid JSON.",
-                    "json_example": '{"items":[],"count":0}',
-                },
-            )
-
-            call_args = mock_chat.call_args
-            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
-            user_msg = next(m["content"] for m in messages if m["role"] == "user")
-            assert "TRACEABILITY (REQUIRED)" not in user_msg, (
-                "SigExtract should NOT get traceability block (not in allowlist)"
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -223,8 +193,8 @@ class TestLegacyScaffold:
     """Pin the hardcoded user message scaffold when user_template is absent."""
 
     @pytest.mark.asyncio
-    async def test_legacy_scaffold_includes_title_url_content(self, llm_service):
-        """Legacy path builds Title:/URL:/Content: scaffold with article content."""
+    async def test_legacy_scaffold_ignores_user_template(self, llm_service):
+        """Legacy path keeps the hardcoded scaffold even if user_template is present."""
         content = "This is a test article about malware.\n" * 50
 
         with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
@@ -232,15 +202,15 @@ class TestLegacyScaffold:
                 "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
                 "usage": {},
             }
-            # Use a non-CmdlineExtract agent to avoid attention preprocessor headers
             await llm_service.run_extraction_agent(
-                agent_name="RegistryExtract",
+                agent_name="CmdlineExtract",
                 content=content,
                 title="Malware Analysis Report",
                 url="https://example.com/report",
                 prompt_config={
                     "role": "You are an extractor.",
-                    "objective": "Extract registry artifacts.",
+                    "user_template": "IGNORED TEMPLATE: {title}",
+                    "objective": "Extract commands.",
                     "instructions": "Output valid JSON.",
                     "output_format": {"items": [], "count": 0},
                 },
@@ -253,8 +223,9 @@ class TestLegacyScaffold:
             assert "Title: Malware Analysis Report" in user_msg
             assert "URL: https://example.com/report" in user_msg
             assert "Content:" in user_msg
-            assert "Task: Extract registry artifacts." in user_msg
+            assert "Task: Extract commands." in user_msg
             assert "CRITICAL INSTRUCTIONS: Output valid JSON." in user_msg
+            assert "IGNORED TEMPLATE" not in user_msg
 
     @pytest.mark.asyncio
     async def test_legacy_scaffold_json_nudge(self, llm_service):

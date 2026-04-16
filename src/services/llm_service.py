@@ -3140,64 +3140,31 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                     f"context_limit={context_limit_tokens}"
                 )
 
-                # Check if using new template-based format or legacy format
-                user_template = prompt_config.get("user_template")
-                user_prompt = None  # Initialize at the top to avoid UnboundLocalError
-
-                if user_template:
-                    # New template-based format - use direct substitution
-                    task = prompt_config.get("task", prompt_config.get("objective", "Extract information."))
-                    instructions = prompt_config.get("instructions", "Output valid JSON.")
-                    json_example = prompt_config.get("json_example", "")
-
-                    # Format json_example if it's a dict (backward compat)
+                # Legacy format - build prompt from individual fields.
+                # The extractor/QA scaffold is fixed in runtime; UI edits only affect
+                # the editable prompt fields (role/objective, instructions, examples).
+                task = prompt_config.get("objective", "Extract information.")
+                instructions = prompt_config.get("instructions", "Output valid JSON.")
+                output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
+                json_example = prompt_config.get("json_example")
+                json_example_str = ""
+                if json_example:
+                    json_format_instruction = (
+                        "\n\nYou MUST output JSON in this exact format. "
+                        "No markdown code fences, no prose, just the raw JSON object."
+                    )
                     if isinstance(json_example, dict):
-                        json_example = json.dumps(json_example, indent=2)
-                    elif not json_example:
-                        json_example = "{}"
-
-                    # Substitute template placeholders with error handling
-                    try:
-                        user_prompt = user_template.format(
-                            title=title,
-                            url=url,
-                            content=truncated_content,
-                            task=task,
-                            json_example=json_example,
-                            instructions=instructions,
+                        json_example_str = (
+                            f"\n\nREQUIRED JSON STRUCTURE (example):\n"
+                            f"{json.dumps(json_example, indent=2)}"
+                            f"{json_format_instruction}"
                         )
-                    except KeyError as e:
-                        logger.error(f"{agent_name} template missing placeholder: {e}, falling back to legacy format")
-                        # Fall through to legacy format
-                        user_prompt = None
-                    except Exception as e:
-                        logger.error(f"{agent_name} template substitution error: {e}, falling back to legacy format")
-                        user_prompt = None
-
-                if not user_prompt:
-                    # Legacy format - build prompt from individual fields (backward compatibility)
-                    task = prompt_config.get("objective", "Extract information.")
-                    instructions = prompt_config.get("instructions", "Output valid JSON.")
-                    output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
-                    json_example = prompt_config.get("json_example")
-                    json_example_str = ""
-                    if json_example:
-                        json_format_instruction = (
-                            "\n\nYou MUST output JSON in this exact format. "
-                            "No markdown code fences, no prose, just the raw JSON object."
+                    else:
+                        json_example_str = (
+                            f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}{json_format_instruction}"
                         )
-                        if isinstance(json_example, dict):
-                            json_example_str = (
-                                f"\n\nREQUIRED JSON STRUCTURE (example):\n"
-                                f"{json.dumps(json_example, indent=2)}"
-                                f"{json_format_instruction}"
-                            )
-                        else:
-                            json_example_str = (
-                                f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}{json_format_instruction}"
-                            )
 
-                    user_prompt = f"""Title: {title}
+                user_prompt = f"""Title: {title}
 URL: {url}
 
 Content:
@@ -3668,64 +3635,38 @@ Every item in the output array MUST be an object (not a plain string). The objec
 
                 qa_model_to_use = qa_model_override or model_name
 
-                # Check for user_template (new template-based format)
-                qa_user_template = qa_prompt_config.get("user_template")
-                qa_prompt = None
+                # Legacy programmatic format. The QA scaffold is fixed in runtime so
+                # old configs with user_template continue to work, but the UI no longer
+                # exposes that field for editing.
+                extracted_commands_text = ""
+                total_count = 0
 
-                if qa_user_template:
-                    # Template-based format - use direct substitution
-                    # Prepare extracted commands as formatted text
-                    extracted_commands_text = ""
-                    total_count = 0
-
-                    # Handle different extraction result formats
-                    if "cmdline_items" in last_result:
-                        cmdline_items = last_result.get("cmdline_items", [])
-                        total_count = len(cmdline_items)
-                        if cmdline_items:
-                            extracted_commands_text = "\n".join(
-                                [
-                                    f"{i + 1}. {cmd.get('value', cmd) if isinstance(cmd, dict) else cmd}"
-                                    for i, cmd in enumerate(cmdline_items)
-                                ]
-                            )
-                        else:
-                            extracted_commands_text = "No commands extracted."
-                    elif "items" in last_result:
-                        items = last_result.get("items", [])
-                        total_count = len(items)
-                        if items:
-                            extracted_commands_text = "\n".join([f"{i + 1}. {item}" for i, item in enumerate(items)])
-                        else:
-                            extracted_commands_text = "No items extracted."
+                # Handle different extraction result formats
+                if "cmdline_items" in last_result:
+                    cmdline_items = last_result.get("cmdline_items", [])
+                    total_count = len(cmdline_items)
+                    if cmdline_items:
+                        extracted_commands_text = "\n".join(
+                            [
+                                f"{i + 1}. {cmd.get('value', cmd) if isinstance(cmd, dict) else cmd}"
+                                for i, cmd in enumerate(cmdline_items)
+                            ]
+                        )
                     else:
-                        # Fallback: format entire result as JSON
-                        extracted_commands_text = json.dumps(last_result, indent=2)
-                        total_count = len(last_result) if isinstance(last_result, (list, dict)) else 0
+                        extracted_commands_text = "No commands extracted."
+                elif "items" in last_result:
+                    items = last_result.get("items", [])
+                    total_count = len(items)
+                    if items:
+                        extracted_commands_text = "\n".join([f"{i + 1}. {item}" for i, item in enumerate(items)])
+                    else:
+                        extracted_commands_text = "No items extracted."
+                else:
+                    # Fallback: format entire result as JSON
+                    extracted_commands_text = json.dumps(last_result, indent=2)
+                    total_count = len(last_result) if isinstance(last_result, (list, dict)) else 0
 
-                    # Substitute template placeholders with error handling
-                    try:
-                        qa_prompt = qa_user_template.format(
-                            article_content=truncated_content,
-                            extracted_commands=extracted_commands_text,
-                            total_count=str(total_count),
-                            instructions=qa_prompt_config.get("instructions", "Evaluate and return JSON."),
-                            evaluation_criteria=qa_criteria_text,
-                            objective=qa_task,
-                        )
-                        logger.debug(f"{agent_name} QA using user_template format (len={len(qa_prompt)} chars)")
-                    except KeyError as e:
-                        logger.error(
-                            f"{agent_name} QA template missing placeholder: {e}, falling back to legacy format"
-                        )
-                        qa_prompt = None
-                    except Exception as e:
-                        logger.error(f"{agent_name} QA template substitution error: {e}, falling back to legacy format")
-                        qa_prompt = None
-
-                # Fallback to legacy programmatic format
-                if not qa_prompt:
-                    qa_prompt = f"""Task: {qa_task}
+                qa_prompt = f"""Task: {qa_task}
 
 Source Text:
 {truncated_content}
@@ -3738,7 +3679,7 @@ Evaluation Criteria:
 
 Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")}
 """
-                    logger.debug(f"{agent_name} QA using legacy programmatic format (len={len(qa_prompt)} chars)")
+                logger.debug(f"{agent_name} QA using legacy programmatic format (len={len(qa_prompt)} chars)")
 
                 qa_system = qa_prompt_config.get("system") or qa_prompt_config.get("role", "You are a QA agent.")
                 qa_user_content = (qa_prompt_config.get("user") or "").strip()

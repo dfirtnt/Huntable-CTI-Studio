@@ -155,6 +155,12 @@ test.describe('Article Detail - IoC Extraction', () => {
       await page.waitForTimeout(100);
     }
   });
+
+  test('[ARTICLE-022] Share link and inactive mode controls are absent', async ({ page }) => {
+    await expect(page.locator('button[title*="share link" i]')).toHaveCount(0);
+    await expect(page.locator('button[onclick*="copyShareLink"]')).toHaveCount(0);
+    await expect(page.locator('#annotation-mode-huntability')).toHaveCount(0);
+  });
 });
 
 test.describe('Article List Page', () => {

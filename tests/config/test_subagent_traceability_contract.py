@@ -11,11 +11,11 @@ Scope distinction:
 - ALL extract sub-agents (5) must use the unified field names and must NOT use
   the deprecated raw_text_snippet / confidence_level.
 - Three agents (RegistryExtract, ServicesExtract, ProcTreeExtract) were
-  migrated to the new template envelope (role / user_template / task /
-  json_example / instructions). The remaining two (CmdlineExtract,
-  HuntQueriesExtract) are already field-compliant but retain their current
-  envelope style; envelope-shape tests target only the migrated set to avoid
-  coupling this contract to an unrelated refactor.
+  migrated to the new template envelope (role / task / json_example /
+  instructions). The remaining two (CmdlineExtract, HuntQueriesExtract) are
+  already field-compliant but retain their current envelope style; envelope-
+  shape tests target only the migrated set to avoid coupling this contract to
+  an unrelated refactor.
 - Preset sync is asserted only for agents whose prompt files were regenerated
   in this migration; pre-existing preset/source drift for other agents is not
   in scope here.
@@ -74,7 +74,7 @@ REQUIRED_TRACEABILITY_FIELDS = (
     "confidence_score",
 )
 
-DEPRECATED_FIELDS = ("raw_text_snippet", "confidence_level")
+DEPRECATED_FIELDS = ("raw_text_snippet", "confidence_level", "user_template")
 
 
 def _load_prompt(agent_name: str) -> dict:
@@ -149,7 +149,7 @@ class TestTraceabilityFieldPresence:
 class TestMigratedExtractPromptEnvelope:
     """Migrated extract prompts use the shared template envelope."""
 
-    ENVELOPE_KEYS = ("role", "user_template", "task", "json_example", "instructions")
+    ENVELOPE_KEYS = ("role", "task", "json_example", "instructions")
 
     @pytest.mark.parametrize("agent_name", MIGRATED_EXTRACT_AGENTS)
     @pytest.mark.parametrize("key", ENVELOPE_KEYS)
@@ -159,16 +159,9 @@ class TestMigratedExtractPromptEnvelope:
         assert data[key], f"{agent_name} envelope key '{key}' is empty"
 
     @pytest.mark.parametrize("agent_name", MIGRATED_EXTRACT_AGENTS)
-    def test_user_template_has_content_placeholder(self, agent_name):
+    def test_user_template_absent(self, agent_name):
         data = _load_prompt(agent_name)
-        assert "{content}" in data["user_template"], f"{agent_name} user_template missing {{content}} placeholder"
-
-    @pytest.mark.parametrize("agent_name", MIGRATED_EXTRACT_AGENTS)
-    def test_user_template_has_instructions_placeholder(self, agent_name):
-        data = _load_prompt(agent_name)
-        assert "{instructions}" in data["user_template"], (
-            f"{agent_name} user_template missing {{instructions}} placeholder"
-        )
+        assert "user_template" not in data, f"{agent_name} should no longer expose user_template"
 
     @pytest.mark.parametrize("agent_name", MIGRATED_EXTRACT_AGENTS)
     @pytest.mark.parametrize("field", REQUIRED_TRACEABILITY_FIELDS)
