@@ -29,8 +29,6 @@ subagents:
     - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
       expected_count: 5
 
-  # Placeholder for other subagents (to be populated later)
-  event_ids: []
   process_lineage:
     - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
       expected_count: 2
@@ -69,14 +67,24 @@ subagents:
       expected_count: 0
   registry_keys: []
   registry_artifacts:
+    - url: "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/"
+      expected_count: 2
+    - url: "https://www.huntress.com/blog/cephalus-ransomware"
+      expected_count: 6
+    - url: "https://www.picussecurity.com/resource/blog/t1547-014-active-setup"
+      expected_count: 5
+    - url: "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/"
+      expected_count: 3
     - url: "https://www.zscaler.com/blogs/security-research/technical-analysis-xloader-versions-6-and-7-part-1"
       expected_count: 4
     - url: "https://www.zscaler.com/blogs/security-research/technical-analysis-matanbuchus-3-0"
       expected_count: 1
-    - url: "https://the-hunters-ledger.com/reports/zerotrace-74-0-42-25-20260316/"
-      expected_count: 4
     - url: "https://securelist.com/crystalx-rat-with-prankware-features/119283/"
       expected_count: 1
+    - url: "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/"
+      expected_count: 1
+    - url: "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company"
+      expected_count: 2
   hunt_queries:
     - url: "https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/"
       expected_count: 3

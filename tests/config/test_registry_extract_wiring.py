@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from src.config.workflow_config_loader import (
@@ -402,15 +403,85 @@ class TestPresetFiles:
 
 
 class TestEvalArticlesPlaceholder:
-    """Static eval articles directory exists for registry_artifacts."""
+    """Static eval articles directory and YAML/articles.json contract for registry_artifacts."""
+
+    _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+    _EVAL_DIR = _REPO_ROOT / "config" / "eval_articles_data" / "registry_artifacts"
+    _YAML_PATH = _REPO_ROOT / "config" / "eval_articles.yaml"
 
     def test_eval_articles_directory_exists(self):
-        eval_dir = (
-            Path(__file__).resolve().parent.parent.parent / "config" / "eval_articles_data" / "registry_artifacts"
-        )
-        assert eval_dir.exists(), f"Eval articles dir missing: {eval_dir}"
-        articles_file = eval_dir / "articles.json"
+        assert self._EVAL_DIR.exists(), f"Eval articles dir missing: {self._EVAL_DIR}"
+        articles_file = self._EVAL_DIR / "articles.json"
         assert articles_file.exists(), "articles.json placeholder missing"
+
+    def test_yaml_registry_artifacts_key_present_and_non_empty(self):
+        """eval_articles.yaml has a non-empty registry_artifacts list."""
+        data = yaml.safe_load(self._YAML_PATH.read_text())
+        subagents = data.get("subagents", {})
+        assert "registry_artifacts" in subagents, "registry_artifacts key missing from eval_articles.yaml"
+        entries = subagents["registry_artifacts"]
+        assert isinstance(entries, list) and len(entries) > 0, (
+            "registry_artifacts in eval_articles.yaml must be a non-empty list"
+        )
+
+    def test_articles_json_non_empty_and_valid(self):
+        """articles.json parses as a non-empty list."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        assert isinstance(articles, list) and len(articles) > 0, "articles.json must be a non-empty list"
+
+    def test_articles_json_required_fields(self):
+        """Every entry in articles.json has url, title, content, and expected_count."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        required = {"url", "title", "content", "expected_count"}
+        for i, entry in enumerate(articles):
+            missing = required - set(entry.keys())
+            assert not missing, f"articles.json entry {i} missing fields: {missing}"
+
+    def test_articles_json_expected_count_non_negative_int(self):
+        """expected_count in every articles.json entry is a non-negative integer."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        for i, entry in enumerate(articles):
+            ec = entry.get("expected_count")
+            assert isinstance(ec, int), f"entry {i}: expected_count must be int, got {type(ec).__name__}"
+            assert ec >= 0, f"entry {i}: expected_count must be >= 0, got {ec}"
+
+    def test_articles_json_no_duplicate_urls(self):
+        """No two entries in articles.json share the same URL."""
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        urls = [a.get("url") for a in articles]
+        seen: set[str] = set()
+        dupes: list[str] = []
+        for u in urls:
+            if u in seen:
+                dupes.append(u)
+            seen.add(u)
+        assert not dupes, f"Duplicate URLs in articles.json: {dupes}"
+
+    def test_yaml_and_articles_json_count_match(self):
+        """Number of entries in eval_articles.yaml matches articles.json."""
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_entries = yaml_data["subagents"]["registry_artifacts"]
+        articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
+        assert len(yaml_entries) == len(articles), (
+            f"eval_articles.yaml has {len(yaml_entries)} registry_artifacts entries "
+            f"but articles.json has {len(articles)}"
+        )
+
+    def test_yaml_urls_present_in_articles_json(self):
+        """Every URL listed in eval_articles.yaml has a corresponding entry in articles.json.
+
+        Catches the common drift bug: someone updates the YAML but forgets to re-run
+        scripts/fetch_eval_articles_static.py to refresh the static article content.
+        Without the static entry, the eval UI shows the URL but cannot run an eval.
+        """
+        yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
+        yaml_urls = {e["url"] for e in yaml_data["subagents"]["registry_artifacts"] if e.get("url")}
+        json_urls = {a["url"] for a in json.loads((self._EVAL_DIR / "articles.json").read_text()) if a.get("url")}
+        missing = yaml_urls - json_urls
+        assert not missing, (
+            f"URLs in eval_articles.yaml (registry_artifacts) missing from articles.json: {sorted(missing)}. "
+            "Run: python3 scripts/fetch_eval_articles_static.py"
+        )
 
 
 # ===========================================================================
