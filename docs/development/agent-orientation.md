@@ -35,7 +35,7 @@ Open these files early:
 | `src/core/` | Source ingestion, scraping, normalization, deduplication |
 | `src/config/` | Workflow config schema, loading, migration |
 | `src/database/` | ORM models and database managers |
-| `src/prompts/` | Prompt source files used by presets and workflow agents |
+| `src/prompts/` | Seed prompt defaults -- loaded into DB on bootstrap or reset, not read at runtime. See [Prompt Architecture](../concepts/agents.md#prompt-architecture) |
 | `config/` | Source YAML, presets, model catalog, eval article data |
 | `tests/` | Pytest suites, Playwright specs, fixtures, helpers |
 | `docs/` | Human-facing docs; useful for orientation, secondary to code |
@@ -65,7 +65,7 @@ Examples:
 | An API endpoint | relevant `src/web/routes/*.py`, `src/database/models.py`, `docs/reference/api.md`, API tests under `tests/api/` |
 | Workflow behavior | `src/workflows/agentic_workflow.py`, `src/services/workflow_trigger_service.py`, `src/worker/celery_app.py`, `docs/architecture/workflow-data-flow.md` |
 | Workflow config or presets | `src/config/workflow_config_schema.py`, `src/config/workflow_config_loader.py`, `config/presets/AgentConfigs/README.md`, `tests/config/` |
-| A prompt-backed agent | `src/prompts/`, `src/services/llm_service.py`, the workflow/config schema, relevant prompt tests and UI specs |
+| A prompt-backed agent | `src/services/llm_service.py` (prompt assembly + hardcoded scaffold), `src/prompts/` (seed defaults only), the workflow/config schema, `docs/concepts/agents.md#prompt-architecture`, relevant prompt tests and UI specs |
 | Sources or scraping | `src/core/fetcher.py`, `src/core/rss_parser.py`, `src/core/modern_scraper.py`, `src/services/source_sync.py`, `docs/guides/source-config.md` |
 | Source auto-healing | `src/services/source_healing_service.py`, `src/services/source_healing_coordinator.py`, `docs/internals/source-healing.md` |
 | ML model training, evaluation, or rollback | `src/web/routes/models.py`, `src/utils/model_versioning.py`, `src/utils/content_filter.py`, `scripts/retrain_with_feedback.py`, `docs/features/content-filtering.md`, `tests/api/test_model_rollback_api.py` |

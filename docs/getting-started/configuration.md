@@ -123,7 +123,7 @@ To resolve conflicts, either:
 
 ### Workflow baseline presets (getting started)
 
-Pre-built workflow config presets with **all agent prompts included** are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent.
+Pre-built workflow config presets are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent, plus default prompt configs (role, task, instructions, schema) for each agent. Seed prompt files live in `src/prompts/` but are only read on first bootstrap or explicit reset -- the authoritative prompts at runtime live in the database. See [Prompt Architecture](../concepts/agents.md#prompt-architecture) for details.
 
 Committed quickstart presets (v2 format, always present in repo) are in `config/presets/AgentConfigs/quickstart/`:
 
@@ -139,15 +139,17 @@ Alternatively, you can generate baseline presets (`anthropic-sonnet-4.5.json`, `
 
 1. Open the **Workflow** page in the web UI.
 2. In the workflow config panel, use **Import from file** and choose one of the JSON files above (e.g. `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`).
-3. Confirm the import; the active workflow config (thresholds, agent models, and **agent prompts**) will be replaced by the preset. You can then run the workflow or tweak settings.
+3. Confirm the import; the active workflow config (thresholds, agent models, and agent prompts) will be replaced by the preset. You can then run the workflow or tweak individual prompt fields (role, task, instructions, schema) in the workflow config editor.
 
 **Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import from file** to load from it.
 
-To regenerate the preset files (e.g. after changing prompts in `src/prompts`), run from the repo root:
+To regenerate the baseline preset files (not the quickstart presets), run from the repo root:
 
 ```bash
 python3 scripts/build_baseline_presets.py
 ```
+
+Note: `src/prompts/` files are seed defaults, not live prompts. Editing them only affects new installs or explicit bootstrap resets -- it does not change prompts for an already-running instance. To change prompts on a running instance, use the workflow config editor in the UI or the prompt API endpoints.
 
 ### Content Filtering
 
