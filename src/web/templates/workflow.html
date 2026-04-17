@@ -5701,6 +5701,40 @@ function getLockedUserTemplate(agentName) {
 }
 
 // Global function to parse prompts into system/user parts
+function stripOuterCodeFence(rawPrompt) {
+    const trimmed = (rawPrompt || '').trim();
+    const m = trimmed.match(/^```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```$/);
+    return m ? m[1].trim() : rawPrompt;
+}
+
+function tryParseJsonMaybeDoubleEncoded(rawPrompt) {
+    try {
+        const first = JSON.parse(rawPrompt);
+        if (typeof first === 'string') {
+            try {
+                return JSON.parse(first);
+            } catch (_) {
+                return first;
+            }
+        }
+        return first;
+    } catch (e) {
+        return null;
+    }
+}
+
+function extractJsonStringField(rawPrompt, fieldName) {
+    if (!rawPrompt) return null;
+    const re = new RegExp('"' + fieldName + '"\\s*:\\s*("(?:\\\\\\\\.|[^"\\\\\\\\])*")', 'm');
+    const m = rawPrompt.match(re);
+    if (!m) return null;
+    try {
+        return JSON.parse(m[1]);
+    } catch (e) {
+        return null;
+    }
+}
+
 function parsePromptParts(rawPrompt) {
         let system = '';
         let user = rawPrompt || '';
@@ -5708,19 +5742,33 @@ function parsePromptParts(rawPrompt) {
         let templateData = {};
         
         try {
-            const parsed = JSON.parse(rawPrompt);
+            const cleaned = stripOuterCodeFence(rawPrompt);
+            const parsed = tryParseJsonMaybeDoubleEncoded(cleaned);
             if (parsed && typeof parsed === 'object') {
                 // Check if it's the new template format (extraction agents)
                 if (parsed.user_template) {
                     isTemplateFormat = true;
-                    system = parsed.role || '';
-                    user = parsed.user_template || '';
+                    // Some older rows mistakenly store the *entire* template JSON as a string in `role`.
+                    // If that happens, parse the nested JSON and use its `role`/`user_template`.
+                    let templateObj = parsed;
+                    if (typeof parsed.role === 'string') {
+                        const roleTrim = parsed.role.trim();
+                        if (roleTrim.startsWith('{') && roleTrim.endsWith('}')) {
+                            const nested = tryParseJsonMaybeDoubleEncoded(roleTrim);
+                            if (nested && typeof nested === 'object' && nested.user_template) {
+                                templateObj = nested;
+                            }
+                        }
+                    }
+
+                    system = templateObj.role || '';
+                    user = templateObj.user_template || '';
                     templateData = {
-                        role: parsed.role || '',
-                        user_template: parsed.user_template || '',
-                        task: parsed.task || parsed.objective || '',
-                        json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
-                        instructions: parsed.instructions || ''
+                        role: templateObj.role || '',
+                        user_template: templateObj.user_template || '',
+                        task: templateObj.task || templateObj.objective || '',
+                        json_example: typeof templateObj.json_example === 'string' ? templateObj.json_example : JSON.stringify(templateObj.json_example || {}, null, 2),
+                        instructions: templateObj.instructions || ''
                     };
                 } else if (parsed.system || parsed.user) {
                     // Legacy simple format
@@ -5744,6 +5792,34 @@ function parsePromptParts(rawPrompt) {
             }
         } catch (e) {
             // fallback: treat entire prompt as user content
+        }
+
+        // Heuristic salvage path: if the prompt is almost-JSON (often due to a single
+        // invalid escape inside a large json_example), try to extract key string fields
+        // without requiring a full JSON.parse().
+        if (!system && user) {
+            const cleaned = stripOuterCodeFence(rawPrompt || '');
+            const role = extractJsonStringField(cleaned, 'role');
+            const objective = extractJsonStringField(cleaned, 'objective');
+            const userTemplate = extractJsonStringField(cleaned, 'user_template');
+            const sys = extractJsonStringField(cleaned, 'system');
+            const usr = extractJsonStringField(cleaned, 'user') || extractJsonStringField(cleaned, 'prompt');
+
+            if (role !== null || objective !== null || userTemplate !== null) {
+                isTemplateFormat = true;
+                system = role || objective || '';
+                user = userTemplate || '';
+                templateData = {
+                    role: system,
+                    user_template: user,
+                    task: extractJsonStringField(cleaned, 'task') || '',
+                    json_example: extractJsonStringField(cleaned, 'json_example') || '',
+                    instructions: extractJsonStringField(cleaned, 'instructions') || ''
+                };
+            } else if (sys !== null || usr !== null) {
+                system = sys || '';
+                user = usr || '';
+            }
         }
         return { system, user, isTemplateFormat, templateData };
 }
@@ -5847,7 +5923,7 @@ function renderAgentPrompts() {
                                         <div id="${agentId}-validate-result" class="hidden mt-2"></div>
                                     ` : `
                                         <div id="${agentId}-prompt-system-display" 
-                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.system || '(empty)')}</div>
                                     `}
                                 </div>
                                 ${isLockedScaffoldAgent ? `
@@ -5872,7 +5948,7 @@ function renderAgentPrompts() {
                                                       class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                         ` : `
                                             <div id="${agentId}-prompt-user-display"
-                                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                                 class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.user || '(empty)')}</div>
                                         `}
                                     </div>
                                 `}
@@ -8547,9 +8623,13 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     // surfaces misplaced persona text in the editable System Prompt field so the user can
     // save it back into the correct slot. Only applies when role/system is truly empty so
     // we never overwrite legitimate persona content.
+    const userLooksLikeJson = (typeof promptParts.user === 'string')
+        && promptParts.user.trim().startsWith('{')
+        && promptParts.user.trim().endsWith('}');
     if ((isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName))
         && !promptParts.system
         && promptParts.user
+        && !userLooksLikeJson
         && promptParts.user !== getLockedUserTemplate(agentName)) {
         promptParts.system = promptParts.user;
         promptParts.user = '';
@@ -8642,7 +8722,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                                     <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                                 ` : `
-                                    <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                    <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.system || '(empty)')}</div>
                                 `}
                             </div>
                         ${isLockedScaffoldAgent ? `
@@ -8669,7 +8749,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               placeholder="Enter user prompt (task, query, or user message)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                 ` : `
-                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.user || '(empty)')}</div>
                                 `}
                             </div>
                         `}
@@ -8773,7 +8853,7 @@ function renderQAPrompt(agentName, containerId) {
                                           placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                             ` : `
-                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${promptParts.system || '(empty)'}</div>
+                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.system || '(empty)')}</div>
                             `}
                         </div>
                         ${isLockedScaffoldAgent ? `
@@ -8800,7 +8880,7 @@ function renderQAPrompt(agentName, containerId) {
                                               placeholder="Enter user prompt (task, query, or user message)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                 ` : `
-                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${promptParts.user || '(empty)'}</div>
+                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.user || '(empty)')}</div>
                                 `}
                             </div>
                         `}

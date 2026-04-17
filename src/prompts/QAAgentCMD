@@ -7,12 +7,12 @@
     "agent_output": "<LLM output to evaluate>"
   },
   "evaluation_criteria": [
-    "✅ Does the output fully comply with the original prompt's rules and constraints?",
-    "✅ Are all outputs directly grounded in the source article?",
-    "⚠️ Are there any hallucinated elements not supported by the article?",
-    "⚠️ Were any expected outputs omitted based on the prompt and article content?",
-    "❌ Are there formatting violations (YAML structure, required fields missing, etc)?",
-    "❌ Are any forbidden behaviors or outputs present (as defined by the agent_prompt)?"
+    "[PASS] The output fully complies with the original prompt's rules and constraints.",
+    "[PASS] All outputs are directly grounded in the source article.",
+    "[WARN] Any hallucinated elements not supported by the article are flagged.",
+    "[WARN] Any expected outputs omitted based on the prompt and article content are flagged.",
+    "[FAIL] Formatting violations (YAML structure, required fields missing, etc.) are reported.",
+    "[FAIL] Forbidden behaviors or outputs present (as defined by the agent_prompt) are reported."
   ],
   "output_format": {
     "summary": "<Brief summary of overall quality>",
@@ -25,6 +25,7 @@
       }
     ],
     "verdict": "<pass | needs_revision | critical_failure>"
-  }
+  },
+  "instructions": "USER: Given article, agent_prompt, and agent_output, validate the output against the evaluation_criteria. Flag all deviations, hallucinations, omissions, and format violations. Output JSON only: {\"verdict\": \"pass|needs_revision|critical_failure\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|factuality|formatting\", \"description\": \"...\", \"location\": \"...\", \"severity\": \"low|medium|high\"}]}."
 }
 

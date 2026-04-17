@@ -42,7 +42,7 @@
       "prompt": "You are a strict cyber threat-intelligence analyst. Score the article from 1-10 for SIGMA detection rule potential. Huntability equals repeatable behavioral detection patterns only. Ignore single IPs, domains, hashes, or single URLs. Score 7-10 for clear, rule-ready behaviors; 4-6 for limited behavioral detail; 1-3 for strategic or IOC-only content. Output must begin with: SIGMA HUNTABILITY SCORE: <integer>. Provide 3-6 sentence justification.",
       "instructions": ""
     },
-    "QAEnabled": true,
+    "QAEnabled": false,
     "QA": {
       "Provider": "lmstudio",
       "Model": "qwen/qwen3-14b",
