@@ -83,6 +83,10 @@ _INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
 ]
 
 
+class PromptConfigValidationError(ValueError):
+    """Raised when prompt config violates hard-fail contract requirements."""
+
+
 def _validate_qa_prompt_config(agent_name: str, qa_prompt_config: dict[str, Any]) -> None:
     """Validate a QA agent prompt config before the QA retry loop.
 
@@ -99,26 +103,28 @@ def _validate_qa_prompt_config(agent_name: str, qa_prompt_config: dict[str, Any]
     """
     qa_system = (qa_prompt_config.get("system") or qa_prompt_config.get("role") or "").strip()
     if not qa_system:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name} QA: prompt_config missing required 'system'/'role' key. "
             "The QA agent needs a non-empty system prompt to function."
         )
 
     instructions = (qa_prompt_config.get("instructions") or "").strip()
     if not instructions:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name} QA: prompt_config missing required 'instructions' key. "
             "Without instructions the QA agent has no evaluation directive."
         )
 
     criteria = qa_prompt_config.get("evaluation_criteria")
     if not criteria:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name} QA: prompt_config missing required 'evaluation_criteria' key (must be non-empty list). "
             "The QA retry loop uses evaluation_criteria to build the grading rubric."
         )
     if not isinstance(criteria, list):
-        raise ValueError(f"{agent_name} QA: 'evaluation_criteria' must be a list, got {type(criteria).__name__}.")
+        raise PromptConfigValidationError(
+            f"{agent_name} QA: 'evaluation_criteria' must be a list, got {type(criteria).__name__}."
+        )
 
     if not qa_prompt_config.get("objective"):
         logger.warning(
@@ -145,7 +151,7 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
       - instructions tokens: ONLY valid JSON, When in doubt OMIT, traceability fields
     """
     if "user_template" in prompt_config:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name}: prompt_config must not contain 'user_template'. "
             "Extractor Contract (extractor-standard.md sec 5 note): the user message scaffold "
             "is code-owned; preset authors must not write or edit user_template."
@@ -153,14 +159,14 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
 
     system_content = (prompt_config.get("system") or prompt_config.get("role") or "").strip()
     if not system_content:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name}: prompt_config missing required 'system'/'role' key. "
             "Extractor Contract (extractor-standard.md sec 1) mandates a non-empty system message."
         )
 
     instructions = (prompt_config.get("instructions") or "").strip()
     if not instructions:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name}: prompt_config missing required 'instructions' key. "
             "Extractor Contract (extractor-standard.md sec 2) mandates instructions "
             "containing output schema + JSON enforcement."
@@ -169,7 +175,9 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
     # Text-pattern checks on system body (warn-only until seed prompts conform to v1.1)
     for token, label in _SYSTEM_HARD_FAIL:
         if token not in system_content:
-            raise ValueError(f"{agent_name}: system prompt missing required token for {label}: {token!r}")
+            raise PromptConfigValidationError(
+                f"{agent_name}: system prompt missing required token for {label}: {token!r}"
+            )
     for token, label in _SYSTEM_WARN_ONLY:
         if token not in system_content:
             logger.warning(
@@ -183,7 +191,9 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
     # Text-pattern checks on instructions (warn-only until seed prompts conform to v1.1)
     for token, label in _INSTRUCTIONS_HARD_FAIL:
         if token not in instructions:
-            raise ValueError(f"{agent_name}: instructions missing required token for {label}: {token!r}")
+            raise PromptConfigValidationError(
+                f"{agent_name}: instructions missing required token for {label}: {token!r}"
+            )
     for token, label in _INSTRUCTIONS_WARN_ONLY:
         if token not in instructions:
             logger.warning(
@@ -196,7 +206,7 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
 
     json_example = prompt_config.get("json_example")
     if json_example is None:
-        raise ValueError(
+        raise PromptConfigValidationError(
             f"{agent_name}: prompt_config missing required 'json_example'. "
             "Extractor Contract (extractor-standard.md sec 4) requires json_example "
             "including all traceability fields."
@@ -207,7 +217,7 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
         try:
             parsed_example = json.loads(json_example)
         except (ValueError, json.JSONDecodeError) as exc:
-            raise ValueError(
+            raise PromptConfigValidationError(
                 f"{agent_name}: json_example is not valid JSON. "
                 "Extractor Contract requires a parseable json_example so the LLM receives a valid schema contract."
             ) from exc
@@ -225,7 +235,7 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
     if item_fields:
         missing = _TRACEABILITY_FIELDS - item_fields
         if missing:
-            raise ValueError(
+            raise PromptConfigValidationError(
                 f"{agent_name}: json_example items are missing traceability fields: {sorted(missing)}. "
                 "Extractor Contract (extractor-standard.md sec 3-4) requires "
                 "value, source_evidence, extraction_justification, confidence_score in every item."
@@ -4297,6 +4307,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
 
             except PreprocessInvariantError:
                 raise  # Fail-fast: do not retry infra invariants
+            except PromptConfigValidationError:
+                raise  # Fail-fast: contract violations must surface immediately
             except Exception as e:
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
                 # On last attempt, store all API errors in result (not just connection errors)

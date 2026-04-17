@@ -45,7 +45,7 @@ The Huntable pipeline code (`llm_service.py`) enforces specific prompt structure
 
 ### 5. User message scaffold is code-owned
 
-- The user message (Title/URL/Content headers + instructions footer) is hardcoded in `llm_service.py`, not authored in presets.
+- The user message (Title/URL/Content headers + instructions footer) is hardcoded in `src/services/llm_service.py` as `_EXTRACT_BEHAVIORS_TEMPLATE`, not authored in presets.
 - Preset authors do NOT write or edit `user_template`.
 - The runtime assembles the user message from the article content, title, URL, and the `instructions` config key.
 - The INPUT CONTRACT section (section 4) documents the design intent for how article content reaches the model, but the actual assembly is code-owned.
