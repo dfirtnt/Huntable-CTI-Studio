@@ -6199,7 +6199,15 @@ async function showPromptHistoryModal(agentName, versions) {
             <div class="space-y-4 max-h-[70vh] overflow-y-auto">
                 ${versions.length === 0 ? 
                     '<div class="text-center text-gray-500 dark:text-gray-400 py-4">No version history available</div>' :
-                    versions.map(v => `
+                    versions.map(v => {
+                        const promptParts = parsePromptParts(v.prompt || '');
+                        // When system IS the raw JSON envelope (Extractor Contract format),
+                        // instructions are already embedded -- skip the separate display to
+                        // avoid rendering the same text twice.
+                        const isFullJsonDisplay = promptParts.system === (v.prompt || '');
+                        const showInstructionsSeparately = v.instructions && !isFullJsonDisplay;
+                        const systemLabel = isFullJsonDisplay ? 'Prompt Config (JSON):' : 'System Prompt:';
+                        return `
                         <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                             <div class="flex justify-between items-start mb-2">
                                 <div>
@@ -6208,7 +6216,7 @@ async function showPromptHistoryModal(agentName, versions) {
                                         (Workflow Config v${v.workflow_config_version})
                                     </span>
                                 </div>
-                                <button onclick="rollbackPrompt('${agentName}', ${v.id})" 
+                                <button onclick="rollbackPrompt('${agentName}', ${v.id})"
                                         class="px-3 py-1 bg-orange-600 hover:bg-orange-700 text-white text-sm rounded-md transition-colors">
                                     🔄 Rollback
                                 </button>
@@ -6217,23 +6225,19 @@ async function showPromptHistoryModal(agentName, versions) {
                                 ${new Date(v.created_at).toLocaleString()}
                                 ${v.change_description ? ` | ${v.change_description}` : ''}
                             </div>
-                            ${v.instructions ? `
+                            ${showInstructionsSeparately ? `
                                 <div class="mb-4">
                                     <div class="text-sm font-semibold" style="color: var(--text-secondary) !important; mb-2">Instructions:</div>
                                     <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.instructions)}</div>
                                 </div>
                             ` : ''}
-                            ${(() => {
-                                // Parse prompt to show system/user separately
-                                const promptParts = parsePromptParts(v.prompt || '');
-                                if (promptParts.system || promptParts.user) {
-                                    return `
+                            ${(promptParts.system || promptParts.user) ? `
                                         <div class="space-y-3">
                                             ${promptParts.system ? `
                                                 <div>
                                                     <div class="text-sm font-semibold flex items-center gap-2 mb-2" style="color: var(--text-secondary) !important;">
                                                         <span><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.42 15.17l-5.648 5.648a2.477 2.477 0 01-3.5-3.5l5.648-5.648m2.56-1.06l2.56 2.56m5.35-8.076a3.375 3.375 0 00-4.773-4.773L9.563 6.96l4.773 4.773 5.434-5.557z"/></svg></span>
-                                                        <span>System Prompt:</span>
+                                                        <span>${systemLabel}</span>
                                                     </div>
                                                     <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(promptParts.system)}</div>
                                                 </div>
@@ -6248,19 +6252,14 @@ async function showPromptHistoryModal(agentName, versions) {
                                                 </div>
                                             ` : ''}
                                         </div>
-                                    `;
-                                } else {
-                                    // Fallback: show raw prompt if parsing fails
-                                    return `
+                            ` : `
                             <div>
                                 <div class="text-sm font-semibold" style="color: var(--text-secondary) !important; mb-2">Prompt:</div>
                                 <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${escapeHtml(v.prompt)}</div>
                             </div>
-                                    `;
-                                }
-                            })()}
+                            `}
                         </div>
-                    `).join('')
+                    `;}).join('')
                 }
             </div>
         </div>
