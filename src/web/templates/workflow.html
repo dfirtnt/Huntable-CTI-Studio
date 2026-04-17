@@ -2370,8 +2370,8 @@
                     <button type="button" onclick="saveConfigPreset(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10" style="color: var(--text-secondary);">Save Preset</button>
                     <button type="button" onclick="showConfigPresetList(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10" style="color: var(--text-secondary);">Load Preset</button>
                     <button type="button" onclick="showConfigVersionList(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10" style="color: var(--text-secondary);">Versions</button>
-                    <button type="button" onclick="exportPresetToFile(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10" style="color: var(--text-secondary);">Export</button>
-                    <label for="import-preset-input" onclick="document.getElementById('footer-overflow-menu').classList.add('hidden');" class="block w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10 cursor-pointer" style="color: var(--text-secondary);">Import</label>
+                    <button type="button" onclick="exportPresetToFile(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10" style="color: var(--text-secondary);">Export Preset</button>
+                    <label for="import-preset-input" onclick="document.getElementById('footer-overflow-menu').classList.add('hidden');" class="block w-full text-left px-4 py-2 text-xs hover:bg-purple-600/10 cursor-pointer" style="color: var(--text-secondary);">Import Preset</label>
                     <input type="file" id="import-preset-input" accept=".json" class="hidden" onchange="importPresetFromFile(event)">
                     <hr style="border-color: rgba(255,255,255,0.06); margin: 4px 0;">
                     <button type="button" onclick="loadConfig(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-purple-600/10">Reset</button>
@@ -5775,12 +5775,15 @@ function parsePromptParts(rawPrompt) {
                     system = parsed.system || '';
                     user = parsed.user || parsed.prompt || '';
                 } else if (parsed.role || parsed.objective) {
-                    // JSON without user_template/system keys – treat role as system and show entire JSON as user
-                    system = parsed.role || '';
-                    user = parsed.user_template || parsed.prompt || rawPrompt;
+                    // Standard Extractor Contract: role/task/json_example/instructions (no user_template).
+                    // Expose the full config JSON as the editable system content -- the backend
+                    // extracts role/task/instructions from this object at runtime.
+                    system = rawPrompt;
+                    user = '';
+                    isTemplateFormat = true;
                     templateData = {
                         role: parsed.role || '',
-                        user_template: parsed.user_template || parsed.prompt || '',
+                        user_template: '',
                         task: parsed.task || parsed.objective || '',
                         json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
                         instructions: parsed.instructions || ''
@@ -6056,27 +6059,34 @@ async function saveAgentPrompt(agentName) {
     let combinedPrompt;
     let instructions = null;
     if (isExtractionAgent) {
-        // Preserve any extra keys already present in the DB JSON (e.g. ExtractAgent's
-        // objective/exclusions/output_format/constraints), then overwrite role and
-        // user_template, and drop legacy keys (user/system/prompt) that no longer apply.
-        const merged = {
-            ...parsed,
-            role: systemVal,
-            user_template: getLockedUserTemplate(agentName),
-            task: parsed.task || "",
-            json_example: parsed.json_example || "{}",
-            instructions: parsed.instructions || ""
-        };
+        // If systemVal is a full JSON config object (user edited the full envelope),
+        // use it directly. Otherwise treat it as a plain role persona string.
+        let parsedSystem = null;
+        try { parsedSystem = JSON.parse(systemVal); } catch (_) {}
+        let merged;
+        if (parsedSystem && typeof parsedSystem === 'object' && 'role' in parsedSystem) {
+            // Full JSON config edited -- use as-is
+            merged = { ...parsedSystem };
+        } else {
+            // Plain role string -- preserve existing envelope fields
+            merged = {
+                ...parsed,
+                role: systemVal,
+                task: parsed.task || "",
+                json_example: parsed.json_example || "{}",
+                instructions: parsed.instructions || ""
+            };
+        }
         delete merged.user;
         delete merged.system;
         delete merged.prompt;
+        delete merged.user_template;  // not read by backend; keep JSON clean
         combinedPrompt = JSON.stringify(merged);
-        instructions = parsed.instructions || null;
+        instructions = merged.instructions || null;
     } else if (isQAAgent) {
         const merged = {
             ...parsed,
             role: systemVal,
-            user_template: getLockedUserTemplate(agentName),
             objective: parsed.objective || "",
             evaluation_criteria: parsed.evaluation_criteria || [],
             instructions: parsed.instructions || "",
@@ -6087,8 +6097,9 @@ async function saveAgentPrompt(agentName) {
         delete merged.user;
         delete merged.system;
         delete merged.prompt;
+        delete merged.user_template;
         combinedPrompt = JSON.stringify(merged);
-        instructions = parsed.instructions || null;
+        instructions = merged.instructions || null;
     } else {
         combinedPrompt = JSON.stringify({ system: systemVal, user: userVal });
     }
@@ -6106,7 +6117,7 @@ async function saveAgentPrompt(agentName) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(promptData)
         });
-        
+
         if (response.ok) {
             const result = await response.json();
             console.log('Save successful:', result);
@@ -10175,27 +10186,34 @@ async function saveAgentPrompt2(agentName) {
     let combinedPrompt;
     let instructions = null;
     if (isExtractionAgent) {
-        // Preserve any extra keys already present in the DB JSON (e.g. ExtractAgent's
-        // objective/exclusions/output_format/constraints), then overwrite role and
-        // user_template, and drop legacy keys (user/system/prompt) that no longer apply.
-        const merged = {
-            ...parsed,
-            role: systemVal,
-            user_template: getLockedUserTemplate(agentName),
-            task: parsed.task || "",
-            json_example: parsed.json_example || "{}",
-            instructions: parsed.instructions || ""
-        };
+        // If systemVal is a full JSON config object (user edited the full envelope),
+        // use it directly. Otherwise treat it as a plain role persona string.
+        let parsedSystem = null;
+        try { parsedSystem = JSON.parse(systemVal); } catch (_) {}
+        let merged;
+        if (parsedSystem && typeof parsedSystem === 'object' && 'role' in parsedSystem) {
+            // Full JSON config edited -- use as-is
+            merged = { ...parsedSystem };
+        } else {
+            // Plain role string -- preserve existing envelope fields
+            merged = {
+                ...parsed,
+                role: systemVal,
+                task: parsed.task || "",
+                json_example: parsed.json_example || "{}",
+                instructions: parsed.instructions || ""
+            };
+        }
         delete merged.user;
         delete merged.system;
         delete merged.prompt;
+        delete merged.user_template;  // not read by backend; keep JSON clean
         combinedPrompt = JSON.stringify(merged);
-        instructions = parsed.instructions || null;
+        instructions = merged.instructions || null;
     } else if (isQAAgent) {
         const merged = {
             ...parsed,
             role: systemVal,
-            user_template: getLockedUserTemplate(agentName),
             objective: parsed.objective || "",
             evaluation_criteria: parsed.evaluation_criteria || [],
             instructions: parsed.instructions || "",
@@ -10206,8 +10224,9 @@ async function saveAgentPrompt2(agentName) {
         delete merged.user;
         delete merged.system;
         delete merged.prompt;
+        delete merged.user_template;
         combinedPrompt = JSON.stringify(merged);
-        instructions = parsed.instructions || null;
+        instructions = merged.instructions || null;
     } else {
         combinedPrompt = JSON.stringify({ system: systemVal, user: userVal });
     }
