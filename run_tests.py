@@ -11,7 +11,7 @@ if _sys.version_info < (3, 10) and _os.path.exists(_venv_py):
 del _os, _sys, _venv_py
 
 """
-CTI Scraper Unified Test Runner
+Huntable CTI Studio Unified Test Runner
 
 This is the single entry point for all test execution needs across different contexts.
 Consolidates functionality from run_tests.py and run_tests.sh.
@@ -1744,7 +1744,7 @@ class RunTestRunner:
         time.time() - self.start_time
 
         print("\n" + "=" * 60)
-        print("📊 CTI Scraper Test Execution Report")
+        print("📊 Huntable CTI Studio Test Execution Report")
         print("=" * 60)
 
     def start_debugging(self):
@@ -1975,7 +1975,7 @@ class RunTestRunner:
 def parse_arguments() -> RunTestConfig:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="CTI Scraper Unified Test Runner",
+        description="Huntable CTI Studio Unified Test Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Execution Contexts:
