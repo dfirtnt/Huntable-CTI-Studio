@@ -777,6 +777,7 @@ class SigmaGenerationService:
             source=source_name,
             url=url or "N/A",
             content=content_to_analyze,
+            observables_section=_build_observables_section(extraction_result),
         )
 
         # Add expansion context

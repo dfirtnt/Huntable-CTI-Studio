@@ -17,64 +17,41 @@ sys.path.insert(0, str(project_root))
 
 
 def load_extract_agent_prompt() -> tuple[dict[str, Any], str]:
-    """Load Extract Agent prompt config and instructions template."""
+    """Load Extract Agent prompt config and instructions template.
+
+    The user-message template is code-owned in llm_service._EXTRACT_BEHAVIORS_TEMPLATE.
+    This script uses a local copy for training data formatting; keep in sync if the
+    runtime template changes.
+    """
     prompts_dir = project_root / "src" / "prompts"
 
-    # Load prompt config
+    # Load prompt config from seed file (contract-compliant JSON)
     prompt_path = prompts_dir / "ExtractAgent"
     if prompt_path.exists():
         with open(prompt_path) as f:
             prompt_config = json.load(f)
     else:
-        # Fallback to default structure
+        # Minimal valid fallback
         prompt_config = {
-            "role": "You are a detection engineer LLM. Your task is to extract telemetry-aware attacker techniques and observables that are useful to detection engineers and threat hunters.",
-            "objective": "Extract telemetry-based observables (command-line executions, process chains, service/registry modifications, file path usage, event log manipulation). Output unique and discrete entries only.",
-            "exclusions": {
-                "do_not_extract": [
-                    "Atomic IOCs like single IP addresses, domains, or file hashes",
-                    "One-off URLs or email addresses without recognizable structure or patterns",
-                ],
-                "do_extract": [
-                    "Command-line executions (especially chained or obfuscated)",
-                    "Parent → child process chains",
-                    "Registry key/value modification patterns",
-                    "Service manipulation (creation, deletion, status change)",
-                    "Suspicious file paths or locations (Temp dirs, uncommon drive paths)",
-                    "Event log deletion or manipulation",
-                    "Encoded or obfuscated values",
-                ],
-            },
-            "output_format": {
-                "observables": "Array of unique observables with tags (e.g., process_cmdline, registry_pattern, service_command)",
-                "summary": {
-                    "count": "Integer value representing the number of unique discrete observables extracted",
-                    "source_url": "Source URL of the original content",
-                    "platforms_detected": "Array of detected platforms (e.g., ['Windows'])",
-                },
-            },
+            "role": "You are an extraction agent for cyber threat intelligence articles. You extract huntable behaviors and observables relevant to EDR detection, threat hunting, and Sigma rule generation.",
+            "task": "Extract huntable behaviors and observables. Output unique and discrete entries only.",
         }
 
-    # Load instructions template
-    instructions_path = prompts_dir / "ExtractAgentInstructions.txt"
-    if instructions_path.exists():
-        with open(instructions_path) as f:
-            instructions_template = f.read()
-    else:
-        # Fallback template
-        instructions_template = """Title: {title}
-
-URL: {url}
-
-Content:
-
-{content}
-
-Extract telemetry-aware attacker behaviors and observables.
-
-{prompt_config}
-
-CRITICAL: Output your response as a valid JSON object only. Begin with {{{{ and end with }}}}. Do not include reasoning, explanations, or markdown outside the JSON object."""
+    # Template is code-owned in llm_service._EXTRACT_BEHAVIORS_TEMPLATE.
+    # Kept here as a local copy for training data formatting.
+    instructions_template = (
+        "Title: {title}\n\n"
+        "URL: {url}\n\n"
+        "Content:\n\n"
+        "{content}\n\n"
+        "Extract huntable behaviors and observables relevant to EDR detection, threat hunting, "
+        "and Sigma rule generation. Use only information explicitly present in the content. "
+        "Do not invent or autofill missing pieces.\n\n"
+        "Prompt config (schema and constraints):\n"
+        "{prompt_config}\n\n"
+        "Output a single valid JSON object only. No markdown, no code fences, no prose outside JSON. "
+        "If a category is empty, return an empty array for that field."
+    )
 
     return prompt_config, instructions_template
 
@@ -124,14 +101,14 @@ def format_for_instruction_tuning(
     # Format for different fine-tuning frameworks
     # Format 1: Alpaca/ShareGPT format (for most instruction-tuning frameworks)
     alpaca_format = {
-        "instruction": "Extract telemetry-aware attacker behaviors and observables from the threat intelligence article.",
+        "instruction": "Extract huntable behaviors and observables from the threat intelligence article.",
         "input": instruction,
         "output": response_json,
     }
 
     # Format 2: ChatML format (for models that use chat templates)
     chatml_format = [
-        {"role": "system", "content": prompt_config.get("role", "You are a detection engineer LLM.")},
+        {"role": "system", "content": prompt_config.get("role", "You are an extraction agent.")},
         {"role": "user", "content": instruction},
         {"role": "assistant", "content": response_json},
     ]
@@ -185,82 +162,15 @@ def main():
     # Load training data
     input_path = Path(args.input)
     if not input_path.exists():
-        print(f"❌ Input file not found: {input_path}")
+        print(f"Input file not found: {input_path}")
         return
 
-    print(f"📂 Loading training data from: {input_path}")
+    print(f"Loading training data from: {input_path}")
     with open(input_path) as f:
         training_data = json.load(f)
 
     print(f"   Found {len(training_data)} examples")
 
     # Load prompt config and template
-    print("📝 Loading Extract Agent prompt configuration...")
+    print("Loading Extract Agent prompt configuration...")
     prompt_config, instructions_template = load_extract_agent_prompt()
-
-    # Format examples
-    print("🔄 Formatting examples...")
-    formatted_examples = []
-
-    max_examples = args.max_examples or len(training_data)
-
-    for idx, example in enumerate(training_data[:max_examples]):
-        try:
-            formatted = format_for_instruction_tuning(example, prompt_config, instructions_template)
-            formatted_examples.append(formatted)
-
-            if (idx + 1) % 100 == 0:
-                print(f"   Processed {idx + 1}/{max_examples} examples...")
-
-        except Exception as e:
-            print(f"⚠️  Error formatting example {idx}: {e}")
-            continue
-
-    print(f"   ✅ Formatted {len(formatted_examples)} examples")
-
-    # Save formatted data
-    output_path = Path(args.output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    # Save in requested format(s)
-    if args.format == "all":
-        # Save all formats
-        formats = ["alpaca", "chatml", "simple"]
-    else:
-        formats = [args.format]
-
-    for fmt in formats:
-        # Extract format-specific data
-        format_data = []
-        for example in formatted_examples:
-            if fmt in example:
-                format_data.append(example[fmt])
-
-        # Save format-specific file
-        format_output = output_path.parent / f"{output_path.stem}_{fmt}{output_path.suffix}"
-        with open(format_output, "w") as f:
-            json.dump(format_data, f, indent=2, ensure_ascii=False)
-
-        print(f"💾 Saved {fmt} format to: {format_output}")
-        print(f"   - Examples: {len(format_data)}")
-        print(f"   - File size: {format_output.stat().st_size / 1024 / 1024:.2f} MB")
-
-    # Also save full format with metadata
-    with open(output_path, "w") as f:
-        json.dump(formatted_examples, f, indent=2, ensure_ascii=False)
-
-    print(f"\n💾 Saved full formatted data to: {output_path}")
-
-    # Statistics
-    if formatted_examples:
-        total_observables = sum(ex["metadata"]["observables_count"] for ex in formatted_examples)
-        avg_observables = total_observables / len(formatted_examples)
-        print("\n📊 Statistics:")
-        print(f"   - Average observables per example: {avg_observables:.1f}")
-        print(f"   - Total observables: {total_observables}")
-
-    print("\n✅ Formatting complete!")
-
-
-if __name__ == "__main__":
-    main()

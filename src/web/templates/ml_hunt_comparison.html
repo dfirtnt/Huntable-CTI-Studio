@@ -58,6 +58,9 @@
     overflow: hidden;
     transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
+.kpi-card--tooltip {
+    overflow: visible;
+}
 .kpi-card::before {
     content: '';
     position: absolute;
@@ -97,12 +100,70 @@
 .kpi-cyan .kpi-value    { color: var(--step-0); }
 .kpi-green .kpi-value   { color: var(--action-success-light); }
 
+.kpi-help-button {
+    color: var(--text-muted-slate);
+    transition: color 0.2s ease;
+}
+.kpi-help-button:hover,
+.kpi-help-button:focus-visible {
+    color: var(--text-secondary);
+}
+.kpi-help-tooltip {
+    z-index: 20;
+}
+.mlops-help-button {
+    color: var(--text-muted-slate);
+    transition: color 0.2s ease;
+}
+.mlops-help-button:hover,
+.mlops-help-button:focus-visible {
+    color: var(--text-secondary);
+}
+.mlops-help-tooltip {
+    z-index: 30;
+}
+.mlops-help-tooltip--start {
+    left: 0;
+    right: auto;
+}
+.mlops-help-tooltip--start::before {
+    content: '';
+    position: absolute;
+    top: -0.25rem;
+    left: 1rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: rotate(45deg);
+    background: var(--panel-bg-3);
+    border-top: 1px solid var(--border-subtle);
+    border-left: 1px solid var(--border-subtle);
+}
+.mlops-help-tooltip--end {
+    left: auto;
+    right: 0;
+}
+.mlops-help-tooltip--end::before {
+    content: '';
+    position: absolute;
+    top: -0.25rem;
+    right: 1rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    transform: rotate(45deg);
+    background: var(--panel-bg-3);
+    border-top: 1px solid var(--border-subtle);
+    border-left: 1px solid var(--border-subtle);
+}
+
 /* ── Panels ──────────────────────────────────────────────── */
 .mlops-panel {
     background: var(--panel-bg-1);
     border: 1px solid var(--border-muted);
     border-radius: 0.75rem;
     overflow: hidden;
+}
+.mlops-panel--tooltip {
+    overflow: visible;
 }
 .mlops-panel-head {
     padding: 1rem 1.5rem;
@@ -250,16 +311,16 @@
             <div class="kpi-label">Last Updated</div>
             <div class="kpi-value text-base" id="lastUpdated">-</div>
         </div>
-        <div class="kpi-card kpi-green mlops-rise mlops-rise-5">
+        <div id="eligibleArticlesCard" class="kpi-card kpi-card--tooltip kpi-green mlops-rise mlops-rise-5">
             <div class="flex items-center justify-between">
                 <div class="kpi-label mb-0">Eligible Articles</div>
                 <div class="relative group">
-                    <button class="text-gray-500 hover:text-gray-300 transition-colors" aria-label="Help">
+                    <button id="eligibleArticlesHelpButton" type="button" class="kpi-help-button focus:outline-none" aria-label="Eligible articles help" aria-describedby="eligibleArticlesHelpTooltip">
                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div class="absolute right-0 top-6 w-80 rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle);">
+                    <div id="eligibleArticlesHelpTooltip" role="tooltip" class="kpi-help-tooltip absolute right-0 top-6 w-80 rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle);">
                         <div class="text-xs" style="color: var(--text-secondary);">
                             <h4 class="font-semibold mb-1.5" style="color: var(--text-primary);">Article Processing for ML Training</h4>
                             <p class="mb-2">Processes high-scoring articles (hunt_score &gt; 50) through chunk analysis to generate ML training data.</p>
@@ -284,17 +345,17 @@
     </div>
 
     <!-- Model Retraining Section -->
-    <div class="mlops-panel mb-6 mlops-rise mlops-rise-6">
+    <div id="modelRetrainingPanel" class="mlops-panel mlops-panel--tooltip mb-6 mlops-rise mlops-rise-6">
         <div class="mlops-panel-head">
             <div class="flex items-center gap-2">
                 <span class="mlops-section-title">Model Retraining</span>
                 <div class="relative group ml-1">
-                    <button class="text-gray-500 hover:text-gray-300 transition-colors" aria-label="Help">
+                    <button id="modelRetrainingHelpButton" type="button" class="mlops-help-button focus:outline-none" aria-label="Model retraining help" aria-describedby="modelRetrainingHelpTooltip">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div class="absolute left-0 top-8 w-80 rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle);">
+                    <div id="modelRetrainingHelpTooltip" role="tooltip" class="mlops-help-tooltip mlops-help-tooltip--start absolute top-8 w-80 rounded-lg shadow-lg p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle);">
                         <div class="text-xs" style="color: var(--text-secondary);">
                             <h4 class="font-semibold mb-1.5" style="color: var(--text-primary);">Retraining Best Practices</h4>
                             <p class="mb-2">Collect <strong>20-50 user classifications</strong> before retraining. The system uses <strong>cumulative learning</strong> — each cycle builds on all previous data.</p>
@@ -412,7 +473,7 @@
     </div>
 
     <!-- Evaluation Metrics Chart -->
-    <div class="mlops-panel mb-6 mlops-rise mlops-rise-7">
+    <div id="evaluationMetricsPanel" class="mlops-panel mlops-panel--tooltip mb-6 mlops-rise mlops-rise-7">
         <div class="mlops-panel-head">
             <span class="mlops-section-title">Evaluation Metrics Over Time</span>
             <div class="flex items-center gap-2">
@@ -430,13 +491,12 @@
                     </button>
                 </div>
                 <div class="relative group">
-                    <button class="transition-colors focus:outline-none p-1" style="color: var(--text-muted);" onclick="showMetricsHelp()" aria-label="Metrics help">
+                    <button id="metricsHelpButton" type="button" class="mlops-help-button focus:outline-none p-1" onclick="showMetricsHelp()" aria-label="Metrics help" aria-describedby="metricsHelpTooltip">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div id="metricsHelpTooltip" class="absolute right-0 top-8 w-72 p-3.5 text-xs rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle); color: var(--text-secondary);">
-                        <div class="absolute -top-1 right-4 w-2 h-2 transform rotate-45" style="background: var(--panel-bg-3);"></div>
+                    <div id="metricsHelpTooltip" role="tooltip" class="mlops-help-tooltip mlops-help-tooltip--start absolute top-8 w-72 p-3.5 text-xs rounded-lg shadow-lg opacity-0 invisible transition-all duration-200" style="background: var(--panel-bg-3); border: 1px solid var(--border-subtle); color: var(--text-secondary);">
                         <div class="space-y-1.5">
                             <div><strong style="color: var(--text-primary);">F1</strong> — Balanced; best single metric for classification.</div>
                             <div><strong style="color: var(--text-primary);">Recall</strong> — When missing positives is costly.</div>
@@ -1004,6 +1064,8 @@
         }
 
         function showRetrainHoverWarning() {
+            hideRetrainHoverWarning();
+
             const tooltip = document.createElement('div');
             tooltip.id = 'retrainTooltip';
             tooltip.className = 'absolute z-50 px-3 py-2 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 text-sm rounded-lg shadow-lg border border-amber-300 dark:border-amber-700';
@@ -1012,10 +1074,23 @@
             const btn = document.getElementById('retrainModelBtn');
             const rect = btn.getBoundingClientRect();
             tooltip.style.position = 'fixed';
-            tooltip.style.top = (rect.top - 50) + 'px';
-            tooltip.style.left = rect.left + 'px';
+            tooltip.style.maxWidth = 'min(26rem, calc(100vw - 2rem))';
             
             document.body.appendChild(tooltip);
+
+            const margin = 16;
+            const tooltipRect = tooltip.getBoundingClientRect();
+            const left = Math.min(
+                Math.max(rect.left, margin),
+                window.innerWidth - tooltipRect.width - margin,
+            );
+            let top = rect.top - tooltipRect.height - 8;
+            if (top < margin) {
+                top = Math.min(rect.bottom + 8, window.innerHeight - tooltipRect.height - margin);
+            }
+
+            tooltip.style.left = `${left}px`;
+            tooltip.style.top = `${top}px`;
         }
 
         function hideRetrainHoverWarning() {

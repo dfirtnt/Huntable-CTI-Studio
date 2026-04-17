@@ -5615,8 +5615,8 @@ const LOCKED_QA_AGENTS = [
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
 const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nArticle Title: {title}\nArticle URL: {url}\n\nOriginal Extraction Task: {task}\n\nOriginal Extraction Instructions:\n{extraction_instructions}\n\nOriginal Extraction Output Format:\n{extraction_output_format}\n\nSource Text:\n{article_content}\n\nExtracted Data:\n{extracted_commands}\n\nEvaluation Criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
 const LOCKED_RANK_USER_TEMPLATE = 'Article Title: {title}\nSource: {source}\nURL: {url}\n\nContent:\n{content}';
-// Mirrors src/prompts/ExtractAgentInstructions.txt — the supervisor's user message is built from
-// this template on the backend, with {prompt_config} expanded to the full JSON at runtime.
+// Code-owned in llm_service._EXTRACT_BEHAVIORS_TEMPLATE — the supervisor's user message is built
+// from this template at runtime, with {prompt_config} expanded to the full ExtractAgent JSON.
 const LOCKED_EXTRACTAGENT_USER_TEMPLATE = 'Title: {title}\n\nURL: {url}\n\nContent:\n\n{content}\n\nExtract telemetry-aware attacker behaviors and observables for Windows detection/hunting. Use only information explicitly present in the content. Do not invent or autofill missing pieces.\n\nPrompt config (schema and constraints):\n{prompt_config}\n\nOutput a single valid JSON object only. No markdown, no code fences, no prose outside JSON. If a category is empty, return an empty array for that field.';
 // Mirrors src/prompts/sigma_generate_multi.txt — SigmaAgent's user message template. The backend
 // formats this with {title}, {source}, {url}, {content}, {observables_section}.

@@ -30,10 +30,15 @@ def assert_test_environment():
             raise RuntimeError(
                 f"DATABASE_URL is set to non-test database: {prod_db_url}. Tests must use TEST_DATABASE_URL only."
             )
-        # If DATABASE_URL points to test, warn but allow (for compatibility)
-        warnings.warn(
-            "DATABASE_URL is set in test environment. Use TEST_DATABASE_URL instead.", RuntimeWarning, stacklevel=2
-        )
+        # If DATABASE_URL mirrors TEST_DATABASE_URL, this is intentional in run_tests.py
+        # to keep legacy imports pinned to the isolated test DB.
+        if prod_db_url != test_db_url:
+            # If DATABASE_URL points to test but differs, warn but allow (compatibility mode)
+            warnings.warn(
+                "DATABASE_URL is set in test environment. Use TEST_DATABASE_URL instead.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
 
     # Check TEST_DATABASE_URL contains "test"
     if "test" not in test_db_url.lower():

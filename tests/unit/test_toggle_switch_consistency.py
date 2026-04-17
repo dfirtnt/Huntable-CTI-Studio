@@ -25,6 +25,7 @@ TOGGLE_RE = re.compile(
 
 
 @pytest.mark.unit
+@pytest.mark.regression
 class TestToggleSwitchConsistency:
     """Verify all toggle switches in workflow.html share identical sizing."""
 

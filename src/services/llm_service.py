@@ -12,6 +12,7 @@ import logging
 import math
 import os
 import re
+import subprocess
 from datetime import datetime
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -44,6 +45,24 @@ class PreprocessInvariantError(Exception):
 
 _TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
 
+# Code-owned user-message template for ExtractAgent supervisor (extract_behaviors).
+# Previously lived in src/prompts/ExtractAgentInstructions.txt.
+# Inlined here so the file dependency is eliminated and the template is always available.
+# {title}, {url}, {content}, {prompt_config} are substituted at call time.
+_EXTRACT_BEHAVIORS_TEMPLATE = (
+    "Title: {title}\n\n"
+    "URL: {url}\n\n"
+    "Content:\n\n"
+    "{content}\n\n"
+    "Extract huntable behaviors and observables relevant to EDR detection, threat hunting, "
+    "and Sigma rule generation. Use only information explicitly present in the content. "
+    "Do not invent or autofill missing pieces.\n\n"
+    "Prompt config (schema and constraints):\n"
+    "{prompt_config}\n\n"
+    "Output a single valid JSON object only. No markdown, no code fences, no prose outside JSON. "
+    "If a category is empty, return an empty array for that field."
+)
+
 # Text tokens required by the Extractor Contract (extractor-standard.md).
 # HARD_FAIL checks raise ValueError -- missing these makes the prompt structurally broken.
 # WARN_ONLY checks log a warning -- existing prompts predate the v1.1 contract language;
@@ -62,6 +81,51 @@ _INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
     ("When in doubt, OMIT", "FINAL REMINDER (sec 16)"),
     ("source_evidence", "traceability field mention (sec 14)"),
 ]
+
+
+def _validate_qa_prompt_config(agent_name: str, qa_prompt_config: dict[str, Any]) -> None:
+    """Validate a QA agent prompt config before the QA retry loop.
+
+    Called once when qa_prompt_config is provided, so a misconfigured QA prompt aborts
+    cleanly rather than silently falling back to defaults mid-run.
+
+    Hard-fail rules (structural -- config is unusable without these):
+      - system/role key: REQUIRED, non-empty
+      - instructions key: REQUIRED, non-empty
+      - evaluation_criteria key: REQUIRED, must be a non-empty list
+
+    Warn-only rules (text-pattern checks):
+      - objective: present (falls back to a generic string if absent, but should be set)
+    """
+    qa_system = (qa_prompt_config.get("system") or qa_prompt_config.get("role") or "").strip()
+    if not qa_system:
+        raise ValueError(
+            f"{agent_name} QA: prompt_config missing required 'system'/'role' key. "
+            "The QA agent needs a non-empty system prompt to function."
+        )
+
+    instructions = (qa_prompt_config.get("instructions") or "").strip()
+    if not instructions:
+        raise ValueError(
+            f"{agent_name} QA: prompt_config missing required 'instructions' key. "
+            "Without instructions the QA agent has no evaluation directive."
+        )
+
+    criteria = qa_prompt_config.get("evaluation_criteria")
+    if not criteria:
+        raise ValueError(
+            f"{agent_name} QA: prompt_config missing required 'evaluation_criteria' key (must be non-empty list). "
+            "The QA retry loop uses evaluation_criteria to build the grading rubric."
+        )
+    if not isinstance(criteria, list):
+        raise ValueError(f"{agent_name} QA: 'evaluation_criteria' must be a list, got {type(criteria).__name__}.")
+
+    if not qa_prompt_config.get("objective"):
+        logger.warning(
+            "%s QA: prompt_config missing 'objective' -- will fall back to generic 'Verify extraction.' string. "
+            "Add an explicit objective for clearer QA behaviour.",
+            agent_name,
+        )
 
 
 def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str, Any]) -> None:
@@ -741,6 +805,48 @@ class LLMService:
                 }
             except ValueError:
                 logger.warning(f"Invalid context length override value '{override_value}' for {override_key}, ignoring")
+
+        # Method 0: Prefer LMStudio CLI (`lms ps`) when available.
+        # This catches suffixed model identifiers (e.g. qwen/qwen3-8b:2) and
+        # reports the effective loaded context even when /models omits context fields.
+        try:
+            which_result = subprocess.run(["which", "lms"], capture_output=True, text=True, timeout=5)
+            if which_result.returncode == 0:
+                ps_result = subprocess.run(["lms", "ps"], capture_output=True, text=True, timeout=10)
+                if ps_result.returncode == 0:
+                    loaded_contexts: list[int] = []
+                    for raw_line in ps_result.stdout.splitlines():
+                        line = raw_line.strip()
+                        if not line or line.startswith("IDENTIFIER"):
+                            continue
+                        # Row shape:
+                        # IDENTIFIER MODEL STATUS SIZE UNIT CONTEXT DEVICE [TTL]
+                        match = re.match(r"^(\S+)\s+(\S+)\s+\S+\s+\S+\s+\S+\s+(\d+)\b", line)
+                        if not match:
+                            continue
+                        identifier = match.group(1)
+                        model = match.group(2)
+                        context_tokens = int(match.group(3))
+                        if identifier == model_name or model == model_name or identifier.startswith(f"{model_name}:"):
+                            loaded_contexts.append(context_tokens)
+
+                    if loaded_contexts:
+                        context_length = max(loaded_contexts)
+                        is_sufficient = context_length >= threshold
+                        logger.info(
+                            "Detected LMStudio context via lms ps for %s: %s tokens",
+                            model_name,
+                            context_length,
+                        )
+                        return {
+                            "context_length": context_length,
+                            "threshold": threshold,
+                            "is_sufficient": is_sufficient,
+                            "model_name": model_name,
+                            "method": "lms_ps",
+                        }
+        except Exception as exc:
+            logger.debug("LMStudio CLI context probe failed for %s: %s", model_name, exc)
 
         lmstudio_urls = self._lmstudio_url_candidates()
         context_length = None
@@ -1973,29 +2079,21 @@ class LLMService:
         Returns:
             Dict with extracted behaviors and count of discrete huntables
         """
-        # Use provided prompt config or load from file
-        if prompt_config_dict and instructions_template_str:
+        # Use provided prompt config or load from file.
+        # instructions_template_str is accepted for backward compatibility but is no longer
+        # required -- the template is now code-owned in _EXTRACT_BEHAVIORS_TEMPLATE.
+        if prompt_config_dict:
             prompt_config = prompt_config_dict
-            instructions_template = instructions_template_str
+            instructions_template = instructions_template_str or _EXTRACT_BEHAVIORS_TEMPLATE
         elif prompt_file_path:
-            # Load ExtractAgent prompt config (async file read)
+            # Legacy file-based path: load ExtractAgent seed from disk.
             prompt_path = Path(prompt_file_path)
             if not prompt_path.exists():
                 raise FileNotFoundError(f"ExtractAgent prompt file not found: {prompt_file_path}")
-
             prompt_config = await asyncio.to_thread(self._read_json_file_sync, str(prompt_path))
-
-            # Load instructions template from prompts folder
-            prompts_dir = prompt_path.parent
-            instructions_path = prompts_dir / "ExtractAgentInstructions.txt"
-            if not instructions_path.exists():
-                raise FileNotFoundError(f"ExtractAgent instructions file not found: {instructions_path}")
-
-            instructions_template = await asyncio.to_thread(self._read_file_sync, str(instructions_path))
+            instructions_template = _EXTRACT_BEHAVIORS_TEMPLATE
         else:
-            raise ValueError(
-                "Either prompt_file_path or (prompt_config_dict and instructions_template_str) must be provided"
-            )
+            raise ValueError("Either prompt_config_dict or prompt_file_path must be provided")
 
         # Use extraction-specific model
         model_name = self.model_extract
@@ -3332,7 +3430,6 @@ Every item in the output array MUST be an object (not a plain string). The objec
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
-                    "SigExtract",
                     "ServicesExtract",
                 ):
                     user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
@@ -3761,7 +3858,10 @@ Every item in the output array MUST be an object (not a plain string). The objec
                 if not qa_prompt_config:
                     return last_result
 
-                # 2. Run QA
+                # 2. Run QA -- validate config once on first attempt
+                if current_try == 1:
+                    _validate_qa_prompt_config(agent_name, qa_prompt_config)
+
                 qa_task = qa_prompt_config.get("objective", "Verify extraction.")
                 qa_criteria = qa_prompt_config.get("evaluation_criteria", [])
                 qa_criteria_json = json.dumps(qa_criteria, indent=2)

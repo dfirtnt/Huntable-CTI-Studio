@@ -304,7 +304,26 @@ class TestRuntimeContractMatch:
                 f"{agent_name} must appear in llm_service.py so the traceability block is appended to its prompt."
             )
 
-    def test_traceability_block_includes_sigextract(self):
-        """SigExtract keeps parity with the other extract agents for traceability fields."""
+    def test_deleted_subagents_absent_from_traceability_allowlist(self):
+        """Deleted sub-agents (SigExtract, RegExtract, EventCodeExtract) must not reappear.
+
+        These names are kept in deleted-agent filter sets across the UI/workflow layer so
+        older DB configs degrade cleanly, but the traceability allowlist in llm_service.py
+        enumerates *live* extract agents. Reintroducing a deleted name here would cause
+        runtime to attempt to append the traceability block to an agent that no longer
+        executes, and would regress the cleanup recorded in CHANGELOG 2026-02-02.
+        """
         src = LLM_SERVICE_PATH.read_text(encoding="utf-8")
-        assert '"SigExtract"' in src, "SigExtract must remain in the traceability block allowlist."
+        # Locate the traceability-block emission site and assert deleted names aren't in
+        # its allowlist. We pin the block text so we catch the exact call site, not any
+        # stray mention of the name in a comment.
+        marker = "user_prompt.rstrip() + _traceability_block"
+        idx = src.find(marker)
+        assert idx != -1, "Traceability block emission site not found; test needs updating."
+        # Look back ~400 chars to capture the agent_name tuple preceding the marker.
+        window = src[max(0, idx - 400) : idx]
+        for deleted in ("SigExtract", "RegExtract", "EventCodeExtract"):
+            assert f'"{deleted}"' not in window, (
+                f"{deleted} was deleted as a sub-agent and must not appear in the "
+                f"traceability allowlist. See CHANGELOG 2026-02-02."
+            )

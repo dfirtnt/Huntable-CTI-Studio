@@ -213,6 +213,27 @@
             box-shadow: 0px 4px 12px 0px var(--shadow-modal) !important;
             color: var(--text-emphasis) !important;
         }
+
+        .article-help-card {
+            overflow: visible;
+        }
+
+        .article-help-anchor {
+            position: relative;
+            display: inline-flex;
+        }
+
+        .article-help-bubble {
+            width: min(18rem, calc(100vw - 2rem));
+            pointer-events: none;
+        }
+
+        .article-help-anchor:hover .article-help-bubble,
+        .article-help-anchor:focus-within .article-help-bubble,
+        .article-help-bubble.is-visible {
+            opacity: 1;
+            visibility: visible;
+        }
     </style>
     <!-- Breadcrumb -->
     <nav class="flex mb-6" aria-label="Breadcrumb">
@@ -325,9 +346,9 @@
                                     </span>
                                 {% endif %}
                             {% else %}
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 relative group cursor-help">
+                                <span class="article-help-anchor inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-help" tabindex="0" title="ML Hunt Score not yet calculated. Run chunk analysis to generate this score." aria-describedby="articleMlHuntScoreTooltip">
                                     TBD
-                                    <span class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible pointer-events-none whitespace-pre-line z-50 w-72 text-left shadow-lg">
+                                    <span id="articleMlHuntScoreTooltip" role="tooltip" class="article-help-bubble absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible whitespace-pre-line z-50 text-left shadow-lg">
                                         <strong>ML Hunt Score: To Be Determined</strong><br><br>
                                         This score requires chunk analysis to be run first.<br><br>
                                         <strong>How to generate:</strong><br>
@@ -6962,21 +6983,25 @@ Please provide a detailed analysis based on the article content and the user's s
                 
                 <div class="mt-4 flex justify-between items-center">
                     <div class="flex items-center space-x-4">
-                        <label class="flex items-center">
-                            <input type="checkbox" id="llmValidationToggle" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" ${data?.use_llm_validation ? 'checked' : ''}>
-                            <span class="ml-2 text-sm text-gray-700">Use LLM Validation</span>
-                            <div class="relative group ml-1">
-                                <svg class="w-4 h-4 text-gray-400 hover:text-gray-600 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                </svg>
-                                <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50" style="width: 280px; white-space: normal;">
+                        <div class="flex items-center">
+                            <label class="flex items-center">
+                                <input type="checkbox" id="llmValidationToggle" class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50" ${data?.use_llm_validation ? 'checked' : ''}>
+                                <span class="ml-2 text-sm text-gray-700">Use LLM Validation</span>
+                            </label>
+                            <div class="article-help-anchor group ml-1">
+                                <button type="button" class="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white" aria-label="Explain LLM validation" aria-describedby="iocLlmValidationHelpTooltip">
+                                    <svg class="w-4 h-4 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </button>
+                                <div id="iocLlmValidationHelpTooltip" role="tooltip" class="article-help-bubble absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible transition-all duration-200 z-50" style="white-space: normal;">
                                     <div>
                                         <strong>LLM Validation:</strong> Uses AI to validate and categorize IOCs, removing false positives and improving accuracy. API key required only for cloud models (OpenAI, Anthropic); local models (LMStudio) work without API keys.
                                     </div>
-                                    <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                    <div class="absolute top-full left-3 border-4 border-transparent border-t-gray-900"></div>
                                 </div>
                             </div>
-                        </label>
+                        </div>
                         <button onclick="regenerateIOCs()" 
                                 class="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-700 transition-colors">
                             🔄 Regenerate
@@ -9309,16 +9334,16 @@ ${JSON.stringify(rule.logsource, null, 2)}
                 </div>
                 
                 <!-- Cost Analysis -->
-                <div class="card p-4 mb-6">
+                <div class="card article-help-card p-4 mb-6">
                     <div class="flex items-center justify-between mb-3">
                         <h4 class="text-lg font-semibold text-gray-50"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Cost Analysis</h4>
-                        <div class="relative group">
-                            <button class="text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900" onclick="showCostAnalysisHelp()">
+                        <div id="costAnalysisHelpGroup" class="article-help-anchor group">
+                            <button id="costAnalysisHelpButton" type="button" class="text-gray-400 hover:text-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900" onclick="showCostAnalysisHelp(event)" aria-label="Explain cost analysis" aria-describedby="costAnalysisTooltip" aria-expanded="false">
                                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                                 </svg>
                             </button>
-                            <div id="costAnalysisTooltip" class="absolute right-0 top-8 w-64 p-3 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
+                            <div id="costAnalysisTooltip" role="tooltip" class="article-help-bubble absolute right-0 top-8 p-3 bg-gray-800 border border-gray-700 text-gray-300 text-sm rounded-lg shadow-lg opacity-0 invisible transition-all duration-200 z-50">
                                 <div class="absolute -top-1 right-4 w-2 h-2 bg-gray-800 border-l border-t border-gray-700 transform rotate-45"></div>
                                 These estimates are based on OpenAI API call costs and are not literal when using Local LLM. They represent potential savings if using OpenAI's GPT-4o service.
                             </div>
@@ -9838,15 +9863,37 @@ ${JSON.stringify(rule.logsource, null, 2)}
         }
     }
     
-    function showCostAnalysisHelp() {
+    function hideCostAnalysisHelp() {
         const tooltip = document.getElementById('costAnalysisTooltip');
+        const button = document.getElementById('costAnalysisHelpButton');
         if (tooltip) {
-            tooltip.classList.toggle('opacity-0');
-            tooltip.classList.toggle('invisible');
-            tooltip.classList.toggle('opacity-100');
-            tooltip.classList.toggle('visible');
+            tooltip.classList.remove('is-visible');
+        }
+        if (button) {
+            button.setAttribute('aria-expanded', 'false');
         }
     }
+
+    function showCostAnalysisHelp(event) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const tooltip = document.getElementById('costAnalysisTooltip');
+        const button = document.getElementById('costAnalysisHelpButton');
+        if (tooltip) {
+            const isVisible = tooltip.classList.toggle('is-visible');
+            if (button) {
+                button.setAttribute('aria-expanded', isVisible ? 'true' : 'false');
+            }
+        }
+    }
+
+    document.addEventListener('click', (event) => {
+        const helpGroup = document.getElementById('costAnalysisHelpGroup');
+        if (helpGroup && !helpGroup.contains(event.target)) {
+            hideCostAnalysisHelp();
+        }
+    });
 
     function updateChunkDebugResults(data) {
         // Update statistics cards using IDs

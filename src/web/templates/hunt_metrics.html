@@ -3,6 +3,16 @@
 {% block title %}Hunt Scoring Metrics - Analytics - Huntable CTI Studio{% endblock %}
 
 {% block content %}
+<style>
+.hunt-metrics-card--tooltip {
+    overflow: visible;
+}
+
+.hunt-metrics-help-tooltip {
+    max-width: min(20rem, calc(100vw - 2rem));
+    pointer-events: none;
+}
+</style>
 <div class="container mx-auto px-4 pt-4 pb-6">
     <div class="mb-6">
         <nav class="flex mb-4" aria-label="Breadcrumb">
@@ -107,16 +117,16 @@
         </div>
 
         <!-- Keyword Performance Chart -->
-        <div class="card p-6">
+        <div id="keywordPerformanceCard" class="card hunt-metrics-card--tooltip p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Top Performing Keywords - Perfect Discriminators</h3>
                 <div class="relative group">
-                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Help">
+                    <button id="keywordPerformanceHelpButton" type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" aria-label="Explain keyword performance chart" aria-describedby="keywordPerformanceHelpTooltip">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div class="absolute right-0 top-8 w-80 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-10">
+                    <div id="keywordPerformanceHelpTooltip" role="tooltip" class="hunt-metrics-help-tooltip absolute right-0 top-8 w-80 bg-white dark:bg-gray-700 rounded-lg shadow-lg border border-gray-200 dark:border-gray-600 p-4 opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-20">
                         <div class="text-sm text-gray-700 dark:text-gray-300">
                             <h4 class="font-semibold text-gray-900 dark:text-white mb-2">Chart Scope</h4>
                             <p class="mb-3">Shows the most frequently matched keywords from <strong>Perfect Discriminators</strong> - keywords that appear exclusively in high-quality threat hunting content.</p>
@@ -189,16 +199,16 @@
         </div>
 
         <!-- Score Quality Distribution -->
-        <div class="card p-6">
+        <div id="qualityBreakdownCard" class="card hunt-metrics-card--tooltip p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg> Content Quality Breakdown</h3>
                 <div class="relative group">
-                    <button class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <button id="qualityBreakdownHelpButton" type="button" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Explain content quality breakdown" aria-describedby="qualityBreakdownHelpTooltip">
                         <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path>
                         </svg>
                     </button>
-                    <div class="absolute right-0 top-6 w-80 p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                    <div id="qualityBreakdownHelpTooltip" role="tooltip" class="hunt-metrics-help-tooltip absolute right-0 top-6 w-80 p-3 bg-gray-900 dark:bg-gray-700 text-white text-sm rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-20">
                         <div class="font-semibold mb-2">Content Quality Breakdown</div>
                         <div class="space-y-1 text-xs">
                             <div><strong>Unscored:</strong> Articles not yet processed</div>

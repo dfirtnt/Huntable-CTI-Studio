@@ -202,3 +202,34 @@ def test_select_all_deselect_all_buttons(page: Page):
         for i in range(article_count):
             checkbox = article_checkboxes.nth(i)
             expect(checkbox).not_to_be_checked()
+
+
+@pytest.mark.ui
+def test_eval_constraints_help_modal_stays_within_viewport(page: Page):
+    """The eval constraints help dialog should open as a bounded modal inside the viewport."""
+    page.goto("http://127.0.0.1:8001/mlops/agent-evals")
+    page.wait_for_load_state("load")
+
+    page.evaluate("showHelp('evalCurrentConfig')")
+
+    modal = page.locator("#agentEvalsHelpModal")
+    modal_card = page.locator("#agentEvalsHelpModal .eval-help-modal-card")
+
+    expect(modal).to_be_visible()
+    expect(modal_card).to_be_visible()
+
+    viewport = page.viewport_size
+    modal_box = modal_card.bounding_box()
+
+    assert viewport is not None, "Playwright viewport should be available"
+    assert modal.get_attribute("role") == "dialog"
+    assert modal.get_attribute("aria-modal") == "true"
+    assert modal_box is not None, "Eval constraints modal card should have a bounding box"
+    assert modal_box["x"] >= 0, "Eval constraints modal should stay within the viewport horizontally"
+    assert modal_box["y"] >= 0, "Eval constraints modal should stay within the viewport vertically"
+    assert modal_box["x"] + modal_box["width"] <= viewport["width"], (
+        "Eval constraints modal should fit within the viewport width"
+    )
+    assert modal_box["y"] + modal_box["height"] <= viewport["height"], (
+        "Eval constraints modal should fit within the viewport height"
+    )

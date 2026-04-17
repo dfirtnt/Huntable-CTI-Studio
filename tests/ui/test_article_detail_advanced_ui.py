@@ -103,6 +103,58 @@ class TestArticleDetailWorkflowExecution:
             # Verify API was called
             assert api_called["called"], "Trigger workflow API should be called"
 
+    @pytest.mark.ui
+    @pytest.mark.articles
+    def test_chunk_debug_cost_analysis_tooltip_stays_within_viewport(self, page: Page):
+        """The chunk-debug cost analysis help tooltip should render inside the viewport."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/articles")
+        page.wait_for_load_state("load")
+
+        article_links = page.locator("a[href^='/articles/']")
+        if article_links.count() == 0:
+            pytest.skip("No article detail page available for chunk debug tooltip test")
+
+        article_links.first.click()
+        page.wait_for_load_state("load")
+
+        page.evaluate(
+            """() => {
+                showChunkDebugResults({
+                    content_length: 4200,
+                    min_confidence: 0.7,
+                    chunk_size: 1000,
+                    overlap: 200,
+                    filtering_stats: { cost_savings: 0.0132, tokens_saved: 1875, reduction_percent: 41.5 },
+                    processing_summary: {},
+                    ml_stats: { total_predictions: 4, correct_predictions: 3, accuracy_percent: 75.0, mismatches: 1 },
+                    chunk_analysis: []
+                });
+            }"""
+        )
+
+        help_button = page.locator("#costAnalysisHelpButton")
+        tooltip = page.locator("#costAnalysisTooltip")
+
+        expect(help_button).to_be_visible()
+
+        help_button.click()
+        expect(tooltip).to_be_visible()
+
+        tooltip_box = tooltip.bounding_box()
+        viewport = page.viewport_size
+        overflow = page.evaluate(
+            "() => getComputedStyle(document.querySelector('#chunkDebugModal .article-help-card')).overflow"
+        )
+
+        assert viewport is not None, "Playwright viewport should be available"
+        assert tooltip_box is not None, "Cost analysis tooltip should have a bounding box"
+        assert overflow == "visible", "Cost analysis card should allow visible overflow for its tooltip"
+        assert tooltip_box["x"] >= 0, "Cost analysis tooltip should not extend off the left edge"
+        assert tooltip_box["x"] + tooltip_box["width"] <= viewport["width"], (
+            "Cost analysis tooltip should stay within the viewport width"
+        )
+
 
 class TestArticleDetailSigmaGeneration:
     """Test SIGMA rule generation features."""

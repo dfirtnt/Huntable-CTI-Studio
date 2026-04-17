@@ -46,7 +46,13 @@ def llm_service():
 class TestTraceabilityBlockAllowlist:
     """Pin which agents get the hardcoded traceability block appended."""
 
-    TRACEABILITY_AGENTS = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "SigExtract"}
+    TRACEABILITY_AGENTS = {
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+    }
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -56,7 +62,7 @@ class TestTraceabilityBlockAllowlist:
             "ProcTreeExtract",
             "HuntQueriesExtract",
             "RegistryExtract",
-            "SigExtract",
+            "ServicesExtract",
         ],
     )
     async def test_traceability_block_appended(self, llm_service, agent_name):
@@ -291,6 +297,163 @@ class TestLegacyScaffold:
             assert '"count": 0' in qa_user_msg
             assert "Source Text:" in qa_user_msg
             assert "Extracted Data:" in qa_user_msg
+
+
+# ---------------------------------------------------------------------------
+# QA prompt validator
+# ---------------------------------------------------------------------------
+
+
+class TestQAPromptValidator:
+    """Pin the _validate_qa_prompt_config hard-fail rules.
+
+    The extraction validator (_validate_extraction_prompt_config) was already
+    tested. This class covers the matching QA validator added for the same
+    contract-compliance pass.
+    """
+
+    VALID_QA_CONFIG = {
+        "role": "You are a QA reviewer.",
+        "objective": "Verify extraction accuracy.",
+        "instructions": "Return JSON with pass/fail findings.",
+        "evaluation_criteria": ["Check grounding", "Check completeness"],
+    }
+
+    VALID_EXTRACT_CONFIG = {
+        "role": "You are an extractor.",
+        "task": "Extract commands.",
+        "instructions": "Output JSON.",
+        "json_example": '{"items":[],"count":0}',
+    }
+
+    @pytest.mark.asyncio
+    async def test_qa_hard_fails_on_missing_role(self, llm_service):
+        """QA config with no system/role raises ValueError before QA loop."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            with pytest.raises(ValueError, match="QA.*missing required 'system'/'role'"):
+                await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config=self.VALID_EXTRACT_CONFIG,
+                    qa_prompt_config={
+                        "objective": "Verify extraction.",
+                        "instructions": "Return JSON.",
+                        "evaluation_criteria": ["Check grounding"],
+                    },
+                    max_retries=1,
+                )
+
+    @pytest.mark.asyncio
+    async def test_qa_hard_fails_on_missing_instructions(self, llm_service):
+        """QA config with no instructions raises ValueError before QA loop."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            with pytest.raises(ValueError, match="QA.*missing required 'instructions'"):
+                await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config=self.VALID_EXTRACT_CONFIG,
+                    qa_prompt_config={
+                        "role": "You are a QA reviewer.",
+                        "objective": "Verify extraction.",
+                        "evaluation_criteria": ["Check grounding"],
+                    },
+                    max_retries=1,
+                )
+
+    @pytest.mark.asyncio
+    async def test_qa_hard_fails_on_empty_evaluation_criteria(self, llm_service):
+        """QA config with empty evaluation_criteria raises ValueError -- vacuous QA passes everything."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            with pytest.raises(ValueError, match="evaluation_criteria.*non-empty list"):
+                await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config=self.VALID_EXTRACT_CONFIG,
+                    qa_prompt_config={
+                        "role": "You are a QA reviewer.",
+                        "objective": "Verify extraction.",
+                        "instructions": "Return JSON.",
+                        "evaluation_criteria": [],
+                    },
+                    max_retries=1,
+                )
+
+    @pytest.mark.asyncio
+    async def test_qa_hard_fails_when_evaluation_criteria_is_string(self, llm_service):
+        """evaluation_criteria as a string (not list) raises ValueError."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            with pytest.raises(ValueError, match="evaluation_criteria.*must be a list"):
+                await llm_service.run_extraction_agent(
+                    agent_name="CmdlineExtract",
+                    content=content,
+                    title="Test",
+                    url="https://example.com",
+                    prompt_config=self.VALID_EXTRACT_CONFIG,
+                    qa_prompt_config={
+                        "role": "You are a QA reviewer.",
+                        "objective": "Verify extraction.",
+                        "instructions": "Return JSON.",
+                        "evaluation_criteria": "Check everything",
+                    },
+                    max_retries=1,
+                )
+
+    @pytest.mark.asyncio
+    async def test_qa_passes_with_valid_config(self, llm_service):
+        """Valid QA config does not raise -- QA loop proceeds normally."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.side_effect = [
+                {
+                    "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                    "usage": {},
+                },
+                {
+                    "choices": [{"message": {"content": '{"passed": true, "issues": []}'}}],
+                    "usage": {},
+                },
+            ]
+            # Should not raise
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config=self.VALID_EXTRACT_CONFIG,
+                qa_prompt_config=self.VALID_QA_CONFIG,
+                max_retries=1,
+            )
 
 
 # ---------------------------------------------------------------------------

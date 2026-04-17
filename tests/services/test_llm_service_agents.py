@@ -215,7 +215,12 @@ class TestRankArticle:
 
 
 class TestExtractObservablesHardFail:
-    """Regression: empty system/role in ExtractObservables config must hard-fail (not silently fall back)."""
+    """Regression: empty system/role in extract_observables must hard-fail (not silently fall back).
+
+    extract_observables is a legacy code path. These tests pin the fail-closed guarantee so
+    it can't regress even if the method is called with a misconfigured file-based prompt.
+    The active extraction path now goes through extract_behaviors (ai.py routes).
+    """
 
     @pytest.mark.asyncio
     async def test_extract_observables_raises_when_system_empty(self, llm_service, tmp_path):
@@ -226,7 +231,7 @@ class TestExtractObservablesHardFail:
         """
         import json
 
-        prompt_file = tmp_path / "ExtractObservables_empty"
+        prompt_file = tmp_path / "ExtractAgent_empty"
         prompt_file.write_text(
             json.dumps(
                 {
@@ -257,7 +262,7 @@ class TestExtractObservablesHardFail:
         """When neither system nor role keys exist, raises PreprocessInvariantError."""
         import json
 
-        prompt_file = tmp_path / "ExtractObservables_missing"
+        prompt_file = tmp_path / "ExtractAgent_missing_role"
         prompt_file.write_text(
             json.dumps(
                 {
@@ -291,11 +296,11 @@ class TestExtractObservablesHardFail:
         """
         import json
 
-        prompt_file = tmp_path / "ExtractObservables_role_only"
+        prompt_file = tmp_path / "ExtractAgent_role_only"
         prompt_file.write_text(
             json.dumps(
                 {
-                    "role": "You are an observables extractor.",
+                    "role": "You are an extraction agent.",
                     "task": "Extract observables",
                     "instructions": "Output JSON",
                 }

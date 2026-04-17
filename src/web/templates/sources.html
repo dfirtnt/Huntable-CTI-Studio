@@ -174,6 +174,11 @@
   padding:0.1rem 0.4rem; border-radius:999px; font-size: 0.625rem; font-weight:600;
   background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid rgba(239,68,68,0.3);
 }
+.sources-help-tooltip {
+  max-width:min(18rem, calc(100vw - 2rem));
+  white-space:normal;
+  pointer-events:none;
+}
 .healing-panel-overlay {
   display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:300;
 }
@@ -1696,17 +1701,19 @@ function monitorTaskProgress(taskId, sourceId, sourceName) {
 
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-4">
-                    <label class="flex items-center">
-                        <input type="checkbox" id="adhocForceScrape" name="force_scrape" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                        <span class="ml-2 text-sm text-gray-700" style="color: var(--text-input);">Force scrape even if Article already in database</span>
+                    <div class="flex items-center">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="adhocForceScrape" name="force_scrape" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="ml-2 text-sm text-gray-700" style="color: var(--text-input);">Force scrape even if Article already in database</span>
+                        </label>
                         <div class="relative ml-2 group">
-                            <span class="inline-flex items-center justify-center w-4 h-4 text-xs font-medium text-gray-500 bg-gray-200 rounded-full cursor-help hover:bg-gray-300 transition-colors">?</span>
-                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                            <button id="adhocForceScrapeHelpButton" type="button" class="inline-flex items-center justify-center w-4 h-4 text-xs font-medium text-gray-500 bg-gray-200 rounded-full cursor-help hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-white" aria-label="Explain force scrape" aria-describedby="adhocForceScrapeHelpTooltip">?</button>
+                            <div id="adhocForceScrapeHelpTooltip" role="tooltip" class="sources-help-tooltip absolute bottom-full left-0 mb-2 px-3 py-2 text-xs text-white bg-gray-800 rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible transition-all duration-200 z-20">
                                 Override duplicate URL check and scrape even if this URL already exists in the database
-                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
+                                <div class="absolute top-full left-3 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
                             </div>
                         </div>
-                    </label>
+                    </div>
                 </div>
 
                 <button type="submit" id="scrapeUrlBtn"

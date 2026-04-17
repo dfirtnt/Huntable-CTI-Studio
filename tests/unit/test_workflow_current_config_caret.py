@@ -27,6 +27,7 @@ WORKFLOW_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templ
 
 
 @pytest.mark.unit
+@pytest.mark.regression
 class TestCurrentConfigCaret:
     """Guard the markup + CSS that make the caret rotate on toggle."""
 

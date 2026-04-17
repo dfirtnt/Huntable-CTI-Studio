@@ -1727,8 +1727,6 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 async def api_extract_observables(article_id: int, request: Request):
     """Extract observables (IOCs and behavioral indicators) from an article using Extract Observables model."""
     try:
-        from pathlib import Path
-
         from src.database.manager import DatabaseManager
         from src.services.llm_service import LLMService
         from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -1765,7 +1763,6 @@ async def api_extract_observables(article_id: int, request: Request):
 
             # Get ExtractAgent prompt from config (use for observables extraction)
             prompt_config_dict = None
-            instructions_template_str = None
             if config_obj and config_obj.agent_prompts and "ExtractAgent" in config_obj.agent_prompts:
                 agent_prompt_data = config_obj.agent_prompts["ExtractAgent"]
                 # Parse prompt JSON
@@ -1780,29 +1777,36 @@ async def api_extract_observables(article_id: int, request: Request):
                             if isinstance(first_value, dict):
                                 prompt_config_dict = first_value
                     except json.JSONDecodeError:
-                        logger.warning(
-                            "Failed to parse ExtractAgent prompt JSON, falling back to ExtractObservables file"
-                        )
+                        logger.warning("Failed to parse ExtractAgent prompt JSON, falling back to seed file")
                 elif isinstance(agent_prompt_data.get("prompt"), dict):
                     prompt_config_dict = agent_prompt_data["prompt"]
-
-                instructions_template_str = agent_prompt_data.get("instructions")
         finally:
             db_session.close()
 
         # Initialize LLM service with workflow config
         llm_service = LLMService(config_models=agent_models)
 
-        # Use ExtractAgent prompt from config if available, otherwise fall back to ExtractObservables file
-        use_workflow_prompt = prompt_config_dict is not None and instructions_template_str is not None
-        prompt_file = None
-        if not use_workflow_prompt:
-            prompt_file = Path(__file__).parent.parent.parent / "prompts" / "ExtractObservables"
-            if not prompt_file.exists():
+        # If no DB config, fall back to the ExtractAgent seed file (contract-compliant JSON).
+        # The seed is loaded from src/prompts/ExtractAgent; the user message template is
+        # code-owned in llm_service._EXTRACT_BEHAVIORS_TEMPLATE.
+        if prompt_config_dict is None:
+            import json as _json
+
+            from src.utils.default_agent_prompts import PROMPTS_DIR
+
+            seed_path = PROMPTS_DIR / "ExtractAgent"
+            if not seed_path.exists():
                 raise HTTPException(
                     status_code=500,
-                    detail="ExtractObservables prompt file not found and ExtractAgent prompt not in workflow config",
+                    detail="ExtractAgent seed file not found and no workflow config available",
                 )
+            try:
+                prompt_config_dict = _json.loads(seed_path.read_text(encoding="utf-8"))
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Failed to load ExtractAgent seed file: {e}",
+                ) from e
 
         # Filter content if filtering is enabled
         from src.utils.content_filter import ContentFilter
@@ -1877,42 +1881,23 @@ async def api_extract_observables(article_id: int, request: Request):
         qa_results = {}
 
         try:
-            # Get agent prompt for QA
-            agent_prompt = None
-            if use_workflow_prompt:
-                import json
+            # Get agent prompt for QA (used for QA feedback context)
+            import json as _json_qa
 
-                agent_prompt = (
-                    json.dumps(prompt_config_dict, indent=2) if prompt_config_dict else instructions_template_str[:5000]
-                )
+            agent_prompt = _json_qa.dumps(prompt_config_dict, indent=2) if prompt_config_dict else None
 
             # QA retry loop
             for qa_attempt in range(max_qa_retries):
-                # Extract observables
-                if use_workflow_prompt:
-                    # Use ExtractAgent prompt from workflow config (via extract_behaviors)
-                    extraction_task = asyncio.create_task(
-                        llm_service.extract_behaviors(
-                            content=filtered_content,
-                            title=article.title,
-                            url=article.canonical_url or "",
-                            prompt_config_dict=prompt_config_dict,
-                            instructions_template_str=instructions_template_str,
-                            qa_feedback=qa_feedback,
-                        )
+                # Extract using extract_behaviors (always; fallback seed already loaded above)
+                extraction_task = asyncio.create_task(
+                    llm_service.extract_behaviors(
+                        content=filtered_content,
+                        title=article.title,
+                        url=article.canonical_url or "",
+                        prompt_config_dict=prompt_config_dict,
+                        qa_feedback=qa_feedback,
                     )
-                else:
-                    # Use ExtractObservables file prompt
-                    extraction_task = asyncio.create_task(
-                        llm_service.extract_observables(
-                            content=filtered_content,
-                            title=article.title,
-                            url=article.canonical_url or "",
-                            prompt_file_path=str(prompt_file),
-                            cancellation_event=cancellation_event,
-                            qa_feedback=qa_feedback,
-                        )
-                    )
+                )
 
                 # Wait for either completion or cancellation
                 done, pending = await asyncio.wait([extraction_task, monitor_task], return_when=asyncio.FIRST_COMPLETED)
@@ -1934,7 +1919,7 @@ async def api_extract_observables(article_id: int, request: Request):
                 extraction_result = await extraction_task
 
                 # If QA not enabled, break after first attempt
-                if not qa_enabled or not use_workflow_prompt:
+                if not qa_enabled:
                     break
 
                 # Run QA check

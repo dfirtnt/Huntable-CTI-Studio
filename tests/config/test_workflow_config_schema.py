@@ -107,6 +107,7 @@ def test_agent_config_required_fields():
     assert agent.Enabled is True
 
 
+@pytest.mark.regression
 def test_to_legacy_response_dict_includes_extract_agent_settings():
     """Legacy response includes agent_prompts.ExtractAgentSettings.disabled_agents for UI persistence."""
     raw = {
@@ -235,6 +236,7 @@ _LEGACY_RESPONSE_DICT_KEYS = frozenset(
 
 @pytest.mark.unit
 @pytest.mark.contract
+@pytest.mark.regression
 def test_to_legacy_response_dict_key_set_is_stable():
     """to_legacy_response_dict exposes a stable, complete top-level key set.
 
@@ -332,6 +334,7 @@ def _minimal_v2(agents: dict, prompts: dict | None = None) -> dict:
     }
 
 
+@pytest.mark.regression
 def test_missing_rankagentqa_prompt_raises():
     """Missing prompt block for RankAgentQA raises ValidationError."""
     agents = {
@@ -367,6 +370,7 @@ def test_missing_required_qa_agent_raises():
         WorkflowConfigV2.model_validate(raw)
 
 
+@pytest.mark.regression
 def test_orphan_qa_agent_raises():
     """Orphan QA agent (RankAgentQA without RankAgent) raises ValidationError."""
     agents = {

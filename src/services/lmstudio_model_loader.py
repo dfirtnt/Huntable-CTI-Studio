@@ -6,6 +6,7 @@ Automatically loads required models in LMStudio when workflows start.
 
 import logging
 import os
+import re
 import subprocess
 import time
 from typing import Any
@@ -18,7 +19,9 @@ MODEL_CONTEXT_LIMITS = {
     "2b": 4096,
     "3b": 4096,
     "7b": 8192,
-    "8b": 8192,
+    # Qwen3-8B supports 16K context when loaded with --context-length 16384.
+    # Keep this aligned with WORKFLOW_MIN_CONTEXT to satisfy runtime guard checks.
+    "8b": 16384,
     "13b": 16384,
     "14b": 16384,
     "32b": 32768,
@@ -138,6 +141,36 @@ def check_model_loaded(lms_cmd: str, model_name: str) -> bool:
         return False
 
 
+def _loaded_model_contexts(lms_cmd: str, model_name: str) -> list[int]:
+    """Return all loaded context sizes for a model (including suffixed identifiers)."""
+    contexts: list[int] = []
+    try:
+        result = subprocess.run([lms_cmd, "ps"], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            return contexts
+
+        for raw_line in result.stdout.splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("IDENTIFIER"):
+                continue
+
+            # Expected row shape:
+            # IDENTIFIER MODEL STATUS SIZE UNIT CONTEXT DEVICE [TTL]
+            match = re.match(r"^(\S+)\s+(\S+)\s+\S+\s+\S+\s+\S+\s+(\d+)\b", line)
+            if not match:
+                continue
+
+            identifier = match.group(1)
+            model = match.group(2)
+            context = int(match.group(3))
+
+            if identifier == model_name or model == model_name or identifier.startswith(f"{model_name}:"):
+                contexts.append(context)
+    except Exception as e:
+        logger.warning(f"Failed to inspect loaded contexts for {model_name}: {e}")
+    return contexts
+
+
 def load_model(lms_cmd: str, model_name: str, context_length: int, timeout: int = 60) -> tuple[bool, str | None]:
     """
     Load a model with specified context length.
@@ -234,17 +267,20 @@ def auto_load_workflow_models(
 
     # Load each model
     for model_name in sorted(models_to_load):
-        # Check if already loaded
-        if check_model_loaded(lms_cmd, model_name):
-            logger.info(f"Model {model_name} is already loaded, skipping")
+        # Skip only when a loaded instance already meets required context.
+        required_context = get_model_context_length(model_name)
+        loaded_contexts = _loaded_model_contexts(lms_cmd, model_name)
+        if loaded_contexts and max(loaded_contexts) >= required_context:
+            logger.info(
+                "Model %s already loaded with sufficient context (%s), skipping",
+                model_name,
+                max(loaded_contexts),
+            )
             result["models_skipped"].append(model_name)
             continue
 
-        # Determine context length
-        context_length = get_model_context_length(model_name)
-
         # Load model
-        success, error_msg = load_model(lms_cmd, model_name, context_length)
+        success, error_msg = load_model(lms_cmd, model_name, required_context)
 
         if success:
             result["models_loaded"].append(model_name)

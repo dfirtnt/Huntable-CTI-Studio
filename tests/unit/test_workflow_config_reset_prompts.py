@@ -55,6 +55,7 @@ def disk_defaults() -> dict:
 # ── Happy paths ───────────────────────────────────────────────────────────
 
 
+@pytest.mark.regression
 def test_resets_only_requested_agents_leaves_others_untouched(disk_defaults):
     """A targeted reset must replace only the listed agents' prompts."""
     existing = {
@@ -120,6 +121,7 @@ def test_empty_list_resets_every_disk_default(disk_defaults):
     assert set(merged.keys()) == set(disk_defaults.keys())
 
 
+@pytest.mark.regression
 def test_preserves_model_selection_on_reset_agent(disk_defaults):
     """Resetting a prompt must not overwrite the user's model choice."""
     existing = {
@@ -200,6 +202,7 @@ def test_does_not_mutate_caller_inputs(disk_defaults):
     "agent_name",
     ["CmdlineExtract", "RegistryExtract", "HuntQueriesExtract", "ProcTreeExtract"],
 )
+@pytest.mark.regression
 def test_each_extraction_sub_agent_resets_cleanly(disk_defaults, agent_name):
     """Every sub-agent implicated in the confidence-score bug can be reset in isolation."""
     existing = {agent_name: {"prompt": "stale", "instructions": "", "model": "gpt-4o"}}
@@ -219,6 +222,7 @@ def test_raises_when_defaults_is_empty():
         _merge_default_prompts({}, {}, ["CmdlineExtract"])
 
 
+@pytest.mark.regression
 def test_raises_on_unknown_agent_name(disk_defaults):
     """Unknown agent names must produce a precise error listing the missing names."""
     with pytest.raises(ValueError, match="NotAnAgent"):
