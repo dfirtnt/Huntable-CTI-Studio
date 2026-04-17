@@ -52,21 +52,20 @@ You do not need to defend against these in the prompt:
 
 See `_normalize_traceability_item` in `src/services/llm_service.py`.
 
-## Envelope shape (migrated agents)
+## Envelope shape
 
-`RegistryExtract`, `ServicesExtract`, and `ProcTreeExtract` use a shared template envelope. If you are creating or heavily rewriting one of these (or a new extract agent), follow the same shape:
+All five extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract) and ExtractAgent use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
 
 | Key | Role |
 |-----|------|
-| `role` | System prompt — who the agent is and what it will *not* do |
-| `user_template` | String containing `{content}` and `{instructions}` placeholders |
+| `role` | System prompt persona — who the agent is and what it will *not* do |
 | `task` | One-line statement of the extraction goal |
 | `json_example` | A populated JSON example matching the required output schema |
 | `instructions` | Long-form rules: extraction scope, field rules, exclusions, validation checklist. If absent, the runtime substitutes `"Output valid JSON only."` — no schema constraints are enforced. |
 
 **`role` is required.** If the parsed prompt config contains neither `role` nor `system`, `_validate_preprocess_invariants` in `src/services/llm_service.py` raises a `PreprocessInvariantError` and aborts the call before it reaches the model. This is classified as `infra_failed`, not a model failure, so it does not consume QA retries. The symptom is a silent extraction failure with no LLM response logged.
 
-`CmdlineExtract` and `HuntQueriesExtract` retain their older envelope style; they are field-compliant but not shape-migrated. Don't add new agents in the old style.
+**`user_template` is code-owned — do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is assembled at runtime from `_EXTRACT_BEHAVIORS_TEMPLATE` in `llm_service.py`. Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
 
 ## Extract ↔ QA pairing
 
