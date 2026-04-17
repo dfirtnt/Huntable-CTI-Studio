@@ -885,19 +885,14 @@ class RunTestRunner:
                 RunTestType.PERFORMANCE: ["tests/", "-m", "performance"],
                 RunTestType.AI: [
                     # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
-                    "tests/integration/test_ai_*.py",
-                    "-m",
-                    "ai",
+                    "tests/integration/test_ai_cross_model_integration.py",
                 ],
                 RunTestType.AI_UI: [
                     # "tests/ui/test_ai_assistant_ui.py",  # DEPRECATED: AI Assistant modal removed
-                    "-m",
-                    "ui and ai",
+                    "tests/ui/",
                 ],
                 RunTestType.AI_INTEGRATION: [
-                    "tests/integration/test_ai_*.py",
-                    "-m",
-                    "integration and ai",
+                    "tests/integration/test_ai_cross_model_integration.py",
                 ],
                 RunTestType.ALL: ["tests/"],
                 RunTestType.COVERAGE: ["tests/", "--cov=src"],
@@ -921,9 +916,9 @@ class RunTestRunner:
             RunTestType.SECURITY: ["security"],
             RunTestType.A11Y: ["a11y"],
             RunTestType.PERFORMANCE: ["performance"],
-            RunTestType.AI: ["ai"],
-            RunTestType.AI_UI: ["ai", "ui"],
-            RunTestType.AI_INTEGRATION: ["ai", "integration"],
+            RunTestType.AI: [],
+            RunTestType.AI_UI: ["ui"],
+            RunTestType.AI_INTEGRATION: ["integration"],
         }
 
         markers = self.config.markers or default_markers_map.get(self.config.test_type, [])
