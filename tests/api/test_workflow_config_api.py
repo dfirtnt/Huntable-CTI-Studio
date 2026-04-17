@@ -97,6 +97,40 @@ class TestWorkflowConfigCRUD:
         assert response.status_code == 422  # Validation error
 
 
+class TestWorkflowConfigConsistency:
+    """Consistency checks across workflow config endpoints."""
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_active_config_roundtrips_with_versions_and_by_version(self, async_client: httpx.AsyncClient):
+        """Active config is consistent across /config, /versions, and /version/{version}."""
+        active_resp = await async_client.get("/api/workflow/config")
+        assert active_resp.status_code == 200
+        active = active_resp.json()
+        version = active.get("version")
+        assert isinstance(version, int)
+
+        versions_resp = await async_client.get("/api/workflow/config/versions")
+        assert versions_resp.status_code == 200
+        versions_data = versions_resp.json()
+        assert versions_data.get("success") is True
+        versions = versions_data.get("versions", [])
+        assert isinstance(versions, list)
+
+        active_versions = [v for v in versions if v.get("is_active") is True]
+        assert len(active_versions) == 1
+        assert active_versions[0].get("version") == version
+
+        by_version_resp = await async_client.get(f"/api/workflow/config/version/{version}")
+        assert by_version_resp.status_code == 200
+        by_version = by_version_resp.json()
+        thresholds = by_version.get("thresholds", {})
+        assert thresholds.get("ranking_threshold") == pytest.approx(active["ranking_threshold"])
+        assert thresholds.get("junk_filter_threshold") == pytest.approx(active["junk_filter_threshold"])
+        assert thresholds.get("similarity_threshold") == pytest.approx(active["similarity_threshold"])
+
+
 class TestWorkflowPresets:
     """Test workflow preset management endpoints."""
 

@@ -218,6 +218,37 @@ class TestWorkflowConfig:
         assert 0.0 <= data["junk_filter_threshold"] <= 1.0
 
     @pytest.mark.api
+    @pytest.mark.smoke
+    @pytest.mark.asyncio
+    async def test_workflow_config_active_version_roundtrip(self, async_client: httpx.AsyncClient):
+        """Active config version is consistent across config, versions, and by-version endpoints."""
+        active_resp = await async_client.get("/api/workflow/config")
+        assert active_resp.status_code == 200
+        active = active_resp.json()
+        assert "version" in active
+        version = active["version"]
+        assert isinstance(version, int)
+
+        versions_resp = await async_client.get("/api/workflow/config/versions")
+        assert versions_resp.status_code == 200
+        versions_data = versions_resp.json()
+        assert versions_data.get("success") is True
+        versions = versions_data.get("versions", [])
+        assert isinstance(versions, list)
+        active_versions = [v for v in versions if v.get("is_active") is True]
+        assert len(active_versions) == 1
+        assert active_versions[0].get("version") == version
+
+        by_version_resp = await async_client.get(f"/api/workflow/config/version/{version}")
+        assert by_version_resp.status_code == 200
+        by_version = by_version_resp.json()
+        assert "thresholds" in by_version
+        thresholds = by_version["thresholds"]
+        assert thresholds.get("ranking_threshold") == pytest.approx(active["ranking_threshold"])
+        assert thresholds.get("junk_filter_threshold") == pytest.approx(active["junk_filter_threshold"])
+        assert thresholds.get("similarity_threshold") == pytest.approx(active["similarity_threshold"])
+
+    @pytest.mark.api
     @pytest.mark.asyncio
     async def test_workflow_config_versions_list(self, async_client: httpx.AsyncClient):
         """GET /api/workflow/config/versions returns version list."""
