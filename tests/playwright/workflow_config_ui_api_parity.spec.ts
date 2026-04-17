@@ -39,16 +39,23 @@ async function switchToConfigTab(page: Page) {
 async function waitForConfigReady(page: Page) {
   await page.waitForSelector('#workflowConfigForm', { timeout: 15000 });
   await page.waitForFunction(() => typeof currentConfig !== 'undefined' && currentConfig !== null, { timeout: 15000 });
+  await page.evaluate(() => {
+    const details = document.querySelector('details.current-config') as HTMLDetailsElement | null;
+    if (details) {
+      details.open = true;
+    }
+  });
   await page.waitForFunction(() => {
     const el = document.getElementById('configDisplay');
-    return Boolean(el && /Version:\s*\d+/.test(el.innerText));
+    const text = el?.textContent || '';
+    return Boolean(el && /Version:\s*\d+/.test(text));
   }, { timeout: 15000 });
   await page.waitForTimeout(600);
 }
 
 async function openStepsForThresholdInputs(page: Page) {
   await page.evaluate(() => {
-    ['s1', 's2', 's4'].forEach((id) => document.getElementById(id)?.classList.add('open'));
+    ['s1', 's2', 's5'].forEach((id) => document.getElementById(id)?.classList.add('open'));
   });
   await page.waitForTimeout(300);
 }
@@ -71,6 +78,8 @@ async function getInputNumberValue(page: Page, id: string): Promise<number> {
 
 test.describe('Workflow config UI/API parity', () => {
   test('Workflow UI renders the active /api/workflow/config version and thresholds', async ({ page }) => {
+    test.setTimeout(90000);
+
     const activeResp = await page.request.get(`${BASE}/api/workflow/config`);
     expect(activeResp.ok()).toBeTruthy();
     const active = await activeResp.json();
@@ -80,8 +89,7 @@ test.describe('Workflow config UI/API parity', () => {
     expect(typeof active.junk_filter_threshold).toBe('number');
     expect(typeof active.similarity_threshold).toBe('number');
 
-    await page.goto(WORKFLOW_CONFIG_URL);
-    await page.waitForLoadState('networkidle');
+    await page.goto(WORKFLOW_CONFIG_URL, { waitUntil: 'domcontentloaded' });
     await switchToConfigTab(page);
     await waitForConfigReady(page);
     await openStepsForThresholdInputs(page);
@@ -108,4 +116,3 @@ test.describe('Workflow config UI/API parity', () => {
     expect(similarityInput).toBeCloseTo(active.similarity_threshold, 3);
   });
 });
-

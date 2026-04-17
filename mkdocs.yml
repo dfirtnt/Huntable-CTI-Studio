@@ -45,6 +45,7 @@ nav:
       - Overview: architecture/overview.md
       - Workflow Data Flow: architecture/workflow-data-flow.md
       - Source healing (internals): internals/source-healing.md
+      - Source healing (user guide): source-self-healing.md
       - Scoring: architecture/scoring.md
       - Chunking: architecture/chunking.md
       - QA Loops: architecture/qa-loops.md
