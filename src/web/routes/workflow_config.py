@@ -284,9 +284,13 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             if current_config:
                 current_config.is_active = False
                 db_session.flush()  # Ensure old config is deactivated before creating new one
-                new_version = current_config.version + 1
             else:
-                new_version = 1
+                db_session.flush()
+
+            # Version must be monotonic even if newer inactive rows exist (e.g. tests or fixtures
+            # that temporarily activate a higher version then restore an older version).
+            max_version = db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0
+            new_version = int(max_version) + 1
 
             # Validate thresholds
             ranking_threshold = (
@@ -877,6 +881,7 @@ async def get_config_by_version(request: Request, version_number: int):
             config = (
                 db_session.query(AgenticWorkflowConfigTable)
                 .filter(AgenticWorkflowConfigTable.version == version_number)
+                .order_by(AgenticWorkflowConfigTable.is_active.desc(), AgenticWorkflowConfigTable.id.desc())
                 .first()
             )
             if not config:
