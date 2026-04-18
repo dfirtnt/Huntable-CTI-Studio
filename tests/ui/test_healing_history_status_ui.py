@@ -108,6 +108,7 @@ def test_history_panel_toggle_survives_poll(page: Page):
 
     page.goto(f"{BASE_URL}/sources")
     page.wait_for_load_state("load")
+    page.wait_for_timeout(1000)
     page.evaluate("() => openHealingHistory(17, 'Test Source')")
 
     # Wait for the panel to render the events
@@ -133,6 +134,7 @@ def test_history_panel_config_toggle_survives_poll(page: Page):
 
     page.goto(f"{BASE_URL}/sources")
     page.wait_for_load_state("load")
+    page.wait_for_timeout(1000)
     page.evaluate("() => openHealingHistory(17, 'Test Source')")
 
     config_btn = page.locator("#healingPanelBody button", has_text="Show full config").first
