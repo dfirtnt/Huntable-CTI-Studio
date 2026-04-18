@@ -104,7 +104,6 @@ services:
       - ./models:/app/models
       - ./outputs:/app/outputs
       - ./scripts:/app/scripts
-      - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
       - /var/run/docker.sock:/var/run/docker.sock
@@ -132,7 +131,6 @@ services:
       --reload-exclude 'tests/*'
       --reload-exclude 'scripts/*'
       --reload-exclude 'test-results/*'
-      --reload-exclude 'allure-results/*'
       --reload-exclude '*.pkl'
 
   # Celery Worker for Background Tasks
@@ -174,7 +172,6 @@ services:
       - ./outputs:/app/outputs
       - ./models:/app/models
       - ./scripts:/app/scripts
-      - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
@@ -239,7 +236,6 @@ services:
       - ./outputs:/app/outputs
       - ./models:/app/models
       - ./scripts:/app/scripts
-      - ./allure-results:/app/allure-results
       - ./test-results:/app/test-results
       - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
     depends_on:
