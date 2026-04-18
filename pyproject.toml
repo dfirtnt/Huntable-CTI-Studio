@@ -225,6 +225,7 @@ markers = [
     "ai: AI assistant and summarization tests",
     "ui: UI tests",
     "smoke: Smoke tests",
+    "prod_smoke: Opt-in read-only smoke checks against a non-test DATABASE_URL (guarded; never runs under run_tests.py)",
     "asyncio: Async tests",
     "dashboard: Dashboard-specific tests",
     "performance: Performance and load tests",

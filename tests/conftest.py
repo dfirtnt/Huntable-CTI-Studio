@@ -712,12 +712,21 @@ def pytest_configure(config):
     # when huggingface_hub/httpx close their sessions after pytest closes logging streams.
     logging.getLogger("httpcore").setLevel(logging.WARNING)
 
-    # Invoke test environment guard at pytest bootstrap
-    if TEST_ENV_GUARD_AVAILABLE:
-        try:
-            assert_test_environment()
-        except RuntimeError as e:
-            pytest.exit(f"Test environment validation failed: {e}")
+    # Invoke test environment guard at pytest bootstrap.
+    #
+    # Exception: opt-in prod_smoke runs. These are read-only smoke checks against a non-test
+    # DATABASE_URL and must be executed with an explicit marker expression.
+    allow_prod_smoke = os.getenv("ALLOW_PROD_SMOKE") == "1"
+    if allow_prod_smoke:
+        markexpr = getattr(config.option, "markexpr", "") or ""
+        if "prod_smoke" not in markexpr:
+            pytest.exit("Refusing to run with ALLOW_PROD_SMOKE=1 unless '-m prod_smoke' is set")
+    else:
+        if TEST_ENV_GUARD_AVAILABLE:
+            try:
+                assert_test_environment()
+            except RuntimeError as e:
+                pytest.exit(f"Test environment validation failed: {e}")
 
     # Register custom markers to satisfy strict marker checks
     config.addinivalue_line("markers", "ui: UI tests")
@@ -731,6 +740,7 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "browser: Tests requiring browser")
     config.addinivalue_line("markers", "api: API endpoint tests")
     config.addinivalue_line("markers", "smoke: Smoke tests")
+    config.addinivalue_line("markers", "prod_smoke: Opt-in read-only smoke checks against a non-test DATABASE_URL")
     config.addinivalue_line("markers", "asyncio: Async tests")
     config.addinivalue_line("markers", "dashboard: Dashboard-specific tests")
     config.addinivalue_line("markers", "performance: Performance and load tests")

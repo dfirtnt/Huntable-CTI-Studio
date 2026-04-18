@@ -242,6 +242,7 @@ This excludes:
 |-------|--------|----------------|
 | **agent_config_mutation** | Mutates live config | `--exclude-markers agent_config_mutation` + `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` |
 | **Performance** | Requires `PERFORMANCE_TEST_ENABLED=true` | Marker excluded by default |
+| **prod_smoke** | Read-only tests against non-test DATABASE_URL | Requires `ALLOW_PROD_SMOKE=1 -m prod_smoke` (not run in standard `run_tests.py`) |
 | **AI (real APIs)** | Requires secrets, costs money | No marker in codebase |
 | **Quarantined** | Known failures | Already in `tests/SKIPPED_TESTS.md` |
 
@@ -263,6 +264,7 @@ This excludes:
 | **UI (pytest)** | ⚠️ Optional | Many tests; needs browsers + app. If added: `run_tests.py ui --exclude-markers agent_config_mutation` and install Playwright for pytest. Consider separate job or scheduled run to keep PRs fast. |
 | **Playwright (TS)** | ✅ Yes | Current `playwright.yml` runs `npx playwright test` with web app started and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1`. |
 | **agent_config_mutation** | ❌ No | Do not run in CI; mutates live config. Excluded via `--exclude-markers` (pytest) and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (Playwright). |
+| **prod_smoke** | ❌ No (or manual) | Read-only checks against non-test `DATABASE_URL`. Requires `ALLOW_PROD_SMOKE=1 -m prod_smoke`. Only run manually or in dedicated scheduled workflows. |
 | **Quarantined / SKIPPED** | ❌ No | Already skipped; see `tests/SKIPPED_TESTS.md`. |
 | **AI/LLM (real APIs)** | ❌ No (or nightly) | Require secrets and cost; run only in scheduled/manual workflows if at all. |
 | **Full `all`** | ❌ No | Too heavy for every push; use locally or scheduled. |
