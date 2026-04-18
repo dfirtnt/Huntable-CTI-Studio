@@ -43,7 +43,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 - **Example v2 JSON**: `config/schema/workflow_config_v2_example.json` (placeholder values).
 - **Baseline v2 example**: `python3 scripts/build_baseline_presets.py --v2` writes `config/schema/workflow_config_v2_baseline_example.json`.
-- **Baseline presets (v1)**: `config/presets/AgentConfigs/*.json` remain v1 for UI “Import from file” compatibility; the loader accepts both when config is loaded server-side.
+- **Baseline presets**: `config/presets/AgentConfigs/quickstart/*.json` are committed v2 presets ready for import. Generated presets (from `scripts/build_baseline_presets.py`) may be v1 or v2; the loader migrates v1 → v2 on load. The UI “Import from file” dialog accepts both.
 
 ## ExtractAgent (supervisor)
 

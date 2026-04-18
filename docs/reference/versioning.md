@@ -13,8 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v5.2.0 "Ganymede"** - Current stable release
-**v5.0.0 "Callisto"** - Previous stable release
+**v5.3.0** - Current development version (see `pyproject.toml`)
+**v5.2.0 "Ganymede"** - Previous named stable release (2026-03-26)
+**v5.0.0 "Callisto"** - Earlier stable release
 **v4.0.0 "Kepler"** - Earlier stable release
 
 ## Planetary Moon Naming System

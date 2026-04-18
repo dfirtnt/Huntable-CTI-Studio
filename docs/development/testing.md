@@ -209,10 +209,10 @@ This excludes:
 
 | CI Job | Command | Test Marker/Directory | Status |
 |--------|---------|----------------------|--------|
-| **smoke** | `python run_tests.py smoke` | `-m smoke` | ✅ Running |
-| **unit** | `python run_tests.py unit` | `not (smoke/integration/api/ui/e2e)` | ✅ Running |
-| **api** | `python run_tests.py api` | `-m api` | ✅ Running |
-| **integration** | `python run_tests.py integration` | `-m integration` | ✅ Running |
+| **smoke** | `python3 run_tests.py smoke` | `-m smoke` | ✅ Running |
+| **unit** | `python3 run_tests.py unit` | `not (smoke/integration/api/ui/e2e)` | ✅ Running |
+| **api** | `python3 run_tests.py api` | `-m api` | ✅ Running |
+| **integration** | `python3 run_tests.py integration` | `-m integration` | ✅ Running |
 | **playwright** | `npx playwright test` | TypeScript specs | ✅ Running |
 
 ### Test Directory Coverage in CI Jobs
@@ -256,10 +256,10 @@ This excludes:
 
 | Group | In CI? | Notes |
 |-------|--------|--------|
-| **Smoke** | ✅ Yes | Fast; catches basic breakage. Current workflow starts Postgres, Redis, web app, then `run_tests.py smoke`. |
-| **Unit** | ✅ Yes | No containers; fast. Run `python run_tests.py unit`. High signal, no extra services. Includes cli, config, core, database, docs, services, utils, worker, workflows. |
-| **API** | ✅ Yes | HTTP/contracts; needs Postgres, Redis, web app. Current workflow runs `run_tests.py api`. |
-| **Integration** | ✅ Yes | DB + app behavior; same stack. Current workflow runs `run_tests.py integration`. |
+| **Smoke** | ✅ Yes | Fast; catches basic breakage. Current workflow starts Postgres, Redis, web app, then `python3 run_tests.py smoke`. |
+| **Unit** | ✅ Yes | No containers; fast. Run `python3 run_tests.py unit`. High signal, no extra services. Includes cli, config, core, database, docs, services, utils, worker, workflows. |
+| **API** | ✅ Yes | HTTP/contracts; needs Postgres, Redis, web app. Current workflow runs `python3 run_tests.py api`. |
+| **Integration** | ✅ Yes | DB + app behavior; same stack. Current workflow runs `python3 run_tests.py integration`. |
 | **UI (pytest)** | ⚠️ Optional | Many tests; needs browsers + app. If added: `run_tests.py ui --exclude-markers agent_config_mutation` and install Playwright for pytest. Consider separate job or scheduled run to keep PRs fast. |
 | **Playwright (TS)** | ✅ Yes | Current `playwright.yml` runs `npx playwright test` with web app started and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1`. |
 | **agent_config_mutation** | ❌ No | Do not run in CI; mutates live config. Excluded via `--exclude-markers` (pytest) and `CTI_EXCLUDE_AGENT_CONFIG_TESTS=1` (Playwright). |
