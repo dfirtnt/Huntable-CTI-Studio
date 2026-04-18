@@ -757,6 +757,25 @@ class LLMService:
 
         return unique_candidates
 
+    @staticmethod
+    def estimate_model_max_context(model_name: str, is_reasoning_model: bool = False) -> int:
+        """Heuristic context-window ceiling based on model-size tokens in the name.
+
+        Used as a fallback when the provider does not report context length.
+        """
+        model_lower = model_name.lower()
+        if "1b" in model_lower:
+            return 2048
+        if "32b" in model_lower or "30b" in model_lower:
+            return 32768
+        if "13b" in model_lower or "14b" in model_lower:
+            return 16384
+        if "7b" in model_lower or "8b" in model_lower:
+            return 8192
+        if "3b" in model_lower or "2b" in model_lower:
+            return 4096
+        return 4096 if is_reasoning_model else 2048
+
     async def check_model_context_length(
         self, model_name: str | None = None, threshold: int | None = None
     ) -> dict[str, Any]:
@@ -1733,21 +1752,7 @@ class LLMService:
         max_output_tokens = 2000 if is_reasoning_model else 2000  # Increased from 600 to prevent truncation
 
         # Determine model-specific context limits based on model size
-        # These are reasonable maximums for each model size category
-        model_lower = model_name.lower()
-        if "1b" in model_lower:
-            model_max_context = 2048  # 1B models typically max at 2048
-        elif "3b" in model_lower or "2b" in model_lower:
-            model_max_context = 4096  # 3B models typically max at 4096
-        elif "7b" in model_lower or "8b" in model_lower:
-            model_max_context = 8192  # 7B/8B models often support 8192
-        elif "13b" in model_lower or "14b" in model_lower:
-            model_max_context = 16384  # 13B/14B models often support 16384
-        elif "32b" in model_lower or "30b" in model_lower:
-            model_max_context = 32768  # 32B models often support 32K+
-        else:
-            # Unknown model size - use conservative default
-            model_max_context = 4096 if is_reasoning_model else 2048
+        model_max_context = self.estimate_model_max_context(model_name, is_reasoning_model)
 
         try:
             context_check = await self.check_model_context_length(model_name=model_name)
@@ -1755,7 +1760,7 @@ class LLMService:
             detection_method = context_check.get("method", "unknown")
         except Exception as e:
             logger.warning(f"Could not get model context length: {e}")
-            detected_length = model_max_context  # Use model-specific fallback
+            detected_length = model_max_context
             detection_method = "fallback"
 
         # If detection returned None (e.g., non-LMStudio provider skip), fall back to model_max_context
@@ -2115,19 +2120,7 @@ class LLMService:
         max_output_tokens = 2000 if is_reasoning_model else 1500  # Further reduced to fit in available context
 
         # Determine model-specific context limits based on model size
-        model_lower = model_name.lower()
-        if "1b" in model_lower:
-            model_max_context = 2048
-        elif "3b" in model_lower or "2b" in model_lower:
-            model_max_context = 4096
-        elif "7b" in model_lower or "8b" in model_lower:
-            model_max_context = 8192
-        elif "13b" in model_lower or "14b" in model_lower:
-            model_max_context = 16384
-        elif "32b" in model_lower or "30b" in model_lower:
-            model_max_context = 32768
-        else:
-            model_max_context = 4096 if is_reasoning_model else 2048
+        model_max_context = self.estimate_model_max_context(model_name, is_reasoning_model)
 
         try:
             context_check = await self.check_model_context_length(model_name=model_name)
@@ -2601,19 +2594,7 @@ class LLMService:
         is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
 
         # Determine model-specific context limits based on model size
-        model_lower = model_name.lower()
-        if "1b" in model_lower:
-            model_max_context = 2048
-        elif "3b" in model_lower or "2b" in model_lower:
-            model_max_context = 4096
-        elif "7b" in model_lower or "8b" in model_lower:
-            model_max_context = 8192
-        elif "13b" in model_lower or "14b" in model_lower:
-            model_max_context = 16384
-        elif "32b" in model_lower or "30b" in model_lower:
-            model_max_context = 32768
-        else:
-            model_max_context = 4096 if is_reasoning_model else 2048
+        model_max_context = self.estimate_model_max_context(model_name, is_reasoning_model)
 
         try:
             context_check = await self.check_model_context_length(model_name=model_name)

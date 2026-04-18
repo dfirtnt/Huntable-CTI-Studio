@@ -34,7 +34,7 @@ _AGENT_FLAT_PREFIXES = [
     ("ProcTreeExtract", "ProcTreeExtract", "ProcTreeExtract_model"),
     ("HuntQueriesExtract", "HuntQueriesExtract", "HuntQueriesExtract_model"),
     ("RankAgentQA", "RankAgentQA", "RankAgentQA"),
-    ("CmdLineQA", "CmdlineQA", "CmdLineQA"),  # legacy CmdLineQA -> CmdlineQA
+    ("CmdLineQA", "CmdLineQA", "CmdLineQA"),
     ("ProcTreeQA", "ProcTreeQA", "ProcTreeQA"),
     ("HuntQueriesQA", "HuntQueriesQA", "HuntQueriesQA"),
     ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
@@ -83,6 +83,11 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     out["Features"] = features
 
     agents = dict(out.get("Agents") or {})
+    # Normalize legacy CmdlineQA -> CmdLineQA
+    if "CmdlineQA" in agents and "CmdLineQA" not in agents:
+        agents["CmdLineQA"] = agents.pop("CmdlineQA")
+    elif "CmdlineQA" in agents:
+        agents.pop("CmdlineQA")
     if "RankAgent" in agents and rank_en is not None:
         agents["RankAgent"] = dict(agents["RankAgent"])
         agents["RankAgent"]["Enabled"] = _bool_val(rank_en, True)
@@ -95,16 +100,24 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
             cfg["Enabled"] = False
     out["Agents"] = agents
 
-    # QA.Enabled: OSDetectionAgent -> OSDetectionFallback
+    # QA.Enabled: OSDetectionAgent -> OSDetectionFallback, CmdlineQA -> CmdLineQA
     qa = dict(out.get("QA") or {})
     enabled = dict(qa.get("Enabled") or {})
     if "OSDetectionAgent" in enabled:
         enabled["OSDetectionFallback"] = enabled.pop("OSDetectionAgent")
+    if "CmdlineQA" in enabled and "CmdLineQA" not in enabled:
+        enabled["CmdLineQA"] = enabled.pop("CmdlineQA")
+    elif "CmdlineQA" in enabled:
+        enabled.pop("CmdlineQA")
     qa["Enabled"] = enabled
     out["QA"] = qa
 
-    # Prompts: drop non-canonical keys (e.g. ExtractAgentSettings)
+    # Prompts: normalize legacy CmdlineQA -> CmdLineQA, then drop non-canonical keys
     prompts = dict(out.get("Prompts") or {})
+    if "CmdlineQA" in prompts and "CmdLineQA" not in prompts:
+        prompts["CmdLineQA"] = prompts.pop("CmdlineQA")
+    elif "CmdlineQA" in prompts:
+        prompts.pop("CmdlineQA")
     prompts_clean = {
         k: {
             "prompt": (v.get("prompt", "") if isinstance(v, dict) else ""),

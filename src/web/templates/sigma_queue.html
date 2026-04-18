@@ -615,7 +615,7 @@ function updateActionButtons() {
             <button onclick="rejectRule(currentRuleId)" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md">
                 ❌ Reject
             </button>
-            <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
+            <button onclick="validateRule()" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-100 rounded-md" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
                 ✓ Validate
             </button>
             <button onclick="openEnrichModal()" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md">
@@ -947,7 +947,21 @@ async function validateRule() {
         const editor = document.getElementById('yamlEditor');
         if (editor) currentYaml = editor.value;
     }
-    
+
+    // Persist current YAML edits before validating (matches workflow.html behavior)
+    const rule = queue.find(r => r.id === currentRuleId);
+    if (rule && currentYaml && currentYaml.trim() && currentYaml !== rule.rule_yaml) {
+        const putRes = await fetch(`/api/sigma-queue/${currentRuleId}/yaml`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rule_yaml: currentYaml.trim() })
+        });
+        if (putRes.ok) {
+            rule.rule_yaml = currentYaml.trim();
+            editedYaml = currentYaml.trim();
+        }
+    }
+
     // Remove any existing validation result
     const existingResult = document.getElementById('validationResult');
     if (existingResult) {

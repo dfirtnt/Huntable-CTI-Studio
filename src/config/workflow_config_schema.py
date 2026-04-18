@@ -110,17 +110,37 @@ class MetadataConfig(BaseModel):
 # Agent names in canonical order (main, sub-agents, QA, special)
 AGENT_NAMES_MAIN = ["RankAgent", "ExtractAgent", "SigmaAgent"]
 AGENT_NAMES_SUB = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
-AGENT_NAMES_QA = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
+AGENT_NAMES_QA = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
 AGENT_NAMES_SPECIAL = ["OSDetectionFallback"]
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
 
 # Prompts section may only contain these keys (no ExtractAgentSettings; that lives under Execution).
 CANONICAL_PROMPT_AGENT_NAMES = frozenset(ALL_AGENT_NAMES)
 
+# Human-readable display names — single source of truth consumed by Python and JS.
+AGENT_DISPLAY_NAMES: dict[str, str] = {
+    "RankAgent": "Rank Agent",
+    "ExtractAgent": "Extract Agent",
+    "SigmaAgent": "SIGMA Agent",
+    "OSDetectionAgent": "OS Detection",
+    "OSDetectionFallback": "OS Detection Fallback",
+    "CmdlineExtract": "Command Line Extraction",
+    "ProcTreeExtract": "Process Lineage Extraction",
+    "HuntQueriesExtract": "Hunt Queries Extraction",
+    "RegistryExtract": "Registry Artifacts Extraction",
+    "ServicesExtract": "Windows Services Extraction",
+    "RankAgentQA": "Rank Agent QA",
+    "CmdLineQA": "CmdLine QA",
+    "ProcTreeQA": "ProcTree QA",
+    "HuntQueriesQA": "HuntQueries QA",
+    "RegistryQA": "Registry QA",
+    "ServicesQA": "Services QA",
+}
+
 # LLM agent symmetry: base agents that require a QA agent (explicit mapping matches codebase naming).
 BASE_AGENT_TO_QA: dict[str, str] = {
     "RankAgent": "RankAgentQA",
-    "CmdlineExtract": "CmdlineQA",
+    "CmdlineExtract": "CmdLineQA",
     "ProcTreeExtract": "ProcTreeQA",
     "HuntQueriesExtract": "HuntQueriesQA",
     "RegistryExtract": "RegistryQA",
@@ -216,10 +236,9 @@ class WorkflowConfigV2(BaseModel):
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        qa_agents = {"RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
+        qa_agents = {"RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
         sub_agents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"}
-        # Legacy flat keys expected by UI and services (v2 CmdlineQA -> CmdLineQA)
-        legacy_flat_prefix: dict[str, str] = {"CmdlineQA": "CmdLineQA"}
+        legacy_flat_prefix: dict[str, str] = {}
         for agent_name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
                 continue

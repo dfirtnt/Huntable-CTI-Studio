@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Canonical agent group order (for tests and other consumers that expect group ordering).
 CORE_AGENTS = ["RankAgent", "ExtractAgent", "SigmaAgent"]
 EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
-QA_AGENTS = ["RankAgentQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
+QA_AGENTS = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
 UTILITY_AGENTS = ["OSDetectionFallback"]
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
@@ -34,7 +34,7 @@ AGENTS_ORDER_UI = [
     "RankAgentQA",
     "ExtractAgent",
     "CmdlineExtract",
-    "CmdlineQA",
+    "CmdLineQA",
     "ProcTreeExtract",
     "ProcTreeQA",
     "HuntQueriesExtract",
@@ -259,7 +259,7 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     }
 
     for base, qa_name in [
-        ("CmdlineExtract", "CmdlineQA"),
+        ("CmdlineExtract", "CmdLineQA"),
         ("ProcTreeExtract", "ProcTreeQA"),
         ("HuntQueriesExtract", "HuntQueriesQA"),
         ("RegistryExtract", "RegistryQA"),
@@ -488,7 +488,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
     add_agent("ExtractAgent", extract, extract.get("Prompt") or {"prompt": "", "instructions": ""})
 
     for base, qa_name in [
-        ("CmdlineExtract", "CmdlineQA"),
+        ("CmdlineExtract", "CmdLineQA"),
         ("ProcTreeExtract", "ProcTreeQA"),
         ("HuntQueriesExtract", "HuntQueriesQA"),
         ("RegistryExtract", "RegistryQA"),

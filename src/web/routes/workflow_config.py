@@ -2002,3 +2002,81 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
                     error_detail = "The prompt is too long for the model's context window. Please increase the context length in LMStudio or use a shorter prompt."
 
         raise HTTPException(status_code=500, detail=error_detail) from e
+
+
+@router.get("/config/validate")
+async def validate_workflow_config():
+    """Dry-run the full Pydantic validator against the active config. Returns structured issues list."""
+    issues = []
+
+    db_manager = DatabaseManager()
+    db_session = db_manager.get_session()
+    try:
+        current_config = (
+            db_session.query(AgenticWorkflowConfigTable)
+            .filter_by(is_active=True)
+            .order_by(AgenticWorkflowConfigTable.version.desc())
+            .first()
+        )
+        if not current_config:
+            return {"issues": [{"level": "error", "msg": "No active workflow config found."}]}
+
+        # 1. Try loading through the normalized schema (catches all Pydantic validators).
+        try:
+            v2 = load_workflow_config(current_config)
+        except Exception as e:
+            issues.append({"level": "error", "msg": f"Schema validation failed: {e}"})
+            return {"issues": issues}
+
+        # 2. Check each agent prompt against runtime validators.
+        from src.services.llm_service import (
+            PromptConfigValidationError,
+            _validate_extraction_prompt_config,
+            _validate_qa_prompt_config,
+        )
+
+        _EXTRACTION_AGENTS = {
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+        }
+        _QA_AGENTS = {"RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
+
+        agent_prompts = current_config.agent_prompts or {}
+        for agent_name, prompt_data in agent_prompts.items():
+            if agent_name == "ExtractAgentSettings":
+                continue
+            prompt_str = prompt_data.get("prompt", "") if isinstance(prompt_data, dict) else ""
+            if not prompt_str:
+                agent_cfg = v2.Agents.get(agent_name)
+                if agent_cfg and agent_cfg.Enabled:
+                    issues.append({"level": "error", "msg": f"{agent_name}: prompt is empty but agent is enabled."})
+                continue
+
+            try:
+                parsed = json.loads(prompt_str)
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+            if agent_name in _EXTRACTION_AGENTS:
+                try:
+                    _validate_extraction_prompt_config(agent_name, parsed)
+                except PromptConfigValidationError as e:
+                    issues.append({"level": "error", "msg": str(e)})
+
+            if agent_name in _QA_AGENTS:
+                try:
+                    _validate_qa_prompt_config(agent_name, parsed)
+                except PromptConfigValidationError as e:
+                    issues.append({"level": "error", "msg": str(e)})
+
+        # 3. Check for enabled agents missing Provider or Model.
+        for name, cfg in v2.Agents.items():
+            if cfg.Enabled and (not cfg.Provider or not cfg.Model):
+                issues.append({"level": "error", "msg": f"{name}: enabled but missing Provider or Model."})
+
+        return {"issues": issues}
+    finally:
+        db_session.close()

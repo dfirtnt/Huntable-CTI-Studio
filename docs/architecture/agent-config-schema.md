@@ -16,7 +16,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
   - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled. (OS Detection fallback and Rank Agent enablement are controlled via `Agents.OSDetectionFallback.Enabled` and `Agents.RankAgent.Enabled` respectively.)
   - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
-- **Naming normalization**: Legacy `CmdLineQA` is normalized to `CmdlineQA` in v2.
+- **Naming normalization**: The canonical name is `CmdLineQA`. Legacy configs using `CmdlineQA` are automatically migrated.
 - **No unknown keys**: Schema validation forbids unknown root keys; validation errors are explicit.
 
 ## Backward compatibility

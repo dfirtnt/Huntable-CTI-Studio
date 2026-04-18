@@ -102,7 +102,7 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Cmdline", "instructions": ""},
             "QAEnabled": FIDELITY_CMDLINE_QA_ENABLED,
             "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " CmdlineQA", "instructions": ""},
+            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " CmdLineQA", "instructions": ""},
         },
         "ProcTreeExtract": {
             "Enabled": FIDELITY_PROCTREE_ENABLED,

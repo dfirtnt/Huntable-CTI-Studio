@@ -86,6 +86,22 @@ def test_sub_agent_task(
         # Build prompt config for the requested sub-agent
         agent_prompts = config.agent_prompts or {}
         prompt_config = agent_prompts.get(agent_name, {})
+        # Prompts are stored as {"prompt": "<json string>"|dict, "instructions": ""}; parse
+        # the inner value so validators see the flat {"role": ..., "instructions": ...}
+        # shape — same as agentic_workflow.py does before calling run_extraction_agent.
+        import json as _json
+
+        _raw_prompt = prompt_config.get("prompt")
+        if isinstance(_raw_prompt, str):
+            if _raw_prompt.strip():
+                try:
+                    prompt_config = _json.loads(_raw_prompt)
+                except _json.JSONDecodeError as e:
+                    raise ValueError(f"Failed to parse {agent_name} prompt JSON: {e}") from e
+            else:
+                prompt_config = {}  # empty string → no prompt config override
+        elif isinstance(_raw_prompt, dict):
+            prompt_config = _raw_prompt
         agent_models = config.agent_models if config.agent_models else {}
 
         # Determine QA config
@@ -94,6 +110,14 @@ def test_sub_agent_task(
         if qa_flags.get(agent_name, False):
             qa_prompt_key = f"{agent_name}_QA"
             qa_prompt_config = agent_prompts.get(qa_prompt_key, {})
+            if isinstance(qa_prompt_config.get("prompt"), str):
+                try:
+                    import json as _json
+
+                    qa_prompt_config = _json.loads(qa_prompt_config["prompt"])
+                except _json.JSONDecodeError as e:
+                    logger.warning("Failed to parse %s QA prompt JSON: %s — disabling QA", qa_prompt_key, e)
+                    qa_prompt_config = None
 
         max_qa_retries = config.qa_max_retries if hasattr(config, "qa_max_retries") else 5
 

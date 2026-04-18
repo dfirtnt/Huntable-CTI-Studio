@@ -89,7 +89,7 @@ def test_migration_accuracy_roundtrip():
 
 
 def test_cmdline_qa_normalized():
-    """Legacy CmdLineQA normalizes to CmdlineQA in v2; flatten emits legacy key CmdLineQA for consumers."""
+    """Legacy CmdLineQA flat key migrates to CmdLineQA in v2; flatten emits CmdLineQA for consumers."""
     raw = {
         "version": "1.0",
         "agent_models": {
@@ -103,8 +103,8 @@ def test_cmdline_qa_normalized():
         "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
     }
     migrated = migrate_v1_to_v2(raw)
-    assert "CmdlineQA" in migrated["Agents"]
-    assert migrated["Agents"]["CmdlineQA"]["Model"] == "gpt-4o"
+    assert "CmdLineQA" in migrated["Agents"]
+    assert migrated["Agents"]["CmdLineQA"]["Model"] == "gpt-4o"
     config = WorkflowConfigV2.model_validate(migrated)
     flat = config.flatten_for_llm_service()
     assert flat["CmdLineQA_provider"] == "openai"

@@ -130,7 +130,7 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
                 "TopP": 0.9,
                 "Enabled": True,
             },
-            "CmdlineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -139,7 +139,7 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
             "RankAgent": {"prompt": "", "instructions": ""},
             "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
-            "CmdlineQA": {"prompt": "", "instructions": ""},
+            "CmdLineQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {
             "ExtractAgentSettings": {"DisabledAgents": ["CmdlineExtract", "ProcTreeExtract"]},
@@ -174,7 +174,7 @@ def test_flatten_for_llm_service_keys():
                 "TopP": 0.9,
                 "Enabled": True,
             },
-            "CmdlineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -183,7 +183,7 @@ def test_flatten_for_llm_service_keys():
             "RankAgent": {"prompt": "", "instructions": ""},
             "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
-            "CmdlineQA": {"prompt": "", "instructions": ""},
+            "CmdLineQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
     }
@@ -348,14 +348,14 @@ def test_missing_rankagentqa_prompt_raises():
 
 
 def test_missing_cmdlineqa_prompt_raises():
-    """Missing prompt block for CmdlineQA raises ValidationError."""
+    """Missing prompt block for CmdLineQA raises ValidationError."""
     agents = {
         "CmdlineExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "CmdlineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+        "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     }
     prompts = {"CmdlineExtract": {"prompt": "", "instructions": ""}}
     raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Missing prompt block for agent CmdlineQA"):
+    with pytest.raises(ValidationError, match="Missing prompt block for agent CmdLineQA"):
         WorkflowConfigV2.model_validate(raw)
 
 
@@ -393,7 +393,7 @@ def test_valid_config_passes():
         "ProcTreeExtract": agent_cfg,
         "HuntQueriesExtract": agent_cfg,
         "RankAgentQA": agent_cfg,
-        "CmdlineQA": agent_cfg,
+        "CmdLineQA": agent_cfg,
         "ProcTreeQA": agent_cfg,
         "HuntQueriesQA": agent_cfg,
         "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": False},
