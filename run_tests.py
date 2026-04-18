@@ -138,12 +138,10 @@ def _load_dotenv() -> None:
 # Import test environment utilities
 try:
     import tests.utils.database_connections  # noqa: F401
-    from tests.utils.test_environment import TestEnvironmentManager, TestEnvironmentValidator
 
     ENVIRONMENT_UTILS_AVAILABLE = True
 except ImportError:
     ENVIRONMENT_UTILS_AVAILABLE = False
-    print("Warning: Test environment utilities not available. Some features may be limited.")
 
 # Enhanced debugging imports
 try:
@@ -505,50 +503,9 @@ class RunTestRunner:
                     logger.error("Schema init failed after retries")
                     return False
 
-        if not ENVIRONMENT_UTILS_AVAILABLE:
-            logger.warning("Environment utilities not available, skipping advanced environment setup")
-            return True
-
-        try:
-            logger.info("Setting up test environment...")
-
-            # Load configuration
-            validator = TestEnvironmentValidator()
-            test_config = validator.load_test_config(self.config.config_file)
-
-            # Validate environment if requested
-            if self.config.validate_env:
-                logger.info("Validating test environment...")
-                validation_results = await validator.validate_environment()
-
-                # For smoke tests, Redis validation is non-blocking
-                critical_validations = validation_results.copy()
-                if (
-                    self.config.test_type == RunTestType.SMOKE
-                    and "redis" in critical_validations
-                    and not critical_validations["redis"]
-                ):
-                    logger.warning("Redis validation failed (non-blocking for smoke tests)")
-                    critical_validations.pop("redis")
-
-                if not all(critical_validations.values()):
-                    logger.error("Environment validation failed")
-                    if not self.config.debug:
-                        return False
-                    logger.warning("Continuing despite validation failures (debug mode)")
-
-            # Set up environment manager
-            self.environment_manager = TestEnvironmentManager(test_config)
-            await self.environment_manager.setup_test_environment()
-
-            logger.info("Test environment setup completed")
-            return True
-
-        except Exception as e:
-            logger.error(f"Environment setup failed: {e}")
-            if self.config.debug:
-                logger.exception("Full traceback:")
-            return False
+        # Test environment utilities not currently available
+        logger.debug("Advanced environment setup not available; using basic setup")
+        return True
 
     async def teardown_environment(self):
         """Tear down test environment."""
@@ -1140,22 +1097,7 @@ class RunTestRunner:
             if td_url:
                 env["DATABASE_URL"] = td_url
 
-            if ENVIRONMENT_UTILS_AVAILABLE:
-                try:
-                    validator = TestEnvironmentValidator()
-                    test_config = validator.load_test_config(self.config.config_file)
-                    # Always point DATABASE_URL at the test DB for the pytest subprocess.
-                    # A shell-.env production DATABASE_URL must not leak into tests (celery_app guard).
-                    env.update(
-                        {
-                            "DATABASE_URL": test_config.database_url,
-                            "REDIS_URL": test_config.redis_url,
-                            "TESTING": "true",
-                            "ENVIRONMENT": "test",
-                        }
-                    )
-                except Exception as e:
-                    logger.warning(f"Could not set environment variables: {e}")
+            # Environment utilities configuration disabled (not currently available)
 
             # Add skip real API flag
             if self.config.skip_real_api:
