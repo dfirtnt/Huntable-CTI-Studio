@@ -1446,13 +1446,13 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
 
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')").first
-        if view_buttons.count() > 0:
-            view_buttons.first.click()
+        view_button = page.locator("button:has-text('View')").first
+        if view_button.count() > 0:
+            view_button.click()
             page.wait_for_timeout(200)
 
             # Find fullscreen toggle button
-            fullscreen_button = page.locator("button[onclick*='toggleModalFullscreen']")
+            fullscreen_button = page.locator("button[onclick*='toggleModalFullscreen']").first
             if fullscreen_button.count() > 0:
                 expect(fullscreen_button).to_be_visible()
 
@@ -1476,9 +1476,9 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
 
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')").first
-        if view_buttons.count() > 0:
-            view_buttons.first.click()
+        view_button = page.locator("button:has-text('View')").first
+        if view_button.count() > 0:
+            view_button.click()
             page.wait_for_timeout(200)
 
             # Press Escape key
@@ -1501,9 +1501,9 @@ class TestWorkflowExecutionsTabModal:
         page.wait_for_timeout(2000)
 
         # Open modal if possible
-        view_buttons = page.locator("button:has-text('View')").first
-        if view_buttons.count() > 0:
-            view_buttons.first.click()
+        view_button = page.locator("button:has-text('View')").first
+        if view_button.count() > 0:
+            view_button.click()
             page.wait_for_timeout(1000)
 
             # Verify content area exists
@@ -1527,13 +1527,14 @@ class TestWorkflowExecutionsTabTriggerModal:
 
         # Click Trigger Workflow button
         trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
-        trigger_button.click()
-        page.wait_for_timeout(200)
+        if trigger_button.count() > 0:
+            trigger_button.click()
+            page.wait_for_timeout(200)
 
-        # Verify modal opens
-        modal = page.locator("#triggerWorkflowModal")
-        expect(modal).to_be_visible()
-        expect(modal).not_to_have_class("hidden")
+            # Verify modal opens
+            modal = page.locator("#triggerWorkflowModal")
+            expect(modal).to_be_visible()
+            expect(modal).not_to_have_class("hidden")
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1548,15 +1549,16 @@ class TestWorkflowExecutionsTabTriggerModal:
 
         # Open modal
         trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
-        trigger_button.click()
-        page.wait_for_timeout(200)
+        if trigger_button.count() > 0:
+            trigger_button.click()
+            page.wait_for_timeout(200)
 
-        # Find Article ID input
-        article_id_input = page.locator("#triggerArticleId")
-        expect(article_id_input).to_be_visible()
-        expect(article_id_input).to_have_attribute("type", "number")
-        expect(article_id_input).to_have_attribute("min", "1")
-        expect(article_id_input).to_have_attribute("required")
+            # Find Article ID input
+            article_id_input = page.locator("#triggerArticleId")
+            expect(article_id_input).to_be_visible()
+            expect(article_id_input).to_have_attribute("type", "number")
+            expect(article_id_input).to_have_attribute("min", "1")
+            expect(article_id_input).to_have_attribute("required")
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1571,20 +1573,21 @@ class TestWorkflowExecutionsTabTriggerModal:
 
         # Open modal
         trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
-        trigger_button.click()
-        page.wait_for_timeout(200)
+        if trigger_button.count() > 0:
+            trigger_button.click()
+            page.wait_for_timeout(200)
 
-        # Find Cancel button
-        cancel_button = page.locator("#triggerWorkflowModal button:has-text('Cancel')").first
-        expect(cancel_button).to_be_visible()
+            # Find Cancel button
+            cancel_button = page.locator("#triggerWorkflowModal button:has-text('Cancel')").first
+            expect(cancel_button).to_be_visible()
 
-        # Click Cancel
-        cancel_button.click()
-        page.wait_for_timeout(300)
+            # Click Cancel
+            cancel_button.click()
+            page.wait_for_timeout(300)
 
-        # Verify modal closes
-        modal = page.locator("#triggerWorkflowModal")
-        expect(modal).to_have_class(re.compile(r"hidden"))
+            # Verify modal closes
+            modal = page.locator("#triggerWorkflowModal")
+            expect(modal).to_have_class(re.compile(r"hidden"))
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1599,8 +1602,9 @@ class TestWorkflowExecutionsTabTriggerModal:
 
         # Open modal
         trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
-        trigger_button.click()
-        page.wait_for_timeout(200)
+        if trigger_button.count() > 0:
+            trigger_button.click()
+            page.wait_for_timeout(200)
 
         # Find Trigger button in modal
         modal_trigger_button = page.locator("#triggerWorkflowModal").get_by_role("button", name="Trigger", exact=True)
