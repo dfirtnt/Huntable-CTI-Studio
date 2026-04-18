@@ -65,8 +65,7 @@ class TestSigmaEditorValidation:
         """
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sigma-queue")
-        # /sigma-queue can keep network activity alive (polling). Avoid networkidle.
-        page.wait_for_load_state("load")
+        page.wait_for_load_state("networkidle")
 
         # Wait for a Preview button to appear (real data row, not the loading placeholder)
         preview_button = page.locator('#queueTableBody button:has-text("Preview")').first

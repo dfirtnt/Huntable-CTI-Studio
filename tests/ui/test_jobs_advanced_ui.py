@@ -19,8 +19,7 @@ class TestJobsPageLoad:
         """Test jobs page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        # /jobs can keep network activity alive (polling/refresh). Avoid networkidle.
-        page.wait_for_load_state("load")
+        page.wait_for_load_state("networkidle")
 
         # Verify page title
         expect(page).to_have_title("Job Monitor - Huntable CTI Studio")
@@ -48,7 +47,7 @@ class TestJobsPageLoad:
         """Test refresh button displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("load")
+        page.wait_for_load_state("networkidle")
 
         # Verify refresh button exists
         refresh_btn = page.locator("#refreshBtn")
@@ -470,7 +469,7 @@ class TestJobsErrorHandling:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("load")
+        page.wait_for_load_state("networkidle")
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("h1").first

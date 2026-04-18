@@ -35,8 +35,7 @@ class TestDiagnosticsPageLoad:
         """Test quick actions display."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/diags")
-        # /diags can keep network activity alive (polling/refresh). Avoid networkidle.
-        page.wait_for_load_state("load")
+        page.wait_for_load_state("networkidle")
 
         # Verify quick actions section exists (match by data-testid to avoid emoji selector)
         quick_actions = page.locator("[data-testid='quick-actions']")
