@@ -219,6 +219,7 @@ class RunTestConfig:
     include_slow: bool = False  # Include @pytest.mark.slow tests (perf/mobile/a11y); excluded by default in UI runs
     playwright_last_failed: bool = False
     skip_playwright_js: bool = False
+    playwright_only: bool = False
     config_file: str | None = None
     output_format: str = "progress"
     fail_fast: bool = False
@@ -1098,11 +1099,17 @@ class RunTestRunner:
                 return False
 
             # Determine if we should run Playwright tests
+            # --playwright-only forces the JS section on even if --skip-playwright-js was also passed
+            if self.config.playwright_only and self.config.skip_playwright_js:
+                print(
+                    "WARNING: --playwright-only and --skip-playwright-js are mutually exclusive. --playwright-only wins."
+                )
+                self.config.skip_playwright_js = False
             playwright_cmd = self._build_playwright_command()
             run_playwright = playwright_cmd is not None and not self.config.skip_playwright_js
             if self.config.skip_playwright_js and playwright_cmd is not None:
                 print(
-                    "\n⚡ --skip-playwright-js: skipping npx Playwright (tests/playwright/*.spec.ts). "
+                    "\n--skip-playwright-js: skipping npx Playwright (tests/playwright/*.spec.ts). "
                     "Pytest UI tests still run.\n",
                     flush=True,
                 )
@@ -1164,14 +1171,24 @@ class RunTestRunner:
 
             env.update(self._get_agent_config_exclude_env())
 
-            # Run pytest tests (skip when --playwright-last-failed: only rerun failed Playwright)
-            run_pytest = not (self.config.playwright_last_failed and self.config.test_type == RunTestType.UI)
+            # Run pytest tests (skip when --playwright-last-failed or --playwright-only)
+            run_pytest = (
+                not (self.config.playwright_last_failed and self.config.test_type == RunTestType.UI)
+                and not self.config.playwright_only
+            )
             pytest_success = True
             pytest_start_time = time.time()
 
             if self.config.playwright_last_failed and self.config.test_type == RunTestType.UI:
                 print("\n" + "=" * 80)
-                print("🎭 PLAYWRIGHT LAST-FAILED MODE: Skipping pytest, rerunning only failed Playwright tests")
+                print("PLAYWRIGHT LAST-FAILED MODE: Skipping pytest, rerunning only failed Playwright tests")
+                print("=" * 80 + "\n")
+
+            if self.config.playwright_only:
+                print("\n" + "=" * 80)
+                print(
+                    "PLAYWRIGHT-ONLY MODE: Skipping pytest, running only Node.js Playwright tests (tests/playwright/)"
+                )
                 print("=" * 80 + "\n")
 
             # CRITICAL: Ensure directories exist BEFORE building command
@@ -2010,13 +2027,24 @@ Test Infrastructure:
     test-results/report_*.html
   - Progress indicators show category-by-category execution
 
+UI Test Sections (the 'ui' test type has two independent sections):
+  Section 1 - Pytest: Python tests in tests/ui/ (e.g. test_ui_flows.py) using
+              pytest-playwright. Runs via pytest. This is the bulk of the wall time.
+  Section 2 - Node.js Playwright: TypeScript specs in tests/playwright/*.spec.ts
+              using the Node.js @playwright/test runner with allure-playwright reporter.
+              Totally separate runner, invoked via 'npx playwright test'.
+  By default 'run_tests.py ui' runs both sections sequentially. Use the flags below to
+  run them independently.
+
 Examples:
   python run_tests.py smoke                    # Quick health check (stateless, fast)
   python run_tests.py unit --fail-fast         # Unit tests (stateless, no containers)
   python run_tests.py integration              # Integration tests (auto-starts containers)
-  python run_tests.py ui                       # UI tests (excludes agent/workflow config mutation by default)
+  python run_tests.py ui                       # Full UI suite: both sections (pytest + Node.js Playwright)
+  python run_tests.py ui --skip-playwright-js          # Section 1 only: pytest tests/ui/ (skip Node.js specs)
+  python run_tests.py ui --playwright-only             # Section 2 only: Node.js tests/playwright/*.spec.ts (skip pytest)
+  python run_tests.py ui --playwright-last-failed      # Rerun only failed Node.js Playwright tests (skips pytest)
   python run_tests.py ui --include-agent-config-tests  # Include tests that mutate agent/workflow config
-  python run_tests.py ui --playwright-last-failed      # Rerun only failed Playwright tests (skips pytest)
   python run_tests.py all                      # Full suite (auto-starts containers)
   python run_tests.py --debug --verbose        # Debug mode with verbose output
   python run_tests.py --context localhost unit # Force localhost execution
@@ -2086,6 +2114,11 @@ Manual Container Management:
         help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; "
         "skip npx Playwright tests/playwright (saves most UI wall time)",
     )
+    parser.add_argument(
+        "--playwright-only",
+        action="store_true",
+        help="Run only the Node.js Playwright section (tests/playwright/*.spec.ts); skip pytest entirely",
+    )
     parser.add_argument("--skip-real-api", action="store_true", help="Skip real API tests")
 
     # Output and reporting
@@ -2146,6 +2179,7 @@ Manual Container Management:
                 include_slow=args.include_slow,
                 playwright_last_failed=args.playwright_last_failed,
                 skip_playwright_js=args.skip_playwright_js,
+                playwright_only=args.playwright_only,
                 config_file=args.config,
                 output_format=args.output_format,
                 fail_fast=args.fail_fast,

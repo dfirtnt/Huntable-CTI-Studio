@@ -33,12 +33,14 @@ python3 run_tests.py smoke
 python3 run_tests.py unit
 python3 run_tests.py api
 python3 run_tests.py integration
-python3 run_tests.py ui
+python3 run_tests.py ui                       # Both UI sections (pytest tests/ui/ + Node.js tests/playwright/)
+python3 run_tests.py ui --skip-playwright-js  # Section 1 only: pytest tests/ui/
+python3 run_tests.py ui --playwright-only     # Section 2 only: Node.js tests/playwright/*.spec.ts
 python3 run_tests.py e2e
 python3 run_tests.py all
 ```
 
-Use `run_tests.py` unless you have a very specific reason not to.
+Use `run_tests.py` unless you have a very specific reason not to. The `ui` type wraps two separate test runners (pytest-playwright for `tests/ui/`, `@playwright/test` for `tests/playwright/`) — see [docs/development/testing.md](../docs/development/testing.md) for the split.
 
 ## Suite Layout
 

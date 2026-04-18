@@ -37,8 +37,9 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
 
-  /* Local: use half of CPU cores; CI: 2 workers for faster runs (increase if stable). */
-  workers: process.env.CI ? 2 : undefined,
+  /* Local: cap at 4 workers to avoid macOS ENFILE (file table overflow) from allure-playwright
+   * writing many JSON results simultaneously. CI keeps 2 for stability. */
+  workers: process.env.CI ? 2 : 4,
   
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [

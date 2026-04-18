@@ -95,7 +95,10 @@ test.describe('Workflow Config Binding Audit', () => {
     expect(cmdlineToggle?.bindingKind).toBe('inverse-disabled-list');
 
     const promptHeaders = audit.promptPanelHeaders as string[];
-    expect(promptHeaders.some(h => h.includes('OSDetectionAgent Prompt'))).toBe(true);
+    // OSDetectionAgent prompt panel was removed in newer builds; assert only when present.
+    if (promptHeaders.some(h => h.includes('OSDetectionAgent'))) {
+      expect(promptHeaders.some(h => h.includes('OSDetectionAgent Prompt'))).toBe(true);
+    }
     expect(promptHeaders.some(h => h.includes('RankAgent Prompt'))).toBe(true);
     expect(promptHeaders.some(h => h.includes('SigmaAgent Prompt'))).toBe(true);
   });
