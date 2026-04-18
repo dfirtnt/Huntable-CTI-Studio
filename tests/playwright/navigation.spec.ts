@@ -28,19 +28,6 @@ test.describe('Cross-Page Navigation', () => {
     await expect(page).toHaveURL(/\/sources/);
   });
 
-  test('[NAV-003] Can navigate from Dashboard to Chat', async ({ page }) => {
-    await page.goto(`${BASE}/dashboard`);
-    await page.waitForLoadState('networkidle');
-    
-    const chatLink = page.locator('a[href*="/chat"]').first();
-    const hasChatLink = await chatLink.isVisible({ timeout: 5000 }).catch(() => false);
-    test.skip(!hasChatLink, 'Dashboard has no Chat link in current layout');
-    
-    await chatLink.click();
-    await page.waitForLoadState('networkidle');
-    await expect(page).toHaveURL(/\/chat/);
-  });
-
   test('[NAV-004] Can navigate from Sources to Article Detail', async ({ page, request }) => {
     await page.goto(`${BASE}/sources`);
     await page.waitForLoadState('networkidle');
@@ -62,29 +49,6 @@ test.describe('Cross-Page Navigation', () => {
       await page.waitForLoadState('networkidle');
       await expect(page).toHaveURL(/\/articles\/\d+/);
     }
-  });
-
-  test('[NAV-006] Can navigate from Article to Chat', async ({ page }) => {
-    await page.goto(`${BASE}/articles/1`);
-    await page.waitForLoadState('networkidle');
-    
-    const chatLink = page.locator('a[href*="/chat"]').first();
-    if (await chatLink.isVisible().catch(() => false)) {
-      await chatLink.click();
-      await page.waitForLoadState('networkidle');
-      await expect(page).toHaveURL(/\/chat/);
-    }
-  });
-
-  test('[NAV-007] Can navigate from Chat to Dashboard', async ({ page }) => {
-    await page.goto(`${BASE}/chat`);
-    await page.waitForLoadState('networkidle');
-    
-    const homeLink = page.locator('a[href="/"], a[href*="/dashboard"]').first();
-    await homeLink.click();
-    
-    await page.waitForLoadState('networkidle');
-    await expect(page).toHaveURL(/(\/|dashboard)/);
   });
 
   test('[NAV-008] Can navigate to Settings from any page', async ({ page }) => {

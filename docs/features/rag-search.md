@@ -1,207 +1,62 @@
-# RAG (Retrieval-Augmented Generation) System
+# Retrieval: Semantic Search and MCP
 
-## Overview
+Huntable CTI Studio indexes articles and Sigma rules as dense vectors and exposes retrieval two ways:
 
-Huntable CTI Studio implements a comprehensive RAG system that combines semantic search with LLM-powered response generation to provide intelligent threat intelligence analysis through conversational AI.
+- The in-app **semantic search** page (`/search`)
+- The **Huntable MCP server**, which any MCP-capable client (Claude Desktop, Cursor, etc.) can drive for conversational retrieval
 
-## Architecture
+The previous in-app RAG Chat UI was removed in v5.5.0. Conversational retrieval has moved to MCP.
 
-### Core Components
+## Core components
 
 1. **Embedding Service** (`src/services/embedding_service.py`)
-   - **Model**: Sentence Transformers `all-mpnet-base-v2` (768-dimensional vectors)
-   - **Device**: CUDA if available, else CPU
-   - **Enriched Text**: Combines title, source, summary, tags, content
-   - **Batch Processing**: Supports batch embedding generation
+   - Model: Sentence Transformers `all-mpnet-base-v2` (768-dimensional)
+   - Device: CUDA if available, else CPU
+   - Enriched text: title + source + summary + tags + content
 
 2. **Vector Storage** (`src/database/models.py`)
-   - **Articles Table**: `embedding` column (Vector(768)) with pgvector index
-   - **Annotations Table**: `embedding` column for chunk-level search
-   - **Model Tracking**: `embedding_model` field for version control
+   - `articles.embedding` — `Vector(768)` with pgvector index
+   - `article_annotations.embedding` — chunk-level
+   - `sigma_rules.embedding` — rule-level
+   - `embedding_model` column tracks the model that produced each vector
 
 3. **RAG Service** (`src/services/rag_service.py`)
-   - **Dual Search**: Article-level + chunk-level retrieval
-   - **Similarity**: Cosine similarity using pgvector `<=>` operator (used for RAG retrieval)
-   - **Chunk Strategy**: Uses `article_annotations` table for fine-grained retrieval
+   - Dual search: article-level + chunk-level
+   - Cosine similarity via pgvector `<=>`
+   - Used by:
+     - Web semantic search at `/search` (`src/web/routes/search.py`)
+     - MCP tools: `search_articles`, `search_articles_by_keywords`, `search_unified`, `search_sigma_rules` (`src/huntable_mcp/tools/`)
+     - CLI: `./run_cli.sh embed stats | similar` (`src/cli/commands/embed.py`)
+     - Agentic workflow (`src/workflows/agentic_workflow.py`)
 
-Note: RAG sigma retrieval uses embeddings (cosine similarity via pgvector) to find rules relevant to user queries. For workflow duplicate detection (comparing generated rules to SigmaHQ), the system uses a behavioral novelty engine: when `sigma_semantic_similarity` is installed, a deterministic engine (Jaccard × Containment − Filter); otherwise legacy (Atom Jaccard 70% + Logic Shape Similarity 30%). Cosine similarity is not used for workflow duplicate ranking.
+4. **Sigma similarity / novelty**
+   - Workflow duplicate detection uses the behavioral novelty engine (Jaccard × Containment − Filter when `sigma_semantic_similarity` is installed; legacy Atom/Logic-shape scoring otherwise).
+   - Cosine similarity is used for **rule retrieval**, not workflow duplicate ranking.
 
-4. **LLM Generation Service** (`src/services/llm_generation_service.py`)
-   - **Multi-Provider**: OpenAI, Anthropic Claude, LMStudio (local)
-   - **Auto-Selection**: Automatically chooses best available provider
-   - **Fallback**: Graceful degradation to template responses
-   - **Context Management**: Conversation history integration
+## Using MCP for conversational retrieval
 
-5. **API Endpoint** (`src/web/routes/chat.py`)
-   - **Endpoint**: `POST /api/chat/rag`
-   - **Parameters**: Message, conversation history, LLM provider selection
-   - **Response**: Synthesized analysis with source citations and a **capabilities** block (`article_retrieval`, `sigma_retrieval`, `llm_generation`) indicating what is currently available and why (e.g. Sigma retrieval disabled until embeddings are indexed)
+Point an MCP-capable client at the Huntable MCP server. See [MCP tools reference](../reference/mcp-tools.md).
 
-## Features
+Available tools (non-exhaustive):
 
-### Conversational AI
-- **Multi-Turn Conversations**: Maintains context across multiple exchanges
-- **Context Memory**: Last 4 conversation turns used for LLM context
-- **Follow-Up Questions**: Natural conversation flow with reference resolution
+| Tool | Purpose |
+|---|---|
+| `search_articles` | Natural-language article search |
+| `search_articles_by_keywords` | Boolean/keyword article search |
+| `search_unified` | Cross-source retrieval (articles + Sigma) |
+| `search_sigma_rules` | Sigma rule retrieval by query |
+| `get_article` / `get_sigma_rule` | Fetch by ID |
+| `get_stats` | Embedding coverage stats |
 
-### Multi-Provider LLM Support
-- **OpenAI**: Primary provider for high-quality analysis
-- **Anthropic Claude**: Alternative provider with different strengths
-- **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
-- **Template Fallback**: Structured responses when LLM unavailable
+## Indexing
 
-### Capability visibility
-- **Response metadata**: Every RAG response includes a `capabilities` block so clients can distinguish "no matches" from "feature unavailable".
-- **UI warnings**: The RAG chat page shows banners when Sigma rule search or LLM generation is disabled, with suggested actions (e.g. run `sigma index-embeddings`, set API key). Status is also shown at setup/start via `capabilities check`.
-
-### Semantic Search
-- **Vector Similarity**: 768-dimensional embeddings for semantic matching
-- **Hybrid Retrieval**: Both article-level and chunk-level search
-- **Configurable Thresholds**: Adjustable similarity thresholds
-- **Source Attribution**: All responses include source citations
-
-### Response Synthesis
-- **Professional Format**: Structured threat intelligence analysis
-- **Actionable Recommendations**: Specific security guidance
-- **Source Integration**: Seamless incorporation of retrieved content
-- **Confidence Scoring**: Relevance scores for all sources
-
-## Usage
-
-### API Request
-```json
-{
-  "message": "What are the latest ransomware threats?",
-  "conversation_history": [
-    {
-      "role": "user",
-      "content": "Previous question",
-      "timestamp": "2025-01-23T00:00:00Z"
-    }
-  ],
-  "use_llm_generation": true,
-  "llm_provider": "auto",
-  "max_results": 10,
-  "similarity_threshold": 0.3,
-  "use_chunks": false,
-  "context_length": 2000,
-  "include_sigma_rules": true,
-  "llm_model": "gpt-4o"
-}
-```
-
-### API Response
-```json
-{
-  "response": "Synthesized threat intelligence analysis...",
-  "conversation_history": [...],
-  "relevant_articles": [...],
-  "relevant_rules": [...],
-  "total_results": 5,
-  "total_rules": 42,
-  "llm_provider": "openai",
-  "llm_model_name": "gpt-4o",
-  "use_llm_generation": true,
-  "timestamp": "2025-01-23T00:00:00Z",
-  "capabilities": {
-    "article_retrieval": { "enabled": true, "reason": "..." },
-    "sigma_retrieval": { "enabled": false, "reason": "No Sigma embeddings", "action": "Run sigma index-embeddings to enable Sigma rule retrieval in RAG" },
-    "llm_generation": { "enabled": true, "reason": "..." }
-  }
-}
-```
-
-The **capabilities** block reflects current feature availability. The Web UI uses it to show warning banners when Sigma rule search or LLM generation is unavailable and displays the suggested **action** (e.g. run `sigma index-embeddings` or set an API key).
-
-## Configuration
-
-### Environment Variables
-- `OPENAI_API_KEY`: OpenAI API key
-- `ANTHROPIC_API_KEY`: Anthropic API key for Claude access
-
-### Frontend Configuration
-- **LLM Provider Selection**: Dropdown to choose provider
-- **LLM Synthesis Toggle**: Enable/disable LLM generation
-- **Similarity Threshold**: Adjust search precision
-- **Max Results**: Control response length
-
-## System Prompt
-
-The RAG system uses the **Huntable Analyst** prompt for detection-focused threat intelligence analysis:
+Run once after setup, then again whenever Sigma rules change:
 
 ```
-SYSTEM PROMPT — Huntable Analyst (RAG Chat Completion)
-
-You are **Huntable Analyst**, a Retrieval-Augmented Cyber Threat Intelligence assistant.  
-You analyze retrieved CTI article content to answer user questions about threat behavior, TTPs, and detection engineering.
-
-== Core Behavior ==
-1. Ground every statement in retrieved text. Never hallucinate.
-2. If retrieval lacks support, say: "No evidence found in retrieved articles."
-3. Extract technical signals: process names, command lines, registry paths, API calls, network indicators, telemetry types.
-4. Map behavior to MITRE ATT&CK techniques when possible.
-5. Provide detection insight: relevant Sysmon EventIDs, Windows Security events, or Sigma rule elements.
-6. Rate confidence as **High / Medium / Low** based on textual support.
-7. Write concisely—one short paragraph per section.
-
-== Output Template ==
-**Answer:** factual synthesis from retrieved sources.  
-**Evidence:** article titles or source IDs with one-line justification.  
-**Detection Notes:** Sigma-style cues (EventIDs, keywords, log sources).  
-**Confidence:** High / Medium / Low.  
-**If context insufficient:** say so and suggest refined query terms.
-
-== Conversation Memory ==
-- Assume model retains last ~6–8k tokens of dialogue.  
-- Re-reference prior context briefly when relevant.  
-- Stay consistent across turns; summarize only when asked.
+./run_cli.sh sigma index-embeddings
+./run_cli.sh embed stats
 ```
 
-## Performance
+## Embedding coverage API
 
-### Response Times
-- **Template Mode**: < 2 seconds
-- **OpenAI**: 3-5 seconds
-- **Anthropic Claude**: 4-6 seconds
-- **LMStudio (Local)**: Fully supported via LMStudio (see [LM Studio Integration](../llm/lmstudio.md))
-
-### Quality Metrics
-- **Relevance**: 60-95% similarity scores for retrieved content
-- **Synthesis**: Professional threat intelligence format
-- **Actionability**: Specific security recommendations
-- **Accuracy**: Source attribution with confidence scores
-
-## Troubleshooting
-
-### Common Issues
-1. **LLM Timeout**: Falls back to template responses
-2. **API Key Missing**: Uses template mode; set `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` (or use LM Studio). The RAG page shows a capability warning with an actionable message.
-3. **Sigma rule search unavailable**: The UI shows a banner when `sigma_retrieval` is disabled. Run `./run_cli.sh sigma index-metadata` then `./run_cli.sh sigma index-embeddings` to enable Sigma rule retrieval in RAG. Check status with `./run_cli.sh capabilities check`.
-4. **No Results**: Adjust similarity threshold or query
-5. **Slow Responses**: Check LLM provider status
-
-### Debugging
-- Check service logs: `docker-compose logs web`
-- Verify API keys: `docker-compose exec web env | grep API_KEY`
-- Check capability status: `./run_cli.sh capabilities check` or `capabilities check --json-output`
-- Test LLM providers individually
-- Monitor conversation history in database
-
-## MCP (external agents)
-
-The optional **huntable-cti-studio** MCP server exposes read-only semantic article search (`search_articles`, `search_unified`) and full-article fetch (`get_article` by **Article ID** from tool output — not list rank). See [MCP tools reference](../reference/mcp-tools.md).
-
-## Future Enhancements
-
-### Planned Features
-- **Streaming Responses**: Real-time response generation
-- **Custom Prompts**: User-defined analysis templates
-- **Advanced Chunking**: ML-based content segmentation
-- **Multi-Language Support**: Non-English threat intelligence
-- **Integration APIs**: External tool connectivity
-
-### Performance Optimizations
-- **Embedding Caching**: Reduce redundant computations
-- **Response Caching**: Cache common queries
-- **Batch Processing**: Multiple query optimization
-- **Model Quantization**: Faster local inference
+`GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by `/search`, CLI `embed stats`, and MCP `get_stats`.

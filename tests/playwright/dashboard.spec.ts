@@ -63,18 +63,6 @@ test.describe('Dashboard - Navigation', () => {
     await expect(page).toHaveURL(/\/articles/);
   });
 
-  test('[DASH-012] Can navigate to Chat from Dashboard', async ({ page }) => {
-    const chatLink = page.locator('a[href*="/chat"]').first();
-    const hasChatLink = await chatLink.isVisible().catch(() => false);
-    if (hasChatLink) {
-      await page.goto(`${BASE}/chat`);
-    } else {
-      await page.goto(`${BASE}/chat`);
-    }
-    await page.waitForLoadState('domcontentloaded');
-    await expect(page).toHaveURL(/\/chat/);
-  });
-
   test('[DASH-013] Can navigate to Settings from Dashboard', async ({ page }) => {
     await page.goto(`${BASE}/settings`);
     await page.waitForLoadState('domcontentloaded');

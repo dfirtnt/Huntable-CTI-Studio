@@ -688,29 +688,17 @@ main() {
         # Align with start.sh startup path: validate pgvector index shape first.
         startup_migrate_pgvector_indexes
 
-        # RAG decision: chat with CTI articles and link to relevant Sigma rules (only when interactive and not already deferred)
+        # Sigma embeddings: required for semantic search, similarity, and MCP retrieval.
+        # Prompt only in interactive mode when not already limited by environment.
         if [[ -z "$SKIP_SIGMA_INDEX" ]] && [[ "$NON_INTERACTIVE" != "true" ]]; then
             echo ""
-            print_header "RAG (Chat + Sigma Rules)"
-            echo -e "${CYAN}RAG lets you chat with CTI articles and get answers linked to relevant Sigma detection rules.${NC}"
+            print_header "Sigma Rule Embeddings"
+            echo -e "${CYAN}Embeddings power semantic search, similarity, and the Huntable MCP server.${NC}"
             echo "Setup can generate Sigma rule embeddings now (several minutes) or you can run it later."
             echo ""
-            if ! prompt_yes_no "Do you want RAG setup (chat with CTI articles and link to relevant Sigma rules)?" "yes"; then
+            if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run \"./run_cli.sh sigma index-embeddings\" later)" "yes"; then
                 SKIP_SIGMA_INDEX=1
-                RAG_DISABLED_BY_USER=1
-                startup_set_env_key ".env" "ENABLE_RAG" "0"
-                print_status "RAG disabled. RAG will not appear in the UI. To enable later: set ENABLE_RAG=1 in .env, run \"./run_cli.sh sigma index-embeddings\", then restart services."
-                print_status "Recreating web container to apply ENABLE_RAG=0..."
-                $DOCKER_COMPOSE_CMD up -d web
-            else
-                startup_set_env_key ".env" "ENABLE_RAG" "1"
-                print_status "Recreating web container to apply ENABLE_RAG=1..."
-                $DOCKER_COMPOSE_CMD up -d web
-                # Prompt: embeddings now or later?
-                if ! prompt_yes_no "Generate Sigma rule embeddings now? (takes several minutes; you can run \"./run_cli.sh sigma index-embeddings\" later)" "yes"; then
-                    SKIP_SIGMA_INDEX=1
-                    print_status "Skipping embeddings. Run \"./run_cli.sh sigma index-embeddings\" when ready."
-                fi
+                print_status "Skipping embeddings. Run \"./run_cli.sh sigma index-embeddings\" when ready."
             fi
         fi
 

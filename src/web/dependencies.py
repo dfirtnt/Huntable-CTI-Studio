@@ -26,17 +26,10 @@ ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
 DEFAULT_SOURCE_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
 
 
-# RAG UI: when ENABLE_RAG=0, /chat and RAG links are hidden (setup "No RAG" choice)
-def rag_enabled() -> bool:
-    raw = os.getenv("ENABLE_RAG", "1").strip().lower()
-    return raw not in ("0", "false", "no")
-
-
 # Template environment with custom filters
 templates = Jinja2Templates(directory="src/web/templates")
 templates.env.filters["highlight_keywords"] = highlight_keywords
 templates.env.filters["strftime"] = strftime_filter
-templates.env.globals["rag_enabled"] = rag_enabled()
 
 
 @lru_cache(maxsize=1)
@@ -52,7 +45,6 @@ __all__ = [
     "ENVIRONMENT",
     "DEFAULT_SOURCE_USER_AGENT",
     "logger",
-    "rag_enabled",
     "templates",
     "get_content_filter",
 ]
