@@ -440,3 +440,57 @@ class TestWorkflowConfigVersions:
         assert data.get("success") is True
         assert data["versions"] == []
         assert data["total"] == 0
+
+
+class TestWorkflowConfigValidation:
+    """Test workflow configuration validation endpoint."""
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_validate_config_endpoint_exists(self, async_client: httpx.AsyncClient):
+        """Test that the validate endpoint returns a proper response."""
+        response = await async_client.get("/api/workflow/config/validate")
+        assert response.status_code == 200
+
+        data = response.json()
+        assert isinstance(data, dict)
+        assert "issues" in data
+        assert isinstance(data["issues"], list)
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_validate_config_success(self, async_client: httpx.AsyncClient):
+        """Test validation passes for active config."""
+        response = await async_client.get("/api/workflow/config/validate")
+        assert response.status_code == 200
+
+        data = response.json()
+        # A valid config should have issues list (may be empty or contain items)
+        assert "issues" in data
+        assert isinstance(data["issues"], list)
+
+        # Each issue should have required structure
+        for issue in data["issues"]:
+            assert "level" in issue
+            assert "msg" in issue
+            assert issue["level"] in ("error", "warning")
+            assert isinstance(issue["msg"], str)
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_validate_config_issue_structure(self, async_client: httpx.AsyncClient):
+        """Test validation issues have proper structure."""
+        response = await async_client.get("/api/workflow/config/validate")
+        assert response.status_code == 200
+
+        data = response.json()
+        # If there are issues, verify structure
+        for issue in data.get("issues", []):
+            assert isinstance(issue, dict)
+            assert "level" in issue
+            assert "msg" in issue
+            # level must be error or warning
+            assert issue["level"] in ("error", "warning")

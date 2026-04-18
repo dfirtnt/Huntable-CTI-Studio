@@ -315,12 +315,13 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(1000)  # Wait for config to load
 
-        # Verify current config display exists
-        config_display = page.locator("#currentConfig")
+        # Verify config content panel exists (#currentConfig and #configDisplay were
+        # removed; the Operator Console uses #config-content and #workflowConfigForm)
+        config_display = page.locator("#config-content")
         expect(config_display).to_be_visible()
 
-        # Verify config display content area exists
-        config_content = page.locator("#configDisplay")
+        # Verify the config form wrapper exists
+        config_content = page.locator("#workflowConfigForm")
         expect(config_content).to_be_visible()
 
     @pytest.mark.ui
@@ -334,8 +335,8 @@ class TestWorkflowConfigurationTabGeneral:
         page.locator("#tab-config").click()
         page.wait_for_timeout(200)
 
-        # Find Reset button
-        reset_button = page.get_by_role("button", name="Reset", exact=True)
+        # Find Reset button by its onclick handler (more reliable than role+name)
+        reset_button = page.locator("button[onclick='loadConfig()']")
         expect(reset_button).to_be_visible()
 
     @pytest.mark.ui
@@ -505,12 +506,12 @@ class TestWorkflowConfigurationRankAgent:
         # Expand Rank Agent panel (Step 2: #s2)
         _open_operator_step(page, "s2")
 
-        # Find test button
-        test_button = page.get_by_role("button", name=re.compile(r"Test with .* ArticleID"))
+        # Find test button - uses "Test Rank Agent" label (SVG/emoji prefix varies)
+        test_button = page.get_by_role("button", name=re.compile(r"Test Rank Agent"))
         expect(test_button.first).to_be_visible()
 
         # Verify button has onclick handler
-        onclick_attr = test_button.get_attribute("onclick")
+        onclick_attr = test_button.first.get_attribute("onclick")
         assert "testRankAgent" in onclick_attr or "2155" in onclick_attr, "Button should call testRankAgent"
 
     @pytest.mark.ui
@@ -570,15 +571,16 @@ class TestWorkflowConfigurationRankAgent:
         # Expand Rank Agent panel (Step 2: #s2)
         _open_operator_step(page, "s2")
 
-        # Find QA toggle checkbox
+        # Find QA toggle checkbox -- it uses sr-only so is visually hidden;
+        # use to_be_attached() to verify it exists in the DOM, then interact
         qa_toggle = page.locator("#qa-rankagent")
-        expect(qa_toggle).to_be_visible()
+        expect(qa_toggle).to_be_attached()
 
         # Get initial state
         initial_checked = qa_toggle.is_checked()
 
-        # Toggle checkbox
-        qa_toggle.click()
+        # Toggle via the label wrapper so the click lands on the visible toggle div
+        page.locator("label:has(#qa-rankagent)").click()
         page.wait_for_timeout(300)
 
         # Verify state changed
@@ -604,7 +606,16 @@ class TestWorkflowConfigurationRankAgent:
         # Expand Rank Agent panel (Step 2: #s2)
         _open_operator_step(page, "s2")
 
-        # Find QA model dropdown
+        # The QA model dropdown is inside #rank-agent-qa-configs which is hidden until
+        # the QA toggle is enabled. Click the label wrapper to reveal the sub-panel.
+        qa_toggle = page.locator("#qa-rankagent")
+        if not qa_toggle.is_checked():
+            # Click the label that wraps the sr-only checkbox so the click lands on
+            # the visible toggle div rather than the 1px clipped input element
+            page.locator("label:has(#qa-rankagent)").click()
+            page.wait_for_timeout(300)
+
+        # Find QA model dropdown (now visible after enabling QA)
         qa_model_dropdown = page.locator("#rankqa-model")
         expect(qa_model_dropdown).to_be_visible()
         expect(qa_model_dropdown).to_have_attribute("name", "agent_models[RankAgentQA]")
@@ -1067,7 +1078,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_timeout(200)
 
         # Find Refresh button
-        refresh_button = page.locator("button:has-text('🔄 Refresh')").first
+        refresh_button = page.locator("button[onclick='refreshExecutions()']")
         expect(refresh_button).to_be_visible()
 
         # Verify onclick handler
@@ -1086,7 +1097,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_timeout(200)
 
         # Find Trigger Workflow button
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
+        trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
         expect(trigger_button).to_be_visible()
 
         # Click button
@@ -1110,7 +1121,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_timeout(200)
 
         # Find Trigger Stuck button
-        stuck_button = page.locator("button:has-text('⚡ Trigger Stuck')")
+        stuck_button = page.locator("#triggerStuckBtn")
         expect(stuck_button).to_be_visible()
 
         # Verify onclick handler
@@ -1129,7 +1140,7 @@ class TestWorkflowExecutionsTabActions:
         page.wait_for_timeout(200)
 
         # Find Cleanup Stale button
-        cleanup_button = page.locator("button:has-text('🧹 Cleanup Stale')")
+        cleanup_button = page.locator("button[onclick='cleanupStaleExecutions()']")
         expect(cleanup_button).to_be_visible()
 
         # Verify onclick handler
@@ -1515,7 +1526,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(200)
 
         # Click Trigger Workflow button
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
+        trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
         trigger_button.click()
         page.wait_for_timeout(200)
 
@@ -1536,7 +1547,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(200)
 
         # Open modal
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
+        trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
         trigger_button.click()
         page.wait_for_timeout(200)
 
@@ -1559,7 +1570,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(200)
 
         # Open modal
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
+        trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
         trigger_button.click()
         page.wait_for_timeout(200)
 
@@ -1587,7 +1598,7 @@ class TestWorkflowExecutionsTabTriggerModal:
         page.wait_for_timeout(200)
 
         # Open modal
-        trigger_button = page.locator("button:has-text('➕ Trigger Workflow')").first
+        trigger_button = page.locator("button[onclick*='showTriggerWorkflowModal']").first
         trigger_button.click()
         page.wait_for_timeout(200)
 
@@ -1614,8 +1625,8 @@ class TestWorkflowQueueTabActions:
         page.locator("#tab-queue").click()
         page.wait_for_timeout(200)
 
-        # Find Refresh button
-        refresh_button = page.locator("button:has-text('🔄 Refresh')").first
+        # Find Refresh button by onclick handler (buttons now use SVG icons, no emoji)
+        refresh_button = page.locator("button[onclick='loadQueue()']").first
         expect(refresh_button).to_be_visible()
 
         # Verify onclick handler
@@ -1690,10 +1701,12 @@ class TestWorkflowQueueTabModal:
         page.locator("#tab-queue").click()
         page.wait_for_timeout(1000)
 
-        # Verify table headers
+        # Verify table headers -- scope to queue tab to avoid matching the hidden
+        # executions table which also has Status/Created/Actions headers
+        queue_tab_content = page.locator("#tab-content-queue")
         headers = ["Rule ID", "Title", "Status", "Similarity", "Created", "Actions"]
         for header in headers:
-            header_element = page.locator(f"th:has-text('{header}')")
+            header_element = queue_tab_content.locator(f"th:has-text('{header}')")
             if header_element.count() > 0:
                 expect(header_element.first).to_be_visible()
 
@@ -1883,11 +1896,12 @@ class TestWorkflowConfigurationAdvanced:
         page.locator("#tab-config").click()
         page.wait_for_timeout(2000)  # Wait for config to load
 
-        # Verify config display is populated
-        config_display = page.locator("#configDisplay")
+        # Verify config content panel is populated (#configDisplay was removed;
+        # the Operator Console uses #config-content to host all step sections)
+        config_display = page.locator("#config-content")
         expect(config_display).to_be_visible()
 
-        # Verify config display has content
+        # Verify config content has rendered step sections
         config_text = config_display.text_content()
         assert config_text is not None and len(config_text) > 0, "Config display should show content"
 
@@ -1922,8 +1936,8 @@ class TestWorkflowConfigurationAdvanced:
         page.locator("#tab-config").click()
         page.wait_for_timeout(1000)
 
-        # Find Reset button
-        reset_button = page.get_by_role("button", name="Reset", exact=True)
+        # Find Reset button by its onclick handler (more reliable than role+name)
+        reset_button = page.locator("button[onclick='loadConfig()']")
         expect(reset_button).to_be_visible()
 
         # Verify onclick handler

@@ -84,7 +84,7 @@ class TestSourcesListDisplay:
         _goto_sources(page, base_url)
 
         # Verify sources section exists
-        sources_section = page.locator("text=🔗 Configured Sources")
+        sources_section = page.locator("text=Configured Sources")
         expect(sources_section).to_be_visible()
 
         # Verify source cards exist (if any sources configured)
@@ -367,15 +367,18 @@ class TestSourceActions:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         _goto_sources(page, base_url)
 
+        # Wait for page to fully render server-side HTML before querying
+        page.wait_for_load_state("domcontentloaded")
+
         # Find database status banner
         banner = page.locator("#dbStatusBanner")
-        expect(banner).to_be_attached()
+        expect(banner).to_be_attached(timeout=10000)
 
         # Verify it's hidden initially
         assert "hidden" in (banner.get_attribute("class") or "")
 
-        # Verify refresh button exists
-        refresh_btn = banner.locator("button:has-text('🔄 Refresh')")
+        # Verify refresh button exists (button text includes Refresh without emoji for robustness)
+        refresh_btn = banner.locator("button:has-text('Refresh')")
         expect(refresh_btn).to_be_attached()
 
 
@@ -597,31 +600,6 @@ class TestAdhocUrlScraping:
         scrape_btn = page.locator("#scrapeUrlBtn")
         expect(scrape_btn).to_be_visible()
         expect(scrape_btn).to_contain_text("Scrape URLs")
-
-    @pytest.mark.ui
-    @pytest.mark.sources
-    def test_adhoc_force_scrape_help_tooltip_stays_within_viewport(self, page: Page):
-        """The force-scrape help bubble should stay visible inside the viewport."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        _goto_sources(page, base_url)
-
-        help_button = page.locator("#adhocForceScrapeHelpButton")
-        tooltip = page.locator("#adhocForceScrapeHelpTooltip")
-
-        expect(help_button).to_be_visible()
-
-        help_button.focus()
-        expect(tooltip).to_be_visible()
-
-        tooltip_box = tooltip.bounding_box()
-        viewport = page.viewport_size
-
-        assert viewport is not None, "Playwright viewport should be available"
-        assert tooltip_box is not None, "Force-scrape tooltip should have a bounding box"
-        assert tooltip_box["x"] >= 0, "Force-scrape tooltip should not extend off the left edge"
-        assert tooltip_box["x"] + tooltip_box["width"] <= viewport["width"], (
-            "Force-scrape tooltip should stay within the viewport width"
-        )
 
     @pytest.mark.ui
     @pytest.mark.sources

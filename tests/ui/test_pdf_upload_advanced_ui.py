@@ -5,6 +5,7 @@ Tests multiple upload, progress, queue, validation, cancellation, and related fe
 
 import json
 import os
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -25,7 +26,7 @@ class TestPDFUploadPageLoad:
         expect(page).to_have_title("PDF Upload - Huntable CTI Studio")
 
         # Verify main heading
-        heading = page.locator("h1:has-text('📄 Upload PDF Report')").first
+        heading = page.locator("h1:has-text('Upload PDF Report')").first
         expect(heading).to_be_visible()
 
     @pytest.mark.ui
@@ -117,7 +118,7 @@ class TestPDFUploadProgress:
         # Upload status exists but is hidden by default (display:none via hidden class)
         upload_status = page.locator("#upload-status")
         expect(upload_status).not_to_be_visible()
-        expect(upload_status).to_have_class("hidden")
+        expect(upload_status).to_have_class(re.compile(r"\bhidden\b"))
 
     @pytest.mark.ui
     @pytest.mark.pdf_upload
@@ -142,7 +143,7 @@ class TestPDFUploadProgress:
         # Success div exists but is hidden by default (display:none via hidden class)
         upload_success = page.locator("#upload-success")
         expect(upload_success).not_to_be_visible()
-        expect(upload_success).to_have_class("hidden")
+        expect(upload_success).to_have_class(re.compile(r"\bhidden\b"))
 
     @pytest.mark.ui
     @pytest.mark.pdf_upload
@@ -155,7 +156,7 @@ class TestPDFUploadProgress:
         # Error div exists but is hidden by default (display:none via hidden class)
         upload_error = page.locator("#upload-error")
         expect(upload_error).not_to_be_visible()
-        expect(upload_error).to_have_class("hidden")
+        expect(upload_error).to_have_class(re.compile(r"\bhidden\b"))
 
 
 class TestPDFUploadAPI:

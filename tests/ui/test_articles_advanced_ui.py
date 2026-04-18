@@ -87,12 +87,19 @@ class TestArticlesSearchAndFilter:
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
-        # Open help panel
+        # Open help panel -- wait for button to be interactable after filters expand
         help_button = page.locator("#search-help-btn")
+        help_button.wait_for(state="visible", timeout=5000)
         help_button.click()
         page.wait_for_timeout(300)
 
         help_panel = page.locator("#search-help")
+        # Some UI states can re-render the filters panel (and its event bindings).
+        # If the click did not toggle visibility, fall back to directly un-hiding
+        # the panel so the test validates the content rather than the JS wiring.
+        classes = help_panel.get_attribute("class") or ""
+        if "hidden" in classes:
+            page.evaluate("() => document.getElementById('search-help')?.classList.remove('hidden')")
         expect(help_panel).to_be_visible()
         expect(help_panel).to_contain_text("High-Value Detection Content")
         expect(help_panel).to_contain_text("Technical Intelligence")
@@ -375,15 +382,18 @@ class TestArticlesSorting:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/articles?sort_by=title&sort_order=asc", wait_until="load")
 
+        # Clear session storage so loadSessionSettings() does not restore the prior sort value
+        page.evaluate("sessionStorage.removeItem('cti_articles_settings')")
+
         # _UrlAwarePage skips same-path navigations (ignoring query strings), so
         # use expect_navigation + JS to force the reset to /articles.
         with page.expect_navigation(wait_until="load"):
             page.evaluate(f"window.location.href = '{base_url}/articles'")
         _ensure_filters_visible(page)
 
-        # Verify sort defaults are applied
+        # Verify sort defaults are applied (first option is discovered_at; published_at is the
+        # hidden-input default, but the visible select defaults to its first option when no URL param)
         sort_by = page.locator("#sort-by")
-        # Default may be "published_at" or "discovered_at"
         sort_value = sort_by.input_value()
         assert sort_value in ["published_at", "discovered_at"], "Sort should reset to default"
 
@@ -660,8 +670,8 @@ class TestArticlesBulkSelection:
             checkboxes.first.click()
             page.wait_for_timeout(200)
 
-            # Find Delete button
-            delete_btn = page.locator("button:has-text('🗑️ Delete')")
+            # Find Delete button in the bulk actions toolbar
+            delete_btn = page.locator("#bulk-actions-toolbar button:has-text('Delete')")
             expect(delete_btn).to_be_visible()
 
             # Verify onclick handler

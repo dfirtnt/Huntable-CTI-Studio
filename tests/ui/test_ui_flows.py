@@ -349,10 +349,9 @@ class TestArticlesFlows:
         if first_article.count() > 0:
             first_article.click()
 
-            # Verify article detail page loads
+            # Verify article detail page loads (check headings present in article_detail.html)
             expect(page.locator("text=Article Content").first).to_be_visible()
-            expect(page.locator("text=Threat Hunting Analysis")).to_be_visible()
-            expect(page.locator("text=TTP Quality Assessment")).to_be_visible()
+            expect(page.locator("text=Article Metadata").first).to_be_visible()
 
             # Test back navigation
             page.click("text=Back to Articles")

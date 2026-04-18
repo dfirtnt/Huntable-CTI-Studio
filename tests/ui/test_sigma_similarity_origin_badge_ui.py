@@ -117,10 +117,12 @@ def test_similar_rule_detail_shows_repo_origin_badge(page: Page):
         else:
             route.continue_()
 
-    page.route("**/api/workflow/executions*", handle_route)
+    # Use ** to match sub-paths like /api/workflow/executions/88001 and /observables
+    page.route("**/api/workflow/executions**", handle_route)
+    page.route("**/api/workflow/config", handle_route)
 
     page.goto(f"{base_url}/workflow")
-    page.wait_for_load_state("load")
+    page.wait_for_load_state("networkidle")
 
     page_errors: list[str] = []
     console_msgs: list[str] = []

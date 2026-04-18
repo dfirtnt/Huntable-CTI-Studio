@@ -38,7 +38,7 @@ class TestHealthChecksPageLoad:
         page.wait_for_load_state("load")
 
         # Verify Quick Actions section exists (diags.html)
-        controls_section = page.locator("text=⚡ Quick Actions")
+        controls_section = page.locator("text=Quick Actions")
         expect(controls_section).to_be_visible()
 
         # Verify Run All Health Checks button exists (diags.html: only this button exists;
