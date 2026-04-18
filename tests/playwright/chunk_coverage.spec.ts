@@ -4,6 +4,10 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 const TEST_ARTICLE_ID = process.env.ARTICLE_ID || '2464';
 const SKIP_MODEL_TESTS = process.env.SKIP_MODEL_TESTS === 'true';
 
+// PRESERVE THESE TESTS: Validates chunking strategy used by both RAG chat and MCP search
+// Even after chat deprecation (commit 824bb79d), MCP depends on this chunking for:
+// - mcp.tools.articles.search_articles() via RAGService.find_similar_content()
+// - mcp.tools.sigma.search_sigma_rules() via RAGService.find_similar_sigma_rules()
 test.describe('Chunk Coverage Validation', () => {
   test.skip(SKIP_MODEL_TESTS, 'Chunk coverage tests disabled (SKIP_MODEL_TESTS=true).');
   test('API: Chunk debug endpoint should report no coverage gaps', async () => {

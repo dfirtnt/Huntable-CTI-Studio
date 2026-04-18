@@ -4,6 +4,10 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 const TEST_ARTICLE_ID = process.env.ARTICLE_ID;
 const SKIP_TESTS = process.env.SKIP_ARTICLE_TESTS === 'true';
 
+// Article detail page deprecated with RAG Chat UI removal (commit 824bb79d)
+// Articles remain accessible via MCP search_articles tool
+const SKIP_ARTICLE_DETAIL = true;
+
 async function resolveArticleId(requestContext: APIRequestContext): Promise<string | null> {
   if (TEST_ARTICLE_ID) return TEST_ARTICLE_ID;
   const resp = await requestContext.get('/api/articles?limit=1');
@@ -114,7 +118,7 @@ test.describe('Article Detail Page', () => {
 });
 
 test.describe('Article Detail - Annotations', () => {
-  test.skip(SKIP_TESTS, 'Article detail tests disabled.');
+  test.skip(SKIP_TESTS || SKIP_ARTICLE_DETAIL, 'Article detail page deprecated with RAG Chat UI (commit 824bb79d).');
 
   test('[ARTICLE-010] Annotations section is present', async ({ page }) => {
     const hasAnnotations = await page
@@ -135,7 +139,7 @@ test.describe('Article Detail - Annotations', () => {
 });
 
 test.describe('Article Detail - IoC Extraction', () => {
-  test.skip(SKIP_TESTS, 'Article detail tests disabled.');
+  test.skip(SKIP_TESTS || SKIP_ARTICLE_DETAIL, 'Article detail page deprecated with RAG Chat UI (commit 824bb79d).');
 
   test('[ARTICLE-020] Observables/IoCs section is present', async ({ page }) => {
     const hasIoCs = await page
@@ -164,7 +168,7 @@ test.describe('Article Detail - IoC Extraction', () => {
 });
 
 test.describe('Article List Page', () => {
-  test.skip(SKIP_TESTS, 'Article detail tests disabled.');
+  test.skip(SKIP_TESTS || SKIP_ARTICLE_DETAIL, 'Article detail page deprecated with RAG Chat UI (commit 824bb79d).');
 
   test('[ARTICLE-030] Articles list page loads', async ({ page }) => {
     await page.goto(`${BASE}/articles`);

@@ -4,6 +4,8 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 const SKIP_TESTS = process.env.SKIP_CHAT_TESTS === 'true';
 const LMSTUDIO_URL = process.env.LMSTUDIO_API_URL;
 
+// RAG Chat UI deprecated in commit 824bb79d (deprecate/rag-chat)
+// Conversational retrieval moved to Huntable MCP server
 test.describe('RAG Chat Page', () => {
   test.skip(SKIP_TESTS, 'Chat tests disabled (SKIP_CHAT_TESTS=true).');
 
@@ -43,7 +45,7 @@ test.describe('RAG Chat Page', () => {
 });
 
 test.describe('RAG Chat - Send Message', () => {
-  test.skip(SKIP_TESTS, 'Chat tests disabled.');
+  test.skip(SKIP_TESTS, 'RAG Chat UI deprecated (commit 824bb79d).');
 
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/chat`);
@@ -98,7 +100,7 @@ test.describe('RAG Chat - Send Message', () => {
 
 test.describe('RAG Chat - LLM Required Tests', () => {
   test.skip(!LMSTUDIO_URL, 'LMSTUDIO_API_URL not set - skipping LLM-dependent tests');
-  test.skip(SKIP_TESTS, 'Chat tests disabled.');
+  test.skip(SKIP_TESTS, 'RAG Chat UI deprecated (commit 824bb79d).');
 
   test('[CHAT-020] Sending message shows response', async ({ page }) => {
     const input = page.locator('#rag-chat-container textarea').first();
@@ -128,7 +130,7 @@ test.describe('RAG Chat - LLM Required Tests', () => {
 });
 
 test.describe('RAG Chat - Clear Conversation', () => {
-  test.skip(SKIP_TESTS, 'Chat tests disabled.');
+  test.skip(SKIP_TESTS, 'RAG Chat UI deprecated (commit 824bb79d).');
 
   test.beforeEach(async ({ page }) => {
     await page.goto(`${BASE}/chat`);
@@ -153,7 +155,7 @@ test.describe('RAG Chat - Clear Conversation', () => {
 });
 
 test.describe('RAG Chat - Presets', () => {
-  test.skip(SKIP_TESTS, 'Chat tests disabled.');
+  test.skip(SKIP_TESTS, 'RAG Chat UI deprecated (commit 824bb79d).');
 
   test('[CHAT-040] Chat presets are available', async ({ page }) => {
     const presets = page.locator('[data-testid="chat-presets"], .presets, button:has-text("Preset")');
