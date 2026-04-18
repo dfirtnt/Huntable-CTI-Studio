@@ -366,8 +366,8 @@ class TestInteractionPerformance:
         page.goto(f"{base_url}/")
         page.wait_for_load_state("load")
 
-        # Find a button
-        buttons = page.locator("button")
+        # Find a visible button (exclude mobile nav buttons)
+        buttons = page.locator("button:visible")
         if buttons.count() > 0:
             button = buttons.first
 

@@ -818,12 +818,6 @@ def pytest_collection_modifyitems(config, items):
             f"{', '.join(primary_markers)}.\n{details}"
         )
 
-    # Skip performance tests if not enabled
-    if os.getenv("PERFORMANCE_TEST_ENABLED", "false").lower() != "true":
-        for item in items:
-            if "performance" in item.keywords:
-                item.add_marker(pytest.mark.skip(reason="Performance tests disabled"))
-
     # Skip integration tests if not enabled
     if os.getenv("INTEGRATION_TEST_ENABLED", "true").lower() != "true":
         for item in items:
