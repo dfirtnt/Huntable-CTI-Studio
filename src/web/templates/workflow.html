@@ -422,12 +422,14 @@
 #prompt-expanded-overlay {
   display: none; position: fixed; inset: 0; z-index: 200;
   background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
-  align-items: stretch; justify-content: center; padding: 32px 48px;
+  align-items: flex-start; justify-content: center; padding: 16px;
+  overflow-y: auto;
 }
 #prompt-expanded-overlay.visible { display: flex; }
 #prompt-expanded-panel {
   background: var(--panel-bg-1); border: 1px solid rgba(139,92,246,0.2); border-radius: 10px;
-  width: 100%; max-width: 1000px; display: flex; flex-direction: column; overflow: hidden; margin: auto;
+  width: 96vw; max-width: 1400px; max-height: 92vh;
+  display: flex; flex-direction: column; overflow: hidden; margin: auto;
 }
 #prompt-expanded-panel .prompt-exp-header {
   background: var(--panel-header); padding: 12px 20px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
@@ -435,10 +437,13 @@
 #prompt-expanded-panel .prompt-exp-body { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; overflow-y: auto; }
 #prompt-expanded-panel .prompt-exp-body > div { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 #prompt-expanded-panel textarea {
-  width: 100%; flex: 1; background: var(--panel-bg-0); color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;
-  font-size: 14px; line-height: 1.6; padding: 16px; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; resize: none; outline: none; min-height: 150px;
+  width: 100%; flex: 0 0 auto; background: var(--panel-bg-0); color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; line-height: 1.6; padding: 16px; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; resize: vertical; outline: none;
+  min-height: 160px; max-height: 70vh;
   box-sizing: border-box;
 }
+#prompt-exp-system { height: 36vh; }
+#prompt-exp-user { height: 24vh; }
 #prompt-expanded-panel textarea:focus { border-color: var(--purple-primary); }
 #prompt-expanded-panel .prompt-exp-footer {
   background: var(--panel-bg-3); padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;
@@ -1690,7 +1695,7 @@
                   <span class="step-badge">STEP 2</span>
                   <span class="section-title">Rank Agent</span>
                   <span id="rank-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
-                  <span id="rank-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
+                  <span id="rank-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300">QA: OFF</span>
                   <span class="section-meta">rank-agent · threshold · qa</span>
                   <span class="section-chevron">▼</span>
                 </div>
@@ -1865,7 +1870,7 @@
                           <span class="sa-title">CmdlineExtract</span>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Command Line Extraction</span>
                           <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
-                          <span id="cmdlineextract-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
                           <span class="sa-chevron ml-2">▼</span>
                         </div>
                         <div id="sa-cmdline-body" class="sa-body space-y-3">
@@ -1949,7 +1954,7 @@
                               <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div>
                             </label>
                           </div>
-                          <!-- CmdlineQA sub-panel -->
+                          <!-- CmdLineQA sub-panel -->
                           <div id="cmdlineextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">CmdLine QA Model Provider
                               <button type="button" onclick="showHelp('cmdlineQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
@@ -1987,9 +1992,9 @@
                       <div id="sa-proctree" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-proctree-body" onclick="toggleSA('sa-proctree')">
                           <span class="sa-title">ProcTreeExtract</span>
-                          <span class="text-xs text-gray-500 dark:text-gray-400">Process Lineage</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Process Lineage Extraction</span>
                           <span id="proctreeextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
-                          <span id="proctreeextract-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
                           <span class="sa-chevron ml-2">▼</span>
                         </div>
                         <div id="sa-proctree-body" class="sa-body space-y-3">
@@ -2025,10 +2030,12 @@
                           <div id="proctreeextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
                             <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ProcTreeExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
-                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-proctreeextract" name="qa_enabled[ProcTreeExtract]" class="sr-only peer" onchange="updateQABadge('proctreeextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50"></div></label>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-proctreeextract" name="qa_enabled[ProcTreeExtract]" class="sr-only peer" onchange="updateQABadge('proctreeextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="proctreeextract-agent-qa-configs" class="hidden space-y-2">
-                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">ProcTree QA Model Provider</label>
+                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">ProcTree QA Model Provider
+                              <button type="button" onclick="showHelp('procTreeQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+                            </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
                                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
@@ -2059,9 +2066,9 @@
                       <div id="sa-huntqueries" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-huntqueries-body" onclick="toggleSA('sa-huntqueries')">
                           <span class="sa-title">HuntQueriesExtract</span>
-                          <span class="text-xs text-gray-500 dark:text-gray-400">Hunt Queries</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Hunt Queries Extraction</span>
                           <span id="huntqueriesextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
-                          <span id="huntqueriesextract-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span id="huntqueriesextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
                           <span class="sa-chevron ml-2">▼</span>
                         </div>
                         <div id="sa-huntqueries-body" class="sa-body space-y-3">
@@ -2094,10 +2101,12 @@
                           <div id="huntqueriesextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
                             <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueriesExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
-                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-huntqueriesextract" name="qa_enabled[HuntQueriesExtract]" class="sr-only peer" onchange="updateQABadge('huntqueriesextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50"></div></label>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-huntqueriesextract" name="qa_enabled[HuntQueriesExtract]" class="sr-only peer" onchange="updateQABadge('huntqueriesextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="huntqueriesextract-agent-qa-configs" class="hidden space-y-2">
-                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueries QA Model Provider</label>
+                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueries QA Model Provider
+                              <button type="button" onclick="showHelp('huntQueriesQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+                            </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
                                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
@@ -2128,9 +2137,9 @@
                       <div id="sa-registry" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-registry-body" onclick="toggleSA('sa-registry')">
                           <span class="sa-title">RegistryExtract</span>
-                          <span class="text-xs text-gray-500 dark:text-gray-400">Registry Artifacts</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Registry Artifacts Extraction</span>
                           <span id="registryextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
-                          <span id="registryextract-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span id="registryextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
                           <span class="sa-chevron ml-2">▼</span>
                         </div>
                         <div id="sa-registry-body" class="sa-body space-y-3">
@@ -2166,10 +2175,12 @@
                           <div id="registryextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
                             <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">RegistryExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
-                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-registryextract" name="qa_enabled[RegistryExtract]" class="sr-only peer" onchange="updateQABadge('registryextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50"></div></label>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-registryextract" name="qa_enabled[RegistryExtract]" class="sr-only peer" onchange="updateQABadge('registryextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="registryextract-agent-qa-configs" class="hidden space-y-2">
-                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Registry QA Model Provider</label>
+                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">Registry QA Model Provider
+                              <button type="button" onclick="showHelp('registryQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+                            </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
                                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
@@ -2200,10 +2211,10 @@
                       <div id="sa-services" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-services-body" onclick="toggleSA('sa-services')">
                           <span class="sa-title">ServicesExtract</span>
-                          <span class="text-xs text-gray-500 dark:text-gray-400">Windows Services</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Windows Services Extraction</span>
                           <span id="servicesextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
-                          <span id="servicesextract-agent-qa-badge" class="px-2 py-0.5 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
-                          <span class="sa-chevron ml-2">&#9660;</span>
+                          <span id="servicesextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span class="sa-chevron ml-2">▼</span>
                         </div>
                         <div id="sa-services-body" class="sa-body space-y-3">
                           <div class="flex items-center justify-between">
@@ -2238,10 +2249,12 @@
                           <div id="servicesextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
                             <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ServicesExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
-                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-servicesextract" name="qa_enabled[ServicesExtract]" class="sr-only peer" onchange="updateQABadge('servicesextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50"></div></label>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-servicesextract" name="qa_enabled[ServicesExtract]" class="sr-only peer" onchange="updateQABadge('servicesextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="servicesextract-agent-qa-configs" class="hidden space-y-2">
-                            <label class="text-xs font-medium text-gray-700 dark:text-gray-300">Services QA Model Provider</label>
+                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">Services QA Model Provider
+                              <button type="button" onclick="showHelp('servicesQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+                            </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
                                 <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
@@ -2261,7 +2274,7 @@
                           </div>
                           <div id="servicesextract-agent-qa-prompt-container" class="hidden"></div>
                           <div class="flex gap-2 pt-1">
-                            <button type="button" onclick="const id = promptForArticleId(2156); if (id) testSubAgent('ServicesExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ServicesExtract</button>
+                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ServicesExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ServicesExtract</button>
                             <button type="button" onclick="saveSubAgentPreset('services')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
                             <button type="button" onclick="showConfigPresetListForScope('services')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
                           </div>
@@ -2377,6 +2390,12 @@
                     <button type="button" onclick="loadConfig(); document.getElementById('footer-overflow-menu').classList.add('hidden');" class="w-full text-left px-4 py-2 text-xs text-red-400 hover:bg-purple-600/10">Reset</button>
                   </div>
                 </div>
+                <!-- Validate All: hidden until notification rendering is verified for long output -->
+                <button type="button" id="validate-all-btn" onclick="validateAllConfig()"
+                  class="px-3 py-1.5 text-xs rounded"
+                  style="display: none; background: #ca8a04; color: white; cursor: pointer;">
+                  Validate All
+                </button>
                 <button type="submit" id="save-config-button" class="px-5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                   Save Configuration
                 </button>
@@ -2435,11 +2454,7 @@
         function openExpandedPromptEditor(agentName) {
           _expandedPromptAgent = agentName;
           const overlay = document.getElementById('prompt-expanded-overlay');
-          const displayNames = {
-            'RankAgent': 'Rank Agent', 'ExtractAgent': 'Extract Agent',
-            'SigmaAgent': 'SIGMA Generator Agent', 'OSDetectionAgent': 'OS Detection'
-          };
-          document.getElementById('prompt-exp-title').textContent = (displayNames[agentName] || agentName) + ' Prompt';
+          document.getElementById('prompt-exp-title').textContent = agentDisplayName(agentName) + ' Prompt';
 
           // Get current model info
           const agentId = agentName.toLowerCase().replace(/agent/g, 'agent');
@@ -2485,6 +2500,11 @@
           applyExpandedEditorMode(isEditing);
 
           updateExpandedCharCount();
+
+          const expSys = document.getElementById('prompt-exp-system');
+          const expUsr = document.getElementById('prompt-exp-user');
+          if (expSys) expSys.oninput = updateExpandedCharCount;
+          if (expUsr) expUsr.oninput = updateExpandedCharCount;
 
           overlay.classList.add('visible');
           document.getElementById('prompt-exp-system').focus();
@@ -2537,67 +2557,62 @@
         function saveExpandedPrompt() {
           if (!_expandedPromptAgent) return;
           const agentName = _expandedPromptAgent;
-          const prefix = agentName === 'RankAgent' ? 'rankagent' : agentName === 'ExtractAgent' ? 'extractagent' : agentName === 'SigmaAgent' ? 'sigmaagent' : agentName.toLowerCase();
 
-          // Skip user prompt write when the agent has a locked user scaffold
+          // Read directly from modal textareas -- no relay through inline panel needed.
+          // Previously this copied values to the inline {prefix}-prompt-system-2 textarea
+          // and called saveAgentPrompt2 after a 200ms setTimeout. That approach was brittle:
+          // if the inline agent card hadn't been rendered into edit mode yet (collapsed section,
+          // different tab, or slow render), the textarea lookup failed and the save silently
+          // aborted with "Prompt elements not found". Values are already in the modal -- use them.
+          const sysTA = document.getElementById('prompt-exp-system');
+          if (!sysTA) return;
+
+          // Gate: run validation before saving. Block on errors; warnings are allowed through.
+          const systemVal = (sysTA.value || '').trim();
+          const issues = _collectPromptIssues(agentName, systemVal);
+          const errors = issues.filter(function(i) { return i.level === 'error'; });
+          if (errors.length > 0) {
+            const resultDiv = document.getElementById('prompt-exp-validate-result');
+            if (resultDiv) _renderValidateResult(resultDiv, issues);
+            return;
+          }
+
           const userLocked = (typeof isLockedExtractorPrompt === 'function' && isLockedExtractorPrompt(agentName))
                           || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName));
+          const usrTA = document.getElementById('prompt-exp-user');
+          const userOverride = (!userLocked && usrTA) ? usrTA.value : null;
 
-          // Ensure we are in edit mode
-          const sysTextarea = document.getElementById(prefix + '-prompt-system-2');
-          if (!sysTextarea) {
-            // Not in edit mode -- trigger edit first
-            if (typeof editPrompt === 'function') editPrompt(agentName);
+          // Close modal first so UI feels immediately responsive; save runs async
+          closeExpandedPromptEditor();
+
+          if (typeof saveAgentPrompt2 === 'function') {
+            saveAgentPrompt2(agentName, { systemOverride: sysTA.value, userOverride: userOverride });
           }
-
-          // Wait briefly for edit mode to activate, then set values
-          setTimeout(() => {
-            const sysTA = document.getElementById(prefix + '-prompt-system-2');
-            const usrTA = document.getElementById(prefix + '-prompt-user-2');
-            if (sysTA) sysTA.value = document.getElementById('prompt-exp-system').value;
-            if (usrTA && !userLocked) usrTA.value = document.getElementById('prompt-exp-user').value;
-            // Trigger save
-            if (typeof saveAgentPrompt2 === 'function') saveAgentPrompt2(agentName);
-            closeExpandedPromptEditor();
-          }, 200);
         }
 
-        function validateExpandedPrompt() {
-          if (!_expandedPromptAgent) return;
-          const resultDiv = document.getElementById('prompt-exp-validate-result');
-          const sysTA = document.getElementById('prompt-exp-system');
-          if (!resultDiv || !sysTA) return;
+        // NOTE: _EXTRACTION_AGENTS, _TRACEABILITY_FIELDS, _SYSTEM_WARN_TOKENS, _INSTRUCTIONS_WARN_TOKENS
+        // are defined as local constants inside _collectPromptIssues() to avoid script-block ordering
+        // issues (EXTRACT_SUB_AGENTS and QA_AGENTS are defined in a later <script> block).
 
-          const issues = [];
-          const systemVal = (sysTA.value || '').trim();
-          // Only rule: system/role must not be empty (hard-fail at runtime if missing).
-          // User prompts are code-owned (locked templates) for every agent.
-          if (!systemVal) {
-            issues.push({ level: 'error', msg: 'System prompt (role) is empty. The agent will hard-fail at runtime.' });
-          }
-
-          // Render result using DOM methods (no user content as innerHTML)
+        function _renderValidateResult(resultDiv, issues) {
           resultDiv.textContent = '';
           resultDiv.style.display = '';
-
           if (issues.length === 0) {
             resultDiv.className = 'mt-2 px-3 py-2 rounded-md text-sm bg-green-50 border border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300';
             resultDiv.textContent = 'Validation passed. Prompt is ready to save.';
             return;
           }
-
           const errorCount = issues.filter(i => i.level === 'error').length;
+          const warnCount  = issues.filter(i => i.level === 'warn').length;
           resultDiv.className = errorCount > 0
             ? 'mt-2 px-3 py-2 rounded-md text-sm bg-red-50 border border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300'
             : 'mt-2 px-3 py-2 rounded-md text-sm bg-yellow-50 border border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300';
-
+          const parts = [];
+          if (errorCount) parts.push(errorCount + ' error' + (errorCount > 1 ? 's' : ''));
+          if (warnCount)  parts.push(warnCount  + ' warning' + (warnCount > 1 ? 's' : ''));
           const header = document.createElement('strong');
-          const label = errorCount > 0
-            ? errorCount + ' error' + (errorCount > 1 ? 's' : '')
-            : issues.filter(i => i.level === 'warn').length + ' warning' + (issues.filter(i => i.level === 'warn').length > 1 ? 's' : '');
-          header.textContent = 'Validation: ' + label;
+          header.textContent = 'Validation: ' + parts.join(', ');
           resultDiv.appendChild(header);
-
           const ul = document.createElement('ul');
           ul.className = 'mt-1 list-disc list-inside space-y-1';
           issues.forEach(function(issue) {
@@ -2606,6 +2621,210 @@
             ul.appendChild(li);
           });
           resultDiv.appendChild(ul);
+        }
+
+        /**
+         * Shared prompt validation logic used by both inline and expanded editors.
+         * Returns an array of {level: 'error'|'warn', msg: string} issues.
+         */
+        function _collectPromptIssues(agentName, systemVal) {
+          const issues = [];
+
+          // Local constants — defined here (not at module scope) because EXTRACT_SUB_AGENTS
+          // and QA_AGENTS are declared in a later <script> block and would be undefined at
+          // parse time of this block.
+          const _TRACEABILITY_FIELDS = ['value', 'source_evidence', 'extraction_justification', 'confidence_score'];
+          const _SYSTEM_WARN_TOKENS = [
+            ['LITERAL TEXT EXTRACTOR',    'ROLE block (sec 1)'],
+            ['sub-agent of ExtractAgent', 'ARCHITECTURE CONTEXT (sec 3)'],
+            ['Do NOT use prior knowledge','INPUT CONTRACT (sec 4)'],
+            ['Do NOT fetch',              'INPUT CONTRACT fetch rule (sec 4)'],
+            ['[ ]',                       'VERIFICATION CHECKLIST (sec 12)'],
+          ];
+          const _INSTRUCTIONS_WARN_TOKENS = [
+            ['ONLY valid JSON',   'JSON-only directive (sec 13)'],
+            ['When in doubt, OMIT','FINAL REMINDER (sec 16)'],
+            ['source_evidence',   'traceability field mention (sec 14)'],
+          ];
+
+          // All agents: system prompt must not be empty.
+          if (!systemVal) {
+            issues.push({ level: 'error', msg: 'System prompt is empty. The agent will hard-fail at runtime.' });
+            return issues;
+          }
+
+          if (typeof EXTRACT_SUB_AGENTS !== 'undefined' && EXTRACT_SUB_AGENTS.includes(agentName)) {
+            // Extraction sub-agents store a JSON object in the system textarea.
+            // Run the same hard-fail + warn-only checks as _validate_extraction_prompt_config
+            // in llm_service.py (extractor-standard.md).
+            let parsed;
+            try {
+              parsed = JSON.parse(systemVal);
+            } catch (e) {
+              issues.push({ level: 'error', msg: 'System prompt is not valid JSON. Cannot validate structure.' });
+              return issues;
+            }
+
+            // Hard fail: user_template must NOT be present (sec 5 note — code-owned scaffold).
+            if ('user_template' in parsed) {
+              issues.push({ level: 'error', msg: "'user_template' must not be present (Extractor Contract sec 5). The user scaffold is code-owned." });
+            }
+
+            // Hard fail: role/system must be non-empty (sec 1).
+            const roleContent = ((parsed.system || parsed.role) || '').trim();
+            if (!roleContent) {
+              issues.push({ level: 'error', msg: "Missing required 'role'/'system' key (Extractor Contract sec 1). Agent will hard-fail at runtime." });
+            }
+
+            // Hard fail: instructions must be non-empty (sec 2).
+            const instructions = (parsed.instructions || '').trim();
+            if (!instructions) {
+              issues.push({ level: 'error', msg: "Missing required 'instructions' key (Extractor Contract sec 2). Agent will hard-fail at runtime." });
+            }
+
+            // Hard fail: json_example must be present (sec 4).
+            if (parsed.json_example === undefined || parsed.json_example === null) {
+              issues.push({ level: 'error', msg: "Missing required 'json_example' key (Extractor Contract sec 4). Agent will hard-fail at runtime." });
+            } else {
+              // Hard fail: json_example must be valid JSON.
+              let parsedExample = null;
+              try {
+                parsedExample = typeof parsed.json_example === 'string'
+                  ? JSON.parse(parsed.json_example) : parsed.json_example;
+              } catch (e) {
+                issues.push({ level: 'error', msg: "'json_example' is not valid JSON (Extractor Contract sec 4)." });
+              }
+              // Hard fail: json_example items must have all traceability fields (sec 3-4).
+              if (parsedExample && typeof parsedExample === 'object') {
+                let items = null;
+                for (const v of Object.values(parsedExample)) {
+                  if (Array.isArray(v) && v.length > 0 && v[0] && typeof v[0] === 'object') {
+                    items = v; break;
+                  }
+                }
+                if (items) {
+                  const itemKeys = new Set(Object.keys(items[0]));
+                  const missing = _TRACEABILITY_FIELDS.filter(f => !itemKeys.has(f));
+                  if (missing.length > 0) {
+                    issues.push({ level: 'error', msg: "json_example items missing traceability fields: " + missing.join(', ') + " (Extractor Contract sec 3-4)." });
+                  }
+                }
+              }
+            }
+
+            // Warn-only: system/role content tokens (mirrors _SYSTEM_WARN_ONLY).
+            if (roleContent) {
+              _SYSTEM_WARN_TOKENS.forEach(function([token, label]) {
+                if (!roleContent.includes(token)) {
+                  issues.push({ level: 'warn', msg: "Role/system missing expected token for " + label + ": \"" + token + "\"" });
+                }
+              });
+            }
+
+            // Warn-only: instructions tokens (mirrors _INSTRUCTIONS_WARN_ONLY).
+            if (instructions) {
+              _INSTRUCTIONS_WARN_TOKENS.forEach(function([token, label]) {
+                if (!instructions.includes(token)) {
+                  issues.push({ level: 'warn', msg: "Instructions missing expected token for " + label + ": \"" + token + "\"" });
+                }
+              });
+            }
+          }
+
+          if (typeof QA_AGENTS !== 'undefined' && QA_AGENTS.includes(agentName)) {
+            let parsed;
+            try {
+              parsed = JSON.parse(systemVal);
+            } catch (e) {
+              issues.push({ level: 'error', msg: 'System prompt is not valid JSON. Cannot validate QA structure.' });
+              return issues;
+            }
+
+            // Hard fail: role/system must be non-empty.
+            const roleContent = ((parsed.system || parsed.role) || '').trim();
+            if (!roleContent) {
+              issues.push({ level: 'error', msg: "Missing required 'role'/'system' key. QA agent will hard-fail at runtime." });
+            }
+
+            // Hard fail: instructions must be non-empty.
+            const instructions = (parsed.instructions || '').trim();
+            if (!instructions) {
+              issues.push({ level: 'error', msg: "Missing required 'instructions' key. QA agent needs evaluation directives." });
+            }
+
+            // Hard fail: evaluation_criteria must be a non-empty array.
+            const criteria = parsed.evaluation_criteria;
+            if (!criteria || !Array.isArray(criteria) || criteria.length === 0) {
+              issues.push({ level: 'error', msg: "Missing or empty 'evaluation_criteria' (must be non-empty list). QA retry loop uses this as its grading rubric." });
+            }
+
+            // Warn: objective should be present.
+            if (!parsed.objective) {
+              issues.push({ level: 'warn', msg: "Missing 'objective' key. Will fall back to generic 'Verify extraction.' string." });
+            }
+          }
+          // Non-extraction, non-QA agents (RankAgent, SigmaAgent, ExtractAgent, OSDetectionFallback):
+          // If the prompt is JSON with a role/system key, validate it is non-empty.
+          // RankAgent hard-fails at runtime if JSON prompt has no system/role (PreprocessInvariantError).
+          // SigmaAgent falls back to a default but should still be flagged.
+          if (!(typeof EXTRACT_SUB_AGENTS !== 'undefined' && EXTRACT_SUB_AGENTS.includes(agentName)) && !(typeof QA_AGENTS !== 'undefined' && QA_AGENTS.includes(agentName))) {
+            let parsed = null;
+            try { parsed = JSON.parse(systemVal); } catch (_) { /* plain text prompt -- OK */ }
+            if (parsed && typeof parsed === 'object') {
+              const roleContent = ((parsed.system || parsed.role) || '').trim();
+              if (!roleContent) {
+                issues.push({ level: 'error', msg: "JSON prompt has empty 'system'/'role' key. Agent will fail or use a fallback at runtime." });
+              }
+              // Warn if the prompt looks like extraction JSON accidentally applied to a non-extraction agent
+              if ('json_example' in parsed || 'instructions' in parsed) {
+                const hasEmptyFields = (!parsed.instructions || parsed.instructions === '')
+                                    || (parsed.json_example === '{}' || parsed.json_example === '');
+                if (hasEmptyFields) {
+                  issues.push({ level: 'warn', msg: "Prompt contains extraction-style keys (json_example, instructions) with empty values. This may be a misconfigured preset." });
+                }
+              }
+            }
+          }
+
+          return issues;
+        }
+
+        async function validateAllConfig() {
+          const btn = document.getElementById('validate-all-btn');
+          if (btn) { btn.disabled = true; btn.textContent = 'Validating...'; }
+
+          try {
+            const resp = await fetch('/api/workflow/config/validate');
+            const data = await resp.json();
+            const issues = data.issues || [];
+
+            if (issues.length === 0) {
+              showNotification('Config validation passed. All agents, prompts, and thresholds are valid.', 'success');
+            } else {
+              const errorCount = issues.filter(function(i) { return i.level === 'error'; }).length;
+              const warnCount  = issues.filter(function(i) { return i.level === 'warn'; }).length;
+              const summary = [];
+              if (errorCount) summary.push(errorCount + ' error' + (errorCount > 1 ? 's' : ''));
+              if (warnCount)  summary.push(warnCount  + ' warning' + (warnCount > 1 ? 's' : ''));
+              const detail = issues.map(function(i) { return '[' + i.level.toUpperCase() + '] ' + i.msg; }).join('\n');
+              showNotification('Validation: ' + summary.join(', ') + '\n' + detail, 'error');
+            }
+          } catch (e) {
+            showNotification('Validation request failed: ' + e.message, 'error');
+          } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Validate All'; }
+          }
+        }
+
+        function validateExpandedPrompt() {
+          if (!_expandedPromptAgent) return;
+          const resultDiv = document.getElementById('prompt-exp-validate-result');
+          const sysTA = document.getElementById('prompt-exp-system');
+          if (!resultDiv || !sysTA) return;
+
+          const systemVal = (sysTA.value || '').trim();
+          const issues = _collectPromptIssues(_expandedPromptAgent, systemVal);
+          _renderValidateResult(resultDiv, issues);
         }
 
         // Update char count on input + close overflow menu on outside click + ESC closes expanded editor
@@ -2720,7 +2939,10 @@
             <span id="prompt-exp-title" class="text-sm font-semibold" style="color: var(--text-primary);"></span>
             <span id="prompt-exp-model" class="text-xs font-mono" style="color: var(--text-muted);"></span>
           </div>
-          <button onclick="closeExpandedPromptEditor()" class="btn-toggle"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4m0 5H4m5 0L4 4m11 5V4m0 5h5m-5 0l5-5M9 15v5m0-5H4m5 0l-5 5m11-5v5m0-5h5m-5 0l5 5"/></svg>Collapse</button>
+          <div class="flex items-center gap-2">
+            <button type="button" id="prompt-exp-edit-btn" onclick="editExpandedPrompt()" class="btn-toggle">Edit</button>
+            <button onclick="closeExpandedPromptEditor()" class="btn-toggle"><svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4m0 5H4m5 0L4 4m11 5V4m0 5h5m-5 0l5-5M9 15v5m0-5H4m5 0l-5 5m11-5v5m0-5h5m-5 0l5 5"/></svg>Collapse</button>
+          </div>
         </div>
         <div class="prompt-exp-body">
           <div>
@@ -2743,7 +2965,6 @@
           </div>
           <div class="flex items-center gap-2">
             <button type="button" onclick="closeExpandedPromptEditor()" class="px-3 py-1.5 text-xs rounded" style="background: var(--panel-bg-3); color: var(--text-secondary); cursor: pointer;">Cancel</button>
-            <button type="button" id="prompt-exp-edit-btn" onclick="editExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Edit</button>
             <button type="button" id="prompt-exp-validate-btn" onclick="validateExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: #ca8a04; color: white; cursor: pointer;">Validate</button>
             <button type="button" id="prompt-exp-save-btn" onclick="saveExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Save Prompt</button>
           </div>
@@ -3421,6 +3642,35 @@ END SYSTEM PROMPT</textarea>
 // Tab Management
 let currentTab = 'config';
 
+// ── Canonical agent display names (single source of truth for the UI) ──
+const AGENT_DISPLAY_NAMES = {
+    'RankAgent':          'Rank Agent',
+    'ExtractAgent':       'Extract Agent',
+    'SigmaAgent':         'SIGMA Agent',
+    'OSDetectionAgent':   'OS Detection',
+    'OSDetectionFallback':'OS Detection Fallback',
+    'CmdlineExtract':     'Command Line Extraction',
+    'ProcTreeExtract':    'Process Lineage Extraction',
+    'HuntQueriesExtract': 'Hunt Queries Extraction',
+    'RegistryExtract':    'Registry Artifacts Extraction',
+    'ServicesExtract':    'Windows Services Extraction',
+    'RankAgentQA':        'Rank Agent QA',
+    'CmdLineQA':          'CmdLine QA',
+    'ProcTreeQA':         'ProcTree QA',
+    'HuntQueriesQA':      'HuntQueries QA',
+    'RegistryQA':         'Registry QA',
+    'ServicesQA':         'Services QA',
+};
+function agentDisplayName(id) { return AGENT_DISPLAY_NAMES[id] || id; }
+
+// ── Canonical agent lists (single source of truth for JS) ──
+const EXTRACT_SUB_AGENTS = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'];
+const QA_AGENTS = ['RankAgentQA', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA'];
+const MAIN_AGENTS = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
+const ALL_CONFIG_AGENTS = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', ...EXTRACT_SUB_AGENTS, 'SigmaAgent'];
+// Pipeline display order (agents shown in the execution pipeline rail — excludes Registry/Services)
+const PIPELINE_AGENTS = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
+
 // Executions data - declared early to avoid "before initialization" errors
 let executions = [];
 let totalExecutions = 0;
@@ -3502,7 +3752,7 @@ let currentConfig = null;
 let isInitializing = true; // Flag to prevent autosave during page initialization
 let agentPrompts = {};
 let agentModels = {};
-const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'];
+const extractSubAgents = EXTRACT_SUB_AGENTS;
 let disabledExtractAgents = new Set();
 let autoSaveTimeout = null; // Debounce timer for autosave
 let autoSaveModelChangeTimeout = null; // Debounce timer for model-change autosave
@@ -4869,17 +5119,8 @@ function renderAgentModels() {
         return;
     }
     
-    const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'SigmaAgent'];
-    const agentLabels = {
-        'RankAgent': 'Rank Agent',
-        'OSDetectionAgent': 'OS Detection',
-        'ExtractAgent': 'Extract Agents',
-        'CmdlineExtract': 'CmdlineExtract (Command Line Extraction)',
-        'ProcTreeExtract': 'ProcTreeExtract (Process Lineage)',
-        'RegistryExtract': 'RegistryExtract (Registry Artifacts)',
-        'ServicesExtract': 'ServicesExtract (Windows Services)',
-        'SigmaAgent': 'Sigma Agent'
-    };
+    const agents = ALL_CONFIG_AGENTS;
+    const agentLabels = AGENT_DISPLAY_NAMES;
     
     container.innerHTML = agents.map(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
@@ -5700,6 +5941,208 @@ function getLockedUserTemplate(agentName) {
     return '';
 }
 
+// ── Effective-prompt preview ────────────────────────────────────────────────
+// Users can edit the system message, but the backend also appends a hard-coded
+// "user message" template (the LOCKED_*_USER_TEMPLATE constants above). This
+// preview shows the *full* message pair that will be sent to the LLM, with
+// {placeholders} highlighted so the user understands what gets filled in at
+// runtime. No backend call required — the templates are code-owned and live
+// right here in the JS.
+const EFFECTIVE_PROMPT_PLACEHOLDER_DOCS = {
+    title: 'Article title',
+    url: 'Article URL',
+    source: 'Article source (feed / publisher)',
+    content: 'Full article body text',
+    instructions: "Extraction instructions (from the agent's DB prompt config)",
+    prompt_config: 'Full ExtractAgent prompt config JSON (assembled from all configured extractors at runtime)',
+    observables_section: 'Optional "Observables" block — present only when behaviors were extracted upstream',
+    objective: 'QA task objective',
+    task: "The original extractor's task string",
+    extraction_instructions: "Paired extractor's instructions",
+    extraction_output_format: "Paired extractor's JSON output schema",
+    article_content: 'Full article body text (same as {content})',
+    extracted_commands: 'JSON output from the paired extractor',
+    evaluation_criteria: 'QA evaluation criteria'
+};
+
+function _effEscape(s) {
+    return (s == null ? '' : String(s)).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Only the user template is .format()-ed at runtime. The system message is
+// sent verbatim, so a string like "{payload}" in the system prose is literal
+// documentation (e.g. CmdlineExtract tells the LLM to ignore such patterns)
+// and must not be highlighted as a substitution.
+function _effHighlightPlaceholdersInUserTemplate(text) {
+    const escaped = _effEscape(text);
+    return escaped.replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (_m, name) => {
+        const doc = EFFECTIVE_PROMPT_PLACEHOLDER_DOCS[name] || 'Filled at runtime by the backend (unknown placeholder)';
+        return `<span class="eff-placeholder" data-ph="${_effEscape(name)}" title="${_effEscape(doc)}">{${_effEscape(name)}}</span>`;
+    });
+}
+
+function _effCollectUserPlaceholders(text) {
+    const seen = new Set();
+    (text || '').replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (_m, name) => { seen.add(name); return _m; });
+    return Array.from(seen);
+}
+
+function _effReadCurrentSystem(agentName) {
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const ta = document.getElementById(`${agentId}-prompt-system`)
+            || document.getElementById(`${agentId}-prompt-system-2`);
+    if (ta && typeof ta.value === 'string') return ta.value;
+    const promptData = (typeof agentPrompts !== 'undefined' && agentPrompts) ? agentPrompts[agentName] : null;
+    const raw = promptData ? (promptData.prompt || '') : '';
+    const parts = (typeof parsePromptParts === 'function') ? parsePromptParts(raw) : { system: raw, user: '' };
+    return parts.system || '';
+}
+
+function _effReadCurrentUserTemplate(agentName) {
+    // Locked (code-owned) template wins — that's what the backend actually
+    // concatenates before hitting the LLM. If the agent has no locked template,
+    // fall back to whatever the user has in the DB (editable user textarea).
+    const locked = getLockedUserTemplate(agentName);
+    if (locked) return { text: locked, source: 'locked' };
+    const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
+    const ta = document.getElementById(`${agentId}-prompt-user`)
+            || document.getElementById(`${agentId}-prompt-user-2`);
+    if (ta && typeof ta.value === 'string') return { text: ta.value, source: 'db' };
+    const promptData = (typeof agentPrompts !== 'undefined' && agentPrompts) ? agentPrompts[agentName] : null;
+    const raw = promptData ? (promptData.prompt || '') : '';
+    const parts = (typeof parsePromptParts === 'function') ? parsePromptParts(raw) : { system: '', user: raw };
+    return { text: parts.user || '', source: 'db' };
+}
+
+function showEffectivePrompt(agentName) {
+    const existing = document.getElementById('effectivePromptModal');
+    if (existing) existing.remove();
+
+    const system = _effReadCurrentSystem(agentName);
+    const userTpl = _effReadCurrentUserTemplate(agentName);
+    // Only the user template is .format()-ed at runtime — the system message
+    // is sent verbatim. Braces in the system prose (e.g. "{payload}" as an
+    // example pattern the LLM should ignore) are NOT substitutions.
+    const placeholders = _effCollectUserPlaceholders(userTpl.text);
+
+    const userSourceBadge = userTpl.source === 'locked'
+        ? '<span class="inline-block ml-2 px-2 py-0.5 text-[10px] rounded bg-amber-200 text-amber-900 font-semibold" title="This template is hard-coded in the backend and cannot be edited from the UI">LOCKED · code-owned</span>'
+        : '<span class="inline-block ml-2 px-2 py-0.5 text-[10px] rounded bg-green-200 text-green-900 font-semibold">editable · from DB</span>';
+
+    const placeholderLegendHtml = placeholders.length === 0
+        ? '<div class="text-xs text-gray-500 dark:text-gray-400">No placeholders detected — the prompt is sent verbatim.</div>'
+        : `<ul class="text-xs text-gray-700 dark:text-gray-300 space-y-1 list-none pl-0">${
+            placeholders.map(p => `<li><code class="px-1 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-pink-700 dark:text-pink-300">{${_effEscape(p)}}</code> → ${_effEscape(EFFECTIVE_PROMPT_PLACEHOLDER_DOCS[p] || 'Filled at runtime by the backend')}</li>`).join('')
+          }</ul>`;
+
+    const safeAgentAttr = _effEscape(agentName);
+
+    const modal = document.createElement('div');
+    modal.id = 'effectivePromptModal';
+    modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
+    modal.innerHTML = `
+      <style>
+        #effectivePromptModal .eff-placeholder {
+          background: rgba(236, 72, 153, 0.18);
+          color: #be185d;
+          border: 1px dashed rgba(236, 72, 153, 0.5);
+          border-radius: 3px;
+          padding: 0 2px;
+          font-weight: 600;
+        }
+        .dark #effectivePromptModal .eff-placeholder {
+          color: #f9a8d4;
+          background: rgba(236, 72, 153, 0.14);
+        }
+      </style>
+      <div class="relative top-10 mx-auto p-5 w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <h3 class="text-xl font-bold text-gray-900 dark:text-white">Effective Prompt: ${_effEscape(agentName)}</h3>
+            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">This is the complete message pair the backend sends to the model. Pink tokens like <code class="eff-placeholder">{title}</code> are filled at runtime.</p>
+          </div>
+          <button type="button" onclick="closeEffectivePromptModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300" aria-label="Close">✕</button>
+        </div>
+
+        <div class="mb-4 p-3 rounded-md border border-gray-700" style="background: var(--panel-bg-5, #111827);">
+          <div class="text-xs font-semibold mb-2 text-gray-200">Placeholders in this prompt</div>
+          ${placeholderLegendHtml}
+        </div>
+
+        <div class="space-y-4">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <span>System message</span>
+                <span class="inline-block px-2 py-0.5 text-[10px] rounded bg-blue-200 text-blue-900 font-semibold">editable · from DB</span>
+              </div>
+              <button type="button" onclick="copyEffectivePromptSection('eff-system-raw')" class="px-2 py-0.5 text-[11px] rounded bg-gray-600 hover:bg-gray-700 text-white">Copy</button>
+            </div>
+            <pre id="eff-system-raw" data-raw="${_effEscape(system || '')}" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${system ? _effEscape(system) : '<span class="italic text-gray-400">(empty)</span>'}</pre>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <span>User message template</span>
+                ${userSourceBadge}
+              </div>
+              <button type="button" onclick="copyEffectivePromptSection('eff-user-raw')" class="px-2 py-0.5 text-[11px] rounded bg-gray-600 hover:bg-gray-700 text-white">Copy</button>
+            </div>
+            <pre id="eff-user-raw" data-raw="${_effEscape(userTpl.text || '')}" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-green-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-[40vh] overflow-y-auto text-gray-800 dark:text-gray-200 leading-relaxed">${userTpl.text ? _effHighlightPlaceholdersInUserTemplate(userTpl.text) : '<span class="italic text-gray-400">(empty)</span>'}</pre>
+          </div>
+        </div>
+
+        <div class="mt-4 flex justify-end gap-2">
+          <button type="button" onclick="copyEffectivePromptJSON('${safeAgentAttr}')" class="px-3 py-1.5 text-xs rounded bg-indigo-600 hover:bg-indigo-700 text-white">Copy chat JSON</button>
+          <button type="button" onclick="closeEffectivePromptModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-200">Close</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', (e) => { if (e.target === modal) closeEffectivePromptModal(); });
+    const onEsc = (e) => {
+        if (e.key === 'Escape') {
+            closeEffectivePromptModal();
+            document.removeEventListener('keydown', onEsc);
+        }
+    };
+    document.addEventListener('keydown', onEsc);
+}
+
+function closeEffectivePromptModal() {
+    const m = document.getElementById('effectivePromptModal');
+    if (m) m.remove();
+}
+
+function copyEffectivePromptSection(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const text = el.getAttribute('data-raw') || el.textContent || '';
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+            () => { if (typeof showNotification === 'function') showNotification('Copied to clipboard', 'success'); },
+            () => { if (typeof showNotification === 'function') showNotification('Copy failed', 'error'); }
+        );
+    }
+}
+
+function copyEffectivePromptJSON(agentName) {
+    const system = _effReadCurrentSystem(agentName);
+    const userTpl = _effReadCurrentUserTemplate(agentName);
+    const payload = [
+        { role: 'system', content: system || '' },
+        { role: 'user', content: userTpl.text || '' }
+    ];
+    const text = JSON.stringify(payload, null, 2);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(
+            () => { if (typeof showNotification === 'function') showNotification('Chat JSON copied', 'success'); },
+            () => { if (typeof showNotification === 'function') showNotification('Copy failed', 'error'); }
+        );
+    }
+}
+
 // Global function to parse prompts into system/user parts
 function stripOuterCodeFence(rawPrompt) {
     const trimmed = (rawPrompt || '').trim();
@@ -5844,15 +6287,6 @@ function renderAgentPrompts() {
         return;
     }
     
-    // Display name mapping for agents
-    const agentDisplayNames = {
-        'QAAgent': 'QA Agent (CMD)',
-        'ExtractAgent': 'Extract Agents',
-        'RankAgent': 'Rank Agent',
-        'SigmaAgent': 'SIGMA Generator Agent',
-        'OSDetectionAgent': 'OS Detection'
-    };
-    
     container.innerHTML = Object.keys(agentPrompts).map(agentName => {
         const promptData = agentPrompts[agentName];
         const promptParts = parsePromptParts(promptData.prompt || '');
@@ -5860,7 +6294,7 @@ function renderAgentPrompts() {
         const model = promptData.model || 'Not configured';
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const isEditing = editingPrompts[agentName] || false;
-        const displayName = agentDisplayNames[agentName] || agentName;
+        const displayName = agentDisplayName(agentName);
         const panelId = `${agentId}-prompt-panel`;
         const isTemplateFormat = promptParts.isTemplateFormat;
         const templateData = promptParts.templateData || {};
@@ -5888,6 +6322,12 @@ function renderAgentPrompts() {
                                             class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                                         Cancel
                                     </button>
+                                    <button type="button" onclick="showEffectivePrompt('${agentName}')"
+                                            class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-md transition-colors"
+                                            style="display: none;"
+                                            title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
+                                        👁️ Effective Prompt
+                                    </button>
                                     <button type="button" onclick="validateAgentPrompt('${agentName}')"
                                             id="${agentId}-validate-btn"
                                             class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors">
@@ -5898,11 +6338,17 @@ function renderAgentPrompts() {
                                         Save
                                     </button>
                                 ` : `
-                                    <button onclick="showPromptHistory('${agentName}')" 
+                                    <button onclick="showPromptHistory('${agentName}')"
                                             class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
                                         📜 History
                                     </button>
-                                    <button onclick="editPrompt('${agentName}')" 
+                                    <button onclick="showEffectivePrompt('${agentName}')"
+                                            class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-md transition-colors"
+                                            style="display: none;"
+                                            title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
+                                        👁️ Effective Prompt
+                                    </button>
+                                    <button onclick="editPrompt('${agentName}')"
                                             class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
                                         ✏️ Edit
                                     </button>
@@ -5989,46 +6435,9 @@ function validateAgentPrompt(agentName) {
                         || document.getElementById(`${agentId}-prompt-system-2`);
     if (!resultDiv || !systemTextarea) return;
 
-    const issues = [];
     const systemVal = (systemTextarea.value || '').trim();
-
-    // Only rule: system/role must not be empty (hard-fail at runtime if missing).
-    // User prompts are code-owned (locked templates) for every agent, so there's
-    // nothing user-authored to validate on the user side.
-    if (!systemVal) {
-        issues.push({ level: 'error', msg: 'System prompt (role) is empty. The agent will hard-fail at runtime.' });
-    }
-
-    // Render result using DOM methods (no user content injected as HTML)
-    resultDiv.textContent = '';
-    resultDiv.classList.remove('hidden');
-
-    if (issues.length === 0) {
-        resultDiv.className = 'mt-2 px-3 py-2 rounded-md text-sm bg-green-50 border border-green-300 text-green-800 dark:bg-green-900/30 dark:border-green-700 dark:text-green-300';
-        resultDiv.textContent = 'Validation passed. Prompt is ready to save.';
-        return;
-    }
-
-    const errorCount = issues.filter(i => i.level === 'error').length;
-    resultDiv.className = errorCount > 0
-        ? 'mt-2 px-3 py-2 rounded-md text-sm bg-red-50 border border-red-300 text-red-800 dark:bg-red-900/30 dark:border-red-700 dark:text-red-300'
-        : 'mt-2 px-3 py-2 rounded-md text-sm bg-yellow-50 border border-yellow-300 text-yellow-800 dark:bg-yellow-900/30 dark:border-yellow-700 dark:text-yellow-300';
-
-    const header = document.createElement('strong');
-    const label = errorCount > 0
-        ? errorCount + ' error' + (errorCount > 1 ? 's' : '')
-        : issues.filter(i => i.level === 'warn').length + ' warning' + (issues.filter(i => i.level === 'warn').length > 1 ? 's' : '');
-    header.textContent = 'Validation: ' + label;
-    resultDiv.appendChild(header);
-
-    const ul = document.createElement('ul');
-    ul.className = 'mt-1 list-disc list-inside space-y-1';
-    issues.forEach(function(issue) {
-        const li = document.createElement('li');
-        li.textContent = '[' + issue.level.toUpperCase() + '] ' + issue.msg;
-        ul.appendChild(li);
-    });
-    resultDiv.appendChild(ul);
+    const issues = _collectPromptIssues(agentName, systemVal);
+    _renderValidateResult(resultDiv, issues);
 }
 
 function escapeHtml(text) {
@@ -8116,8 +8525,7 @@ async function performAutoSave() {
         
         // Collect QA enabled settings
         const qaEnabled = {};
-        const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'SigmaAgent'];
-        agents.forEach(agentName => {
+        ALL_CONFIG_AGENTS.forEach(agentName => {
             const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
             const checkbox = document.getElementById(`qa-${agentId}`);
             qaEnabled[agentName] = checkbox ? checkbox.checked : false;
@@ -8130,9 +8538,8 @@ async function performAutoSave() {
         }
         
         // Collect disabled extract agents
-        const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'];
         const disabledFromDOM = [];
-        extractSubAgents.forEach(agentName => {
+        EXTRACT_SUB_AGENTS.forEach(agentName => {
             const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
             if (checkbox && !checkbox.checked) {
                 disabledFromDOM.push(agentName);
@@ -8409,14 +8816,6 @@ async function loadAgentPrompts() {
 }
 
 function renderAgentPrompts() {
-    const agentDisplayNames = {
-        'QAAgent': 'QA Agent (CMD)',
-        'ExtractAgent': 'Extract Agents',
-        'RankAgent': 'Rank Agent',
-        'SigmaAgent': 'SIGMA Generator Agent',
-        'OSDetectionAgent': 'OS Detection'
-    };
-    
     // Render Rank Agent Prompt
     const rankPromptContainer = document.getElementById('rank-agent-prompt-container');
     if (rankPromptContainer) {
@@ -8596,7 +8995,7 @@ function getCurrentModelForAgent(agentName) {
     if (activeModel) return activeModel;
     
     // Sub-agent fallback: inherit ExtractAgent model when empty
-    const subAgentNames = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA'];
+    const subAgentNames = [...EXTRACT_SUB_AGENTS, ...QA_AGENTS.filter(n => n !== 'RankAgentQA')];
     if (subAgentNames.includes(agentName)) {
         const extractProvider = document.getElementById('extractagent-provider')?.value || getDefaultProvider();
         const extractModel = getActiveAgentModelValue('extractagent', extractProvider);
@@ -8666,7 +9065,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     const isLockedScaffoldAgent = isExtractionAgent || isLockedQAPrompt(agentName);
     
     return `
-        <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
+        <div id="${panelId}-root" class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">${escapeHtml(agentName)} Prompt</h4>
@@ -8692,6 +9091,12 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                                     Cancel
                                 </button>
+                                <button type="button" onclick="showEffectivePrompt('${agentName}')"
+                                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-md transition-colors"
+                                        style="display: none;"
+                                        title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
+                                    👁️ Effective Prompt
+                                </button>
                                 <button type="button" onclick="validateAgentPrompt('${agentName}')"
                                         class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors">
                                     Validate
@@ -8704,6 +9109,12 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                 <button type="button" onclick="showPromptHistory('${agentName}')"
                                         class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
                                     History
+                                </button>
+                                <button type="button" onclick="showEffectivePrompt('${agentName}')"
+                                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-md transition-colors"
+                                        style="display: none;"
+                                        title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
+                                    👁️ Effective Prompt
                                 </button>
                                 <button type="button" onclick="editPrompt('${agentName}')"
                                         class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
@@ -8732,7 +9143,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                                     <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                                 ` : `
-                                    <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.system || '(empty)')}</div>
+                                    <div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>
                                 `}
                             </div>
                         ${isLockedScaffoldAgent ? `
@@ -8759,7 +9170,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               placeholder="Enter user prompt (task, query, or user message)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                 ` : `
-                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.user || '(empty)')}</div>
+                                    <div id="${agentId}-prompt-user-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-green-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.user ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.user || '(empty)')}</div>
                                 `}
                             </div>
                         `}
@@ -8825,9 +9236,21 @@ function renderQAPrompt(agentName, containerId) {
                                 Expand
                             </button>
                             ${isEditing ? `
+                                <button type="button" onclick="validateAgentPrompt('${agentName}')"
+                                        class="px-3 py-1 text-sm rounded-md transition-colors"
+                                        style="background: #ca8a04; color: white; cursor: pointer;"
+                                        title="Validate prompt structure against runtime requirements">
+                                    Validate
+                                </button>
                                 <button onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                                     Cancel
+                                </button>
+                                <button type="button" onclick="showEffectivePrompt('${agentName}')"
+                                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-md transition-colors"
+                                        style="display: none;"
+                                        title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
+                                    👁️ Effective Prompt
                                 </button>
                                 <button onclick="saveAgentPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
@@ -8837,6 +9260,12 @@ function renderQAPrompt(agentName, containerId) {
                                 <button onclick="showPromptHistory('${agentName}')"
                                         class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-md transition-colors">
                                     History
+                                </button>
+                                <button type="button" onclick="showEffectivePrompt('${agentName}')"
+                                        class="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-md transition-colors"
+                                        style="display: none;"
+                                        title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
+                                    👁️ Effective Prompt
                                 </button>
                                 <button onclick="editPrompt('${agentName}')"
                                         class="px-3 py-1 btn-workflow text-white text-sm rounded-md transition-colors">
@@ -8863,7 +9292,7 @@ function renderQAPrompt(agentName, containerId) {
                                           placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                           class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
                             ` : `
-                                <div id="${agentId}-prompt-system-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.system ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.system || '(empty)')}</div>
+                                <div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>
                             `}
                         </div>
                         ${isLockedScaffoldAgent ? `
@@ -8890,23 +9319,24 @@ function renderQAPrompt(agentName, containerId) {
                                               placeholder="Enter user prompt (task, query, or user message)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-green-500 focus:border-green-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.user)}</textarea>
                                 ` : `
-                                    <div id="${agentId}-prompt-user-display-2" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-800 dark:text-white font-mono text-sm bg-white whitespace-pre-wrap max-h-64 overflow-y-auto ${!promptParts.user ? 'text-gray-400 italic' : ''}">${escapeHtml(promptParts.user || '(empty)')}</div>
+                                    <div id="${agentId}-prompt-user-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-green-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.user ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.user || '(empty)')}</div>
                                 `}
                             </div>
                         `}
                     </div>
+                    <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                 </div>
             </div>
         </div>
     `;
-    
+
     // Re-initialize collapsible panels for dynamically added content
     // Clear any existing initialization markers first (in case of re-render)
     const panelHeaders = container.querySelectorAll('[data-collapsible-panel]');
     panelHeaders.forEach(header => {
         header.removeAttribute('data-collapsible-initialized');
     });
-    
+
     // Use requestAnimationFrame to ensure DOM is fully updated and visible before initialization
     requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -9984,8 +10414,7 @@ async function applyPreset(preset) {
         
         // Apply QA enabled toggles
         if (preset.qa_enabled) {
-            const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
-            agents.forEach(agentName => {
+            PIPELINE_AGENTS.forEach(agentName => {
                 const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
                 const checkbox = document.getElementById(`qa-${agentId}`);
                 if (checkbox && preset.qa_enabled[agentName] !== undefined) {
@@ -10162,19 +10591,45 @@ function cancelEditPrompt2(agentName) {
     }
 }
 
-async function saveAgentPrompt2(agentName) {
+// overrides: optional { systemOverride: string, userOverride: string|null }
+// When provided (expanded editor path), values come directly from the caller
+// and the inline DOM textarea lookup is skipped entirely.
+async function saveAgentPrompt2(agentName, overrides = {}) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
-    const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
-    const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
     const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
-    if (!promptSystemElement || (!promptUserElement && !lockedScaffold)) {
-        showNotification('Prompt elements not found for ' + agentName, 'error');
-        return;
+
+    let systemVal, userVal;
+    if (overrides.systemOverride !== undefined) {
+        // Expanded-editor path: values passed directly — no DOM relay needed.
+        systemVal = overrides.systemOverride || "";
+        userVal = (overrides.userOverride !== null && overrides.userOverride !== undefined)
+            ? overrides.userOverride
+            : "";
+    } else {
+        // Inline-editor path: read from the agent card's edit-mode textareas.
+        const promptSystemElement = document.getElementById(`${agentId}-prompt-system-2`);
+        const promptUserElement = document.getElementById(`${agentId}-prompt-user-2`);
+        if (!promptSystemElement || (!promptUserElement && !lockedScaffold)) {
+            showNotification('Prompt elements not found for ' + agentName, 'error');
+            return;
+        }
+        systemVal = promptSystemElement.value || "";
+        userVal = promptUserElement ? promptUserElement.value || "" : "";
+
+        // Gate: run validation before saving. Block on errors; warnings are allowed through.
+        const systemValTrimmed = systemVal.trim();
+        const issues = _collectPromptIssues(agentName, systemValTrimmed);
+        const errors = issues.filter(function(i) { return i.level === 'error'; });
+        if (errors.length > 0) {
+            const resultDiv = document.getElementById(`${agentId}-validate-result-2`)
+                           || document.getElementById(`${agentId}-validate-result`);
+            if (resultDiv) _renderValidateResult(resultDiv, issues);
+            return;
+        }
     }
+
     isSavingPrompt = true;
     if (autoSaveTimeout) { clearTimeout(autoSaveTimeout); autoSaveTimeout = null; }
-    const systemVal = promptSystemElement.value || "";
-    const userVal = promptUserElement ? promptUserElement.value || "" : "";
 
     const isExtractionAgent = isLockedExtractorPrompt(agentName);
     const isQAAgent = isLockedQAPrompt(agentName);
@@ -10829,8 +11284,7 @@ function getLMStudioModelsOnly() {
 // Function to get current form state
 function getCurrentFormState() {
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
-    agents.forEach(agentName => {
+    PIPELINE_AGENTS.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
         qaEnabled[agentName] = checkbox ? checkbox.checked : false;
@@ -11057,8 +11511,7 @@ function initializeChangeTracking() {
     });
     
     // Add change listeners to QA checkboxes
-    const agents = ['OSDetectionAgent', 'RankAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'SigmaAgent'];
-    agents.forEach(agentName => {
+    PIPELINE_AGENTS.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
         if (checkbox) {
@@ -11200,8 +11653,7 @@ if (workflowConfigForm) {
     
     // Collect QA enabled settings
     const qaEnabled = {};
-    const agents = ['OSDetectionAgent', 'RankAgent', 'ExtractAgent', 'CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'SigmaAgent'];
-    agents.forEach(agentName => {
+    ALL_CONFIG_AGENTS.forEach(agentName => {
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
         const checkbox = document.getElementById(`qa-${agentId}`);
         qaEnabled[agentName] = checkbox ? checkbox.checked : false;
@@ -11275,9 +11727,8 @@ if (workflowConfigForm) {
     
     // CRITICAL: Read disabled agents directly from DOM checkboxes to ensure accuracy
     // This is the source of truth, not the disabledExtractAgents Set which might be stale
-    const extractSubAgents = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'];
     const disabledFromDOM = [];
-    extractSubAgents.forEach(agentName => {
+    EXTRACT_SUB_AGENTS.forEach(agentName => {
         const checkbox = document.getElementById(`toggle-${agentName.toLowerCase()}-enabled`);
         if (checkbox && !checkbox.checked) {
             disabledFromDOM.push(agentName);
