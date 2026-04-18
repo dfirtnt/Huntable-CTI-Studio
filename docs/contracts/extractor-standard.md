@@ -110,7 +110,7 @@ Purpose: Declare sibling agents and boundary rules to prevent overlap.
 Required elements:
 
 - "You are a sub-agent of ExtractAgent."
-- List ALL sibling extractors by name (CmdLineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, HuntQueriesExtract, plus any future agents)
+- List ALL sibling extractors by name (CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, HuntQueriesExtract, plus any future agents)
 - Explicit "Do NOT extract" rules for each sibling's scope
 - Any "You MAY extract" carve-outs where scopes partially overlap (e.g., RegistryExtract may extract the key from a reg.exe command, but not the command itself)
 
@@ -140,7 +140,7 @@ Required elements:
 - List of VALID SOURCES to extract from:
     - Narrative/analysis text describing observed attacker behavior
     - Raw telemetry and event logs
-    - Commands (extract the relevant artifact, not the command itself if owned by CmdLineExtract)
+    - Commands (extract the relevant artifact, not the command itself if owned by CmdlineExtract)
     - Tables, figures, and inline code
     - IOC tables and appendices
 

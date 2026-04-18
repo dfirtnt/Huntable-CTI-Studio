@@ -69,7 +69,19 @@ All five extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract
 
 ## Extract ↔ QA pairing
 
-Most extract agents ship with a QA counterpart (`ServicesExtract` ↔ `ServicesQA`). When you change one side of the pair, the other usually needs a matching edit:
+Every extract sub-agent has a dedicated QA counterpart. The pairs are defined in `src/config/workflow_config_schema.py` (`BASE_AGENT_TO_QA`):
+
+| Extract agent | QA agent |
+|---|---|
+| `CmdlineExtract` | `CmdLineQA` |
+| `ProcTreeExtract` | `ProcTreeQA` |
+| `HuntQueriesExtract` | `HuntQueriesQA` |
+| `RegistryExtract` | `RegistryQA` |
+| `ServicesExtract` | `ServicesQA` |
+
+`RankAgent` also has a QA counterpart (`RankAgentQA`) but it operates differently — it reviews ranking scores rather than extraction fidelity.
+
+When you change one side of a pair, the other usually needs a matching edit:
 
 - **Add a field to extract output** → add it to the QA `evaluation_criteria`.
 - **Tighten an extraction rule** → have the QA prompt flag violations as `issues`.
@@ -88,6 +100,24 @@ Relevant API endpoints:
 - `POST /api/workflow/config/prompts/{agent_name}/rollback`
 - `POST /api/workflow/config/prompts/bootstrap` — re-seed from `src/prompts/` (creates a new version; nothing is lost)
 
+## Presets
+
+A **preset** is a full workflow config snapshot (thresholds, agent models, and all agent prompts) exported as JSON. You can use one to restore a known-good state or bootstrap a fresh install.
+
+Quickstart presets for the three supported providers are in `config/presets/AgentConfigs/quickstart/`:
+
+| File | Provider |
+|------|----------|
+| `Quickstart-anthropic-sonnet-4-6.json` | Anthropic / Claude Sonnet 4.6 |
+| `Quickstart-openai-gpt-4.1-mini.json` | OpenAI / gpt-4.1-mini |
+| `Quickstart-LMStudio-Qwen3.json` | LM Studio / Qwen 3 (local) |
+
+**To import**: Workflow page → **Import from file** → select the JSON. This replaces the active config (thresholds + all agent prompts). The previous config is preserved in version history and can be rolled back.
+
+**To export your own**: Workflow page → **Export config** → saves the current active config as JSON. Put it in `config/presets/private/` (gitignored) to keep it out of version control.
+
+See [Workflow baseline presets](../getting-started/configuration.md#workflow-baseline-presets-getting-started) for the full preset reference including how to regenerate baseline files.
+
 ## Common mistakes
 
 - **Editing `src/prompts/` expecting the running app to change.** It won't. Those are seed defaults. Edit through the UI instead.
@@ -102,4 +132,5 @@ Relevant API endpoints:
 - [Extract Observables](extract-observables.md) — observable shape and downstream consumers
 - [Evaluate Models](evaluate-models.md) — measuring prompt changes against eval articles
 - [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
+- [Workflow baseline presets](../getting-started/configuration.md#workflow-baseline-presets-getting-started) — quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` — authoritative schema enforcement

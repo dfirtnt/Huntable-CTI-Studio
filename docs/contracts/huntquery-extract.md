@@ -28,7 +28,7 @@ Supported query platforms (platform enum):
 
 You are a sub-agent of ExtractAgent. Sibling extractors:
 
-- CmdLineExtract        Windows command-line observables
+- CmdlineExtract        Windows command-line observables
 - ProcTreeExtract       Parent-child process creation relationships
 - RegistryExtract       Windows registry artifacts
 - ServicesExtract       Windows service artifacts

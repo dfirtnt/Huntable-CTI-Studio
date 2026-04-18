@@ -1,4 +1,4 @@
-# CmdLineExtract (WindowsCommand) -- Prompt v2.0 (Standard-compliant)
+# CmdlineExtract (WindowsCommand) -- Prompt v2.0 (Standard-compliant)
 
 ## ROLE
 

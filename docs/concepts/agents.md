@@ -18,6 +18,7 @@ The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and 
 - **HuntQueriesExtract**: Detection queries (EDR queries and SIGMA rules) extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
 - **RegistryExtract**: Windows registry artifacts (persistence keys, config changes, defense evasion). Split-hive output (`registry_hive` + `registry_key_path`) for Sigma `registry_event` compatibility.
+- **ServicesExtract**: Windows service artifacts (service name, binary path, command line, start type).
 
 Each sub-agent returns `items` and `count`; the supervisor aggregates them into `observables`, `discrete_huntables_count`, and a `content` string that Sigma consumes.
 
@@ -50,7 +51,7 @@ Each agent's prompt config is a JSON object with these fields:
 The code in `llm_service.py` assembles the final prompt from the fields above plus several hardcoded components that the prompt editor UI does not show:
 
 - **User message scaffold**: The `Title:` / `URL:` / `Content:` headers and the article body are assembled in code, not authored in presets. The `instructions` field is injected as a footer.
-- **Traceability block** (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract only): forces every extracted item to include `source_evidence`, `extraction_justification`, and `confidence_score`. Appended after the user message regardless of what the prompt config says.
+- **Traceability block** (all five extract sub-agents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract): forces every extracted item to include `value`, `source_evidence`, `extraction_justification`, and `confidence_score`. Appended after the user message regardless of what the prompt config says.
 - **System fallback**: if no `role` or `system` is set, extractors default to "You are a detection engineer." RankAgent raises an error instead.
 - **QA feedback prepend**: on retry after QA failure, the QA agent's feedback is prepended to the user message.
 - **Content truncation**: article content is truncated to fit the model's context window. A `[Content truncated to fit context window]` marker is injected.
