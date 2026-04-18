@@ -8,23 +8,76 @@ import os
 from datetime import datetime
 
 from fastapi import APIRouter, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse
 
 from src.database.async_manager import async_db_manager
 from src.utils.keyword_resolution import build_keyword_resolution_context
 from src.utils.search_parser import parse_boolean_search
-from src.web.dependencies import ENVIRONMENT, logger, rag_enabled, templates
+from src.web.dependencies import ENVIRONMENT, logger, templates
 from src.web.routes.articles import SimpleFilter
 
 router = APIRouter()
 
 
-@router.get("/chat")
-async def chat_page(request: Request):
-    """Serve the RAG chat interface. 404 when RAG is disabled (ENABLE_RAG=0)."""
-    if not rag_enabled():
-        return RedirectResponse(url="/", status_code=302)
-    return templates.TemplateResponse("chat.html", {"request": request})
+def _compact_unique(values: list | None, limit: int = 6) -> list[str]:
+    seen: set[str] = set()
+    items: list[str] = []
+    for value in values or []:
+        if value is None:
+            continue
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        items.append(text)
+        if len(items) >= limit:
+            break
+    return items
+
+
+def _extract_ioc_values(article_metadata: dict | None, limit: int = 6) -> list[str]:
+    if not article_metadata:
+        return []
+
+    candidates: list[str] = []
+
+    def add_payload(payload: object) -> None:
+        if not payload:
+            return
+        iocs = payload.get("iocs") if isinstance(payload, dict) else payload
+        if not isinstance(iocs, list):
+            return
+        for ioc in iocs:
+            if isinstance(ioc, dict):
+                value = ioc.get("value") or ioc.get("indicator") or ioc.get("ioc")
+                ioc_type = ioc.get("type") or ioc.get("ioc_type")
+                if value:
+                    label = f"{ioc_type}: {value}" if ioc_type else str(value)
+                    candidates.append(label)
+            else:
+                candidates.append(str(ioc))
+
+    add_payload(article_metadata.get("extracted_iocs"))
+    add_payload(article_metadata.get("extracted_iocs_ctibert"))
+
+    return _compact_unique(candidates, limit=limit)
+
+
+def _build_share_excerpt(article: object, max_length: int = 420) -> str:
+    summary = str(getattr(article, "summary", "") or "").strip()
+    if summary:
+        return summary
+
+    content = str(getattr(article, "content", "") or "").strip()
+    if not content:
+        return ""
+
+    normalized = " ".join(content.split())
+    if len(normalized) <= max_length:
+        return normalized
+
+    trimmed = normalized[:max_length].rsplit(" ", 1)[0].strip()
+    return f"{trimmed}..." if trimmed else normalized[:max_length]
 
 
 @router.get("/", response_class=HTMLResponse)

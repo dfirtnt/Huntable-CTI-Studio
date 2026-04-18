@@ -52,17 +52,16 @@ See [Source Healing Architecture](../internals/source-healing.md) for how the di
 
 These are the main article browsing and maintenance endpoints.
 
-### Chat And Search
+### Search
 
-- `POST /api/chat/rag`
 - `POST /api/search/semantic`
 - `GET /api/search/help`
 
-These power the RAG and search workflows.
+These power the semantic search workflow. For conversational retrieval, use the Huntable MCP server (see [MCP tools reference](mcp-tools.md)).
 
 ### Embeddings And RAG Coverage
 
-- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with RAG embeddings), distinct from the AI **sigma_rule_queue**. Used by the chat UI, CLI `embed stats`, and MCP `get_stats`.
+- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with RAG embeddings), distinct from the AI **sigma_rule_queue**. Used by `/search`, CLI `embed stats`, and MCP `get_stats`.
 
 ### Workflow Execution
 

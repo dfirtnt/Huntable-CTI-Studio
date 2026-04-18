@@ -2,33 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 from src.services.capability_service import CapabilityService
 from src.web.routes.ai import _filter_openai_models
-from src.web.routes.chat import _filter_by_lexical_relevance
-
-
-@pytest.mark.unit
-@pytest.mark.regression
-def test_regression_lexical_filter_excludes_non_matching_articles():
-    """When lexical terms are present, return only lexical matches."""
-    articles = [
-        {"title": "New OpenAI policy update", "content": "General AI news"},
-        {"title": "Emotet campaigns surge", "content": "Threat intel details"},
-        {"title": "Another incident", "content": "Includes LockBit indicators"},
-    ]
-
-    filtered = _filter_by_lexical_relevance(articles, terms=["emotet", "lockbit"], max_results=5)
-
-    assert len(filtered) == 2
-    assert all(
-        ("emotet" in (a.get("title", "") + a.get("content", "")).lower())
-        or ("lockbit" in (a.get("title", "") + a.get("content", "")).lower())
-        for a in filtered
-    )
 
 
 @pytest.mark.unit
@@ -97,15 +74,3 @@ def test_security_openai_model_allowlist_filters_malicious_ids():
     assert "../../etc/passwd" not in filtered
     assert "<script>alert(1)</script>" not in filtered
     assert "claude-3-5-sonnet" not in filtered
-
-
-@pytest.mark.unit
-@pytest.mark.a11y
-def test_a11y_chat_template_has_basic_accessibility_landmarks():
-    """Chat page template keeps minimal accessibility structure."""
-    template = Path("src/web/templates/chat.html").read_text(encoding="utf-8")
-
-    assert template.count("<h1") == 1
-    assert 'aria-label="Breadcrumb"' in template
-    assert 'placeholder="Ask about cybersecurity threats, malware, vulnerabilities..."' in template
-    assert "{isLoading ? 'Sending...' : 'Send'}" in template
