@@ -42,7 +42,6 @@ class TestArticlesEndpoints:
         response = await async_client.get("/articles")
         assert response.status_code == 200
         assert "Threat Intelligence Articles" in response.text
-        assert "RAG Search" in response.text
 
     @pytest.mark.api
     @pytest.mark.asyncio

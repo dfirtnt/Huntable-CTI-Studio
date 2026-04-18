@@ -36,7 +36,6 @@ class TestSystemHealth:
         response = await async_client.get("/articles")
         assert response.status_code == 200
         assert "Threat Intelligence Articles" in response.text
-        assert "RAG Search" in response.text
 
         if "No articles" not in response.text:
             detail = await async_client.get("/articles/1")

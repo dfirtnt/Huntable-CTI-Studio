@@ -19,7 +19,8 @@ class TestJobsPageLoad:
         """Test jobs page loads."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        # /jobs can keep network activity alive (polling/refresh). Avoid networkidle.
+        page.wait_for_load_state("load")
 
         # Verify page title
         expect(page).to_have_title("Job Monitor - Huntable CTI Studio")
@@ -47,7 +48,7 @@ class TestJobsPageLoad:
         """Test refresh button displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify refresh button exists
         refresh_btn = page.locator("#refreshBtn")
@@ -469,7 +470,7 @@ class TestJobsErrorHandling:
         page.route("**/api/jobs/**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Verify page still loads (graceful error handling)
         heading = page.locator("h1").first
@@ -525,12 +526,16 @@ class TestJobsAPIIntegration:
             else:
                 route.continue_()
 
-        page.route("**/api/jobs/queues", handle_route)
+        page.route("**/api/jobs/queues**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
-        # Verify API was called
+        # Verify API was called (may be triggered asynchronously on load)
+        for _ in range(20):
+            if api_called["called"]:
+                break
+            page.wait_for_timeout(100)
         assert api_called["called"], "Jobs queues API should be called"
 
     @pytest.mark.ui
@@ -554,7 +559,11 @@ class TestJobsAPIIntegration:
         page.route("**/api/jobs/history**", handle_route)
 
         page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
-        # Verify API was called
+        # Verify API was called (may be triggered asynchronously on load)
+        for _ in range(20):
+            if api_called["called"]:
+                break
+            page.wait_for_timeout(100)
         assert api_called["called"], "Jobs history API should be called"

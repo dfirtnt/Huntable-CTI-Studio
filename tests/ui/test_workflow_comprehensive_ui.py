@@ -1944,6 +1944,33 @@ class TestWorkflowConfigurationAdvanced:
         onclick_attr = reset_button.get_attribute("onclick")
         assert "resetConfig" in onclick_attr or "loadConfig" in onclick_attr
 
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_validate_button_visible_before_edit(self, page: Page):
+        """Validate button in expanded prompt editor must be visible before clicking Edit."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("load")
+
+        page.locator("#tab-config").click()
+        page.wait_for_timeout(1000)
+
+        # Simulate applyExpandedEditorMode(false) -- the read-only state
+        display_value = page.evaluate("""() => {
+            const btn = document.getElementById('prompt-exp-validate-btn');
+            if (!btn) return 'missing';
+            // Call the function with editing=false to check its effect
+            if (typeof applyExpandedEditorMode === 'function') {
+                applyExpandedEditorMode(false);
+            }
+            return btn.style.display;
+        }""")
+
+        # Validate button must NOT be hidden in read-only mode
+        assert display_value != "none", (
+            f"Validate button should be visible before clicking Edit, got display='{display_value}'"
+        )
+
 
 class TestWorkflowExecutionsAPI:
     """Test executions API integration."""

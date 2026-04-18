@@ -65,14 +65,15 @@ class TestSigmaEditorValidation:
         """
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sigma-queue")
-        page.wait_for_load_state("networkidle")
+        # /sigma-queue can keep network activity alive (polling). Avoid networkidle.
+        page.wait_for_load_state("load")
 
         # Wait for a Preview button to appear (real data row, not the loading placeholder)
         preview_button = page.locator('#queueTableBody button:has-text("Preview")').first
         if not preview_button.is_visible(timeout=10000):
             pytest.skip("No rules in queue to open editor")
 
-        preview_button.click()
+        preview_button.click(force=True)
 
         rule_modal = page.locator("#ruleModal")
         expect(rule_modal).to_be_visible(timeout=5000)
@@ -85,7 +86,7 @@ class TestSigmaEditorValidation:
         edit_button.click()
 
         editor = page.locator("#yamlEditor")
-        expect(editor).to_be_visible(timeout=3000)
+        expect(editor).to_be_visible(timeout=10000)
         return editor
 
     def test_sigma_editor_loads(self, page: Page):

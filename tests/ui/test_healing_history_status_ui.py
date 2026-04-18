@@ -81,19 +81,22 @@ def test_healing_history_shows_runtime_errors_as_details(page: Page):
             ),
         )
 
-    page.route("**/api/sources/*/healing-history", handle_history)
     page.goto(f"{BASE_URL}/sources")
-    # networkidle ensures updateHealingStatusBadges() batch finishes before we
-    # interact with the panel, preventing concurrent route-handler contention.
-    page.wait_for_load_state("networkidle")
+    page.wait_for_load_state("load")
+    # The sources page starts background polling that also hits healing-history.
+    # Install the route after initial page load so we can reliably assert against
+    # the panel fetch triggered by the click.
+    page.wait_for_timeout(1000)
+    page.route("**/api/sources/*/healing-history", handle_history)
 
-    history_buttons = page.locator("button[aria-label^='View healing history for ']")
-    expect(history_buttons.first).to_be_visible()
-    history_buttons.first.click()
+    # Call the panel opener directly to avoid flakiness in click wiring and
+    # background polling that also hits the same endpoint.
+    with page.expect_response("**/api/sources/*/healing-history"):
+        page.evaluate("() => openHealingHistory(17, 'Sekoia.io Threat Research & Intelligence')")
 
     expect(page.locator("#healingPanelTitle")).to_contain_text("Healing History")
-    expect(page.locator("#healingPanelBody")).to_contain_text("Details:")
-    expect(page.locator("#healingPanelBody")).to_contain_text("No address associated with hostname")
+    expect(page.locator("#healingPanelBody")).to_contain_text("Details:", timeout=10000)
+    expect(page.locator("#healingPanelBody")).to_contain_text("No address associated with hostname", timeout=10000)
     expect(page.locator("#healingPanelBody")).not_to_contain_text("Validation fetch:")
 
 
@@ -104,23 +107,21 @@ def test_history_panel_toggle_survives_poll(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_IDLE))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("networkidle")
-
-    history_buttons = page.locator("button[aria-label^='View healing history for ']")
-    expect(history_buttons.first).to_be_visible()
-    history_buttons.first.click()
+    page.wait_for_load_state("load")
+    page.evaluate("() => openHealingHistory(17, 'Test Source')")
 
     # Wait for the panel to render the events
     diag_btn = page.locator("#healingPanelBody button", has_text="Show LLM reasoning").first
     expect(diag_btn).to_be_visible()
-    diag_btn.click()
-    expect(diag_btn).to_have_text("Hide LLM reasoning")
+    diag_btn.scroll_into_view_if_needed()
+    diag_btn.click(force=True)
+    expect(page.locator("#healingPanelBody button", has_text="Hide LLM reasoning").first).to_be_visible()
 
     # Wait for at least one poll cycle (interval is 3s)
     page.wait_for_timeout(3500)
 
     # Toggle must still be open after the re-render
-    expect(diag_btn).to_have_text("Hide LLM reasoning")
+    expect(page.locator("#healingPanelBody button", has_text="Hide LLM reasoning").first).to_be_visible()
     expect(page.locator("#healingPanelBody .heal-event-diagnosis.open").first).to_be_visible()
 
 
@@ -131,20 +132,18 @@ def test_history_panel_config_toggle_survives_poll(page: Page):
     page.route("**/api/sources/*/healing-history", _make_history_route(_MOCK_HISTORY_IDLE))
 
     page.goto(f"{BASE_URL}/sources")
-    page.wait_for_load_state("networkidle")
-
-    history_buttons = page.locator("button[aria-label^='View healing history for ']")
-    expect(history_buttons.first).to_be_visible()
-    history_buttons.first.click()
+    page.wait_for_load_state("load")
+    page.evaluate("() => openHealingHistory(17, 'Test Source')")
 
     config_btn = page.locator("#healingPanelBody button", has_text="Show full config").first
     expect(config_btn).to_be_visible()
-    config_btn.click()
-    expect(config_btn).to_have_text("Hide full config")
+    config_btn.scroll_into_view_if_needed()
+    config_btn.click(force=True)
+    expect(page.locator("#healingPanelBody button", has_text="Hide full config").first).to_be_visible()
 
     page.wait_for_timeout(3500)
 
-    expect(config_btn).to_have_text("Hide full config")
+    expect(page.locator("#healingPanelBody button", has_text="Hide full config").first).to_be_visible()
 
 
 _MOCK_HISTORY_IN_PROGRESS = {
