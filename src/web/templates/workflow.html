@@ -9234,13 +9234,13 @@ function renderQAPrompt(agentName, containerId) {
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                                 Expand
                             </button>
+                            <button type="button" onclick="validateAgentPrompt('${agentName}')"
+                                    class="px-3 py-1 text-sm rounded-md transition-colors"
+                                    style="background: #ca8a04; color: white; cursor: pointer;"
+                                    title="Validate prompt structure against runtime requirements">
+                                Validate
+                            </button>
                             ${isEditing ? `
-                                <button type="button" onclick="validateAgentPrompt('${agentName}')"
-                                        class="px-3 py-1 text-sm rounded-md transition-colors"
-                                        style="background: #ca8a04; color: white; cursor: pointer;"
-                                        title="Validate prompt structure against runtime requirements">
-                                    Validate
-                                </button>
                                 <button onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
                                     Cancel
