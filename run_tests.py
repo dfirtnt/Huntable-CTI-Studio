@@ -178,6 +178,7 @@ class RunTestType(Enum):
     INTEGRATION = "integration"
     UI = "ui"
     E2E = "e2e"
+    ALL_NO_UI = "all-no-ui"
     REGRESSION = "regression"
     CONTRACT = "contract"
     SECURITY = "security"
@@ -412,6 +413,7 @@ class RunTestRunner:
             RunTestType.INTEGRATION,
             RunTestType.E2E,
             RunTestType.ALL,
+            RunTestType.ALL_NO_UI,
             RunTestType.COVERAGE,
         }
 
@@ -726,6 +728,7 @@ class RunTestRunner:
             RunTestType.INTEGRATION: [],  # Skip Playwright in integration tests (Python-based)
             RunTestType.UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
             RunTestType.E2E: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.ALL_NO_UI: [],  # Explicitly skip Playwright for all-no-ui runs
             RunTestType.REGRESSION: [],  # Skip Playwright in marker-based category tests
             RunTestType.CONTRACT: [],  # Skip Playwright in marker-based category tests
             RunTestType.SECURITY: [],  # Skip Playwright in marker-based category tests
@@ -895,6 +898,10 @@ class RunTestRunner:
                     "tests/integration/test_ai_cross_model_integration.py",
                 ],
                 RunTestType.ALL: ["tests/"],
+                RunTestType.ALL_NO_UI: [
+                    "tests/",
+                    "--ignore=tests/ui/",
+                ],
                 RunTestType.COVERAGE: ["tests/", "--cov=src"],
             }
 
@@ -919,6 +926,7 @@ class RunTestRunner:
             RunTestType.AI: [],
             RunTestType.AI_UI: ["ui"],
             RunTestType.AI_INTEGRATION: ["integration"],
+            RunTestType.ALL_NO_UI: [],
         }
 
         markers = self.config.markers or default_markers_map.get(self.config.test_type, [])
@@ -939,6 +947,9 @@ class RunTestRunner:
             default_excludes.append("agent_config_mutation")
             if not self.config.include_slow:
                 default_excludes.append("slow")
+        # all-no-ui: run the full suite, but exclude UI-marked tests and Playwright JS.
+        elif self.config.test_type == RunTestType.ALL_NO_UI:
+            default_excludes.extend(["ui", "ui_smoke"])
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:
@@ -1991,6 +2002,7 @@ Test Types:
   integration  System integration tests (~3m) - STATEFUL (auto-starts test containers)
   ui           Web interface tests (~5m) - May need containers
   e2e          End-to-end tests (~3m) - STATEFUL (auto-starts test containers)
+  all-no-ui    Full suite excluding UI + Playwright JS (~6m) - STATEFUL (auto-starts test containers)
   regression   Regression test marker category (usually stateless)
   contract     API/schema contract marker category (usually stateless)
   security     Security marker category (usually stateless)
