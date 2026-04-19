@@ -436,7 +436,7 @@ This document outlines the test plan for Huntable CTI Studio, focusing on critic
 ### Phase 4: Frontend Tests ✅
 
 **Playwright UI Tests (Python):**
-- `test_navigation_routing.py` - Navigation/routing
+- `test_navigation_ui.py` - Navigation, routing, breadcrumbs, deep linking
 - `test_sigma_editor_validation.py` - SIGMA editor validation + save
 - `test_eval_ui_rendering.py` - Eval metrics rendering
 - `test_collapsible_panels.py` - Collapsible panel behavior
