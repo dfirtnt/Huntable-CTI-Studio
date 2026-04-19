@@ -28,6 +28,38 @@ jobs:
         with:
           args: format --check
 
+  check-pinned-versions:
+    name: Enforce Pinned Versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check for unpinned Python versions
+        run: |
+          set +e
+          UNPINNED=$(grep -rn '[><=~]' pyproject.toml requirements.txt sigma_semantic_similarity/pyproject.toml 2>/dev/null | grep -v '==' | grep -v '#' | grep -v 'E501' | grep -v 'python_version' || true)
+          set -e
+          if [ -n "$UNPINNED" ]; then
+            echo "ERROR: Found unpinned versions (must use == not >=, >, <, ~):"
+            echo "$UNPINNED"
+            exit 1
+          fi
+          echo "✓ All Python dependencies pinned with =="
+
+      - name: Check for unpinned Node versions
+        run: |
+          set +e
+          UNPINNED=$(grep -n '["\^~]' package.json | grep -E '"\^|"~' || true)
+          set -e
+          if [ -n "$UNPINNED" ]; then
+            echo "ERROR: Found caret/tilde ranges in package.json (must use exact versions):"
+            echo "$UNPINNED"
+            exit 1
+          fi
+          echo "✓ All Node dependencies pinned with exact versions"
+
   vulture:
     name: Dead Code Detection
     runs-on: ubuntu-latest

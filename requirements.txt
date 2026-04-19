@@ -9,7 +9,7 @@
 # Core scraping and processing
 requests==2.33.0
 httpx==0.28.1
-brotli>=1.0.0  # Brotli decompression support for httpx
+brotli==1.2.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
 lxml==6.0.2
 feedparser==6.0.12
@@ -40,7 +40,7 @@ redis==7.3.0
 scikit-learn==1.8.0
 lightgbm==4.6.0
 joblib==1.5.3
-spacy>=3.7.0  # Sentence splitting (sentencizer component only, ~2MB)
+spacy==3.8.14  # Sentence splitting (sentencizer component only, ~2MB)
 
 # Utilities
 click==8.3.1
@@ -66,27 +66,27 @@ pysigma==0.11.23
 GitPython==3.1.46
 
 # Additional AI/ML dependencies for enhanced features
-torch>=2.0.0  # For advanced ML models
-transformers>=4.21.0  # For LLM integration
-accelerate>=0.20.0  # For model optimization
-openai>=1.0.0  # Official OpenAI client
-tiktoken>=0.5.0  # Token counting utilities
-sentence-transformers>=2.2.2  # For semantic embeddings
-pgvector>=0.4.0  # PostgreSQL vector extension support
+torch==2.11.0  # For advanced ML models
+transformers==5.5.4  # For LLM integration
+accelerate==1.13.0  # For model optimization
+openai==2.32.0  # Official OpenAI client
+tiktoken==0.12.0  # Token counting utilities
+sentence-transformers==5.4.1  # For semantic embeddings
+pgvector==0.4.2  # PostgreSQL vector extension support
 
 # Agentic workflow
-langgraph>=0.2.0  # LangGraph for agentic workflow orchestration
-langgraph-checkpoint>=0.2.0  # LangGraph checkpointing for state persistence
-langgraph-checkpoint-postgres>=0.2.0  # PostgreSQL checkpoint backend for LangGraph
-langgraph-cli>=0.4.0  # LangGraph CLI for HTTP server
-langfuse>=4.0.6  # Langfuse for LLM observability and tracing
+langgraph==1.1.8  # LangGraph for agentic workflow orchestration
+langgraph-checkpoint==4.0.2  # LangGraph checkpointing for state persistence
+langgraph-checkpoint-postgres==3.0.5  # PostgreSQL checkpoint backend for LangGraph
+langgraph-cli==0.4.23  # LangGraph CLI for HTTP server
+langfuse==4.3.1  # Langfuse for LLM observability and tracing
 
 # MCP server
-mcp[cli]>=1.0.0  # Model Context Protocol SDK for LLM tool integration
+mcp[cli]==1.27.0  # Model Context Protocol SDK for LLM tool integration
 
 # Security pins (transitive dependency floors)
-Authlib>=1.6.9  # CVE fix: JWS header injection, Bleichenbacher oracle, OIDC hash bypass
+Authlib==1.7.0  # CVE fix: JWS header injection, Bleichenbacher oracle, OIDC hash bypass
 
 # Documentation
-mkdocs>=1.5.0  # Static docs site generator
-mkdocs-material>=9.5.0  # MkDocs theme used for published docs
+mkdocs==1.6.1  # Static docs site generator
+mkdocs-material==9.7.6  # MkDocs theme used for published docs

@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Deterministic Sigma rule semantic similarity engine"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["pyyaml>=6.0"]
+dependencies = ["pyyaml==6.0.3"]
 
 [project.scripts]
 sigma-similarity = "cli:main"
