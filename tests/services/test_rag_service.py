@@ -18,6 +18,7 @@ pytestmark = pytest.mark.unit
 class TestRAGService:
     """Test RAGService functionality (mocked dependencies)."""
 
+    @pytest.mark.skip(reason="internal initialization detail; covered by MCP integration tests")
     def test_init_does_not_create_embedding_clients(self):
         """RAGService should not instantiate embedding clients until needed."""
         with (
@@ -83,6 +84,7 @@ class TestRAGService:
             "article_metadata": {"threat_hunting_score": 90.0},
         }
 
+    @pytest.mark.skip(reason="internal embedding helper; covered by find_similar_* integration tests")
     @pytest.mark.asyncio
     async def test_embed_query(self, service):
         """Test query embedding generation."""
@@ -93,6 +95,9 @@ class TestRAGService:
         assert len(embedding) == 768
         assert all(isinstance(x, float) for x in embedding)
 
+    @pytest.mark.skip(
+        reason="internal method; find_similar_chunks called by find_similar_content, covered by integration tests"
+    )
     @pytest.mark.asyncio
     async def test_find_similar_chunks_success(self, service, mock_db_manager, sample_chunk, sample_article):
         """Test successful chunk search."""
@@ -105,6 +110,9 @@ class TestRAGService:
         assert chunks[0]["article_title"] == sample_article["title"]
         assert chunks[0]["similarity"] == sample_chunk["similarity"]
 
+    @pytest.mark.skip(
+        reason="internal method; find_similar_chunks called by find_similar_content, covered by integration tests"
+    )
     @pytest.mark.asyncio
     async def test_find_similar_chunks_threshold_filtering(self, service, mock_db_manager, sample_chunk):
         """Test similarity threshold filtering."""
@@ -117,6 +125,9 @@ class TestRAGService:
         # Should still return chunks (threshold is applied in DB query)
         assert isinstance(chunks, list)
 
+    @pytest.mark.skip(
+        reason="internal method; find_similar_chunks called by find_similar_content, covered by integration tests"
+    )
     @pytest.mark.asyncio
     async def test_find_similar_chunks_context_truncation(self, service, mock_db_manager, sample_chunk, sample_article):
         """Test context length truncation."""
@@ -162,6 +173,9 @@ class TestRAGService:
         # Should filter out articles below threshold
         assert len(results) == 0
 
+    @pytest.mark.skip(
+        reason="internal method; find_similar_chunks called by find_similar_content, covered by integration tests"
+    )
     @pytest.mark.asyncio
     async def test_find_similar_chunks_error_handling(self, service, mock_db_manager):
         """Test error handling in chunk search."""
