@@ -47,10 +47,10 @@ dependencies = [
     "certifi==2025.11.12",
     "urllib3==2.6.3",
     "charset-normalizer==3.4.5",
-    "python-multipart==0.0.22",
+    "python-multipart==0.0.26",
     "cryptography==46.0.7",
     # PDF processing
-    "pypdf==6.9.2",
+    "pypdf==6.10.2",
     # SIGMA rule validation
     "pysigma==0.11.23",
     "GitPython==3.1.46",

@@ -204,7 +204,6 @@ def test_progress_container_renders_round_info(page: Page):
     expect(history_buttons.first).to_be_visible()
     history_buttons.first.click()
 
-
     progress_label = page.locator("#healingPanelBody .healing-progress-label")
     expect(progress_label).to_be_visible()
     expect(progress_label).to_contain_text("2")

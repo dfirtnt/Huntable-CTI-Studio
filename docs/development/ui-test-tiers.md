@@ -26,8 +26,8 @@ slice for the moment so you do not pay the full cost on every change.
 
 ## Playwright feature areas (`--area`)
 
-Defined in [`tests/playwright.config.ts`](../../tests/playwright.config.ts) as
-projects. Each project owns a disjoint set of spec files:
+Defined in `tests/playwright.config.ts` as projects. Each project owns a
+disjoint set of spec files:
 
 | Area           | Files | What it covers                                             |
 |----------------|-------|------------------------------------------------------------|
@@ -67,6 +67,6 @@ or via the runner: `python run_tests.py ui-fast --area=sources`.
 ## Adding a new spec to the right area
 
 When you add `tests/playwright/your_spec.spec.ts`, update
-[`tests/playwright.config.ts`](../../tests/playwright.config.ts) -- add the
-filename pattern to the matching project's `testMatch` list. If a spec is
-not in any project, the default run will silently skip it.
+`tests/playwright.config.ts` -- add the filename pattern to the matching
+project's `testMatch` list. If a spec is not in any project, the default run
+will silently skip it.

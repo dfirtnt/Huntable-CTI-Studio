@@ -181,11 +181,10 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
     for token, label in _SYSTEM_WARN_ONLY:
         if token not in system_content:
             logger.warning(
-                "%s: system prompt missing expected token for %s: %r "
+                "%s: extractor contract system-body warning for %s "
                 "(WARN_ONLY -- promote to hard-fail after prompts conform to extractor-standard.md v1.1)",
                 agent_name,
                 label,
-                token,
             )
 
     # Text-pattern checks on instructions (warn-only until seed prompts conform to v1.1)
@@ -197,11 +196,10 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
     for token, label in _INSTRUCTIONS_WARN_ONLY:
         if token not in instructions:
             logger.warning(
-                "%s: instructions missing expected token for %s: %r "
+                "%s: extractor contract instructions warning for %s "
                 "(WARN_ONLY -- promote to hard-fail after prompts conform to extractor-standard.md v1.1)",
                 agent_name,
                 label,
-                token,
             )
 
     json_example = prompt_config.get("json_example")

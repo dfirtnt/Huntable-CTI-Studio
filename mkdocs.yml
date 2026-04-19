@@ -91,7 +91,6 @@ nav:
       - ServicesExtract: contracts/services-extract.md
       - HuntQueriesExtract: contracts/huntquery-extract.md
       - Rank Agent: contracts/rank-agent.md
-      - Fail-Closed Protocol: contracts/fail-closed-protocol.md
   - Prompts:
       - Eval Bundle Analysis: prompts/eval-bundle.md
       - Hunt Query Eval: prompts/huntquery-eval.md
