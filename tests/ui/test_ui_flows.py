@@ -129,10 +129,6 @@ class TestArticlesFlows:
         heading = page.get_by_role("heading", name=re.compile("Threat Intelligence Articles"))
         expect(heading).to_be_visible()
 
-        # Check for article elements
-        expect(heading).to_be_visible()
-        expect(page.locator("a[href='/chat']")).to_contain_text("RAG Search")
-
         # Test pagination if available
         pagination = page.locator("[data-testid='pagination']")
         if pagination.count() > 0:

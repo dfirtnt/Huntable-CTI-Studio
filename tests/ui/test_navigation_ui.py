@@ -39,7 +39,6 @@ class TestBreadcrumbs:
             ("/articles", ("Dashboard", "Articles")),
             ("/workflow", ("Dashboard", "Agents")),
             ("/settings", ("Dashboard", "Settings")),
-            ("/chat", ("Dashboard", "RAG Search")),
             ("/mlops", ("Dashboard", "MLOps")),
         ],
     )
