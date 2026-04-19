@@ -2004,6 +2004,9 @@ Test Types:
   api          API endpoint tests (~2m) - May need containers
   integration  System integration tests (~3m) - STATEFUL (auto-starts test containers)
   ui           Web interface tests (~5m) - May need containers
+  ui-smoke     UI smoke tests (~2m) - STATELESS (pytest @smoke + @ui_smoke markers)
+  ui-fast     UI fast subset (~15m) - STATELESS (ui minus @slow)
+  ui-full     UI full suite (~45m) - STATEFUL (all UI tests)
   e2e          End-to-end tests (~3m) - STATEFUL (auto-starts test containers)
   all-no-ui    Full suite excluding UI + Playwright JS (~6m) - STATEFUL (auto-starts test containers)
   regression   Regression test marker category (usually stateless)
