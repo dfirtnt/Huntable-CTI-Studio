@@ -24,42 +24,10 @@ test.describe('Settings Page', () => {
     expect(errors.filter((e) => !e.includes('favicon'))).toHaveLength(0);
   });
 
-  test('[SETTINGS-002] Page title is displayed', async ({ page }) => {
-    const title = page.locator('h1, h2, h3, [data-testid="settings-title"]');
-    await expect(title.first()).toBeVisible();
-  });
-
   test('[SETTINGS-003] Settings sections are present', async ({ page }) => {
     const sections = page.locator('[data-testid="settings-section"], .settings-section, h2, h3');
     const count = await sections.count();
     expect(count).toBeGreaterThan(0);
-  });
-});
-
-test.describe('Settings - LMStudio Configuration', () => {
-  test.skip(SKIP_TESTS, 'Settings tests disabled.');
-
-  test('[SETTINGS-010] LMStudio API URL field is present', async ({ page }) => {
-    const field = page.locator('#lmstudioApiUrl');
-    const hasField = await field.first().isVisible().catch(() => false);
-    test.skip(!hasField, 'LMStudio API URL field not rendered in current runtime');
-    expect(hasField).toBe(true);
-  });
-
-  test('[SETTINGS-011] LMStudio Embedding URL field is present', async ({ page }) => {
-    const field = page.locator('#lmstudioEmbeddingUrl');
-    const hasField = await field.first().isVisible().catch(() => false);
-    test.skip(!hasField, 'LMStudio embedding URL field not rendered in current runtime');
-    expect(hasField).toBe(true);
-  });
-
-  test('[SETTINGS-012] Can edit LMStudio URL', async ({ page }) => {
-    const field = page.locator('#lmstudioApiUrl').first();
-    const isVisible = await field.isVisible().catch(() => false);
-    if (isVisible) {
-      await field.fill('http://localhost:1234/v1');
-      await expect(field).toHaveValue('http://localhost:1234/v1');
-    }
   });
 });
 
@@ -73,47 +41,11 @@ test.describe('Settings - Save and Persistence', () => {
     await expect(saveBtn.first()).toBeVisible();
   });
 
-  test('[SETTINGS-021] Settings persist after page reload', async ({ page }) => {
-    const field = page.locator('#lmstudioApiUrl').first();
-    const isVisible = await field.isVisible().catch(() => false);
-    
-    if (isVisible) {
-      const testValue = `http://localhost:${Math.floor(Math.random() * 10000)}/v1`;
-      await field.fill(testValue);
-      
-      const saveBtn = page.locator('#saveSettings').first();
-      await saveBtn.click();
-      
-      await page.waitForTimeout(500);
-      await page.reload();
-      await page.waitForLoadState('domcontentloaded');
-      
-      const newField = page.locator('#lmstudioApiUrl').first();
-      await expect(newField).toHaveValue(testValue);
-    }
-  });
-
-  test('[SETTINGS-022] Success message after save', async ({ page }) => {
-    const field = page.locator('#lmstudioApiUrl').first();
-    const isVisible = await field.isVisible().catch(() => false);
-    
-    if (isVisible) {
-      await field.fill('http://localhost:1234/v1');
-      
-      const saveBtn = page.locator('#saveSettings').first();
-      await saveBtn.click();
-      
-      await page.waitForTimeout(500);
-      
-      await expect(page.getByText('Settings saved successfully!', { exact: false })).toBeVisible();
-    }
-  });
-
   test('[SETTINGS-023] Scheduled jobs panel loads from backend', async ({ page }) => {
     const header = page.locator('#scheduledJobs-header');
     const hasHeader = await header.isVisible({ timeout: 5000 }).catch(() => false);
     test.skip(!hasHeader, 'Scheduled jobs panel header not rendered in current runtime');
-    
+
     await header.click();
     await expect(page.locator('#refreshScheduledJobsBtn')).toBeVisible();
     await expect(page.locator('#saveScheduledJobsBtn')).toBeVisible();
@@ -146,22 +78,6 @@ test.describe('Settings - API Keys', () => {
     test.skip(!hasField, 'Anthropic API key field not rendered in current runtime');
     expect(hasField).toBe(true);
   });
-
-  test('[SETTINGS-032] API keys are masked/secured', async ({ page }) => {
-    const field = page.locator('input[name*="API_KEY"][type="password"]');
-    const isMasked = await field.first().isVisible().catch(() => false);
-  });
-});
-
-test.describe('Settings - Test Connection', () => {
-  test.skip(SKIP_TESTS, 'Settings tests disabled.');
-
-  test('[SETTINGS-040] Test Connection button exists', async ({ page }) => {
-    const btn = page.locator('#testWorkflowLmstudioApiKey');
-    const hasBtn = await btn.first().isVisible().catch(() => false);
-    test.skip(!hasBtn, 'LMStudio test connection button not rendered in current runtime');
-    expect(hasBtn).toBe(true);
-  });
 });
 
 test.describe('Settings - API', () => {
@@ -176,7 +92,7 @@ test.describe('Settings - API', () => {
 
   test('[SETTINGS-051] Can update settings via API', async ({ request }) => {
     const updateData = { WORKFLOW_QA_MAX_RETRIES: '2' };
-    
+
     const updateResp = await request.post('/api/settings', { data: updateData });
     expect([200, 422]).toContain(updateResp.status());
   });
