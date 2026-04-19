@@ -16,17 +16,30 @@ async function openStep(page: Page, n: number) {
   await page.waitForTimeout(600);
 }
 
-/** Wait for at least one collapsible prompt panel to appear inside the form. */
+/** Open every step that contains at least one prompt panel container.
+ * OS Detection (s0) was removed in newer dev branches, so we open all
+ * known prompt-bearing steps to remain compatible with both layouts.
+ */
+async function openAllPromptSteps(page: Page) {
+  for (const step of [0, 2, 3, 4]) {
+    await openStep(page, step);
+  }
+}
+
+/** Wait for at least one VISIBLE collapsible prompt panel inside the form. */
 async function waitForPromptPanels(page: Page) {
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-collapsible-panel]').length > 0,
+    () => {
+      const panels = document.querySelectorAll('#workflowConfigForm [data-collapsible-panel]');
+      return Array.from(panels).some((el) => (el as HTMLElement).offsetParent !== null);
+    },
     { timeout: 15000 }
   );
 }
 
-/** Return the first collapsible panel header found inside #workflowConfigForm. */
+/** Return the first VISIBLE collapsible panel header found inside #workflowConfigForm. */
 function firstPromptPanel(page: Page) {
-  return page.locator('#workflowConfigForm [data-collapsible-panel]').first();
+  return page.locator('#workflowConfigForm [data-collapsible-panel]:visible').first();
 }
 
 test.describe('Workflow Collapsible Panels - Initialization', () => {
@@ -46,7 +59,7 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     await page.waitForTimeout(1000);
 
     // Open step 0 (OS Detection) so its prompt panel renders
-    await openStep(page, 0);
+    await openAllPromptSteps(page);
     await waitForPromptPanels(page);
   });
 
@@ -84,7 +97,7 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     await page.waitForTimeout(2000);
 
     // Re-open the step so prompt panels re-render
-    await openStep(page, 0);
+    await openAllPromptSteps(page);
     await waitForPromptPanels(page);
 
     // Verify panel still works after reload
@@ -118,7 +131,7 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
     });
     await page.waitForTimeout(2000);
 
-    await openStep(page, 0);
+    await openAllPromptSteps(page);
     await waitForPromptPanels(page);
 
     // Verify panel still works
@@ -235,7 +248,10 @@ test.describe('Workflow Collapsible Panels - Initialization', () => {
   });
 
   test('should allow multiple step-sections to accordion correctly', async ({ page }) => {
-    // Step sections use accordion behavior — only one open at a time
+    // Step sections use accordion behavior — only one open at a time.
+    // openAllPromptSteps leaves the LAST opened step (s4) as the open one;
+    // re-open s0 explicitly so the test starts from a known state.
+    await openAllPromptSteps(page);
     await openStep(page, 0);
     const s0 = page.locator('#s0');
     await expect(s0).toHaveClass(/open/);

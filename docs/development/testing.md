@@ -190,7 +190,21 @@ Some UI tests mutate agent/workflow/settings config (run evaluations, save setti
 python3 run_tests.py ui --exclude-markers agent_config_mutation
 ```
 
-**Why `ui` feels slow:** `run_tests.py ui` runs **two** browser stacks in sequence: pytest `tests/ui/` (Python Playwright; **serial by default** so workers do not hammer one `localhost:8001` stack) and then `npx playwright test tests/playwright/*.spec.ts` (often 200+ specs). Use **`--parallel`** to enable `pytest-xdist -n auto` for pytest UI (may flake against a single live app). For fast iteration on Python UI tests only:
+**Why `ui` feels slow:** `run_tests.py ui` runs **two independent sections** in sequence:
+
+1. **Section 1 — Pytest** (`tests/ui/`, Python Playwright via `pytest-playwright`). Serial by default so workers do not hammer one `localhost:8001` stack. This is the bulk of the wall time (~38 min).
+2. **Section 2 — Node.js Playwright** (`tests/playwright/*.spec.ts`, `@playwright/test` runner with `allure-playwright` reporter). A completely separate runner invoked via `npx playwright test`. ~50 specs, runs with `workers: 4` locally to avoid macOS `ENFILE` from concurrent allure JSON writes.
+
+You can run each section independently:
+
+```bash
+python3 run_tests.py ui                                      # Both sections (default)
+python3 run_tests.py ui --skip-playwright-js                 # Section 1 only (pytest tests/ui/)
+python3 run_tests.py ui --playwright-only                    # Section 2 only (Node.js tests/playwright/)
+python3 run_tests.py ui --playwright-last-failed             # Rerun only Section 2 tests that failed last run
+```
+
+Use **`--parallel`** to enable `pytest-xdist -n auto` for Section 1 (may flake against a single live app). For fast iteration on Python UI tests only:
 
 ```bash
 python3 run_tests.py ui --skip-playwright-js --exclude-markers agent_config_mutation

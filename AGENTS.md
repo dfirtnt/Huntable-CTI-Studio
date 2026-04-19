@@ -185,6 +185,7 @@ Notes:
 - `run_tests.py` is the canonical test entrypoint.
 - `run_tests.py` ensures `.venv` exists and auto-starts isolated test containers for stateful suites.
 - API/UI/E2E tests must not be run against the primary development database.
+- `run_tests.py ui` runs two independent sections (pytest `tests/ui/` + Node.js `tests/playwright/`). Use `--skip-playwright-js` or `--playwright-only` to run one section at a time. See [docs/development/testing.md](docs/development/testing.md).
 
 ---
 

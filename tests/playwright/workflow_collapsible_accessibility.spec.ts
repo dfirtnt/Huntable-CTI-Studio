@@ -14,15 +14,24 @@ async function openStep(page: Page, n: number) {
   await page.waitForTimeout(600);
 }
 
+async function openAllPromptSteps(page: Page) {
+  for (const step of [0, 2, 3, 4]) {
+    await openStep(page, step);
+  }
+}
+
 async function waitForPromptPanels(page: Page) {
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-collapsible-panel]').length > 0,
+    () => {
+      const panels = document.querySelectorAll('#workflowConfigForm [data-collapsible-panel]');
+      return Array.from(panels).some((el) => (el as HTMLElement).offsetParent !== null);
+    },
     { timeout: 15000 }
   );
 }
 
 function firstPromptPanel(page: Page) {
-  return page.locator('#workflowConfigForm [data-collapsible-panel]').first();
+  return page.locator('#workflowConfigForm [data-collapsible-panel]:visible').first();
 }
 
 test.describe('Workflow Collapsible Panels - Accessibility', () => {
@@ -46,7 +55,7 @@ test.describe('Workflow Collapsible Panels - Accessibility', () => {
     await page.waitForTimeout(1000);
 
     // Open step 0 to render prompt panels
-    await openStep(page, 0);
+    await openAllPromptSteps(page);
     await waitForPromptPanels(page);
 
     // Collapse all prompt panels to a known state
