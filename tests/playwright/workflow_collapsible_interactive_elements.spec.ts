@@ -105,24 +105,6 @@ test.describe('Workflow Collapsible Panels - Interactive Element Click Preventio
     }
   });
 
-  test.skip('should not toggle when clicking label inside header', async ({ page }) => {
-    const header = firstPromptPanel(page);
-    const panelId = await header.getAttribute('data-collapsible-panel');
-    const content = page.locator(`#${panelId}-content`);
-
-    const initialVisible = await content.isVisible();
-    const labelInHeader = header.locator('label').first();
-
-    if (await labelInHeader.count() > 0) {
-      await labelInHeader.click();
-      await page.waitForTimeout(300);
-      const newVisible = await content.isVisible();
-      expect(newVisible).toBe(initialVisible);
-    } else {
-      test.skip(true, 'No label found inside prompt panel header');
-    }
-  });
-
   test('should not toggle when clicking link inside header', async ({ page }) => {
     const header = firstPromptPanel(page);
     const panelId = await header.getAttribute('data-collapsible-panel');

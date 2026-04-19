@@ -781,34 +781,6 @@ test.describe('Sources Page - Executable Test Plan', () => {
     expect(response.status()).toBe(400);
   });
 
-  test.skip('[SOURCES-110] Mobile view stacks source cards', async ({ page, request }) => {
-    const source = await getFirstNonManualSource(request);
-    test.skip(!source, 'No non-manual source available in test environment');
-
-    await page.setViewportSize({ width: 375, height: 667 });
-    await gotoSources(page);
-    const card = cardForSource(page, source!.id);
-    await expect(card).toBeVisible();
-
-    const style = await card.evaluate((el) => window.getComputedStyle(el));
-    expect(style.display).toBeTruthy();
-  });
-
-  test.skip('[SOURCES-111] Configuration modal usable on mobile', async ({ page, request }) => {
-    const source = await requireFirstNonManualSource(request);
-
-    await page.setViewportSize({ width: 375, height: 667 });
-    await gotoSources(page);
-
-    await openSourceOverflow(page, source.id);
-    await page.locator(`button[onclick^="openSourceConfig(${source.id},"]`).first().click();
-    await expect(page.locator('#sourceConfigModal')).toBeVisible();
-
-    const modalBox = await page.locator('#sourceConfigModal .inline-block').boundingBox();
-    expect(modalBox).not.toBeNull();
-    expect((modalBox as { width: number }).width).toBeLessThanOrEqual(375);
-  });
-
   test('[SOURCES-120] Action buttons have accessible labels', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
 

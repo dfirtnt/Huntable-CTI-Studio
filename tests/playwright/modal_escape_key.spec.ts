@@ -70,47 +70,6 @@ test.describe('Modal Escape Key Functionality', () => {
     expect(modalStillInStack).toBe(false);
   });
 
-  test.skip('ESC key closes test-subagent-modal', async ({ page }) => {
-    // Navigate to workflow page
-    await page.goto(`${BASE}/workflow#config`);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-    
-    // Wait for config to load
-    await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    
-    // Find and click a test button that opens a modal
-    const testButton = page.locator('button:has-text("Test with Custom ArticleID")').first();
-    
-    // Set up dialog handler
-    page.on('dialog', async dialog => {
-      await dialog.accept(TEST_ARTICLE_ID);
-    });
-    
-    // Click test button
-    await testButton.click({ timeout: 10000 });
-    
-    // Wait for modal to appear
-    const modal = page.locator('#test-subagent-modal');
-    await expect(modal).toBeVisible({ timeout: 15000 });
-    
-    // Verify modal is registered
-    const modalRegistered = await page.evaluate(() => {
-      if (window.ModalManager) {
-        const stack = window.ModalManager.getStack();
-        return stack.includes('test-subagent-modal');
-      }
-      return false;
-    });
-    
-    // Press ESC key
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-    
-    // Verify modal is closed
-    await expect(modal).not.toBeVisible({ timeout: 3000 });
-  });
-
   test('ESC key closes nested modals (only topmost), then previous', async ({ page }) => {
     await page.goto(`${BASE}/workflow#config`);
     await page.waitForLoadState('networkidle');
