@@ -46,12 +46,17 @@ jobs:
         run: uv run mkdocs build --strict
 
       - name: Debug context
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           echo "=== GitHub Context Debug ==="
-          echo "event_name=${{ github.event_name }}"
-          echo "ref=${{ github.ref }}"
-          echo "ref_name=${{ github.ref_name }}"
-          echo "head_ref=${{ github.head_ref }}"
+          echo "event_name=$EVENT_NAME"
+          echo "ref=$REF"
+          echo "ref_name=$REF_NAME"
+          echo "head_ref=$HEAD_REF"
           ls -la | head -20
           ls -la site/ | head -20
 

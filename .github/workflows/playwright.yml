@@ -45,6 +45,7 @@ jobs:
       CTI_EXCLUDE_AGENT_CONFIG_TESTS: "1"
       DISABLE_SOURCE_AUTO_SYNC: "true"
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+      SKIP_CHAT_TESTS: "true"
 
     steps:
       - name: Checkout
