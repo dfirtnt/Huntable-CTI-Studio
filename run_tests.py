@@ -818,8 +818,6 @@ class RunTestRunner:
             test_path_map = {
                 RunTestType.SMOKE: [
                     "tests/",
-                    "-m",
-                    "smoke",
                 ],  # Restrict to tests/ directory to avoid collection errors
                 RunTestType.UNIT: [
                     "tests/",
