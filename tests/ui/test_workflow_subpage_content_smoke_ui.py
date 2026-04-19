@@ -2,8 +2,7 @@
 Smoke tests: /workflow sub-pages actually render inner content.
 
 Gap this closes:
-    Existing tests (tests/ui/test_workflow_tabs.py and
-    tests/ui/test_workflow_comprehensive_ui.py::TestWorkflowTabNavigation)
+    Existing tests (tests/ui/test_workflow_comprehensive_ui.py::TestWorkflowTabNavigation)
     assert the tab *panel* container becomes visible and loses the `hidden`
     class when a tab is clicked. They do NOT assert that any inner content
     inside the panel is rendered. A panel can be visible while containing

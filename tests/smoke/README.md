@@ -64,14 +64,13 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Evaluations dashboard
 - Workflow redirect helpers
 
-**Browser UI Smoke (separate from `run_tests.py smoke`)** - `tests/ui/test_ui_flows.py`, `tests/ui/test_rag_chat_ui.py`, `tests/ui/test_workflow_tabs.py`
+**Browser UI Smoke (separate from `run_tests.py smoke`)** - `tests/ui/test_ui_flows.py`, `tests/ui/test_rag_chat_ui.py`
 - Dashboard navigation
 - Articles listing
 - Sources management
 - Rescore all articles button
 - Chat page loads
 - Chat send path renders without errors
-- Workflow tab navigation
 
 ### Test File Locations
 
@@ -82,7 +81,7 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 | `tests/ui/test_top_level_pages_smoke_ui.py` | top-level pages | HTML route coverage |
 | `tests/ui/test_ui_flows.py` | browser smoke | UI navigation |
 | `tests/ui/test_rag_chat_ui.py` | browser smoke | RAG chat |
-| `tests/ui/test_workflow_tabs.py` | browser smoke | Workflow tabs |
+| `tests/ui/test_workflow_comprehensive_ui.py` | browser smoke | Workflow tabs (consolidated) |
 
 ## Running Smoke Tests
 
@@ -192,7 +191,7 @@ pytest tests/ui/test_top_level_pages_smoke_ui.py -m smoke -v
 # Run browser-only smoke
 pytest tests/ui/test_ui_flows.py -m ui_smoke -v
 pytest tests/ui/test_rag_chat_ui.py -m ui_smoke -v
-pytest tests/ui/test_workflow_tabs.py -m ui_smoke -v
+pytest tests/ui/test_workflow_comprehensive_ui.py -m ui_smoke -v
 
 # Run specific test class
 pytest tests/api/test_endpoints.py::TestDashboardEndpoints -m smoke -v

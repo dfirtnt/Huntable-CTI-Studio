@@ -29,6 +29,7 @@ class TestWorkflowTabNavigation:
     """Test workflow tab navigation functionality."""
 
     @pytest.mark.ui
+    @pytest.mark.ui_smoke
     @pytest.mark.workflow
     def test_tab_navigation_config_tab(self, page: Page):
         """Test switching to Configuration tab."""

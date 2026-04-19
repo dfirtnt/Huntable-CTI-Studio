@@ -20,7 +20,7 @@ This document tracks tests that are currently skipped and need to be fixed.
 | **test_annotations_api.py** | many | `pytest.skip("No articles available")` | Seed test DB with articles in API test setup (or shared fixture) |
 | **test_endpoints.py** | 4 | 500 / "No articles" / 422 skips | Same: ensure DB + seed data in API job |
 | **test_article_detail_advanced_ui.py** | 2 | No articles; observables mode inactive | Seed data; skip observables test if feature off |
-| **test_annotation_ui_persistence.py** | 3 | "Requires article with content" | Add test data/fixtures per doc |
+| ~~test_annotation_ui_persistence.py~~ | 3 | Removed in UI test diet (all tests skipped, zero coverage) | N/A |
 | **test_eval_ui_rendering.py** | 1 | "Requires eval data" | Add eval fixtures |
 | **integration/test_annotation_persistence.py** | 3 | Async fixture teardown in different event loop | Same-loop teardown or dedicated integration run (see docs/solutions/...) |
 | **Fixture-not-found** (sigma similarity, scraper_parsing, sigma_validator_roundtrip, compare_sources, workflow_config_schema) | 1 each | Golden/input/fixture file missing | Commit files to repo or skip only when file absent in CI |

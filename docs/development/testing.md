@@ -438,13 +438,10 @@ This document outlines the test plan for Huntable CTI Studio, focusing on critic
 **Playwright UI Tests (Python):**
 - `test_navigation_routing.py` - Navigation/routing
 - `test_sigma_editor_validation.py` - SIGMA editor validation + save
-- `test_annotation_ui_persistence.py` - Annotation UI state
 - `test_eval_ui_rendering.py` - Eval metrics rendering
-- `test_modal_interactions.py` - Modal behavior
 - `test_collapsible_panels.py` - Collapsible panel behavior
 
 **Playwright E2E Tests (TypeScript):**
-- `workflow_full.spec.ts` - Full workflow (ingest → extract → review → generate sigma → validate → save)
 - `eval_workflow.spec.ts` - Eval workflow (run eval → view results → compare snapshot)
 
 **Note:** Existing 29 Playwright tests reclassified as "UI smoke" (no changes to test files).
@@ -498,7 +495,7 @@ make test
 pytest tests/services/ -v  # Stateless backend tests
 pytest tests/integration/ -v  # Stateful backend tests
 pytest tests/ui/ -v  # Frontend UI tests
-npm test -- tests/playwright/workflow_full.spec.ts  # E2E tests
+npx playwright test  # E2E tests (TypeScript Playwright)
 
 # Tear down containers
 make test-down

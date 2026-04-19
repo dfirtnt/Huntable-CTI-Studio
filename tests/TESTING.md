@@ -213,7 +213,6 @@ User interface testing with Playwright sync API:
 - **`test_ioc_*.py`** (9 tests) - IOC extraction UI tests (5 files)
 - **`test_jobs_monitor_ui.py`** (8 tests) - Jobs monitor
 - **`test_mobile_annotation.py`** (13 tests) - Mobile annotation
-- **`test_modal_interactions_ui.py`** (20 tests) - Modal interactions
 - **`test_navigation_ui.py`** (11 tests) - Navigation and breadcrumbs
 - (removed) Ollama test button
 - **`test_pdf_upload_ui.py`** (6 tests) - PDF upload
@@ -222,7 +221,6 @@ User interface testing with Playwright sync API:
 - **`test_settings_ui.py`** (63 tests) - Settings page
 - **`test_sources_ui.py`** (8 tests) - Sources management
 - **`test_ui_flows.py`** (16 tests) - User workflow testing
-- **`test_workflow_tabs_ui.py`** (3 tests) - Workflow agent config subpages visibility
 
 #### Integration Tests (200+ tests)
 Cross-component testing with real dependencies:
