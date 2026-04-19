@@ -185,50 +185,6 @@ test.describe('Agent Config Toggle Interactions', () => {
     expect(responseData.rank_agent_enabled).toBe(!initialChecked);
   });
 
-  test.skip('should persist toggle states after page reload', async ({ page }) => {
-    const rankAgentToggle = page.locator('#rank-agent-enabled');
-    await rankAgentToggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    const initialChecked = await rankAgentToggle.isChecked();
-
-    // Toggle it
-    await page.evaluate(() => {
-      const el = document.getElementById('rank-agent-enabled') as HTMLInputElement;
-      if (el) {
-        el.checked = !el.checked;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-    await page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
-    );
-    await page.waitForTimeout(2000); // Wait longer for autosave to complete
-
-    // Reload page
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
-
-    await page.evaluate(() => {
-      if (typeof switchTab === 'function') {
-        switchTab('config');
-      }
-    });
-    await page.waitForTimeout(1000);
-
-    await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    await page.waitForTimeout(3000); // Wait longer for config to load
-    await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
-    await page.waitForTimeout(1000);
-
-    const rankAgentToggleAfterReload = page.locator('#rank-agent-enabled');
-    await rankAgentToggleAfterReload.waitFor({ state: 'attached', timeout: 10000 });
-
-    const persistedChecked = await rankAgentToggleAfterReload.isChecked();
-    expect(persistedChecked).toBe(!initialChecked);
-  });
-
   test('should update status badges when toggles change', async ({ page }) => {
     const rankAgentToggle = page.locator('#rank-agent-enabled');
     const rankAgentBadge = page.locator('#rank-agent-enabled-badge');

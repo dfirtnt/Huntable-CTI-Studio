@@ -54,50 +54,6 @@ test.describe('Agent Config OS Detection', () => {
     expect(selectedOS.length).toBeGreaterThan(0);
   });
 
-  test.skip('should autosave OS fallback toggle', async ({ page }) => {
-    const fallbackToggle = page.locator('#osdetectionagent-fallback-enabled');
-    await fallbackToggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    const initialChecked = await fallbackToggle.isChecked();
-
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
-    );
-
-    await page.evaluate(() => {
-      const toggle = document.getElementById('osdetectionagent-fallback-enabled') as HTMLInputElement;
-      if (toggle) {
-        toggle.checked = !toggle.checked;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
-        // Call the handler if it exists
-        if (typeof toggleFallbackModel === 'function') {
-          toggleFallbackModel();
-        } else if (typeof autoSaveConfig === 'function') {
-          autoSaveConfig();
-        }
-      }
-    });
-    await page.waitForTimeout(1500);  // Increased from 1000 to 1500 for reliability
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    
-    // Verify the toggle state was saved
-    // If toggle was enabled, fallback should have a value (or be null if disabled)
-    // If toggle was disabled, fallback should be null
-    const fallbackValue = responseData.agent_models?.OSDetectionAgent_fallback;
-    if (!initialChecked) {
-      // Was disabled, now enabled - should have a value or be explicitly null
-      expect(fallbackValue !== undefined).toBe(true);
-    } else {
-      // Was enabled, now disabled - should be null
-      expect(fallbackValue).toBeNull();
-    }
-  });
-
   test('should autosave OS embedding model', async ({ page }) => {
     const embeddingSelector = page.locator('#osdetectionagent-embedding-model-2');
     await embeddingSelector.waitFor({ state: 'attached', timeout: 10000 });
@@ -146,58 +102,6 @@ test.describe('Agent Config OS Detection', () => {
     }
   });
 
-  test.skip('should set fallback to null when toggle is disabled', async ({ page }) => {
-    const fallbackToggle = page.locator('#osdetectionagent-fallback-enabled');
-    await fallbackToggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    // Ensure toggle is enabled first
-    if (!(await fallbackToggle.isChecked())) {
-      await page.evaluate(() => {
-        const toggle = document.getElementById('osdetectionagent-fallback-enabled') as HTMLInputElement;
-        if (toggle) {
-          toggle.checked = true;
-          toggle.dispatchEvent(new Event('change', { bubbles: true }));
-          if (typeof toggleFallbackModel === 'function') {
-            toggleFallbackModel();
-          } else if (typeof autoSaveConfig === 'function') {
-            autoSaveConfig();
-          }
-        }
-      });
-      await page.waitForResponse(
-        (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-        { timeout: 10000 }
-      );
-      await page.waitForTimeout(1000); // Wait for autosave
-    }
-
-    // Now disable it
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
-    );
-
-    await page.evaluate(() => {
-      const toggle = document.getElementById('osdetectionagent-fallback-enabled') as HTMLInputElement;
-      if (toggle) {
-        toggle.checked = false;
-        toggle.dispatchEvent(new Event('change', { bubbles: true }));
-        if (typeof toggleFallbackModel === 'function') {
-          toggleFallbackModel();
-        } else if (typeof autoSaveConfig === 'function') {
-          autoSaveConfig();
-        }
-      }
-    });
-    await page.waitForTimeout(1000);
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    expect(responseData.agent_models?.OSDetectionAgent_fallback).toBeNull();
-    expect(responseData.agent_models?.OSDetectionAgent_fallback_provider).toBeNull();
-  });
 });
 
 const PANEL_STEP_MAP: Record<string, string[]> = {

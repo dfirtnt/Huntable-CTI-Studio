@@ -47,21 +47,6 @@ async function expandPanel(page: Page, panelId: string) {
   if (isHidden) { await header.click(); await page.waitForTimeout(300); }
 }
 
-async function expandPromptPanel(page: Page, panelId: string) {
-  const header = page.locator(`[data-collapsible-panel="${panelId}"]`).first();
-  await header.waitFor({ state: 'attached', timeout: 15000 }).catch(() => {});
-  const content = page.locator(`#${panelId}-content`).first();
-  if (await content.count() === 0 || await header.count() === 0) {
-    return;
-  }
-  const isHidden = await content.evaluate(el => el.classList.contains('hidden')).catch(() => true);
-  if (isHidden) {
-    await header.scrollIntoViewIfNeeded().catch(() => {});
-    await header.click({ force: true });
-    await page.waitForTimeout(300);
-  }
-}
-
 async function expandAgentPanels(page: Page) {
   await expandPanel(page, 'qa-settings-panel');
   await expandPanel(page, 'os-detection-panel');
@@ -94,32 +79,6 @@ test.describe('Agent Config Full Coverage (10+ agents)', () => {
     await ensureQATogglesEnabled(page);
   });
 
-  test.skip('LLM prompt editors expose History buttons (10 agents)', async ({ page }) => {
-    const promptEditors = [
-      { name: 'RankAgent', container: '#rank-agent-prompt-container', panelId: 'rank-agent-prompt-panel' },
-      { name: 'ExtractAgent', container: '#extract-agent-prompt-container', panelId: 'extract-agent-prompt-panel' },
-      { name: 'SigmaAgent', container: '#sigma-agent-prompt-container', panelId: 'sigma-agent-prompt-panel' },
-      { name: 'CmdlineExtract', container: '#cmdlineextract-agent-prompt-container', panelId: 'cmdlineextract-agent-prompt-panel' },
-      { name: 'ProcTreeExtract', container: '#proctreeextract-agent-prompt-container', panelId: 'proctreeextract-agent-prompt-panel' },
-      { name: 'HuntQueriesExtract', container: '#huntqueriesextract-agent-prompt-container', panelId: 'huntqueriesextract-agent-prompt-panel' },
-      { name: 'RegistryExtract', container: '#registryextract-agent-prompt-container', panelId: 'registryextract-agent-prompt-panel' },
-      { name: 'QAAgent', container: '#rank-qa-agent-prompt-content', panelId: 'qaagent-qa-prompt-panel' },
-      { name: 'CmdLineQA', container: '#cmdlineextract-agent-qa-prompt-container', panelId: 'cmdlineqa-qa-prompt-panel' },
-      { name: 'ProcTreeQA', container: '#proctreeextract-agent-qa-prompt-container', panelId: 'proctreeqa-qa-prompt-panel' },
-      { name: 'HuntQueriesQA', container: '#huntqueriesextract-agent-qa-prompt-container', panelId: 'huntqueriesqa-qa-prompt-panel' },
-      { name: 'RegistryQA', container: '#registryextract-agent-qa-prompt-container', panelId: 'registryqa-qa-prompt-panel' }
-    ];
-
-    for (const editor of promptEditors) {
-      const container = page.locator(editor.container);
-      await container.waitFor({ state: 'attached', timeout: 15000 });
-      await expandPromptPanel(page, editor.panelId);
-      const historyButton = container.locator('button', { hasText: 'History' }).first();
-      await historyButton.waitFor({ state: 'attached', timeout: 15000 });
-      await expect(historyButton).toBeVisible();
-    }
-  });
-
   test('Enable/disable toggles are visible (10 agents)', async ({ page }) => {
     const toggles = [
       '#rank-agent-enabled',
@@ -141,33 +100,4 @@ test.describe('Agent Config Full Coverage (10+ agents)', () => {
     }
   });
 
-  test.skip('Temperature and top_p controls are editable (10 agents)', async ({ page }) => {
-    const inputs = [
-      { name: 'RankAgent', temp: '#rankagent-temperature', topP: '#rankagent-top-p' },
-      { name: 'ExtractAgent', temp: '#extractagent-temperature', topP: '#extractagent-top-p' },
-      { name: 'SigmaAgent', temp: '#sigmaagent-temperature', topP: '#sigmaagent-top-p' },
-      { name: 'CmdlineExtract', temp: '#cmdlineextract-temperature', topP: '#cmdlineextract-top-p' },
-      { name: 'ProcTreeExtract', temp: '#proctreeextract-temperature', topP: '#proctreeextract-top-p' },
-      { name: 'HuntQueriesExtract', temp: '#huntqueriesextract-temperature', topP: '#huntqueriesextract-top-p' },
-      { name: 'RegistryExtract', temp: '#registryextract-temperature', topP: '#registryextract-top-p' },
-      { name: 'RankAgentQA', temp: '#rankqa-temperature', topP: '#rankqa-top-p' },
-      { name: 'CmdLineQA', temp: '#cmdlineqa-temperature', topP: '#cmdlineqa-top-p' },
-      { name: 'ProcTreeQA', temp: '#proctreeqa-temperature', topP: '#proctreeqa-top-p' },
-      { name: 'HuntQueriesQA', temp: '#huntqueriesqa-temperature', topP: '#huntqueriesqa-top-p' }
-    ];
-
-    for (const input of inputs) {
-      const tempInput = page.locator(input.temp);
-      await tempInput.waitFor({ state: 'attached', timeout: 10000 });
-      await tempInput.scrollIntoViewIfNeeded().catch(() => {});
-      await expect(tempInput).toBeVisible();
-      await expect(tempInput).toBeEditable();
-
-      const topPInput = page.locator(input.topP);
-      await topPInput.waitFor({ state: 'attached', timeout: 10000 });
-      await topPInput.scrollIntoViewIfNeeded().catch(() => {});
-      await expect(topPInput).toBeVisible();
-      await expect(topPInput).toBeEditable();
-    }
-  });
 });

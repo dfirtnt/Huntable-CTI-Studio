@@ -170,40 +170,6 @@ test.describe('Agent Config Edge Cases', () => {
     await expect(rankingInput).toBeEnabled();
   });
 
-  test.skip('should handle multiple simultaneous field changes', async ({ page }) => {
-    await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
-    await expandPanelIfNeeded(page, 'other-thresholds-panel');
-
-    const rankingInput = page.locator('#rankingThreshold');
-    const junkFilterInput = page.locator('#junkFilterThreshold');
-    const tempInput = page.locator('#rankagent-temperature');
-
-    await rankingInput.waitFor({ state: 'visible', timeout: 10000 });
-    await junkFilterInput.waitFor({ state: 'visible', timeout: 10000 });
-    await tempInput.waitFor({ state: 'attached', timeout: 10000 });
-    await tempInput.scrollIntoViewIfNeeded();
-
-    // Change all fields simultaneously
-    await Promise.all([
-      rankingInput.fill('7.0'),
-      junkFilterInput.fill('0.85'),
-      tempInput.fill('0.5')
-    ]);
-
-    // Blur all inputs to trigger autosave
-    await rankingInput.blur();
-    await junkFilterInput.blur();
-    await tempInput.blur();
-    await page.waitForTimeout(2000);  // Increased from 1000 to 2000 for multiple autosaves
-
-    // All inputs should have their values
-    expect(parseFloat(await rankingInput.inputValue())).toBeCloseTo(7.0, 1);
-    expect(parseFloat(await junkFilterInput.inputValue())).toBeCloseTo(0.85, 2);
-    // Temperature might have a default value, just verify it's set
-    const tempValue = parseFloat(await tempInput.inputValue());
-    expect(tempValue).toBeGreaterThanOrEqual(0);
-    expect(tempValue).toBeLessThanOrEqual(2);
-  });
 });
 
 const PANEL_STEP_MAP: Record<string, string[]> = {

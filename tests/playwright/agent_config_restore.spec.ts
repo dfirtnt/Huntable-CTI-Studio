@@ -79,62 +79,6 @@ test.describe('Agent Config Restore After Collapse', () => {
     expect(containerAfterRestoreExists).toBe(true);
   });
 
-  test.skip('should render Extract Agent config content after restore when panel was collapsed', async ({ page }) => {
-    const info = PANEL_INFO['extract-agent-panel'];
-    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
-    await page.waitForSelector(info.container, { state: 'attached', timeout: 10000 });
-    await page.waitForTimeout(3000);
-
-    const container = page.locator(info.container);
-    const containerContent = await container.evaluate(el => el.innerHTML);
-    expect(containerContent.length).toBeGreaterThan(0);
-    expect(containerContent).toContain('Extract Agent Model');
-
-    await page.evaluate((id) => document.getElementById(id)?.classList.remove('open'), info.step);
-    await page.waitForTimeout(300);
-
-    await page.evaluate(async () => {
-      if (typeof loadAgentModels === 'function') await loadAgentModels();
-    });
-    await page.waitForTimeout(2000);
-
-    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
-    await page.waitForTimeout(500);
-
-    const containerAfterRestore = page.locator(info.container);
-    const contentAfterRestore = await containerAfterRestore.evaluate(el => el.innerHTML);
-    expect(contentAfterRestore.length).toBeGreaterThan(0);
-    expect(contentAfterRestore).toContain('Extract Agent Model');
-  });
-
-  test.skip('should render OS Detection Agent config content after restore when panel was collapsed', async ({ page }) => {
-    const info = PANEL_INFO['os-detection-panel'];
-    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
-    await page.waitForSelector(info.container, { state: 'attached', timeout: 10000 });
-    await page.waitForTimeout(3000);
-
-    const container = page.locator(info.container);
-    const containerContent = await container.evaluate(el => el.innerHTML);
-    expect(containerContent.length).toBeGreaterThan(0);
-    expect(containerContent).toContain('OS Detection Agent Model');
-
-    await page.evaluate((id) => document.getElementById(id)?.classList.remove('open'), info.step);
-    await page.waitForTimeout(300);
-
-    await page.evaluate(async () => {
-      if (typeof loadAgentModels === 'function') await loadAgentModels();
-    });
-    await page.waitForTimeout(2000);
-
-    await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);
-    await page.waitForTimeout(500);
-
-    const containerAfterRestore = page.locator(info.container);
-    const contentAfterRestore = await containerAfterRestore.evaluate(el => el.innerHTML);
-    expect(contentAfterRestore.length).toBeGreaterThan(0);
-    expect(contentAfterRestore).toContain('OS Detection Agent Model');
-  });
-
   test('should render Sigma Agent config content after restore when panel was collapsed', async ({ page }) => {
     const info = PANEL_INFO['sigma-agent-panel'];
     await page.evaluate((id) => document.getElementById(id)?.classList.add('open'), info.step);

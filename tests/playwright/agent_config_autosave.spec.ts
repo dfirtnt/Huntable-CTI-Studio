@@ -213,47 +213,6 @@ test.describe('Agent Config Autosave', () => {
     expect(responseData.sigma_fallback_enabled).toBe(!initialChecked);
   });
 
-  test.skip('should autosave Extract sub-agent toggles on change', async ({ page }) => {
-    // Ensure extract-agent-panel is expanded first
-    await expandPanelIfNeeded(page, 'extract-agent-panel');
-    await page.waitForTimeout(1000);
-    // Then expand cmdlineextract sub-panel
-    await expandPanelIfNeeded(page, 'cmdlineextract-agent-panel');
-    await page.waitForTimeout(1000);
-    
-    const toggle = page.locator('#toggle-cmdlineextract-enabled');
-    await toggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    const initialChecked = await toggle.isChecked();
-
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }
-    );
-
-    await page.evaluate(() => {
-      const el = document.getElementById('toggle-cmdlineextract-enabled') as HTMLInputElement;
-      if (el) {
-        el.checked = !el.checked;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        if (typeof handleExtractAgentToggle === 'function') {
-          handleExtractAgentToggle('CmdlineExtract');
-        } else if (typeof autoSaveConfig === 'function') {
-          autoSaveConfig();
-        }
-      }
-    });
-    await page.waitForTimeout(1000); // Wait longer for autosave
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    const disabledAgents = responseData.agent_prompts?.ExtractAgentSettings?.disabled_agents || [];
-    const isDisabled = disabledAgents.includes('CmdlineExtract');
-    expect(isDisabled).toBe(!initialChecked);
-  });
-
   test('should autosave QA max retries when valid (1-3 range)', async ({ page }) => {
     const input = page.locator('#qaMaxRetries');
     await input.waitFor({ state: 'visible', timeout: 10000 });
@@ -384,37 +343,6 @@ test.describe('Agent Config Autosave', () => {
     // Verify input still has the value (UI didn't break)
     const currentValue = await input.inputValue();
     expect(parseFloat(currentValue)).toBeCloseTo(newValue, 1);
-  });
-
-  test.skip('should not autosave invalid threshold values', async ({ page }) => {
-    // Range inputs clamp values to [min, max] — cannot set out-of-range values
-    const input = page.locator('#junkFilterThreshold');
-    await input.waitFor({ state: 'visible', timeout: 10000 });
-
-    // Set invalid value (out of range)
-    const invalidValue = '2.0'; // Should be 0-1
-
-    // Set up response listener with timeout (should not fire)
-    let autosaveFired = false;
-    const listener = (response: any) => {
-      if (response.url().includes('/api/workflow/config') && response.request().method() === 'PUT') {
-        autosaveFired = true;
-      }
-    };
-    page.on('response', listener);
-
-    await input.fill(invalidValue);
-    await input.blur();
-    await page.waitForTimeout(1500); // Wait longer for debounce
-
-    // Remove listener
-    page.off('response', listener);
-
-    // Note: The actual implementation may still autosave if validation happens after input
-    // This test verifies the behavior - autosave may fire but with corrected value
-    // So we just verify the input was set (validation is tested separately)
-    const currentValue = await input.inputValue();
-    expect(currentValue).toBe(invalidValue);
   });
 
   test('should debounce rapid changes to prevent excessive API calls', async ({ page }) => {

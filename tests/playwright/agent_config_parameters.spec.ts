@@ -75,68 +75,6 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
     expect(responseData.agent_models?.RankAgent_top_p).toBeCloseTo(0.95, 2);
   });
 
-  test.skip('should autosave Extract Agent temperature changes', async ({ page }) => {
-    const tempInput = page.locator('#extractagent-temperature');
-    await tempInput.waitFor({ state: 'visible', timeout: 10000 });
-
-    const newValue = '0.3';
-
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }  // Increased from 5000 to 10000
-    );
-
-    await tempInput.evaluate((el, val) => {
-      (el as HTMLInputElement).value = val;
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    }, newValue);
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    expect(responseData.agent_models?.ExtractAgent_temperature).toBeCloseTo(0.3, 1);
-  });
-
-  test.skip('should autosave CmdlineExtract temperature changes', async ({ page }) => {
-    await expandPanelIfNeeded(page, 'extract-agent-panel');
-    await page.waitForTimeout(500);
-    await expandPanelIfNeeded(page, 'cmdlineextract-agent-panel');
-    await page.waitForTimeout(500);
-    
-    const tempInput = page.locator('#cmdlineextract-temperature');
-    await tempInput.waitFor({ state: 'attached', timeout: 10000 });
-    // Use JavaScript if element is hidden
-    const isVisible = await tempInput.isVisible().catch(() => false);
-    
-    const newValue = '0.2';
-
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }  // Increased from 5000 to 10000
-    );
-
-    if (isVisible) {
-      await tempInput.fill(newValue);
-      await tempInput.blur();
-    } else {
-      await page.evaluate((val) => {
-        const el = document.getElementById('cmdlineextract-temperature') as HTMLInputElement;
-        if (el) {
-          el.value = val;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      }, newValue);
-    }
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    expect(responseData.agent_models?.CmdlineExtract_temperature).toBeCloseTo(0.2, 1);
-  });
-
   test('should persist temperature values after reload', async ({ page }) => {
     const tempInput = page.locator('#rankagent-temperature');
     await tempInput.waitFor({ state: 'attached', timeout: 10000 });
@@ -182,31 +120,6 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
     expect(parseFloat(persistedValue)).toBeLessThanOrEqual(2);
   });
 
-  test.skip('should validate temperature range (0-2)', async ({ page }) => {
-    // Range inputs clamp values to [min, max] — validity.valid is always true
-    const tempInput = page.locator('#rankagent-temperature');
-    await tempInput.waitFor({ state: 'visible', timeout: 10000 });
-    await tempInput.fill('2.5');
-    await tempInput.blur();
-    await page.waitForTimeout(500);
-    const isValid = await tempInput.evaluate((el: HTMLInputElement) => {
-      return (el as HTMLInputElement).validity.valid;
-    });
-    expect(isValid).toBe(false);
-  });
-
-  test.skip('should validate top_p range (0-1)', async ({ page }) => {
-    // Range inputs clamp values to [min, max] — validity.valid is always true
-    const topPInput = page.locator('#rankagent-top-p');
-    await topPInput.waitFor({ state: 'visible', timeout: 10000 });
-    await topPInput.fill('1.5');
-    await topPInput.blur();
-    await page.waitForTimeout(500);
-    const isValid = await topPInput.evaluate((el: HTMLInputElement) => {
-      return (el as HTMLInputElement).validity.valid;
-    });
-    expect(isValid).toBe(false);
-  });
 });
 
 const PANEL_STEP_MAP: Record<string, string[]> = {

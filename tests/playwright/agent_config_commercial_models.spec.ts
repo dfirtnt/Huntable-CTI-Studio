@@ -37,26 +37,6 @@ test.describe('Agent Config Commercial Models', () => {
     expect(['input', 'select']).toContain(tagName);
   });
 
-  test.skip('should load commercial model catalog for Anthropic', async ({ page }) => {
-    const providerSelect = page.locator('#rankagent-provider');
-    await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
-
-    // First switch to a different provider to ensure clean state
-    await providerSelect.selectOption('lmstudio');
-    await page.waitForTimeout(1000);
-    
-    await providerSelect.selectOption('anthropic');
-    await page.waitForTimeout(2000); // Wait for model selector to load
-
-    // Check for model selector
-    const modelSelector = page.locator('#rankagent-model-anthropic');
-    await modelSelector.waitFor({ state: 'visible', timeout: 15000 });  // Increased from 5000 to 15000
-
-    // Verify it exists and is either input or select
-    const tagName = await modelSelector.evaluate((el: HTMLElement) => el.tagName.toLowerCase());
-    expect(['input', 'select']).toContain(tagName);
-  });
-
   test('should allow custom model input for commercial providers', async ({ page }) => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
