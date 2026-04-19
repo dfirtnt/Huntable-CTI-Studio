@@ -2,7 +2,7 @@ name: Docs
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev-io]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
@@ -45,15 +45,26 @@ jobs:
       - name: Build docs
         run: uv run mkdocs build --strict
 
+      - name: Prepare site structure
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p staging
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            cp -r site/* staging/
+          elif [ "${{ github.ref }}" = "refs/heads/dev-io" ]; then
+            mkdir -p staging/dev
+            cp -r site/* staging/dev/
+          fi
+
       - name: Upload pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io')
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site/
+          path: staging/
 
   deploy:
     name: Deploy to GitHub Pages
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io')
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
