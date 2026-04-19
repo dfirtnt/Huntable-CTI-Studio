@@ -157,10 +157,8 @@ try:
     )
 
     DEBUGGING_AVAILABLE = True
-except ImportError as e:
+except ImportError:
     DEBUGGING_AVAILABLE = False
-    print(f"Warning: Enhanced debugging utilities not available: {e}")
-    print("Enhanced debugging features will not be available.")
 
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")

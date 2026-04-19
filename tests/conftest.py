@@ -185,8 +185,7 @@ try:
     # Load test configuration
     test_config = get_test_config()
     ENVIRONMENT_UTILS_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Test environment utilities not available: {e}")
+except ImportError:
     ENVIRONMENT_UTILS_AVAILABLE = False
     test_config = None
 
