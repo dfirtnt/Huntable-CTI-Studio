@@ -5,9 +5,10 @@
 # Phase 1 security updates: 2025-01-29 (certifi, charset-normalizer, cryptography)
 # Phase 2 security updates: 2025-01-07 (urllib3, aiohttp, starlette)
 # Phase 3 security updates: 2026-04-04 (urllib3 2.6.3, langfuse 4.0.6)
+# Phase 4 security updates: 2026-04-19 (filelock 3.29.0, requests 2.33.1, pygments 2.20.0)
 
 # Core scraping and processing
-requests==2.33.0
+requests==2.33.1
 httpx==0.28.1
 brotli==1.2.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
@@ -54,6 +55,8 @@ python-dateutil==2.9.0.post0  # Date parsing utilities
 # Security
 certifi==2025.11.12
 urllib3==2.6.3
+filelock==3.29.0  # CVE-2026-22701 fix
+pygments==2.20.0  # CVE-2026-4539 fix
 charset-normalizer==3.4.5
 python-multipart==0.0.26
 cryptography==46.0.6  # Enhanced encryption; CVE-2026-34073 fix
