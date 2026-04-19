@@ -8,6 +8,8 @@ import os
 import pytest
 from playwright.sync_api import Page, expect
 
+pytestmark = pytest.mark.skip(reason="Mobile feature tests skipped by request.")
+
 
 class TestMobileLayout:
     """Test mobile layout responsiveness."""

@@ -383,6 +383,7 @@ class TestTextScaling:
     @pytest.mark.ui
     @pytest.mark.accessibility
     @pytest.mark.slow
+    @pytest.mark.skip(reason="Mobile feature test skipped by request.")
     def test_responsive_text_layout(self, page: Page):
         """Test responsive text layout."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

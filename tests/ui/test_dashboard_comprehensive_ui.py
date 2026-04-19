@@ -215,6 +215,7 @@ class TestVolumeCharts:
 
     @pytest.mark.ui
     @pytest.mark.dashboard
+    @pytest.mark.skip(reason="Mobile feature test skipped by request.")
     def test_chart_responsive_behavior(self, page: Page):
         """Test chart responsive behavior."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

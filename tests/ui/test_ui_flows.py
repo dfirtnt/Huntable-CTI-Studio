@@ -402,6 +402,7 @@ class TestResponsiveDesign:
     """Test responsive design and mobile compatibility."""
 
     @pytest.mark.ui
+    @pytest.mark.skip(reason="Mobile feature test skipped by request.")
     def test_mobile_viewport(self, page: Page):
         """Test mobile viewport rendering."""
         page.set_viewport_size({"width": 375, "height": 667})

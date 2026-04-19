@@ -173,6 +173,9 @@ class RunTestType(Enum):
     API = "api"
     INTEGRATION = "integration"
     UI = "ui"
+    UI_SMOKE = "ui-smoke"  # Tier 1: <2 min  (pytest smoke + ui_smoke markers, no Playwright)
+    UI_FAST = "ui-fast"  # Tier 3: ~10-15 min  (full UI minus @slow, parallel)
+    UI_FULL = "ui-full"  # Tier 4: ~40-45 min  (everything including slow)
     E2E = "e2e"
     ALL_NO_UI = "all-no-ui"
     REGRESSION = "regression"
@@ -205,6 +208,8 @@ class RunTestConfig:
     verbose: bool = False
     debug: bool = False
     parallel: bool = False
+    serial: bool = False
+    playwright_project: str | None = None  # --area: pin Playwright to one feature project
     coverage: bool = False
     install_deps: bool = False
     validate_env: bool = True
@@ -407,6 +412,9 @@ class RunTestRunner:
         stateful_test_types = {
             RunTestType.API,
             RunTestType.UI,
+            RunTestType.UI_SMOKE,
+            RunTestType.UI_FAST,
+            RunTestType.UI_FULL,
             RunTestType.INTEGRATION,
             RunTestType.E2E,
             RunTestType.ALL,
@@ -683,6 +691,9 @@ class RunTestRunner:
             RunTestType.API: [],  # Skip Playwright in API tests
             RunTestType.INTEGRATION: [],  # Skip Playwright in integration tests (Python-based)
             RunTestType.UI: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.UI_SMOKE: [],  # Tier 1: pytest smoke only; no Playwright
+            RunTestType.UI_FAST: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
+            RunTestType.UI_FULL: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
             RunTestType.E2E: ["tests/playwright/", "tests/test_help_buttons.spec.js"],
             RunTestType.ALL_NO_UI: [],  # Explicitly skip Playwright for all-no-ui runs
             RunTestType.REGRESSION: [],  # Skip Playwright in marker-based category tests
@@ -707,6 +718,10 @@ class RunTestRunner:
         else:
             # Default: run all Playwright tests
             cmd.extend(["tests/playwright/", "tests/test_help_buttons.spec.js"])
+
+        # --area: scope to a single Playwright feature project
+        if self.config.playwright_project:
+            cmd.extend(["--project", self.config.playwright_project])
 
         # Add verbosity
         if self.config.verbose or self.config.debug:
@@ -834,6 +849,9 @@ class RunTestRunner:
                     "integration",
                 ],
                 RunTestType.UI: ["tests/ui/"],
+                RunTestType.UI_SMOKE: ["tests/ui/"],
+                RunTestType.UI_FAST: ["tests/ui/"],
+                RunTestType.UI_FULL: ["tests/ui/"],
                 RunTestType.E2E: ["tests/e2e/"],
                 RunTestType.REGRESSION: ["tests/", "-m", "regression"],
                 RunTestType.CONTRACT: ["tests/", "-m", "contract"],
@@ -871,6 +889,9 @@ class RunTestRunner:
             RunTestType.API: ["api"],
             RunTestType.INTEGRATION: ["integration"],
             RunTestType.UI: ["ui"],
+            RunTestType.UI_SMOKE: ["ui_smoke or smoke"],
+            RunTestType.UI_FAST: ["ui"],
+            RunTestType.UI_FULL: ["ui"],
             RunTestType.E2E: ["e2e"],
             RunTestType.REGRESSION: ["regression"],
             RunTestType.CONTRACT: ["contract"],
@@ -896,11 +917,20 @@ class RunTestRunner:
         elif self.config.test_type == RunTestType.UNIT:
             default_excludes.extend(["integration", "api", "ui", "ui_smoke", "e2e", "performance", "smoke"])
         # UI: by default exclude agent/workflow config-mutating tests (use --include-agent-config-tests to run them)
-        # Also exclude @pytest.mark.slow by default (performance/mobile/accessibility) — use --include-slow to run them
+        # Also exclude @pytest.mark.slow by default (performance/mobile/accessibility) -- use --include-slow to run them
         elif self.config.test_type == RunTestType.UI and not self.config.include_agent_config_tests:
             default_excludes.append("agent_config_mutation")
             if not self.config.include_slow:
                 default_excludes.append("slow")
+        # UI tiers: ui-smoke (tier 1) skips slow + agent-config-mutating
+        elif self.config.test_type == RunTestType.UI_SMOKE:
+            default_excludes.extend(["slow", "agent_config_mutation"])
+        # ui-fast (tier 3): full UI minus @slow (mobile/a11y/perf), parallel by default
+        elif self.config.test_type == RunTestType.UI_FAST:
+            default_excludes.extend(["slow"])
+            if not self.config.include_agent_config_tests:
+                default_excludes.append("agent_config_mutation")
+        # ui-full (tier 4): everything including @slow; only excluded by explicit --exclude-markers
         # all-no-ui: run the full suite, but exclude UI-marked tests and Playwright JS.
         elif self.config.test_type == RunTestType.ALL_NO_UI:
             default_excludes.extend(["ui", "ui_smoke"])
@@ -921,7 +951,15 @@ class RunTestRunner:
 
         # UI tests: add a per-test timeout guard so a single hung Playwright test
         # cannot block the entire serial run.  Requires pytest-timeout.
-        if self.config.test_type in (RunTestType.UI, RunTestType.E2E, RunTestType.ALL, RunTestType.COVERAGE):
+        if self.config.test_type in (
+            RunTestType.UI,
+            RunTestType.UI_SMOKE,
+            RunTestType.UI_FAST,
+            RunTestType.UI_FULL,
+            RunTestType.E2E,
+            RunTestType.ALL,
+            RunTestType.COVERAGE,
+        ):
             try:
                 import pytest_timeout  # noqa: F401
 
@@ -954,20 +992,26 @@ class RunTestRunner:
                 logger.info("Running tests on localhost")
 
         # Parallel execution via pytest-xdist.
-        # UI tests hit a single live server (localhost:8001).  Use -n 2 as a safe default
-        # for UI runs: enough to parallelise I/O-heavy page loads without overwhelming the
-        # server.  Use --parallel to get -n auto (all CPU cores).
-        if self.config.parallel:
+        # UI tests hit a single live server (localhost:8001).  Default to -n 4 for UI runs
+        # to match the Playwright worker cap on macOS; matches well with browser-driven
+        # I/O parallelism without overwhelming the single live stack.  Use --parallel for
+        # -n auto (all CPU cores), or --serial to disable parallelism entirely.
+        if self.config.serial:
+            pass  # Explicit serial; do not add -n
+        elif self.config.parallel:
             cmd.extend(["-n", "auto"])
-        elif self.config.test_type in (RunTestType.UI, RunTestType.E2E) and not self.config.fail_fast:
-            # Auto-enable -n 2 for UI/E2E when pytest-xdist is available.
-            # Bounded to 2 workers to avoid server-side contention on a single live stack.
-            try:
-                import xdist  # noqa: F401
-
-                cmd.extend(["-n", "2"])
-            except ImportError:
-                pass  # pytest-xdist not installed; run serially
+        elif (
+            self.config.test_type
+            in (RunTestType.UI, RunTestType.UI_SMOKE, RunTestType.UI_FAST, RunTestType.UI_FULL, RunTestType.E2E)
+            and not self.config.fail_fast
+        ):
+            # Check xdist in the venv (where pytest actually runs), not the driver process
+            xdist_check = subprocess.run([self.venv_python, "-c", "import xdist"], capture_output=True, check=False)
+            if xdist_check.returncode == 0:
+                # ui-smoke is fast pytest-only; cap at 2 since smoke tests are already short
+                # and worker startup overhead dominates
+                workers = "2" if self.config.test_type == RunTestType.UI_SMOKE else "4"
+                cmd.extend(["-n", workers])
 
         # Add coverage
         if self.config.coverage:
@@ -1119,6 +1163,10 @@ class RunTestRunner:
                     env["REDIS_URL"] = "redis://localhost:6379/0"
 
             env.update(self._get_agent_config_exclude_env())
+
+            # ui-full tier: also run quarantined Playwright suites
+            if self.config.test_type == RunTestType.UI_FULL:
+                env["CTI_INCLUDE_QUARANTINE"] = "1"
 
             # Run pytest tests (skip when --playwright-last-failed or --playwright-only)
             run_pytest = (
@@ -2035,6 +2083,16 @@ Manual Container Management:
         action="store_true",
         help="Run tests in parallel (requires pytest-xdist)",
     )
+    parser.add_argument(
+        "--serial",
+        action="store_true",
+        help="Disable pytest parallelism (UI runs default to -n 4); useful for debugging flakes",
+    )
+    parser.add_argument(
+        "--area",
+        choices=["agent-config", "workflow", "sources", "articles", "intelligence", "ui-misc", "quarantine"],
+        help="Run only one Playwright feature project (no effect on pytest section)",
+    )
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--install", action="store_true", help="Install test dependencies")
     parser.add_argument("--no-validate", action="store_true", help="Skip environment validation")
@@ -2118,6 +2176,8 @@ Manual Container Management:
                 verbose=args.verbose,
                 debug=args.debug,
                 parallel=args.parallel,
+                serial=args.serial,
+                playwright_project=args.area,
                 coverage=args.coverage,
                 install_deps=args.install,
                 validate_env=not args.no_validate,

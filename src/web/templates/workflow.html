@@ -6430,11 +6430,21 @@ function validateAgentPrompt(agentName) {
     // Support both the agent-prompts tab (no suffix) and per-agent panels (-2 suffix)
     const resultDiv = document.getElementById(`${agentId}-validate-result`)
                    || document.getElementById(`${agentId}-validate-result-2`);
+    if (!resultDiv) return;
+
+    // Prefer the live textarea (edit mode); fall back to stored prompt when the
+    // panel is collapsed/read-only so Validate works before clicking Edit.
     const systemTextarea = document.getElementById(`${agentId}-prompt-system`)
                         || document.getElementById(`${agentId}-prompt-system-2`);
-    if (!resultDiv || !systemTextarea) return;
+    let systemVal;
+    if (systemTextarea) {
+        systemVal = (systemTextarea.value || '').trim();
+    } else {
+        const stored = (agentPrompts && agentPrompts[agentName] && agentPrompts[agentName].prompt) || '';
+        const parts = parsePromptParts(stored);
+        systemVal = (parts.system || '').trim();
+    }
 
-    const systemVal = (systemTextarea.value || '').trim();
     const issues = _collectPromptIssues(agentName, systemVal);
     _renderValidateResult(resultDiv, issues);
 }
@@ -9085,6 +9095,11 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/></svg>
                                 Expand
                             </button>
+                            <button type="button" onclick="validateAgentPrompt('${agentName}')"
+                                    class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors"
+                                    title="Validate prompt structure against runtime requirements">
+                                Validate
+                            </button>
                             ${isEditing ? `
                                 <button type="button" onclick="cancelEditPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
@@ -9095,10 +9110,6 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                         style="display: none;"
                                         title="Preview the full message pair (system + hard-coded user template) that will be sent to the LLM">
                                     👁️ Effective Prompt
-                                </button>
-                                <button type="button" onclick="validateAgentPrompt('${agentName}')"
-                                        class="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 text-white text-sm rounded-md transition-colors">
-                                    Validate
                                 </button>
                                 <button type="button" onclick="saveAgentPrompt2('${agentName}')"
                                         class="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-md transition-colors">
@@ -9140,10 +9151,10 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               data-derived-binding-kind="prompt-system"
                                               placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
-                                    <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                                 ` : `
                                     <div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>
                                 `}
+                                <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                             </div>
                         ${isLockedScaffoldAgent ? `
                             <div class="border-l-4 border-amber-500 pl-4">

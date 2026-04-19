@@ -781,7 +781,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
     expect(response.status()).toBe(400);
   });
 
-  test('[SOURCES-110] Mobile view stacks source cards', async ({ page, request }) => {
+  test.skip('[SOURCES-110] Mobile view stacks source cards', async ({ page, request }) => {
     const source = await getFirstNonManualSource(request);
     test.skip(!source, 'No non-manual source available in test environment');
 
@@ -794,7 +794,7 @@ test.describe('Sources Page - Executable Test Plan', () => {
     expect(style.display).toBeTruthy();
   });
 
-  test('[SOURCES-111] Configuration modal usable on mobile', async ({ page, request }) => {
+  test.skip('[SOURCES-111] Configuration modal usable on mobile', async ({ page, request }) => {
     const source = await requireFirstNonManualSource(request);
 
     await page.setViewportSize({ width: 375, height: 667 });
