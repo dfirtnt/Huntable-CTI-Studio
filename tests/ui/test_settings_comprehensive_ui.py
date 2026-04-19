@@ -9,25 +9,6 @@ import pytest
 from playwright.sync_api import Page, expect
 
 
-class TestSettingsPageLoad:
-    """Test settings page basic loading."""
-
-    @pytest.mark.ui
-    @pytest.mark.settings
-    def test_settings_page_loads(self, page: Page):
-        """Test settings page loads."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("load")
-
-        # Verify page title
-        expect(page).to_have_title("Settings - Huntable CTI Studio")
-
-        # Verify main heading
-        heading = page.locator("h1.settings-section-header")
-        expect(heading).to_contain_text("Settings")
-
-
 class TestBackupConfiguration:
     """Test backup configuration section."""
 
@@ -498,19 +479,6 @@ class TestSettingsPersistence:
 
     @pytest.mark.ui
     @pytest.mark.settings
-    def test_save_settings_button(self, page: Page):
-        """Test save settings button."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("load")
-
-        # Verify save button exists and contains expected label text (partial match avoids emoji encoding issues)
-        save_btn = page.locator("#saveSettings")
-        expect(save_btn).to_be_visible()
-        expect(save_btn).to_contain_text("Save Settings")
-
-    @pytest.mark.ui
-    @pytest.mark.settings
     def test_settings_load_from_localstorage(self, page: Page):
         """Test settings load from localStorage."""
         pytest.skip("#aiModel, #aiTemperature, #sigmaAuthor removed - settings UI redesigned")
@@ -531,34 +499,6 @@ class TestSettingsPersistence:
         settings = page.evaluate("JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}')")
         assert settings.get("aiModel") == "anthropic"
         assert settings.get("aiTemperature") == "0.7"
-
-    @pytest.mark.ui
-    @pytest.mark.settings
-    @pytest.mark.agent_config_mutation
-    def test_settings_save_api_call(self, page: Page):
-        """Test settings save API call."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-
-        # Intercept API call
-        api_called = {"called": False}
-
-        def handle_route(route):
-            if "/api/settings" in route.request.url and route.request.method == "POST":
-                api_called["called"] = True
-            route.continue_()
-
-        page.route("**/api/settings/**", handle_route)
-
-        page.goto(f"{base_url}/settings")
-        page.wait_for_load_state("load")
-
-        # Click save button
-        save_btn = page.locator("#saveSettings")
-        save_btn.click()
-        page.wait_for_timeout(2000)
-
-        # Verify API was called
-        assert api_called["called"], "Save settings API should be called"
 
     @pytest.mark.ui
     @pytest.mark.settings

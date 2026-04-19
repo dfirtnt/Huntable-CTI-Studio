@@ -41,6 +41,7 @@ class TestDashboardFlows:
         expect(page).to_have_url(f"{base_url}/")
 
     @pytest.mark.ui
+    @pytest.mark.slow
     def test_article_volume_charts_display(self, page: Page):
         """Test that Article Volume section displays line charts for daily and hourly volume."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -108,6 +109,7 @@ class TestDashboardFlows:
         expect(page.locator("#high-score-articles-container")).to_be_visible()
 
     @pytest.mark.ui
+    @pytest.mark.slow
     def test_copy_urls_button_functionality(self, page: Page):
         """Test that the Copy URLs button in High-Score Articles section copies URLs to clipboard."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -218,6 +220,7 @@ class TestDashboardFlows:
         expect(copy_urls_button).to_be_visible()
 
     @pytest.mark.ui
+    @pytest.mark.slow
     def test_run_health_checks_navigation_and_execution(self, page: Page):
         """Test that Run Health Checks button navigates to diags page and executes Run All Checks."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -492,7 +495,7 @@ class TestErrorHandling:
 class TestQuickActionsFlows:
     """Test quick action button flows."""
 
-    @pytest.mark.ui_smoke
+    @pytest.mark.ui
     def test_rescore_all_articles_button(self, page: Page):
         """Test the rescore all articles button functionality."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")

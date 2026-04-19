@@ -45,6 +45,14 @@ Tests marked with `@pytest.mark.quarantine` that require fixes. All quarantined 
 | test_annotation_persistence.py | test_get_annotation | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same as above |
 | test_annotation_persistence.py | test_get_article_annotations | Async fixture teardown runs in different event loop (asyncpg/pytest-asyncio) | @system | 2026-03-10 | Same as above |
 
+## Playwright Quarantined (test.describe.skip)
+
+| Test File | Tests | Blocker | Status | Fix |
+|-----------|-------|---------|--------|-----|
+| playwright/workflow_executions.spec.ts | 17 (11 active + 6 skip) | Tests trigger real workflow executions that pollute production DB | Permanently quarantined | Mock workflow trigger API or use isolated test DB |
+| playwright/observables_plain.spec.ts | 1 | Requires test data seeding (article with specific content) | Permanently quarantined | Seed article fixture or parametrize article ID |
+| playwright/observables_exact_selection.spec.ts | 1 | Requires article 658 with specific phrases | Permanently quarantined | Seed article fixture or mock annotation API |
+
 ## Integration (skipped)
 
 The following integration tests are skipped due to async event-loop/teardown issues. For full-system confidence goals and marker semantics, see [docs/development/testing.md](../docs/development/testing.md) (Integration vs lightweight).

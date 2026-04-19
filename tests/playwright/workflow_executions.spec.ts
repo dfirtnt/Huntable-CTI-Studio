@@ -1,3 +1,10 @@
+/**
+ * QUARANTINED: entire suite disabled via test.describe.skip.
+ * Blocker: tests trigger real workflow executions that pollute production DB.
+ * 6 additional tests individually skipped for the same reason.
+ * Features tested (trigger modal, execution detail, View/Trace) all exist.
+ * To re-enable: mock the workflow trigger API or use isolated test DB.
+ */
 import { test, expect } from '@playwright/test';
 import { isReadableColor } from './color-constants';
 

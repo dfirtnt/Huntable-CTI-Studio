@@ -1,3 +1,9 @@
+/**
+ * QUARANTINED: test.describe.skip blocks execution.
+ * Blocker: requires test data seeding (article with specific content).
+ * Feature (SimpleTextManager observable selection on #article-content-plain) exists.
+ * To re-enable: seed article fixture or parametrize article ID.
+ */
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';

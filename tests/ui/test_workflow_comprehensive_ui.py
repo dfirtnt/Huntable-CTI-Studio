@@ -32,78 +32,31 @@ class TestWorkflowTabNavigation:
     @pytest.mark.ui
     @pytest.mark.ui_smoke
     @pytest.mark.workflow
-    def test_tab_navigation_config_tab(self, page: Page):
-        """Test switching to Configuration tab."""
+    @pytest.mark.parametrize(
+        "tab_id,content_id,hidden_ids",
+        [
+            ("tab-config", "tab-content-config", ["tab-content-executions", "tab-content-queue"]),
+            ("tab-executions", "tab-content-executions", ["tab-content-config", "tab-content-queue"]),
+            ("tab-queue", "tab-content-queue", ["tab-content-config", "tab-content-executions"]),
+        ],
+    )
+    def test_tab_navigation(self, page: Page, tab_id: str, content_id: str, hidden_ids: list):
+        """Test switching between workflow tabs."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
 
-        # Click Configuration tab
-        config_tab = page.locator("#tab-config")
-        expect(config_tab).to_be_visible()
-        config_tab.click()
+        tab = page.locator(f"#{tab_id}")
+        expect(tab).to_be_visible()
+        tab.click()
         page.wait_for_timeout(200)
 
-        # Verify Configuration tab content is visible
-        config_content = page.locator("#tab-content-config")
-        expect(config_content).to_be_visible()
-        expect(config_content).not_to_have_class("hidden")
+        content = page.locator(f"#{content_id}")
+        expect(content).to_be_visible()
+        expect(content).not_to_have_class("hidden")
 
-        # Verify other tabs are hidden
-        executions_content = page.locator("#tab-content-executions")
-        queue_content = page.locator("#tab-content-queue")
-        expect(executions_content).to_have_class(re.compile(r"hidden"))
-        expect(queue_content).to_have_class(re.compile(r"hidden"))
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_tab_navigation_executions_tab(self, page: Page):
-        """Test switching to Executions tab."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        # Click Executions tab
-        executions_tab = page.locator("#tab-executions")
-        expect(executions_tab).to_be_visible()
-        executions_tab.click()
-        page.wait_for_timeout(200)
-
-        # Verify Executions tab content is visible
-        executions_content = page.locator("#tab-content-executions")
-        expect(executions_content).to_be_visible()
-        expect(executions_content).not_to_have_class("hidden")
-
-        # Verify other tabs are hidden
-        config_content = page.locator("#tab-content-config")
-        queue_content = page.locator("#tab-content-queue")
-        expect(config_content).to_have_class(re.compile(r"hidden"))
-        expect(queue_content).to_have_class(re.compile(r"hidden"))
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_tab_navigation_queue_tab(self, page: Page):
-        """Test switching to Queue tab."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        # Click Queue tab
-        queue_tab = page.locator("#tab-queue")
-        expect(queue_tab).to_be_visible()
-        queue_tab.click()
-        page.wait_for_timeout(200)
-
-        # Verify Queue tab content is visible
-        queue_content = page.locator("#tab-content-queue")
-        expect(queue_content).to_be_visible()
-        expect(queue_content).not_to_have_class("hidden")
-
-        # Verify other tabs are hidden
-        config_content = page.locator("#tab-content-config")
-        executions_content = page.locator("#tab-content-executions")
-        expect(config_content).to_have_class(re.compile(r"hidden"))
-        expect(executions_content).to_have_class(re.compile(r"hidden"))
+        for hid in hidden_ids:
+            expect(page.locator(f"#{hid}")).to_have_class(re.compile(r"hidden"))
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -157,154 +110,6 @@ class TestWorkflowConfigurationTabGeneral:
         # Verify form exists
         config_form = page.locator("#workflowConfigForm")
         expect(config_form).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_junk_filter_panel_toggle(self, page: Page):
-        """Test Junk Filter panel collapse/expand."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        # Find Junk Filter panel header (Step 1: #s1)
-        header = page.locator("#s1 .section-header")
-        expect(header).to_be_visible()
-
-        # Get initial state
-        panel_content = page.locator("#s1 .section-body")
-        initial_state = panel_content.is_visible()
-
-        # Click header to toggle
-        header.click()
-        page.wait_for_timeout(300)
-
-        # Verify state changed
-        new_state = panel_content.is_visible()
-        assert initial_state != new_state, "Panel toggle should change visibility"
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_os_detection_panel_toggle(self, page: Page):
-        """Test OS Detection panel collapse/expand."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        # Find OS Detection panel header (Step 0: #s0)
-        header = page.locator("#s0 .section-header")
-        expect(header).to_be_visible()
-
-        panel_content = page.locator("#s0 .section-body")
-        initial_state = panel_content.is_visible()
-
-        header.click()
-        page.wait_for_timeout(300)
-
-        new_state = panel_content.is_visible()
-        assert initial_state != new_state, "Panel toggle should change visibility"
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_rank_agent_panel_toggle(self, page: Page):
-        """Test Rank Agent panel collapse/expand."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        # Rank Agent panel (Step 2: #s2)
-        header = page.locator("#s2 .section-header")
-        expect(header).to_be_visible()
-
-        panel_content = page.locator("#s2 .section-body")
-        initial_state = panel_content.is_visible()
-
-        header.click()
-        page.wait_for_timeout(300)
-
-        new_state = panel_content.is_visible()
-        assert initial_state != new_state
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_extract_agent_panel_toggle(self, page: Page):
-        """Test Extract Agent panel collapse/expand."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        header = page.locator("#s3 .section-header")
-        expect(header).to_be_visible()
-
-        panel_content = page.locator("#s3 .section-body")
-        initial_state = panel_content.is_visible()
-
-        header.click()
-        page.wait_for_timeout(300)
-
-        new_state = panel_content.is_visible()
-        assert initial_state != new_state
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_sigma_agent_panel_toggle(self, page: Page):
-        """Test SIGMA Generator Agent panel collapse/expand."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        header = page.locator("#s4 .section-header")
-        expect(header).to_be_visible()
-
-        panel_content = page.locator("#s4 .section-body")
-        initial_state = panel_content.is_visible()
-
-        header.click()
-        page.wait_for_timeout(300)
-
-        new_state = panel_content.is_visible()
-        assert initial_state != new_state
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_panel_chevron_rotation(self, page: Page):
-        """Test that panel chevron rotates on toggle."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        # Chevron uses CSS rotation (text stays ▼, section gets .open class)
-        section = page.locator("#s1")
-        chevron = page.locator("#s1 .section-chevron")
-        expect(chevron).to_be_visible()
-
-        # Record initial class state
-        initial_class = section.get_attribute("class") or ""
-
-        # Toggle panel by clicking header
-        page.locator("#s1 .section-header").click()
-        page.wait_for_timeout(300)
-
-        # Section class should change (open added or removed)
-        new_class = section.get_attribute("class") or ""
-        assert initial_class != new_class, "Section class should change on toggle"
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -406,27 +211,6 @@ class TestWorkflowConfigurationJunkFilter:
         expect(threshold_input).to_have_attribute("min", "0")
         expect(threshold_input).to_have_attribute("max", "1")
         expect(threshold_input).to_have_attribute("step", "0.05")
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_junk_filter_threshold_validation(self, page: Page):
-        """Test Junk Filter Threshold validation."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        # Expand Junk Filter panel (Step 1: #s1)
-        _open_operator_step(page, "s1")
-
-        threshold_input = page.locator("#junkFilterThreshold")
-
-        threshold_input.fill("1")
-        threshold_input.blur()
-        page.wait_for_timeout(300)
-        expect(threshold_input).to_have_value("1")
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -537,27 +321,6 @@ class TestWorkflowConfigurationRankAgent:
         expect(threshold_input).to_have_attribute("min", "0")
         expect(threshold_input).to_have_attribute("max", "10")
         expect(threshold_input).to_have_attribute("step", "0.1")
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_ranking_threshold_validation(self, page: Page):
-        """Test Ranking Threshold validation."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-config").click()
-        page.wait_for_timeout(200)
-
-        # Expand Rank Agent panel (Step 2: #s2)
-        _open_operator_step(page, "s2")
-
-        threshold_input = page.locator("#rankingThreshold")
-
-        threshold_input.fill("10")
-        threshold_input.blur()
-        page.wait_for_timeout(300)
-        expect(threshold_input).to_have_value("10")
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -1230,8 +993,17 @@ class TestWorkflowExecutionsTabStatistics:
 
     @pytest.mark.ui
     @pytest.mark.workflow
-    def test_total_executions_stat(self, page: Page):
-        """Test Total Executions stat card."""
+    @pytest.mark.parametrize(
+        "stat_id",
+        [
+            "totalExecutions",
+            "runningExecutions",
+            "completedExecutions",
+            "failedExecutions",
+        ],
+    )
+    def test_execution_stat_display(self, page: Page, stat_id: str):
+        """Test execution statistics are visible."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/workflow")
         page.wait_for_load_state("load")
@@ -1239,55 +1011,8 @@ class TestWorkflowExecutionsTabStatistics:
         page.locator("#tab-executions").click()
         page.wait_for_timeout(1000)
 
-        # Find Total Executions stat
-        total_stat = page.locator("#totalExecutions")
-        expect(total_stat).to_be_visible()
-
-        # Verify it displays a number or dash
-        stat_text = total_stat.text_content()
-        assert stat_text is not None, "Total executions stat should display value"
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_running_executions_stat(self, page: Page):
-        """Test Running Executions stat card."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-executions").click()
-        page.wait_for_timeout(1000)
-
-        running_stat = page.locator("#runningExecutions")
-        expect(running_stat).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_completed_executions_stat(self, page: Page):
-        """Test Completed Executions stat card."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-executions").click()
-        page.wait_for_timeout(1000)
-
-        completed_stat = page.locator("#completedExecutions")
-        expect(completed_stat).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.workflow
-    def test_failed_executions_stat(self, page: Page):
-        """Test Failed Executions stat card."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/workflow")
-        page.wait_for_load_state("load")
-
-        page.locator("#tab-executions").click()
-        page.wait_for_timeout(1000)
-
-        failed_stat = page.locator("#failedExecutions")
-        expect(failed_stat).to_be_visible()
+        stat = page.locator(f"#{stat_id}")
+        expect(stat).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.workflow

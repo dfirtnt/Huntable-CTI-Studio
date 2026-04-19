@@ -1,3 +1,9 @@
+/**
+ * QUARANTINED: test.describe.skip blocks execution.
+ * Blocker: requires article 658 with specific phrases in content.
+ * Feature (exact observable selection with position validation) exists.
+ * To re-enable: seed article fixture or mock annotation API.
+ */
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';

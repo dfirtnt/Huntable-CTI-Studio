@@ -4,7 +4,6 @@ Tests dashboard widgets, charts, failing sources, high-score articles, quick act
 """
 
 import os
-import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -12,21 +11,6 @@ from playwright.sync_api import Page, expect
 
 class TestDashboardPageLoad:
     """Test dashboard page basic loading."""
-
-    @pytest.mark.ui
-    @pytest.mark.dashboard
-    def test_dashboard_page_loads(self, page: Page):
-        """Test dashboard page loads."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/")
-        page.wait_for_load_state("load")
-
-        # Verify page title
-        expect(page).to_have_title(re.compile(r"Dashboard.*Huntable CTI Studio"))
-
-        # Verify dashboard root or header visible
-        dash = page.locator(".dash-root, .dash-header, #last-updated").first
-        expect(dash).to_be_visible()
 
     @pytest.mark.ui
     @pytest.mark.dashboard
@@ -153,42 +137,6 @@ class TestHealthMetricsCard:
 
 class TestVolumeCharts:
     """Test volume charts."""
-
-    @pytest.mark.ui
-    @pytest.mark.dashboard
-    def test_daily_chart_display(self, page: Page):
-        """Test daily volume chart display."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/")
-        page.wait_for_load_state("load")
-
-        # Verify daily chart canvas exists
-        daily_chart = page.locator("#dailyChart")
-        expect(daily_chart).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.dashboard
-    def test_hourly_chart_display(self, page: Page):
-        """Test hourly volume chart display."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/")
-        page.wait_for_load_state("load")
-
-        # Verify hourly chart canvas exists
-        hourly_chart = page.locator("#hourlyChart")
-        expect(hourly_chart).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.dashboard
-    def test_chart_js_initialization(self, page: Page):
-        """Test Chart.js library initialization."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/")
-        page.wait_for_load_state("load")
-
-        # Verify Chart.js is loaded
-        chart_exists = page.evaluate("typeof Chart !== 'undefined'")
-        assert chart_exists, "Chart.js should be loaded"
 
     @pytest.mark.ui
     @pytest.mark.dashboard

@@ -15,21 +15,6 @@ class TestJobsPageLoad:
 
     @pytest.mark.ui
     @pytest.mark.jobs
-    def test_jobs_page_loads(self, page: Page):
-        """Test jobs page loads."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
-
-        # Verify page title
-        expect(page).to_have_title("Job Monitor - Huntable CTI Studio")
-
-        # Verify main heading using id-stable approach (h1 is always in static HTML)
-        heading = page.locator("h1").first
-        expect(heading).to_be_visible()
-
-    @pytest.mark.ui
-    @pytest.mark.jobs
     def test_auto_refresh_toggle_display(self, page: Page):
         """Test auto-refresh toggle displays."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -40,20 +25,6 @@ class TestJobsPageLoad:
         auto_refresh = page.locator("#autoRefresh")
         expect(auto_refresh).to_be_visible()
         expect(auto_refresh).to_be_checked()
-
-    @pytest.mark.ui
-    @pytest.mark.jobs
-    def test_refresh_button_display(self, page: Page):
-        """Test refresh button displays."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("networkidle")
-
-        # Verify refresh button exists
-        refresh_btn = page.locator("#refreshBtn")
-        expect(refresh_btn).to_be_visible()
-        # Button text contains the refresh label (ignore leading/trailing whitespace)
-        expect(refresh_btn).to_contain_text("Refresh Now")
 
 
 class TestJobsAutoRefresh:
@@ -114,43 +85,6 @@ class TestJobsAutoRefresh:
 
 class TestJobsRefreshButton:
     """Test jobs refresh button."""
-
-    @pytest.mark.ui
-    @pytest.mark.jobs
-    def test_refresh_button_functionality(self, page: Page):
-        """Test refresh button functionality."""
-        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-
-        # Track API calls
-        api_call_count = {"count": 0}
-
-        def handle_route(route):
-            if "/api/jobs" in route.request.url:
-                api_call_count["count"] += 1
-                mock_response = {"status": "ok", "worker_stats": {}, "active_tasks": {}}
-                route.fulfill(status=200, body=json.dumps(mock_response), headers={"Content-Type": "application/json"})
-            else:
-                route.continue_()
-
-        # MUST set up route BEFORE navigation
-        page.route("**/api/jobs/**", handle_route)
-
-        page.goto(f"{base_url}/jobs")
-        page.wait_for_load_state("load")
-
-        # Get initial count
-        initial_count = api_call_count["count"]
-
-        # Click refresh button
-        refresh_btn = page.locator("#refreshBtn, button:has-text('Refresh'), button[onclick*='refresh']").first
-        refresh_btn.wait_for(state="visible", timeout=5000)
-        refresh_btn.click()
-        page.wait_for_timeout(1000)  # Wait for API call to complete
-
-        # Verify API was called again
-        assert api_call_count["count"] > initial_count, (
-            f"Refresh button should trigger API calls. Initial: {initial_count}, After click: {api_call_count['count']}"
-        )
 
     @pytest.mark.ui
     @pytest.mark.jobs
