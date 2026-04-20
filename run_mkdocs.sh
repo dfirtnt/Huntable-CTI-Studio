@@ -47,10 +47,10 @@ if [ "$has_custom_addr" = false ]; then
             sleep 1
         else
             echo "⚠️  Port 8000 is in use by a non-MkDocs process. Starting docs on http://127.0.0.1:8002"
-            exec "$PYTHON" -m mkdocs serve -a 127.0.0.1:8002 "$@"
+            exec "$PYTHON" -m mkdocs serve --dev-addr 127.0.0.1:8002 "$@"
         fi
     fi
-    exec "$PYTHON" -m mkdocs serve -a "$default_addr" "$@"
+    exec "$PYTHON" -m mkdocs serve --dev-addr "$default_addr" "$@"
 fi
 
 exec "$PYTHON" -m mkdocs serve "$@"

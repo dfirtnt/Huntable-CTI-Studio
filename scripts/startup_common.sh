@@ -281,7 +281,7 @@ startup_build_and_serve_mkdocs() {
     if [ "$start_mkdocs" = true ]; then
         _startup_log_info "Starting MkDocs server in background..."
         mkdir -p logs
-        nohup "$py" -m mkdocs serve -a 127.0.0.1:8000 >> logs/mkdocs.log 2>&1 </dev/null &
+        nohup "$py" -m mkdocs serve --dev-addr 127.0.0.1:8000 >> logs/mkdocs.log 2>&1 &
         disown -h
     fi
 }

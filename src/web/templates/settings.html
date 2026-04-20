@@ -94,7 +94,7 @@
             </div>
             <div id="documentation-content" class="space-y-4 hidden">
                 <p class="text-sm text-gray-600 dark:text-gray-400">Open the MkDocs documentation site. If the page does not load, run MkDocs in the background from the project root:</p>
-                <pre class="text-sm bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto"><code>nohup .venv/bin/python3 -m mkdocs serve -a 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &lt;/dev/null &amp;</code></pre>
+                <pre class="text-sm bg-gray-900 text-gray-100 p-3 rounded-lg overflow-x-auto"><code>nohup .venv/bin/python3 -m mkdocs serve --dev-addr 127.0.0.1:8000 &gt;&gt; logs/mkdocs.log 2&gt;&amp;1 &amp;</code></pre>
                 <p class="text-xs text-gray-500 dark:text-gray-400">Logs: <code class="bg-gray-700 px-1 rounded">logs/mkdocs.log</code></p>
                 <a id="launchMkdocsBtn"
                    href="http://127.0.0.1:8000"
