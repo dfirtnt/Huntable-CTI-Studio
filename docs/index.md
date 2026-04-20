@@ -83,7 +83,7 @@ Huntable CTI Studio works with multiple LLM providers:
 - Anthropic
 - LM Studio
 
-See [Model Selection Guide](llm/model-selection.md) for recommendations.
+See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 
 ## Getting Help
 

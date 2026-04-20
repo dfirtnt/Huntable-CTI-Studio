@@ -1,10 +1,10 @@
-# Model Selection Guide
+# Local Model Selection Guide
 
 ## Overview
 
 This guide helps you choose the right LLM models for different workflows in Huntable CTI Studio.
 
-# Model Selection Guide for Agentic CTI Workflows
+# Local Model Selection Guide for Agentic CTI Workflows
 **Practical, Field-Tested Guidance for SIGMA Detection Pipelines**
 
 ---

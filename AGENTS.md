@@ -149,6 +149,8 @@ The agent MUST stop and report when ANY condition is met:
 
 ## Execution Constraints
 
+- **Always pin package versions.** Never use unpinned versions (e.g., `package>=1.0.0` or bare `package`). Specify exact versions in `package.json`, `pyproject.toml`, `requirements.txt`, or equivalent. Unpinned versions break determinism and cause CI failures when upstream dependencies change.
+
 - Do NOT infer missing requirements
 - Do NOT “fix forward” by adding speculative behavior
 - Prefer deletions, tightening, or constraint enforcement over additions
