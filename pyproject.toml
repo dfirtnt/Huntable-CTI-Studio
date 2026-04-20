@@ -96,7 +96,7 @@ test = [
     "pytest-cov==4.1.0",
     "pytest-html==4.0.1",
     "pytest-xdist==3.5.0",
-    "pytest-playwright==0.4.0",
+    "pytest-playwright>=0.7.0",
     "factory-boy==3.3.3",
     "freezegun==1.4.0",
     "responses==0.24.0",
