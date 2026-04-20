@@ -43,7 +43,7 @@ jobs:
         run: uv sync --frozen --no-group test --no-group dev
 
       - name: Build docs
-        run: uv run mkdocs build --strict
+        run: uv run --frozen --no-group test --no-group dev mkdocs build --strict
 
       - name: Debug context
         env:
