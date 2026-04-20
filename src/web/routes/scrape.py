@@ -96,7 +96,7 @@ async def _scrape_single_url(
             except httpx.HTTPStatusError as exc:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.status_text}",
+                    detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.reason_phrase}",
                 ) from exc
             except httpx.RequestError as exc:
                 raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(exc)}") from exc
