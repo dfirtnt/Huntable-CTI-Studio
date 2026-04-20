@@ -21,7 +21,7 @@ Huntable CTI Studio is an AI-assisted workbench for detection engineers and thre
 - **Agentic workflows** — OS detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion
 - **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
-- **Chat & search** — RAG-powered search across collected intelligence
+- **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
 - **MCP (optional)** — Read-only Model Context Protocol server: `python3 run_mcp.py` (same env as the web app; [tool reference](reference/mcp-tools.md))
 
 ## Quick Start

@@ -26,7 +26,7 @@ This document defines the testing strategy for Huntable CTI Studio, a single-use
 
 These tests do NOT require database connections or containers:
 
-- Pure frontend tests (Jinja templates + Tailwind + vanilla JS behavior; React only for CDN RAGChat if tested)
+- Pure frontend tests (Jinja templates + Tailwind + vanilla JS behavior)
 - Backend unit tests without DB connections
 - Similarity search with in-memory fixtures
 - YAML parsing, linting, round-trip logic
@@ -344,7 +344,7 @@ This document outlines the test plan for Huntable CTI Studio, focusing on critic
 ### LOW Priority
 
 13. **Annotation feedback loop** - Training improvement
-14. **RAG chat conversation** - Search capability
+14. **RAG search / MCP retrieval** - Search capability
 15. **PDF upload → processing** - Alternative ingestion
 16. **Settings persistence** - Configuration
 17. **Navigation/routing** - User experience
@@ -388,7 +388,6 @@ This document outlines the test plan for Huntable CTI Studio, focusing on critic
 7. Navigation/routing logic (vanilla JS) (LOW)
 8. Modal interaction handlers (vanilla JS) (LOW)
 9. Collapsible panel components (vanilla JS + Tailwind) (LOW)
-10. `src/web/static/js/components/RAGChat.jsx` - React component (LOW)
 
 ## Test Implementation Status
 

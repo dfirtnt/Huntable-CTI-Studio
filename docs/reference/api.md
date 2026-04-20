@@ -162,7 +162,6 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - `workflow_config.py`
 - `articles.py`
 - `sources.py`
-- `chat.py`
 - `settings.py`
 - `sigma_queue.py`
 - `models.py`

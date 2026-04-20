@@ -34,7 +34,7 @@ disjoint set of spec files:
 | `agent-config` | 14    | `agent_config_*.spec.ts` -- presets, validation, autosave  |
 | `workflow`     | 16    | workflow save/config/persistence, execution detail tabs    |
 | `sources`      | 2     | sources page, chunk coverage                               |
-| `articles`     | 5     | article detail, dashboard, navigation, chat, jobs          |
+| `articles`     | 5     | article detail, dashboard, navigation, jobs                |
 | `intelligence` | 7     | sigma enrich, hunt query evals, observables, optimizer     |
 | `ui-misc`      | 5     | collapsible sections, modals, settings, text colors        |
 | `quarantine`   | 3     | known-flaky / env-dependent (workflow_executions, observables_plain/exact) |

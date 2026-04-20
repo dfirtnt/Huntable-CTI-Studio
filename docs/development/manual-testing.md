@@ -582,18 +582,6 @@ Individual diags checks (`#runDatabaseCheck`, `#runDeduplicationCheck`, etc.) ar
 
 ---
 
-## 5. RAG / Chat (send disabled when config missing — test skips)
-
-**Time: ~2 min**
-
-| Step | Action | Pass condition |
-|------|--------|----------------|
-| 5.1 | Open **Chat** (`/chat`) | Page loads |
-| 5.2 | If “Send” is disabled, confirm reason (e.g. “Missing chat configuration”) | No generic crash; state is understandable |
-| 5.3 | If config exists, send one short message | Reply or “no results”/error; no crash |
-
----
-
 ## 6. Workflow — trigger and execution list (happy path only)
 
 **Time: ~4 min**
@@ -652,7 +640,6 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 | Backup API/UI | No API tests for backup; UI doesn’t drive create/restore | ~5 min |
 | Diags | Per-check selectors missing; tests skipped | ~3 min |
 | Articles bulk delete | Manual check that bulk delete works | ~3 min |
-| RAG send disabled | Test skips when Send disabled | ~2 min |
 | Workflow trigger + list | Happy-path “trigger and see execution” | ~4 min |
 | Agent evals load/run | Test skips when Load Eval Articles fails | ~3 min |
 | Sigma queue empty/add | Tests skip when no rules in queue | ~3 min |

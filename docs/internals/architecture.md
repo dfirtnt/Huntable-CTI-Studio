@@ -15,7 +15,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
 │ • 303+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
-│ • Browser Ext.  │    │ • RAG Chat      │    │ • AI Analysis   │    │ • Async Manager │
+│ • Browser Ext.  │    │ • RAG Search    │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
          ▼                       ▼                       ▼                       ▼
@@ -397,11 +397,11 @@ API Endpoints:
           │
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   LLM Services  │    │   RAG Chat      │    │ SIGMA Generation│
+│   LLM Services  │    │   RAG Service   │    │ SIGMA Generation│
 │                 │    │                 │    │                 │
 │ • LM Studio     │    │ • Vector Search │    │ • AI Analysis   │
 │ • OpenAI        │    │ • Context Build │    │ • pySIGMA Valid │
-│ • Anthropic     │    │ • Semantic Q&A  │    │ • Rule Creation │
+│ • Anthropic     │    │ • MCP Retrieval │    │ • Rule Creation │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
           ▼                      ▼                      ▼
@@ -420,7 +420,7 @@ API Endpoints:
             ┌─────────────────┐    ┌─────────────────┐
             │   Database      │    │   User Interface│
             │   Storage       │    │                 │
-            │                 │    │ • Chat Interface│
+            │                 │    │ • Search UI     │
             │ • Metadata      │    │ • Rule Display  │
             │ • Results       │    │ • Analysis View │
             │ • Embeddings    │    │ • Export Options│
@@ -714,7 +714,7 @@ These diagrams are designed to fit on single pages for easy screenshot capture i
 5. **Web Interface** - FastAPI application and database interaction
 6. **Background Tasks** - Celery-based task scheduling and execution
 7. **Database Schema** - PostgreSQL table relationships and structure with new tables
-8. **AI-Powered Analysis** - LLM integration, RAG chat, and SIGMA rule generation workflows
+8. **AI-Powered Analysis** - LLM integration, RAG search/MCP retrieval, and SIGMA rule generation workflows
 9. **ML Training Data Annotation** - Annotation system with auto-expand functionality for ML training
 10. **Automated Backup System** - Backup scheduling, retention policies, and verification
 11. **CLI Tool Service** - Command-line interface workflow and database consistency
