@@ -615,17 +615,3 @@ async def sigma_similarity_test_page(request: Request):
             {"request": request, "error": "An unexpected error occurred"},
             status_code=500,
         )
-
-
-@router.get("/sigma-queue", response_class=HTMLResponse)
-async def sigma_queue_page(request: Request):
-    """Standalone SIGMA rule queue review page (shared queue with Workflow → Queue tab)."""
-    try:
-        return templates.TemplateResponse("sigma_queue.html", {"request": request})
-    except Exception as exc:
-        logger.error("SIGMA queue page error: %s", exc)
-        return templates.TemplateResponse(
-            "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
-            status_code=500,
-        )
