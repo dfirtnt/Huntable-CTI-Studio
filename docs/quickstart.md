@@ -91,7 +91,7 @@ The workflow writes validated Sigma rules to the same execution record. Inspect 
 curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
   | jq '{status, sigma_rules:.sigma_rules}'
 ```
-In the UI, open `http://localhost:8001/articles/${ARTICLE_ID}#sigma` to jump to the Sigma section; logs and similarity matches are also surfaced on the Workflow page.
+In the UI, open `http://localhost:8001/workflow#executions` and click **View** on the row matching `${EXECUTION_ID}` to see the validated Sigma YAML, logs, and similarity matches. (The article page at `/articles/${ARTICLE_ID}` surfaces the extracted observables but not the Sigma rules.)
 
 ![Workflow UI panel showing a generated, validated Sigma rule](assets/screenshots/08-sigma-rules-ui.png)
 *The Workflow page surfaces validated Sigma YAML for the run, plus level and ATT&CK technique tags.*
