@@ -351,6 +351,196 @@ class TestStructuredDataExtractor:
         assert extracted.get("canonical_url", "") == ""
 
 
+class TestStructuredDataExtractorDateFallback:
+    """Tests for the datePublished extraction path used by PlaywrightScraper's JSON-LD fallback.
+
+    These tests cover the three-method chain:
+      extract_structured_data -> find_article_jsonld -> extract_from_jsonld
+    as it is called in playwright_scraper.py when CSS selectors fail to find a date.
+    """
+
+    # ------------------------------------------------------------------
+    # extract_structured_data
+    # ------------------------------------------------------------------
+
+    def test_extract_blogposting_with_date_published(self):
+        """BlogPosting block with datePublished is parsed and date is accessible."""
+        html = """
+        <html>
+          <head>
+            <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@type": "BlogPosting",
+              "headline": "Threat Intel Post",
+              "datePublished": "2025-03-15T09:00:00Z"
+            }
+            </script>
+          </head>
+          <body>content</body>
+        </html>
+        """
+        structured = StructuredDataExtractor.extract_structured_data(html, "https://blog.example.com")
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        extracted = StructuredDataExtractor.extract_from_jsonld(article)
+
+        assert article is not None
+        assert article["@type"] == "BlogPosting"
+        assert "published_at" in extracted
+        assert extracted["published_at"] is not None
+
+    def test_extract_structured_data_no_jsonld_returns_empty_list(self):
+        """HTML with no JSON-LD script blocks returns an empty json-ld list, not None."""
+        html = "<html><head><title>No structured data here</title></head><body></body></html>"
+        structured = StructuredDataExtractor.extract_structured_data(html, "https://example.com")
+
+        assert isinstance(structured, dict)
+        assert structured.get("json-ld", []) == []
+
+    def test_find_article_jsonld_on_empty_structured_data_returns_none(self):
+        """find_article_jsonld gracefully returns None when json-ld list is empty."""
+        structured = {"json-ld": []}
+        result = StructuredDataExtractor.find_article_jsonld(structured)
+        assert result is None
+
+    # ------------------------------------------------------------------
+    # @type matching
+    # ------------------------------------------------------------------
+
+    def test_find_article_jsonld_matches_article_type(self):
+        """@type 'Article' is recognised as an article block."""
+        structured = {"json-ld": [{"@type": "Article", "headline": "A", "datePublished": "2025-01-01"}]}
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+        assert article["@type"] == "Article"
+
+    def test_find_article_jsonld_matches_newsarticle_type(self):
+        """@type 'NewsArticle' is recognised as an article block."""
+        structured = {"json-ld": [{"@type": "NewsArticle", "headline": "B", "datePublished": "2025-02-01"}]}
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+        assert article["@type"] == "NewsArticle"
+
+    def test_find_article_jsonld_matches_blogposting_type(self):
+        """@type 'BlogPosting' is recognised as an article block."""
+        structured = {"json-ld": [{"@type": "BlogPosting", "headline": "C", "datePublished": "2025-03-01"}]}
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+        assert article["@type"] == "BlogPosting"
+
+    def test_find_article_jsonld_matches_list_type_containing_newsarticle(self):
+        """@type as a list that includes 'NewsArticle' is still matched."""
+        structured = {"json-ld": [{"@type": ["Thing", "NewsArticle"], "headline": "D"}]}
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+
+    # ------------------------------------------------------------------
+    # extract_from_jsonld date field logic
+    # ------------------------------------------------------------------
+
+    def test_extract_from_jsonld_date_published_is_parsed(self):
+        """datePublished string is converted to a datetime object in published_at."""
+        from datetime import datetime
+
+        jsonld_data = {
+            "@type": "Article",
+            "headline": "Dated Article",
+            "datePublished": "2025-06-01T14:30:00Z",
+        }
+        extracted = StructuredDataExtractor.extract_from_jsonld(jsonld_data)
+
+        assert "published_at" in extracted
+        assert isinstance(extracted["published_at"], datetime)
+        assert extracted["published_at"].year == 2025
+
+    def test_extract_from_jsonld_missing_date_published_yields_no_published_at(self):
+        """When datePublished is absent but dateModified is present, published_at is not set."""
+        jsonld_data = {
+            "@type": "Article",
+            "headline": "Modified But Not Published",
+            "dateModified": "2025-05-10T00:00:00Z",
+        }
+        extracted = StructuredDataExtractor.extract_from_jsonld(jsonld_data)
+
+        assert "published_at" not in extracted
+        # dateModified should still be extracted as modified_at
+        assert "modified_at" in extracted
+
+    def test_extract_from_jsonld_no_dates_at_all_yields_no_published_at(self):
+        """JSON-LD block with no date fields produces no published_at key."""
+        jsonld_data = {"@type": "BlogPosting", "headline": "No Dates"}
+        extracted = StructuredDataExtractor.extract_from_jsonld(jsonld_data)
+        assert "published_at" not in extracted
+
+    # ------------------------------------------------------------------
+    # Malformed JSON resilience
+    # ------------------------------------------------------------------
+
+    def test_malformed_jsonld_script_does_not_crash_extraction(self):
+        """A script tag with broken JSON is silently skipped; valid blocks still parse."""
+        html = """
+        <html>
+          <head>
+            <script type="application/ld+json">{ this is not valid json }</script>
+            <script type="application/ld+json">
+            {"@type": "Article", "headline": "Valid", "datePublished": "2025-01-15"}
+            </script>
+          </head>
+        </html>
+        """
+        structured = StructuredDataExtractor.extract_structured_data(html, "https://example.com")
+
+        # Only the valid block should be present
+        assert len(structured["json-ld"]) == 1
+        assert structured["json-ld"][0]["headline"] == "Valid"
+
+    def test_completely_empty_script_tag_does_not_crash(self):
+        """An empty ld+json script tag is handled without raising."""
+        html = '<html><head><script type="application/ld+json"></script></head></html>'
+        structured = StructuredDataExtractor.extract_structured_data(html, "https://example.com")
+        assert structured.get("json-ld", []) == []
+
+    # ------------------------------------------------------------------
+    # End-to-end: full three-method chain
+    # ------------------------------------------------------------------
+
+    def test_full_chain_blogposting_with_date_published(self):
+        """Full chain: HTML -> extract_structured_data -> find_article_jsonld -> extract_from_jsonld returns date."""
+        from datetime import datetime
+
+        html = """
+        <html>
+          <head>
+            <script type="application/ld+json">
+            {
+              "@context": "https://schema.org",
+              "@type": "BlogPosting",
+              "headline": "Red Team Tactics 2025",
+              "datePublished": "2025-04-01T08:00:00Z",
+              "author": {"@type": "Person", "name": "Analyst One"}
+            }
+            </script>
+          </head>
+          <body>Article body here.</body>
+        </html>
+        """
+        structured = StructuredDataExtractor.extract_structured_data(html, "https://blog.example.com")
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is not None
+
+        extracted = StructuredDataExtractor.extract_from_jsonld(article)
+        assert "published_at" in extracted
+        assert isinstance(extracted["published_at"], datetime)
+        assert extracted["title"] == "Red Team Tactics 2025"
+
+    def test_full_chain_no_jsonld_returns_none_article(self):
+        """Full chain: HTML with no JSON-LD -> find_article_jsonld returns None (no crash)."""
+        html = "<html><body><p>Plain page, no structured data.</p></body></html>"
+        structured = StructuredDataExtractor.extract_structured_data(html, "https://example.com")
+        article = StructuredDataExtractor.find_article_jsonld(structured)
+        assert article is None
+
+
 class TestModernScraper:
     """Test ModernScraper functionality."""
 

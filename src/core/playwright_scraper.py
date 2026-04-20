@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from playwright.async_api import Browser, BrowserContext, Page, async_playwright
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
+from src.core.modern_scraper import StructuredDataExtractor
 from src.models.article import ArticleCreate
 from src.models.source import Source
 from src.utils.content import ContentCleaner, DateExtractor, MetadataExtractor, validate_content
@@ -317,6 +318,13 @@ class PlaywrightScraper:
                     published_at = DateExtractor.parse_date(date_text)
                     if published_at:
                         break
+
+            if not published_at:
+                structured_data = StructuredDataExtractor.extract_structured_data(html_content)
+                jsonld_article = StructuredDataExtractor.find_article_jsonld(structured_data)
+                if jsonld_article:
+                    jsonld_extracted = StructuredDataExtractor.extract_from_jsonld(jsonld_article)
+                    published_at = jsonld_extracted.get("published_at")
 
             if not published_at:
                 published_at = DateExtractor.extract_date_from_url(url)
