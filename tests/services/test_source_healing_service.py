@@ -745,7 +745,7 @@ class TestRedirectPreFilter:
             }
             mock_llm_cls.return_value = llm
 
-            _result = await service._analyze_with_llm(source_snapshot, [], probe_results)
+            await service._analyze_with_llm(source_snapshot, [], probe_results)
 
         # Should have called LLM (trailing slash is not a redirect)
         llm.request_chat.assert_called_once()

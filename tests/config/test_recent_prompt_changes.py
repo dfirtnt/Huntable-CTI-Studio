@@ -261,7 +261,7 @@ class TestQwen3QAPromptCompliance:
         try:
             return json.loads(prompt_str)
         except json.JSONDecodeError as exc:
-            pytest.fail(f"{self.QWEN3_PRESET}: {agent_name}.QAPrompt.prompt is not valid JSON: {exc}")
+            raise AssertionError(f"{self.QWEN3_PRESET}: {agent_name}.QAPrompt.prompt is not valid JSON: {exc}") from exc
 
     def test_hunt_queries_qa_prompt_has_nonempty_evaluation_criteria(self, qwen3):
         """HuntQueriesExtract.QAPrompt.prompt must have a non-empty evaluation_criteria list."""

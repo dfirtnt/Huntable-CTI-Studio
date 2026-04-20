@@ -87,7 +87,6 @@ def _extract_js_functions(html_path: Path) -> str:
         collected: list[str] = []
         found_open = False
         for line in lines:
-            stripped = line.strip()
             if not in_func:
                 if f"function {name}" in line:
                     in_func = True
@@ -414,12 +413,12 @@ class TestSaveLogicContractViaPresets:
             prompt_data = json.loads(prompt_str)
         except json.JSONDecodeError:
             pytest.skip(f"{preset_file}: prompt not valid JSON -- skip user_template check")
-
-        assert "user_template" not in prompt_data, (
-            f"{preset_file}: {agent_name}.Prompt.prompt contains 'user_template'. "
-            "Extractor Contract prompts must not have this key. "
-            "The save logic deletes it on write; its presence indicates a save-path regression."
-        )
+        else:
+            assert "user_template" not in prompt_data, (
+                f"{preset_file}: {agent_name}.Prompt.prompt contains 'user_template'. "
+                "Extractor Contract prompts must not have this key. "
+                "The save logic deletes it on write; its presence indicates a save-path regression."
+            )
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
     @pytest.mark.parametrize("agent_name", EXTRACTOR_CONTRACT_AGENTS)

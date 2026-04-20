@@ -158,8 +158,6 @@ def _capture_nodes(db_session, **extra_patches):
     """
     captured: dict = {}
 
-    original_init = None
-
     with (
         patch("src.workflows.agentic_workflow.ContentFilter") as mock_cf,
         patch("src.workflows.agentic_workflow.WorkflowTriggerService") as mock_ts,
