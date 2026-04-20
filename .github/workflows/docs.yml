@@ -61,16 +61,17 @@ jobs:
           ls -la | head -20
           ls -la site/ | head -20
 
-      - name: Prepare site structure
-        if: github.event_name == 'push'
+      - name: Prepare site structure (main)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p staging
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            cp -r site/* staging/
-          elif [ "${{ github.ref }}" = "refs/heads/dev-io" ]; then
-            mkdir -p staging/dev
-            cp -r site/* staging/dev/
-          fi
+          cp -r site/* staging/
+
+      - name: Prepare site structure (dev-io)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev-io'
+        run: |
+          mkdir -p staging/dev
+          cp -r site/* staging/dev/
 
       - name: Upload pages artifact
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io')
