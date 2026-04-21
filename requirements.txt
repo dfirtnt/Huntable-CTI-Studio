@@ -11,7 +11,7 @@ requests==2.33.0
 httpx==0.28.1
 brotli>=1.0.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
-lxml==6.0.2
+lxml==6.1.0
 feedparser==6.0.12
 extruct==0.18.0
 iocextract==1.16.1
@@ -55,11 +55,11 @@ python-dateutil==2.9.0.post0  # Date parsing utilities
 certifi==2025.11.12
 urllib3==2.6.3
 charset-normalizer==3.4.5
-python-multipart==0.0.22
+python-multipart==0.0.26
 cryptography==46.0.6  # Enhanced encryption; CVE-2026-34073 fix
 
 # PDF processing
-pypdf==6.9.2
+pypdf==6.10.2
 
 # SIGMA rule validation and repository management
 pysigma==0.11.23
