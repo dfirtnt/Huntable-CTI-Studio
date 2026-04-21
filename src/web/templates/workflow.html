@@ -2991,7 +2991,7 @@
             <span id="prompt-exp-mode-badge" class="text-[10px] px-1.5 py-0.5 rounded" style="background: var(--panel-bg-3); color: var(--text-muted);"></span>
           </div>
           <div class="flex items-center gap-2">
-            <button type="button" onclick="closeExpandedPromptEditor()" class="px-3 py-1.5 text-xs rounded" style="background: var(--panel-bg-3); color: var(--text-secondary); cursor: pointer;">Cancel</button>
+            <button type="button" onclick="closeExpandedPromptEditor()" class="px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded focus:outline-none">Cancel</button>
             <button type="button" id="prompt-exp-validate-btn" onclick="validateExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: #ca8a04; color: white; cursor: pointer;">Validate</button>
             <button type="button" id="prompt-exp-save-btn" onclick="saveExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Save Prompt</button>
           </div>
@@ -3000,7 +3000,7 @@
     </div>
 
     <!-- Enrich system prompt expanded overlay -->
-    <div id="enrich-expanded-overlay" role="dialog" aria-modal="true" aria-label="Enrich system prompt editor" onclick="if(event.target===this)closeEnrichExpanded()">
+    <div id="enrich-expanded-overlay" role="dialog" aria-modal="true" aria-label="Enrich system prompt editor" tabindex="-1" onclick="if(event.target===this)closeEnrichExpanded()" onkeydown="if(event.key==='Escape')closeEnrichExpanded()">
       <div id="enrich-expanded-panel">
         <div class="prompt-exp-header">
           <div class="flex items-center gap-3">
@@ -3023,7 +3023,7 @@
           <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
             <span id="enrich-exp-charcount" class="text-[10px]" style="color: var(--text-muted);"></span>
             <div class="flex items-center gap-2">
-              <button type="button" onclick="closeEnrichExpanded()" class="px-3 py-1.5 text-xs rounded" style="background: var(--panel-bg-3); color: var(--text-secondary); cursor: pointer;">Cancel</button>
+              <button type="button" onclick="closeEnrichExpanded()" class="px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded focus:outline-none">Cancel</button>
               <button type="button" onclick="validateEnrichExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: #ca8a04; color: white; cursor: pointer;">Validate</button>
               <button type="button" id="enrich-exp-save-btn" onclick="saveEnrichExpanded()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer; display:none;">Save Prompt</button>
             </div>
@@ -3182,7 +3182,7 @@
                     </div>
 
                     <div class="q-modal-actions">
-                        <button onclick="closeTriggerWorkflowModal()" class="q-cmd-btn neutral">Cancel</button>
+                        <button onclick="closeTriggerWorkflowModal()" class="px-3.5 py-1.5 text-xs font-semibold tracking-wider uppercase border border-gray-600 hover:bg-gray-800 text-gray-300 rounded focus:outline-none">Cancel</button>
                         <button onclick="triggerWorkflow()" class="q-cmd-btn trigger">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                             Execute
@@ -3302,7 +3302,7 @@
                         <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Similarity Search
                         </button>
-                        <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                        <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                             Cancel
                         </button>
                     </div>
@@ -3363,7 +3363,7 @@
                                     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/></svg> Edit
                                 </button>
                                 <!-- edit mode buttons (hidden by default) -->
-                                <button id="enrichSPCancelBtn" onclick="cancelEnrichSystemPrompt()" class="hidden px-3 py-1 text-xs bg-gray-600 hover:bg-gray-700 text-white rounded-md">
+                                <button id="enrichSPCancelBtn" onclick="cancelEnrichSystemPrompt()" class="hidden px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-md">
                                     Cancel
                                 </button>
                                 <button id="enrichSPSaveBtn" onclick="saveEnrichSystemPromptEdit()" class="hidden px-3 py-1 text-xs bg-green-600 hover:bg-green-700 text-white rounded-md">
@@ -3655,7 +3655,7 @@ END SYSTEM PROMPT</textarea>
                         <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Enrich Further
                         </button>
-                        <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                        <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                             Cancel
                         </button>
                     </div>
@@ -6394,7 +6394,7 @@ function renderAgentPrompts() {
                             <div class="flex gap-2">
                                 ${isEditing ? `
                                     <button type="button" onclick="cancelEditPrompt('${agentName}')"
-                                            class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                            class="px-3 py-1 text-sm border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-md">
                                         Cancel
                                     </button>
                                     <button type="button" onclick="showEffectivePrompt('${agentName}')"
@@ -9179,7 +9179,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                             </button>
                             ${isEditing ? `
                                 <button type="button" onclick="cancelEditPrompt2('${agentName}')"
-                                        class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                        class="px-3 py-1 text-sm border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-md">
                                     Cancel
                                 </button>
                                 <button type="button" onclick="showEffectivePrompt('${agentName}')"
@@ -9330,7 +9330,7 @@ function renderQAPrompt(agentName, containerId) {
                             </button>
                             ${isEditing ? `
                                 <button onclick="cancelEditPrompt2('${agentName}')"
-                                        class="px-3 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded-md transition-colors">
+                                        class="px-3 py-1 text-sm border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-md">
                                     Cancel
                                 </button>
                                 <button type="button" onclick="showEffectivePrompt('${agentName}')"
@@ -14414,7 +14414,7 @@ function renderRulePreview(rule, observablesData) {
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
                 <h4 class="font-semibold">Rule YAML:</h4>
-                <button onclick="cancelEdit()" class="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                <button onclick="cancelEdit()" class="text-sm text-gray-400 hover:text-gray-200">
                     Cancel
                 </button>
             </div>
@@ -14529,7 +14529,7 @@ function updateActionButtons() {
             <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                 🔍 Similarity Search
             </button>
-            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                 Cancel
             </button>
         `;
@@ -15716,7 +15716,10 @@ function openEnrichExpanded() {
         document.getElementById('enrich-exp-charcount').textContent = expTA.value.length + ' chars';
     };
     document.getElementById('enrich-exp-validate-result').style.display = 'none';
-    document.getElementById('enrich-expanded-overlay').classList.add('visible');
+    document.getElementById('enrichModal').classList.add('hidden');
+    const overlay = document.getElementById('enrich-expanded-overlay');
+    overlay.classList.add('visible');
+    overlay.focus();
 }
 
 function editEnrichExpanded() {
@@ -15751,6 +15754,7 @@ async function saveEnrichExpanded() {
 
 function closeEnrichExpanded() {
     document.getElementById('enrich-expanded-overlay').classList.remove('visible');
+    document.getElementById('enrichModal').classList.remove('hidden');
 }
 
 function closeEnrichModal() {

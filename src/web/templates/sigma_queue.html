@@ -190,7 +190,7 @@
                     <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
                         <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Enrich Further
                     </button>
-                    <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+                    <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                         Cancel
                     </button>
                 </div>
@@ -507,7 +507,7 @@ function renderRulePreview(rule, observablesData) {
         <div class="mt-4">
             <div class="flex justify-between items-center mb-2">
                 <h4 class="font-semibold">Rule YAML:</h4>
-                <button onclick="cancelEdit()" class="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200">
+                <button onclick="cancelEdit()" class="text-sm text-gray-400 hover:text-gray-200">
                     Cancel
                 </button>
             </div>
@@ -624,7 +624,7 @@ function updateActionButtons() {
             <button onclick="checkSimilarRulesForQueue()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
                 🔍 Similarity Search
             </button>
-            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md">
+            <button onclick="closeRuleModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                 Cancel
             </button>
         `;
