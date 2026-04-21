@@ -76,6 +76,7 @@ async def test_scrape_url_happy_path_ingests_and_returns_success():
     fake_db.get_session.return_value = fake_session
 
     created_article = MagicMock(id=1001, title="Advisory AA23-214A")
+    fake_db.create_articles_bulk.return_value = ([created_article], [])
 
     with (
         patch("src.web.routes.scrape.httpx.AsyncClient", _mock_async_client(upstream)),
