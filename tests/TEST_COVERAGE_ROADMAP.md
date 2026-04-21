@@ -353,28 +353,26 @@ class TestAnalyticsEvents:
 
 ---
 
-### 11. RAG Chat (E2E)
-**Current Status**: Basic UI tests exist  
-**Gap**: Missing conversation flow and context testing
+### 11. MCP Conversational Retrieval (E2E)
+**Current Status**: In-app RAG chat UI removed; MCP retrieval remains  
+**Gap**: No end-to-end MCP client conversation coverage in this repository
 
 **Recommended Tests**:
 
-#### Playwright: `tests/playwright/rag_chat_conversation.spec.ts`
+#### External client / MCP integration coverage
 ```typescript
 // Recommended test cases:
-- "should start chat session and ask question"
-- "should maintain context across multi-turn conversation"
-- "should upload document and chat about contents"
-- "should switch LLM model mid-conversation"
+- "should query Huntable MCP tools for article retrieval"
+- "should maintain context across multi-turn MCP client conversation"
+- "should retrieve supporting articles and sigma rules"
+- "should handle no-match retrieval cleanly"
 - "should display sources used in response"
-- "should export chat history to markdown"
-- "should handle streaming responses"
-- "should clear conversation and start fresh"
+- "should expose actionable errors when embeddings are unavailable"
 ```
 
 **Impact**: 🟢 **Low** - Feature-dependent priority  
 **Estimated Effort**: 1-2 days  
-**Justification**: If RAG chat is a key feature, this becomes higher priority.
+**Justification**: Conversational retrieval still matters through MCP, but the removed web chat UI no longer needs dedicated browser coverage.
 
 ---
 

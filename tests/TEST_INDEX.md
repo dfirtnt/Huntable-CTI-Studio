@@ -93,7 +93,6 @@
 | (removed) | - | - | Ollama removed |
 | `test_pdf_upload_ui.py` | 6 | ✅ Passing | PDF upload functionality |
 | `test_prompt_sync_ui.py` | 24 | ✅ Passing | Prompt sync (help modals vs prompt files) |
-| `test_rag_chat_ui.py` | 16 | ✅ Passing | RAG chat interface |
 | `test_settings_ui.py` | 63 | ✅ Passing | Settings page functionality |
 | `test_sources_ui.py` | 8 | ✅ Passing | Sources page and management |
 | `test_ui_flows.py` | 16 | ✅ Passing | User workflow testing |
@@ -166,7 +165,6 @@
 | `test_multi_browser.py` | 8 | ✅ Passing | Multi-browser support |
 | `test_pdf_upload_workflow.py` | 5 | ✅ Passing | PDF upload workflow |
 | `test_performance.py` | 7 | ✅ Passing | Performance testing |
-| `test_rag_chat_workflow.py` | 8 | ✅ Passing | RAG chat workflow |
 | `test_settings_workflow.py` | 3 | ✅ Passing | Settings workflow |
 | `test_source_management_workflow.py` | 7 | ✅ Passing | Source management workflow |
 | `test_web_interface.py` | 13 | ✅ Passing | Complete web interface workflows |
@@ -208,10 +206,10 @@
 - **Core Functionality**: 222 tests (previously fixed)
 - **Service/Utility Tests**: 142 tests (chunk analysis, prompt loader, query safety, simhash, model evaluation)
 - **Playwright Tests**: 13 tests (help buttons, SIGMA generation, workflow tabs)
-- **UI Tests**: 383+ tests (analytics, dashboard, diags, help, IOC, jobs, mobile, navigation, PDF, RAG, settings, sources, workflows, modal interactions - all working)
+- **UI Tests**: 383+ tests (analytics, dashboard, diags, help, IOC, jobs, mobile, navigation, PDF, settings, sources, workflows, modal interactions - all working)
 - **Integration Tests**: 200+ tests (agentic workflow, AI, analytics, annotation, backup, Celery, content pipeline, error recovery, export, GPT-4o, huntable probability, lightweight, mobile, RAG, retraining, scoring, SIGMA, source health/management, summarization, system - all working)
 - **API Tests**: 123+ tests (analytics, annotations, dashboard, endpoints, extract observables, LMStudio, ML feedback, RAG, sorting - all working)
-- **E2E Tests**: 120+ tests (accessibility, advanced search, analytics, annotation, article classification/navigation, backup, error handling, ML feedback/hunt comparison, mobile annotation, multi-browser, PDF upload, performance, RAG chat, settings, source management, web interface - all working)
+- **E2E Tests**: 120+ tests (accessibility, advanced search, analytics, annotation, article classification/navigation, backup, error handling, ML feedback/hunt comparison, mobile annotation, multi-browser, PDF upload, performance, settings, source management, web interface - all working)
 - **CLI Tests**: 20+ tests (backup, embed, rescore commands - all working)
 - **Utils Tests**: 10+ tests (environment, failure analyzer, isolation, output formatter - all working)
 - **Workflows Tests**: 10+ tests (LangGraph server - all working)

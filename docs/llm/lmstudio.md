@@ -281,10 +281,11 @@ python scripts/benchmark_llm_providers.py --quick
    - Click "Test Connection" button
    - Verify successful connection
 
-2. **RAG Chat Testing:**
-   - Go to RAG Chat page
-   - Select provider from dropdown
-   - Ask threat intelligence questions
+2. **Retrieval Testing:**
+   - Go to the semantic search page
+   - Select provider from dropdown if applicable
+   - Run threat intelligence queries
+   - For conversational retrieval, test through the Huntable MCP server
    - Compare response times and quality
 
 ### Benchmark Results

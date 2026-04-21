@@ -64,13 +64,12 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 - Evaluations dashboard
 - Workflow redirect helpers
 
-**Browser UI Smoke (separate from `run_tests.py smoke`)** - `tests/ui/test_ui_flows.py`, `tests/ui/test_rag_chat_ui.py`
+**Browser UI Smoke (separate from `run_tests.py smoke`)** - `tests/ui/test_ui_flows.py`
 - Dashboard navigation
 - Articles listing
 - Sources management
 - Rescore all articles button
-- Chat page loads
-- Chat send path renders without errors
+- Semantic search page loads
 
 ### Test File Locations
 
@@ -80,7 +79,6 @@ Smoke tests are distributed across multiple test files using the `@pytest.mark.s
 | `tests/integration/test_system_integration.py` | 1 | System health |
 | `tests/ui/test_top_level_pages_smoke_ui.py` | top-level pages | HTML route coverage |
 | `tests/ui/test_ui_flows.py` | browser smoke | UI navigation |
-| `tests/ui/test_rag_chat_ui.py` | browser smoke | RAG chat |
 | `tests/ui/test_workflow_comprehensive_ui.py` | browser smoke | Workflow tabs (consolidated) |
 
 ## Running Smoke Tests
@@ -125,7 +123,7 @@ deactivate
 | **HTML Pages** | lightweight | ~5s | Critical page-load coverage without a browser |
 | **Database & Services** | 3 | ~5s | Database connectivity, Redis, Celery health |
 | **Workflow & Annotations** | 2 | ~5s | Workflow trigger and annotation endpoints |
-| **Browser UI Smoke** | separate | environment-dependent | Playwright smoke for navigation/chat/workflow tabs |
+| **Browser UI Smoke** | separate | environment-dependent | Playwright smoke for navigation/search/workflow tabs |
 
 ## Integration with CI/CD
 
@@ -190,7 +188,6 @@ pytest tests/ui/test_top_level_pages_smoke_ui.py -m smoke -v
 
 # Run browser-only smoke
 pytest tests/ui/test_ui_flows.py -m ui_smoke -v
-pytest tests/ui/test_rag_chat_ui.py -m ui_smoke -v
 pytest tests/ui/test_workflow_comprehensive_ui.py -m ui_smoke -v
 
 # Run specific test class

@@ -3,7 +3,7 @@
 This directory contains end-to-end tests for the Huntable CTI Studio web application using Playwright.
 
 ## Status
-- Phase 1 (critical workflows) ✅ complete: classification, annotation, RAG chat, ML feedback (AI assistant deprecated)
+- Phase 1 (critical workflows) ✅ complete: classification, annotation, semantic search, ML feedback (AI assistant deprecated)
 - Phase 2 (feature workflows) ✅ complete: sources, backups, PDF upload, ML vs Hunt dashboard, advanced search
 - Phase 3 (edge cases) ✅ complete: article navigation, settings/config pages
 
@@ -13,7 +13,6 @@ This directory contains end-to-end tests for the Huntable CTI Studio web applica
 - `test_article_classification_workflow.py` - Article classification (chosen/rejected)
 - `test_annotation_workflow.py` - Text annotation and highlighting
 - ~~`test_ai_assistant_workflow.py`~~ - DEPRECATED: AI Assistant modal removed
-- `test_rag_chat_workflow.py` - RAG chat interface
 - `test_ml_feedback_workflow.py` - ML feedback loop
 
 ### Phase 2: Medium Priority - Feature-Specific Workflows

@@ -217,7 +217,6 @@ User interface testing with Playwright sync API:
 - (removed) Ollama test button
 - **`test_pdf_upload_ui.py`** (6 tests) - PDF upload
 - **`test_prompt_sync_ui.py`** (24 tests) - Prompt synchronization
-- **`test_rag_chat_ui.py`** (16 tests) - RAG chat interface
 - **`test_settings_ui.py`** (63 tests) - Settings page
 - **`test_sources_ui.py`** (8 tests) - Sources management
 - **`test_ui_flows.py`** (16 tests) - User workflow testing
@@ -259,7 +258,7 @@ End-to-end workflow testing with real services:
 - **`test_annotation_feedback_integration.py`** - Annotation and feedback loop (creation, retraining, version tracking)
 - **`test_content_pipeline_integration.py`** - Content processing pipeline (RSS to storage, validation, deduplication)
 - **`test_source_management_integration.py`** - Source lifecycle (add, configure, collect, monitor, recover)
-- **`test_rag_conversation_integration.py`** - RAG chat workflows (single/multi-turn, context, provider fallback)
+- **`test_rag_conversation_integration.py`** - Retrieval conversation workflows (single/multi-turn, context, provider fallback)
 - **`test_error_recovery_integration.py`** - Resilience tests (database loss, API failures, task retry, concurrent load)
 - **`test_export_backup_integration.py`** - Export and backup workflows (creation, restoration, filtering, performance)
 
@@ -267,7 +266,7 @@ End-to-end workflow testing with real services:
 API endpoint testing:
 
 - **`test_endpoints.py`** (15 tests) - REST API endpoints
-- **`test_rag_endpoints.py`** (20+ tests) - RAG chat and semantic search endpoints
+- **`test_rag_endpoints.py`** (20+ tests) - Retrieval and semantic search endpoints
 
 #### E2E Tests (13 tests)
 End-to-end workflow testing with Playwright sync API:
@@ -794,7 +793,7 @@ docker-compose ps
 - ✅ AI Assistant tests (implemented)
 - ✅ Core functionality tests (working)
 - ✅ UI tests (working)
-- ✅ RAG Chat feature tests (implemented)
+- ✅ Retrieval feature tests (implemented)
 - ✅ Embedding service tests (implemented)
 
 #### Priority 2 (Important)
