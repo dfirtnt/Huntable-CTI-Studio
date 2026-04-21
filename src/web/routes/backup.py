@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
 from src.utils.backup_config import BackupConfigManager, get_backup_config_manager
+from src.utils.input_validation import ValidationError, validate_backup_components, validate_backup_dir, validate_backup_name
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/backup", tags=["Backup"])
@@ -332,12 +333,28 @@ async def api_restore_backup(request: Request):
         force = payload.get("force", False)
         no_snapshot = payload.get("no_snapshot", False)
 
+        # SECURITY: Validate all user inputs to prevent command injection and path traversal
+        try:
+            backup_name = validate_backup_name(backup_name, allow_system_prefix=True)
+            backup_dir = validate_backup_dir(backup_dir)
+            components = validate_backup_components(components)
+        except ValidationError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid input: {e}") from e
+
         project_root = Path(__file__).parent.parent.parent.parent
 
         # Determine which restore script to use
         backup_path = Path(backup_name)
         if not backup_path.is_absolute():
             backup_path = Path(backup_dir) / backup_name
+
+        # SECURITY: Verify backup_path is within backup_dir (prevent path traversal)
+        try:
+            backup_path_resolved = backup_path.resolve()
+            backup_dir_resolved = (project_root / backup_dir).resolve()
+            backup_path_resolved.relative_to(backup_dir_resolved)
+        except (ValueError, OSError) as e:
+            raise HTTPException(status_code=400, detail="Invalid backup path") from e
 
         # Check if it's a system backup directory
         if backup_path.is_dir() and backup_name.startswith("system_backup_"):

@@ -994,6 +994,16 @@ async def api_load_lmstudio_model(request: Request):
         if not model_name:
             raise HTTPException(status_code=400, detail="model_name is required")
 
+        # SECURITY: Validate model_name to prevent command injection
+        # Model names should only contain alphanumeric, dash, underscore, slash, dot
+        import re
+        if not re.match(r"^[\w\-/.]+$", model_name):
+            raise HTTPException(status_code=400, detail="Invalid model_name format")
+
+        # Prevent path traversal
+        if ".." in model_name:
+            raise HTTPException(status_code=400, detail="Invalid model_name: path traversal not allowed")
+
         # Find lms CLI
         lms_cmd = shutil.which("lms")
         if not lms_cmd:
