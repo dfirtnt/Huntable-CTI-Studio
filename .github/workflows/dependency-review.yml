@@ -23,7 +23,7 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
-          fail-on-severity: high
+          fail-on-severity: moderate
           comment-summary-in-pr: always
           deny-licenses: GPL-3.0-only, GPL-3.0-or-later
           license-check: false
