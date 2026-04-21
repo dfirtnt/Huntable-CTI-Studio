@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
 from src.utils.backup_config import BackupConfigManager, get_backup_config_manager
 from src.utils.input_validation import ValidationError, validate_backup_components, validate_backup_dir, validate_backup_name
+from src.web.auth import RequireAdminAuth
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/backup", tags=["Backup"])
@@ -73,7 +74,7 @@ def _get_cron_state() -> dict[str, Any]:
 
 
 @router.post("/create")
-async def api_create_backup(request: Request):
+async def api_create_backup(request: Request, _auth: str = RequireAdminAuth):
     """API endpoint for creating a backup."""
     try:
         payload = await request.json()
@@ -188,7 +189,7 @@ async def api_get_backup_cron():
 
 
 @router.post("/cron")
-async def api_update_backup_cron(payload: BackupCronUpdate):
+async def api_update_backup_cron(payload: BackupCronUpdate, _auth: str = RequireAdminAuth):
     """Save backup config and optionally install/update CTI-managed cron jobs."""
     try:
         manager = get_backup_config_manager()
@@ -222,7 +223,7 @@ async def api_update_backup_cron(payload: BackupCronUpdate):
 
 
 @router.delete("/cron")
-async def api_delete_backup_cron():
+async def api_delete_backup_cron(_auth: str = RequireAdminAuth):
     """Disable CTI-managed backup cron jobs while preserving other crontab entries."""
     try:
         manager = get_backup_config_manager()
@@ -320,7 +321,7 @@ async def api_backup_status():
 
 
 @router.post("/restore")
-async def api_restore_backup(request: Request):
+async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
     """API endpoint for restoring from a backup."""
     try:
         payload = await request.json()
@@ -418,7 +419,10 @@ RESTORE_FILE_SUFFIXES = (".sql", ".sql.gz")
 
 
 @router.post("/restore-from-file")
-async def api_restore_from_file(file: UploadFile = File(..., description="Backup file (.sql or .sql.gz)")):
+async def api_restore_from_file(
+    file: UploadFile = File(..., description="Backup file (.sql or .sql.gz)"),
+    _auth: str = RequireAdminAuth,
+):
     """Restore database from an uploaded backup file."""
     suffix = Path(file.filename or "").suffix.lower()
     if suffix == ".gz":
