@@ -58,6 +58,19 @@ class TestSigmaEditorValidation:
         page.route("**/api/sigma-queue/list**", handle)
         yield
 
+    @pytest.fixture(autouse=True)
+    def reset_modal_state(self, page: Page):
+        """Close ruleModal after each test so the next test starts clean.
+
+        The class-scoped page is reused and goto is deduplicated, so modal state
+        left by one test would block the next test's Preview button click.
+        """
+        yield
+        try:
+            page.evaluate("() => { const m = document.getElementById('ruleModal'); if (m) m.classList.add('hidden'); }")
+        except Exception:
+            pass
+
     def _open_yaml_editor(self, page: Page):
         """Navigate to sigma-queue, open a rule modal, and click Edit to reveal the textarea.
 

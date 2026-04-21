@@ -149,6 +149,23 @@ def _trigger_load_queue(page: Page) -> None:
 class TestWorkflowQueueRegressions:
     """Queue-tab regression tests (consolidated from single-file tests)."""
 
+    @pytest.fixture(autouse=True)
+    def close_modals_after_test(self, page: Page):
+        """Close ruleModal/enrichModal after each test.
+
+        The class-scoped page is reused across tests and goto is deduplicated
+        (path-only comparison ignores ?query and #fragment), so modal state
+        opened by one test persists into the next test's setup.
+        """
+        yield
+        try:
+            page.evaluate(
+                "() => { ['ruleModal','enrichModal'].forEach(id => {"
+                " const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }"
+            )
+        except Exception:
+            pass
+
     @pytest.mark.ui
     @pytest.mark.workflow
     def test_queue_shows_observables_used_count_column(self, page: Page):
@@ -712,6 +729,14 @@ class TestWorkflowExecutionsRegressions:
 
         execution_modal = page.locator("#executionModal")
         expect(execution_modal).to_be_visible()
+
+        # The execution modal uses a tabbed UI; similarity results are in the
+        # "Similarity" tab panel which starts hidden (only the first panel is visible).
+        # Click the Similarity tab to make its panel visible before clicking the rule.
+        similarity_tab = page.locator("#exec-tab-strip button.exec-tab:has-text('Similarity')")
+        if similarity_tab.count() > 0:
+            similarity_tab.first.click()
+            page.wait_for_timeout(200)
 
         page.locator("#executionModal").locator(f"text={similar_rule_title}").first.click()
 

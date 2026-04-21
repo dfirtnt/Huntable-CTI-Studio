@@ -63,6 +63,17 @@ class TestSigmaEnrichUI:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         page.goto(f"{base_url}/sigma-queue")
         page.wait_for_load_state("networkidle")
+        yield
+        # Close any modals left open so the next test in this class starts clean.
+        # The class-scoped page is reused across tests and goto is deduplicated,
+        # so in-page modal state persists between tests without this teardown.
+        try:
+            page.evaluate(
+                "() => { ['ruleModal','enrichModal'].forEach(id => {"
+                " const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }"
+            )
+        except Exception:
+            pass
 
     def test_sigma_queue_page_shows_pagination_bar(self, page: Page):
         """Standalone sigma-queue page shows pagination bar with Showing X–Y of Z."""
@@ -133,8 +144,10 @@ class TestSigmaEnrichUI:
         cancel_button = page.locator('#enrichModal button:has-text("Cancel")')
         cancel_button.click()
 
-        # Modal should be hidden
-        expect(enrich_modal).to_have_class("hidden", timeout=2000)
+        # Modal should be hidden; use not_to_be_visible() because the element
+        # retains its full multi-class string (e.g. "fixed inset-0 ... hidden")
+        # and to_have_class("hidden") would do an exact match, not a token check.
+        expect(enrich_modal).not_to_be_visible(timeout=2000)
 
     def test_enrich_modal_closes_on_escape(self, page: Page):
         """Test that enrich modal closes when Escape key is pressed."""
@@ -142,8 +155,8 @@ class TestSigmaEnrichUI:
 
         page.keyboard.press("Escape")
 
-        # Modal should be hidden
-        expect(enrich_modal).to_have_class("hidden", timeout=2000)
+        # Modal should be hidden (see cancel test for why not_to_be_visible is used)
+        expect(enrich_modal).not_to_be_visible(timeout=2000)
 
     def test_enrich_modal_populates_original_rule(self, page: Page):
         """Test that enrich modal populates with original rule YAML."""
@@ -181,15 +194,27 @@ class TestSigmaEnrichUI:
     def test_enrich_button_disabled_during_enrichment(self, page: Page):
         """Test that enrich button is disabled during enrichment process."""
 
-        def slow_response(route):
-            import time
+        import threading
 
-            time.sleep(2)
-            route.fulfill(
-                status=200,
-                content_type="application/json",
-                body='{"enriched_yaml": "title: Test Rule", "message": "Success"}',
-            )
+        def slow_response(route):
+            # Use a background thread so the Playwright event loop is not blocked.
+            # time.sleep() inside a route handler blocks the event loop, preventing
+            # subsequent Playwright calls (like text_content()) from executing until
+            # after the sleep completes -- by which point the button has already reset.
+            def _fulfill():
+                import time
+
+                time.sleep(2)
+                try:
+                    route.fulfill(
+                        status=200,
+                        content_type="application/json",
+                        body='{"enriched_yaml": "title: Test Rule", "message": "Success"}',
+                    )
+                except Exception:
+                    pass
+
+            threading.Thread(target=_fulfill, daemon=True).start()
 
         page.route("**/api/sigma-queue/*/enrich", slow_response)
 
@@ -199,8 +224,8 @@ class TestSigmaEnrichUI:
         enrich_rule_button.click()
 
         # Check that button is disabled while request is in flight
-        expect(enrich_rule_button).to_be_disabled(timeout=1000)
+        expect(enrich_rule_button).to_be_disabled(timeout=3000)
 
-        # Check for loading indicator text
+        # Check for loading indicator text (readable because event loop is not blocked)
         button_text = enrich_rule_button.text_content()
         assert "Enriching" in button_text or "..." in button_text
