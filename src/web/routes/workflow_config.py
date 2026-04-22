@@ -18,6 +18,7 @@ from src.database.models import (
     AppSettingsTable,
     WorkflowConfigPresetTable,
 )
+from src.services.workflow_provider_options import get_provider_options
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
 logger = logging.getLogger(__name__)
@@ -2078,5 +2079,23 @@ async def validate_workflow_config():
                 issues.append({"level": "error", "msg": f"{name}: enabled but missing Provider or Model."})
 
         return {"issues": issues}
+    finally:
+        db_session.close()
+
+
+@router.get("/provider-options")
+async def get_workflow_provider_options():
+    """Return unified provider availability for the workflow configuration UI.
+
+    Aggregates Settings (DB), the commercial model catalog, and a live LM Studio
+    probe into a single response so the UI makes one request instead of three.
+    """
+    db_manager = DatabaseManager()
+    db_session = db_manager.get_session()
+    try:
+        return await get_provider_options(db_session)
+    except Exception as exc:
+        logger.error("Error building provider options: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from exc
     finally:
         db_session.close()

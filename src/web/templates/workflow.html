@@ -464,6 +464,7 @@
 }
 #prompt-expanded-panel .prompt-exp-body { flex: 1; display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; overflow-y: auto; }
 #prompt-expanded-panel .prompt-exp-body > div { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#prompt-exp-validate-result { flex: 0 0 auto !important; display: block !important; min-height: unset !important; }
 #prompt-expanded-panel textarea {
   width: 100%; flex: 0 0 auto; background: var(--panel-bg-0); color: var(--text-secondary); font-family: 'JetBrains Mono', monospace;
   font-size: 14px; line-height: 1.6; padding: 16px; border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; resize: vertical; outline: none;
@@ -3888,34 +3889,59 @@ const providerDefaults = {
     anthropic: 'claude-sonnet-4-5'
 };
 
-// Fetch enabled providers from Settings
+// Cache from /api/workflow/provider-options; undefined = not yet fetched, null = fetched but empty
+let _cachedLMStudioModels;
+// Flag: provider-options already loaded this page session (skip redundant catalog re-fetch)
+let _workflowProviderOptionsLoaded = false;
+
+// Fetch unified provider availability from the server
 async function loadEnabledProviders() {
     try {
-        const response = await fetch('/api/settings');
+        const response = await fetch('/api/workflow/provider-options');
         if (!response.ok) {
-            console.warn('Failed to fetch settings, using all providers');
+            console.warn('Failed to fetch provider options, using all providers');
             return;
         }
         const data = await response.json();
-        const settings = data.settings || {};
-        
-        // Map settings keys to provider names (API returns uppercase keys)
+        const providers = data.providers || {};
+
         enabledProviders = {
-            lmstudio: settings.WORKFLOW_LMSTUDIO_ENABLED === 'true',  // opt-in, default false
-            openai: settings.WORKFLOW_OPENAI_ENABLED === 'true',
-            anthropic: settings.WORKFLOW_ANTHROPIC_ENABLED === 'true'
+            lmstudio: !!(providers.lmstudio && providers.lmstudio.enabled),
+            openai: !!(providers.openai && providers.openai.enabled),
+            anthropic: !!(providers.anthropic && providers.anthropic.enabled),
         };
-        
+
         // Filter providerOptions based on enabled settings
         providerOptions = allProviderOptions.filter(opt => enabledProviders[opt.value]);
-        
+
+        // Populate commercialModelCatalog from unified response (avoids second fetch)
+        const newCatalog = {};
+        ['openai', 'anthropic'].forEach(p => {
+            if (providers[p] && Array.isArray(providers[p].models) && providers[p].models.length > 0) {
+                newCatalog[p] = providers[p].models;
+            }
+        });
+        if (Object.keys(newCatalog).length > 0) {
+            commercialModelCatalog = newCatalog;
+            cacheProviderCatalog(newCatalog);
+        }
+
+        // Cache LM Studio models for the first loadLMStudioModels() call
+        if (providers.lmstudio && Array.isArray(providers.lmstudio.models)) {
+            _cachedLMStudioModels = providers.lmstudio.models;
+        } else {
+            _cachedLMStudioModels = null;
+        }
+
+        _workflowProviderOptionsLoaded = true;
+
         console.log('Enabled providers:', enabledProviders);
         console.log('Filtered provider options:', providerOptions);
-        
+
         // Refresh all provider dropdowns
         refreshProviderDropdowns();
     } catch (error) {
-        console.error('Error loading enabled providers:', error);
+        console.error('Error loading provider options:', error);
     }
 }
 
@@ -4329,6 +4355,10 @@ function cacheProviderCatalog(catalog) {
 }
 
 async function refreshCommercialModelCatalog() {
+    // Skip network fetch if loadEnabledProviders() already populated the catalog this session.
+    if (_workflowProviderOptionsLoaded) {
+        return;
+    }
     try {
         const response = await fetch('/api/provider-model-catalog');
         if (response.ok) {
@@ -5395,8 +5425,15 @@ async function loadLMStudioModels() {
     
     isLoadingLMStudioModels = true;
     try {
-        const response = await fetch('/api/lmstudio-models');
-        const data = await response.json();
+        let data;
+        if (_cachedLMStudioModels !== undefined) {
+            // Consume the cache populated by loadEnabledProviders() to avoid a redundant request.
+            data = { success: (_cachedLMStudioModels !== null && _cachedLMStudioModels.length > 0), models: _cachedLMStudioModels || [] };
+            _cachedLMStudioModels = undefined; // consume; next call fetches fresh
+        } else {
+            const response = await fetch('/api/lmstudio-models');
+            data = await response.json();
+        }
         
         if (data.success && data.models && data.models.length > 0) {
             const agents = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', 'SigmaAgent'];
