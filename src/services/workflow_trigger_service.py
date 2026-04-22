@@ -40,7 +40,7 @@ class WorkflowTriggerService:
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
-                    auto_trigger_hunt_score_threshold=60.0,
+                    auto_trigger_hunt_score_threshold=100.0,
                     version=1,
                     is_active=True,
                     description="Default configuration",
@@ -85,7 +85,7 @@ class WorkflowTriggerService:
                 threshold = (
                     config.auto_trigger_hunt_score_threshold
                     if hasattr(config, "auto_trigger_hunt_score_threshold")
-                    else 60.0
+                    else 100.0
                 )
 
                 if hunt_score <= threshold:

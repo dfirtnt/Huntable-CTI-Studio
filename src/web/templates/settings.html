@@ -727,24 +727,27 @@
                       </p>
                       
                       <div>
-                          <label for="autoTriggerHuntScoreThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          <label for="autoTriggerHuntScoreThreshold" class="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                               Auto-Trigger Hunt Score Threshold
+                              <span class="inline-flex flex-shrink-0 text-gray-400 hover:text-gray-300 dark:hover:text-gray-200 cursor-help" role="img" aria-label="Help" title="Set this to 100 if you want to prevent unpredictable commercial LLM API call costs. At 100, no article can pass the threshold automatically.">
+                                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                              </span>
                           </label>
                           <div class="flex items-center gap-4">
                               <input type="number" 
                                      id="autoTriggerHuntScoreThreshold" 
-                                     value="60.0" 
+                                     value="100.0"
                                      min="0" 
                                      max="100" 
                                      step="1"
                                      class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                               <span class="text-sm text-gray-500 dark:text-gray-400">
-                                  (0-100, default: 60.0)
+                                  (0-100, default: 100.0)
                               </span>
                           </div>
                           <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                              Articles with a hunt score at or above this threshold will be automatically processed. 
-                              Set to 0 to disable auto-processing, or 100 to require maximum confidence.
+                              Articles with a hunt score above this threshold will be automatically processed.
+                              Set to 100 to disable auto-processing, or 0 to process all articles automatically.
                           </p>
                           <p id="autoTriggerThresholdStatus" class="text-sm mt-2"></p>
                       </div>
