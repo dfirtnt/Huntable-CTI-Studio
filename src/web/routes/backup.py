@@ -15,7 +15,12 @@ from pydantic import BaseModel, Field
 
 from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
 from src.utils.backup_config import BackupConfigManager, get_backup_config_manager
-from src.utils.input_validation import ValidationError, validate_backup_components, validate_backup_dir, validate_backup_name
+from src.utils.input_validation import (
+    ValidationError,
+    validate_backup_components,
+    validate_backup_dir,
+    validate_backup_name,
+)
 from src.web.auth import RequireAdminAuth
 from src.web.dependencies import logger
 
@@ -351,8 +356,12 @@ async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
 
         # SECURITY: Verify backup_path is within backup_dir (prevent path traversal)
         try:
-            backup_path_resolved = backup_path.resolve()
-            backup_dir_resolved = (project_root / backup_dir).resolve()
+            backup_path_resolved = (
+                backup_path.resolve()
+            )  # codeql[py/path-injection] false positive: resolved path is validated by relative_to() on the next line
+            backup_dir_resolved = (
+                project_root / backup_dir
+            ).resolve()  # codeql[py/path-injection] false positive: this is the allowed-directory anchor, not a sink
             backup_path_resolved.relative_to(backup_dir_resolved)
         except (ValueError, OSError) as e:
             raise HTTPException(status_code=400, detail="Invalid backup path") from e
