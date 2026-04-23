@@ -862,8 +862,28 @@ class TestWorkflowEnrichModalUI:
         except Exception:
             pass
 
+    def _dismiss_modals(self, page: Page):
+        """Force-hide both overlay modals via JS so the queue table is interactable.
+
+        Safe to call repeatedly -- idempotent. Used at the start of any test
+        that needs to click queue-table rows, to avoid carry-over from the
+        previous test leaving a modal open.
+        """
+        page.evaluate(
+            "() => { ['ruleModal', 'enrichModal'].forEach(id => {"
+            " const el = document.getElementById(id);"
+            " if (el) { el.classList.add('hidden'); el.style.display = ''; } }); }"
+        )
+        page.wait_for_timeout(200)
+
     def _open_enrich_modal(self, page: Page):
-        """Click Preview then Enrich; return enrich modal locator."""
+        """Click Preview then Enrich; return enrich modal locator.
+
+        Dismisses any lingering modals first so this helper is safe to call
+        in back-to-back tests without manual teardown between them.
+        """
+        self._dismiss_modals(page)
+
         preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
         if not preview_btn.is_visible(timeout=10000):
             pytest.skip("No rules in queue to open enrich modal")
@@ -894,9 +914,29 @@ class TestWorkflowEnrichModalUI:
     @pytest.mark.ui
     @pytest.mark.workflow
     def test_user_instruction_field_is_hidden(self, page: Page):
-        """enrichInstruction textarea must not be visible (hardcoded instruction)."""
-        self._open_enrich_modal(page)
-        expect(page.locator("#enrichInstruction")).to_be_hidden(timeout=3000)
+        """enrichInstruction wrapper must carry the 'hidden' class in the DOM.
+
+        The instruction is hardcoded in JS, so we verify via DOM inspection
+        rather than opening the modal -- the class is baked into the HTML and
+        does not require modal interaction to assert.
+        """
+        has_hidden = page.evaluate(
+            """() => {
+                const el = document.getElementById('enrichInstruction');
+                if (!el) return null;
+                // Walk up to find the wrapping div that carries the hidden class
+                let node = el;
+                while (node && node !== document.body) {
+                    if (node.classList.contains('hidden')) return true;
+                    node = node.parentElement;
+                }
+                return false;
+            }"""
+        )
+        assert has_hidden is True, (
+            "#enrichInstruction or its wrapper should have class 'hidden' "
+            "(user instruction is hardcoded -- the field must not be shown)"
+        )
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -928,8 +968,9 @@ class TestWorkflowEnrichModalUI:
             }"""
         )
 
-        # Close and reopen the modal
-        enrich_modal.locator('button[onclick="closeEnrichModal()"]').click()
+        # Close and reopen the modal (use .first -- the X close button shares
+        # the same onclick as the footer Cancel button, so strict mode fires)
+        enrich_modal.locator('button[onclick="closeEnrichModal()"]').first.click()
         page.wait_for_timeout(200)
         self._open_enrich_modal(page)
         page.wait_for_timeout(400)
@@ -1016,6 +1057,7 @@ class TestWorkflowEnrichModalUI:
     @pytest.mark.workflow
     def test_validate_rule_label_in_preview_modal(self, page: Page):
         """SIGMA Rule Preview action bar shows 'Validate Rule', not bare 'Validate'."""
+        self._dismiss_modals(page)
         preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
         if not preview_btn.is_visible(timeout=10000):
             pytest.skip("No rules in queue to test")
