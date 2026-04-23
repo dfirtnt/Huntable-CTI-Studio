@@ -128,10 +128,10 @@ generate_password() {
 configure_llm() {
     print_header "LLM Configuration"
     
-    echo -e "${CYAN}CTI Scraper supports multiple LLM options:${NC}"
-    echo "  1. LM Studio - Desktop LLM manager (recommended for local)"
-    echo "  2. OpenAI API - Cloud-based GPT models"
-    echo "  3. Anthropic Claude API - Cloud-based Claude models"
+    echo -e "${CYAN}LLM provider options:${NC}"
+    echo "  1. LM Studio  (local)"
+    echo "  2. OpenAI API"
+    echo "  3. Anthropic Claude API"
     echo ""
     
     # Check if running on Intel Mac (LM Studio's macOS build requires Apple Silicon;
@@ -148,7 +148,7 @@ configure_llm() {
         print_warning "LM Studio's macOS build requires Apple Silicon; no Intel-Mac build is available."
         print_warning "Skipping LM Studio configuration on this Mac. Use OpenAI or Anthropic APIs instead."
         USE_LMSTUDIO=false
-    elif prompt_yes_no "Do you have LM Studio installed and want to use it for local LLM? (If you only want cloud providers #2 and #3, select No)" "no"; then
+    elif prompt_yes_no "Use LM Studio for local inference?" "no"; then
         USE_LMSTUDIO=true
         print_status "LM Studio will be enabled (ensure it's running on port 1234)"
         if [[ "$NON_INTERACTIVE" != "true" ]]; then

@@ -2,9 +2,16 @@ import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 
-// The toolbar trigger was renamed from "Restore by version" to "🔄 Versions"
-// (workflow.html:2154). We select by onclick handler for stability.
-const RESTORE_BTN_SELECTOR = 'button[onclick="showConfigVersionList()"]';
+// The Versions button lives inside #footer-overflow-menu (hidden by default).
+// Open the overflow menu first, then click by stable ID.
+const OVERFLOW_TOGGLE = '#footer-overflow-toggle';
+const VERSIONS_BTN = '#config-versions-btn';
+
+async function openVersionsModal(page: any) {
+  await page.locator(OVERFLOW_TOGGLE).click();
+  await expect(page.locator('#footer-overflow-menu')).toBeVisible({ timeout: 3000 });
+  await page.locator(VERSIONS_BTN).click();
+}
 
 test.describe('Workflow config Restore by version', () => {
   test.beforeEach(async ({ page }) => {
@@ -15,29 +22,29 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Restore by version button is visible and opens modal', async ({ page }) => {
-    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
-    await expect(restoreBtn).toBeVisible({ timeout: 5000 });
-    await restoreBtn.click();
+    await page.locator(OVERFLOW_TOGGLE).click();
+    await expect(page.locator('#footer-overflow-menu')).toBeVisible({ timeout: 3000 });
+    const versionsBtn = page.locator(VERSIONS_BTN);
+    await expect(versionsBtn).toBeVisible({ timeout: 5000 });
+    await versionsBtn.click();
     const modal = page.locator('#configVersionListModal');
     await expect(modal).toBeVisible({ timeout: 5000 });
     await expect(page.locator('h3:has-text("Restore configuration by version")')).toBeVisible();
   });
 
   test('Search input and Search button are visible in modal', async ({ page }) => {
-    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
-    await restoreBtn.click();
+    await openVersionsModal(page);
     await expect(page.locator('#configVersionListModal')).toBeVisible({ timeout: 5000 });
     await expect(page.locator('#configVersionSearch')).toBeVisible();
     await expect(page.locator('#configVersionListModal button:has-text("Search")')).toBeVisible();
   });
 
   test('Search by version triggers API request with version param', async ({ page }) => {
-    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const initialResponsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
     );
-    await restoreBtn.click();
+    await openVersionsModal(page);
     await initialResponsePromise;
     await expect(page.locator('#configVersionListModal')).toBeVisible({ timeout: 5000 });
     const searchInput = page.locator('#configVersionSearch');
@@ -55,12 +62,11 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Pagination footer shows when more than 20 versions', async ({ page }) => {
-    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
     );
-    await restoreBtn.click();
+    await openVersionsModal(page);
     await responsePromise;
     await expect(page.locator('#configVersionListModal')).toBeVisible({ timeout: 5000 });
     await page.waitForTimeout(500);
@@ -79,12 +85,11 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Version list loads from API and shows at least placeholder or versions', async ({ page }) => {
-    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
     );
-    await restoreBtn.click();
+    await openVersionsModal(page);
     const response = await responsePromise;
     expect(response.status()).toBe(200);
     const list = page.locator('#configVersionList');
@@ -95,12 +100,11 @@ test.describe('Workflow config Restore by version', () => {
   });
 
   test('Load version populates form and closes modal', async ({ page }) => {
-    const restoreBtn = page.locator(RESTORE_BTN_SELECTOR);
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/workflow/config/versions') && r.request().method() === 'GET',
       { timeout: 10000 }
     );
-    await restoreBtn.click();
+    await openVersionsModal(page);
     await responsePromise;
     await page.waitForSelector('#configVersionListModal', { state: 'visible', timeout: 5000 });
 

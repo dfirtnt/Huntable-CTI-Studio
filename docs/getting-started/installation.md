@@ -105,11 +105,18 @@ Run CLI commands using the wrapper script:
 ./run_cli.sh init --config config/sources.yaml
 ./run_cli.sh collect --dry-run
 ./run_cli.sh search --query ransomware --limit 25 --format json
+./run_cli.sh stats
 ./run_cli.sh sync-sources --config config/sources.yaml --no-remove
+./run_cli.sh compare-sources --config-path config/sources.yaml
 ./run_cli.sh rescore --article-id 123 --dry-run
+./run_cli.sh rescore-ml --article-id 123 --dry-run
+./run_cli.sh capabilities check
+./run_cli.sh embed stats
+./run_cli.sh sigma stats
 ```
 
 The `run_cli.sh` script executes commands inside the Docker `cli` container.
+For the full command reference, see [CLI Reference](../reference/cli.md).
 
 ## Verification
 

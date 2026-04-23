@@ -70,6 +70,7 @@ const featureProjects = [
     testMatch: [
       /playwright\/sigma_enrich\.spec\.ts$/,
       /playwright\/agent_evals_hunt_query\.spec\.ts$/,
+      /playwright\/agent_evals_input_persistence\.spec\.ts$/,
       /playwright\/observables_selection\.spec\.ts$/,
       /playwright\/llm_optimizer_api\.spec\.ts$/,
       /playwright\/proctree_disable_persistence\.spec\.ts$/,

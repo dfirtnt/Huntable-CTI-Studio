@@ -19,11 +19,20 @@ async function waitForConfigReady(page: Page) {
   await page.waitForTimeout(1000);
 }
 
+async function openConfigDisplay(page: Page) {
+  // #configDisplay lives inside a <details> element collapsed by default.
+  await page.evaluate(() => {
+    const d = document.querySelector('details.current-config') as HTMLDetailsElement | null;
+    if (d) d.open = true;
+  });
+}
+
 async function gotoWorkflowConfig(page: Page) {
   await page.goto(`${BASE}/workflow#config`);
   await page.waitForLoadState('networkidle');
   await switchToConfigTab(page);
   await waitForConfigReady(page);
+  await openConfigDisplay(page);
 }
 
 async function reloadWorkflowConfig(page: Page) {
@@ -31,6 +40,7 @@ async function reloadWorkflowConfig(page: Page) {
   await page.waitForLoadState('networkidle');
   await switchToConfigTab(page);
   await waitForConfigReady(page);
+  await openConfigDisplay(page);
 }
 
 /** Open a step-section by index (pipeline stages s0-s5). */

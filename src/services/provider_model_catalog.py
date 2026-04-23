@@ -12,6 +12,8 @@ from src.utils.model_validation import (
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
 DEFAULT_CATALOG = {
     "openai": [
+        "gpt-5",
+        "gpt-5-mini",
         "gpt-4.1",
         "gpt-4.1-mini",
         "gpt-4.1-nano",

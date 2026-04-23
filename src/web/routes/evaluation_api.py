@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import os
+import re
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,48 @@ from src.worker.celery_app import trigger_agentic_workflow
 # during os_detection (Celery prefork + SQLAlchemy pool corruption). A short
 # broker-side countdown spreads os_detection DB hits across distinct ticks.
 _EVAL_STAGGER_SECONDS = float(os.getenv("EVAL_STAGGER_SECONDS", "0.2"))
+
+# Patterns that indicate a provider rate-limit / TPM throttling failure.
+# Covers OpenAI ("429", "rate limit", "try again in N..."), Anthropic
+# ("rate_limit_error", "overloaded_error"), and generic wordings.
+_THROTTLE_PATTERNS = re.compile(
+    r"429|rate[\s_]?limit|rate_limit_error|try again in|overloaded",
+    re.IGNORECASE,
+)
+
+
+def _execution_is_throttled(
+    error_message: str | None,
+    error_log: dict | list | str | None,
+) -> bool:
+    # Checks both error_message (terminal 429) and error_log conversation entries
+    # because a throttled extractor stamps the error inside error_log while the
+    # workflow still reports status='completed' and actual_count=0.
+    if error_message and _THROTTLE_PATTERNS.search(error_message):
+        return True
+
+    if not isinstance(error_log, dict):
+        return False
+
+    extract_agent = error_log.get("extract_agent")
+    if not isinstance(extract_agent, dict):
+        return False
+
+    conversation_log = extract_agent.get("conversation_log")
+    if not isinstance(conversation_log, list):
+        return False
+
+    for entry in conversation_log:
+        if not isinstance(entry, dict):
+            continue
+        result = entry.get("result")
+        if not isinstance(result, dict):
+            continue
+        for field in ("error", "error_type", "error_details"):
+            value = result.get(field)
+            if isinstance(value, str) and _THROTTLE_PATTERNS.search(value):
+                return True
+    return False
 
 
 # Subagent name -> ExtractAgent-style agent name for run_extraction_agent
@@ -857,6 +900,7 @@ class SubagentEvalRunRequest(BaseModel):
     subagent_name: str
     article_urls: list[str]
     use_active_config: bool = True
+    concurrency_throttle_seconds: float = Field(default=5.0, ge=0.0, le=60.0)
 
 
 @router.post("/run-subagent-eval")
@@ -1077,11 +1121,15 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
             db_session.commit()
 
             # Trigger workflows with a broker-side stagger so concurrent child
-            # workers don't race on DB connections during os_detection.
+            # workers don't race on DB connections during os_detection. The
+            # internal _EVAL_STAGGER_SECONDS floor is always applied; the
+            # user-supplied concurrency throttle adds on top to spread
+            # provider token budget across the run window.
+            per_step_countdown = _EVAL_STAGGER_SECONDS + eval_request.concurrency_throttle_seconds
             for idx, exec_info in enumerate(executions):
                 trigger_agentic_workflow.apply_async(
                     args=[exec_info["article_id"], exec_info["execution_id"]],
-                    countdown=idx * _EVAL_STAGGER_SECONDS,
+                    countdown=idx * per_step_countdown,
                 )
                 logger.info(
                     f"Triggered workflow execution {exec_info['execution_id']} for article {exec_info['article_id']}"
@@ -1165,6 +1213,8 @@ async def get_subagent_eval_results(
                     continue
                 actual_count = record.actual_count
                 warnings = []
+                execution_error_message = None
+                throttled = False
 
                 if record.workflow_execution_id:
                     execution = (
@@ -1173,16 +1223,19 @@ async def get_subagent_eval_results(
                         .first()
                     )
 
-                    if (
-                        execution
-                        and execution.extraction_result
-                        and isinstance(execution.extraction_result, dict)
-                        and "warnings" in execution.extraction_result
-                    ):
-                        # Extract warnings
-                        extraction_warnings = execution.extraction_result.get("warnings")
-                        if isinstance(extraction_warnings, list):
-                            warnings.extend(extraction_warnings)
+                    if execution:
+                        if (
+                            execution.extraction_result
+                            and isinstance(execution.extraction_result, dict)
+                            and "warnings" in execution.extraction_result
+                        ):
+                            extraction_warnings = execution.extraction_result.get("warnings")
+                            if isinstance(extraction_warnings, list):
+                                warnings.extend(extraction_warnings)
+                        if execution.error_message:
+                            execution_error_message = execution.error_message
+                        if _execution_is_throttled(execution.error_message, execution.error_log):
+                            throttled = True
 
                 # Calculate score if actual_count is set
                 score = None
@@ -1206,6 +1259,8 @@ async def get_subagent_eval_results(
                         "completed_at": record.completed_at.isoformat() if record.completed_at else None,
                         "workflow_config_id": record.workflow_config_id,
                         "warnings": warnings if warnings else None,
+                        "error_message": execution_error_message,
+                        "throttled": throttled,
                     }
                 )
 
@@ -1433,6 +1488,23 @@ async def get_subagent_eval_aggregate(
                 SubagentEvaluationTable.created_at.desc(),
             ).all()
 
+            # Batch-fetch execution rows to avoid N+1 queries when counting throttled runs.
+            execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
+            throttled_execution_ids: set[int] = set()
+            if execution_ids:
+                execution_rows = (
+                    db_session.query(
+                        AgenticWorkflowExecutionTable.id,
+                        AgenticWorkflowExecutionTable.error_message,
+                        AgenticWorkflowExecutionTable.error_log,
+                    )
+                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
+                    .all()
+                )
+                for exec_id, err_msg, err_log in execution_rows:
+                    if _execution_is_throttled(err_msg, err_log):
+                        throttled_execution_ids.add(exec_id)
+
             # Predetermined expected_count by article_url from eval_articles.yaml
             preset_expected_by_url = _load_preset_expected_by_url(subagent)
 
@@ -1452,6 +1524,7 @@ async def get_subagent_eval_aggregate(
                 completed_records = [r for r in records if r.status == "completed" and r.actual_count is not None]
                 failed_records = [r for r in records if r.status == "failed"]
                 pending_records = [r for r in records if r.status == "pending"]
+                throttled_count = sum(1 for r in records if r.workflow_execution_id in throttled_execution_ids)
 
                 if not completed_records:
                     aggregates.append(
@@ -1461,6 +1534,7 @@ async def get_subagent_eval_aggregate(
                             "completed": len(completed_records),
                             "failed": len(failed_records),
                             "pending": len(pending_records),
+                            "throttled": throttled_count,
                             "mean_score": None,
                             "mean_absolute_error": None,
                             "raw_mae": None,
@@ -1507,6 +1581,7 @@ async def get_subagent_eval_aggregate(
                         "completed": len(completed_records),
                         "failed": len(failed_records),
                         "pending": len(pending_records),
+                        "throttled": throttled_count,
                         "mean_score": round(mean_score, 2),
                         "mean_absolute_error": round(normalized_mean_absolute_error, 4)
                         if normalized_mean_absolute_error is not None

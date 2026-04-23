@@ -1551,7 +1551,7 @@ class RunTestRunner:
         # Optional parts (pytest only includes non-zero in summary). \b avoids matching xpassed/xfailed.
         for pattern, key in [
             (r"(\d+)\s+passed\b", "passed"),
-            (r"(\d+)\s+failed\b", "failed"),
+            (r"(\d+)\s+failed\b(?=\s*,|\s+in\b)", "failed"),
             (r"(\d+)\s+skipped", "skipped"),
             (r"(\d+)\s+errors?", "errors"),
         ]:

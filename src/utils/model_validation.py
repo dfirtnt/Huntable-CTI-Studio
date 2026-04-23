@@ -153,6 +153,7 @@ def filter_openai_models_latest_only(model_ids: list[str]) -> list[str]:
 # actually use. This is narrower than `is_valid_openai_chat_model` (capability check) on
 # purpose — it's the display allowlist for Workflow/Settings dropdowns so users don't
 # pick a model the pipeline was never built against.
+# gpt-5* variants are matched by pattern so new releases only need a catalog update.
 PROJECT_OPENAI_ALLOWLIST: frozenset[str] = frozenset(
     {
         "gpt-4o-mini",
@@ -161,18 +162,26 @@ PROJECT_OPENAI_ALLOWLIST: frozenset[str] = frozenset(
         "gpt-4.1",
         "o3-mini",
         "o4-mini",
+        "codex-mini-latest",
     }
 )
+
+_GPT5_PATTERN = re.compile(r"^gpt-5", re.IGNORECASE)
 
 
 def filter_openai_models_project_allowlist(model_ids: list[str]) -> list[str]:
     """
     Narrow an OpenAI model list to only the chat/reasoning models CTIScraper workflows
-    actually use. Applied in the catalog load path, the /api test-key route, and the
+    actually use. All gpt-5* variants pass automatically; other models must be in the
+    explicit allowlist. Applied in the catalog load path, the /api test-key route, and the
     daily Celery refresh writer so the Workflow dropdown never shows audio/realtime/TTS/
-    image/search/moderation/legacy models or unrelated chat models (gpt-5, o1, o3-pro…).
+    image/search/moderation/legacy models or unrelated chat models (o1, o3-pro…).
     """
-    return sorted({m.strip() for m in model_ids if m and m.strip() in PROJECT_OPENAI_ALLOWLIST})
+
+    def _allowed(m: str) -> bool:
+        return _GPT5_PATTERN.match(m) is not None or m in PROJECT_OPENAI_ALLOWLIST
+
+    return sorted({m.strip() for m in model_ids if m and _allowed(m.strip())})
 
 
 # Anthropic: family = strip -YYYYMMDD or -latest; one representative per family.

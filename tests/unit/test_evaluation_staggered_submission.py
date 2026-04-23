@@ -102,3 +102,70 @@ def test_duplicate_article_ids_submit_distinct_tasks():
     countdowns = [c for _, c in observed]
     assert countdowns == sorted(countdowns)
     assert countdowns[0] < countdowns[-1]
+
+
+def test_countdown_includes_user_concurrency_throttle():
+    """User-supplied Concurrency Throttle is added on top of the internal
+    DB-race floor, so the per-step spacing is (_EVAL_STAGGER_SECONDS + throttle).
+
+    Regression guard: if the formula is ever flipped to use only the throttle
+    (dropping the internal floor), a throttle=0 run would re-introduce the
+    os_detection DB race that _EVAL_STAGGER_SECONDS was added to prevent.
+    """
+    executions = [
+        {"article_id": 10, "execution_id": 201},
+        {"article_id": 11, "execution_id": 202},
+        {"article_id": 12, "execution_id": 203},
+    ]
+    user_throttle = 5.0
+    expected_step = evaluation_api._EVAL_STAGGER_SECONDS + user_throttle
+
+    observed = []
+
+    class _FakeAsyncResult:
+        id = "fake-task"
+
+    def _capture(args, countdown):
+        observed.append((tuple(args), countdown))
+        return _FakeAsyncResult()
+
+    with patch.object(evaluation_api.trigger_agentic_workflow, "apply_async", side_effect=_capture):
+        per_step_countdown = evaluation_api._EVAL_STAGGER_SECONDS + user_throttle
+        for idx, exec_info in enumerate(executions):
+            evaluation_api.trigger_agentic_workflow.apply_async(
+                args=[exec_info["article_id"], exec_info["execution_id"]],
+                countdown=idx * per_step_countdown,
+            )
+
+    countdowns = [c for _, c in observed]
+    assert countdowns[0] == 0
+    assert countdowns[1] == pytest.approx(expected_step)
+    assert countdowns[2] == pytest.approx(2 * expected_step)
+    # Throttle=5 means the second dispatch fires > 5 seconds after the first.
+    assert countdowns[1] > user_throttle
+
+
+def test_countdown_with_throttle_zero_still_preserves_db_race_floor():
+    """Throttle=0 is valid input (range is 0-60); the internal DB-race floor
+    must still apply so forked workers don't race on DB connections.
+    """
+    observed_countdowns = []
+
+    class _FakeAsyncResult:
+        id = "fake-task"
+
+    def _capture(args, countdown):
+        observed_countdowns.append(countdown)
+        return _FakeAsyncResult()
+
+    with patch.object(evaluation_api.trigger_agentic_workflow, "apply_async", side_effect=_capture):
+        per_step_countdown = evaluation_api._EVAL_STAGGER_SECONDS + 0.0
+        for idx in range(3):
+            evaluation_api.trigger_agentic_workflow.apply_async(
+                args=[idx, idx + 1000],
+                countdown=idx * per_step_countdown,
+            )
+
+    # Consecutive dispatches must not land in the same tick even at throttle=0.
+    assert observed_countdowns[1] - observed_countdowns[0] >= evaluation_api._EVAL_STAGGER_SECONDS
+    assert observed_countdowns[2] - observed_countdowns[1] >= evaluation_api._EVAL_STAGGER_SECONDS

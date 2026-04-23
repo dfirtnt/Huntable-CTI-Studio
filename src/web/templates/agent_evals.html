@@ -537,6 +537,20 @@
                     title="Number of evaluation runs per selected article (1-50)"
                 />
                 <span id="evalMultiplierHint" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.7rem;"></span>
+                <label for="evalConcurrencyThrottle" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">
+                    Concurrency Throttle (s)
+                </label>
+                <input
+                    id="evalConcurrencyThrottle"
+                    type="number"
+                    min="0"
+                    max="60"
+                    step="0.5"
+                    value="5"
+                    class="eval-mono"
+                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;"
+                    title="Seconds between article dispatches (0-60). Raise if results show TPM RATE LIMIT warnings."
+                />
             </div>
             <button id="runEvalBtn" class="eval-run-btn" disabled>
                 RUN EVALUATION
@@ -1082,17 +1096,65 @@ function closeAgentEvalsHelpModal() {
 }
 
 // Run evaluation
+const THROTTLE_LS_KEY = 'eval.concurrency_throttle_seconds';
+const THROTTLE_DEFAULT_SECONDS = 5;
+const THROTTLE_INTERNAL_FLOOR_SECONDS = 0.2; // mirrors _EVAL_STAGGER_SECONDS in evaluation_api.py
+const MULTIPLIER_LS_KEY = 'eval.runs_per_article';
+
+function readThrottleValue() {
+    const input = document.getElementById('evalConcurrencyThrottle');
+    if (!input) return THROTTLE_DEFAULT_SECONDS;
+    let val = parseFloat(input.value);
+    if (!Number.isFinite(val) || val < 0) val = 0;
+    if (val > 60) val = 60;
+    localStorage.setItem(THROTTLE_LS_KEY, String(val));
+    return val;
+}
+
+function hydrateThrottleValue() {
+    const input = document.getElementById('evalConcurrencyThrottle');
+    if (!input) return;
+    const stored = localStorage.getItem(THROTTLE_LS_KEY);
+    if (stored !== null) {
+        const parsed = parseFloat(stored);
+        if (Number.isFinite(parsed) && parsed >= 0 && parsed <= 60) {
+            input.value = String(parsed);
+        }
+    }
+}
+
+function persistMultiplierValue() {
+    const input = document.getElementById('evalMultiplier');
+    if (!input) return;
+    let val = parseInt(input.value, 10);
+    if (!Number.isFinite(val) || val < 1) val = 1;
+    if (val > 50) val = 50;
+    localStorage.setItem(MULTIPLIER_LS_KEY, String(val));
+}
+
+function hydrateMultiplierValue() {
+    const input = document.getElementById('evalMultiplier');
+    if (!input) return;
+    const stored = localStorage.getItem(MULTIPLIER_LS_KEY);
+    if (stored !== null) {
+        const parsed = parseInt(stored, 10);
+        if (Number.isFinite(parsed) && parsed >= 1 && parsed <= 50) {
+            input.value = String(parsed);
+        }
+    }
+}
+
 async function runEvaluation() {
     if (selectedArticleUrls.size === 0) {
         showNotification('Please select at least one article', 'error');
         return;
     }
-    
+
     if (!activeConfig) {
         showNotification('Active config not loaded. Please refresh the page.', 'error');
         return;
     }
-    
+
     const runBtn = document.getElementById('runEvalBtn');
     const statusDiv = document.getElementById('evalStatus');
     const statusText = document.getElementById('evalStatusText');
@@ -1100,6 +1162,7 @@ async function runEvaluation() {
     let multiplier = parseInt(multiplierInput ? multiplierInput.value : '1', 10);
     if (!Number.isFinite(multiplier) || multiplier < 1) multiplier = 1;
     if (multiplier > 50) multiplier = 50;
+    const concurrencyThrottle = readThrottleValue();
 
     const baseUrls = Array.from(selectedArticleUrls);
     const repeatedUrls = [];
@@ -1109,9 +1172,11 @@ async function runEvaluation() {
 
     runBtn.disabled = true;
     statusDiv.classList.remove('hidden');
+    const perStep = THROTTLE_INTERNAL_FLOOR_SECONDS + concurrencyThrottle;
+    const dispatchWindow = Math.max(0, Math.round((repeatedUrls.length - 1) * perStep));
     statusText.textContent = multiplier > 1
-        ? `Triggering ${repeatedUrls.length} workflow executions (${baseUrls.length} articles x ${multiplier} runs)...`
-        : `Triggering ${repeatedUrls.length} workflow executions...`;
+        ? `Triggering ${repeatedUrls.length} executions (${baseUrls.length} articles x ${multiplier} runs) @ ${concurrencyThrottle}s throttle (~${dispatchWindow}s dispatch window)...`
+        : `Triggering ${repeatedUrls.length} executions @ ${concurrencyThrottle}s throttle (~${dispatchWindow}s dispatch window)...`;
 
     try {
         // Use current subagent directly
@@ -1124,6 +1189,7 @@ async function runEvaluation() {
                 subagent_name: subagentForRun,
                 article_urls: repeatedUrls,
                 use_active_config: true,
+                concurrency_throttle_seconds: concurrencyThrottle,
             }),
         });
         
@@ -1489,6 +1555,9 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
+                if (result.throttled) {
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1;" title="TPM RATE LIMIT">&#9888;</span>`;
+                }
                 html += `</div></td>`;
             }
         });
@@ -1608,6 +1677,9 @@ function renderSubagentResults(results) {
         html += `</div></td>`;
         html += `<td class="px-4 py-3 text-sm">`;
         html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
+        if (result.throttled) {
+            html += ` <span class="status-badge status-mismatch" title="Provider throttled this call. Raise the Concurrency Throttle and re-run.">TPM RATE LIMIT</span>`;
+        }
         html += `</td>`;
         html += '</tr>';
     });
@@ -2184,10 +2256,13 @@ async function loadAggregateScores() {
                 metricsHtml = `<p class="text-sm text-gray-500 dark:text-gray-400">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>${paramsHtml}`;
             }
             
+            const throttledChip = (agg.throttled && agg.throttled > 0)
+                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem;" title="TPM RATE LIMIT - ${agg.throttled} article${agg.throttled === 1 ? '' : 's'} were throttled in this run. Raise Concurrency Throttle and re-run.">&#9888; ${agg.throttled} throttled</span>`
+                : '';
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}</span>
                 </div>
                 ${metricsHtml}
             `;
@@ -2448,7 +2523,13 @@ async function clearPendingRecords() {
 // Event listeners
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
-document.getElementById('evalMultiplier').addEventListener('input', updateRunButton);
+hydrateMultiplierValue();
+document.getElementById('evalMultiplier').addEventListener('input', () => {
+    persistMultiplierValue();
+    updateRunButton();
+});
+hydrateThrottleValue();
+document.getElementById('evalConcurrencyThrottle').addEventListener('change', readThrottleValue);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
 document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);

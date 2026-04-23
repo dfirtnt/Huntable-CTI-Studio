@@ -1478,6 +1478,24 @@ function closeHealingPanel() {
     document.getElementById('healingPanel').classList.remove('open');
 }
 
+function isHealingPanelOpen() {
+    var panel = document.getElementById('healingPanel');
+    return !!(panel && panel.classList.contains('open'));
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape' || !isHealingPanelOpen()) {
+        return;
+    }
+
+    if (window.ModalManager && window.ModalManager.isOpen()) {
+        return;
+    }
+
+    e.preventDefault();
+    closeHealingPanel();
+});
+
 // Config modal buttons
 const _saveBtn = document.getElementById('saveSourceConfigBtn');
 if (_saveBtn) _saveBtn.addEventListener('click', saveSourceConfig);
