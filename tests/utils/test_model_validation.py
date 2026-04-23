@@ -101,6 +101,13 @@ class TestFilterOpenaiModelsLatestOnly:
         out = filter_openai_models_latest_only(ids)
         assert set(out) >= {"gpt-4o", "gpt-4.1-mini", "o1", "o3-mini"}
 
+    def test_gpt5_codex_terminal_blocked_by_is_valid(self):
+        """gpt-5.3-codex ends in -codex and is rejected by is_valid inside this filter."""
+        out = filter_openai_models_latest_only(["gpt-5.3-codex", "gpt-5.3-codex-spark", "gpt-5.4"])
+        assert "gpt-5.3-codex" not in out  # terminal -codex -> excluded
+        assert "gpt-5.3-codex-spark" in out  # non-terminal -> valid via fallback
+        assert "gpt-5.4" in out  # base pattern match
+
 
 class TestFilterOpenaiModelsProjectAllowlist:
     """filter_openai_models_project_allowlist: narrow to the 6 CTIScraper workflow models."""
@@ -114,8 +121,9 @@ class TestFilterOpenaiModelsProjectAllowlist:
         )
 
     def test_non_allowlisted_chat_models_dropped(self):
-        # Broader chat models `is_valid_openai_chat_model` would accept but the project doesn't use.
-        ids = ["gpt-5", "gpt-5-mini", "gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-pro", "o3", "o3-pro", "codex-mini"]
+        # Valid chat models the project pipeline does not use.
+        # gpt-5*/codex-* are intentionally excluded here -- they pass by pattern.
+        ids = ["gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-pro", "o3", "o3-pro"]
         assert filter_openai_models_project_allowlist(ids) == []
 
     def test_allowlisted_mixed_with_noise(self):
@@ -126,29 +134,54 @@ class TestFilterOpenaiModelsProjectAllowlist:
             "gpt-4.1-mini",
             "o3-mini",
             "o4-mini",
-            # noise
+            # gpt-5* and codex-* pass by pattern (not noise)
             "gpt-5",
+            "codex-mini-latest",
+            # genuine noise -- dropped
             "gpt-4-turbo",
             "gpt-4o-audio-preview",
             "gpt-4o-2024-05-13",
             "o1",
         ]
         out = filter_openai_models_project_allowlist(ids)
-        assert out == sorted(PROJECT_OPENAI_ALLOWLIST)
+        # All explicit allowlist members must be present
+        assert set(PROJECT_OPENAI_ALLOWLIST).issubset(set(out))
+        # Pattern-matched models also survive
+        assert "gpt-5" in out
+        # Non-workflow models are dropped
+        assert "gpt-4-turbo" not in out
+        assert "o1" not in out
 
     def test_whitespace_and_dedupe(self):
         ids = ["gpt-4o", " gpt-4o ", "gpt-4o", "o4-mini"]
         out = filter_openai_models_project_allowlist(ids)
         assert out == ["gpt-4o", "o4-mini"]
 
+    def test_gpt5_4_subfamily_all_pass_via_pattern(self):
+        """gpt-5.4 family passes via _GPT5_PATTERN -- no explicit allowlist entry required."""
+        models = ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4-pro"]
+        out = filter_openai_models_project_allowlist(models)
+        assert set(out) == set(models)
+
+    def test_gpt5_codex_spark_passes_via_gpt5_pattern(self):
+        """gpt-5.3-codex-spark starts with gpt-5 so it passes the allowlist pattern check."""
+        out = filter_openai_models_project_allowlist(["gpt-5.3-codex-spark"])
+        assert out == ["gpt-5.3-codex-spark"]
+
     def test_dated_variants_excluded(self):
         # The base-name allowlist is exact; dated variants are filtered by
         # filter_openai_models_latest_only upstream, so this layer must also reject them.
         assert filter_openai_models_project_allowlist(["gpt-4o-2024-05-13", "gpt-4.1-mini-2025-04-14"]) == []
 
+    def test_codex_pattern_passes_new_variants(self):
+        """codex-* models pass via _CODEX_PATTERN -- no catalog/allowlist entry required."""
+        ids = ["codex-large", "codex-v2", "codex-mini", "codex-future-model"]
+        out = filter_openai_models_project_allowlist(ids)
+        assert set(out) == {"codex-large", "codex-v2", "codex-mini", "codex-future-model"}
+
     def test_allowlist_size_matches_spec(self):
         # Canary: if this changes, update the Todoist task / docs before landing.
-        assert len(PROJECT_OPENAI_ALLOWLIST) == 6
+        assert len(PROJECT_OPENAI_ALLOWLIST) == 7
         assert {
             "gpt-4o-mini",
             "gpt-4o",
@@ -156,6 +189,7 @@ class TestFilterOpenaiModelsProjectAllowlist:
             "gpt-4.1",
             "o3-mini",
             "o4-mini",
+            "codex-mini-latest",
         } == PROJECT_OPENAI_ALLOWLIST
 
 
@@ -243,6 +277,31 @@ class TestIsValidOpenaiChatModel:
         """Models with -codex suffix (e.g. gpt-5-codex) remain non-chat."""
         assert is_valid_openai_chat_model("gpt-5-codex") is False
         assert is_valid_openai_chat_model("gpt-5.2-codex") is False
+
+    def test_codex_exclusion_anchor_precision(self):
+        """The -codex$ pattern only excludes a terminal suffix; -codex- mid-string is not excluded."""
+        # Terminal suffix: excluded
+        assert is_valid_openai_chat_model("gpt-5-codex") is False
+        # Mid-string: passes (gpt- fallback; not a terminal -codex suffix)
+        assert is_valid_openai_chat_model("gpt-5-codex-mini") is True
+
+    def test_gpt5_point_releases_all_valid(self):
+        """gpt-5.1 through gpt-5.4 match VALID_CHAT_BASE_PATTERNS."""
+        for m in ["gpt-5.1", "gpt-5.2", "gpt-5.3", "gpt-5.4"]:
+            assert is_valid_openai_chat_model(m) is True, f"{m} should be valid"
+
+    def test_gpt5_4_subfamily_all_valid(self):
+        """gpt-5.4 mini/nano/pro all match the base pattern suffix list."""
+        for m in ["gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4-pro"]:
+            assert is_valid_openai_chat_model(m) is True, f"{m} should be valid"
+
+    def test_gpt5_codex_terminal_suffix_excluded(self):
+        """gpt-5.3-codex ends in -codex -- excluded by the terminal-anchor NON_CHAT rule."""
+        assert is_valid_openai_chat_model("gpt-5.3-codex") is False
+
+    def test_gpt5_codex_spark_valid(self):
+        """gpt-5.3-codex-spark does NOT end in -codex, so it is NOT excluded and passes via fallback."""
+        assert is_valid_openai_chat_model("gpt-5.3-codex-spark") is True
 
     def test_fallback_gpt_or_o_true(self):
         assert is_valid_openai_chat_model("gpt-some-new-model") is True

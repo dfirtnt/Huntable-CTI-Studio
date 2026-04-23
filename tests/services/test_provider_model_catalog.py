@@ -15,6 +15,7 @@ from src.services.provider_model_catalog import (
     save_catalog,
     update_provider_models,
 )
+from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
 
 
 class TestLoadCatalog:
@@ -29,10 +30,12 @@ class TestLoadCatalog:
         # OpenAI: no dated variants
         for m in out["openai"]:
             assert "-2024-" not in m and "-2025-" not in m
-        # OpenAI: project allowlist applied — only workflow-relevant models survive
-        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
-
-        assert set(out["openai"]) <= PROJECT_OPENAI_ALLOWLIST
+        # OpenAI: project allowlist applied -- only workflow-relevant models survive.
+        # gpt-5* and codex-* also pass by pattern so strict subset check does not apply.
+        for m in out["openai"]:
+            assert m in PROJECT_OPENAI_ALLOWLIST or m.lower().startswith("gpt-5") or m.lower().startswith("codex-"), (
+                f"Unexpected model in output: {m}"
+            )
         # Anthropic: one per family (filter applied)
         assert isinstance(out["anthropic"], list)
         assert len(out["anthropic"]) <= len(DEFAULT_CATALOG["anthropic"])
@@ -52,7 +55,7 @@ class TestLoadCatalog:
         assert "claude-sonnet-4-5" in out["anthropic"]
 
     def test_load_catalog_drops_non_allowlisted_chat_models(self, tmp_path):
-        """Valid chat models not in the project allowlist should be filtered out."""
+        """Valid chat models not in the project allowlist or auto-pass patterns are filtered."""
         path = tmp_path / "catalog.json"
         raw = {
             "openai": [
@@ -62,13 +65,15 @@ class TestLoadCatalog:
                 "gpt-4.1-mini",
                 "o3-mini",
                 "o4-mini",
-                # valid chat models but NOT in project allowlist:
+                "codex-mini-latest",
+                # gpt-5* and additional codex-* pass by pattern:
                 "gpt-5",
                 "gpt-5-mini",
+                "codex-mini",
+                # valid chat models but NOT in allowlist or patterns -- dropped:
                 "gpt-4-turbo",
                 "o1",
                 "o3-pro",
-                "codex-mini",
                 "gpt-3.5-turbo",
             ],
             "anthropic": [],
@@ -76,28 +81,36 @@ class TestLoadCatalog:
         path.write_text(json.dumps(raw))
         with patch.object(catalog_module, "CATALOG_PATH", path):
             out = load_catalog()
-        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
 
-        assert set(out["openai"]) == PROJECT_OPENAI_ALLOWLIST
+        # Explicit allowlist members all present
+        assert set(PROJECT_OPENAI_ALLOWLIST).issubset(set(out["openai"]))
+        # Pattern-matched models also present
+        assert "gpt-5" in out["openai"]
+        assert "gpt-5-mini" in out["openai"]
+        assert "codex-mini" in out["openai"]
+        # Non-workflow models dropped
+        assert "gpt-4-turbo" not in out["openai"]
+        assert "o1" not in out["openai"]
 
     def test_load_catalog_default_catalog_yields_only_allowlisted(self, tmp_path):
         """DEFAULT_CATALOG includes non-chat entries (realtime, tts, etc.)
-        — load_catalog must filter them all out."""
+        -- load_catalog must filter them all out."""
         path = tmp_path / "nonexistent.json"
         with patch.object(catalog_module, "CATALOG_PATH", path):
             out = load_catalog()
-        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
 
-        # Every surviving OpenAI model must be in the allowlist
-        assert set(out["openai"]) <= PROJECT_OPENAI_ALLOWLIST
-        # Specifically, non-chat models from DEFAULT_CATALOG must be gone
+        # Every surviving model must be in the allowlist OR an auto-pass pattern family
+        for m in out["openai"]:
+            assert m in PROJECT_OPENAI_ALLOWLIST or m.lower().startswith("gpt-5") or m.lower().startswith("codex-"), (
+                f"Unexpected model in output: {m}"
+            )
+        # Non-chat / non-workflow models from DEFAULT_CATALOG must be gone
         for noise in (
             "gpt-4o-realtime-preview-2024-12-17",
             "gpt-4o-mini-tts",
             "gpt-4o-mini-transcribe",
             "o3-mini-high",
             "o3-mini-low",
-            "codex-mini-latest",
             "gpt-4.1-realtime-preview",
             "gpt-4.1-nano",
             "gpt-4.1-turbo",
@@ -116,6 +129,53 @@ class TestLoadCatalog:
             load_catalog()
         assert exc_info.value.status_code == 500
         assert "Invalid provider catalog" in exc_info.value.detail
+
+
+class TestOnDiskCatalog:
+    """Sanity checks against the committed config/provider_model_catalog.json."""
+
+    def test_catalog_file_is_valid_json(self):
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
+        assert path.exists(), "catalog file missing"
+        data = json.loads(path.read_text())
+        assert "openai" in data
+        assert isinstance(data["openai"], list)
+
+    def test_gpt5_4_family_in_catalog(self):
+        """gpt-5.4 and its mini/nano/pro variants must be in the on-disk catalog."""
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
+        models = json.loads(path.read_text())["openai"]
+        for m in ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4-pro"]:
+            assert m in models, f"{m} missing from catalog"
+
+    def test_gpt5_family_survives_full_load_pipeline(self, tmp_path):
+        """gpt-5.x models in the catalog all reach the dropdown after both filters."""
+        import json
+        from pathlib import Path
+        from unittest.mock import patch
+
+        real_path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
+        raw = json.loads(real_path.read_text())
+        tmp_file = tmp_path / "catalog.json"
+        tmp_file.write_text(json.dumps(raw))
+
+        with patch.object(catalog_module, "CATALOG_PATH", tmp_file):
+            out = load_catalog()
+
+        gpt5_in = [m for m in raw["openai"] if m.startswith("gpt-5")]
+        # gpt-5.3-codex ends in -codex and is intentionally excluded
+        expected_excluded = {"gpt-5.3-codex"}
+        for m in gpt5_in:
+            if m in expected_excluded:
+                assert m not in out["openai"], f"{m} should be filtered out"
+            else:
+                assert m in out["openai"], f"{m} should survive the pipeline"
 
 
 class TestSaveCatalog:
@@ -156,9 +216,9 @@ class TestUpdateProviderModels:
         with patch.object(catalog_module, "CATALOG_PATH", path):
             # Save a broad list (raw, unfiltered)
             update_provider_models("openai", ["gpt-4o", "o1", "gpt-5", "o4-mini"])
-            # Reload — filter chain should narrow
+            # Reload -- filter chain should narrow; gpt-5 passes via _GPT5_PATTERN
             reloaded = load_catalog()
-        assert set(reloaded["openai"]) == {"gpt-4o", "o4-mini"}
+        assert set(reloaded["openai"]) == {"gpt-4o", "o4-mini", "gpt-5"}
 
     def test_new_provider_key_added(self, tmp_path):
         path = tmp_path / "catalog.json"

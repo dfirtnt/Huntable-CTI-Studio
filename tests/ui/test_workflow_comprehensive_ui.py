@@ -796,3 +796,237 @@ class TestWorkflowConfigRegressions:
         expect(qa_container).to_contain_text("HuntQueriesQA QA Prompt")
         expect(qa_container).to_contain_text("User scaffold is locked in runtime")
         expect(page.locator("#huntqueriesqa-prompt-user-2")).to_have_count(0)
+
+
+# ---------------------------------------------------------------------------
+# Enrich modal system prompt UI (rework: view/edit mode, validate, hardcoded
+# instruction) -- tests the workflow.html enrich modal, not /sigma-queue.
+# ---------------------------------------------------------------------------
+
+_VALID_SYSTEM_PROMPT = (
+    "You are a SIGMA rule enrichment agent. "
+    "updated_sigma_yaml is required. "
+    "Output only a JSON object with status pass|needs_revision|fail."
+)
+
+_PROMPT_LATEST_MOCK = {
+    "success": True,
+    "system_prompt": _VALID_SYSTEM_PROMPT,
+    "user_instruction": "",
+}
+
+
+class TestWorkflowEnrichModalUI:
+    """Tests for the reworked system prompt editor in the workflow enrich modal."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self, page: Page):
+        """Mock required APIs, navigate to workflow#queue, yield, then clean up."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+
+        def handle_route(route):
+            url = route.request.url
+            if re.search(r"sigma-queue/list", url):
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(
+                        {
+                            "items": _SIGMA_QUEUE_LIST_MOCK,
+                            "total": len(_SIGMA_QUEUE_LIST_MOCK),
+                            "limit": 50,
+                            "offset": 0,
+                        }
+                    ),
+                )
+            elif re.search(r"sigma-queue/prompt/latest", url):
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(_PROMPT_LATEST_MOCK),
+                )
+            else:
+                route.continue_()
+
+        page.route("**/*", handle_route)
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("load")
+        page.locator("#tab-queue").click()
+        page.wait_for_timeout(800)
+        yield
+        try:
+            page.evaluate(
+                "() => { ['ruleModal','enrichModal'].forEach(id => {"
+                " const el = document.getElementById(id); if (el) el.classList.add('hidden'); }); }"
+            )
+        except Exception:
+            pass
+
+    def _open_enrich_modal(self, page: Page):
+        """Click Preview then Enrich; return enrich modal locator."""
+        preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
+        if not preview_btn.is_visible(timeout=10000):
+            pytest.skip("No rules in queue to open enrich modal")
+        preview_btn.click()
+        rule_modal = page.locator("#ruleModal")
+        expect(rule_modal).to_be_visible(timeout=5000)
+        rule_modal.locator('button:has-text("Enrich")').first.click()
+        enrich_modal = page.locator("#enrichModal")
+        expect(enrich_modal).to_be_visible(timeout=5000)
+        return enrich_modal
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_system_prompt_display_div_shown_in_view_mode(self, page: Page):
+        """On open, display div is visible and textarea is hidden (view mode)."""
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(500)
+
+        display_div = page.locator("#enrichSystemPromptDisplay")
+        textarea = page.locator("#enrichSystemPrompt")
+
+        expect(display_div).to_be_visible(timeout=3000)
+        expect(textarea).to_be_hidden(timeout=3000)
+        # Display div should contain the loaded prompt text
+        content = display_div.text_content()
+        assert content and len(content.strip()) > 0, "Display div should show the system prompt text"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_user_instruction_field_is_hidden(self, page: Page):
+        """enrichInstruction textarea must not be visible (hardcoded instruction)."""
+        self._open_enrich_modal(page)
+        expect(page.locator("#enrichInstruction")).to_be_hidden(timeout=3000)
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_edit_button_switches_to_edit_mode(self, page: Page):
+        """Clicking Edit reveals the textarea and hides the display div."""
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(300)
+
+        page.locator("#enrichSPEditBtn").click()
+        page.wait_for_timeout(200)
+
+        expect(page.locator("#enrichSystemPrompt")).to_be_visible(timeout=3000)
+        expect(page.locator("#enrichSystemPromptDisplay")).to_be_hidden(timeout=3000)
+        expect(page.locator("#enrichSPSaveBtn")).to_be_visible(timeout=2000)
+        expect(page.locator("#enrichSPCancelBtn")).to_be_visible(timeout=2000)
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_validate_clears_stale_result_on_modal_reopen(self, page: Page):
+        """Validate result from a previous session must not show on fresh open."""
+        enrich_modal = self._open_enrich_modal(page)
+        page.wait_for_timeout(300)
+
+        # Manually inject a stale result
+        page.evaluate(
+            """() => {
+                const d = document.getElementById('enrichValidateResult');
+                if (d) { d.style.display = ''; d.textContent = 'Stale result'; }
+            }"""
+        )
+
+        # Close and reopen the modal
+        enrich_modal.locator('button[onclick="closeEnrichModal()"]').click()
+        page.wait_for_timeout(200)
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(400)
+
+        result_div = page.locator("#enrichValidateResult")
+        # Should be hidden or empty after reopening
+        is_hidden = not result_div.is_visible()
+        is_empty = (result_div.text_content() or "").strip() == ""
+        assert is_hidden or is_empty, "Stale validate result must be cleared on modal reopen"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_validate_passes_for_compliant_prompt(self, page: Page):
+        """Clicking Validate with a prompt containing updated_sigma_yaml shows a pass result."""
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(300)
+
+        page.locator('button[onclick="validateEnrichSystemPrompt()"]').click()
+        page.wait_for_timeout(200)
+
+        result_div = page.locator("#enrichValidateResult")
+        expect(result_div).to_be_visible(timeout=3000)
+        content = result_div.text_content() or ""
+        assert "passed" in content.lower() or "ready" in content.lower(), f"Expected pass message, got: {content!r}"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_validate_errors_on_missing_updated_sigma_yaml(self, page: Page):
+        """A prompt without 'updated_sigma_yaml' produces an ERROR in the validate result."""
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(300)
+
+        # Enter edit mode and replace prompt with one missing updated_sigma_yaml
+        page.locator("#enrichSPEditBtn").click()
+        page.wait_for_timeout(200)
+        textarea = page.locator("#enrichSystemPrompt")
+        textarea.fill("You are a SIGMA agent. Output only JSON with status pass or fail.")
+
+        page.locator('button[onclick="validateEnrichSystemPrompt()"]').click()
+        page.wait_for_timeout(200)
+
+        result_div = page.locator("#enrichValidateResult")
+        expect(result_div).to_be_visible(timeout=3000)
+        content = result_div.text_content() or ""
+        assert "error" in content.lower(), f"Expected error about updated_sigma_yaml, got: {content!r}"
+        assert "updated_sigma_yaml" in content
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_save_blocked_when_prompt_has_errors(self, page: Page):
+        """Save must not proceed and must show validation errors when prompt is non-compliant."""
+        # Intercept the save endpoint to detect any accidental call
+        save_called = []
+
+        def intercept_save(route):
+            save_called.append(route.request.url)
+            route.continue_()
+
+        page.route("**/api/sigma-queue/prompt/save**", intercept_save)
+
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(300)
+
+        page.locator("#enrichSPEditBtn").click()
+        page.wait_for_timeout(200)
+        page.locator("#enrichSystemPrompt").fill("Short bad prompt")
+
+        page.locator("#enrichSPSaveBtn").click()
+        page.wait_for_timeout(400)
+
+        # Validate result must show errors
+        result_div = page.locator("#enrichValidateResult")
+        expect(result_div).to_be_visible(timeout=3000)
+        assert "error" in (result_div.text_content() or "").lower()
+
+        # Must still be in edit mode (textarea visible, save btn visible)
+        expect(page.locator("#enrichSystemPrompt")).to_be_visible(timeout=2000)
+        expect(page.locator("#enrichSPSaveBtn")).to_be_visible(timeout=2000)
+
+        # Save endpoint must NOT have been called
+        assert not save_called, f"Save endpoint should not be called when validation fails: {save_called}"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_validate_rule_label_in_preview_modal(self, page: Page):
+        """SIGMA Rule Preview action bar shows 'Validate Rule', not bare 'Validate'."""
+        preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
+        if not preview_btn.is_visible(timeout=10000):
+            pytest.skip("No rules in queue to test")
+        preview_btn.click()
+        rule_modal = page.locator("#ruleModal")
+        expect(rule_modal).to_be_visible(timeout=5000)
+
+        # Should find 'Validate Rule' button
+        validate_rule_btn = rule_modal.locator('button:has-text("Validate Rule")')
+        expect(validate_rule_btn).to_be_visible(timeout=3000)
+
+        # Must not have a button labelled exactly 'Validate' (without 'Rule')
+        exact_validate = rule_modal.locator('button:text-is("Validate")')
+        assert exact_validate.count() == 0, "Bare 'Validate' button should not exist; expected 'Validate Rule'"
