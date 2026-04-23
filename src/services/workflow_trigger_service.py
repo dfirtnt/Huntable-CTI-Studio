@@ -133,6 +133,32 @@ class WorkflowTriggerService:
                     "Open Workflow → Executions to monitor or retry when it finishes."
                 )
 
+            # Idempotency check: skip if a completed run already exists for this (article, config_version) pair.
+            # Manual reruns (force=True) bypass this gate so re-runs after prompt/model tuning still work.
+            if not force:
+                completed_run = (
+                    self.db.query(AgenticWorkflowExecutionTable)
+                    .filter(
+                        AgenticWorkflowExecutionTable.article_id == article.id,
+                        AgenticWorkflowExecutionTable.status == "completed",
+                        AgenticWorkflowExecutionTable.config_snapshot["config_version"].as_integer() == config.version,
+                    )
+                    .first()
+                )
+                if completed_run:
+                    logger.info(
+                        "Idempotency skip: article %d already completed with config v%d (execution %d). "
+                        "Use force=True to reprocess.",
+                        article.id,
+                        config.version,
+                        completed_run.id,
+                    )
+                    return False, (
+                        f"Article already processed with config v{config.version} (execution {completed_run.id}). "
+                        "Click 'Reprocess' on the article page to run again with the same config, "
+                        "or update the active workflow config to trigger automatic re-extraction."
+                    )
+
             return True, None
 
         except Exception as e:

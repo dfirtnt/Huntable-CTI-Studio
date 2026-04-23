@@ -320,3 +320,106 @@ class TestWorkflowTriggerService:
         should_trigger = service.should_trigger_workflow(sample_article)
 
         assert should_trigger is False
+
+
+class TestIdempotencyCheck:
+    """Tests for the (article_id, config_version) idempotency gate."""
+
+    @pytest.fixture
+    def mock_db_session(self):
+        session = Mock()
+        session.query = Mock()
+        session.add = Mock()
+        session.commit = Mock()
+        session.refresh = Mock()
+        return session
+
+    @pytest.fixture
+    def service(self, mock_db_session):
+        return WorkflowTriggerService(mock_db_session)
+
+    @pytest.fixture
+    def article(self):
+        a = Mock(spec=ArticleTable)
+        a.id = 42
+        a.article_metadata = {"threat_hunting_score": 150.0}
+        return a
+
+    @pytest.fixture
+    def config(self):
+        c = Mock(spec=AgenticWorkflowConfigTable)
+        c.id = 7
+        c.version = 2134
+        c.is_active = True
+        c.auto_trigger_hunt_score_threshold = 100.0
+        c.min_hunt_score = 97.0
+        c.ranking_threshold = 6.0
+        c.similarity_threshold = 0.5
+        c.junk_filter_threshold = 0.8
+        c.agent_models = {}
+        c.qa_enabled = {}
+        c.rank_agent_enabled = True
+        return c
+
+    def _setup_queries(self, mock_db_session, config, active_exec=None, completed_exec=None):
+        """Wire mock_db_session so config and execution queries return the given objects."""
+        mock_config_q = Mock()
+        mock_config_q.filter.return_value.order_by.return_value.first.return_value = config
+
+        mock_exec_q = Mock()
+        # First filter call = active-execution check (pending/running).
+        # Second filter call = idempotency check (completed, same config version).
+        mock_exec_q.filter.return_value.first.side_effect = [active_exec, completed_exec]
+
+        def _side(model):
+            if model == AgenticWorkflowConfigTable:
+                return mock_config_q
+            if model == AgenticWorkflowExecutionTable:
+                return mock_exec_q
+            return Mock()
+
+        mock_db_session.query.side_effect = _side
+
+    def test_auto_trigger_blocked_when_completed_run_exists(self, service, mock_db_session, article, config):
+        """Auto-trigger must be blocked when article already completed with the same config version."""
+        completed = Mock(spec=AgenticWorkflowExecutionTable)
+        completed.id = 99
+        self._setup_queries(mock_db_session, config, active_exec=None, completed_exec=completed)
+
+        ok, reason = service._workflow_eligibility(article, force=False)
+
+        assert ok is False
+        assert "already processed" in reason
+        assert "2134" in reason
+
+    def test_auto_trigger_allowed_when_no_completed_run(self, service, mock_db_session, article, config):
+        """Auto-trigger is allowed when no completed run exists for this config version."""
+        self._setup_queries(mock_db_session, config, active_exec=None, completed_exec=None)
+
+        ok, reason = service._workflow_eligibility(article, force=False)
+
+        assert ok is True
+        assert reason is None
+
+    def test_force_bypasses_idempotency_gate(self, service, mock_db_session, article, config):
+        """force=True must bypass the idempotency check even when a completed run exists."""
+        mock_config_q = Mock()
+        mock_config_q.filter.return_value.order_by.return_value.first.return_value = config
+
+        # Only the active-execution check fires when force=True (idempotency check is skipped).
+        mock_exec_q = Mock()
+        mock_exec_q.filter.return_value.first.return_value = None
+
+        def _side(model):
+            if model == AgenticWorkflowConfigTable:
+                return mock_config_q
+            if model == AgenticWorkflowExecutionTable:
+                return mock_exec_q
+            return Mock()
+
+        mock_db_session.query.side_effect = _side
+
+        ok, reason = service._workflow_eligibility(article, force=True)
+
+        assert ok is True
+        assert reason is None

@@ -105,7 +105,7 @@
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
                 if (btnText) {
-                    btnText.textContent = 'Send to Workflow';
+                    btnText.textContent = 'Reprocess';
                 }
             }
         }
@@ -370,11 +370,12 @@
                     </a>
                     {% endif %}
 
-                    <button onclick="triggerWorkflowForArticle({{ article.id|default(0)|int }})" 
+                    <button onclick="triggerWorkflowForArticle({{ article.id|default(0)|int }})"
                             id="triggerWorkflowBtn"
+                            title="Reprocess: bypasses idempotency gate and runs the pipeline even if this article was already processed with the current config. Use after changing prompts or model settings to get fresh output."
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
-                        <span id="triggerWorkflowBtnText">Send to Workflow</span>
+                        <span id="triggerWorkflowBtnText">Reprocess</span>
                     </button>
 
                     <button onclick="showChunkDebugModal()" 
