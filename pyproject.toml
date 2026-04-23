@@ -30,7 +30,7 @@ dependencies = [
     "jinja2==3.1.6",
     # Background task processing
     "celery==5.6.2",
-    "redis==7.3.0",
+    "redis==7.4.0",
     # Classification and ML
     "scikit-learn==1.8.0",
     "lightgbm==4.6.0",
