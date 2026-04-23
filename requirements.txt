@@ -83,7 +83,7 @@ langgraph==1.1.8  # LangGraph for agentic workflow orchestration
 langgraph-checkpoint==4.0.2  # LangGraph checkpointing for state persistence
 langgraph-checkpoint-postgres==3.0.5  # PostgreSQL checkpoint backend for LangGraph
 langgraph-cli==0.4.23  # LangGraph CLI for HTTP server
-langfuse==4.3.1  # Langfuse for LLM observability and tracing
+langfuse==4.5.0  # Langfuse for LLM observability and tracing
 
 # MCP server
 mcp[cli]==1.27.0  # Model Context Protocol SDK for LLM tool integration
