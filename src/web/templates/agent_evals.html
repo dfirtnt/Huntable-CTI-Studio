@@ -625,7 +625,15 @@
             <div id="maeChartContainer" class="mb-6 hidden">
                 <div style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-                        <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
+                        <div>
+                            <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
+                            <p class="eval-mono mt-1" style="color: var(--text-muted-slate); font-size: 0.68rem;">
+                                <span style="color: #34d399;">&#9679;</span> nMAE &le;0.20 Excellent &nbsp;
+                                <span style="color: #fbbf24;">&#9679;</span> 0.21&ndash;0.50 Good &nbsp;
+                                <span style="color: #f87171;">&#9679;</span> &gt;0.50 Needs Improvement &nbsp;&mdash;&nbsp;
+                                nMAE = avg(|actual&minus;expected| / expected); MAE = avg absolute delta in observable units
+                            </p>
+                        </div>
                         <div class="flex items-center gap-2">
                             <button id="chartPrevBtn" class="eval-chart-nav" disabled>&larr; Prev</button>
                             <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.625rem; padding: 0 0.25rem;"></span>
@@ -644,6 +652,47 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Results Comparison Legend -->
+            <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" style="list-style: none; color: var(--text-muted-slate); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                    <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
+                    <span style="font-size: 0.65rem; opacity: 0.6;">click to expand</span>
+                </summary>
+                <div class="px-4 pb-4 pt-2" style="font-size: 0.78rem; color: var(--text-muted-slate);">
+                    <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
+                        <div>
+                            <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Cell layout</p>
+                            <ul class="space-y-1" style="line-height: 1.6;">
+                                <li><strong style="color: var(--text-emphasis);">Large number</strong> &mdash; actual observable count extracted by the agent</li>
+                                <li><strong style="color: var(--text-emphasis);">Signed delta</strong> &mdash; actual &minus; expected (e.g. +3 means over-extracted by 3)</li>
+                                <li><strong style="color: var(--text-emphasis);">Expected column</strong> &mdash; ground-truth count from the evaluation dataset</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Badge colors</p>
+                            <ul class="space-y-1" style="line-height: 1.6;">
+                                <li><span class="status-badge status-exact" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#10003;</span> <strong>Exact</strong> &mdash; delta = 0</li>
+                                <li><span class="status-badge status-warning" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;1</span> <strong>Close</strong> &mdash; |delta| &le; 2</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;3+</span> <strong>Miss</strong> &mdash; |delta| &gt; 2</li>
+                                <li><span class="status-badge status-pending" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
+                            <ul class="space-y-1" style="line-height: 1.6;">
+                                <li><strong>nMAE</strong> (Normalized MAE) &mdash; avg(|actual&minus;expected| / expected) across articles; scale 0&ndash;1</li>
+                                <li><strong>MAE</strong> (raw) &mdash; avg absolute delta in observable units (not normalized)</li>
+                                <li><span style="color: #34d399;">&#9679;</span> nMAE &le; 0.20 &mdash; Excellent</li>
+                                <li><span style="color: #fbbf24;">&#9679;</span> nMAE 0.21&ndash;0.50 &mdash; Good</li>
+                                <li><span style="color: #f87171;">&#9679;</span> nMAE &gt; 0.50 &mdash; Needs Improvement</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </details>
 
             <div id="resultsTable" class="comparison-table">
                 <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
