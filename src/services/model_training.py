@@ -7,6 +7,7 @@ Converts observable training datasets to Workshop format and trains models.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -96,6 +97,11 @@ def train_cmd_extractor_model(
     if version is None:
         version = datetime.now().strftime("%Y%m%d_%H%M%S")
 
+    # Reject versions with shell-special or path-traversal chars (defense-in-depth;
+    # subprocess list form already prevents injection, but CodeQL tracks this flow)
+    if not re.match(r"^[\w.\-]+$", version):
+        raise ValueError(f"Version contains invalid characters: {version!r}")
+
     if output_root is None:
         output_root = Path("Workshop/models")
 
@@ -144,7 +150,7 @@ def train_cmd_extractor_model(
     logger.info(f"Starting model training: {' '.join(cmd)}")
 
     try:
-        # Run training
+        # Run training; codeql[py/shell-command-constructed-from-input] false positive: list form (no shell=True), script from hardcoded map, version regex-validated above
         result = subprocess.run(
             cmd,
             capture_output=True,

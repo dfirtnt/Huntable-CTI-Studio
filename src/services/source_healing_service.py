@@ -60,6 +60,10 @@ content, configure wp_json discovery (endpoints + url_field_priority).
 6. If the blog page has post links visible, use a listing discovery strategy with the \
 appropriate CSS selector.
 7. Look at the working source examples to see what configs succeed for similar site types.
+8. If Trafilatura extracted text is present in the probe results, use it to infer correct \
+body_selectors. The clean text shows exactly what content is on the page — identify which \
+CSS elements would contain those text blocks. Trafilatura provides ground truth for what the \
+page actually contains when selector-based extraction is failing.
 
 PLATFORM CAPABILITIES:
 - Fetch tiers: RSS → Playwright (if use_playwright=true) → Modern scraping → Legacy scraping
@@ -347,11 +351,22 @@ class SourceHealingService:
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
         )
+        # Full browser header set used for 403-retry — some CDNs filter on Accept headers
+        _BROWSER_HEADERS = {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+        }
         results: list[dict] = []
 
-        async def _fetch(client: httpx.AsyncClient, url: str) -> httpx.Response | None:
+        async def _fetch(
+            client: httpx.AsyncClient, url: str, extra_headers: dict | None = None
+        ) -> httpx.Response | None:
             try:
-                return await client.get(url, headers={"User-Agent": _UA})
+                headers = {"User-Agent": _UA}
+                if extra_headers:
+                    headers.update(extra_headers)
+                return await client.get(url, headers=headers)
             except Exception as exc:
                 logger.debug("[AutoHeal-probe] fetch %s failed: %s", url, exc)
                 return None
@@ -390,32 +405,47 @@ class SourceHealingService:
                     }
 
                     if resp.status_code == 403:
-                        body_lower = resp.text[:5000].lower()
-                        server_header = resp.headers.get("server", "").lower()
-                        cf_id = resp.headers.get("x-amz-cf-id")
-
-                        bot_protection_provider = None
-                        if "cloudfront" in body_lower or "cloudfront" in server_header or cf_id:
-                            bot_protection_provider = "CloudFront"
-                        elif "akamai" in body_lower or "akamai" in server_header:
-                            bot_protection_provider = "Akamai"
-                        elif any(
-                            phrase in body_lower for phrase in ["request blocked", "access denied", "bot protection"]
-                        ):
-                            bot_protection_provider = "Unknown WAF"
-
-                        if bot_protection_provider:
-                            probe_result["bot_protection_detected"] = True
-                            probe_result["bot_protection_provider"] = bot_protection_provider
-                            out.append(
+                        # Retry with full browser headers — some CDNs block UA-only requests
+                        retry_resp = await _fetch(client, url, _BROWSER_HEADERS)
+                        if retry_resp and retry_resp.status_code < 400:
+                            retry_final = str(retry_resp.url)
+                            probe_result.update(
                                 {
-                                    "label": "bot_protection_detected",
-                                    "url": url,
-                                    "provider": bot_protection_provider,
-                                    "status_code": 403,
-                                    "message": f"Site uses {bot_protection_provider} bot protection that blocks automated requests",
+                                    "status_code": retry_resp.status_code,
+                                    "content_type": retry_resp.headers.get("content-type", ""),
+                                    "ua_rotation_recovered": True,
                                 }
                             )
+                            if retry_final != url:
+                                probe_result["final_url"] = retry_final
+                        else:
+                            body_lower = resp.text[:5000].lower()
+                            server_header = resp.headers.get("server", "").lower()
+                            cf_id = resp.headers.get("x-amz-cf-id")
+
+                            bot_protection_provider = None
+                            if "cloudfront" in body_lower or "cloudfront" in server_header or cf_id:
+                                bot_protection_provider = "CloudFront"
+                            elif "akamai" in body_lower or "akamai" in server_header:
+                                bot_protection_provider = "Akamai"
+                            elif any(
+                                phrase in body_lower
+                                for phrase in ["request blocked", "access denied", "bot protection"]
+                            ):
+                                bot_protection_provider = "Unknown WAF"
+
+                            if bot_protection_provider:
+                                probe_result["bot_protection_detected"] = True
+                                probe_result["bot_protection_provider"] = bot_protection_provider
+                                out.append(
+                                    {
+                                        "label": "bot_protection_detected",
+                                        "url": url,
+                                        "provider": bot_protection_provider,
+                                        "status_code": 403,
+                                        "message": f"Site uses {bot_protection_provider} bot protection that blocks automated requests",
+                                    }
+                                )
 
                     out.append(probe_result)
             return out
@@ -562,6 +592,45 @@ class SourceHealingService:
                     wp_info["verdict"] = "not_available"
             return [wp_info]
 
+        async def _probe_trafilatura(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 6: trafilatura content extraction for selector inference."""
+            try:
+                import trafilatura as _trafilatura
+            except ImportError:
+                return []
+            if not source_url or not source_url.startswith(("http://", "https://")):
+                return []
+            resp = await _fetch(client, source_url)
+            if not resp or resp.status_code != 200:
+                return []
+            try:
+                extracted = _trafilatura.extract(resp.text, include_links=False, include_images=False)
+                if not extracted or len(extracted) < 100:
+                    return [{"label": "trafilatura_extraction", "verdict": "no_content_extracted"}]
+                return [{"label": "trafilatura_extraction", "sample_text": extracted[:2000]}]
+            except Exception:
+                return []
+
+        async def _probe_platform(client: httpx.AsyncClient) -> list[dict]:
+            """Probe 7: platform fingerprinting (Ghost, Substack) for template-based short-circuit."""
+            if not source_url or not source_url.startswith(("http://", "https://")):
+                return []
+            resp = await _fetch(client, source_url)
+            platform_info: dict = {"label": "platform_detection", "platform": None}
+            if not resp or resp.status_code != 200:
+                return [platform_info]
+            html_lower = resp.text[:30_000].lower()
+            hdrs = resp.headers
+            # Ghost: response header or meta generator tag
+            if hdrs.get("x-ghost-cache-status") or 'content="ghost' in html_lower or "ghost.io" in html_lower:
+                platform_info["platform"] = "ghost"
+                platform_info["rss_hint"] = f"{base_domain}/rss/"
+            # Substack: domain or CDN fingerprint
+            elif "substack.com" in source_url or "substackcdn.com" in html_lower:
+                platform_info["platform"] = "substack"
+                platform_info["rss_hint"] = f"{source_url.rstrip('/')}/feed"
+            return [platform_info]
+
         # ── Run all probes concurrently ──────────────────────────────────
 
         async with httpx.AsyncClient(
@@ -575,6 +644,8 @@ class SourceHealingService:
                 _probe_blog_page(client),
                 _probe_sitemap(client),
                 _probe_wp_json(client),
+                _probe_trafilatura(client),
+                _probe_platform(client),
             )
             for batch in probe_batches:
                 results.extend(batch)
@@ -639,6 +710,29 @@ class SourceHealingService:
                 "actions": [],
                 "platform_limitation": "bot_protection",
             }
+
+        # Platform detection — apply known-good feed template without LLM (round 1 only).
+        if not previous_attempts:
+            platform_result = next(
+                (r for r in probe_results if r.get("label") == "platform_detection" and r.get("platform")),
+                None,
+            )
+            if platform_result:
+                platform = platform_result["platform"]
+                rss_hint = platform_result.get("rss_hint")
+                current_rss = source_snapshot.get("rss_url")
+                if rss_hint and rss_hint.rstrip("/") != (current_rss or "").rstrip("/"):
+                    logger.info(
+                        "[AutoHeal] Source '%s' (id=%s) — %s platform detected, applying feed template (%s)",
+                        source_snapshot.get("name", "?"),
+                        source_snapshot.get("id"),
+                        platform,
+                        rss_hint,
+                    )
+                    return {
+                        "diagnosis": f"{platform.title()} platform detected — applying known feed URL",
+                        "actions": [{"field": "rss_url", "value": rss_hint}],
+                    }
 
         # Check for URL redirect - deterministic fix, no LLM needed.
         # Only on first round (no previous_attempts) to avoid loops if the
@@ -925,6 +1019,23 @@ class SourceHealingService:
                             )
                 else:
                     parts.append(f"- WordPress JSON API: {probe.get('verdict', 'not available')}")
+
+            elif label == "platform_detection":
+                platform = probe.get("platform")
+                if platform:
+                    parts.append(f"- Platform detected: {platform.upper()}")
+                    if probe.get("rss_hint"):
+                        parts.append(f"  Known feed URL for {platform}: {probe['rss_hint']}")
+                else:
+                    parts.append("- Platform detection: no known platform identified")
+
+            elif label == "trafilatura_extraction":
+                if probe.get("sample_text"):
+                    excerpt = probe["sample_text"][:800].replace("\n", " ").strip()
+                    parts.append("- Trafilatura content extraction (clean text — use to infer body_selectors):")
+                    parts.append(f"  {excerpt}")
+                elif probe.get("verdict") == "no_content_extracted":
+                    parts.append("- Trafilatura extraction: no substantial content extracted from page")
 
         if not probe_results:
             parts.append("No probe results available.")

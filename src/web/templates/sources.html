@@ -540,10 +540,10 @@
                         aria-label="Collect articles from {{ source.name }}">
                     Collect Now
                 </button>
-                {% if source.consecutive_failures and source.consecutive_failures > 0 %}
+                {% if healing_enabled and source.consecutive_failures and source.consecutive_failures > 0 %}
                 <button type="button" onclick="healSource({{ source.id }})"
                         class="btn-heal"
-                        title="Dispatch AI source auto-healing in the background. Requires Source Auto-Healing enabled in Settings."
+                        title="Dispatch AI source auto-healing in the background."
                         aria-label="Heal {{ source.name }}">
                     Heal Now
                 </button>

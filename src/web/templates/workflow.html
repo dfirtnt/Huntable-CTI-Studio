@@ -3988,7 +3988,7 @@ function refreshProviderDropdowns() {
 
 // Allow-list style checks to keep provider dropdowns focused on valid models
 const providerModelGuards = {
-    openai: /^(gpt|o[13]|text-|davinci|curie|babbage|ada|whisper|omni|turbo|codex)/i,
+    openai: /^(gpt|o\d|text-|davinci|curie|babbage|ada|whisper|omni|turbo|codex)/i,
     anthropic: /^claude/i
 };
 
@@ -5416,6 +5416,9 @@ function renderAgentModels() {
 }
 
 let isLoadingLMStudioModels = false; // Guard to prevent multiple simultaneous loads
+let _lmStudioModelsFetchedAt = 0;    // Timestamp of last successful fetch
+let _lmStudioModelsFetchCache = null; // Result of last fetch (non-null after first fetch)
+const LM_STUDIO_REFETCH_TTL = 15000; // Reuse result within 15s to avoid back-to-back probes
 
 async function loadLMStudioModels() {
     // Prevent multiple simultaneous calls
@@ -5423,7 +5426,7 @@ async function loadLMStudioModels() {
         console.log('loadLMStudioModels already in progress, skipping duplicate call');
         return;
     }
-    
+
     isLoadingLMStudioModels = true;
     try {
         let data;
@@ -5431,9 +5434,16 @@ async function loadLMStudioModels() {
             // Consume the cache populated by loadEnabledProviders() to avoid a redundant request.
             data = { success: (_cachedLMStudioModels !== null && _cachedLMStudioModels.length > 0), models: _cachedLMStudioModels || [] };
             _cachedLMStudioModels = undefined; // consume; next call fetches fresh
+            _lmStudioModelsFetchedAt = Date.now();
+            _lmStudioModelsFetchCache = data;
+        } else if (_lmStudioModelsFetchCache !== null && (Date.now() - _lmStudioModelsFetchedAt) < LM_STUDIO_REFETCH_TTL) {
+            // Reuse recent result to avoid back-to-back 5s LM Studio probes (e.g. repeated loadConfig calls)
+            data = _lmStudioModelsFetchCache;
         } else {
             const response = await fetch('/api/lmstudio-models');
             data = await response.json();
+            _lmStudioModelsFetchedAt = Date.now();
+            _lmStudioModelsFetchCache = data;
         }
         
         if (data.success && data.models && data.models.length > 0) {
@@ -8517,7 +8527,6 @@ window.autoSaveConfig = async function autoSaveConfig() {
 
 // Actual autosave implementation (separated for debouncing)
 async function performAutoSave() {
-    console.log('[AUTOSAVE_TRACE] performAutoSave entered');
     try {
         // Validate all provider/model combinations before saving
         let hasValidationErrors = false;
@@ -8530,7 +8539,6 @@ async function performAutoSave() {
         });
         
         // If validation errors exist, don't save (throttle warn to avoid console spam)
-        console.log('[AUTOSAVE_TRACE] hasValidationErrors:', hasValidationErrors);
         if (hasValidationErrors) {
             const now = Date.now();
             if (!isInitializing && (now - lastValidationWarnAt) >= VALIDATION_WARN_THROTTLE_MS) {
@@ -8540,7 +8548,6 @@ async function performAutoSave() {
             return;
         }
 
-        console.log('[AUTOSAVE_TRACE] currentConfig null?', !currentConfig);
         // Get current config to preserve other settings
         if (!currentConfig) {
             // Load config first if not available
@@ -8713,8 +8720,6 @@ async function performAutoSave() {
             agent_prompts: promptsCopy
         };
         
-        console.log('[AUTOSAVE_TRACE] about to PUT, ranking_threshold:', updateData.ranking_threshold);
-
         const response = await fetch('/api/workflow/config', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },

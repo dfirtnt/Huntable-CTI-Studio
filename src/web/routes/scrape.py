@@ -11,6 +11,7 @@ import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException
 
+from src.utils.input_validation import ValidationError, validate_url_for_scraping
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Scrape"])
@@ -60,6 +61,11 @@ async def _scrape_single_url(
 ) -> dict:
     """Scrape a single URL - extracted for reuse."""
     html_content = None
+
+    try:
+        validate_url_for_scraping(url)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid URL: {exc}") from exc
 
     # Use pre-scraped content if provided (e.g., from browser extension with OCR)
     if pre_scraped_content:

@@ -358,10 +358,10 @@ async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
         try:
             backup_path_resolved = (
                 backup_path.resolve()
-            )  # codeql[py/path-injection] false positive: resolved path is validated by relative_to() on the next line
+            )  # codeql[py/path-injection] false positive: validated by relative_to() check on the next line
             backup_dir_resolved = (
                 project_root / backup_dir
-            ).resolve()  # codeql[py/path-injection] false positive: this is the allowed-directory anchor, not a sink
+            ).resolve()  # codeql[py/path-injection] false positive: allowed-directory anchor, not a sink
             backup_path_resolved.relative_to(backup_dir_resolved)
         except (ValueError, OSError) as e:
             raise HTTPException(status_code=400, detail="Invalid backup path") from e
@@ -396,7 +396,7 @@ async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
             if no_snapshot:
                 cmd.append("--no-snapshot")
 
-        result = subprocess.run(  # nosemgrep
+        result = subprocess.run(  # nosemgrep  # codeql[py/shell-command-constructed-from-input] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
             cmd,
             cwd=str(project_root),
             capture_output=True,
