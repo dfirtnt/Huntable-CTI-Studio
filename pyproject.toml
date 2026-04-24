@@ -70,12 +70,12 @@ dependencies = [
     "langfuse==4.3.1",
     # MCP server
     "mcp[cli]==1.27.0",
-    # Security pins (transitive dependency floors)
+    # Security pins (transitive dependency floors — >= intentional, mirrored in requirements.txt)
     "Authlib==1.7.0",
-    "Pillow>=12.2.0",
-    "langchain-core>=1.2.28",
-    "langsmith>=0.7.31",
-    "Mako>=1.3.11",
+    "Pillow>=12.2.0",  # CVE-2026-40192: FITS GZIP decompression bomb
+    "langchain-core>=1.2.28",  # CVE-2026-40087: incomplete f-string validation in prompt templates
+    "langsmith>=0.7.31",  # streaming token events bypass output redaction
+    "Mako>=1.3.11",  # path traversal via double-slash URI prefix in TemplateLookup
     # Documentation
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.6",
@@ -96,7 +96,7 @@ test = [
     "pytest-cov==4.1.0",
     "pytest-html==4.0.1",
     "pytest-xdist==3.5.0",
-    "pytest-playwright>=0.7.0",
+    "pytest-playwright==0.7.2",
     "factory-boy==3.3.3",
     "freezegun==1.4.0",
     "responses==0.24.0",

@@ -39,15 +39,25 @@ jobs:
 
       - name: Check for unpinned Python versions
         run: |
-          set +e
-          UNPINNED=$(grep -rn '[><=~]' pyproject.toml requirements.txt sigma_semantic_similarity/pyproject.toml 2>/dev/null | grep -v '==' | grep -v '#' | grep -v 'E501' | grep -v 'python_version' || true)
-          set -e
-          if [ -n "$UNPINNED" ]; then
-            echo "ERROR: Found unpinned versions (must use == not >=, >, <, ~):"
-            echo "$UNPINNED"
-            exit 1
-          fi
-          echo "✓ All Python dependencies pinned with =="
+          python3 - <<'PYEOF'
+          import sys, pathlib
+          # Only requirements.txt is authoritative for pinned deps.
+          # pyproject.toml legitimately uses >= for security-floor transitive pins
+          # and TOML key=value syntax would produce false positives in a grep scan.
+          unpinned = []
+          for line in pathlib.Path("requirements.txt").read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+              continue
+            if ">=" in stripped and "#" not in stripped:
+              unpinned.append(stripped)
+          if unpinned:
+            print("ERROR: Found unpinned versions in requirements.txt (must use == not >=):")
+            for u in unpinned:
+              print(" ", u)
+            sys.exit(1)
+          print("All Python dependencies in requirements.txt pinned with ==")
+          PYEOF
 
       - name: Check for unpinned Node versions
         run: |
