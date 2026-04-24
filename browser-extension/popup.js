@@ -13,6 +13,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageList = document.getElementById('image-list');
     const ocrStatus = document.getElementById('ocr-status');
     const enableOcrCheckbox = document.getElementById('enable-ocr');
+    const extractionModeSelect = document.getElementById('extraction-mode');
+    const visionConfigDiv = document.getElementById('vision-config');
+    const visionProviderSelect = document.getElementById('vision-provider');
+    const visionApiKeyInput = document.getElementById('vision-api-key');
 
     let currentArticleData = null;
     let extractedImages = [];
@@ -494,29 +498,73 @@ document.addEventListener('DOMContentLoaded', function() {
         return imageData;
     }
 
-    // Display list of extracted images
+    // Display list of extracted images (uses DOM APIs to avoid XSS from page-sourced alt text)
     function displayImageList() {
+        imageList.textContent = '';
+
         if (extractedImages.length === 0) {
-            imageList.innerHTML = '<div style="padding: 8px; color: #718096; font-size: 12px;">No images found</div>';
+            const empty = document.createElement('div');
+            empty.style.cssText = 'padding: 8px; color: #718096; font-size: 12px;';
+            empty.textContent = 'No images found';
+            imageList.appendChild(empty);
             return;
         }
 
-        imageList.innerHTML = extractedImages.map(img => `
-            <div class="image-item" data-image-id="${img.id}">
-                <img src="${img.src}" alt="${img.alt}" crossorigin="anonymous" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'40\\' height=\\'40\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'40\\' height=\\'40\\'/%3E%3Ctext x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'0.3em\\' fill=\\'%23999\\' font-size=\\'10\\'%3E?%3C/text%3E%3C/svg%3E'">
-                <div class="image-item-info">
-                    <div class="image-item-name">${img.alt || 'Image'}</div>
-                    <div class="image-item-status" id="status-${img.id}">Ready</div>
-                </div>
-                <div class="image-item-actions">
-                    <button class="btn btn-secondary btn-small" onclick="window.ocrImage('${img.id}')">OCR</button>
-                </div>
-            </div>
-        `).join('');
+        const mode = extractionModeSelect.value;
+        const btnLabel = mode === 'ocr' ? 'OCR' : mode === 'vision' ? 'Vision' : 'Extract';
 
-        // Make OCR function available globally for onclick handlers
-        window.ocrImage = async (imageId) => {
-            await performOCR(imageId);
+        extractedImages.forEach(img => {
+            const item = document.createElement('div');
+            item.className = 'image-item';
+            item.dataset.imageId = img.id;
+
+            const thumb = document.createElement('img');
+            thumb.src = img.src;
+            thumb.alt = img.alt || '';
+            thumb.crossOrigin = 'anonymous';
+            thumb.onerror = () => {
+                thumb.src = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\'%3E%3Crect fill=\'%23e5e7eb\' width=\'40\' height=\'40\'/%3E%3Ctext x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'0.3em\' fill=\'%23999\' font-size=\'10\'%3E?%3C/text%3E%3C/svg%3E';
+            };
+
+            const info = document.createElement('div');
+            info.className = 'image-item-info';
+
+            const name = document.createElement('div');
+            name.className = 'image-item-name';
+            name.textContent = img.alt || 'Image';
+
+            const statusEl = document.createElement('div');
+            statusEl.className = 'image-item-status';
+            statusEl.id = `status-${img.id}`;
+            statusEl.textContent = 'Ready';
+
+            info.appendChild(name);
+            info.appendChild(statusEl);
+
+            const actions = document.createElement('div');
+            actions.className = 'image-item-actions';
+
+            const btn = document.createElement('button');
+            btn.className = 'btn btn-secondary btn-small';
+            btn.textContent = btnLabel;
+            btn.addEventListener('click', () => window.extractImage(img.id));
+
+            actions.appendChild(btn);
+            item.appendChild(thumb);
+            item.appendChild(info);
+            item.appendChild(actions);
+            imageList.appendChild(item);
+        });
+
+        window.extractImage = async (imageId) => {
+            const mode = extractionModeSelect.value;
+            if (mode === 'ocr') {
+                await performOCR(imageId);
+            } else if (mode === 'vision') {
+                await performVisionLLM(imageId);
+            } else {
+                await performHybrid(imageId);
+            }
         };
     }
 
@@ -560,8 +608,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             });
 
-            // Perform OCR
+            // Perform OCR using locally-vendored Tesseract files to satisfy
+            // Chrome MV3 CSP (no CDN fetches allowed for worker/WASM scripts).
+            // workerBlobURL:false forces new Worker(url) instead of a blob
+            // wrapper, so self.location.href resolves to the extension origin
+            // and the WASM XHR paths compute correctly.
             const { data: { text } } = await Tesseract.recognize(imageData, 'eng', {
+                workerPath: chrome.runtime.getURL('worker.min.js'),
+                corePath: chrome.runtime.getURL(''),
+                workerBlobURL: false,
                 logger: m => {
                     if (m.status === 'recognizing text') {
                         statusEl.textContent = `OCR: ${Math.round(m.progress * 100)}%`;
@@ -582,6 +637,89 @@ document.addEventListener('DOMContentLoaded', function() {
             statusEl.style.color = '#742a2a';
             showError(`OCR failed: ${error.message}`);
         }
+    }
+
+    // Perform Vision LLM extraction on a specific image
+    async function performVisionLLM(imageId) {
+        const image = extractedImages.find(img => img.id === imageId);
+        if (!image) return;
+
+        const statusEl = document.getElementById(`status-${imageId}`);
+        if (!statusEl) return;
+
+        const apiKey = visionApiKeyInput.value.trim();
+        const provider = visionProviderSelect.value;
+
+        if (!apiKey) {
+            showError('Vision LLM requires an API key. Add one in the extraction config.');
+            return;
+        }
+
+        statusEl.textContent = 'Fetching image...';
+        statusEl.style.color = '#2a4365';
+
+        try {
+            const imageData = await new Promise((resolve, reject) => {
+                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                    chrome.scripting.executeScript({
+                        target: { tabId: tabs[0].id },
+                        function: fetchImageAsDataURL,
+                        args: [image.src]
+                    }, (results) => {
+                        if (results && results[0] && results[0].result) {
+                            resolve(results[0].result);
+                        } else {
+                            reject(new Error('Failed to fetch image'));
+                        }
+                    });
+                });
+            });
+
+            statusEl.textContent = 'Calling Vision LLM...';
+            showStatus('Calling Vision LLM...', 'loading');
+
+            const response = await new Promise((resolve, reject) => {
+                chrome.runtime.sendMessage({
+                    action: 'callVisionLLM',
+                    data: { imageDataUrl: imageData, provider, apiKey }
+                }, (resp) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else if (resp && resp.success) {
+                        resolve(resp.text);
+                    } else {
+                        reject(new Error(resp ? resp.error : 'Unknown error'));
+                    }
+                });
+            });
+
+            ocrResults[imageId] = response;
+            statusEl.textContent = 'Vision complete';
+            statusEl.style.color = '#22543d';
+            hideStatus();
+            showSuccess(`Vision LLM extracted text from ${image.alt || 'image'}`);
+
+        } catch (error) {
+            console.error('Vision LLM error:', error);
+            statusEl.textContent = 'Vision failed';
+            statusEl.style.color = '#742a2a';
+            showError(`Vision LLM failed: ${error.message}`);
+        }
+    }
+
+    // Hybrid: try Vision LLM first, fall back to OCR on failure
+    async function performHybrid(imageId) {
+        const apiKey = visionApiKeyInput.value.trim();
+        if (apiKey) {
+            try {
+                await performVisionLLM(imageId);
+                const statusEl = document.getElementById(`status-${imageId}`);
+                if (statusEl && statusEl.style.color !== '#742a2a') return;
+            } catch (_) {
+                // fall through to OCR
+            }
+        }
+        await performOCR(imageId);
     }
 
     // Function to fetch image as data URL (injected into page)
@@ -638,6 +776,43 @@ document.addEventListener('DOMContentLoaded', function() {
         if (result.enableOCR !== undefined) {
             enableOcrCheckbox.checked = result.enableOCR;
         }
+    });
+
+    // Show/hide Vision LLM config based on mode
+    function updateVisionConfigVisibility() {
+        const mode = extractionModeSelect.value;
+        if (mode === 'vision' || mode === 'hybrid') {
+            visionConfigDiv.classList.remove('hidden');
+        } else {
+            visionConfigDiv.classList.add('hidden');
+        }
+    }
+
+    // Load vision preferences
+    chrome.storage.local.get(['extractionMode', 'visionProvider', 'visionApiKey'], (result) => {
+        if (result.extractionMode) {
+            extractionModeSelect.value = result.extractionMode;
+        }
+        if (result.visionProvider) {
+            visionProviderSelect.value = result.visionProvider;
+        }
+        if (result.visionApiKey) {
+            visionApiKeyInput.value = result.visionApiKey;
+        }
+        updateVisionConfigVisibility();
+    });
+
+    extractionModeSelect.addEventListener('change', () => {
+        chrome.storage.local.set({ extractionMode: extractionModeSelect.value });
+        updateVisionConfigVisibility();
+        // Refresh image list buttons to show correct label
+        if (extractedImages.length > 0) displayImageList();
+    });
+    visionProviderSelect.addEventListener('change', () => {
+        chrome.storage.local.set({ visionProvider: visionProviderSelect.value });
+    });
+    visionApiKeyInput.addEventListener('change', () => {
+        chrome.storage.local.set({ visionApiKey: visionApiKeyInput.value });
     });
 
     // Load article data on popup open
