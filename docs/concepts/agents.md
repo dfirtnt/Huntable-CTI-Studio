@@ -1,6 +1,6 @@
 # Agents and Responsibilities
 
-The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks** when you call `POST /api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. LangGraph manages step sequencing, conditional branching (e.g. early termination on non-Windows OS), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
+The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks** when you call `POST /api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. LangGraph manages step sequencing, conditional early-exit gates (e.g. termination on non-Windows OS or below-threshold ranking score), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
 
 ## Core agents (execution order)
 
