@@ -548,7 +548,7 @@
                     Heal Now
                 </button>
                 {% endif %}
-                {% if source.healing_exhausted %}
+                {% if healing_enabled and source.healing_exhausted %}
                 <button type="button" onclick="resetHealing({{ source.id }})"
                         class="btn-heal btn-reset"
                         title="Clear healing exhausted state and reset the attempt counter. Does not undo URL, RSS, or config edits from earlier heals."
@@ -559,12 +559,14 @@
                       role="status"
                       title="Auto-healing used all allowed rounds without a successful validation. Check History for details, fix the source manually, or Reset to try healing again.">NEEDS ATTENTION</span>
                 {% endif %}
-                <button type="button" onclick="openHealingHistory({{ source.id }}, '{{ source.name|e }}')"
+                {% if healing_enabled %}
+                <button type="button" onclick="openHealingHistory({{ source.id }}, ‘{{ source.name|e }}’)"
                         class="btn-heal" style="background:transparent; border-color:var(--border-muted); color:var(--text-muted-slate);"
                         title="Open the healing audit log: each round’s diagnosis, actions applied, and pass/fail after validation."
                         aria-label="View healing history for {{ source.name }}">
                     History
                 </button>
+                {% endif %}
                 <div class="overflow-wrap">
                     <button class="btn-overflow" onclick="toggleOverflow(this)" title="More actions" aria-label="More actions for {{ source.name }}" aria-expanded="false">...</button>
                     <div class="src-dropdown">
@@ -808,9 +810,11 @@ function startHealingStatusPolling() {
     _healingStatusPollInterval = setInterval(updateHealingStatusBadges, 5000);
 }
 
+const HEALING_ENABLED = {{ 'true' if healing_enabled else 'false' }};
+
 // ── Initialise card display enhancements ──
 document.addEventListener('DOMContentLoaded', function() {
-    startHealingStatusPolling();
+    if (HEALING_ENABLED) startHealingStatusPolling();
 
     // Relative timestamps
     document.querySelectorAll('[data-last-check]').forEach(el => {
