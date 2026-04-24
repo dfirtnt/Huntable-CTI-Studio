@@ -6,7 +6,6 @@ Prevents command injection, path traversal, and other input-based attacks.
 
 import re
 from pathlib import Path
-from typing import Literal
 
 
 class ValidationError(ValueError):
