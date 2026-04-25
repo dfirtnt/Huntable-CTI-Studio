@@ -35,8 +35,8 @@ The Settings page had two Save buttons: a small per-card `Save Source Auto-Heali
 
 Two earlier fixes were deployed targeting this same perceived symptom and both had to be verified end-to-end before ruling them out:
 
-1. **`Cache-Control: no-store` on `GET /api/settings`** ([`settings.py:55`](src/web/routes/settings.py:55)) — legitimate fix for a different failure mode (browsers serving a cached pre-save body). Header confirmed present in response. Not the cause here because the payload never reached the server in the first place.
-2. **Adding `auto_trigger_hunt_score_threshold` to the `configs_identical` short-circuit** ([`workflow_config.py:472`](src/web/routes/workflow_config.py:472)) — also a legitimate fix for a threshold-only-edit no-op. Verified via a PUT 85→77 round-trip. Not the cause here because this path handles workflow config, not the healing checkbox.
+1. **`Cache-Control: no-store` on `GET /api/settings`** (`settings.py:55`) — legitimate fix for a different failure mode (browsers serving a cached pre-save body). Header confirmed present in response. Not the cause here because the payload never reached the server in the first place.
+2. **Adding `auto_trigger_hunt_score_threshold` to the `configs_identical` short-circuit** (`workflow_config.py:472`) — also a legitimate fix for a threshold-only-edit no-op. Verified via a PUT 85→77 round-trip. Not the cause here because this path handles workflow config, not the healing checkbox.
 
 Both earlier fixes were verified via Playwright automation driving the page. Playwright tests clicked the correct per-card save button, which masked the master-button bug. The bug only surfaced when a human clicked the button a human naturally clicks: the big one at the bottom.
 
@@ -44,7 +44,7 @@ Both earlier fixes were verified via Playwright automation driving the page. Pla
 
 Delegate from the master save to the existing per-card save handler, so every Save button on the page covers every persisted field that is visible above it.
 
-In [`src/web/templates/settings.html`](src/web/templates/settings.html) inside `saveSettings()`, after the backup-settings save and before the GitHub PR block:
+In `src/web/templates/settings.html` inside `saveSettings()`, after the backup-settings save and before the GitHub PR block:
 
 ```js
 try {
@@ -82,5 +82,5 @@ Delegation beats copying the payload:
 
 ## Related Issues
 
-- Related (different root cause, same broad surface): [`ui-bugs/agent-prompt-save-display-revert-AgentPrompts-20260202.md`](docs/solutions/ui-bugs/agent-prompt-save-display-revert-AgentPrompts-20260202.md) — agent prompt save-display revert caused by an async race, not a missing payload field.
+- Related (different root cause, same broad surface): [`agent-prompt-save-display-revert-AgentPrompts-20260202.md`](agent-prompt-save-display-revert-AgentPrompts-20260202.md) — agent prompt save-display revert caused by an async race, not a missing payload field.
 - Same commit as the `Cache-Control: no-store` and `configs_identical` fixes (`fe8b6463`, `2de6890a`). Those two fixes were correct but insufficient.
