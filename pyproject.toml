@@ -46,7 +46,7 @@ dependencies = [
     # Security
     "certifi==2026.4.22",
     "urllib3==2.6.3",
-    "charset-normalizer==3.4.5",
+    "charset-normalizer==3.4.7",
     "python-multipart==0.0.26",
     "cryptography==46.0.7",
     # PDF processing
