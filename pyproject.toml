@@ -67,7 +67,7 @@ dependencies = [
     "langgraph-checkpoint==4.0.2",
     "langgraph-checkpoint-postgres==3.0.5",
     "langgraph-cli==0.4.23",
-    "langfuse==4.3.1",
+    "langfuse==4.5.0",
     # MCP server
     "mcp[cli]==1.27.0",
     # Security pins (transitive dependency floors)
