@@ -108,6 +108,11 @@ test = [
     "memory-profiler==0.61.0",
     "pytest-benchmark==4.0.0",
     "bandit==1.9.4",
+    # pip-audit pulls pip-api -> pip. CVE-2026-3219 (GHSA-58qw-9mgm-455v) flags
+    # pip<=26.0.1 (medium); no patched pip released yet. Test-only scope, used
+    # to read uv.lock metadata in CI - never installs untrusted archives.
+    # Dependabot alert #152 dismissed (tolerable_risk). Bump when upstream
+    # ships a fix that lets us pin to a non-vulnerable pip.
     "pip-audit==2.10.0",
     "safety==3.7.0",
     "black==26.3.1",
