@@ -21,7 +21,7 @@ dependencies = [
     "sqlalchemy[asyncio]==2.0.49",
     "asyncpg==0.31.0",
     "PyYAML==6.0.3",
-    "psycopg2-binary==2.9.11",
+    "psycopg2-binary==2.9.12",
     "alembic==1.18.4",
     # Web framework and server
     "fastapi==0.135.1",
