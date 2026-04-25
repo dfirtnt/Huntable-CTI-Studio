@@ -54,7 +54,7 @@ reportlab==4.4.10  # PDF generation
 python-dateutil==2.9.0.post0  # Date parsing utilities
 
 # Security
-certifi==2025.11.12
+certifi==2026.4.22
 urllib3==2.6.3
 filelock==3.29.0  # CVE-2026-22701 fix
 pygments==2.20.0  # CVE-2026-4539 fix
