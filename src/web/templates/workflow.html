@@ -5522,8 +5522,9 @@ async function loadLMStudioModels() {
                 }
             });
         } else {
-            // Show error message
+            // Show error message -- guard: agentModelsContainer absent on subpages
             const container = document.getElementById('agentModelsContainer');
+            if (!container) return;
             container.innerHTML = `
                 <div class="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 border border-yellow-200 dark:border-yellow-700">
                     <p class="text-sm text-yellow-800 dark:text-yellow-300">
@@ -5538,6 +5539,7 @@ async function loadLMStudioModels() {
     } catch (error) {
         console.error('Error loading LMStudio models:', error);
         const container = document.getElementById('agentModelsContainer');
+        if (!container) return;
         container.innerHTML = `
             <div class="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 border border-red-200 dark:border-red-700">
                 <p class="text-sm text-red-800 dark:text-red-300">
@@ -5693,105 +5695,17 @@ if (typeof window !== 'undefined') {
         const providerSelect = document.getElementById(`${agentPrefix}-provider`);
         const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
 
-        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
-
         ['openai', 'anthropic'].forEach(p => {
             const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
             if (!container) return;
 
-            // Get current model from DOM first (preserves unsaved user selection), then fallback to config
+            // Preserve unsaved DOM selection before replacing container content
             const existingInput = document.getElementById(`${agentPrefix}-model-${p}`);
             const currentModelFromDOM = existingInput?.value || '';
             const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
             const currentModel = currentModelFromDOM || currentModelFromConfig;
 
-            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            if (catalog.length > 0) {
-                const options = catalog.map(modelId => {
-                    const selected = modelId === currentModel ? 'selected' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
-                }).join('');
-                container.innerHTML = `
-                    <select id="${agentPrefix}-model-${p}"
-                            name="agent_models[${mapEntry.modelKey}]"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        ${options}
-                    </select>
-                `;
-                return;
-            }
-
-            if (typeof buildCommercialProviderInput === 'function') {
-                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
-                return;
-            }
-
-            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
-            container.innerHTML = `
-                <input type="text"
-                       id="${agentPrefix}-model-${p}"
-                       name="agent_models[${mapEntry.modelKey}]"
-                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
-                       placeholder="${placeholder}"
-                       value="${escapeHtml(currentModel || '')}"
-                       onchange="autoSaveModelChange()">
-            `;
-        });
-    };
-}
-
-// Safety net: if not defined (e.g., scoping quirks), define it globally now
-if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInputs !== 'function') {
-    window.renderSubAgentCommercialInputs = function(agentPrefix) {
-        const mapEntry = subAgentCommercialMap[agentPrefix];
-        if (!mapEntry) return;
-        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-        const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
-
-        const catalogs = window.commercialModelCatalog || window.initialCommercialModelCatalog || window.defaultCommercialModelCatalog || {};
-
-        ['openai', 'anthropic'].forEach(p => {
-            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
-            if (!container) return;
-
-            // Get current model from DOM first (preserves unsaved user selection), then fallback to config
-            const existingInput = document.getElementById(`${agentPrefix}-model-${p}`);
-            const currentModelFromDOM = existingInput?.value || '';
-            const currentModelFromConfig = agentModels?.[mapEntry.modelKey] || '';
-            const currentModel = currentModelFromDOM || currentModelFromConfig;
-
-            const catalog = Array.isArray(catalogs[p]) ? catalogs[p] : [];
-            // __dbgLog('H2', 'renderSubAgentCommercialInputs entry', { agentPrefix, provider, catalogLen: catalog.length });
-            if (catalog.length > 0) {
-                const options = catalog.map(modelId => {
-                    const selected = modelId === currentModel ? 'selected' : '';
-                    return `<option value="${escapeHtml(modelId)}" ${selected}>${escapeHtml(modelId)}</option>`;
-                }).join('');
-                container.innerHTML = `
-                    <select id="${agentPrefix}-model-${p}"
-                            name="agent_models[${mapEntry.modelKey}]"
-                            class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                        ${options}
-                    </select>
-                `;
-                return;
-            }
-
-            if (typeof buildCommercialProviderInput === 'function') {
-                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
-                return;
-            }
-
-            const placeholder = p === 'openai' ? 'gpt-4o-mini' : 'claude-sonnet-4-5';
-            container.innerHTML = `
-                <input type="text"
-                       id="${agentPrefix}-model-${p}"
-                       name="agent_models[${mapEntry.modelKey}]"
-                       class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"
-                       placeholder="${placeholder}"
-                       value="${escapeHtml(currentModel || '')}"
-                       onchange="autoSaveModelChange()">
-            `;
+            container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
         });
     };
 }
@@ -5914,23 +5828,6 @@ if (typeof window !== 'undefined') {
     window.refreshAllProviderBlocks = refreshAllProviderBlocks;
 }
 
-// Safety net: if renderSubAgentCommercialInputs isn't exposed (e.g., scope quirks), re-expose it
-if (typeof window !== 'undefined' && typeof window.renderSubAgentCommercialInputs !== 'function') {
-    window.renderSubAgentCommercialInputs = function(agentPrefix) {
-        const mapEntry = subAgentCommercialMap[agentPrefix];
-        if (!mapEntry) return;
-        const providerSelect = document.getElementById(`${agentPrefix}-provider`);
-        const provider = (providerSelect?.value || getDefaultProvider()).toString().trim().toLowerCase();
-        const currentModel = agentModels?.[mapEntry.modelKey] || '';
-
-        ['openai', 'anthropic'].forEach(p => {
-            const container = document.querySelector(`[data-agent-prefix="${agentPrefix}"][data-provider="${p}"]`);
-            if (container) {
-                container.innerHTML = buildCommercialProviderInput(agentPrefix, p, provider, currentModel);
-            }
-        });
-    };
-}
 // Ensure current dropdown selections drive visibility/inputs even if agentModels default to LMStudio
 syncProviderVisibilityAndInputs();
 

@@ -868,11 +868,22 @@ class TestWorkflowEnrichModalUI:
         Safe to call repeatedly -- idempotent. Used at the start of any test
         that needs to click queue-table rows, to avoid carry-over from the
         previous test leaving a modal open.
+
+        Also clears ?previewId from the URL: the page fixture is class-scoped so
+        page.goto() deduplication skips re-navigation when the path is unchanged,
+        leaving ?previewId in the URL from a prior test.  checkAndTriggerPreview()
+        then auto-opens ruleModal when loadQueue() fires, blocking queue clicks.
         """
         page.evaluate(
-            "() => { ['ruleModal', 'enrichModal'].forEach(id => {"
-            " const el = document.getElementById(id);"
-            " if (el) { el.classList.add('hidden'); el.style.display = ''; } }); }"
+            "() => {"
+            " ['ruleModal', 'enrichModal'].forEach(id => {"
+            "  const el = document.getElementById(id);"
+            "  if (el) { el.classList.add('hidden'); el.style.display = ''; }"
+            " });"
+            " const url = new URL(window.location.href);"
+            " url.searchParams.delete('previewId');"
+            " window.history.replaceState({}, '', url.toString());"
+            "}"
         )
         page.wait_for_timeout(200)
 
@@ -968,9 +979,9 @@ class TestWorkflowEnrichModalUI:
             }"""
         )
 
-        # Close and reopen the modal (use .first -- the X close button shares
-        # the same onclick as the footer Cancel button, so strict mode fires)
-        enrich_modal.locator('button[onclick="closeEnrichModal()"]').first.click()
+        # Close via the header X button; use nth(0) to avoid strict-mode violation
+        # (.first property does not suppress strict mode in all Playwright versions)
+        enrich_modal.locator('button[onclick="closeEnrichModal()"]').nth(0).click()
         page.wait_for_timeout(200)
         self._open_enrich_modal(page)
         page.wait_for_timeout(400)
