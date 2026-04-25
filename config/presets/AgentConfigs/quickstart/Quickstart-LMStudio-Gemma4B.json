@@ -1,0 +1,190 @@
+{
+  "Version": "2.0",
+  "Metadata": {
+    "CreatedAt": "2026-04-24T00:00:00Z",
+    "Description": "Minimal manual-testing preset for LM Studio Gemma 3 4B IT"
+  },
+  "JunkFilter": {
+    "JunkFilterThreshold": 0.8
+  },
+  "QASettings": {
+    "MaxRetries": 1
+  },
+  "Thresholds": {
+    "MinHuntScore": 97.0,
+    "AutoTriggerHuntScoreThreshold": 60.0
+  },
+  "OSDetection": {
+    "Embedding": "ibm-research/CTI-BERT",
+    "FallbackEnabled": false,
+    "Fallback": {
+      "Provider": "lmstudio",
+      "Model": "",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "SelectedOs": [
+      "Windows"
+    ],
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "RankAgent": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "RankingThreshold": 6.0,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "QAEnabled": false,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "google/gemma-3-4b-it",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "ExtractAgent": {
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "CmdlineExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "QAEnabled": false,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "google/gemma-3-4b-it",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "AttentionPreprocessor": false
+  },
+  "ProcTreeExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "QAEnabled": false,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "google/gemma-3-4b-it",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "HuntQueriesExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "QAEnabled": false,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "google/gemma-3-4b-it",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "RegistryExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "QAEnabled": false,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "google/gemma-3-4b-it",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "ServicesExtract": {
+    "Enabled": true,
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    },
+    "QAEnabled": false,
+    "QA": {
+      "Provider": "lmstudio",
+      "Model": "google/gemma-3-4b-it",
+      "Temperature": 0.0,
+      "TopP": 0.9
+    },
+    "QAPrompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  },
+  "SigmaAgent": {
+    "Provider": "lmstudio",
+    "Model": "google/gemma-3-4b-it",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "SimilarityThreshold": 0.5,
+    "UseFullArticleContent": false,
+    "Prompt": {
+      "prompt": "",
+      "instructions": ""
+    }
+  }
+}

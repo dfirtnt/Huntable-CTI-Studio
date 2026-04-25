@@ -133,7 +133,7 @@ class WorkflowTriggerService:
                     "Open Workflow → Executions to monitor or retry when it finishes."
                 )
 
-            # Idempotency check: skip if a completed run already exists for this (article, config_version) pair.
+            # Idempotency check: skip if a completed run already exists for this (article, config_id, config_version) tuple.
             # Manual reruns (force=True) bypass this gate so re-runs after prompt/model tuning still work.
             if not force:
                 completed_run = (
@@ -141,6 +141,7 @@ class WorkflowTriggerService:
                     .filter(
                         AgenticWorkflowExecutionTable.article_id == article.id,
                         AgenticWorkflowExecutionTable.status == "completed",
+                        AgenticWorkflowExecutionTable.config_snapshot["config_id"].as_integer() == config.id,
                         AgenticWorkflowExecutionTable.config_snapshot["config_version"].as_integer() == config.version,
                     )
                     .first()

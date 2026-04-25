@@ -469,6 +469,11 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     and abs(current_config.ranking_threshold - ranking_threshold) < 0.0001
                     and abs(current_config.similarity_threshold - similarity_threshold) < 0.0001
                     and abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001
+                    and abs(
+                        getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                        - auto_trigger_hunt_score_threshold
+                    )
+                    < 0.0001
                     and current_config.sigma_fallback_enabled == sigma_fallback
                     and getattr(current_config, "osdetection_fallback_enabled", False) == osdetection_fallback
                     and current_config.qa_max_retries == qa_max_retries

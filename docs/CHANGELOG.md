@@ -5,6 +5,22 @@ All notable changes to Huntable CTI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.1] - 2026-04-24
+
+### Added
+- **Quickstart preset: LM Studio Gemma 3 4B IT** (2026-04-24): `Quickstart-LMStudio-Gemma4B.json` added for minimal local testing with Gemma 3 4B IT via LM Studio. All sub-agents share the same model; QA disabled; `MinHuntScore` set to 97.0 for signal-focused evaluation runs.
+
+### Fixed
+- **Settings master Save omitted source auto-healing and other subsections** (2026-04-24): `masterSave()` in `settings.html` refactored from isolated per-section try/catch (which silently swallowed failures) to a `runSection()` error-collection pattern. All six subsections -- workflow providers, auto-trigger threshold, backup config, source auto-healing, cron editor, scheduled jobs -- now run atomically under the master Save button. Failures accumulate in a `failures[]` array; a single error toast lists every failed section name. `saveSourceHealingSettings`, `saveScheduledJobs`, and `saveCronEditor` gained a `silent` mode for orchestrated calls. Root cause documented in `docs/solutions/ui-bugs/settings-master-save-omits-source-healing-20260424.md`.
+- **GET /api/settings response now sets Cache-Control: no-store** (2026-04-24): Endpoint switched from returning a plain dict to a `JSONResponse` with `Cache-Control: no-store`. Prevents browsers from serving a stale settings body across refreshes after a save, which masked persisted changes. Frontend `fetch('/api/settings')` call updated with `{ cache: 'no-store' }` to match. Test updated to assert the response header.
+- **auto_trigger_hunt_score_threshold excluded from configs_identical check** (2026-04-24): `update_workflow_config` compared all threshold fields to detect no-op updates but omitted `auto_trigger_hunt_score_threshold`. A threshold-only edit was silently dropped. Field now included in the comparison. Regression test added to `test_workflow_config_api.py`.
+- **Workflow trigger idempotency checked config_version but not config_id** (2026-04-24): The completed-run deduplication filter in `WorkflowTriggerService` matched on `(article_id, config_version)` only. Two different configs at the same version number would collide and block re-processing. Filter now includes `config_id` in the tuple.
+- **Collapsible panel headers too tall; content overlapped on expand** (2026-04-24): Keyword Matches and Article Metadata panel headers in `article_detail.html` reduced from `py-6` to `py-3`. Filters/Search/Sorting header in `articles.html` reduced from `p-6 pb-4` (with stray `mb-4`) to `py-3 px-6`. Expanded content divs for all three panels now carry a top margin (`mt-4` / `mt-6`) to clear the header row.
+- **MLOps module cards not full-card clickable** (2026-04-24): M-01 (ML vs Hunt Comparison) and M-02 (Agent Evaluations) cards converted from `div.module-card + inner <a>` to `a.module-card` so the entire card surface is the link target. Inner `<a>` buttons converted to `<span>` to avoid nested interactive elements.
+
+### Removed
+- **gpt-5.3-codex removed from model catalog** (2026-04-24): Entry dropped; `gpt-5.3-codex-spark` remains.
+
 ## [6.0.0] - 2026-04-23 "Io"
 
 ### Added

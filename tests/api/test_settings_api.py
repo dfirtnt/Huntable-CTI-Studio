@@ -1,5 +1,6 @@
 """API tests for Settings endpoints: GET merge and bulk update of LM Studio URL keys."""
 
+import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -33,8 +34,12 @@ class TestSettingsAPILMStudioURLs:
 
             result = await get_all_settings()
 
-        assert result["success"] is True
-        settings = result.get("settings") or {}
+        # JSONResponse lets us set Cache-Control: no-store so browsers don't serve stale settings after a save.
+        assert result.headers.get("cache-control") == "no-store"
+
+        payload = json.loads(result.body)
+        assert payload["success"] is True
+        settings = payload.get("settings") or {}
         assert settings.get("LMSTUDIO_API_URL") == "http://192.168.1.65:1234/v1"
         assert settings.get("LMSTUDIO_EMBEDDING_URL") == "http://192.168.1.65:1234/v1/embeddings"
 

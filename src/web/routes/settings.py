@@ -6,6 +6,7 @@ import logging
 import os
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.database.async_manager import async_db_manager
@@ -54,7 +55,10 @@ async def get_all_settings():
                     val = os.environ.get(key)
                     if val is not None:
                         out[key] = val
-            return {"success": True, "settings": out}
+            return JSONResponse(
+                content={"success": True, "settings": out},
+                headers={"Cache-Control": "no-store"},
+            )
 
     except Exception as e:
         logger.error(f"Error fetching settings: {e}")

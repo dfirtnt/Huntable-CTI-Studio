@@ -36,7 +36,7 @@
 
     <!-- Filters & Sorting -->
     <div class="rounded-lg shadow p-6 mb-6" style="background-color: var(--color-bg-card);">
-        <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between mb-4 -m-6 p-6 pb-4 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+        <div id="filtersHeader" data-collapsible-panel="filters" class="flex items-center justify-between -m-6 py-3 px-6 rounded-t-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg> Filters, Search &amp; Sorting</h2>
             <span id="filters-toggle" class="text-gray-500 dark:text-gray-400 transition-transform duration-200" aria-hidden="true">
                 <svg class="w-5 h-5 transform transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -44,7 +44,7 @@
                 </svg>
             </span>
         </div>
-        <div id="filters-content" class="hidden" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range or filters.title_only else 'false' }}">
+        <div id="filters-content" class="hidden mt-6" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range or filters.title_only else 'false' }}">
         <form method="GET">
             <!-- Hidden inputs to preserve sort parameters -->
             <input type="hidden" name="sort_by" value="{{ filters.sort_by or 'published_at' }}">
