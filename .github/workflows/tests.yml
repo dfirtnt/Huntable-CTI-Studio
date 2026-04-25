@@ -118,7 +118,7 @@ jobs:
 
       - name: Upload smoke test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-test-artifacts
           path: |
@@ -210,7 +210,7 @@ jobs:
 
       - name: Upload unit test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: unit-test-artifacts
           path: |
@@ -306,7 +306,7 @@ jobs:
 
       - name: Upload API test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: api-test-artifacts
           path: |
@@ -414,7 +414,7 @@ jobs:
 
       - name: Upload integration test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: integration-test-artifacts
           path: |
@@ -527,7 +527,7 @@ jobs:
 
       - name: Upload UI test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ui-test-artifacts
           path: |
