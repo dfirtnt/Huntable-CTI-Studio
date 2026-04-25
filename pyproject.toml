@@ -53,7 +53,7 @@ dependencies = [
     "pypdf==6.10.2",
     # SIGMA rule validation
     "pysigma==0.11.23",
-    "GitPython==3.1.46",
+    "GitPython==3.1.47",
     # AI/ML
     "torch==2.11.0",
     "transformers==5.5.4",
