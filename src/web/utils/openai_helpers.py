@@ -7,6 +7,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from src.utils.model_validation import model_supports_variable_temperature
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,9 +28,15 @@ def build_openai_payload(
     model: str,
     use_responses_api: bool,
 ) -> dict[str, Any]:
-    """Construct the request payload for OpenAI chat or responses endpoints."""
+    """Construct the request payload for OpenAI chat or responses endpoints.
+
+    Reasoning models (o1/o3/o4/gpt-5.x) do not accept a temperature parameter;
+    it is omitted automatically based on the model name.
+    """
+    include_temperature = model_supports_variable_temperature(model)
+
     if use_responses_api:
-        return {
+        payload: dict[str, Any] = {
             "model": model,
             "input": [
                 {
@@ -44,19 +52,23 @@ def build_openai_payload(
                     ],
                 },
             ],
-            "temperature": temperature,
             "max_output_tokens": token_limit,
         }
+        if include_temperature:
+            payload["temperature"] = temperature
+        return payload
 
-    return {
+    payload = {
         "model": model,
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ],
         "max_tokens": token_limit,
-        "temperature": temperature,
     }
+    if include_temperature:
+        payload["temperature"] = temperature
+    return payload
 
 
 def estimate_tokens(text: str) -> int:

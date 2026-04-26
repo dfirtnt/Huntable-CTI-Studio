@@ -47,6 +47,22 @@ TEMPERATURE_RANGE_BY_PROVIDER: dict[str, tuple[float, float]] = {
 }
 DEFAULT_TEMPERATURE_RANGE = (0.0, 2.0)
 
+# OpenAI reasoning models (o1, o3, o4, gpt-5.x) only support the default temperature (1.0);
+# sending any temperature value causes a 400 error. Use this as the single authoritative source
+# -- openai_chat_client.py and llm_service.py both delegate to model_supports_variable_temperature().
+_OPENAI_REASONING_PREFIXES: tuple[str, ...] = ("o1", "o3", "o4-mini", "o4-", "o4", "gpt-5")
+
+
+def model_supports_variable_temperature(model_name: str) -> bool:
+    """
+    Return False for OpenAI reasoning models (o1/o3/o4/gpt-5.x) that reject any temperature
+    except the default. All other models (GPT-4/4.1/4o, Anthropic, LM Studio) return True.
+    """
+    m = (model_name or "").strip().lower()
+    if not m:
+        return True
+    return not any(m.startswith(prefix) for prefix in _OPENAI_REASONING_PREFIXES)
+
 
 def clamp_temperature_for_provider(provider: str, temperature: float) -> float:
     """

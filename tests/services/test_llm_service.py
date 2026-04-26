@@ -193,7 +193,11 @@ class TestLLMService:
 
     @pytest.mark.asyncio
     async def test_openai_retries_without_temperature_when_model_rejects_non_default(self, service):
-        """OpenAI call should retry once without temperature when model only supports default."""
+        """Defense-in-depth: unknown model that rejects temperature triggers a retry without it.
+
+        Uses a hypothetical model name that does not match reasoning prefixes, so temperature
+        is sent on the first attempt; the 400 retry path is then exercised.
+        """
         service.openai_api_key = "test-openai-key"
         service.workflow_openai_enabled = True
 
@@ -216,9 +220,10 @@ class TestLLMService:
             mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
+            # gpt-4-special is not a reasoning-prefix model, so temperature is sent first
             result = await service.request_chat(
                 provider="openai",
-                model_name="gpt-5.1-chat-latest",
+                model_name="gpt-4-special",
                 messages=[{"role": "user", "content": "hello"}],
                 max_tokens=128,
                 temperature=0.0,
@@ -233,6 +238,39 @@ class TestLLMService:
             second_payload = mock_client.post.await_args_list[1].kwargs["json"]
             assert "temperature" in first_payload
             assert "temperature" not in second_payload
+
+    @pytest.mark.asyncio
+    async def test_openai_reasoning_model_omits_temperature_proactively(self, service):
+        """Reasoning models (o4-mini) must never include temperature in the first request."""
+        service.openai_api_key = "test-openai-key"
+        service.workflow_openai_enabled = True
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            ok_response = Mock()
+            ok_response.status_code = 200
+            ok_response.text = '{"choices":[{"message":{"content":"done"}}]}'
+            ok_response.json = Mock(return_value={"choices": [{"message": {"content": "done"}}], "usage": {}})
+
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(return_value=ok_response)
+            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service.request_chat(
+                provider="openai",
+                model_name="o4-mini",
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=128,
+                temperature=0.7,
+                timeout=30.0,
+                failure_context="openai-proactive-omit",
+            )
+
+            assert result["choices"][0]["message"]["content"] == "done"
+            assert mock_client.post.await_count == 1  # single call, no retry needed
+
+            payload = mock_client.post.await_args_list[0].kwargs["json"]
+            assert "temperature" not in payload
 
     @pytest.mark.asyncio
     async def test_request_chat_empty_messages_raises_preprocess_invariant_error(self, service):

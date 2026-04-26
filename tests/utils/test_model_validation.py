@@ -11,6 +11,7 @@ from src.utils.model_validation import (
     filter_openai_models_latest_only,
     filter_openai_models_project_allowlist,
     is_valid_openai_chat_model,
+    model_supports_variable_temperature,
     suggest_base_model,
 )
 
@@ -329,3 +330,43 @@ class TestSuggestBaseModel:
 
     def test_preview_suffix_stripped(self):
         assert suggest_base_model("gpt-4o-2024-05-13-preview") == "gpt-4o"
+
+
+class TestModelSupportsVariableTemperature:
+    """model_supports_variable_temperature: False for reasoning models, True for all others."""
+
+    def test_reasoning_models_return_false(self):
+        for model in ("o1", "o1-mini", "o3", "o3-mini", "o4", "o4-mini"):
+            assert model_supports_variable_temperature(model) is False, model
+
+    def test_gpt5_returns_false(self):
+        for model in ("gpt-5", "gpt-5.2", "gpt-5-pro"):
+            assert model_supports_variable_temperature(model) is False, model
+
+    def test_standard_gpt_models_return_true(self):
+        for model in ("gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "codex-mini-latest"):
+            assert model_supports_variable_temperature(model) is True, model
+
+    def test_anthropic_models_return_true(self):
+        for model in ("claude-sonnet-4-5", "claude-opus-4-6", "claude-haiku-4-5"):
+            assert model_supports_variable_temperature(model) is True, model
+
+    def test_lmstudio_local_models_return_true(self):
+        for model in ("llama-3.1-8b", "deepseek-r1-distill", "mistral-7b-instruct"):
+            assert model_supports_variable_temperature(model) is True, model
+
+    def test_empty_or_none_returns_true(self):
+        assert model_supports_variable_temperature("") is True
+        assert model_supports_variable_temperature(None) is True  # type: ignore[arg-type]
+
+    def test_project_allowlist_reasoning_models_are_false(self):
+        """All reasoning models from PROJECT_OPENAI_ALLOWLIST must return False."""
+        reasoning_in_allowlist = {"o3-mini", "o4-mini"}
+        for m in reasoning_in_allowlist:
+            assert model_supports_variable_temperature(m) is False, m
+
+    def test_project_allowlist_standard_models_are_true(self):
+        """Non-reasoning models from PROJECT_OPENAI_ALLOWLIST must return True."""
+        standard_in_allowlist = {"gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "codex-mini-latest"}
+        for m in standard_in_allowlist:
+            assert model_supports_variable_temperature(m) is True, m

@@ -5777,6 +5777,7 @@ function onAgentProviderChange(agentPrefix) {
     } else {
         clearProviderModelError(agentPrefix);
     }
+    updateTemperatureCapabilityUI(agentPrefix);
     
     if (typeof window.renderSubAgentCommercialInputs === 'function') {
         window.renderSubAgentCommercialInputs(agentPrefix);
@@ -8732,6 +8733,53 @@ function validateAllTemperatureInputs() {
     });
 }
 
+// OpenAI reasoning models that reject variable temperature -- mirrors _OPENAI_REASONING_PREFIXES in model_validation.py.
+const OPENAI_REASONING_PREFIXES = ['o1', 'o3', 'o4-mini', 'o4-', 'o4', 'gpt-5'];
+
+function isOpenAIReasoningModel(modelName) {
+    if (!modelName) return false;
+    const m = modelName.trim().toLowerCase();
+    return OPENAI_REASONING_PREFIXES.some(p => m.startsWith(p));
+}
+
+/**
+ * Disables or enables the temperature slider for an agent based on whether the
+ * currently selected model supports variable temperature. For reasoning models
+ * (o1/o3/o4/gpt-5.x) the slider is locked at 0 and a hint is shown.
+ */
+function updateTemperatureCapabilityUI(agentPrefix) {
+    const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
+    const model = getAgentModel(agentPrefix, provider);
+    const slider = document.getElementById(`${agentPrefix}-temperature`);
+    if (!slider) return;
+
+    const isReasoning = provider === 'openai' && isOpenAIReasoningModel(model);
+    const hintId = `${agentPrefix}-temperature-reasoning-hint`;
+    let hint = document.getElementById(hintId);
+
+    if (isReasoning) {
+        slider.disabled = true;
+        slider.value = '0';
+        slider.style.opacity = '0.4';
+        slider.style.cursor = 'not-allowed';
+        const valueSpan = document.getElementById(`${agentPrefix}-temperature-value`);
+        if (valueSpan) valueSpan.textContent = '0';
+        if (!hint) {
+            hint = document.createElement('p');
+            hint.id = hintId;
+            hint.className = 'text-[10px] text-amber-500 dark:text-amber-400 mt-1';
+            hint.textContent = 'Temperature not supported for reasoning models';
+            slider.parentElement && slider.parentElement.appendChild(hint);
+        }
+        hint.classList.remove('hidden');
+    } else {
+        slider.disabled = false;
+        slider.style.opacity = '';
+        slider.style.cursor = '';
+        if (hint) hint.classList.add('hidden');
+    }
+}
+
 /**
  * Validates model for a specific agent and provides immediate feedback
  * Can be called from model input onchange/oninput handlers
@@ -8739,6 +8787,7 @@ function validateAllTemperatureInputs() {
 function validateAgentModelOnChange(agentPrefix) {
     const provider = getAgentProvider(agentPrefix) || getDefaultProvider();
     const model = getAgentModel(agentPrefix, provider);
+    updateTemperatureCapabilityUI(agentPrefix);
     return validateProviderModelCombination(agentPrefix, provider, model);
 }
 

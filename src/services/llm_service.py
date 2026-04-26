@@ -23,7 +23,7 @@ import httpx
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
-from src.utils.model_validation import clamp_temperature_for_provider
+from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
 
 logger = logging.getLogger(__name__)
 
@@ -1200,13 +1200,15 @@ class LLMService:
                 f"Specialized models (codex, audio, image, realtime, etc.) and unrecognized IDs are not supported."
             )
 
-        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
-        payload = {
+        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported).
+        # Reasoning models (o1/o3/o4/gpt-5.x) reject temperature -- omit proactively.
+        payload: dict[str, Any] = {
             "model": model_name,
             "messages": messages,
             "max_completion_tokens": max_tokens,
-            "temperature": temperature,
         }
+        if model_supports_variable_temperature(model_name):
+            payload["temperature"] = temperature
 
         def _temperature_unsupported(resp: httpx.Response) -> bool:
             if resp.status_code != 400:
@@ -1230,7 +1232,7 @@ class LLMService:
                 json=payload,
             )
 
-            # Some OpenAI models only support default temperature (1.0). Retry once without temperature.
+            # Defense-in-depth: if an unrecognized model rejects temperature, retry without it.
             if _temperature_unsupported(response):
                 logger.warning(
                     "OpenAI model %s rejected non-default temperature=%s; retrying request without temperature.",
