@@ -131,11 +131,13 @@ def create_backup(backup_dir: str | None = None):
         env["PGPASSWORD"] = DB_CONFIG["password"]
 
         # Create pg_dump command
+        # Pass PGPASSWORD by name only (no value) so docker exec inherits it from
+        # the process environment (set above) without embedding it in the arg list.
         cmd = [
             "docker",
             "exec",
             "-e",
-            f"PGPASSWORD={DB_CONFIG['password']}",
+            "PGPASSWORD",
             "cti_postgres",
             "pg_dump",
             "-hlocalhost",  # Use localhost when inside container
@@ -148,7 +150,8 @@ def create_backup(backup_dir: str | None = None):
             "--if-exists",
         ]
 
-        logger.info(f"Running: {' '.join(cmd)}")
+        safe_cmd = " ".join(cmd)
+        logger.info(f"Running: {safe_cmd}")
 
         # Execute pg_dump
         with open(backup_path, "w") as backup_file:
