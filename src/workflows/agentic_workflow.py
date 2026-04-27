@@ -34,6 +34,7 @@ from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.qa_agent_service import QAAgentService
 from src.services.rag_service import RAGService
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import (
@@ -2948,6 +2949,26 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             agent_models_for_loading.get("ExtractAgent_provider", ""),
             agent_models_for_loading.get("SigmaAgent_provider", ""),
         }
+
+        # Health-check gate: abort early when LMStudio is configured but unreachable
+        if agent_models_for_loading and "lmstudio" in _lmstudio_providers:
+            reachable, _ = await _probe_lmstudio()
+            if not reachable:
+                error_msg = "LMStudio is not reachable. Start LMStudio and load a model before running the workflow."
+                logger.error(f"[Workflow {execution.id}] {error_msg}")
+                execution.status = "failed"
+                execution.error_message = error_msg
+                db_session.commit()
+                return {
+                    "success": False,
+                    "execution_id": int(execution.id),
+                    "error": error_msg,
+                    "ranking_score": None,
+                    "discrete_huntables_count": None,
+                    "sigma_rules_count": 0,
+                    "queued_rules_count": 0,
+                }
+
         if agent_models_for_loading and "lmstudio" in _lmstudio_providers:
             logger.info(f"[Workflow {execution.id}] Auto-loading LMStudio models...")
             load_result = auto_load_workflow_models(
