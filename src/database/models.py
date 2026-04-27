@@ -37,7 +37,7 @@ class SourceTable(Base):
     name = Column(String(500), nullable=False)
     url = Column(Text, nullable=False)
     rss_url = Column(Text, nullable=True)
-    check_frequency = Column(Integer, nullable=False, default=3600)
+    check_frequency = Column(Integer, nullable=False, default=14400)
     lookback_days = Column(Integer, nullable=False, default=180)
     active = Column(Boolean, nullable=False, default=True)
     config = Column(JSON, nullable=False, default=dict)

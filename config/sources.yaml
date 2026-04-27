@@ -13,14 +13,14 @@ sources:
   #   name: "Hunt.io Threat Hunting Blog"
   #   url: "https://hunt.io/blog"
   #   rss_url: null  # No RSS feed available
-  #   check_frequency: 1800  # 30 minutes
+  #   check_frequency: 1800  # 30 minutes (overrides 4h default)
   #   active: true
   #   config:
   #     allow: ["hunt.io"]
   #     post_url_regex: ["^https://hunt\\.io/blog/.*"]
   #     robots:
   #       enabled: true
-  #       user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:138.0) Gecko/20100101 Firefox/138.0"
+  #       user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
   #       respect_delay: true
   #       max_requests_per_minute: 10
   #       crawl_delay: 1.0
@@ -44,14 +44,14 @@ sources:
     name: "Picus Security Blog"
     url: "https://www.picussecurity.com/resource/tag/article"
     rss_url: null  # No RSS feed available
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: false
     config:
       allow: ["picussecurity.com"]
       post_url_regex: ["^https://www\\.picussecurity\\.com/resource/blog/.*"]  # Only blog articles, not datasheets/reports
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -80,14 +80,14 @@ sources:
     name: "VMRay Blog"
     url: "https://www.vmray.com/blog/"
     rss_url: "https://www.vmray.com/blog/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["vmray.com"]
       post_url_regex: ["^https://www\\.vmray\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -115,14 +115,14 @@ sources:
     name: "Group-IB Threat Intelligence Blog"
     url: "https://www.group-ib.com/blog/"
     rss_url: null  # RSS feed blocked by anti-bot in many envs; scraping-only for reliable new installs
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: false
     config:
       allow: ["group-ib.com"]
       post_url_regex: ["^https://www\\.group-ib\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 3
         crawl_delay: 5.0
@@ -151,14 +151,14 @@ sources:
     name: "Ctrl-Alt-Intel Threat Research"
     url: "https://ctrlaltintel.com/"
     rss_url: "https://ctrlaltintel.com/feed.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["ctrlaltintel.com"]
       post_url_regex: ["^https?://ctrlaltintel\\.com/research/.*"]
       robots:
         enabled: false  # RSS-first; avoid robots checks for feed-only mode
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: false
         max_requests_per_minute: 0  # No web scraping
         crawl_delay: 0.0
@@ -181,14 +181,14 @@ sources:
     name: "Cisco Talos Intelligence Blog"
     url: "https://blog.talosintelligence.com/"
     rss_url: "https://blog.talosintelligence.com/rss/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["blog.talosintelligence.com"]
       post_url_regex: ["^https://blog\\.talosintelligence\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -210,14 +210,14 @@ sources:
     name: "Huntress Cybersecurity Blog"
     url: "https://www.huntress.com/blog"
     rss_url: "https://www.huntress.com/blog/rss.xml"  # Fixed RSS URL
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["huntress.com"]
       post_url_regex: ["^https://www\\.huntress\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -235,14 +235,14 @@ sources:
     name: "Google Cloud Threat Intelligence"
     url: "https://cloud.google.com/blog/topics/threat-intelligence/"
     rss_url: "https://feeds.feedburner.com/threatintelligence/pvexyqv7v0v"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["cloud.google.com"]
       post_url_regex: ["^https://cloud\\.google\\.com/blog/topics/threat-intelligence/.*"]
       robots:
         enabled: false  # Disable robots.txt checking for RSS-only
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: false
         max_requests_per_minute: 0  # No web scraping
         crawl_delay: 0.0
@@ -262,7 +262,7 @@ sources:
     name: "Palo Alto Unit42"
     url: "https://unit42.paloaltonetworks.com/"
     rss_url: "https://unit42.paloaltonetworks.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["unit42.paloaltonetworks.com"]
@@ -280,7 +280,7 @@ sources:
     name: "Kaspersky Securelist"
     url: "https://securelist.com/"
     rss_url: "https://securelist.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["securelist.com"]
@@ -298,7 +298,7 @@ sources:
     name: "ESET Research"
     url: "https://www.welivesecurity.com/category/research/"
     rss_url: "https://www.welivesecurity.com/category/research/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["welivesecurity.com"]
@@ -316,7 +316,7 @@ sources:
     name: "Recorded Future"
     url: "https://www.recordedfuture.com/"
     rss_url: "https://www.recordedfuture.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["recordedfuture.com"]
@@ -334,7 +334,7 @@ sources:
     name: "SentinelOne Labs"
     url: "https://www.sentinelone.com/labs/"
     rss_url: "https://www.sentinelone.com/labs/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["sentinelone.com"]
@@ -352,14 +352,14 @@ sources:
     name: "Microsoft Security Blog - Defender"
     url: "https://www.microsoft.com/en-us/security/blog/product/microsoft-defender/"
     rss_url: "https://www.microsoft.com/en-us/security/blog/product/microsoft-defender/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["microsoft.com"]
       post_url_regex: ["^https://www\\.microsoft\\.com/en-us/security/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -380,14 +380,14 @@ sources:
     name: "Microsoft Defender for Endpoint Blog"
     url: "https://techcommunity.microsoft.com/category/microsoft-defender-for-endpoint/blog/microsoftdefenderatpblog"
     rss_url: "https://techcommunity.microsoft.com/t5/Microsoft-Defender-for-Endpoint/bd-p/MicrosoftDefenderATPBlog.rss"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: false
     config:
       allow: ["techcommunity.microsoft.com"]
       post_url_regex: ["^https://techcommunity\\.microsoft\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -407,14 +407,14 @@ sources:
     name: "SOC Prime Blog"
     url: "https://socprime.com/blog/"
     rss_url: "https://socprime.com/blog/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["socprime.com"]
       post_url_regex: ["^https://socprime\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -435,7 +435,7 @@ sources:
     name: "Elastic Security Labs"
     url: "https://www.elastic.co/security-labs/"
     rss_url: "https://www.elastic.co/security-labs/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["elastic.co"]
@@ -453,14 +453,14 @@ sources:
     name: "Corelight Bright Ideas Blog"
     url: "https://corelight.com/blog"
     rss_url: "https://corelight.com/blog/rss.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: false
     config:
       allow: ["corelight.com"]
       post_url_regex: ["^https://corelight\\.com/blog/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -481,14 +481,14 @@ sources:
     name: "Sekoia.io Threat Research & Intelligence"
     url: "https://blog.sekoia.io/category/threat-research/"
     rss_url: "https://blog.sekoia.io/category/threat-research/feed/"  # WordPress category feed; if blocked set null + rss_only: false
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["blog.sekoia.io"]
       post_url_regex: ["^https://blog\\.sekoia\\.io/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -512,14 +512,14 @@ sources:
     name: "Check Point Research"
     url: "https://research.checkpoint.com/"
     rss_url: "https://research.checkpoint.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["research.checkpoint.com"]
       post_url_regex: ["^https://research\\.checkpoint\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 2.0
@@ -541,7 +541,7 @@ sources:
     name: "The Hacker News"
     url: "https://thehackernews.com/"
     rss_url: "https://feeds.feedburner.com/TheHackersNews"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["thehackernews.com"]
@@ -559,14 +559,14 @@ sources:
     name: "Bleeping Computer"
     url: "https://www.bleepingcomputer.com/"
     rss_url: "https://www.bleepingcomputer.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["bleepingcomputer.com"]
       post_url_regex: ["^https://www\\.bleepingcomputer\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 2.0
@@ -583,7 +583,7 @@ sources:
     name: "Dark Reading"
     url: "https://www.darkreading.com/"
     rss_url: "https://www.darkreading.com/rss.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["darkreading.com"]
@@ -601,7 +601,7 @@ sources:
     name: "SecurityWeek"
     url: "https://www.securityweek.com/"
     rss_url: "https://www.securityweek.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["securityweek.com"]
@@ -620,7 +620,7 @@ sources:
     name: "Infosecurity Magazine"
     url: "https://www.infosecurity-magazine.com/"
     rss_url: "https://www.infosecurity-magazine.com/rss/news/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["infosecurity-magazine.com"]
@@ -638,7 +638,7 @@ sources:
     name: "SANS Internet Storm Center"
     url: "https://isc.sans.edu/"
     rss_url: "https://isc.sans.edu/rssfeed.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["isc.sans.edu"]
@@ -660,14 +660,14 @@ sources:
     name: "The Hunter's Ledger"
     url: "https://the-hunters-ledger.com/"
     rss_url: "https://the-hunters-ledger.com/feed.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["the-hunters-ledger.com"]
       post_url_regex: ["^https://the-hunters-ledger\\.com/reports/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -693,7 +693,7 @@ sources:
     name: "The DFIR Report"
     url: "https://thedfirreport.com"
     rss_url: "https://thedfirreport.com/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     lookback_days: 180  # 6 months - reduced from 20 years due to validation limits
     active: true
     config:
@@ -701,7 +701,7 @@ sources:
       post_url_regex: ["^https://thedfirreport\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -725,7 +725,7 @@ sources:
     name: "CrowdStrike Intelligence Blog"
     url: "https://www.crowdstrike.com/blog/"
     rss_url: "https://www.crowdstrike.com/blog/feed/"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: false
     config:
       title_filter_keywords: ["CrowdStrike Named a Leader", "CrowdStrike to Acquire"]
@@ -747,7 +747,7 @@ sources:
     name: "Zscaler ThreatLabz"
     url: "https://www.zscaler.com/author/threatlabz"
     rss_url: null
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["zscaler.com"]
@@ -755,7 +755,7 @@ sources:
       use_playwright: true
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 2.0
@@ -809,14 +809,14 @@ sources:
     name: "CISA Analysis Reports"
     url: "https://www.cisa.gov/news-events/cybersecurity-advisories"
     rss_url: "https://www.cisa.gov/cybersecurity-advisories/all.xml"  # Comprehensive feed with analysis reports
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["cisa.gov"]
       post_url_regex: ["^https://www\\.cisa\\.gov/news-events/analysis-reports/.*"]  # Filter for analysis reports only
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 3.0
@@ -836,14 +836,14 @@ sources:
     name: "Assetnote Research"
     url: "https://www.assetnote.io/resources/research/"
     rss_url: "https://www.assetnote.io/resources/research/rss.xml"  # Verified feed
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["www.assetnote.io"]
       post_url_regex: ["^https://www\\.assetnote\\.io/resources/research/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 6
         crawl_delay: 3.0
@@ -890,7 +890,7 @@ sources:
       post_url_regex: ["^https://www\\.ncsc\\.gov\\.uk/(news|blog-post|report)/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -925,7 +925,7 @@ sources:
       post_url_regex: ["^https://us-cert\\.cisa\\.gov/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 5
         crawl_delay: 4.0
@@ -947,14 +947,14 @@ sources:
     name: "Splunk Security Blog"
     url: "https://www.splunk.com/en_us/blog/security.html"
     rss_url: null  # No RSS feed available - web scraping only
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["splunk.com"]
       post_url_regex: ["^https://www\\.splunk\\.com/en_us/blog/security/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -994,14 +994,14 @@ sources:
     name: "Symantec Enterprise Security"
     url: "https://symantec-enterprise-blogs.security.com/"
     rss_url: "https://sed-cms.broadcom.com/rss/v1/blogs/rss.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["symantec-enterprise-blogs.security.com", "sed-cms.broadcom.com"]
       post_url_regex: ["^https://symantec-enterprise-blogs\\.security\\.com/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 8
         crawl_delay: 2.0
@@ -1023,14 +1023,14 @@ sources:
     name: "Datadog Security Labs"
     url: "https://securitylabs.datadoghq.com/articles/"
     rss_url: "https://securitylabs.datadoghq.com/rss/feed.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["securitylabs.datadoghq.com"]
       post_url_regex: ["^https://securitylabs\\.datadoghq\\.com/articles/.*"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0
@@ -1052,14 +1052,14 @@ sources:
     name: "Endor Labs Security Research"
     url: "https://www.endorlabs.com/learn"
     rss_url: "https://www.endorlabs.com/learn/rss.xml"
-    check_frequency: 1800  # 30 minutes
+    check_frequency: 1800  # 30 minutes (overrides 4h default)
     active: true
     config:
       allow: ["www.endorlabs.com"]
       post_url_regex: ["^https://www\\.endorlabs\\.com/learn/[^?#]+$"]
       robots:
         enabled: true
-        user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+        user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
         respect_delay: true
         max_requests_per_minute: 10
         crawl_delay: 1.0

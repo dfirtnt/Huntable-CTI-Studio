@@ -396,7 +396,7 @@ class AsyncDatabaseManager:
                     name=source_data.name,
                     url=source_data.url,
                     rss_url=source_data.rss_url,
-                    check_frequency=source_data.config.check_frequency if source_data.config else 3600,
+                    check_frequency=source_data.config.check_frequency if source_data.config else 14400,
                     lookback_days=source_data.config.lookback_days if source_data.config else 180,
                     active=source_data.active,
                     config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},

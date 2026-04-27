@@ -20,7 +20,7 @@ class RequestConfig:
     retry_delay: float = 1.0
     follow_redirects: bool = True
     verify_ssl: bool = True
-    user_agent: str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    user_agent: str = "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
     headers: dict[str, str] | None = None
 
     def __post_init__(self):
@@ -29,34 +29,13 @@ class RequestConfig:
             self.headers = {}
 
     def get_browser_headers(self, url: str | None = None) -> dict[str, str]:
-        """Get browser-like headers to bypass anti-bot detection."""
+        """Get request headers."""
         headers = {
             "User-Agent": self.user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "en-US,en;q=0.9",
             "Accept-Encoding": "gzip, deflate, br",
-            "DNT": "1",
-            "Connection": "keep-alive",
-            "Upgrade-Insecure-Requests": "1",
-            "Sec-Fetch-Dest": "document",
-            "Sec-Fetch-Mode": "navigate",
-            "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1",
-            "Sec-Ch-Ua": '"Google Chrome";v="131", "Chromium";v="131", "Not A(Brand";v="24"',
-            "Sec-Ch-Ua-Mobile": "?0",
-            "Sec-Ch-Ua-Platform": '"macOS"',
-            "Cache-Control": "max-age=0",
         }
-
-        # Add Referer if URL is provided
-        if url:
-            try:
-                from urllib.parse import urlparse
-
-                parsed = urlparse(url)
-                headers["Referer"] = f"{parsed.scheme}://{parsed.netloc}/"
-            except Exception:
-                pass
 
         # Merge with custom headers
         headers.update(self.headers)
@@ -219,11 +198,25 @@ class HTTPClient:
         self.config = config or RequestConfig()
         self.rate_limiter = rate_limiter or RateLimiter()
 
+        # Per-source polite crawl settings: source_id -> {crawl_delay, max_requests_per_minute}
+        self._source_robots: dict[str, dict] = {}
+
         # Statistics tracking
         self._request_count = 0
         self._success_count = 0
         self._error_count = 0
         self._total_time = 0.0
+
+    def configure_source_robots(self, source_id: str, robots_config: dict) -> None:
+        """Store per-source crawl settings from the robots config block in sources.yaml."""
+        if not robots_config or not robots_config.get("enabled", True):
+            return
+        crawl_delay = float(robots_config.get("crawl_delay") or 1.0)
+        max_rpm = int(robots_config.get("max_requests_per_minute") or 0)
+        self._source_robots[source_id] = {
+            "crawl_delay": crawl_delay,
+            "max_requests_per_minute": max_rpm,
+        }
 
     async def __aenter__(self):
         """Async context manager entry."""
@@ -317,7 +310,7 @@ class HTTPClient:
                     # Detect encoding: httpx does basic detection, but we'll improve it in Response.text
                     detected_encoding = response.encoding or "utf-8"
 
-                    return Response(
+                    result = Response(
                         status_code=response.status_code,
                         headers=response_headers,
                         content=response_content,
@@ -325,6 +318,14 @@ class HTTPClient:
                         elapsed=elapsed,
                         encoding=detected_encoding,
                     )
+
+                    # Polite crawl delay: sleep after successful request when configured
+                    if source_id and source_id in self._source_robots:
+                        delay = self._source_robots[source_id]["crawl_delay"]
+                        if delay > 0:
+                            await asyncio.sleep(delay)
+
+                    return result
 
             except Exception as e:
                 last_exception = e
