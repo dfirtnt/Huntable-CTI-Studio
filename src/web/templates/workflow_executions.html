@@ -497,14 +497,16 @@ async function viewExecution(executionId) {
                                 const _DN = {
                                     'CmdlineExtract': 'Command Line Extraction', 'ProcTreeExtract': 'Process Lineage Extraction',
                                     'HuntQueriesExtract': 'Hunt Queries Extraction', 'RegistryExtract': 'Registry Artifacts Extraction',
-                                    'ServicesExtract': 'Windows Services Extraction'
+                                    'ServicesExtract': 'Windows Services Extraction',
+                                    'ScheduledTasksExtract': 'Scheduled Tasks Extraction'
                                 };
                                 const subAgents = [
                                     { key: 'cmdline', name: 'CmdlineExtract', qaName: 'CmdLineQA', display: _DN['CmdlineExtract'], icon: '💻', order: 1 },
                                     { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: _DN['ProcTreeExtract'], icon: '🌳', order: 2 },
                                     { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: _DN['HuntQueriesExtract'], icon: '🔍', order: 3 },
                                     { key: 'registry_artifacts', name: 'RegistryExtract', qaName: 'RegistryQA', display: _DN['RegistryExtract'], icon: '🗝️', order: 4 },
-                                    { key: 'windows_services', name: 'ServicesExtract', qaName: 'ServicesQA', display: _DN['ServicesExtract'], icon: '⚙️', order: 5 }
+                                    { key: 'windows_services', name: 'ServicesExtract', qaName: 'ServicesQA', display: _DN['ServicesExtract'], icon: '⚙️', order: 5 },
+                                    { key: 'scheduled_tasks', name: 'ScheduledTasksExtract', qaName: 'ScheduledTasksQA', display: _DN['ScheduledTasksExtract'], icon: '📅', order: 6 }
                                 ];
                                 
                                 // Get QA results from error_log if available

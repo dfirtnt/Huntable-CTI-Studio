@@ -106,8 +106,8 @@ async def api_dashboard_data():
         stats = await async_db_manager.get_database_stats()
         sources = await async_db_manager.list_sources()
 
-        total_sources = len(sources)
-        active_sources = len([source for source in sources if source.active])
+        total_sources = len([s for s in sources if s.identifier not in _EXCLUDED_HEALTH_IDENTIFIERS])
+        active_sources = len([s for s in sources if s.active and s.identifier not in _EXCLUDED_HEALTH_IDENTIFIERS])
         health = _compute_ingestion_health(sources)
 
         recent_articles = await async_db_manager.list_articles(limit=1000)

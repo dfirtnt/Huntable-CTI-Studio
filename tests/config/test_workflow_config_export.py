@@ -333,6 +333,17 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "QA": {},
             "QAPrompt": {},
         },
+        "ScheduledTasksExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
         "SigmaAgent": {
             "Provider": "openai",
             "Model": "gpt-4",

@@ -874,6 +874,8 @@
 .q-stat-card.approved::before { background: var(--action-success-light); }
 .q-stat-card.rejected::before { background: var(--action-danger); }
 .q-stat-card.submitted::before { background: var(--purple-primary); }
+.q-stat-card[data-filter-status] { cursor: pointer; }
+.q-stat-card--active { outline: 2px solid var(--purple-primary); outline-offset: 2px; box-shadow: 0 0 0 4px rgba(139,92,246,0.15); }
 
 .q-stat-card .q-stat-label {
   font-family: 'JetBrains Mono', monospace;
@@ -2310,6 +2312,80 @@
                         </div>
                       </div>
 
+                      <!-- ScheduledTasksExtract -->
+                      <div id="sa-scheduledtasks" class="sa-item">
+                        <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-scheduledtasks-body" onclick="toggleSA('sa-scheduledtasks')">
+                          <span class="sa-title">ScheduledTasksExtract</span>
+                          <span class="text-xs text-gray-500 dark:text-gray-400">Scheduled Tasks Extraction</span>
+                          <span id="scheduledtasksextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
+                          <span id="scheduledtasksextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
+                          <span class="sa-chevron ml-2">▼</span>
+                        </div>
+                        <div id="sa-scheduledtasks-body" class="sa-body space-y-3">
+                          <div class="flex items-center justify-between">
+                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Enable ScheduledTasksExtract</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Toggle off to skip</p></div>
+                            <div class="flex items-center gap-2">
+                              <span id="scheduledtasksextract-agent-enabled-badge" class="px-2 py-1 text-[11px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">Enabled</span>
+                              <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="toggle-scheduledtasksextract-enabled" name="extract_subagent_enabled[ScheduledTasksExtract]" aria-label="Enable ScheduledTasksExtract" class="sr-only peer" onchange="handleExtractAgentToggle('ScheduledTasksExtract')"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div></label>
+                            </div>
+                          </div>
+	                          <div class="space-y-2">
+	                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
+	                              Model Provider
+	                              <button type="button" onclick="showHelp('scheduledTasksExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+	                            </label>
+	                            <div class="grid grid-cols-2 gap-3">
+	                              <div>
+	                                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
+	                                <select id="scheduledtasksextract-provider" name="agent_models[ScheduledTasksExtract_provider]" onchange="onAgentProviderChange('scheduledtasksextract')" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"><option value="lmstudio">LMStudio (Local)</option><option value="openai">OpenAI (Cloud)</option><option value="anthropic">Anthropic Claude (Cloud)</option></select>
+                              </div>
+                              <div>
+                                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Model</label>
+                                <div data-agent-prefix="scheduledtasksextract" data-provider="lmstudio"><select id="scheduledtasksextract-model" name="agent_models[ScheduledTasksExtract_model]" onchange="validateAgentModelOnChange('scheduledtasksextract'); autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"><option value="">Use Extract Agents Fallback Model</option></select></div>
+                                <div data-agent-prefix="scheduledtasksextract" data-provider="openai" class="hidden"><input type="text" id="scheduledtasksextract-model-openai" name="agent_models[ScheduledTasksExtract_model]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="gpt-4o-mini" onchange="validateAgentModelOnChange('scheduledtasksextract'); autoSaveModelChange()" oninput="validateAgentModelOnChange('scheduledtasksextract'); autoSaveModelChange()"></div>
+                                <div data-agent-prefix="scheduledtasksextract" data-provider="anthropic" class="hidden"><input type="text" id="scheduledtasksextract-model-anthropic" name="agent_models[ScheduledTasksExtract_model]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="claude-sonnet-4-5" onchange="validateAgentModelOnChange('scheduledtasksextract'); autoSaveModelChange()" oninput="validateAgentModelOnChange('scheduledtasksextract'); autoSaveModelChange()"></div>
+                              </div>
+                            </div>
+                          </div>
+                          <div class="flex gap-3">
+                            <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="scheduledtasksextract-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label><span id="scheduledtasksextract-temperature-value" class="text-purple-400 font-medium text-xs">0</span></div><input type="range" id="scheduledtasksextract-temperature" name="agent_models[ScheduledTasksExtract_temperature]" min="0" max="2" step="0.1" value="0.0" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('scheduledtasksextract-temperature'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div></div>
+                            <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="scheduledtasksextract-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label><span id="scheduledtasksextract-top-p-value" class="text-purple-400 font-medium text-xs">0.9</span></div><input type="range" id="scheduledtasksextract-top-p" name="agent_models[ScheduledTasksExtract_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('scheduledtasksextract-top-p'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div></div>
+                          </div>
+                          <div id="scheduledtasksextract-agent-prompt-container"></div>
+                          <div class="flex items-center justify-between">
+                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ScheduledTasksExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-scheduledtasksextract" name="qa_enabled[ScheduledTasksExtract]" class="sr-only peer" onchange="updateQABadge('scheduledtasksextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
+                          </div>
+                          <div id="scheduledtasksextract-agent-qa-configs" class="hidden space-y-2">
+                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">Scheduled Tasks QA Model Provider
+                              <button type="button" onclick="showHelp('scheduledTasksQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
+                            </label>
+                            <div class="grid grid-cols-2 gap-3">
+                              <div>
+                                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
+                                <select id="scheduledtasksqa-provider" name="agent_models[ScheduledTasksQA_provider]" onchange="onAgentProviderChange('scheduledtasksqa')" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"><option value="lmstudio">LMStudio (Local)</option><option value="openai">OpenAI (Cloud)</option><option value="anthropic">Anthropic Claude (Cloud)</option></select>
+                              </div>
+                              <div>
+                                <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Model</label>
+                                <div data-agent-prefix="scheduledtasksqa" data-provider="lmstudio"><select id="scheduledtasksqa-model" name="agent_models[ScheduledTasksQA]" onchange="autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"></select></div>
+                                <div data-agent-prefix="scheduledtasksqa" data-provider="openai" class="hidden"><input type="text" id="scheduledtasksqa-model-openai" name="agent_models[ScheduledTasksQA]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="gpt-4o-mini" onchange="autoSaveModelChange()"></div>
+                                <div data-agent-prefix="scheduledtasksqa" data-provider="anthropic" class="hidden"><input type="text" id="scheduledtasksqa-model-anthropic" name="agent_models[ScheduledTasksQA]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="claude-sonnet-4-5" onchange="autoSaveModelChange()"></div>
+                              </div>
+                            </div>
+                            <div class="mt-2 flex gap-3">
+                              <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="scheduledtasksqa-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label><span id="scheduledtasksqa-temperature-value" class="text-purple-400 font-medium text-xs">0.1</span></div><input type="range" id="scheduledtasksqa-temperature" name="agent_models[ScheduledTasksQA_temperature]" min="0" max="2" step="0.1" value="0.1" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('scheduledtasksqa-temperature'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div></div>
+                              <div class="flex-1 threshold-slider"><div class="flex justify-between items-center mb-1"><label for="scheduledtasksqa-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label><span id="scheduledtasksqa-top-p-value" class="text-purple-400 font-medium text-xs">0.9</span></div><input type="range" id="scheduledtasksqa-top-p" name="agent_models[ScheduledTasksQA_top_p]" min="0" max="1" step="0.01" value="0.9" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('scheduledtasksqa-top-p'); autoSaveModelChange()"><div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div></div>
+                            </div>
+                          </div>
+                          <div id="scheduledtasksextract-agent-qa-prompt-container" class="hidden"></div>
+                          <div class="flex gap-2 pt-1">
+                            <button type="button" onclick="const id = promptForArticleId(2155); if (id) testSubAgent('ScheduledTasksExtract', id);" class="flex-1 px-3 py-2 btn-workflow text-white text-xs font-medium rounded-md transition-colors">&#x26A1; Test ScheduledTasksExtract</button>
+                            <button type="button" onclick="saveSubAgentPreset('scheduledtasks')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Save Preset</button>
+                            <button type="button" onclick="showConfigPresetListForScope('scheduledtasks')" class="flex-1 px-3 py-2 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-white">Load Preset</button>
+                          </div>
+                        </div>
+                      </div>
+
                     </div><!-- end sub-agents accordion -->
                   </div>
                 </div>
@@ -3221,19 +3297,19 @@
 
         <!-- Queue Statistics -->
         <div id="queueStats" class="q-stats-grid">
-            <div class="q-stat-card pending">
+            <div class="q-stat-card pending" data-filter-status="pending" role="button" tabindex="0" onclick="setQueueStatusFilter('pending')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('pending')" title="Filter by Pending Review">
                 <div class="q-stat-label">Pending Review</div>
                 <div class="q-stat-value" id="pendingCount">-</div>
             </div>
-            <div class="q-stat-card approved">
+            <div class="q-stat-card approved" data-filter-status="approved" role="button" tabindex="0" onclick="setQueueStatusFilter('approved')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('approved')" title="Filter by Approved">
                 <div class="q-stat-label">Approved</div>
                 <div class="q-stat-value" id="approvedCount">-</div>
             </div>
-            <div class="q-stat-card rejected">
+            <div class="q-stat-card rejected" data-filter-status="rejected" role="button" tabindex="0" onclick="setQueueStatusFilter('rejected')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('rejected')" title="Filter by Rejected">
                 <div class="q-stat-label">Rejected</div>
                 <div class="q-stat-value" id="rejectedCount">-</div>
             </div>
-            <div class="q-stat-card submitted">
+            <div class="q-stat-card submitted" data-filter-status="submitted" role="button" tabindex="0" onclick="setQueueStatusFilter('submitted')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('submitted')" title="Filter by Submitted">
                 <div class="q-stat-label">Submitted</div>
                 <div class="q-stat-value" id="submittedCount">-</div>
             </div>
@@ -3736,12 +3812,14 @@ const AGENT_DISPLAY_NAMES = {
     'HuntQueriesQA':      'HuntQueries QA',
     'RegistryQA':         'Registry QA',
     'ServicesQA':         'Services QA',
+    'ScheduledTasksExtract': 'Scheduled Tasks Extraction',
+    'ScheduledTasksQA':      'Scheduled Tasks QA',
 };
 function agentDisplayName(id) { return AGENT_DISPLAY_NAMES[id] || id; }
 
 // ── Canonical agent lists (single source of truth for JS) ──
-const EXTRACT_SUB_AGENTS = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract'];
-const QA_AGENTS = ['RankAgentQA', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA'];
+const EXTRACT_SUB_AGENTS = ['CmdlineExtract', 'ProcTreeExtract', 'HuntQueriesExtract', 'RegistryExtract', 'ServicesExtract', 'ScheduledTasksExtract'];
+const QA_AGENTS = ['RankAgentQA', 'CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA', 'ScheduledTasksQA'];
 const MAIN_AGENTS = ['RankAgent', 'ExtractAgent', 'SigmaAgent'];
 const ALL_CONFIG_AGENTS = ['RankAgent', 'OSDetectionAgent', 'ExtractAgent', ...EXTRACT_SUB_AGENTS, 'SigmaAgent'];
 // Pipeline display order (agents shown in the execution pipeline rail — excludes Registry/Services)
@@ -4502,6 +4580,18 @@ const AGENT_CONFIG = {
         hasFallback: true,
         fallbackAgent: 'extractagent'
     },
+    scheduledtasksextract: {
+        prefix: 'scheduledtasksextract',
+        providerKey: 'ScheduledTasksExtract_provider',
+        modelKey: 'ScheduledTasksExtract_model',
+        temperatureKey: 'ScheduledTasksExtract_temperature',
+        topPKey: 'ScheduledTasksExtract_top_p',
+        name: 'ScheduledTasksExtract',
+        isSubAgent: true,
+        isQA: false,
+        hasFallback: true,
+        fallbackAgent: 'extractagent'
+    },
     // QA agents
     rankqa: {
         prefix: 'rankqa',
@@ -4569,6 +4659,17 @@ const AGENT_CONFIG = {
         isQA: true,
         hasFallback: false
     },
+    scheduledtasksqa: {
+        prefix: 'scheduledtasksqa',
+        providerKey: 'ScheduledTasksQA_provider',
+        modelKey: 'ScheduledTasksQA',
+        temperatureKey: 'ScheduledTasksQA_temperature',
+        topPKey: 'ScheduledTasksQA_top_p',
+        name: 'ScheduledTasksQA',
+        isSubAgent: false,
+        isQA: true,
+        hasFallback: false
+    },
 };
 
 /**
@@ -4600,12 +4701,14 @@ const AGENT_UI_DISPLAY_LABELS = {
     huntqueriesextract: 'HuntQueriesExtract',
     registryextract: 'RegistryExtract',
     servicesextract: 'ServicesExtract',
+    scheduledtasksextract: 'ScheduledTasksExtract',
     rankqa: 'Rank QA',
     cmdlineqa: 'CmdLine QA',
     proctreeqa: 'ProcTree QA',
     huntqueriesqa: 'HuntQueries QA',
     registryqa: 'Registry QA',
-    servicesqa: 'Services QA'
+    servicesqa: 'Services QA',
+    scheduledtasksqa: 'Scheduled Tasks QA'
 };
 
 function getAgentUIDisplayLabel(agentPrefix) {
@@ -4699,6 +4802,7 @@ function normalizeWorkflowConfigControlBindings() {
         'qa-huntqueriesextract': { key: 'qa_enabled[HuntQueriesExtract]', label: 'HuntQueriesExtract QA Agent' },
         'qa-registryextract': { key: 'qa_enabled[RegistryExtract]', label: 'RegistryExtract QA Agent' },
         'qa-servicesextract': { key: 'qa_enabled[ServicesExtract]', label: 'ServicesExtract QA Agent' },
+        'qa-scheduledtasksextract': { key: 'qa_enabled[ScheduledTasksExtract]', label: 'ScheduledTasksExtract QA Agent' },
         'osdetectionagent-embedding-model-2': { key: 'OSDetectionAgent_embedding', label: 'OS Detection Embedding Model' },
         'osdetectionagent-os-windows': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Windows' },
         'osdetectionagent-os-linux': { key: 'OSDetectionAgent_selected_os', label: 'Target OS: Linux' },
@@ -4720,7 +4824,8 @@ function normalizeWorkflowConfigControlBindings() {
         { id: 'toggle-proctreeextract-enabled', agent: 'ProcTreeExtract' },
         { id: 'toggle-huntqueriesextract-enabled', agent: 'HuntQueriesExtract' },
         { id: 'toggle-registryextract-enabled', agent: 'RegistryExtract' },
-        { id: 'toggle-servicesextract-enabled', agent: 'ServicesExtract' }
+        { id: 'toggle-servicesextract-enabled', agent: 'ServicesExtract' },
+        { id: 'toggle-scheduledtasksextract-enabled', agent: 'ScheduledTasksExtract' }
     ].forEach(item => {
         const el = document.getElementById(item.id);
         if (!el) return;
@@ -4745,12 +4850,14 @@ function normalizeWorkflowConfigControlBindings() {
             huntqueriesextract: 'HuntQueriesExtract',
             registryextract: 'RegistryExtract',
             servicesextract: 'ServicesExtract',
+            scheduledtasksextract: 'ScheduledTasksExtract',
             qaagent: 'QAAgent',
             cmdlineqa: 'CmdLineQA',
             proctreeqa: 'ProcTreeQA',
             huntqueriesqa: 'HuntQueriesQA',
             registryqa: 'RegistryQA',
-            servicesqa: 'ServicesQA'
+            servicesqa: 'ServicesQA',
+            scheduledtasksqa: 'ScheduledTasksQA'
         };
         const agentName = promptAgentNameMap[agentId] || agentId;
         setAttr(textarea, 'data-derived-persist-key', `agent_prompts.${agentName}.prompt`);
@@ -5870,6 +5977,7 @@ const LOCKED_EXTRACTOR_AGENTS = [
     'HuntQueriesExtract',
     'RegistryExtract',
     'ServicesExtract',
+    'ScheduledTasksExtract',
     'RankAgent',
     'ExtractAgent',
     'SigmaAgent',
@@ -5881,6 +5989,7 @@ const LOCKED_QA_AGENTS = [
     'HuntQueriesQA',
     'RegistryQA',
     'ServicesQA',
+    'ScheduledTasksQA',
 ];
 
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
@@ -6857,7 +6966,8 @@ window.updateQABadge = function(agentPrefix) {
                       agentPrefix === 'proctreeextract-agent' ? 'qa-proctreeextract' :
                       agentPrefix === 'huntqueriesextract-agent' ? 'qa-huntqueriesextract' :
                       agentPrefix === 'registryextract-agent' ? 'qa-registryextract' :
-                      agentPrefix === 'servicesextract-agent' ? 'qa-servicesextract' : null;
+                      agentPrefix === 'servicesextract-agent' ? 'qa-servicesextract' :
+                      agentPrefix === 'scheduledtasksextract-agent' ? 'qa-scheduledtasksextract' : null;
     
     if (!badge) {
         console.error(`updateQABadge: Badge not found for prefix: ${agentPrefix}, badgeId: ${badgeId}`);
@@ -6933,6 +7043,8 @@ window.updateQABadge = function(agentPrefix) {
                 renderQAPrompt('RegistryQA', `${agentPrefix}-qa-prompt-container`);
             } else if (agentPrefix === 'servicesextract-agent') {
                 renderQAPrompt('ServicesQA', `${agentPrefix}-qa-prompt-container`);
+            } else if (agentPrefix === 'scheduledtasksextract-agent') {
+                renderQAPrompt('ScheduledTasksQA', `${agentPrefix}-qa-prompt-container`);
             }
             
             // Force re-initialization after renderQAPrompt completes
@@ -7056,7 +7168,7 @@ async function loadConfig(skipPromptReload = false) {
                 });
 
                 // Backfill QA agents that have no model/provider from a peer QA agent
-                const qaAgents = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA'];
+                const qaAgents = ['CmdLineQA', 'ProcTreeQA', 'HuntQueriesQA', 'RegistryQA', 'ServicesQA', 'ScheduledTasksQA'];
                 const qaFallbackModel = qaAgents.reduce((f, qa) => f || am[qa], '') || '';
                 const qaFallbackProvider = qaAgents.reduce((f, qa) => f || am[`${qa}_provider`], '') || 'lmstudio';
                 qaAgents.forEach(qaName => {
@@ -7188,12 +7300,14 @@ async function loadConfig(skipPromptReload = false) {
             { name: 'HuntQueriesExtract', id: 'huntqueriesextract-temperature', prefix: 'huntqueriesextract' },
             { name: 'RegistryExtract', id: 'registryextract-temperature', prefix: 'registryextract' },
             { name: 'ServicesExtract', id: 'servicesextract-temperature', prefix: 'servicesextract' },
+            { name: 'ScheduledTasksExtract', id: 'scheduledtasksextract-temperature', prefix: 'scheduledtasksextract' },
             { name: 'RankAgentQA', id: 'rankqa-temperature', prefix: 'rankqa' },
             { name: 'CmdLineQA', id: 'cmdlineqa-temperature', prefix: 'cmdlineqa' },
             { name: 'ProcTreeQA', id: 'proctreeqa-temperature', prefix: 'proctreeqa' },
             { name: 'HuntQueriesQA', id: 'huntqueriesqa-temperature', prefix: 'huntqueriesqa' },
             { name: 'RegistryQA', id: 'registryqa-temperature', prefix: 'registryqa' },
-            { name: 'ServicesQA', id: 'servicesqa-temperature', prefix: 'servicesqa' }
+            { name: 'ServicesQA', id: 'servicesqa-temperature', prefix: 'servicesqa' },
+            { name: 'ScheduledTasksQA', id: 'scheduledtasksqa-temperature', prefix: 'scheduledtasksqa' }
         ];
         subAgents.forEach(subAgent => {
             const tempInput = document.getElementById(subAgent.id);
@@ -8724,8 +8838,8 @@ function validateAllTemperatureInputs() {
     });
     
     // Check QA agents and sub-agents
-    const qaAgents = ['rankqa', 'cmdlineqa', 'proctreeqa', 'huntqueriesqa', 'registryqa', 'servicesqa'];
-    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract', 'registryextract', 'servicesextract'];
+    const qaAgents = ['rankqa', 'cmdlineqa', 'proctreeqa', 'huntqueriesqa', 'registryqa', 'servicesqa', 'scheduledtasksqa'];
+    const subAgents = ['cmdlineextract', 'proctreeextract', 'huntqueriesextract', 'registryextract', 'servicesextract', 'scheduledtasksextract'];
     
     [...qaAgents, ...subAgents].forEach(prefix => {
         const provider = getAgentProvider(prefix) || getDefaultProvider();
@@ -8924,7 +9038,8 @@ function renderAgentPrompts() {
         { name: 'ProcTreeExtract', container: 'proctreeextract-agent-prompt-container', prefix: 'proctreeextract-agent' },
         { name: 'HuntQueriesExtract', container: 'huntqueriesextract-agent-prompt-container', prefix: 'huntqueriesextract-agent' },
         { name: 'RegistryExtract', container: 'registryextract-agent-prompt-container', prefix: 'registryextract-agent' },
-        { name: 'ServicesExtract', container: 'servicesextract-agent-prompt-container', prefix: 'servicesextract-agent' }
+        { name: 'ServicesExtract', container: 'servicesextract-agent-prompt-container', prefix: 'servicesextract-agent' },
+        { name: 'ScheduledTasksExtract', container: 'scheduledtasksextract-agent-prompt-container', prefix: 'scheduledtasksextract-agent' }
     ];
     
     subAgents.forEach(subAgent => {
@@ -8974,7 +9089,8 @@ function renderAgentPrompts() {
         { name: 'ProcTreeQA', container: 'proctreeextract-agent-qa-prompt-container', prefix: 'proctreeextract-agent-qa' },
         { name: 'HuntQueriesQA', container: 'huntqueriesextract-agent-qa-prompt-container', prefix: 'huntqueriesextract-agent-qa' },
         { name: 'RegistryQA', container: 'registryextract-agent-qa-prompt-container', prefix: 'registryextract-agent-qa' },
-        { name: 'ServicesQA', container: 'servicesextract-agent-qa-prompt-container', prefix: 'servicesextract-agent-qa' }
+        { name: 'ServicesQA', container: 'servicesextract-agent-qa-prompt-container', prefix: 'servicesextract-agent-qa' },
+        { name: 'ScheduledTasksQA', container: 'scheduledtasksextract-agent-qa-prompt-container', prefix: 'scheduledtasksextract-agent-qa' }
     ];
     
     qaAgents.forEach(qaAgent => {
@@ -9030,12 +9146,14 @@ function getCurrentModelForAgent(agentName) {
         'HuntQueriesExtract': 'huntqueriesextract',
         'RegistryExtract': 'registryextract',
         'ServicesExtract': 'servicesextract',
+        'ScheduledTasksExtract': 'scheduledtasksextract',
         'OSDetectionAgent': 'osdetectionagent',
         'CmdLineQA': 'cmdlineqa',
         'ProcTreeQA': 'proctreeqa',
         'HuntQueriesQA': 'huntqueriesqa',
         'RegistryQA': 'registryqa',
         'ServicesQA': 'servicesqa',
+        'ScheduledTasksQA': 'scheduledtasksqa',
         'RankAgentQA': 'rankqa'
     };
 
@@ -9048,11 +9166,13 @@ function getCurrentModelForAgent(agentName) {
         'HuntQueriesExtract': 'huntqueriesextract-provider',
         'RegistryExtract': 'registryextract-provider',
         'ServicesExtract': 'servicesextract-provider',
+        'ScheduledTasksExtract': 'scheduledtasksextract-provider',
         'CmdLineQA': 'cmdlineqa-provider',
         'ProcTreeQA': 'proctreeqa-provider',
         'HuntQueriesQA': 'huntqueriesqa-provider',
         'RegistryQA': 'registryqa-provider',
         'ServicesQA': 'servicesqa-provider',
+        'ScheduledTasksQA': 'scheduledtasksqa-provider',
         'RankAgentQA': 'rankqa-provider'
     };
     
@@ -9667,6 +9787,10 @@ function toggleModelSelectionVisibility(agentName, enabled) {
         'ServicesExtract': {
             panelContent: 'servicesextract-agent-panel-content',
             providerSelect: 'servicesextract-provider'
+        },
+        'ScheduledTasksExtract': {
+            panelContent: 'scheduledtasksextract-agent-panel-content',
+            providerSelect: 'scheduledtasksextract-provider'
         }
     };
     
@@ -9731,9 +9855,10 @@ function updateQAStateForSubagent(agentName) {
         'ProcTreeExtract': 'qa-proctreeextract',
         'HuntQueriesExtract': 'qa-huntqueriesextract',
         'RegistryExtract': 'qa-registryextract',
-        'ServicesExtract': 'qa-servicesextract'
+        'ServicesExtract': 'qa-servicesextract',
+        'ScheduledTasksExtract': 'qa-scheduledtasksextract'
     };
-    
+
     const qaCheckboxId = qaCheckboxMap[agentName];
     if (!qaCheckboxId) return; // Not a subagent with QA
     
@@ -9815,10 +9940,11 @@ const SUBAGENT_SCOPE_MAP = {
     proctree: { extract: 'ProcTreeExtract', qa: 'ProcTreeQA', qaEnabledKey: 'ProcTreeExtract', extractPrefix: 'proctreeextract', qaPrefix: 'proctreeqa' },
     huntqueries: { extract: 'HuntQueriesExtract', qa: 'HuntQueriesQA', qaEnabledKey: 'HuntQueriesExtract', extractPrefix: 'huntqueriesextract', qaPrefix: 'huntqueriesqa' },
     registry: { extract: 'RegistryExtract', qa: 'RegistryQA', qaEnabledKey: 'RegistryExtract', extractPrefix: 'registryextract', qaPrefix: 'registryqa' },
-    services: { extract: 'ServicesExtract', qa: 'ServicesQA', qaEnabledKey: 'ServicesExtract', extractPrefix: 'servicesextract', qaPrefix: 'servicesqa' }
+    services: { extract: 'ServicesExtract', qa: 'ServicesQA', qaEnabledKey: 'ServicesExtract', extractPrefix: 'servicesextract', qaPrefix: 'servicesqa' },
+    scheduledtasks: { extract: 'ScheduledTasksExtract', qa: 'ScheduledTasksQA', qaEnabledKey: 'ScheduledTasksExtract', extractPrefix: 'scheduledtasksextract', qaPrefix: 'scheduledtasksqa' }
 };
 
-const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries', 'registry', 'services'];
+const SUBAGENT_SCOPES = ['cmdline', 'proctree', 'huntqueries', 'registry', 'services', 'scheduledtasks'];
 
 function getSubAgentPresetState(pairScope) {
     if (!SUBAGENT_SCOPES.includes(pairScope)) {
@@ -10456,7 +10582,8 @@ async function applyPreset(preset) {
                 { name: 'ProcTreeQA', id: 'proctreeqa-model', tempId: 'proctreeqa-temperature', topPId: 'proctreeqa-top-p' },
                 { name: 'HuntQueriesQA', id: 'huntqueriesqa-model', tempId: 'huntqueriesqa-temperature', topPId: 'huntqueriesqa-top-p' },
                 { name: 'RegistryQA', id: 'registryqa-model', tempId: 'registryqa-temperature', topPId: 'registryqa-top-p' },
-                { name: 'ServicesQA', id: 'servicesqa-model', tempId: 'servicesqa-temperature', topPId: 'servicesqa-top-p' }
+                { name: 'ServicesQA', id: 'servicesqa-model', tempId: 'servicesqa-temperature', topPId: 'servicesqa-top-p' },
+                { name: 'ScheduledTasksQA', id: 'scheduledtasksqa-model', tempId: 'scheduledtasksqa-temperature', topPId: 'scheduledtasksqa-top-p' }
             ];
             
             qaModelFields.forEach(field => {
@@ -10641,7 +10768,8 @@ function cancelEditPrompt2(agentName) {
         'CmdLineQA': { prefix: 'cmdlineextract-agent', container: 'cmdlineextract-agent-qa-prompt-container' },
         'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
         'RegistryQA': { prefix: 'registryextract-agent', container: 'registryextract-agent-qa-prompt-container' },
-        'ServicesQA': { prefix: 'servicesextract-agent', container: 'servicesextract-agent-qa-prompt-container' }
+        'ServicesQA': { prefix: 'servicesextract-agent', container: 'servicesextract-agent-qa-prompt-container' },
+        'ScheduledTasksQA': { prefix: 'scheduledtasksextract-agent', container: 'scheduledtasksextract-agent-qa-prompt-container' }
     };
 
     // Check if this is a QA agent or if the corresponding extract agent has QA enabled
@@ -10824,9 +10952,10 @@ async function saveAgentPrompt2(agentName, overrides = {}) {
                 'ProcTreeQA': { prefix: 'proctreeextract-agent', container: 'proctreeextract-agent-qa-prompt-container' },
                 'HuntQueriesQA': { prefix: 'huntqueriesextract-agent', container: 'huntqueriesextract-agent-qa-prompt-container' },
                 'RegistryQA': { prefix: 'registryextract-agent', container: 'registryextract-agent-qa-prompt-container' },
-                'ServicesQA': { prefix: 'servicesextract-agent', container: 'servicesextract-agent-qa-prompt-container' }
+                'ServicesQA': { prefix: 'servicesextract-agent', container: 'servicesextract-agent-qa-prompt-container' },
+                'ScheduledTasksQA': { prefix: 'scheduledtasksextract-agent', container: 'scheduledtasksextract-agent-qa-prompt-container' }
             };
-            
+
             const qaInfo = qaAgentMap[agentName];
             if (qaInfo) {
                 const qaPromptContainer = document.getElementById(qaInfo.container);
@@ -10995,7 +11124,8 @@ function getAllSelectedModelsWithProviders() {
         'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
         'HuntQueriesExtract': document.getElementById('qa-huntqueriesextract'),
         'RegistryExtract': document.getElementById('qa-registryextract'),
-        'ServicesExtract': document.getElementById('qa-servicesextract')
+        'ServicesExtract': document.getElementById('qa-servicesextract'),
+        'ScheduledTasksExtract': document.getElementById('qa-scheduledtasksextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
@@ -11050,7 +11180,8 @@ function getAllSelectedModelsWithProviders() {
         { name: 'ProcTreeExtract', prefix: 'proctreeextract', providerId: 'proctreeextract-provider' },
         { name: 'HuntQueriesExtract', prefix: 'huntqueriesextract', providerId: 'huntqueriesextract-provider' },
         { name: 'RegistryExtract', prefix: 'registryextract', providerId: 'registryextract-provider' },
-        { name: 'ServicesExtract', prefix: 'servicesextract', providerId: 'servicesextract-provider' }
+        { name: 'ServicesExtract', prefix: 'servicesextract', providerId: 'servicesextract-provider' },
+        { name: 'ScheduledTasksExtract', prefix: 'scheduledtasksextract', providerId: 'scheduledtasksextract-provider' }
     ];
 
     subAgents.forEach(subAgent => {
@@ -11068,6 +11199,7 @@ function getAllSelectedModelsWithProviders() {
         { name: 'HuntQueriesQA', prefix: 'huntqueriesqa', providerId: 'huntqueriesqa-provider', subAgent: 'HuntQueriesExtract' },
         { name: 'RegistryQA', prefix: 'registryqa', providerId: 'registryqa-provider', subAgent: 'RegistryExtract' },
         { name: 'ServicesQA', prefix: 'servicesqa', providerId: 'servicesqa-provider', subAgent: 'ServicesExtract' },
+        { name: 'ScheduledTasksQA', prefix: 'scheduledtasksqa', providerId: 'scheduledtasksqa-provider', subAgent: 'ScheduledTasksExtract' },
         { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null } // RankAgentQA doesn't have a sub-agent
     ];
     
@@ -11257,7 +11389,8 @@ function getLMStudioModelsOnly() {
         'CmdlineExtract': document.getElementById('qa-cmdlineextract'),
         'ProcTreeExtract': document.getElementById('qa-proctreeextract'),
         'RegistryExtract': document.getElementById('qa-registryextract'),
-        'ServicesExtract': document.getElementById('qa-servicesextract')
+        'ServicesExtract': document.getElementById('qa-servicesextract'),
+        'ScheduledTasksExtract': document.getElementById('qa-scheduledtasksextract')
     };
     Object.entries(qaCheckboxes).forEach(([agent, checkbox]) => {
         qaEnabled[agent] = checkbox ? checkbox.checked : (currentConfig?.qa_enabled?.[agent] || false);
@@ -14000,7 +14133,7 @@ async function loadQueue() {
             queueTotal = data.total != null ? data.total : queue.length;
             if (data.limit != null) queueLimit = data.limit;
             renderQueue();
-            updateQueueStats();
+            updateQueueStats(data.status_counts || null);
             updateQueuePagination();
             // Check if we need to trigger preview from URL parameter
             checkAndTriggerPreview();
@@ -14125,27 +14258,26 @@ function renderQueue() {
     checkAndTriggerPreview();
 }
 
-function updateQueueStats() {
-    if (!queue || !Array.isArray(queue)) {
-        queue = [];
-    }
-    
-    const stats = {
-        pending: queue.filter(r => r.status === 'pending').length,
-        approved: queue.filter(r => r.status === 'approved').length,
-        rejected: queue.filter(r => r.status === 'rejected').length,
-        submitted: queue.filter(r => r.status === 'submitted').length
-    };
-    
+function updateQueueStats(statusCounts) {
+    const counts = statusCounts || {};
+    const get = (k) => counts[k] != null ? counts[k] : (queue || []).filter(r => r.status === k).length;
+
     const pendingEl = document.getElementById('pendingCount');
     const approvedEl = document.getElementById('approvedCount');
     const rejectedEl = document.getElementById('rejectedCount');
     const submittedEl = document.getElementById('submittedCount');
-    
-    if (pendingEl) pendingEl.textContent = stats.pending;
-    if (approvedEl) approvedEl.textContent = stats.approved;
-    if (rejectedEl) rejectedEl.textContent = stats.rejected;
-    if (submittedEl) submittedEl.textContent = stats.submitted;
+
+    if (pendingEl) pendingEl.textContent = get('pending');
+    if (approvedEl) approvedEl.textContent = get('approved');
+    if (rejectedEl) rejectedEl.textContent = get('rejected');
+    if (submittedEl) submittedEl.textContent = get('submitted');
+
+    // Reflect active filter on stat cards
+    const activeFilter = (document.getElementById('queueStatusFilter') || {}).value || '';
+    document.querySelectorAll('#queueStats .q-stat-card').forEach(card => {
+        const cardStatus = card.dataset.filterStatus || '';
+        card.classList.toggle('q-stat-card--active', cardStatus === activeFilter && activeFilter !== '');
+    });
 }
 
 function updateQueuePagination() {
@@ -17519,6 +17651,14 @@ function toggleRuleDetails(detailsId, iconId) {
 function filterQueue() {
     queuePage = 1;
     loadQueue();
+}
+
+function setQueueStatusFilter(status) {
+    const el = document.getElementById('queueStatusFilter');
+    if (!el) return;
+    // Toggle off if already active
+    el.value = el.value === status ? '' : status;
+    filterQueue();
 }
 
 // Hash normalization will happen in DOMContentLoaded

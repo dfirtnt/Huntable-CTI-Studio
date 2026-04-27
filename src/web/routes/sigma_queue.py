@@ -198,6 +198,7 @@ class QueuedRuleListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+    status_counts: dict[str, int] = {}
 
 
 class QueueUpdateRequest(BaseModel):
@@ -470,7 +471,20 @@ async def list_queued_rules(
                     )
                 )
 
-            return QueuedRuleListResponse(items=result, total=total, limit=limit, offset=offset)
+            counts_rows = (
+                db_session.query(SigmaRuleQueueTable.status, func.count(SigmaRuleQueueTable.id))
+                .group_by(SigmaRuleQueueTable.status)
+                .all()
+            )
+            status_counts = {row[0]: row[1] for row in counts_rows if row[0]}
+
+            return QueuedRuleListResponse(
+                items=result,
+                total=total,
+                limit=limit,
+                offset=offset,
+                status_counts=status_counts,
+            )
         finally:
             db_session.close()
 

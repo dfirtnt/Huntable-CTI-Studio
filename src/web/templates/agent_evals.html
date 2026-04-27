@@ -485,6 +485,7 @@
                         <option value="hunt_queries">Hunt Queries</option>
                         <option value="registry_artifacts">Registry Artifacts</option>
                         <option value="windows_services">Windows Services</option>
+                        <option value="scheduled_tasks">Scheduled Tasks</option>
                     </select>
                     <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -716,7 +717,8 @@ const SUBAGENT_MAP = {
     'process_lineage': 'ProcTreeExtract',
     'hunt_queries': 'HuntQueriesExtract',
     'registry_artifacts': 'RegistryExtract',
-    'windows_services': 'ServicesExtract'
+    'windows_services': 'ServicesExtract',
+    'scheduled_tasks': 'ScheduledTasksExtract'
 };
 
 // Load active workflow config
@@ -2206,7 +2208,8 @@ async function loadAggregateScores() {
                                                agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
                                                agentName === 'HuntQueriesExtract' ? 'HuntQueriesQA' :
                                                agentName === 'RegistryExtract' ? 'RegistryQA' :
-                                               agentName === 'ServicesExtract' ? 'ServicesQA' : null;
+                                               agentName === 'ServicesExtract' ? 'ServicesQA' :
+                               agentName === 'ScheduledTasksExtract' ? 'ScheduledTasksQA' : null;
                             const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
                             
                             configParamsByVersion[version] = {
@@ -2715,6 +2718,9 @@ async function showCommandlines(executionId, articleUrl, count) {
         } else if (resultType === 'windows_services' || subagentEval === 'windows_services') {
             modalTitle.textContent = 'Extracted Windows Services';
             agentName = 'ServicesExtract';
+        } else if (resultType === 'scheduled_tasks' || subagentEval === 'scheduled_tasks') {
+            modalTitle.textContent = 'Extracted Scheduled Tasks';
+            agentName = 'ScheduledTasksExtract';
         } else {
             modalTitle.textContent = 'Extracted Commandlines';
             agentName = 'CmdlineExtract';

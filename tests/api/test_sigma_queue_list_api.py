@@ -9,7 +9,7 @@ class TestSigmaQueueListAPI:
 
     @pytest.mark.asyncio
     async def test_list_returns_paginated_shape(self, async_client):
-        """List endpoint returns items, total, limit, offset."""
+        """List endpoint returns items, total, limit, offset, and status_counts."""
         response = await async_client.get("/api/sigma-queue/list?limit=10&offset=0")
         assert response.status_code == 200
         data = response.json()
@@ -17,11 +17,15 @@ class TestSigmaQueueListAPI:
         assert "total" in data
         assert "limit" in data
         assert "offset" in data
+        assert "status_counts" in data
         assert isinstance(data["items"], list)
         assert data["limit"] == 10
         assert data["offset"] == 0
         assert isinstance(data["total"], int)
         assert data["total"] >= 0
+        assert isinstance(data["status_counts"], dict)
+        for v in data["status_counts"].values():
+            assert isinstance(v, int) and v >= 0
 
     @pytest.mark.asyncio
     async def test_list_respects_limit_and_offset(self, async_client):
@@ -35,9 +39,11 @@ class TestSigmaQueueListAPI:
 
     @pytest.mark.asyncio
     async def test_list_accepts_status_filter(self, async_client):
-        """List endpoint accepts status query param."""
+        """List endpoint accepts status query param and still returns status_counts."""
         response = await async_client.get("/api/sigma-queue/list?status=pending&limit=1&offset=0")
         assert response.status_code == 200
         data = response.json()
         assert "items" in data
         assert "total" in data
+        assert "status_counts" in data
+        assert isinstance(data["status_counts"], dict)

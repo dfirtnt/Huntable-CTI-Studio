@@ -122,3 +122,22 @@ async def test_delete_backup_cron_removes_managed_jobs(monkeypatch):
 
     assert result["success"] is True
     assert result["automated"] is False
+
+
+@pytest.mark.api
+def test_update_backup_cron_requires_no_admin_auth():
+    """Regression: POST /api/backup/cron must not require admin auth.
+
+    The Settings page Save button has no mechanism to supply X-API-Key.
+    If RequireAdminAuth is re-added to this handler the endpoint returns
+    401 for every save, breaking the UI silently.
+    """
+    import inspect
+
+    from src.web.auth import RequireAdminAuth
+
+    sig = inspect.signature(backup_routes.api_update_backup_cron)
+    for param in sig.parameters.values():
+        assert param.default is not RequireAdminAuth, (
+            "api_update_backup_cron must not use RequireAdminAuth -- the Settings page sends no X-API-Key header"
+        )

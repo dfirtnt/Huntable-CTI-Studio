@@ -53,6 +53,9 @@ from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
 
+# Sources excluded from user-facing counts (internal/synthetic feeds).
+_INTERNAL_SOURCE_IDENTIFIERS = ("manual", "eval_articles")
+
 
 class AsyncDatabaseManager:
     """Modern async database manager with connection pooling and proper transaction handling."""
@@ -153,13 +156,18 @@ class AsyncDatabaseManager:
         """Get comprehensive database statistics."""
         try:
             async with self.get_session() as session:
-                # Count sources
-                sources_result = await session.execute(select(func.count(SourceTable.id)))
+                # Count sources (exclude internal/synthetic feeds)
+                sources_result = await session.execute(
+                    select(func.count(SourceTable.id)).where(~SourceTable.identifier.in_(_INTERNAL_SOURCE_IDENTIFIERS))
+                )
                 total_sources = sources_result.scalar()
 
-                # Count active sources
+                # Count active sources (same exclusion)
                 active_sources_result = await session.execute(
-                    select(func.count(SourceTable.id)).where(SourceTable.active)
+                    select(func.count(SourceTable.id)).where(
+                        SourceTable.active,
+                        ~SourceTable.identifier.in_(_INTERNAL_SOURCE_IDENTIFIERS),
+                    )
                 )
                 active_sources = active_sources_result.scalar()
 

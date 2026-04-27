@@ -1,8 +1,7 @@
-"""Tests for RegistryExtract / RegistryQA agent wiring across the full stack.
+"""Tests for ScheduledTasksExtract / ScheduledTasksQA agent wiring across the full stack.
 
-Validates that the new RegistryExtract sub-agent is wired as a first-class peer
-of CmdlineExtract, ProcTreeExtract, and HuntQueriesExtract in schema, config,
-migration, subagent utils, and workflow execution layers.
+Validates that ScheduledTasksExtract is wired as a first-class peer of all existing
+extraction sub-agents in schema, config, migration, subagent utils, and workflow layers.
 """
 
 import json
@@ -47,23 +46,39 @@ _MINIMAL_AGENT_MODELS = {
     "ProcTreeExtract_model": "gpt-4",
     "HuntQueriesExtract_model": "gpt-4",
     "RegistryExtract_model": "gpt-4",
+    "ServicesExtract_model": "gpt-4",
+    "ScheduledTasksExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
     "CmdLineQA": "gpt-4",
     "ProcTreeQA": "gpt-4",
     "HuntQueriesQA": "gpt-4",
     "RegistryQA": "gpt-4",
+    "ServicesQA": "gpt-4",
+    "ScheduledTasksQA": "gpt-4",
 }
 
 _MINIMAL_AGENT_PROMPTS = {name: {"prompt": "", "instructions": ""} for name in ALL_AGENT_NAMES}
 
 
-def _make_v2_with_registry(**overrides):
-    """Build a minimal valid v2 config dict with RegistryExtract + RegistryQA."""
+def _make_v2_with_scheduled_tasks(**overrides):
+    """Build a minimal valid v2 config dict with ScheduledTasksExtract + ScheduledTasksQA."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RegistryExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RegistryQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.1, "TopP": 0.9, "Enabled": True},
+        "ScheduledTasksExtract": {
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Enabled": True,
+        },
+        "ScheduledTasksQA": {
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0.1,
+            "TopP": 0.9,
+            "Enabled": True,
+        },
     }
     prompts = {k: {"prompt": "", "instructions": ""} for k in agents}
     raw = {
@@ -93,23 +108,23 @@ def _make_v2_with_registry(**overrides):
 
 
 class TestSchemaConstants:
-    """RegistryExtract/RegistryQA appear in all schema-level constant lists."""
+    """ScheduledTasksExtract/ScheduledTasksQA appear in all schema-level constant lists."""
 
-    def test_registry_in_agent_names_sub(self):
-        assert "RegistryExtract" in AGENT_NAMES_SUB
+    def test_scheduled_tasks_in_agent_names_sub(self):
+        assert "ScheduledTasksExtract" in AGENT_NAMES_SUB
 
-    def test_registry_qa_in_agent_names_qa(self):
-        assert "RegistryQA" in AGENT_NAMES_QA
+    def test_scheduled_tasks_qa_in_agent_names_qa(self):
+        assert "ScheduledTasksQA" in AGENT_NAMES_QA
 
-    def test_registry_in_all_agent_names(self):
-        assert "RegistryExtract" in ALL_AGENT_NAMES
-        assert "RegistryQA" in ALL_AGENT_NAMES
+    def test_scheduled_tasks_in_all_agent_names(self):
+        assert "ScheduledTasksExtract" in ALL_AGENT_NAMES
+        assert "ScheduledTasksQA" in ALL_AGENT_NAMES
 
     def test_base_to_qa_mapping(self):
-        assert BASE_AGENT_TO_QA["RegistryExtract"] == "RegistryQA"
+        assert BASE_AGENT_TO_QA["ScheduledTasksExtract"] == "ScheduledTasksQA"
 
     def test_qa_to_base_mapping(self):
-        assert QA_AGENT_TO_BASE["RegistryQA"] == "RegistryExtract"
+        assert QA_AGENT_TO_BASE["ScheduledTasksQA"] == "ScheduledTasksExtract"
 
 
 # ===========================================================================
@@ -118,44 +133,44 @@ class TestSchemaConstants:
 
 
 class TestSchemaValidation:
-    """WorkflowConfigV2 validates RegistryExtract correctly."""
+    """WorkflowConfigV2 validates ScheduledTasksExtract correctly."""
 
-    def test_valid_v2_with_registry(self):
-        config = WorkflowConfigV2.model_validate(_make_v2_with_registry())
-        assert "RegistryExtract" in config.Agents
-        assert "RegistryQA" in config.Agents
+    def test_valid_v2_with_scheduled_tasks(self):
+        config = WorkflowConfigV2.model_validate(_make_v2_with_scheduled_tasks())
+        assert "ScheduledTasksExtract" in config.Agents
+        assert "ScheduledTasksQA" in config.Agents
 
-    def test_orphan_registry_qa_rejected(self):
-        """RegistryQA without RegistryExtract is rejected."""
-        raw = _make_v2_with_registry()
-        del raw["Agents"]["RegistryExtract"]
-        del raw["Prompts"]["RegistryExtract"]
-        with pytest.raises(ValidationError, match="Orphan QA agent RegistryQA"):
+    def test_orphan_scheduled_tasks_qa_rejected(self):
+        """ScheduledTasksQA without ScheduledTasksExtract is rejected."""
+        raw = _make_v2_with_scheduled_tasks()
+        del raw["Agents"]["ScheduledTasksExtract"]
+        del raw["Prompts"]["ScheduledTasksExtract"]
+        with pytest.raises(ValidationError, match="Orphan QA agent ScheduledTasksQA"):
             WorkflowConfigV2.model_validate(raw)
 
-    def test_registry_missing_prompt_rejected(self):
-        """RegistryExtract with Provider+Model but no prompt is rejected."""
-        raw = _make_v2_with_registry()
-        del raw["Prompts"]["RegistryExtract"]
-        with pytest.raises(ValidationError, match="Missing prompt block for agent RegistryExtract"):
+    def test_scheduled_tasks_missing_prompt_rejected(self):
+        """ScheduledTasksExtract with Provider+Model but no prompt is rejected."""
+        raw = _make_v2_with_scheduled_tasks()
+        del raw["Prompts"]["ScheduledTasksExtract"]
+        with pytest.raises(ValidationError, match="Missing prompt block for agent ScheduledTasksExtract"):
             WorkflowConfigV2.model_validate(raw)
 
-    def test_flatten_produces_registry_flat_keys(self):
-        config = WorkflowConfigV2.model_validate(_make_v2_with_registry())
+    def test_flatten_produces_scheduled_tasks_flat_keys(self):
+        config = WorkflowConfigV2.model_validate(_make_v2_with_scheduled_tasks())
         flat = config.flatten_for_llm_service()
-        assert flat["RegistryExtract_model"] == "gpt-4"
-        assert flat["RegistryExtract_provider"] == "openai"
-        assert flat["RegistryExtract_temperature"] == 0.0
-        assert flat["RegistryExtract_top_p"] == 0.9
-        assert flat["RegistryQA"] == "gpt-4"
-        assert flat["RegistryQA_provider"] == "openai"
+        assert flat["ScheduledTasksExtract_model"] == "gpt-4"
+        assert flat["ScheduledTasksExtract_provider"] == "openai"
+        assert flat["ScheduledTasksExtract_temperature"] == 0.0
+        assert flat["ScheduledTasksExtract_top_p"] == 0.9
+        assert flat["ScheduledTasksQA"] == "gpt-4"
+        assert flat["ScheduledTasksQA_provider"] == "openai"
 
-    def test_disabled_registry_in_extract_agent_settings(self):
-        raw = _make_v2_with_registry()
-        raw["Execution"]["ExtractAgentSettings"]["DisabledAgents"] = ["RegistryExtract"]
+    def test_disabled_scheduled_tasks_in_extract_agent_settings(self):
+        raw = _make_v2_with_scheduled_tasks()
+        raw["Execution"]["ExtractAgentSettings"]["DisabledAgents"] = ["ScheduledTasksExtract"]
         config = WorkflowConfigV2.model_validate(raw)
         legacy = config.to_legacy_response_dict()
-        assert "RegistryExtract" in legacy["agent_prompts"]["ExtractAgentSettings"]["disabled_agents"]
+        assert "ScheduledTasksExtract" in legacy["agent_prompts"]["ExtractAgentSettings"]["disabled_agents"]
 
 
 # ===========================================================================
@@ -164,17 +179,17 @@ class TestSchemaValidation:
 
 
 class TestLoaderConstants:
-    """RegistryExtract appears in loader ordering constants."""
+    """ScheduledTasksExtract appears in loader ordering constants."""
 
     def test_in_extract_agents(self):
-        assert "RegistryExtract" in EXTRACT_AGENTS
+        assert "ScheduledTasksExtract" in EXTRACT_AGENTS
 
     def test_in_qa_agents(self):
-        assert "RegistryQA" in QA_AGENTS
+        assert "ScheduledTasksQA" in QA_AGENTS
 
     def test_in_agents_order_ui(self):
-        assert "RegistryExtract" in AGENTS_ORDER_UI
-        assert "RegistryQA" in AGENTS_ORDER_UI
+        assert "ScheduledTasksExtract" in AGENTS_ORDER_UI
+        assert "ScheduledTasksQA" in AGENTS_ORDER_UI
 
 
 # ===========================================================================
@@ -183,54 +198,54 @@ class TestLoaderConstants:
 
 
 class TestMigration:
-    """v1-to-v2 migration produces RegistryExtract/RegistryQA agents."""
+    """v1-to-v2 migration produces ScheduledTasksExtract/ScheduledTasksQA agents."""
 
-    def test_v1_with_registry_model_migrates(self):
+    def test_v1_with_scheduled_tasks_model_migrates(self):
         raw = {
             "version": "1.0",
             "agent_models": {
                 **_MINIMAL_AGENT_MODELS,
-                "RegistryExtract_provider": "anthropic",
-                "RegistryExtract_model": "claude-sonnet-4-5",
-                "RegistryExtract_temperature": 0.2,
-                "RegistryExtract_top_p": 0.95,
+                "ScheduledTasksExtract_provider": "anthropic",
+                "ScheduledTasksExtract_model": "claude-sonnet-4-5",
+                "ScheduledTasksExtract_temperature": 0.2,
+                "ScheduledTasksExtract_top_p": 0.95,
             },
             "qa_enabled": {},
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
         }
         migrated = migrate_v1_to_v2(raw)
         config = WorkflowConfigV2.model_validate(migrated)
-        assert config.Agents["RegistryExtract"].Model == "claude-sonnet-4-5"
-        assert config.Agents["RegistryExtract"].Provider == "anthropic"
-        assert config.Agents["RegistryExtract"].Temperature == 0.2
-        assert config.Agents["RegistryExtract"].TopP == 0.95
+        assert config.Agents["ScheduledTasksExtract"].Model == "claude-sonnet-4-5"
+        assert config.Agents["ScheduledTasksExtract"].Provider == "anthropic"
+        assert config.Agents["ScheduledTasksExtract"].Temperature == 0.2
+        assert config.Agents["ScheduledTasksExtract"].TopP == 0.95
 
-    def test_v1_registry_qa_migrates(self):
+    def test_v1_scheduled_tasks_qa_migrates(self):
         raw = {
             "version": "1.0",
             "agent_models": {
                 **_MINIMAL_AGENT_MODELS,
-                "RegistryQA_provider": "openai",
-                "RegistryQA": "gpt-4o",
-                "RegistryQA_temperature": 0.1,
+                "ScheduledTasksQA_provider": "openai",
+                "ScheduledTasksQA": "gpt-4o",
+                "ScheduledTasksQA_temperature": 0.1,
             },
             "qa_enabled": {},
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
         }
         migrated = migrate_v1_to_v2(raw)
         config = WorkflowConfigV2.model_validate(migrated)
-        assert config.Agents["RegistryQA"].Model == "gpt-4o"
-        assert config.Agents["RegistryQA"].Provider == "openai"
+        assert config.Agents["ScheduledTasksQA"].Model == "gpt-4o"
+        assert config.Agents["ScheduledTasksQA"].Provider == "openai"
 
-    def test_migration_roundtrip_flatten_preserves_registry(self):
+    def test_migration_roundtrip_flatten_preserves_scheduled_tasks(self):
         raw = {
             "version": "1.0",
             "agent_models": {
                 **_MINIMAL_AGENT_MODELS,
-                "RegistryExtract_provider": "openai",
-                "RegistryExtract_model": "gpt-4o-mini",
-                "RegistryExtract_temperature": 0.3,
-                "RegistryExtract_top_p": 0.85,
+                "ScheduledTasksExtract_provider": "openai",
+                "ScheduledTasksExtract_model": "gpt-4o-mini",
+                "ScheduledTasksExtract_temperature": 0.3,
+                "ScheduledTasksExtract_top_p": 0.85,
             },
             "qa_enabled": {},
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
@@ -238,10 +253,10 @@ class TestMigration:
         migrated = migrate_v1_to_v2(raw)
         config = WorkflowConfigV2.model_validate(migrated)
         flat = config.flatten_for_llm_service()
-        assert flat["RegistryExtract_model"] == "gpt-4o-mini"
-        assert flat["RegistryExtract_provider"] == "openai"
-        assert flat["RegistryExtract_temperature"] == 0.3
-        assert flat["RegistryExtract_top_p"] == 0.85
+        assert flat["ScheduledTasksExtract_model"] == "gpt-4o-mini"
+        assert flat["ScheduledTasksExtract_provider"] == "openai"
+        assert flat["ScheduledTasksExtract_temperature"] == 0.3
+        assert flat["ScheduledTasksExtract_top_p"] == 0.85
 
 
 # ===========================================================================
@@ -250,25 +265,25 @@ class TestMigration:
 
 
 class TestSubagentUtils:
-    """registry_artifacts alias normalization works correctly."""
+    """scheduled_tasks alias normalization works correctly."""
 
-    def test_agent_to_subagent_has_registry(self):
-        assert AGENT_TO_SUBAGENT["registryextract"] == "registry_artifacts"
+    def test_agent_to_subagent_has_scheduled_tasks(self):
+        assert AGENT_TO_SUBAGENT["scheduledtasksextract"] == "scheduled_tasks"
 
     @pytest.mark.parametrize(
         "alias",
         [
-            "registry_artifacts",
-            "registryartifacts",
-            "registry-artifacts",
-            "registryextract",
-            "registry",
-            "RegistryExtract",
-            "REGISTRY_ARTIFACTS",
+            "scheduled_tasks",
+            "scheduledtasks",
+            "scheduled-tasks",
+            "scheduledtasksextract",
+            "schedtasks",
+            "ScheduledTasksExtract",
+            "SCHEDULED_TASKS",
         ],
     )
-    def test_normalize_registry_aliases(self, alias):
-        assert normalize_subagent_name(alias) == "registry_artifacts"
+    def test_normalize_scheduled_tasks_aliases(self, alias):
+        assert normalize_subagent_name(alias) == "scheduled_tasks"
 
     def test_normalize_unknown_returns_none(self):
         assert normalize_subagent_name("not_a_subagent") is None
@@ -280,10 +295,10 @@ class TestSubagentUtils:
 
 
 class TestUIOrderedRoundTrip:
-    """RegistryExtract survives ui-ordered export → import cycle."""
+    """ScheduledTasksExtract survives ui-ordered export -> import cycle."""
 
     def _make_ui_ordered_preset(self):
-        """Build a UI-ordered preset dict with RegistryExtract section."""
+        """Build a UI-ordered preset dict with ScheduledTasksExtract section."""
         base_agent = {
             "Enabled": True,
             "Provider": "openai",
@@ -308,15 +323,14 @@ class TestUIOrderedRoundTrip:
                 "SelectedOs": ["Windows"],
                 "Prompt": {},
             },
-            "RankAgent": {
-                **base_agent,
-                "RankingThreshold": 6.0,
-            },
+            "RankAgent": {**base_agent, "RankingThreshold": 6.0},
             "ExtractAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0, "TopP": 0.9, "Prompt": {}},
             "CmdlineExtract": {**base_agent, "AttentionPreprocessor": True},
             "ProcTreeExtract": dict(base_agent),
             "HuntQueriesExtract": dict(base_agent),
             "RegistryExtract": dict(base_agent),
+            "ServicesExtract": dict(base_agent),
+            "ScheduledTasksExtract": dict(base_agent),
             "SigmaAgent": {
                 "Provider": "openai",
                 "Model": "gpt-4",
@@ -328,23 +342,22 @@ class TestUIOrderedRoundTrip:
             },
         }
 
-    def test_load_workflow_config_accepts_registry(self):
+    def test_load_workflow_config_accepts_scheduled_tasks(self):
         preset = self._make_ui_ordered_preset()
         config = load_workflow_config(preset)
-        assert "RegistryExtract" in config.Agents
-        assert "RegistryQA" in config.Agents
+        assert "ScheduledTasksExtract" in config.Agents
+        assert "ScheduledTasksQA" in config.Agents
 
-    def test_registry_round_trip_through_export(self):
+    def test_scheduled_tasks_round_trip_through_export(self):
         from src.config.workflow_config_loader import v2_to_ui_ordered_export
 
         preset = self._make_ui_ordered_preset()
         config = load_workflow_config(preset)
-        # v2_to_ui_ordered_export expects a raw v2 dict
         v2_dict = json.loads(config.model_dump_json())
         exported = v2_to_ui_ordered_export(v2_dict)
-        assert "RegistryExtract" in exported, "RegistryExtract missing from UI-ordered export"
-        assert exported["RegistryExtract"]["Provider"] == "openai"
-        assert exported["RegistryExtract"]["Model"] == "gpt-4"
+        assert "ScheduledTasksExtract" in exported, "ScheduledTasksExtract missing from UI-ordered export"
+        assert exported["ScheduledTasksExtract"]["Provider"] == "openai"
+        assert exported["ScheduledTasksExtract"]["Model"] == "gpt-4"
 
 
 # ===========================================================================
@@ -353,9 +366,9 @@ class TestUIOrderedRoundTrip:
 
 
 class TestPromptFiles:
-    """RegistryExtract and RegistryQA prompt files exist and are valid JSON configs."""
+    """ScheduledTasksExtract and ScheduledTasksQA prompt files exist and are valid JSON configs."""
 
-    @pytest.mark.parametrize("prompt_name", ["RegistryExtract", "RegistryQA"])
+    @pytest.mark.parametrize("prompt_name", ["ScheduledTasksExtract", "ScheduledTasksQA"])
     def test_prompt_file_exists_and_is_valid_json(self, prompt_name):
         prompt_path = Path(__file__).resolve().parent.parent.parent / "src" / "prompts" / prompt_name
         assert prompt_path.exists(), f"Prompt file missing: {prompt_path}"
@@ -363,16 +376,15 @@ class TestPromptFiles:
         data = json.loads(content)
         assert "role" in data or "task" in data, f"Prompt file {prompt_name} missing expected keys"
 
-    def test_registry_extract_prompt_has_output_schema(self):
-        prompt_path = Path(__file__).resolve().parent.parent.parent / "src" / "prompts" / "RegistryExtract"
+    def test_scheduled_tasks_extract_prompt_has_output_schema(self):
+        prompt_path = Path(__file__).resolve().parent.parent.parent / "src" / "prompts" / "ScheduledTasksExtract"
         data = json.loads(prompt_path.read_text())
-        # The json_example should define registry_artifacts array
         example = data.get("json_example", "")
         if isinstance(example, str):
             parsed = json.loads(example)
         else:
             parsed = example
-        assert "registry_artifacts" in parsed, "json_example must define registry_artifacts"
+        assert "scheduled_tasks" in parsed, "json_example must define scheduled_tasks array"
 
 
 # ===========================================================================
@@ -381,9 +393,9 @@ class TestPromptFiles:
 
 
 class TestPresetFiles:
-    """Quickstart preset files include RegistryExtract section."""
+    """Quickstart preset files include ScheduledTasksExtract section."""
 
-    def test_quickstart_presets_have_registry(self):
+    def test_quickstart_presets_have_scheduled_tasks(self):
         preset_dir = (
             Path(__file__).resolve().parent.parent.parent / "config" / "presets" / "AgentConfigs" / "quickstart"
         )
@@ -393,44 +405,45 @@ class TestPresetFiles:
         assert len(preset_files) > 0, "No preset files found"
         for preset_file in preset_files:
             data = json.loads(preset_file.read_text())
-            assert "RegistryExtract" in data, f"RegistryExtract missing from {preset_file.name}"
-            assert "Provider" in data["RegistryExtract"], f"RegistryExtract.Provider missing in {preset_file.name}"
+            assert "ScheduledTasksExtract" in data, f"ScheduledTasksExtract missing from {preset_file.name}"
+            assert "Provider" in data["ScheduledTasksExtract"], (
+                f"ScheduledTasksExtract.Provider missing in {preset_file.name}"
+            )
 
 
 # ===========================================================================
-# Eval articles placeholder
+# Eval articles data
 # ===========================================================================
 
 
-class TestEvalArticlesPlaceholder:
-    """Static eval articles directory and YAML/articles.json contract for registry_artifacts."""
+class TestEvalArticlesData:
+    """Static eval articles directory and YAML contract for scheduled_tasks."""
 
     _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-    _EVAL_DIR = _REPO_ROOT / "config" / "eval_articles_data" / "registry_artifacts"
+    _EVAL_DIR = _REPO_ROOT / "config" / "eval_articles_data" / "scheduled_tasks"
     _YAML_PATH = _REPO_ROOT / "config" / "eval_articles.yaml"
 
     def test_eval_articles_directory_exists(self):
         assert self._EVAL_DIR.exists(), f"Eval articles dir missing: {self._EVAL_DIR}"
+
+    def test_articles_json_exists(self):
         articles_file = self._EVAL_DIR / "articles.json"
         assert articles_file.exists(), "articles.json placeholder missing"
 
-    def test_yaml_registry_artifacts_key_present_and_non_empty(self):
-        """eval_articles.yaml has a non-empty registry_artifacts list."""
+    def test_yaml_scheduled_tasks_key_present_and_non_empty(self):
         data = yaml.safe_load(self._YAML_PATH.read_text())
         subagents = data.get("subagents", {})
-        assert "registry_artifacts" in subagents, "registry_artifacts key missing from eval_articles.yaml"
-        entries = subagents["registry_artifacts"]
+        assert "scheduled_tasks" in subagents, "scheduled_tasks key missing from eval_articles.yaml"
+        entries = subagents["scheduled_tasks"]
         assert isinstance(entries, list) and len(entries) > 0, (
-            "registry_artifacts in eval_articles.yaml must be a non-empty list"
+            "scheduled_tasks in eval_articles.yaml must be a non-empty list"
         )
 
-    def test_articles_json_non_empty_and_valid(self):
-        """articles.json parses as a non-empty list."""
+    def test_articles_json_parses_as_list(self):
         articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
-        assert isinstance(articles, list) and len(articles) > 0, "articles.json must be a non-empty list"
+        assert isinstance(articles, list), "articles.json must be a list"
 
     def test_articles_json_required_fields(self):
-        """Every entry in articles.json has url, title, content, and expected_count."""
         articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
         required = {"url", "title", "content", "expected_count"}
         for i, entry in enumerate(articles):
@@ -438,7 +451,6 @@ class TestEvalArticlesPlaceholder:
             assert not missing, f"articles.json entry {i} missing fields: {missing}"
 
     def test_articles_json_expected_count_non_negative_int(self):
-        """expected_count in every articles.json entry is a non-negative integer."""
         articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
         for i, entry in enumerate(articles):
             ec = entry.get("expected_count")
@@ -446,11 +458,10 @@ class TestEvalArticlesPlaceholder:
             assert ec >= 0, f"entry {i}: expected_count must be >= 0, got {ec}"
 
     def test_articles_json_no_duplicate_urls(self):
-        """No two entries in articles.json share the same URL."""
         articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
         urls = [a.get("url") for a in articles]
-        seen: set[str] = set()
-        dupes: list[str] = []
+        seen: set = set()
+        dupes: list = []
         for u in urls:
             if u in seen:
                 dupes.append(u)
@@ -458,28 +469,20 @@ class TestEvalArticlesPlaceholder:
         assert not dupes, f"Duplicate URLs in articles.json: {dupes}"
 
     def test_yaml_and_articles_json_count_match(self):
-        """Number of entries in eval_articles.yaml matches articles.json."""
         yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
-        yaml_entries = yaml_data["subagents"]["registry_artifacts"]
+        yaml_entries = yaml_data["subagents"]["scheduled_tasks"]
         articles = json.loads((self._EVAL_DIR / "articles.json").read_text())
         assert len(yaml_entries) == len(articles), (
-            f"eval_articles.yaml has {len(yaml_entries)} registry_artifacts entries "
-            f"but articles.json has {len(articles)}"
+            f"eval_articles.yaml has {len(yaml_entries)} scheduled_tasks entries but articles.json has {len(articles)}"
         )
 
     def test_yaml_urls_present_in_articles_json(self):
-        """Every URL listed in eval_articles.yaml has a corresponding entry in articles.json.
-
-        Catches the common drift bug: someone updates the YAML but forgets to re-run
-        scripts/fetch_eval_articles_static.py to refresh the static article content.
-        Without the static entry, the eval UI shows the URL but cannot run an eval.
-        """
         yaml_data = yaml.safe_load(self._YAML_PATH.read_text())
-        yaml_urls = {e["url"] for e in yaml_data["subagents"]["registry_artifacts"] if e.get("url")}
+        yaml_urls = {e["url"] for e in yaml_data["subagents"]["scheduled_tasks"] if e.get("url")}
         json_urls = {a["url"] for a in json.loads((self._EVAL_DIR / "articles.json").read_text()) if a.get("url")}
         missing = yaml_urls - json_urls
         assert not missing, (
-            f"URLs in eval_articles.yaml (registry_artifacts) missing from articles.json: {sorted(missing)}. "
+            f"URLs in eval_articles.yaml (scheduled_tasks) missing from articles.json: {sorted(missing)}. "
             "Run: python3 scripts/fetch_eval_articles_static.py"
         )
 
@@ -490,32 +493,32 @@ class TestEvalArticlesPlaceholder:
 
 
 class TestWorkflowHelpers:
-    """_extract_actual_count handles registry_artifacts subresults."""
+    """_extract_actual_count handles scheduled_tasks subresults."""
 
-    def test_extract_actual_count_registry_artifacts(self):
+    def test_extract_actual_count_scheduled_tasks(self):
         from src.workflows.agentic_workflow import _extract_actual_count
 
         subresults = {
-            "registry_artifacts": {
+            "scheduled_tasks": {
                 "items": [
-                    {"registry_hive": "HKEY_LOCAL_MACHINE", "registry_key_path": "SOFTWARE\\Test"},
-                    {"registry_hive": "HKEY_CURRENT_USER", "registry_key_path": "SOFTWARE\\Other"},
+                    {"task_name": "WindowsUpdateHelper", "trigger": "AtLogon"},
+                    {"task_name": "MalwareTask", "trigger": "Daily"},
                 ],
                 "count": 2,
             }
         }
-        assert _extract_actual_count("registry_artifacts", subresults, execution_id=1) == 2
+        assert _extract_actual_count("scheduled_tasks", subresults, execution_id=1) == 2
 
-    def test_extract_actual_count_registry_artifacts_from_count(self):
+    def test_extract_actual_count_scheduled_tasks_from_count(self):
         from src.workflows.agentic_workflow import _extract_actual_count
 
-        subresults = {"registry_artifacts": {"count": 5, "items": []}}
-        assert _extract_actual_count("registry_artifacts", subresults, execution_id=1) == 5
+        subresults = {"scheduled_tasks": {"count": 3, "items": []}}
+        assert _extract_actual_count("scheduled_tasks", subresults, execution_id=1) == 3
 
-    def test_extract_actual_count_registry_artifacts_missing(self):
+    def test_extract_actual_count_scheduled_tasks_missing(self):
         from src.workflows.agentic_workflow import _extract_actual_count
 
-        assert _extract_actual_count("registry_artifacts", {}, execution_id=1) == 0
+        assert _extract_actual_count("scheduled_tasks", {}, execution_id=1) == 0
 
 
 # ===========================================================================
@@ -524,48 +527,29 @@ class TestWorkflowHelpers:
 
 
 class TestDefaultAgentPrompts:
-    """RegistryExtract and RegistryQA are in the prompt file map."""
+    """ScheduledTasksExtract and ScheduledTasksQA are in the prompt file map."""
 
-    def test_agent_prompt_files_has_registry(self):
+    def test_agent_prompt_files_has_scheduled_tasks(self):
         from src.utils.default_agent_prompts import AGENT_PROMPT_FILES
 
-        assert "RegistryExtract" in AGENT_PROMPT_FILES
-        assert "RegistryQA" in AGENT_PROMPT_FILES
+        assert "ScheduledTasksExtract" in AGENT_PROMPT_FILES
+        assert "ScheduledTasksQA" in AGENT_PROMPT_FILES
 
 
 # ===========================================================================
-# LLM service JSON normalization + Langfuse output keys
+# LLM service normalization keys
 # ===========================================================================
 
 
 class TestLLMServiceNormalizationKeys:
-    """Verify llm_service.py expected_keys and normalization handle registry_artifacts
-    and no longer reference dead keys (event_ids, registry_keys)."""
+    """Verify llm_service.py expected_keys and normalization handle scheduled_tasks."""
 
-    def test_expected_keys_includes_registry_artifacts(self):
-        """The JSON candidate expected_keys list must include registry_artifacts."""
-        from pathlib import Path
-
+    def test_expected_keys_includes_scheduled_tasks(self):
         llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
         source = llm_service_path.read_text()
-        assert "registry_artifacts" in source, "registry_artifacts missing from llm_service.py"
+        assert "scheduled_tasks" in source, "scheduled_tasks missing from llm_service.py"
 
-    def test_dead_keys_removed_from_expected_keys(self):
-        """event_ids and registry_keys must NOT appear in expected_keys or normalization."""
-        from pathlib import Path
-
+    def test_langfuse_loop_includes_scheduled_tasks(self):
         llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
         source = llm_service_path.read_text()
-        # These legacy keys should not appear in the expected_keys list or normalization branches
-        assert '"event_ids"' not in source, "Dead key event_ids still referenced in llm_service.py"
-        assert '"registry_keys"' not in source, "Dead key registry_keys still referenced in llm_service.py"
-
-    def test_langfuse_loop_includes_registry_artifacts(self):
-        """The Langfuse output loop must scan for registry_artifacts."""
-        from pathlib import Path
-
-        llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
-        source = llm_service_path.read_text()
-        # Find the Langfuse output loop line
-        assert '"registry_artifacts"' in source
-        assert '"scheduled_tasks"' in source
+        assert "scheduled_tasks" in source
