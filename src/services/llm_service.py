@@ -3427,23 +3427,39 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
 If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
 
-                # Append traceability requirements for observable traceability feature
-                _traceability_block = """
-
-TRACEABILITY (REQUIRED): For each extracted item, the object MUST include these fields:
-- source_evidence: The full paragraph from the article containing this observable (verbatim).
-- extraction_justification: Which prompt rule or rubric triggered this extraction.
-- confidence_score: A number between 0.0 and 1.0 for extraction confidence.
-Every item in the output array MUST be an object (not a plain string). The object MUST have a "value" field plus source_evidence, extraction_justification, and confidence_score."""
-                if user_prompt and agent_name in (
+                # Append traceability requirements for observable traceability feature.
+                # Simple extractors require a generic "value" identity field.
+                # Structured extractors (ScheduledTasksExtract) use domain-specific identity
+                # fields (task_name, task_path, trigger, etc.) in place of "value" -- the
+                # injected reminder must match what the json_example schema actually specifies
+                # so the LLM does not hallucinate a "value" field that is not in the contract.
+                _SIMPLE_EXTRACTORS = (
                     "CmdlineExtract",
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
                     "ServicesExtract",
-                    "ScheduledTasksExtract",
-                ):
-                    user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
+                )
+                _STRUCTURED_EXTRACTORS = ("ScheduledTasksExtract",)
+                _traceability_common = """
+
+TRACEABILITY (REQUIRED): For each extracted item, the object MUST include these fields:
+- source_evidence: The full paragraph from the article containing this observable (verbatim).
+- extraction_justification: Which prompt rule or rubric triggered this extraction.
+- confidence_score: A number between 0.0 and 1.0 for extraction confidence.
+Every item in the output array MUST be an object (not a plain string)."""
+                if user_prompt and agent_name in _SIMPLE_EXTRACTORS:
+                    user_prompt = (
+                        user_prompt.rstrip()
+                        + _traceability_common
+                        + ' The object MUST have a "value" field plus source_evidence, extraction_justification, and confidence_score.\n'
+                    )
+                elif user_prompt and agent_name in _STRUCTURED_EXTRACTORS:
+                    user_prompt = (
+                        user_prompt.rstrip()
+                        + _traceability_common
+                        + " The object MUST include the domain-specific identity fields defined in your json_example schema plus source_evidence, extraction_justification, and confidence_score.\n"
+                    )
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:

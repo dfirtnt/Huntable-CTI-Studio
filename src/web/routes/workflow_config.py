@@ -18,6 +18,7 @@ from src.database.models import (
     AppSettingsTable,
     WorkflowConfigPresetTable,
 )
+from src.services.llm_service import _TRACEABILITY_FIELDS, _TRACEABILITY_REQUIRED
 from src.services.workflow_provider_options import get_provider_options
 from src.utils.default_agent_prompts import get_default_agent_prompts
 
@@ -68,7 +69,6 @@ class WorkflowConfigResponse(BaseModel):
     ranking_threshold: float
     similarity_threshold: float
     junk_filter_threshold: float
-    auto_trigger_hunt_score_threshold: float
     version: int
     is_active: bool
     description: str | None
@@ -91,9 +91,6 @@ class WorkflowConfigUpdate(BaseModel):
     ranking_threshold: float | None = Field(None, ge=0.0, le=10.0, description="Must be between 0.0 and 10.0")
     similarity_threshold: float | None = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
     junk_filter_threshold: float | None = Field(None, ge=0.0, le=1.0, description="Must be between 0.0 and 1.0")
-    auto_trigger_hunt_score_threshold: float | None = Field(
-        None, ge=0.0, le=100.0, description="RegexHuntScore threshold for auto-triggering workflows (0-100)"
-    )
     description: str | None = None
     agent_prompts: dict[str, Any] | None = None
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow numeric temperatures
@@ -214,7 +211,6 @@ async def get_workflow_config(request: Request):
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
-                    auto_trigger_hunt_score_threshold=60.0,
                     version=1,
                     is_active=True,
                     description="Default configuration",
@@ -309,15 +305,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 if config_update.junk_filter_threshold is not None
                 else (current_config.junk_filter_threshold if current_config else 0.8)
             )
-            auto_trigger_hunt_score_threshold = (
-                config_update.auto_trigger_hunt_score_threshold
-                if config_update.auto_trigger_hunt_score_threshold is not None
-                else (
-                    current_config.auto_trigger_hunt_score_threshold
-                    if current_config and hasattr(current_config, "auto_trigger_hunt_score_threshold")
-                    else 60.0
-                )
-            )
 
             if not (0.0 <= ranking_threshold <= 10.0):
                 raise HTTPException(
@@ -332,11 +319,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 raise HTTPException(
                     status_code=400,
                     detail=f"Junk filter threshold must be between 0.0 and 1.0, got {junk_filter_threshold}",
-                )
-            if not (0.0 <= auto_trigger_hunt_score_threshold <= 100.0):
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Auto trigger hunt score threshold must be between 0.0 and 100.0, got {auto_trigger_hunt_score_threshold}",
                 )
 
             # Create new config version
@@ -469,11 +451,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     and abs(current_config.ranking_threshold - ranking_threshold) < 0.0001
                     and abs(current_config.similarity_threshold - similarity_threshold) < 0.0001
                     and abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001
-                    and abs(
-                        getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
-                        - auto_trigger_hunt_score_threshold
-                    )
-                    < 0.0001
                     and current_config.sigma_fallback_enabled == sigma_fallback
                     and getattr(current_config, "osdetection_fallback_enabled", False) == osdetection_fallback
                     and current_config.qa_max_retries == qa_max_retries
@@ -517,9 +494,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         ranking_threshold=current_config.ranking_threshold,
                         similarity_threshold=current_config.similarity_threshold,
                         junk_filter_threshold=current_config.junk_filter_threshold,
-                        auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
-                        if hasattr(current_config, "auto_trigger_hunt_score_threshold")
-                        else 60.0,
                         version=current_config.version,
                         is_active=current_config.is_active,
                         description=current_config.description,
@@ -545,7 +519,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 ranking_threshold=ranking_threshold,
                 similarity_threshold=similarity_threshold,
                 junk_filter_threshold=junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=auto_trigger_hunt_score_threshold,
                 version=new_version,
                 is_active=True,
                 description=final_description,
@@ -571,9 +544,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 ranking_threshold=new_config.ranking_threshold,
                 similarity_threshold=new_config.similarity_threshold,
                 junk_filter_threshold=new_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=new_config.auto_trigger_hunt_score_threshold
-                if hasattr(new_config, "auto_trigger_hunt_score_threshold")
-                else 60.0,
                 version=new_config.version,
                 is_active=new_config.is_active,
                 description=new_config.description,
@@ -598,8 +568,8 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-_TRACEABILITY_REQUIRED = frozenset({"source_evidence", "extraction_justification", "confidence_score"})
-_TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
+# _TRACEABILITY_REQUIRED and _TRACEABILITY_FIELDS are imported from llm_service at the
+# top of this file so the preset prompt scanner stays in sync with the runtime validator.
 
 
 def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str]:
@@ -749,7 +719,6 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
     return {
         "version": "1.0",
         "min_hunt_score": config.Thresholds.MinHuntScore,
-        "auto_trigger_hunt_score_threshold": config.Thresholds.AutoTriggerHuntScoreThreshold,
         "thresholds": {
             "ranking_threshold": config.Thresholds.RankingThreshold,
             "similarity_threshold": config.Thresholds.SimilarityThreshold,
@@ -1226,9 +1195,6 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
-                if hasattr(current_config, "auto_trigger_hunt_score_threshold")
-                else 60.0,
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Updated configuration",
@@ -1476,9 +1442,6 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
-                if hasattr(current_config, "auto_trigger_hunt_score_threshold")
-                else 60.0,
                 version=new_version,
                 is_active=True,
                 description=current_config.description or "Rolled back configuration",
@@ -1774,9 +1737,6 @@ async def bootstrap_prompts_from_files(request: Request):
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=current_config.auto_trigger_hunt_score_threshold
-                if hasattr(current_config, "auto_trigger_hunt_score_threshold")
-                else 60.0,
                 version=new_version,
                 is_active=True,
                 description="Bootstrapped prompts from files",
@@ -1874,7 +1834,6 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
                 ranking_threshold=current_config.ranking_threshold,
                 similarity_threshold=current_config.similarity_threshold,
                 junk_filter_threshold=current_config.junk_filter_threshold,
-                auto_trigger_hunt_score_threshold=getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0),
                 version=new_version,
                 is_active=True,
                 description=f"Reset prompts to defaults: {', '.join(reset_agents)}",
@@ -2152,7 +2111,9 @@ async def validate_workflow_config():
             "ServicesExtract",
             "ScheduledTasksExtract",
         }
-        _QA_AGENTS = {"RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
+        from src.config.workflow_config_loader import QA_AGENTS
+
+        _QA_AGENTS = set(QA_AGENTS)
 
         agent_prompts = current_config.agent_prompts or {}
         for agent_name, prompt_data in agent_prompts.items():
