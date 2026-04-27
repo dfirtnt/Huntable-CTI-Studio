@@ -370,3 +370,48 @@ class TestModelSupportsVariableTemperature:
         standard_in_allowlist = {"gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "codex-mini-latest"}
         for m in standard_in_allowlist:
             assert model_supports_variable_temperature(m) is True, m
+
+    def test_codex_mini_latest_treated_as_standard(self):
+        """codex-mini-latest is in PROJECT_OPENAI_ALLOWLIST and does not match any reasoning
+        prefix, so it is treated as supporting variable temperature. If OpenAI changes behavior
+        for this model, the defense-in-depth retry in llm_service will still handle it."""
+        assert model_supports_variable_temperature("codex-mini-latest") is True
+
+    def test_prefix_match_not_substring_match(self):
+        """Reasoning prefix check uses startswith, not substring -- a model with a reasoning
+        token embedded mid-name (hypothetical, never real) is NOT treated as a reasoning model."""
+        # "embedded-o4-mini" contains "o4-mini" as a substring but does not start with it
+        assert model_supports_variable_temperature("embedded-o4-mini") is True
+        assert model_supports_variable_temperature("my-o1-variant") is True
+        assert model_supports_variable_temperature("text-o3-turbo") is True
+
+    def test_reasoning_dated_snapshots_return_false(self):
+        """Dated snapshots of reasoning models inherit the same classification."""
+        for model in ("o3-mini-2025-01-31", "o4-mini-2025-04-16", "o1-2024-12-17"):
+            assert model_supports_variable_temperature(model) is False, model
+
+    def test_o4_prefix_overlap_correctness(self):
+        """_OPENAI_REASONING_PREFIXES contains both 'o4' and 'o4-mini' and 'o4-'.
+        Verify all three are caught and no false positives arise from the overlap."""
+        assert model_supports_variable_temperature("o4") is False
+        assert model_supports_variable_temperature("o4-mini") is False
+        assert model_supports_variable_temperature("o4-preview") is False
+        # gpt-4o must NOT be caught by 'o4' prefix since it starts with 'gpt-'
+        assert model_supports_variable_temperature("gpt-4o") is True
+
+    def test_full_project_allowlist_coverage(self):
+        """Every model in PROJECT_OPENAI_ALLOWLIST has an explicit expected classification."""
+        from src.utils.model_validation import PROJECT_OPENAI_ALLOWLIST
+
+        expected = {
+            "gpt-4o": True,
+            "gpt-4o-mini": True,
+            "gpt-4.1": True,
+            "gpt-4.1-mini": True,
+            "codex-mini-latest": True,
+            "o3-mini": False,
+            "o4-mini": False,
+        }
+        for model in PROJECT_OPENAI_ALLOWLIST:
+            assert model in expected, f"{model} added to allowlist but not in temperature expectation map"
+            assert model_supports_variable_temperature(model) is expected[model], model
