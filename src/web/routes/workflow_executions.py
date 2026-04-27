@@ -1148,7 +1148,9 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             import hashlib
 
             session_id = f"workflow_exec_{execution_id}"
-            trace_id_hash = hashlib.md5(session_id.encode()).hexdigest()
+            trace_id_hash = hashlib.md5(
+                session_id.encode()
+            ).hexdigest()  # codeql[py/weak-sensitive-data-hashing] false positive: MD5 used for trace ID generation only, not cryptographic security
             resolved_trace_id = None
             trace_lookup_used = False
 

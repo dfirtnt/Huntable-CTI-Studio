@@ -300,7 +300,7 @@ class DFIRArchiveFetcher:
                 href = link.get("href", "")
                 if (
                     href
-                    and ("thedfirreport.com" in href or href.startswith("/"))
+                    and ("thedfirreport.com" in href or href.startswith("/"))  # codeql[py/incomplete-url-substring-sanitization] false positive: link-filtering heuristic, not a security gate
                     and "/page/" not in href
                     and href.count("/") >= 3
                     and not href.endswith(".pdf")
@@ -359,7 +359,7 @@ class DFIRArchiveFetcher:
                     href = link.get("href", "")
                     if (
                         href
-                        and ("thedfirreport.com" in href or href.startswith("/"))
+                        and ("thedfirreport.com" in href or href.startswith("/"))  # codeql[py/incomplete-url-substring-sanitization] false positive: link-filtering heuristic, not a security gate
                         and "/page/" not in href
                         and href.count("/") >= 3
                         and not href.endswith(".pdf")

@@ -74,7 +74,7 @@ def run_observable_training_job(observable_type: str, train_model: bool = True) 
             from src.services.model_training import train_cmd_extractor_model
 
             dataset_path = Path(result.get("dataset_path"))
-            if dataset_path.exists():
+            if dataset_path.exists():  # codeql[py/path-injection] false positive: dataset_path built internally from allowlist-validated observable_type
                 training_result = train_cmd_extractor_model(
                     dataset_path=dataset_path,
                     model_key="bert_base",  # Default to BERT, could be configurable
@@ -103,9 +103,11 @@ def _export_observable_dataset(observable_type: str, usage: str, mark_training: 
         raise ValueError(f"Unsupported observable type '{observable_type}'")
 
     dataset_dir, artifact_dir, manifest_path = _get_paths(observable_type)
-    dataset_dir.mkdir(parents=True, exist_ok=True)
+    dataset_dir.mkdir(
+        parents=True, exist_ok=True
+    )  # codeql[py/path-injection] false positive: observable_type validated against SUPPORTED_OBSERVABLE_TYPES allowlist at caller
     if mark_training:
-        artifact_dir.mkdir(parents=True, exist_ok=True)
+        artifact_dir.mkdir(parents=True, exist_ok=True)  # codeql[py/path-injection] false positive: see above
 
     db_manager = DatabaseManager()
     session = db_manager.get_session()
@@ -163,7 +165,9 @@ def _export_observable_dataset(observable_type: str, usage: str, mark_training: 
                 "dataset_path": str(dataset_path),
                 "artifact_path": str(artifact_path),
             }
-            artifact_path.write_text(json.dumps(artifact_payload, indent=2), encoding="utf-8")
+            artifact_path.write_text(
+                json.dumps(artifact_payload, indent=2), encoding="utf-8"
+            )  # codeql[py/path-injection] false positive: path derived from allowlist-validated observable_type
 
             annotation_ids = [annotation.id for annotation in annotations]
             session.execute(
@@ -225,7 +229,9 @@ async def _aggregate_counts() -> dict[str, dict[str, int]]:
 
 
 def _write_dataset(dataset_path: Path, annotations: list[ArticleAnnotationTable], observable_type: str) -> None:
-    with dataset_path.open("w", encoding="utf-8") as dataset_file:
+    with (
+        dataset_path.open("w", encoding="utf-8") as dataset_file
+    ):  # codeql[py/path-injection] false positive: path constructed from allowlist-validated observable_type in _get_paths
         for annotation in annotations:
             payload = {
                 "annotation_id": annotation.id,
@@ -243,9 +249,13 @@ def _write_dataset(dataset_path: Path, annotations: list[ArticleAnnotationTable]
 
 
 def _load_manifest(manifest_path: Path) -> dict[str, Any]:
-    if manifest_path.exists():
+    if (
+        manifest_path.exists()
+    ):  # codeql[py/path-injection] false positive: path derived from allowlist-validated observable_type
         try:
-            return json.loads(manifest_path.read_text(encoding="utf-8"))
+            return json.loads(
+                manifest_path.read_text(encoding="utf-8")
+            )  # codeql[py/path-injection] false positive: see above
         except Exception:
             pass
     return {"versions": [], "active_version": None}
@@ -257,4 +267,6 @@ def _update_manifest(manifest_path: Path, artifact_payload: dict[str, Any]) -> N
     versions.insert(0, artifact_payload)
     manifest["versions"] = versions
     manifest["active_version"] = artifact_payload["version"]
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest, indent=2), encoding="utf-8"
+    )  # codeql[py/path-injection] false positive: path derived from allowlist-validated observable_type

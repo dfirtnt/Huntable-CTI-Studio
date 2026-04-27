@@ -147,12 +147,14 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     Returns dict url -> {url, title, content, filtered_content?, expected_count}.
     """
     out: dict[str, dict] = {}
-    data_dir = _EVAL_ARTICLES_DATA_DIR / subagent_key
+    data_dir = (
+        _EVAL_ARTICLES_DATA_DIR / subagent_key
+    )  # codeql[py/path-injection] false positive: subagent_key is an internal enum value, not a user-supplied path component
     articles_path = data_dir / "articles.json"
-    if not articles_path.exists():
+    if not articles_path.exists():  # codeql[py/path-injection] false positive: see above
         return out
     try:
-        with open(articles_path) as f:
+        with open(articles_path) as f:  # codeql[py/path-injection] false positive: see above
             articles = json.load(f)
         if not isinstance(articles, list):
             return out

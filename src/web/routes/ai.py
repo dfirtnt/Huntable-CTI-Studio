@@ -452,7 +452,7 @@ async def api_test_openai_key(request: Request):
             )
 
         # Log key info for debugging (masked)
-        logger.info(
+        logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: intentionally masked partial key (first 8 + last 4 chars only)
             f"🔑 Testing OpenAI API key: length={len(api_key)}, "
             f"starts_with={api_key[:8]}..., ends_with=...{api_key[-4:]}"
         )
@@ -598,7 +598,9 @@ async def api_test_hf_key(request: Request):
             )
 
         masked = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else "***"
-        logger.info(f"🔑 Testing Hugging Face token (masked): {masked}")
+        logger.info(
+            f"🔑 Testing Hugging Face token (masked): {masked}"
+        )  # codeql[py/clear-text-logging-sensitive-data] false positive: token already masked before logging
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -2428,7 +2430,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                 if request.headers.get("X-Anthropic-API-Key")
                 else "body"
             )
-            logger.info(
+            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: logs last 4 chars only (masked partial key for debug tracing)
                 f"🔍 DEBUG SIGMA: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}"
             )
 
@@ -2437,7 +2439,9 @@ async def api_generate_sigma(article_id: int, request: Request):
 
         # DEBUG: Log after stripping
         if api_key:
-            logger.info(f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}")
+            logger.info(
+                f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
+            )  # codeql[py/clear-text-logging-sensitive-data] false positive: last 4 chars only
 
         ai_model = body.get("ai_model", "chatgpt")
         author_name = body.get("author_name", "Huntable CTI Studio User")
@@ -2828,7 +2832,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             api_key_len = len(api_key) if api_key else 0
             api_key_start = api_key[:8] if api_key and len(api_key) >= 8 else "N/A"
             api_key_end = api_key[-4:] if api_key and len(api_key) >= 4 else "N/A"
-            logger.info(
+            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: intentionally masked partial key for debug tracing
                 f"🔑 Making OpenAI API call with api_key length: {api_key_len}, starts_with: {api_key_start}..., ends_with: ...{api_key_end}"
             )
 

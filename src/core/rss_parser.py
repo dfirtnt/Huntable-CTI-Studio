@@ -610,7 +610,9 @@ class RSSParser:
                 return None
 
         # Special handling for The Hacker News - try basic scraping first, fallback to RSS
-        if "thehackernews.com" in url.lower():
+        if (
+            "thehackernews.com" in url.lower()
+        ):  # codeql[py/incomplete-url-substring-sanitization] false positive: routing decision only, not a security gate
             logger.info(f"The Hacker News URL detected, trying modern scraping first: {url}")
             try:
                 # Try basic scraping to get full content
@@ -733,7 +735,9 @@ class RSSParser:
                         cleaned_content = ContentCleaner.clean_html(extracted_content)
 
                         # Special cleaning for CrowdStrike articles
-                        if "crowdstrike.com" in url.lower():
+                        if (
+                            "crowdstrike.com" in url.lower()
+                        ):  # codeql[py/incomplete-url-substring-sanitization] false positive: routing decision only, not a security gate
                             cleaned_content = self._clean_crowdstrike_content(cleaned_content)
 
                         return cleaned_content
@@ -843,7 +847,9 @@ class RSSParser:
                         cleaned_content = ContentCleaner.basic_html_clean(extracted_content)
 
                         # Special cleaning for CrowdStrike articles
-                        if "crowdstrike.com" in url.lower():
+                        if (
+                            "crowdstrike.com" in url.lower()
+                        ):  # codeql[py/incomplete-url-substring-sanitization] false positive: routing decision only, not a security gate
                             cleaned_content = self._clean_crowdstrike_content(cleaned_content)
 
                         return cleaned_content

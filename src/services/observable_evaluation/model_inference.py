@@ -116,15 +116,19 @@ class ObservableModelInference:
         if model_version:
             # Try each model_key with the specified version
             for model_key in model_keys:
-                model_path = base_dir / model_key / model_version
-                if model_path.exists() and (
+                model_path = (
+                    base_dir / model_key / model_version
+                )  # codeql[py/path-injection] false positive: model_key from hardcoded list; model_version is a version identifier, not user-controlled path
+                if model_path.exists() and (  # codeql[py/path-injection] false positive: see above
                     (model_path / "pytorch_model.bin").exists() or (model_path / "model.safetensors").exists()
                 ):
                     return model_path
 
             # Fallback: Check if model was saved directly under base_dir (wrong location from old training)
-            fallback_path = base_dir / model_version
-            if fallback_path.exists() and (
+            fallback_path = (
+                base_dir / model_version
+            )  # codeql[py/path-injection] false positive: model_version is a version identifier, not user-controlled path
+            if fallback_path.exists() and (  # codeql[py/path-injection] false positive: see above
                 (fallback_path / "pytorch_model.bin").exists() or (fallback_path / "model.safetensors").exists()
             ):
                 logger.warning(f"Found model in incorrect location: {fallback_path}. Consider retraining to fix path.")
