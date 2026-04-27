@@ -150,7 +150,7 @@ def train_cmd_extractor_model(
     logger.info(f"Starting model training: {' '.join(cmd)}")
 
     try:
-        # Run training; codeql[py/shell-command-constructed-from-input] false positive: list form (no shell=True), script from hardcoded map, version regex-validated above
+        # Run training; codeql[py/command-line-injection] false positive: list form (no shell=True), script from hardcoded map, version regex-validated above
         result = subprocess.run(
             cmd,
             capture_output=True,

@@ -396,7 +396,7 @@ async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
             if no_snapshot:
                 cmd.append("--no-snapshot")
 
-        result = subprocess.run(  # nosemgrep  # codeql[py/shell-command-constructed-from-input] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
+        result = subprocess.run(  # nosemgrep  # codeql[py/command-line-injection] false positive: all cmd args validated by validate_backup_name/validate_backup_dir/validate_backup_components; list form (no shell=True)
             cmd,
             cwd=str(project_root),
             capture_output=True,
