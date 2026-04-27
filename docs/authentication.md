@@ -22,7 +22,7 @@ The following endpoints require authentication via the `X-API-Key` header:
 Generate a secure API key:
 
 ```bash
-python -c 'import secrets; print(secrets.token_urlsafe(32))'
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
 ```
 
 ### 2. Set Environment Variable
@@ -50,7 +50,7 @@ docker-compose restart web
 Include the API key in the `X-API-Key` header:
 
 ```bash
-curl -X POST http://localhost:8000/api/backup/create \
+curl -X POST http://localhost:8001/api/backup/create \
   -H "X-API-Key: your_api_key_here" \
   -H "Content-Type: application/json" \
   -d '{"backup_type": "full"}'
@@ -67,7 +67,7 @@ headers = {
 }
 
 response = requests.post(
-    "http://localhost:8000/api/backup/create",
+    "http://localhost:8001/api/backup/create",
     headers=headers,
     json={"backup_type": "full"}
 )
@@ -76,7 +76,7 @@ response = requests.post(
 ### JavaScript/Fetch
 
 ```javascript
-const response = await fetch('http://localhost:8000/api/backup/create', {
+const response = await fetch('http://localhost:8001/api/backup/create', {
   method: 'POST',
   headers: {
     'X-API-Key': 'your_api_key_here',

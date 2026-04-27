@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: development/MANUAL_TEST_CHECKLIST.md, development/MANUAL_CHECKLIST_30MIN.md -->
 
-# Manual Testing Checklist
+## Manual Testing Checklist
 
 ## Overview
 
@@ -524,7 +524,7 @@ This comprehensive testing checklist ensures all features of the Huntable CTI St
 
 ---
 
-# Manual Software Checks — 30‑Minute Procedure
+## Manual Software Checks — 30‑Minute Procedure
 
 Checks that are **not** covered by existing (non-skipped) automated tests. Target: **≤30 minutes** total.
 

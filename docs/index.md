@@ -90,4 +90,3 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Documentation**: Navigate using the docs sidebar
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
-# Test: Verify GitHub Pages env protection rules fix

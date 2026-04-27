@@ -49,4 +49,4 @@ docker-compose restart web
 docker-compose down
 ```
 
-If you change host ports, edit the `web` service mappings in `docker-compose.yml` (see `../development/PORT_CONFIGURATION.md`) and update any scripts or environment variables that reference `localhost:8001`.
+If you change host ports, edit the `web` service mappings in `docker-compose.yml` and update any scripts or environment variables that reference `localhost:8001`.

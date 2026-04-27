@@ -27,7 +27,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -94,7 +94,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -120,7 +120,7 @@ jobs:
 
       - name: Upload smoke test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: smoke-test-artifacts
           path: |
@@ -171,7 +171,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -212,7 +212,7 @@ jobs:
 
       - name: Upload unit test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: unit-test-artifacts
           path: |
@@ -264,7 +264,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -308,7 +308,7 @@ jobs:
 
       - name: Upload API test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: api-test-artifacts
           path: |
@@ -359,7 +359,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -416,7 +416,7 @@ jobs:
 
       - name: Upload integration test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: integration-test-artifacts
           path: |
@@ -469,7 +469,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
@@ -529,7 +529,7 @@ jobs:
 
       - name: Upload UI test artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ui-test-artifacts
           path: |

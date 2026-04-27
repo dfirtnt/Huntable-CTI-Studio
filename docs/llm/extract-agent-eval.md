@@ -2,7 +2,7 @@
 
 ## Evaluation Framework
 
-# Extract Agent Evaluation Framework
+## Extract Agent Evaluation Framework
 
 ## Overview
 
@@ -234,7 +234,7 @@ After fine-tuning, aim for:
 
 **Note**: This section describes deprecated fine-tuning approaches. Current extract agents use prompt engineering and few-shot learning instead.
 
-# Extract Agent Fine-Tuning Guide
+## Extract Agent Fine-Tuning Guide
 
 > DEPRECATION NOTICE (Feb 2026): The HuggingFace-based fine-tuning workflow described below is no longer maintained or supported. This guide is retained for historical reference only and may not work with current tooling or configuration.
 

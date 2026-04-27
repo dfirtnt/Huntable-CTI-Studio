@@ -90,7 +90,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
 
-Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`).
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`).
 
 Each prompt object is a JSON dict with these fields:
 

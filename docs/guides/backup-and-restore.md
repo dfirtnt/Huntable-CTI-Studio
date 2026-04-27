@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: operations/BACKUP_AND_RESTORE.md, operations/CROSS_MACHINE_RESTORE.md -->
 
-# Backup and Restore System
+## Backup and Restore System
 
 Comprehensive guide for Huntable CTI Studio backup and restore operations, including database-only backups, full system backups, and automated backup configuration.
 
@@ -266,19 +266,19 @@ Full system backups provide complete system recovery capability, backing up all 
 
 ```bash
 # Create backup
-python -m src.cli.main backup create
+python3 -m src.cli.main backup create
 
 # List backups
-python -m src.cli.main backup list
+python3 -m src.cli.main backup list
 
 # Restore system
-python -m src.cli.main backup restore system_backup_20251010_103000
+python3 -m src.cli.main backup restore system_backup_20251010_103000
 
 # Verify backup
-python -m src.cli.main backup verify system_backup_20251010_103000
+python3 -m src.cli.main backup verify system_backup_20251010_103000
 
 # Show statistics
-python -m src.cli.main backup stats
+python3 -m src.cli.main backup stats
 ```
 
 ---
@@ -837,7 +837,7 @@ For issues with backups:
 
 ---
 
-# Cross-Machine Backup Restore
+## Cross-Machine Backup Restore
 
 ## Overview
 

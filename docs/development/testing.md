@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: development/TESTING_STRATEGY.md, development/TEST_PLAN.md, development/TEST_GROUPS.md, development/TEST_DATA_SAFETY.md -->
 
-# Testing Strategy
+## Testing Strategy
 
 ## Overview
 
@@ -315,9 +315,9 @@ This excludes:
 
 ---
 
-# Test Plan
+## Test Plan
 
-## Overview
+### Overview
 
 This document outlines the test plan for Huntable CTI Studio, focusing on critical analyst workflows and high-risk modules.
 
@@ -526,7 +526,7 @@ make test-down
 
 ---
 
-# Test Groups Documentation
+## Test Groups Documentation
 
 **Date**: 2025-11-24  
 **Purpose**: Document all test groups, their mappings, execution order, and dependencies
@@ -871,7 +871,7 @@ All test groups are verified to be non-impactful to production data and configur
 
 ---
 
-# Test Data Safety Audit Report
+## Test Data Safety Audit Report
 
 **Date**: 2025-11-24  
 **Purpose**: Verify all tests are non-impactful to system integrity (database data and app configs)

@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: features/CONTENT_FILTERING.md, features/CONTENT_FILTER_ML_SETUP.md -->
 
-# LLM Content Filtering System Documentation
+## LLM Content Filtering System Documentation
 
 ## Overview
 
@@ -738,7 +738,7 @@ The LLM Content Filtering System successfully reduces API costs by 20-80% while 
 
 ---
 
-# Content Filter ML Model Setup
+## Content Filter ML Model Setup
 
 ## Overview
 

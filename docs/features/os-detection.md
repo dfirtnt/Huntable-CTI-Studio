@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: features/OS_DETECTION.md, HUNTABLE_WINDOWS_CLASSIFIER.md, HUNTABLE_WINDOWS_TRAINING_STRATEGY.md, OS_DETECTION_CLASSIFIER_TRAINING.md -->
 
-# OS Detection System
+## OS Detection System
 
 Automated operating system detection for threat intelligence articles using embedding-based classification with LLM fallback.
 
@@ -202,7 +202,7 @@ If OS detection is incorrect:
 
 ---
 
-# Huntable Windows Classifier
+## Huntable Windows Classifier
 
 Binary classifier to detect if an article contains Windows-based huntables, even if it also mentions other operating systems.
 
@@ -452,7 +452,7 @@ To integrate into the existing OS detection workflow:
 
 ---
 
-# Training Strategy for Robustness Across Content Filtering Levels
+## Training Strategy for Robustness Across Content Filtering Levels
 
 ## Goal
 
@@ -587,7 +587,7 @@ This should generalize well across all filtering levels.
 
 ---
 
-# OS Detection Classifier Training Guide
+## OS Detection Classifier Training Guide
 
 Complete guide for training an OS detection classifier using CTI-BERT embeddings.
 
