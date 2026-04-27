@@ -62,7 +62,7 @@ curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
   | jq '{status, sigma_rules: .sigma_rules}'
 ```
 
-In the UI, open `http://localhost:8001/articles/${ARTICLE_ID}#sigma` to jump to the Sigma section. Logs and similarity matches are also surfaced on the Workflow page.
+In the UI, open `http://localhost:8001/workflow#executions` and click **View** on the row matching `${EXECUTION_ID}` to see the validated Sigma YAML, logs, and similarity matches. (The article page at `/articles/${ARTICLE_ID}` surfaces the extracted observables but not the Sigma rules.)
 
 ## What Happens Under the Hood
 
@@ -71,7 +71,7 @@ The agentic workflow runs these stages in order:
 1. **OS Detection** — classifies the article as Windows/Linux/macOS/cross-platform. Non-Windows articles terminate early with reason `non_windows_os_detected`.
 2. **Content Filtering** — ML classifier + hunt score keywords determine if the article has actionable threat content.
 3. **Chunking** — long articles are split into context-window-sized chunks for LLM processing.
-4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts).
+4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services).
 5. **Supervisor Aggregation** — a supervisor agent merges and deduplicates sub-agent outputs.
 6. **Sigma Generation** — generates detection rules from extracted observables, then runs similarity search against 5,247+ indexed SigmaHQ rules.
 

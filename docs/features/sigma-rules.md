@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: features/SIGMA_DETECTION_RULES.md, reference/sigma.md -->
 
-# SIGMA Detection Rules System
+## SIGMA Detection Rules System
 
 Comprehensive system for AI-powered SIGMA detection rule generation, matching against SigmaHQ repository, and similarity search.
 
@@ -881,7 +881,7 @@ For issues and questions:
 
 ---
 
-# Sigma Reference
+## Sigma Reference
 
 Sigma generation runs inside the workflow after extraction and is also available via CLI commands. Use this reference alongside [Generate Sigma](../guides/generate-sigma.md).
 
