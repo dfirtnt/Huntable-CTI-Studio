@@ -22,7 +22,6 @@ def test_valid_v2_load():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -86,7 +85,6 @@ def test_invalid_value_types_fail():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {},
         "Embeddings": {},
@@ -118,7 +116,6 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -162,7 +159,6 @@ def test_flatten_for_llm_service_keys():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -216,7 +212,6 @@ _LEGACY_RESPONSE_DICT_KEYS = frozenset(
         "ranking_threshold",
         "similarity_threshold",
         "junk_filter_threshold",
-        "auto_trigger_hunt_score_threshold",
         "version",
         "is_active",
         "description",
@@ -273,7 +268,6 @@ def test_qa_enabled_orphan_fails():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
@@ -298,7 +292,6 @@ def test_stray_prompt_key_fails():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
@@ -323,7 +316,6 @@ def _minimal_v2(agents: dict, prompts: dict | None = None) -> dict:
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": agents,
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},

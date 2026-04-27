@@ -175,7 +175,6 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         "JunkFilterThreshold": _float_val(
             thresholds.get("junk_filter_threshold") or raw.get("junk_filter_threshold"), 0.8
         ),
-        "AutoTriggerHuntScoreThreshold": _float_val(raw.get("auto_trigger_hunt_score_threshold"), 60.0),
     }
     if raw.get("ranking_threshold") is not None:
         deprecated_used.append("ranking_threshold")

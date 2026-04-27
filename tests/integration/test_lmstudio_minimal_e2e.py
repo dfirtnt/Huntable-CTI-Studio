@@ -89,7 +89,6 @@ def minimal_active_config(db_session):
         ranking_threshold=legacy["ranking_threshold"],
         similarity_threshold=legacy["similarity_threshold"],
         junk_filter_threshold=legacy["junk_filter_threshold"],
-        auto_trigger_hunt_score_threshold=legacy.get("auto_trigger_hunt_score_threshold", 60.0),
         version=max_version + 1,
         is_active=True,
         description="Minimal LMStudio Gemma 3 1B E2E test",

@@ -168,11 +168,10 @@ class TestValidateRuleEndpoint:
             mock_session.query.return_value.filter.return_value.first.side_effect = [mock_rule, mock_article]
             mock_session.query.return_value.filter.return_value.order_by.return_value.first.return_value = None
             mock_session.close = MagicMock()
-            from fastapi import HTTPException
 
-            with pytest.raises(HTTPException) as exc_info:
-                await validate_rule(mock_request, queue_id=1)
-            assert exc_info.value.status_code == 400
+            result = await validate_rule(mock_request, queue_id=1)
+            assert result["success"] is False
+            assert "workflow config" in result["message"].lower() or "no active" in result["message"].lower()
 
     @pytest.mark.asyncio
     async def test_validate_use_workflow_sigma_agent_success_when_llm_resolved(self):

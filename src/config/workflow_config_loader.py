@@ -74,7 +74,6 @@ THRESHOLDS_ORDER_UI = [
     "RankingThreshold",
     "SimilarityThreshold",
     "MinHuntScore",
-    "AutoTriggerHuntScoreThreshold",
 ]
 
 # UI-ordered export: one block per UI section, top-to-bottom order of configurable elements.
@@ -84,7 +83,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "Metadata",
     "JunkFilter",
     "QASettings",
-    "Thresholds",  # only MinHuntScore, AutoTriggerHuntScoreThreshold (not per-panel)
+    "Thresholds",  # only MinHuntScore (not per-panel)
     "OSDetection",
     "RankAgent",
     "ExtractAgent",
@@ -118,7 +117,7 @@ _LEGACY_REQUIRED_KEYS = [
 _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("JunkFilter", ["JunkFilterThreshold"]),
     ("QASettings", ["MaxRetries"]),
-    ("Thresholds", ["MinHuntScore", "AutoTriggerHuntScoreThreshold"]),
+    ("Thresholds", ["MinHuntScore"]),
     ("OSDetection", ["Embedding", "FallbackEnabled", "Fallback", "SelectedOs", "Prompt"]),
     (
         "RankAgent",
@@ -226,7 +225,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     out["QASettings"] = {"MaxRetries": int(qa.get("MaxRetries", 5))}
     out["Thresholds"] = {
         "MinHuntScore": float(th.get("MinHuntScore", 97.0)),
-        "AutoTriggerHuntScoreThreshold": float(th.get("AutoTriggerHuntScoreThreshold", 60.0)),
     }
 
     os_fb = _agent_cfg(agents, "OSDetectionFallback")
@@ -545,7 +543,6 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "RankingThreshold": rank.get("RankingThreshold", 6.0),
         "SimilarityThreshold": sigma.get("SimilarityThreshold", 0.5),
         "MinHuntScore": th_extra.get("MinHuntScore", 97.0),
-        "AutoTriggerHuntScoreThreshold": th_extra.get("AutoTriggerHuntScoreThreshold", 60.0),
     }
     embeddings = {
         "OsDetection": osd.get("Embedding", "ibm-research/CTI-BERT"),
@@ -659,7 +656,6 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "ranking_threshold": getattr(row, "ranking_threshold", 6.0),
         "similarity_threshold": getattr(row, "similarity_threshold", 0.5),
         "junk_filter_threshold": getattr(row, "junk_filter_threshold", 0.8),
-        "auto_trigger_hunt_score_threshold": getattr(row, "auto_trigger_hunt_score_threshold", 60.0),
         "agent_models": getattr(row, "agent_models", None) or {},
         "agent_prompts": getattr(row, "agent_prompts", None) or {},
         "qa_enabled": getattr(row, "qa_enabled", None) or {},

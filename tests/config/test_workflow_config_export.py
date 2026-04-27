@@ -75,7 +75,6 @@ def test_no_legacy_keys_present():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -106,7 +105,6 @@ def test_no_stray_prompt_keys():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -153,7 +151,6 @@ def test_metadata_not_empty():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -256,7 +253,7 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
         "Metadata": {},
         "JunkFilter": {"JunkFilterThreshold": 0.8},
         "QASettings": {"MaxRetries": 3},
-        "Thresholds": {"MinHuntScore": 85.0, "AutoTriggerHuntScoreThreshold": 50.0},
+        "Thresholds": {"MinHuntScore": 85.0},
         "OSDetection": {
             "Embedding": "bert",
             "FallbackEnabled": False,
@@ -357,7 +354,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
     config = load_workflow_config(ui_ordered)
     legacy = config.to_legacy_response_dict()
     assert legacy["min_hunt_score"] == 85.0
-    assert legacy["auto_trigger_hunt_score_threshold"] == 50.0
 
 
 def test_config_row_to_preset_dict_includes_disabled_agents_from_agent_prompts():
@@ -391,7 +387,6 @@ def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompt
         ranking_threshold=6.0,
         similarity_threshold=0.5,
         junk_filter_threshold=0.8,
-        auto_trigger_hunt_score_threshold=60.0,
         agent_models=dict(_MINIMAL_AGENT_MODELS),
         agent_prompts={
             **_MINIMAL_AGENT_PROMPTS,

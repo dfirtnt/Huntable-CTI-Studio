@@ -75,42 +75,6 @@ class TestWorkflowConfigCRUD:
     @pytest.mark.api
     @pytest.mark.integration_full
     @pytest.mark.asyncio
-    async def test_update_auto_trigger_hunt_score_threshold_persists(self, async_client: httpx.AsyncClient):
-        """Changing only auto_trigger_hunt_score_threshold must persist.
-
-        Regression test for the configs_identical short-circuit in
-        update_workflow_config. Before the fix, the short-circuit compared
-        every other field but not this threshold, so a threshold-only edit
-        looked like a no-op and was dropped.
-        """
-        response = await async_client.get("/api/workflow/config")
-        assert response.status_code == 200
-        current = response.json()
-        original = current.get("auto_trigger_hunt_score_threshold", 60.0)
-
-        new_threshold = 77.0 if original != 77.0 else 55.0
-        update_response = await async_client.put(
-            "/api/workflow/config",
-            json={"auto_trigger_hunt_score_threshold": new_threshold},
-        )
-        assert update_response.status_code == 200
-
-        verify = (await async_client.get("/api/workflow/config")).json()
-        assert verify["auto_trigger_hunt_score_threshold"] == new_threshold, (
-            f"Threshold-only update was dropped: sent {new_threshold}, "
-            f"GET returned {verify['auto_trigger_hunt_score_threshold']}. "
-            f"configs_identical short-circuit is likely missing this field."
-        )
-
-        # Restore
-        await async_client.put(
-            "/api/workflow/config",
-            json={"auto_trigger_hunt_score_threshold": original},
-        )
-
-    @pytest.mark.api
-    @pytest.mark.integration_full
-    @pytest.mark.asyncio
     async def test_update_configuration_invalid_similarity(self, async_client: httpx.AsyncClient):
         """Test validation rejects invalid similarity_threshold."""
         # similarity_threshold must be 0.0-1.0

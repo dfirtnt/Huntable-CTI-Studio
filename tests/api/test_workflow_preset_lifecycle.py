@@ -122,7 +122,6 @@ class TestPresetLifecycle:
             "description": "Test preset for V2 export",
             "created_at": "2026-03-10T00:00:00Z",
             "min_hunt_score": current_config.get("min_hunt_score", 97.0),
-            "auto_trigger_hunt_score_threshold": current_config.get("auto_trigger_hunt_score_threshold", 60.0),
             "thresholds": {
                 "similarity_threshold": current_config["similarity_threshold"],
                 "ranking_threshold": current_config["ranking_threshold"],
@@ -158,7 +157,6 @@ class TestPresetLifecycle:
 
         # Verify thresholds preserved
         assert "MinHuntScore" in v2_config["Thresholds"]
-        assert "AutoTriggerHuntScoreThreshold" in v2_config["Thresholds"]
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -174,7 +172,6 @@ class TestPresetLifecycle:
                 "RankingThreshold": 7.0,
                 "JunkFilterThreshold": 0.8,
                 "MinHuntScore": 97.0,
-                "AutoTriggerHuntScoreThreshold": 60.0,
             },
             "Agents": {},
             "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -352,7 +349,6 @@ class TestPresetToLegacyAgentModels:
                 "RankingThreshold": 6.0,
                 "SimilarityThreshold": 0.5,
                 "JunkFilterThreshold": 0.8,
-                "AutoTriggerHuntScoreThreshold": 60.0,
             },
             "Agents": {
                 "RankAgent": {

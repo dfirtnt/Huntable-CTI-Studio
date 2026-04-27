@@ -50,7 +50,7 @@ def _make_preset_without(agent_name: str) -> dict:
         "Metadata": {},
         "JunkFilter": {"JunkFilterThreshold": 0.8},
         "QASettings": {"MaxRetries": 3},
-        "Thresholds": {"MinHuntScore": 97.0, "AutoTriggerHuntScoreThreshold": 60.0},
+        "Thresholds": {"MinHuntScore": 97.0},
         "OSDetection": {
             "Embedding": "bert",
             "FallbackEnabled": False,

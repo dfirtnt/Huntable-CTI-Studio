@@ -38,7 +38,6 @@ class ThresholdConfig(BaseModel):
     RankingThreshold: float = 6.0
     SimilarityThreshold: float = 0.5
     JunkFilterThreshold: float = 0.8
-    AutoTriggerHuntScoreThreshold: float = 60.0
 
 
 class EmbeddingsConfig(BaseModel):
@@ -326,7 +325,6 @@ class WorkflowConfigV2(BaseModel):
             "ranking_threshold": self.Thresholds.RankingThreshold,
             "similarity_threshold": self.Thresholds.SimilarityThreshold,
             "junk_filter_threshold": self.Thresholds.JunkFilterThreshold,
-            "auto_trigger_hunt_score_threshold": self.Thresholds.AutoTriggerHuntScoreThreshold,
             "version": version,
             "is_active": is_active,
             "description": self.Metadata.Description,

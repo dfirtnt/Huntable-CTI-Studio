@@ -328,11 +328,14 @@ class TestRuntimeContractMatch:
         # Locate the traceability-block emission site and assert deleted names aren't in
         # its allowlist. We pin the block text so we catch the exact call site, not any
         # stray mention of the name in a comment.
-        marker = "user_prompt.rstrip() + _traceability_block"
+        # The traceability block was split into _SIMPLE_EXTRACTORS / _STRUCTURED_EXTRACTORS
+        # in a later refactor. Anchor on the _SIMPLE_EXTRACTORS definition which immediately
+        # precedes the emission sites and encompasses the full allowlist.
+        marker = "_SIMPLE_EXTRACTORS = ("
         idx = src.find(marker)
-        assert idx != -1, "Traceability block emission site not found; test needs updating."
-        # Look back ~400 chars to capture the agent_name tuple preceding the marker.
-        window = src[max(0, idx - 400) : idx]
+        assert idx != -1, "Traceability _SIMPLE_EXTRACTORS definition not found; test needs updating."
+        # Capture _SIMPLE_EXTRACTORS + _STRUCTURED_EXTRACTORS tuple content (~400 chars).
+        window = src[idx : idx + 400]
         for deleted in ("SigExtract", "RegExtract", "EventCodeExtract"):
             assert f'"{deleted}"' not in window, (
                 f"{deleted} was deleted as a sub-agent and must not appear in the "

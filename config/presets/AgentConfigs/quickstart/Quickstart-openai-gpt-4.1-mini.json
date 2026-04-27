@@ -11,8 +11,7 @@
     "MaxRetries": 3
   },
   "Thresholds": {
-    "MinHuntScore": 97.0,
-    "AutoTriggerHuntScoreThreshold": 60.0
+    "MinHuntScore": 97.0
   },
   "OSDetection": {
     "Embedding": "ibm-research/CTI-BERT",

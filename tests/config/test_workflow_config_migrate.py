@@ -125,7 +125,6 @@ def test_v2_passthrough():
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": {
             "RankAgent": {"Provider": "lmstudio", "Model": "x", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
