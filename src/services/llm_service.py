@@ -43,7 +43,13 @@ class PreprocessInvariantError(Exception):
         self.debug_artifacts = debug_artifacts or {}
 
 
+# Always-required traceability fields (Extractor Contract sec 3-4)
 _TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
+# Fields that must appear in every item regardless of extractor type
+_TRACEABILITY_REQUIRED = frozenset({"source_evidence", "extraction_justification", "confidence_score"})
+# "value" is required only for simple extractors; structured extractors with domain-specific
+# identity fields (task_name/task_path/indicator_type/etc.) satisfy the contract without it.
+_TRACEABILITY_VALUE_FIELD = "value"
 
 # Code-owned user-message template for ExtractAgent supervisor (extract_behaviors).
 # Previously lived in src/prompts/ExtractAgentInstructions.txt.
@@ -231,12 +237,24 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
             break
 
     if item_fields:
-        missing = _TRACEABILITY_FIELDS - item_fields
-        if missing:
+        # Always-required: source_evidence, extraction_justification, confidence_score
+        missing_required = _TRACEABILITY_REQUIRED - item_fields
+        if missing_required:
             raise PromptConfigValidationError(
-                f"{agent_name}: json_example items are missing traceability fields: {sorted(missing)}. "
+                f"{agent_name}: json_example items are missing traceability fields: {sorted(missing_required)}. "
                 "Extractor Contract (extractor-standard.md sec 3-4) requires "
-                "value, source_evidence, extraction_justification, confidence_score in every item."
+                "source_evidence, extraction_justification, confidence_score in every item."
+            )
+
+        # "value" is required for simple extractors (no domain-specific identity fields).
+        # Structured extractors (task_name/task_path/indicator_type/etc.) satisfy the
+        # contract through their domain fields and do not need a redundant "value" key.
+        has_domain_fields = bool(item_fields - _TRACEABILITY_FIELDS)
+        if not has_domain_fields and _TRACEABILITY_VALUE_FIELD not in item_fields:
+            raise PromptConfigValidationError(
+                f"{agent_name}: json_example items are missing 'value' field. "
+                "Extractor Contract (extractor-standard.md sec 3-4) requires 'value' "
+                "for simple extractors. Add 'value' or use named domain-specific identity fields."
             )
 
 

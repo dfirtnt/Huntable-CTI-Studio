@@ -419,6 +419,65 @@ class TestPresetFiles:
                 "quickstart presets must carry the full QA prompt text"
             )
 
+    @pytest.mark.regression
+    def test_quickstart_presets_have_scheduled_tasks_model(self):
+        """Each quickstart preset carries a non-empty Model for ScheduledTasksExtract.
+
+        Regression: when this field is absent or empty the eval API falls back to the
+        ExtractAgent model key, silently using whatever model was active before the preset
+        was applied instead of the preset-specified model.
+        """
+        preset_dir = (
+            Path(__file__).resolve().parent.parent.parent / "config" / "presets" / "AgentConfigs" / "quickstart"
+        )
+        if not preset_dir.exists():
+            pytest.skip("Quickstart preset directory not found")
+        preset_files = list(preset_dir.glob("*.json"))
+        assert len(preset_files) > 0, "No preset files found"
+        for preset_file in preset_files:
+            data = json.loads(preset_file.read_text())
+            section = data.get("ScheduledTasksExtract", {})
+            model_val = section.get("Model", "")
+            assert model_val, (
+                f"ScheduledTasksExtract.Model is empty in {preset_file.name} -- "
+                "eval API uses this value; an empty Model causes a silent fallback to the "
+                "ExtractAgent model key, which may carry the previous config's model."
+            )
+
+    @pytest.mark.regression
+    def test_quickstart_preset_to_legacy_includes_scheduled_tasks_model(self):
+        """to-legacy conversion of a quickstart preset produces ScheduledTasksExtract_model.
+
+        Regression: the eval API reads agent_models['ScheduledTasksExtract_model'] from the
+        active DB config. This test follows the full preset -> to_legacy -> flat key path to
+        confirm the model survives the conversion and reaches the dict the eval consumes.
+        """
+        preset_path = (
+            Path(__file__).resolve().parent.parent.parent
+            / "config"
+            / "presets"
+            / "AgentConfigs"
+            / "quickstart"
+            / "Quickstart-LMStudio-Qwen3.json"
+        )
+        if not preset_path.exists():
+            pytest.skip("Qwen3 quickstart preset not found")
+
+        data = json.loads(preset_path.read_text())
+        config = load_workflow_config(data)
+        flat = config.flatten_for_llm_service()
+
+        assert "ScheduledTasksExtract_model" in flat, (
+            "ScheduledTasksExtract_model key missing from flat agent_models -- "
+            "eval API will fall back to ExtractAgent model"
+        )
+        assert flat["ScheduledTasksExtract_model"], (
+            "ScheduledTasksExtract_model is empty -- eval API will fall back to ExtractAgent model"
+        )
+        assert flat["ScheduledTasksExtract_model"] == data["ScheduledTasksExtract"]["Model"], (
+            "flat ScheduledTasksExtract_model does not match preset file value"
+        )
+
 
 # ===========================================================================
 # Eval articles data
