@@ -181,6 +181,7 @@ class EvalBundleService:
             "HuntQueriesExtract": "hunt_queries",
             "RegistryExtract": "registry_artifacts",
             "ServicesExtract": "windows_services",
+            "ScheduledTasksExtract": "scheduled_tasks",
         }
         subagent_name = agent_to_subagent_map.get(agent_name)
         expected_count = None
@@ -309,6 +310,7 @@ class EvalBundleService:
             "HuntQueriesExtract": "extract_agent",
             "RegistryExtract": "extract_agent",
             "ServicesExtract": "extract_agent",
+            "ScheduledTasksExtract": "extract_agent",
         }
 
         log_key = agent_key_map.get(agent_name, agent_name)
@@ -521,13 +523,21 @@ class EvalBundleService:
             "HuntQueriesExtract": "ExtractAgent",
             "RegistryExtract": "ExtractAgent",
             "ServicesExtract": "ExtractAgent",
+            "ScheduledTasksExtract": "ExtractAgent",
         }
 
         model_config_key = model_key_map.get(agent_name, agent_name)
 
         # Sub-agents use flat keys (e.g., "HuntQueriesExtract_model", "HuntQueriesExtract_provider")
         # Main agents may use nested structure (e.g., agent_models["ExtractAgent"] = {model: "...", provider: "..."})
-        sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+        sub_agents = [
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+            "ScheduledTasksExtract",
+        ]
         is_sub_agent = agent_name in sub_agents
 
         # Try to get model config
@@ -1274,6 +1284,7 @@ class EvalBundleService:
                 "HuntQueriesExtract",
                 "RegistryExtract",
                 "ServicesExtract",
+                "ScheduledTasksExtract",
             ]
             if agent_name in sub_agents:
                 # Try agent-specific flat keys first

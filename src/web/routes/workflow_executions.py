@@ -711,6 +711,8 @@ async def stream_execution_updates(execution_id: int):
                                     "RegistryQA": "extract_agent",
                                     "ServicesExtract": "extract_agent",
                                     "ServicesQA": "extract_agent",
+                                    "ScheduledTasksExtract": "extract_agent",
+                                    "ScheduledTasksQA": "extract_agent",
                                 }
 
                                 # Deduplicate by mapped agent name to avoid emitting same result twice
@@ -725,6 +727,7 @@ async def stream_execution_updates(execution_id: int):
                                     "HuntQueriesExtract",
                                     "RegistryExtract",
                                     "ServicesExtract",
+                                    "ScheduledTasksExtract",
                                 }
 
                                 # Track which mapped agents we've already sent in this iteration

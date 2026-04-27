@@ -84,6 +84,7 @@ _SUBAGENT_TO_AGENT = {
     "hunt_queries": "HuntQueriesExtract",
     "registry_artifacts": "RegistryExtract",
     "windows_services": "ServicesExtract",
+    "scheduled_tasks": "ScheduledTasksExtract",
 }
 
 
@@ -106,6 +107,9 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
         return len(items) if isinstance(items, list) else agent_result.get("count")
     if subagent_name == "windows_services":
         items = agent_result.get("windows_services") or agent_result.get("items", [])
+        return len(items) if isinstance(items, list) else agent_result.get("count")
+    if subagent_name == "scheduled_tasks":
+        items = agent_result.get("scheduled_tasks") or agent_result.get("items", [])
         return len(items) if isinstance(items, list) else agent_result.get("count")
     n = agent_result.get("count")
     if n is not None:
@@ -651,6 +655,10 @@ async def get_execution_commandlines(
                         commandlines = [
                             obs.get("value", str(obs)) for obs in observables if obs.get("type") == "windows_services"
                         ]
+                    elif result_key == "scheduled_tasks":
+                        commandlines = [
+                            obs.get("value", str(obs)) for obs in observables if obs.get("type") == "scheduled_tasks"
+                        ]
 
                 # Also check subresults
                 if not commandlines:
@@ -695,6 +703,14 @@ async def get_execution_commandlines(
                             )
                             if isinstance(services_result, dict):
                                 items = services_result.get("items", [])
+                                if items:
+                                    commandlines = items if isinstance(items, list) else [items]
+                        elif result_key == "scheduled_tasks":
+                            sched_result = subresults.get("scheduled_tasks", {}) or subresults.get(
+                                "ScheduledTasksExtract", {}
+                            )
+                            if isinstance(sched_result, dict):
+                                items = sched_result.get("items", [])
                                 if items:
                                     commandlines = items if isinstance(items, list) else [items]
 
@@ -1670,6 +1686,7 @@ async def get_config_versions_models(
                     "HuntQueriesExtract",
                     "RegistryExtract",
                     "ServicesExtract",
+                    "ScheduledTasksExtract",
                 ]:
                     model_key = f"{agent}_model"
                     if agent_models.get(model_key) and agent not in disabled_set:
@@ -1836,6 +1853,7 @@ _SUBAGENT_TO_BUNDLE_AGENT = {
     "hunt_queries_edr": "HuntQueriesExtract",
     "registry_artifacts": "RegistryExtract",
     "windows_services": "ServicesExtract",
+    "scheduled_tasks": "ScheduledTasksExtract",
 }
 
 

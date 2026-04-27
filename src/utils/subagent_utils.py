@@ -9,6 +9,7 @@ AGENT_TO_SUBAGENT = {
     "huntqueriesextract": "hunt_queries",
     "registryextract": "registry_artifacts",
     "servicesextract": "windows_services",
+    "scheduledtasksextract": "scheduled_tasks",
 }
 
 # Reverse map from canonical alias to agent name (CamelCase)
@@ -44,6 +45,11 @@ SUBAGENT_CANONICAL = {
     "windows-services": "windows_services",
     "servicesextract": "windows_services",
     "services": "windows_services",
+    "scheduled_tasks": "scheduled_tasks",
+    "scheduledtasks": "scheduled_tasks",
+    "scheduled-tasks": "scheduled_tasks",
+    "scheduledtasksextract": "scheduled_tasks",
+    "schedtasks": "scheduled_tasks",
 }
 
 __all__ = [

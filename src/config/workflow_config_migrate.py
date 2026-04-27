@@ -41,6 +41,8 @@ _AGENT_FLAT_PREFIXES = [
     ("RegistryQA", "RegistryQA", "RegistryQA"),
     ("ServicesExtract", "ServicesExtract", "ServicesExtract_model"),
     ("ServicesQA", "ServicesQA", "ServicesQA"),
+    ("ScheduledTasksExtract", "ScheduledTasksExtract", "ScheduledTasksExtract_model"),
+    ("ScheduledTasksQA", "ScheduledTasksQA", "ScheduledTasksQA"),
 ]
 
 

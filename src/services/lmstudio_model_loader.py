@@ -90,7 +90,14 @@ def extract_lmstudio_models(
                 models_to_load.add(model.strip())
 
     # Sub-agents (model key = agent_name + "_model")
-    sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+    sub_agents = [
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
+    ]
     for agent_name in sub_agents:
         model_key = f"{agent_name}_model"
         model = agent_models.get(model_key)

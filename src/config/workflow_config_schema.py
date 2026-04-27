@@ -2,7 +2,7 @@
 Pydantic schema for workflow config v2.
 
 PascalCase convention. All agent definitions require Provider, Model, Temperature, TopP, Enabled.
-ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract)
+ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract)
 inherit provider/model when not configured.
 
 Strict export: Prompts may only contain canonical prompt-bearing agent names (no ExtractAgentSettings).
@@ -109,8 +109,23 @@ class MetadataConfig(BaseModel):
 
 # Agent names in canonical order (main, sub-agents, QA, special)
 AGENT_NAMES_MAIN = ["RankAgent", "ExtractAgent", "SigmaAgent"]
-AGENT_NAMES_SUB = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
-AGENT_NAMES_QA = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
+AGENT_NAMES_SUB = [
+    "CmdlineExtract",
+    "ProcTreeExtract",
+    "HuntQueriesExtract",
+    "RegistryExtract",
+    "ServicesExtract",
+    "ScheduledTasksExtract",
+]
+AGENT_NAMES_QA = [
+    "RankAgentQA",
+    "CmdLineQA",
+    "ProcTreeQA",
+    "HuntQueriesQA",
+    "RegistryQA",
+    "ServicesQA",
+    "ScheduledTasksQA",
+]
 AGENT_NAMES_SPECIAL = ["OSDetectionFallback"]
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
 
@@ -129,12 +144,14 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "HuntQueriesExtract": "Hunt Queries Extraction",
     "RegistryExtract": "Registry Artifacts Extraction",
     "ServicesExtract": "Windows Services Extraction",
+    "ScheduledTasksExtract": "Scheduled Tasks Extraction",
     "RankAgentQA": "Rank Agent QA",
     "CmdLineQA": "CmdLine QA",
     "ProcTreeQA": "ProcTree QA",
     "HuntQueriesQA": "HuntQueries QA",
     "RegistryQA": "Registry QA",
     "ServicesQA": "Services QA",
+    "ScheduledTasksQA": "Scheduled Tasks QA",
 }
 
 # LLM agent symmetry: base agents that require a QA agent (explicit mapping matches codebase naming).
@@ -145,6 +162,7 @@ BASE_AGENT_TO_QA: dict[str, str] = {
     "HuntQueriesExtract": "HuntQueriesQA",
     "RegistryExtract": "RegistryQA",
     "ServicesExtract": "ServicesQA",
+    "ScheduledTasksExtract": "ScheduledTasksQA",
 }
 QA_AGENT_TO_BASE: dict[str, str] = {qa: base for base, qa in BASE_AGENT_TO_QA.items()}
 
@@ -236,8 +254,23 @@ class WorkflowConfigV2(BaseModel):
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        qa_agents = {"RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
-        sub_agents = {"CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"}
+        qa_agents = {
+            "RankAgentQA",
+            "CmdLineQA",
+            "ProcTreeQA",
+            "HuntQueriesQA",
+            "RegistryQA",
+            "ServicesQA",
+            "ScheduledTasksQA",
+        }
+        sub_agents = {
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+            "ScheduledTasksExtract",
+        }
         legacy_flat_prefix: dict[str, str] = {}
         for agent_name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):

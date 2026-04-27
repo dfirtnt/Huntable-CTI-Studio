@@ -506,6 +506,7 @@ class LLMService:
             "HuntQueriesExtract",
             "RegistryExtract",
             "ServicesExtract",
+            "ScheduledTasksExtract",
         ]:
             # Sub-agents fall back to ExtractAgent top_p
             return self.top_p_extract
@@ -3422,6 +3423,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                     "HuntQueriesExtract",
                     "RegistryExtract",
                     "ServicesExtract",
+                    "ScheduledTasksExtract",
                 ):
                     user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
 
@@ -3665,6 +3667,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                             "sigma_queries",
                                             "registry_artifacts",
                                             "windows_services",
+                                            "scheduled_tasks",
                                             "count",
                                         ]
                                         if success and parsed and any(k in parsed for k in expected_keys):
@@ -3722,6 +3725,10 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                 count = len(last_result.get("windows_services", []))
                                 logger.info(f"{agent_name} found {count} windows_services")
                                 last_result["items"] = last_result.pop("windows_services")
+                            elif "scheduled_tasks" in last_result:
+                                count = len(last_result.get("scheduled_tasks", []))
+                                logger.info(f"{agent_name} found {count} scheduled_tasks")
+                                last_result["items"] = last_result.pop("scheduled_tasks")
                             elif "items" in last_result:
                                 count = len(last_result.get("items", []))
                                 logger.info(f"{agent_name} found {count} items")
@@ -3783,6 +3790,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                         "items",
                         "registry_artifacts",
                         "windows_services",
+                        "scheduled_tasks",
                         "queries",
                         "process_lineage",
                     ):
@@ -3804,7 +3812,13 @@ Every item in the output array MUST be an object (not a plain string). The objec
                         if "cmdline_items" in last_result:
                             output_for_langfuse["cmdline_items"] = last_result["cmdline_items"]
                         # Include any other result fields that might be useful
-                        for key in ["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]:
+                        for key in [
+                            "process_lineage",
+                            "sigma_queries",
+                            "registry_artifacts",
+                            "windows_services",
+                            "scheduled_tasks",
+                        ]:
                             if key in last_result:
                                 output_for_langfuse[key] = last_result[key]
                         # Include error if present

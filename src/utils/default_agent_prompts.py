@@ -26,6 +26,8 @@ AGENT_PROMPT_FILES = {
     "RegistryQA": "RegistryQA",
     "ServicesExtract": "ServicesExtract",
     "ServicesQA": "ServicesQA",
+    "ScheduledTasksExtract": "ScheduledTasksExtract",
+    "ScheduledTasksQA": "ScheduledTasksQA",
     "ExtractAgent": "ExtractAgent",
     "OSDetectionAgent": "OSDetectionAgent",
 }
