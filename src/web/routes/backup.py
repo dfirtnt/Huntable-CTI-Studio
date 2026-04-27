@@ -194,7 +194,7 @@ async def api_get_backup_cron(_auth: str = RequireAdminAuth):
 
 
 @router.post("/cron")
-async def api_update_backup_cron(payload: BackupCronUpdate, _auth: str = RequireAdminAuth):
+async def api_update_backup_cron(payload: BackupCronUpdate):
     """Save backup config and optionally install/update CTI-managed cron jobs."""
     try:
         manager = get_backup_config_manager()

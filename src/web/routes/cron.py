@@ -32,7 +32,7 @@ async def api_get_cron(_auth: str = RequireAdminAuth):
 
 
 @router.put("")
-async def api_replace_cron(payload: CronUpdate, _auth: str = RequireAdminAuth):
+async def api_replace_cron(payload: CronUpdate):
     """Replace the current user's crontab."""
     try:
         service = BackupCronService()
