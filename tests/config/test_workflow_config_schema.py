@@ -533,3 +533,16 @@ def test_to_legacy_response_dict_qa_max_retries():
     legacy = config.to_legacy_response_dict()
 
     assert legacy["qa_max_retries"] == 3, "non-default MaxRetries must survive to_legacy_response_dict"
+
+
+@pytest.mark.regression
+def test_threshold_config_rejects_auto_trigger_hunt_score_threshold():
+    """ThresholdConfig (extra=forbid) must reject AutoTriggerHuntScoreThreshold after its removal.
+
+    Guards against accidental re-addition of the field. If a preset or DB record sends
+    this key, schema validation must fail loudly rather than silently accept it.
+    """
+    from src.config.workflow_config_schema import ThresholdConfig
+
+    with pytest.raises(ValidationError):
+        ThresholdConfig.model_validate({"AutoTriggerHuntScoreThreshold": 60.0})

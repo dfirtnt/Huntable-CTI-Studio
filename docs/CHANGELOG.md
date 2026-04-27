@@ -5,6 +5,19 @@ All notable changes to Huntable CTI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.4] - 2026-04-27
+
+### Added
+- **Quickstart preset: gpt-4o-mini** (2026-04-27): `Quickstart-openai-gpt-4o-mini.json` added as a lower-cost OpenAI option. All agents use `gpt-4o-mini`; thresholds match the gpt-4o preset.
+
+### Fixed
+- **LMStudio health-check gate** (2026-04-27): `run_workflow()` now probes LMStudio reachability before starting any workflow that uses an LMStudio provider. If the server is unreachable the execution is marked `failed` immediately with a clear `"LMStudio is not reachable"` error rather than running for several minutes and failing at the first LLM call. Gate is skipped entirely for non-LMStudio providers so OpenAI/Anthropic runs are unaffected.
+- **Eval spinner stuck after completion** (2026-04-27): The progress spinner on the Agent Evals page was revealed when an eval run started but never individually hidden when the run finished (the surrounding `#evalStatus` panel was toggled but the spinner `#evalSpinner` was not). All four terminal states (static success, trigger error, polling done, polling error) now explicitly hide the spinner.
+- **Source collection User-Agent and crawl politeness** (2026-04-27): `HTTPClient` now sends an honest `Huntable-CTI-Studio/1.0` User-Agent instead of a fake Chrome string. Per-source crawl delays are enforced via `configure_source_robots()` — scrapers pass their YAML `robots_config` block and the client sleeps for `crawl_delay` seconds after each successful GET. All 26 source entries in `config/sources.yaml` updated with the honest identifier. Default `check_frequency` changed from 1 hour (3600) to 4 hours (14400) across `SourceConfig`, DB model, and `async_manager`; sources that intentionally poll faster keep explicit overrides.
+
+### Removed
+- **`AutoTriggerHuntScoreThreshold` removed from agent config** (2026-04-27): Field was never exposed in the UI and had no effect on workflow behavior. Removed from `ThresholdConfig`, all 8 quickstart presets, the loader, and the migration shim. `ThresholdConfig`'s `extra="forbid"` now rejects the key on import, preventing stale presets or DB records from silently carrying it forward.
+
 ## [6.0.3] - 2026-04-27
 
 ### Added

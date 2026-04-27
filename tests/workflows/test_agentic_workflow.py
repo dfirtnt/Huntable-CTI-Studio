@@ -274,3 +274,32 @@ async def test_lmstudio_health_gate_aborts_when_unreachable(mock_db_session, moc
     assert result["success"] is False
     assert "lmstudio" in result["error"].lower() or "reachable" in result["error"].lower()
     assert mock_execution.status == "failed"
+
+
+@pytest.mark.asyncio
+async def test_lmstudio_health_gate_not_called_for_openai_config(
+    mock_db_session, mock_article, mock_execution, mock_config
+):
+    """When all providers are openai, _probe_lmstudio must not be called.
+
+    Guards against the gate accidentally probing non-local providers, which would add
+    latency and spurious failures to every OpenAI/Anthropic workflow run.
+    """
+    # mock_config.agent_models has CmdlineExtract_provider=openai; the gate checks
+    # RankAgent_provider / ExtractAgent_provider / SigmaAgent_provider — none are lmstudio.
+    with (
+        patch("src.workflows.agentic_workflow.WorkflowTriggerService") as mock_trigger_cls,
+        patch("src.workflows.agentic_workflow._probe_lmstudio", new=AsyncMock()) as mock_probe,
+        patch("src.workflows.agentic_workflow.auto_load_workflow_models"),
+        patch("src.workflows.agentic_workflow.trace_workflow_execution"),
+        patch("src.workflows.agentic_workflow.LLMService"),
+        patch("src.workflows.agentic_workflow.ContentFilter"),
+        patch("sqlalchemy.orm.attributes.flag_modified"),
+    ):
+        mock_trigger = Mock()
+        mock_trigger.get_active_config.return_value = mock_config
+        mock_trigger_cls.return_value = mock_trigger
+
+        await run_workflow(article_id=1, db_session=mock_db_session, execution_id=100)
+
+    mock_probe.assert_not_awaited()

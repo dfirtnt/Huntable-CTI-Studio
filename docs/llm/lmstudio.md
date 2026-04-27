@@ -34,6 +34,7 @@ In the web interface, select `lmstudio` as the LLM provider in chat settings.
 
 ## Troubleshooting
 
+- **Workflow fails immediately with "LMStudio is not reachable"**: The workflow engine probes LMStudio before starting any run that uses an LMStudio provider. If the probe fails, the execution is marked failed right away rather than timing out mid-run. Start LMStudio, confirm the server is running (green indicator in the LMStudio UI), then re-trigger the workflow.
 - **Connection refused**: Ensure LMStudio server is running and accessible
 - **Model not found**: Verify model name matches exactly in LMStudio
 - **Timeout errors**: Increase timeout in `_call_lmstudio()` method if needed
