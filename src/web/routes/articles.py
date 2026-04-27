@@ -288,3 +288,39 @@ async def delete_article(article_id: int):
     except Exception as exc:  # noqa: BLE001
         logger.error("Failed to delete article: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc
+
+
+@router.get("/{article_id}/workflow-status")
+async def api_get_article_workflow_status(article_id: int):
+    """Return whether this article has a completed execution under the current active config."""
+    try:
+        from src.database.manager import DatabaseManager
+        from src.database.models import AgenticWorkflowExecutionTable
+        from src.services.workflow_trigger_service import WorkflowTriggerService
+
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            service = WorkflowTriggerService(db_session)
+            config = service.get_active_config()
+            if not config:
+                return {"processed_with_current_config": False}
+
+            completed = (
+                db_session.query(AgenticWorkflowExecutionTable)
+                .filter(
+                    AgenticWorkflowExecutionTable.article_id == article_id,
+                    AgenticWorkflowExecutionTable.status == "completed",
+                    AgenticWorkflowExecutionTable.config_snapshot["config_id"].as_integer() == config.id,
+                    AgenticWorkflowExecutionTable.config_snapshot["config_version"].as_integer() == config.version,
+                )
+                .first()
+            )
+            return {"processed_with_current_config": completed is not None}
+        finally:
+            db_session.close()
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("API workflow-status error for article %s: %s", article_id, exc)
+        # Fail open: unknown status means treat as unprocessed so the button still works
+        return {"processed_with_current_config": False}

@@ -34,10 +34,41 @@
         }
 
         // Define triggerWorkflowForArticle early to ensure it's available for inline handlers
+        // Tracks whether the article has already been processed with the current active config.
+        // Loaded async on page load; drives button label and force flag.
+        let _articleProcessedWithCurrentConfig = false;
+
+        async function initWorkflowButtonState(articleId) {
+            try {
+                const resp = await fetch(`/api/articles/${articleId}/workflow-status`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    _articleProcessedWithCurrentConfig = !!data.processed_with_current_config;
+                }
+            } catch (e) {
+                // Leave default (false = "Send to Workflow") on network error
+            }
+            updateWorkflowButtonLabel();
+        }
+
+        function updateWorkflowButtonLabel() {
+            const btnText = document.getElementById('triggerWorkflowBtnText');
+            const btn = document.getElementById('triggerWorkflowBtn');
+            if (!btnText || !btn) return;
+            if (_articleProcessedWithCurrentConfig) {
+                btnText.textContent = 'Reprocess';
+                btn.title = 'Reprocess: bypasses idempotency gate and runs the pipeline even if this article was already processed with the current config. Use after changing prompts or model settings to get fresh output.';
+            } else {
+                btnText.textContent = 'Send to Workflow';
+                btn.title = 'Send to Workflow: runs this article through the current agent config for the first time.';
+            }
+        }
+
         async function triggerWorkflowForArticle(articleId) {
             const btn = document.getElementById('triggerWorkflowBtn');
             const btnText = document.getElementById('triggerWorkflowBtnText');
-            
+            const useForce = _articleProcessedWithCurrentConfig;
+
             // Disable button and show loading state
             if (btn) {
                 btn.disabled = true;
@@ -46,25 +77,29 @@
             if (btnText) {
                 btnText.textContent = 'Triggering...';
             }
-            
+
             try {
                 // showNotification might not be defined yet, use console as fallback
                 if (typeof showNotification === 'function') {
                     showNotification('Triggering workflow...', 'info');
                 }
-                
-                const response = await fetch(`/api/workflow/articles/${articleId}/trigger?force=true`, {
+
+                // Manual triggers always pass force=true to skip the auto-trigger
+                // threshold (which is only for unattended/automated runs).
+                // The button label (Send to Workflow vs Reprocess) is informational only.
+                const url = `/api/workflow/articles/${articleId}/trigger?force=true`;
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     }
                 });
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     const message = `Workflow triggered successfully! Execution ID: ${data.execution_id || 'N/A'}`;
                     showNotification(message, 'success');
-                    
+
                     // Redirect to workflow executions page
                     window.location.href = '/workflow#executions';
                 } else {
@@ -74,13 +109,13 @@
                     } catch (e) {
                         errorData = { detail: `HTTP ${response.status}: ${response.statusText}` };
                     }
-                    
+
                     const errorMessage =
                         formatApiErrorDetail(errorData.detail) ||
                         errorData.message ||
                         'Failed to trigger workflow';
                     showNotification(`Error: ${errorMessage}`, 'error');
-                    
+
                     // If there's an existing execution, offer to view it
                     if (errorMessage.includes('already has an active workflow execution')) {
                         const execIdMatch = errorMessage.match(/execution \(ID: (\d+)\)/);
@@ -99,19 +134,20 @@
                 const errorMsg = `Error: ${error.message}`;
                 showNotification(errorMsg, 'error');
             } finally {
-                // Re-enable button
+                // Re-enable button and restore correct label
                 if (btn) {
                     btn.disabled = false;
                     btn.classList.remove('opacity-50', 'cursor-not-allowed');
                 }
-                if (btnText) {
-                    btnText.textContent = 'Reprocess';
-                }
+                updateWorkflowButtonLabel();
             }
         }
-        
+
         // Explicitly attach to window for inline onclick handlers
         window.triggerWorkflowForArticle = triggerWorkflowForArticle;
+
+        // Load button state as soon as article ID is available
+        initWorkflowButtonState({{ article.id|default(0)|int }});
     </script>
     <style>
         /* Hard switch between rich and plain surfaces to prevent legacy span bleed */
@@ -372,10 +408,10 @@
 
                     <button onclick="triggerWorkflowForArticle({{ article.id|default(0)|int }})"
                             id="triggerWorkflowBtn"
-                            title="Reprocess: bypasses idempotency gate and runs the pipeline even if this article was already processed with the current config. Use after changing prompts or model settings to get fresh output."
+                            title="Send to Workflow: runs this article through the current agent config for the first time."
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
-                        <span id="triggerWorkflowBtnText">Reprocess</span>
+                        <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
 
                     <button onclick="showChunkDebugModal()" 
