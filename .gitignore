@@ -53,6 +53,7 @@ venv.bak/
 # IDE and editors
 .claude/*
 !.claude/skills/
+!.claude/skills/**
 .opencode/
 .vscode/
 .idea/
