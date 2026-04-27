@@ -63,10 +63,11 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "RegistryExtract",
     "ServicesExtract",
     "ProcTreeExtract",
+    "ScheduledTasksExtract",
 ]
 
 # QA prompts that were migrated alongside their extract agents.
-MIGRATED_QA_AGENTS: list[str] = ["RegistryQA", "ServicesQA"]
+MIGRATED_QA_AGENTS: list[str] = ["RegistryQA", "ServicesQA", "ScheduledTasksQA"]
 
 REQUIRED_TRACEABILITY_FIELDS = (
     "source_evidence",
@@ -258,7 +259,11 @@ class TestPresetsSyncedWithPrompts:
     @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
     def test_preset_qa_prompt_synced(self, qa_name, preset_paths):
         """QA prompts embed as <BaseAgent>.QAPrompt.prompt."""
-        base_for_qa = {"RegistryQA": "RegistryExtract", "ServicesQA": "ServicesExtract"}
+        base_for_qa = {
+            "RegistryQA": "RegistryExtract",
+            "ServicesQA": "ServicesExtract",
+            "ScheduledTasksQA": "ScheduledTasksExtract",
+        }
         base_agent = base_for_qa[qa_name]
         source = _load_prompt(qa_name)
         for preset_path in preset_paths:

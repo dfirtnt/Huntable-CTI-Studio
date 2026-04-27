@@ -186,7 +186,13 @@ def test_lmstudio_gemma3_1b_smoke_workflow_completes(db_session, minimal_active_
         "osdetection_fallback_enabled": False,
         "qa_max_retries": getattr(minimal_active_config, "qa_max_retries", 1),
         "extract_agent_settings": {
-            "disabled_agents": ["ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+            "disabled_agents": [
+                "ProcTreeExtract",
+                "HuntQueriesExtract",
+                "RegistryExtract",
+                "ServicesExtract",
+                "ScheduledTasksExtract",
+            ]
         },
         "config_id": minimal_active_config.id,
         "config_version": minimal_active_config.version,
