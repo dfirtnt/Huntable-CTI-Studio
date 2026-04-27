@@ -973,18 +973,21 @@ async def get_agent_prompts(request: Request):
                         prompts_dict[agent_name] = prompt_data
                         continue
 
-                    # Add model info if not in database prompt data
-                    if "model" not in prompt_data:
-                        if agent_name == "ExtractAgent":
-                            prompt_data["model"] = extract_model
-                        elif agent_name == "RankAgent":
-                            prompt_data["model"] = rank_model
-                        elif agent_name == "SigmaAgent":
-                            prompt_data["model"] = sigma_model
-                        elif agent_name in sub_agents:
-                            prompt_data["model"] = extract_model
-                        else:
-                            prompt_data["model"] = default_model
+                    # Always sync model to current agent_models so prompt_config.model
+                    # stays consistent with the flat agent_models keys. This field is in
+                    # the run_extraction_agent fallback chain (priority 2 after the flat
+                    # agent_models param), so a stale value here would silently route
+                    # inference to the wrong model if the flat key is ever unset.
+                    if agent_name == "ExtractAgent":
+                        prompt_data["model"] = extract_model
+                    elif agent_name == "RankAgent":
+                        prompt_data["model"] = rank_model
+                    elif agent_name == "SigmaAgent":
+                        prompt_data["model"] = sigma_model
+                    elif agent_name in sub_agents:
+                        prompt_data["model"] = extract_model
+                    else:
+                        prompt_data["model"] = default_model
                     prompts_dict[agent_name] = prompt_data
 
             return {"prompts": prompts_dict}
