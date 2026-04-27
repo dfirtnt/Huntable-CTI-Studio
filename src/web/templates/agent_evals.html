@@ -558,7 +558,7 @@
             </button>
             <div id="evalStatus" class="mt-4 hidden">
                 <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
-                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
+                    <div id="evalSpinner" class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
                     <span class="eval-mono" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
                 </div>
             </div>
@@ -1223,6 +1223,7 @@ async function runEvaluation() {
 
     runBtn.disabled = true;
     statusDiv.classList.remove('hidden');
+    document.getElementById('evalSpinner').classList.remove('hidden');
     const perStep = THROTTLE_INTERNAL_FLOOR_SECONDS + concurrencyThrottle;
     const dispatchWindow = Math.max(0, Math.round((repeatedUrls.length - 1) * perStep));
     statusText.textContent = multiplier > 1
@@ -1278,6 +1279,7 @@ async function runEvaluation() {
             // All articles were evaluated from static files (no workflow executions) — refresh results immediately
             statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
             statusText.className = 'text-sm text-green-600 dark:text-green-400';
+            document.getElementById('evalSpinner').classList.add('hidden');
             setTimeout(() => {
                 loadPreviousResults();
             }, 100);
@@ -1286,6 +1288,7 @@ async function runEvaluation() {
         console.error('Error running evaluation:', error);
         statusText.textContent = `❌ Error: ${error.message}`;
         statusText.className = 'text-sm text-red-600 dark:text-red-400';
+        document.getElementById('evalSpinner').classList.add('hidden');
     } finally {
         runBtn.disabled = false;
     }
@@ -1448,7 +1451,8 @@ async function pollSubagentResults(executions) {
                 
                 statusText.textContent = `✅ All executions completed. Refreshing results and chart...`;
                 statusText.className = 'text-sm text-green-600 dark:text-green-400';
-                
+                document.getElementById('evalSpinner').classList.add('hidden');
+
                 // Full refresh: refetch results, reload aggregates/chart, render pivot (same as Load Previous Results)
                 setTimeout(() => {
                     loadPreviousResults();
@@ -1466,9 +1470,10 @@ async function pollSubagentResults(executions) {
             isPolling = false;
             statusText.textContent = `❌ Error polling results: ${error.message}`;
             statusText.className = 'text-sm text-red-600 dark:text-red-400';
+            document.getElementById('evalSpinner').classList.add('hidden');
         }
     };
-    
+
     // Start polling
     pollOnce();
 }
