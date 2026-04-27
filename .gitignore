@@ -51,7 +51,8 @@ venv.bak/
 .venv/
 
 # IDE and editors
-.claude/
+.claude/*
+!.claude/skills/
 .opencode/
 .vscode/
 .idea/
