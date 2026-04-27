@@ -215,6 +215,51 @@ class TestWorkflowQueueRegressions:
 
     @pytest.mark.ui
     @pytest.mark.workflow
+    def test_queue_table_displays_naive_created_at_as_local_time(self, page: Page):
+        """Timezone-less queue timestamps should render without a UTC offset shift."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        mock_queue = [
+            {
+                "id": 91002,
+                "article_id": 1,
+                "article_title": "Queue Local Time Check",
+                "workflow_execution_id": 123,
+                "rule_yaml": "title: Test\ndetection:\n  condition: true\n",
+                "rule_metadata": {"title": "Local Time Rule"},
+                "similarity_scores": [],
+                "max_similarity": 0.0,
+                "status": "pending",
+                "reviewed_by": None,
+                "review_notes": None,
+                "pr_submitted": False,
+                "pr_url": None,
+                "created_at": "2026-04-24T11:16:00",
+                "reviewed_at": None,
+            }
+        ]
+
+        def handle_route(route):
+            if "/api/sigma-queue/list" in route.request.url:
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps({"items": mock_queue, "total": len(mock_queue), "limit": 50, "offset": 0}),
+                )
+            else:
+                route.continue_()
+
+        page.route("**/api/sigma-queue/list*", handle_route)
+        page.goto(f"{base_url}/workflow#queue")
+        page.wait_for_load_state("load")
+        page.locator("#tab-queue").click()
+        page.wait_for_timeout(800)
+
+        created_cell = page.locator("#queueTableBody tr").first.locator("td.q-cell-date")
+        expect(created_cell).to_contain_text("11:16 AM")
+        expect(created_cell).not_to_contain_text("7:16 AM")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
     def test_queue_table_no_horizontal_overflow_actions_visible(self, page: Page):
         """Long article + rule titles must not push Actions off-screen at ~1280px width."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
@@ -491,9 +536,9 @@ class TestWorkflowExecutionsRegressions:
         assert overflow in ("hidden", "clip"), f"expected overflow hidden/clip, got {overflow}"
         assert text_overflow == "ellipsis", f"expected text-overflow ellipsis, got {text_overflow}"
 
-        trace_first = tbody.locator("tr").first.locator('button:has-text("Trace")').first
-        expect(trace_first).to_be_visible()
-        box = trace_first.bounding_box()
+        session_first = tbody.locator("tr").first.locator('button[onclick^="debugInAgentChat"]').first
+        expect(session_first).to_be_visible()
+        box = session_first.bounding_box()
         vp = page.viewport_size
         assert box and box["x"] + box["width"] <= (vp or {}).get("width", 1280) + 2
 
@@ -578,6 +623,52 @@ class TestWorkflowExecutionsRegressions:
                 f"th='{header_labels[i]}' td='{body_td_texts[i]}'; "
                 f"q-table-wrap.scrollLeft={scroll_left}"
             )
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_executions_table_displays_naive_created_at_as_local_time(self, page: Page):
+        """Timezone-less execution timestamps should render without a UTC offset shift."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+
+        mock_payload = {
+            "executions": [
+                {
+                    "id": 88003,
+                    "article_id": 103,
+                    "article_title": "Local Time Check",
+                    "status": "running",
+                    "current_step": "os_detection",
+                    "ranking_score": None,
+                    "created_at": "2026-04-27T15:04:00",
+                }
+            ],
+            "total": 1,
+            "total_pages": 1,
+            "running": 1,
+            "completed": 0,
+            "failed": 0,
+        }
+
+        def handle_route(route):
+            u = urlparse(route.request.url)
+            if u.path == "/api/workflow/executions":
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(mock_payload),
+                )
+            else:
+                route.continue_()
+
+        page.route("**/api/workflow/executions*", handle_route)
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("load")
+        page.locator("#tab-executions").click()
+        page.wait_for_timeout(1200)
+
+        created_cell = page.locator("#executionsTableBody tr").first.locator("td.q-cell-date")
+        expect(created_cell).to_contain_text("3:04 PM")
+        expect(created_cell).not_to_contain_text("11:04 AM")
 
     @pytest.mark.ui
     @pytest.mark.workflow

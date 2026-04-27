@@ -12253,6 +12253,13 @@ function getStepBadge(step) {
     return steps[step] || step || '-';
 }
 
+function formatLocalDateTime(timestamp) {
+    if (!timestamp) return '-';
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' });
+}
+
 function highlightCurrentStep(step) {
     document.querySelectorAll('.workflow-node').forEach(node => {
         node.style.filter = 'none';
@@ -12437,7 +12444,7 @@ function renderExecutions() {
                 <td class="q-cell-sim" style="text-align:center">${formatObservableCount(exec, col.key)}</td>
             `).join('') : ''}
             <td class="q-cell-date">
-                ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
+                ${formatLocalDateTime(exec.created_at)}
             </td>
             <td><div class="q-actions-cell">
                 <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open in Langfuse">Trace</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
@@ -13539,8 +13546,8 @@ ${ obs.source_evidence != null ? `<button type="button" class="mt-2 px-2 py-1 te
                     <div class="text-gray-200"><strong>Article:</strong> <a href="/articles/${exec.article_id}" class="text-purple-400 hover:text-purple-300">${escapeHtml(exec.article_title || '')}</a></div>
                     <div class="text-gray-200"><strong>Status:</strong> ${getStatusBadge(exec.status)}</div>
                     ${exec.termination_reason ? `<div class="text-gray-200"><strong>Completion Reason:</strong> ${escapeHtml(describeTermination(exec.termination_reason, exec.termination_details))}</div>` : ''}
-                    <div class="text-gray-200"><strong>Created:</strong> ${parseUTCDate(exec.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>
-                    ${exec.completed_at ? `<div class="text-gray-200"><strong>Completed:</strong> ${parseUTCDate(exec.completed_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}</div>` : ''}
+                    <div class="text-gray-200"><strong>Created:</strong> ${formatLocalDateTime(exec.created_at)}</div>
+                    ${exec.completed_at ? `<div class="text-gray-200"><strong>Completed:</strong> ${formatLocalDateTime(exec.completed_at)}</div>` : ''}
                     ${exec.error_message ? `<div class="bg-red-900/20 p-3 rounded mt-2 border border-red-700"><strong class="text-red-300">Error:</strong> <span class="text-gray-100">${escapeHtml(exec.error_message)}</span></div>` : ''}
                 </div>
             `;
@@ -14310,7 +14317,7 @@ function renderQueue() {
                 </td>
                 <td>${getQueueStatusBadge(rule.status)}</td>
                 <td class="q-cell-date">
-                    ${parseUTCDate(rule.created_at).toLocaleString('en-US', { dateStyle: 'short', timeStyle: 'short' })}
+                    ${formatLocalDateTime(rule.created_at)}
                 </td>
                 <td><div class="q-actions-cell">
                     <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${rule.status === 'pending' ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>` : ''}
