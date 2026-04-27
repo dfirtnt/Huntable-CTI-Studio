@@ -10770,10 +10770,9 @@ async function applyPreset(preset) {
         }
         
         // Merge threshold fields that have no form inputs so they are sent on next Save
-        if (preset.min_hunt_score !== undefined || preset.auto_trigger_hunt_score_threshold !== undefined) {
+        if (preset.min_hunt_score !== undefined) {
             if (!currentConfig || typeof currentConfig !== 'object') currentConfig = {};
-            if (preset.min_hunt_score !== undefined) currentConfig.min_hunt_score = preset.min_hunt_score;
-            if (preset.auto_trigger_hunt_score_threshold !== undefined) currentConfig.auto_trigger_hunt_score_threshold = preset.auto_trigger_hunt_score_threshold;
+            currentConfig.min_hunt_score = preset.min_hunt_score;
         }
         
         // Trigger auto-save handlers to update UI state
@@ -12447,7 +12446,7 @@ function renderExecutions() {
                 ${formatLocalDateTime(exec.created_at)}
             </td>
             <td><div class="q-actions-cell">
-                <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open in Langfuse">Trace</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
+                <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open Langfuse session">Session</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
             </div></td>
         </tr>
     `).join('');
@@ -13634,10 +13633,9 @@ async function retryExecution(executionId, useLangGraphServer = false) {
 }
 
 function buildTraceUrl(info) {
-    const host = (info.langfuse_host || '').replace(/\/$/, '');
-    const projectId = info.langfuse_project_id;
-    // Prefer direct URL if provided (server uses resolved trace_id or session filter)
+    // Prefer the session URL because one workflow execution can create multiple traces.
     if (info.agent_chat_url) return info.agent_chat_url;
+    if (info.session_url) return info.session_url;
     if (info.search_url) return info.search_url;
     return null;
 }
@@ -13645,19 +13643,19 @@ function buildTraceUrl(info) {
 
 async function debugInAgentChat(executionId) {
     try {
-        // Get debug info (Langfuse trace URL)
+        // Get debug info (Langfuse session URL)
         const response = await fetch(`/api/workflow/executions/${executionId}/debug-info`);
         if (response.ok) {
             const info = await response.json();
-            const traceUrl = buildTraceUrl(info);
+            const sessionUrl = buildTraceUrl(info);
             
-            if (traceUrl) {
+            if (sessionUrl) {
                 // Check if Langfuse is configured
                 if (!info.uses_langfuse && info.instructions && info.instructions.includes('not configured')) {
-                    // Show warning but still open trace URL
+                    // Show warning but still open session URL
                     const proceed = confirm(
-                        'Langfuse keys are not configured. The trace will only exist if the execution ran with Langfuse tracing enabled.\n\n' +
-                        'Would you like to open the trace URL anyway?'
+                        'Langfuse keys are not configured. The session will only exist if the execution ran with Langfuse tracing enabled.\n\n' +
+                        'Would you like to open the session URL anyway?'
                     );
                     if (!proceed) {
                         return;
@@ -13677,11 +13675,11 @@ async function debugInAgentChat(executionId) {
                     if (info.trace_id) {
                         message += `Trace ID: ${info.trace_id}\n`;
                     }
-                    message += `\nUse the search/filter in Langfuse UI to find traces by session_id.`;
+                    message += `\nUse the search/filter in Langfuse UI to find sessions by session_id.`;
                 }
                 
                 // Open Langfuse session directly in new tab
-                window.open(traceUrl, '_blank');
+                window.open(sessionUrl, '_blank');
 
                 // Show message after a brief delay (so it doesn't block the window.open)
                 setTimeout(() => {
