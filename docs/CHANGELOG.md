@@ -5,6 +5,11 @@ All notable changes to Huntable CTI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.3] - 2026-04-27
+
+### Fixed
+- **Workflow queue stat cards now clickable and show global counts** (2026-04-27): The `/workflow#queue` stat cards (Pending Review / Approved / Rejected / Submitted) were cosmetic-only -- they had hover styling but no click handler, and their counts were computed from the current fetched page rather than the full database. Two bugs fixed: (1) `updateQueueStats()` previously counted status values from the in-memory `queue` array (one paginated page), so filtering by `status=pending` would show 12 pending / 0 approved instead of global totals. Fixed by adding a `status_counts` field to the `/api/sigma-queue/list` response, populated by a single `GROUP BY status` aggregation query that always runs against the full table regardless of the active filter. (2) Stat cards are now interactive -- clicking any card sets the dropdown to that status and reloads; clicking the same card again clears the filter. Cards carry `data-filter-status`, `role="button"`, and keyboard (`Enter`/`Space`) support for accessibility. The active filter card is highlighted with a purple outline via the `q-stat-card--active` CSS class. The dropdown filter options (pending / approved / rejected / submitted) were already correct SIGMA-queue statuses and were not changed. Covered by `tests/api/test_sigma_queue_status_counts.py` (7 tests) and updated `tests/api/test_sigma_queue_list_api.py` shape assertions.
+
 ## [6.0.2] - 2026-04-26
 
 ### Fixed
