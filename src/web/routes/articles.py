@@ -143,7 +143,9 @@ async def api_get_previous_article(current_article_id: int):
 async def api_articles_top(limit: int = 10):
     """Get top-scoring articles for dashboard."""
     try:
-        articles = await async_db_manager.list_articles(limit=limit, order_by="hunt_score", order_desc=True)
+        articles = await async_db_manager.list_articles(
+            article_filter=SimpleFilter(sort_by="hunt_score", sort_order="desc", limit=limit)
+        )
 
         top_articles = []
         for article in articles:

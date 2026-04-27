@@ -360,6 +360,7 @@ Output format (return ONLY this JSON structure):
         extraction_method = "iocextract"
         confidence = 0.8  # High confidence for iocextract
 
+        llm_metadata: dict | None = None
         if self.use_llm_validation and raw_count > 0:
             try:
                 # Use full content for LLM validation (no truncation limit)
@@ -402,7 +403,7 @@ Output format (return ONLY this JSON structure):
         }
 
         # Add LLM metadata if available
-        if "llm_metadata" in locals():
+        if llm_metadata is not None:
             metadata.update(llm_metadata)
 
         return IOCExtractionResult(

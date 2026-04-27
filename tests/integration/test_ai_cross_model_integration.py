@@ -33,7 +33,14 @@ def generate_sigma_rules(content: str) -> str:
         raise ImportError("SigmaGenerationService not available")
     service = SigmaGenerationService()
 
-    return asyncio.run(service.generate_sigma_rules(content))
+    return asyncio.run(
+        service.generate_sigma_rules(
+            article_title="Test Article",
+            article_content=content,
+            source_name="Test Source",
+            url="https://example.com/test",
+        )
+    )
 
 
 class TestAICrossModelIntegration:
