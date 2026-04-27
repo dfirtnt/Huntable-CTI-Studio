@@ -5,6 +5,7 @@ Validates LLM-generated SIGMA rules for syntax, structure, and best practices.
 """
 
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -580,6 +581,76 @@ class SigmaValidator:
                 warnings.append(f"Tag contains invalid special characters: {tag}")
 
 
+_REGISTRY_FIELDS = re.compile(
+    r"^(\s*(?:-\s+)?(?:registry_key|TargetObject|hive|registry_path|RegistryKey)"
+    r"(?:\|[^:]+)?\s*:\s*)(['\"])([^\n]*?)\2\s*$",
+    re.MULTILINE,
+)
+
+
+def _fix_registry_backslashes(yaml_text: str) -> str:
+    """Normalize Windows registry path escaping in SIGMA YAML.
+
+    LLMs frequently write registry values with double backslashes inside single-quoted
+    YAML scalars (e.g. 'HKEY_LOCAL_MACHINE\\\\Software\\\\...').  In YAML single-quoted
+    strings backslash has no special meaning, so '\\\\' represents two literal backslashes,
+    not one -- which is wrong for Sigma detection.  This function collapses doubled
+    backslashes to single backslashes for any registry-related field value and rewrites
+    the value in single quotes.
+
+    It also handles double-quoted values where '\\\\' correctly encodes one backslash but
+    re-emits them as single-quoted to avoid further escaping issues.
+    """
+
+    def _rewrite(m: re.Match) -> str:
+        prefix = m.group(1)  # field name + colon + spaces
+        quote = m.group(2)  # ' or "
+        value = m.group(3)  # content between quotes
+        if quote == '"':
+            # Double-quoted YAML: \\ represents one literal backslash.
+            # Collapse to single backslash so Windows paths are correct for Sigma.
+            value = value.replace("\\\\", "\\")
+        else:
+            # Single-quoted YAML: backslash has no special meaning.
+            # \\ is two literal backslashes -- collapse to one for Sigma convention.
+            value = value.replace("\\\\", "\\")
+        # Emit as single-quoted; double any literal single quotes inside.
+        value = value.replace("'", "''")
+        return f"{prefix}'{value}'"
+
+    return _REGISTRY_FIELDS.sub(_rewrite, yaml_text)
+
+
+def _close_unclosed_scalars(yaml_text: str) -> str:
+    """Append a missing closing quote if the YAML stream ends with an open scalar.
+
+    This recovers truncated LLM responses so the YAML parser can at least produce
+    a partial structure that gives the repair agent something to work with.
+    """
+    stripped = yaml_text.rstrip()
+    if not stripped:
+        return yaml_text
+    # Scan through the last line character by character tracking quote state.
+    last_line = stripped.split("\n")[-1]
+    in_quote: str | None = None
+    i = 0
+    while i < len(last_line):
+        ch = last_line[i]
+        if in_quote is None:
+            if ch in ("'", '"'):
+                in_quote = ch
+        elif ch == in_quote:
+            if in_quote == "'" and i + 1 < len(last_line) and last_line[i + 1] == "'":
+                i += 2  # escaped single quote ('') inside single-quoted scalar
+                continue
+            in_quote = None  # closed
+        i += 1
+    if in_quote is not None:
+        logger.debug(f"Detected unclosed {in_quote!r} scalar at end of YAML; appending closing quote")
+        yaml_text = stripped + in_quote + "\n"
+    return yaml_text
+
+
 def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     """
     Convenience function to validate a SIGMA rule
@@ -592,6 +663,9 @@ def validate_sigma_rule(rule_yaml: str) -> ValidationResult:
     """
     # Clean the rule content first
     cleaned_content = clean_sigma_rule(rule_yaml)
+    # Normalize registry path backslash escaping and repair truncated scalars
+    cleaned_content = _fix_registry_backslashes(cleaned_content)
+    cleaned_content = _close_unclosed_scalars(cleaned_content)
 
     # Parse YAML to dictionary
     try:
