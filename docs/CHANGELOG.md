@@ -425,6 +425,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.0 "Io"] - 2026-04-27
 ### Added
 - **Infra guard: last-line circuit breaker and bundle illegal-state detection** (2026-02-02): Enforce invariant that LLM is never invoked with empty messages
   - Circuit breaker in `request_chat` and defense-in-depth in `_call_openai_chat`, `_call_anthropic_chat`, `_post_lmstudio_chat`

@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v6.0.0 "Io"** - Current stable release
-**v5.3.0 "Callisto"** - Previous stable release
-**v5.2.0 "Ganymede"** - Earlier stable release
+**v6.1.0 "Io"** - Current stable release
+**v6.0.0 "Io"** - Previous stable release
+**v5.3.0 "Callisto"** - Earlier stable release
 **v4.0.0 "Kepler"** - Earlier stable release
 
 ## Planetary Moon Naming System
@@ -37,6 +37,12 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - Historic missions and discoveries
 
 ## Version History
+
+### v6.1.0 "Io" (2026-04-27)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.1.0] section. -->
+- **Named After**: <fill>
+- **Significance**: <fill>
+- **Features**: <fill>
 
 ### v5.3.0 "Callisto" (Unreleased)
 <!-- TODO: verify: fill Significance and Features once 5.3.0 is cut; in-progress changes are tracked under `[Unreleased]` in docs/CHANGELOG.md. -->
