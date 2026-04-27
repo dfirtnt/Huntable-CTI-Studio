@@ -1598,6 +1598,10 @@ async def compare_rules_similarity(compare_request: CompareRulesRequest):
 async def validate_rule(request: Request, queue_id: int):
     """Validate a SIGMA rule using LLM + pySIGMA with retry loop."""
     try:
+        provider: str = "workflow"
+        model: str = "Sigma agent"
+        conversation_log: list = []
+        validation_results: list = []
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
