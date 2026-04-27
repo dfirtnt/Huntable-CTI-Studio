@@ -474,3 +474,70 @@ def test_os_detection_fallback_enabled_requires_model():
     raw = _minimal_v2(agents, prompts)
     with pytest.raises(ValidationError, match="Agent 'OSDetectionFallback' is Enabled but missing Provider or Model"):
         WorkflowConfigV2.model_validate(raw)
+
+
+# ── Regression: preset import model-key and qa_max_retries contract ───────────
+# These tests pin the exact backend contract that applyPreset() in the frontend
+# relies on. flatten_for_llm_service() must use "RankAgent" (not "RankAgent_model")
+# as the model key, and to_legacy_response_dict() must propagate QA.MaxRetries.
+
+
+@pytest.mark.regression
+def test_flatten_for_llm_service_returns_rankagent_model_key():
+    """flatten_for_llm_service uses bare 'RankAgent' as the model key for main agents.
+
+    The frontend reads agent_models['RankAgent'] to populate the model dropdown.
+    If the key changes (e.g. to 'RankAgent_model'), the dropdown shows the placeholder.
+    """
+    agents = {
+        "RankAgent": {
+            "Provider": "lmstudio",
+            "Model": "qwen/qwen3-8b",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Enabled": True,
+        },
+        "RankAgentQA": {
+            "Provider": "lmstudio",
+            "Model": "qwen/qwen3-14b",
+            "Temperature": 0.3,
+            "TopP": 0.9,
+            "Enabled": True,
+        },
+    }
+    prompts = {
+        "RankAgent": {"prompt": "test", "instructions": ""},
+        "RankAgentQA": {"prompt": "test", "instructions": ""},
+    }
+    raw = _minimal_v2(agents, prompts)
+    config = WorkflowConfigV2.model_validate(raw)
+    flat = config.flatten_for_llm_service()
+
+    assert flat["RankAgent"] == "qwen/qwen3-8b", "model key must be bare 'RankAgent', not 'RankAgent_model'"
+    assert flat["RankAgent_provider"] == "lmstudio"
+    assert flat["RankAgentQA"] == "qwen/qwen3-14b"
+    assert flat["RankAgentQA_provider"] == "lmstudio"
+    assert "RankAgent_model" not in flat, "sub-agent style key must not appear for main agents"
+
+
+@pytest.mark.regression
+def test_to_legacy_response_dict_qa_max_retries():
+    """to_legacy_response_dict propagates QA.MaxRetries as qa_max_retries.
+
+    The frontend applyPreset() reads preset.qa_max_retries to populate the
+    QA Max Retries input. A non-default value (3 vs. default 5) must survive.
+    """
+    agents = {
+        "RankAgent": {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+        "RankAgentQA": {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+    }
+    prompts = {
+        "RankAgent": {"prompt": "test", "instructions": ""},
+        "RankAgentQA": {"prompt": "test", "instructions": ""},
+    }
+    raw = _minimal_v2(agents, prompts)
+    raw["QA"]["MaxRetries"] = 3
+    config = WorkflowConfigV2.model_validate(raw)
+    legacy = config.to_legacy_response_dict()
+
+    assert legacy["qa_max_retries"] == 3, "non-default MaxRetries must survive to_legacy_response_dict"

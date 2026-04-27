@@ -10618,6 +10618,12 @@ async function applyPreset(preset) {
             });
         }
         
+        // Sync currentConfig.agent_models so any async rebuild (renderAgentModels, loadAgentModels)
+        // reads the preset values rather than the stale in-memory config.
+        if (currentConfig && typeof currentConfig === 'object' && preset.agent_models) {
+            currentConfig.agent_models = { ...(currentConfig.agent_models || {}), ...preset.agent_models };
+        }
+
         // Apply QA enabled toggles
         if (preset.qa_enabled) {
             PIPELINE_AGENTS.forEach(agentName => {
@@ -10677,6 +10683,12 @@ async function applyPreset(preset) {
             if (qaMaxRetriesInput) {
                 const value = Math.min(Math.max(1, preset.qa_max_retries), 3);
                 qaMaxRetriesInput.value = value;
+                // Sync currentConfig so autosave fallback uses the preset value, not stale/undefined
+                if (currentConfig && typeof currentConfig === 'object') {
+                    currentConfig.qa_max_retries = value;
+                }
+                // Clear any pre-existing validation error (programmatic .value= does not fire oninput)
+                validateThreshold(qaMaxRetriesInput, 1, 3);
             }
         }
         
