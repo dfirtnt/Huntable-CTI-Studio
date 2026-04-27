@@ -113,21 +113,30 @@ These establish the agent's existence in the system. If these are wrong, nothing
     > **Critical**: `Prompt.prompt` and `QAPrompt.prompt` must be populated with the full
     > content of `src/prompts/{Agent}` and `src/prompts/{QA}`. Use the script in the
     > checklist — do NOT leave these as empty strings. An empty preset prompt silently
-    > leaves users with a broken agent after import.
+    > leaves users with a broken agent after import. See Pitfall #10.
+    >
+    > **QA temperature**: Set `Temperature` to `0.1` for all QA agents across all 8 presets.
+    > Older presets may have 0.3 for some QA entries — match the newer uniform standard.
+    >
+    > **Preset description**: If you copy an existing preset as a template, update the
+    > `Description` field. Stale values like `"Exported preset"` are flagged by the quality test.
 21. **`config/eval_articles_data/{canonical_alias}/`** — Eval data directory
 
 ### Layer 7: Tests (5+ files)
 
-22. **`tests/config/test_{agent}_wiring.py`** — New: full-stack wiring tests (schema, config, migration, subagent utils, prompts, presets, eval data, Langfuse keys)
-23. **`tests/config/test_workflow_config_migrate.py`** — Update agent count assertion
+22. **`tests/config/test_{agent}_wiring.py`** — New: full-stack wiring tests (schema, config, migration, subagent utils, prompts, presets, eval data, Langfuse keys). The `TestPresetFiles` class **must** assert that `Prompt.prompt` and `QAPrompt.prompt` are non-empty strings — not just that the section key exists. See the ScheduledTasksExtract wiring test for the pattern.
+23. **`tests/config/test_workflow_config_migrate.py`** — Update agent count assertion AND extend `_MINIMAL_AGENT_MODELS` with `{Agent}_model` and `{Agent}QA` entries (otherwise prompt-symmetry validation fails on minimal-config tests)
 24. **`tests/config/test_workflow_config_export.py`** — Add section to UI-ordered fixture
-25. **`tests/config/test_backfill_sub_agents.py`** — Already exists; verify it covers the new agent's section in `_OPTIONAL_SUB_AGENT_SECTIONS` (backfill injection, immutability, strict validation integration)
-26. **`tests/worker/test_test_agents_provider_resolution.py`** — Already exists; verify the parametrized cross-agent test includes the new agent name
-27. **`tests/workflows/test_conversation_log_truncation.py`** — Already exists; no per-agent changes needed (truncation is agent-agnostic)
+25. **`tests/config/test_workflow_config_import_export_fidelity.py`** — Add the new agent block to `_full_ui_ordered_preset` plus `FIDELITY_<AGENT>_ENABLED` / `FIDELITY_<AGENT>_QA_ENABLED` constants. Skipping this triggers the phantom-DisabledAgents bug (see Pitfall #13).
+26. **`tests/config/test_backfill_sub_agents.py`** — Add new agent name to the `BACKFILL_AGENTS` list at top of file. Tests are parametrized across that list; one entry adds 11 new test cases automatically.
+27. **`tests/config/test_subagent_traceability_contract.py`** — Three coupled additions: `MIGRATED_QA_AGENTS`, `base_for_qa` map, and `MIGRATED_EXTRACT_AGENTS` (only if envelope uses `count`, not a variant). See Pitfall #16.
+28. **`tests/worker/test_test_agents_provider_resolution.py`** — Already exists; verify the parametrized cross-agent test includes the new agent name
+29. **`tests/integration/test_lmstudio_minimal_e2e.py`** — Append new agent to the `disabled_agents` list (around line 189) so the minimal e2e stays minimal (see Pitfall #14)
+30. **`tests/workflows/test_conversation_log_truncation.py`** — Already exists; no per-agent changes needed (truncation is agent-agnostic)
 
 ## Common Pitfalls
 
-These are real bugs encountered during the RegistryExtract implementation:
+These are real bugs encountered during the RegistryExtract and ScheduledTasksExtract implementations:
 
 ### 1. QA_AGENT_TO_BASE Orphan Detection
 If you add a QA agent but forget to add the base→QA mapping in `BASE_AGENT_TO_QA`,
@@ -178,11 +187,122 @@ preset imports cleanly.
 
 ### 9. Prompt File Only Seeds the DB Once
 `src/prompts/{Agent}` is read **only on first DB seed** — when no workflow config exists
-in the database. After that, the active prompt lives in the DB and is edited via the UI.
-If you iterate on the prompt file after the DB is seeded, the changes have no effect.
-Fix: edit via the UI prompt editor, or delete the workflow config row to trigger re-seed
-(destructive). Also: include `/no_think` in the `role` field for Qwen3 models — without
-it, Qwen3 emits `<think>...</think>` reasoning blocks before JSON, breaking `json.loads()`.
+in the database. After that, the active prompt lives in the DB. There is **no per-agent
+"Reset to default" button** in the UI prompt editor. Three real options to refresh disk
+edits into a live DB:
+
+1. **Re-import a quickstart preset** (recommended, non-destructive) — but this only
+   propagates the new content if you also regenerated the preset's embedded prompt
+   string after editing the disk file. See Pitfall #12.
+2. **Manual paste** — open each affected agent's prompt editor in the UI, paste the
+   disk content, save. Tedious but surgical.
+3. **Delete the workflow config DB row** to trigger re-seed (destructive — wipes any
+   custom edits in the DB).
+
+Also: include `/no_think` in the `role` field for Qwen3 models — without it, Qwen3 emits
+`<think>...</think>` reasoning blocks before JSON, breaking `json.loads()`.
+
+### 10. Preset Prompt.prompt Left Empty — All Evals Silently Broken
+When adding a new agent section to all 8 quickstart presets, it is easy to populate the
+structural keys (`Provider`, `Model`, `Temperature`) but leave `Prompt.prompt` and
+`QAPrompt.prompt` as `""`. This passes import validation — the schema doesn't require
+non-empty prompts — but every user who imports a quickstart preset gets an agent with no
+instructions and no error message. The agent runs, produces empty or nonsensical output,
+and there is no log entry pointing to the root cause.
+
+The integration checklist script populates the fields from the prompt files on disk. Use it.
+Do not hand-write or copy-paste the JSON. After running the script, verify with:
+`json.loads(data["{Agent}"]["Prompt"]["prompt"])` must succeed and return a non-empty dict.
+The `TestPresetFiles` class in the wiring test must assert `prompt_val` is truthy.
+
+### 11. Structured Extractor — `value` Field Not Required if Domain Identity Fields Present
+`_validate_extraction_prompt_config` in `llm_service.py` checks every item in `json_example`
+for the four traceability fields. For simple extractors, `value` is required (the extracted
+artifact). For **structured extractors** whose items have domain-specific identity fields
+(e.g., `task_name`, `task_path`, `trigger` for ScheduledTasksExtract, or `indicator_type`,
+`indicator_value` for network extractors), `value` is **not** required — those domain fields
+satisfy the identity contract.
+
+If you use structured fields but also include a `value` key, that is fine and also passes.
+If you use structured fields but omit `value`, the validator checks `has_domain_fields` and
+skips the `value` requirement automatically.
+
+What causes a hard failure: including a generic `value` field in the schema while the
+`json_example` items do NOT have it, or omitting `source_evidence` / `extraction_justification`
+/ `confidence_score` (these three are always required). When the validator rejects the config,
+every eval result for that agent will be `MESSAGES_MISSING / infra_failed` before any LLM
+call — it looks like a model or provider problem but is actually a schema rejection.
+
+### 12. Sibling Preset Embedded Prompts Go Stale Silently
+The mandatory "Sibling prompt maintenance" rule requires you to update every existing
+extractor's disk prompt with an Architecture Context boundary for the new agent. What's
+not obvious: each disk prompt is **also** embedded as a JSON-encoded string in all 8
+quickstart presets (`{Agent}.Prompt.prompt`). Editing the disk file does NOT update the
+embedded copy.
+
+A user who imports a quickstart preset *after* you ship will silently overwrite their
+DB prompts with the stale embedded versions, rolling back your sibling updates. Mitigation
+is mechanical — after updating disk prompts, regenerate the embedded copies:
+
+```python
+import json
+from pathlib import Path
+PRESET_DIR = Path("config/presets/AgentConfigs/quickstart")
+PROMPT_DIR = Path("src/prompts")
+AGENTS_TO_SYNC = ["CmdlineExtract", "ProcTreeExtract", "RegistryExtract",
+                  "ServicesExtract", "HuntQueriesExtract", "{NewAgent}"]
+src = {a: json.load(open(PROMPT_DIR / a)) for a in AGENTS_TO_SYNC}
+for p in sorted(PRESET_DIR.glob("*.json")):
+    d = json.load(open(p))
+    for a in AGENTS_TO_SYNC:
+        if a in d:
+            d[a]["Prompt"]["prompt"] = json.dumps(src[a])
+    json.dump(d, open(p, "w"), indent=2)
+```
+
+Then add the new agent to `MIGRATED_EXTRACT_AGENTS` in
+`tests/config/test_subagent_traceability_contract.py` to lock against future drift
+(see Pitfall #16 for envelope-shape caveats).
+
+### 13. Fidelity Test Causes Phantom DisabledAgents
+`tests/config/test_workflow_config_import_export_fidelity.py::_full_ui_ordered_preset`
+must include the new agent's section. If you forget, `_backfill_ui_ordered_sub_agents`
+injects it with `Enabled=False` (correct, by design), but `ui_ordered_to_v2` then lifts
+that into `Execution.DisabledAgents`. The result: `test_import_enforces_all_settings`
+fails with `AssertionError: ['NewAgent'] == []` — confusing because nothing in the
+fixture explicitly disables anything. Fix: add a full agent block plus
+`FIDELITY_<AGENT>_ENABLED = True` and `FIDELITY_<AGENT>_QA_ENABLED = True` constants.
+
+### 14. E2E Test disabled_agents List
+`tests/integration/test_lmstudio_minimal_e2e.py` (around line 189) hardcodes which
+sub-agents to disable to keep the e2e fast and minimal. New agents must be appended
+to that list, otherwise the e2e fans out to all extractors and the run gets slower
+plus introduces a new failure surface.
+
+### 15. Don't Full-String-Match `llm_service.py` Source in Tests
+The original RegistryExtract wiring test had:
+```python
+assert 'for key in ["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]' in source
+```
+This shattered the moment ScheduledTasksExtract was added to that list. Every future
+extractor would break the same assertion. Use **substring** assertions:
+```python
+assert '"registry_artifacts"' in source
+assert '"scheduled_tasks"' in source
+```
+Durable across additions and still proves the key is referenced.
+
+### 16. Three Coupled Edits in `test_subagent_traceability_contract.py`
+Adding a QA agent here requires touching all three places, in order:
+1. **`MIGRATED_QA_AGENTS`** list — add `{NewAgent}QA`
+2. **`base_for_qa`** map at `test_preset_qa_prompt_synced` (~line 262) — add
+   `"{NewAgent}QA": "{NewAgent}Extract"`. Missing entry causes `KeyError`, not a clean
+   assertion failure.
+3. **`MIGRATED_EXTRACT_AGENTS`** list — but **only if** the agent's `json_example`
+   envelope uses `count` as the integer field. If it uses `query_count`, `task_count`,
+   or any other variant, `test_json_example_has_expected_top_level_key` fails. If your
+   agent diverges, leave it out and add a comment documenting why (HuntQueriesExtract
+   is the precedent).
 
 ## What Works Automatically
 
@@ -220,10 +340,27 @@ After all edits, verify in this order:
    Verify the test uses the correct provider/model (not ExtractAgent's fallback). Check the
    test modal output — if it says "Invalid request to LMStudio" when you configured OpenAI,
    the `{Agent}_provider` key isn't being read from `agent_models` in the DB.
-5. **Browser verification** (requires running server at http://127.0.0.1:8001/workflow#config):
+5. **Disk -> Preset -> DB -> Runtime chain** — the only verification that catches Pitfall #12 end-to-end:
+   ```python
+   import json
+   from src.database.manager import DatabaseManager  # adapt to your DB access pattern
+   db_prompt = json.loads(db_workflow_config["agent_prompts"]["{NewAgent}"]["prompt"])
+   disk_prompt = json.load(open("src/prompts/{NewAgent}"))
+   assert db_prompt == disk_prompt, "Disk prompt did not reach the live DB"
+   ```
+   Run this *after* importing one of the quickstart presets onto a fresh DB. If it fails,
+   you forgot to regenerate the embedded preset prompt (see Pitfall #12).
+6. **Browser verification** (requires running server at http://127.0.0.1:8001/workflow#config):
    - Workflow Overview shows correct sub-agent count
    - Selected Models panel shows new agent + QA with correct provider/model
    - Clicking Extract Agent → expanding new sub-agent shows provider dropdown, model dropdown, temperature, top_p, prompt editor, QA toggle, test button
    - **LMStudio model dropdown is populated** (not just "Use Extract Agents Fallback Model") when LMStudio is selected as provider — this confirms AGENT_CONFIG registration is correct and `loadAgentModels()` is calling the LMStudio API
    - No console errors mentioning the new agent name
-5. **Check for console errors**: Open browser DevTools, reload, search for agent-related errors
+7. **Check for console errors**: Open browser DevTools, reload, search for agent-related errors
+8. **Preset export diff** (optional but useful): Export the live config from the UI, then run:
+   ```
+   EXPORT_FILE=~/Downloads/workflow-preset-*.json PRESET_NAME=Quickstart-LMStudio-Qwen3 \
+   python3 run_tests.py unit --path tests/config/test_preset_export_comparison.py
+   ```
+   This diffs the live export against the named quickstart preset and flags any field
+   divergence. Useful to confirm all 8 presets stayed in sync after adding the new agent.

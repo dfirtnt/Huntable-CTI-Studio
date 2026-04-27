@@ -578,7 +578,7 @@ succeed without error).
 mkdir -p config/eval_articles_data/{alias}/
 ```
 
-### 21b. Verify Preset Backward Compatibility
+### 22. Verify Preset Backward Compatibility
 
 After adding the agent, test that presets saved **before** this agent existed still import
 cleanly. This is the "old preset" scenario — a JSON file that has no `{Agent}` section.
@@ -622,17 +622,58 @@ Update the agent count assertion. Adding extract + QA = increment by 2.
 Add agent section to the UI-ordered preset fixture with all required keys from
 `_UI_ORDERED_REQUIRED`.
 
-### 25. `tests/config/test_backfill_sub_agents.py` (UPDATE)
+### 25. `tests/config/test_workflow_config_import_export_fidelity.py` (UPDATE)
 
-This file already tests the `_backfill_ui_ordered_sub_agents()` function generically.
-When adding a new agent to `_OPTIONAL_SUB_AGENT_SECTIONS`, verify:
+Add the new agent block to `_full_ui_ordered_preset` plus matching constants:
 
-- The `test_injected_section_matches_default_block` test still passes (it reads from
-  `_OPTIONAL_SUB_AGENT_SECTIONS` dynamically).
-- If the new agent has different default keys than RegistryExtract, add a dedicated
-  test for its specific defaults.
+```python
+FIDELITY_{AGENT}_ENABLED = True
+FIDELITY_{AGENT}_QA_ENABLED = True
+```
 
-### 26. `tests/worker/test_test_agents_provider_resolution.py` (UPDATE)
+Then in the fixture:
+```python
+"{Agent}": {
+    "Enabled": FIDELITY_{AGENT}_ENABLED,
+    "Provider": "anthropic",
+    "Model": "claude-sonnet-4-5",
+    "Temperature": 0.0,
+    "TopP": 0.9,
+    "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " {Agent}", "instructions": ""},
+    "QAEnabled": FIDELITY_{AGENT}_QA_ENABLED,
+    "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
+    "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " {Agent}QA", "instructions": ""},
+},
+```
+
+Skip this and `test_import_enforces_all_settings` fails with phantom DisabledAgents
+(see SKILL Pitfall #13).
+
+### 26. `tests/config/test_backfill_sub_agents.py` (UPDATE)
+
+This file is now parametrized via `BACKFILL_AGENTS` at the top. Add the new agent
+name to that list — 11 tests run automatically against each.
+
+### 27. `tests/config/test_subagent_traceability_contract.py` (UPDATE)
+
+Three coupled additions. Skip any one and either tests fail or silent drift goes
+unguarded (see SKILL Pitfall #16):
+
+```python
+MIGRATED_QA_AGENTS = ["RegistryQA", "ServicesQA", "{Agent}QA"]  # add new QA
+
+# Inside test_preset_qa_prompt_synced (~line 262):
+base_for_qa = {
+    "RegistryQA": "RegistryExtract",
+    "ServicesQA": "ServicesExtract",
+    "{Agent}QA": "{Agent}",  # add mapping
+}
+
+# Only add to MIGRATED_EXTRACT_AGENTS if json_example uses `count` (not query_count etc.):
+MIGRATED_EXTRACT_AGENTS = [..., "{Agent}"]
+```
+
+### 28. `tests/worker/test_test_agents_provider_resolution.py` (UPDATE)
 
 The `TestCrossAgentResolution` class has a parametrized test covering all sub-agents.
 Add the new agent name to the `@pytest.mark.parametrize` list:
@@ -643,10 +684,24 @@ Add the new agent name to the `@pytest.mark.parametrize` list:
     "ProcTreeExtract",
     "HuntQueriesExtract",
     "RegistryExtract",
+    "ServicesExtract",
+    "ScheduledTasksExtract",
     "{Agent}",  # <-- add here
 ])
 ```
 
-### 27. `tests/workflows/test_conversation_log_truncation.py` (NO CHANGE)
+### 29. `tests/integration/test_lmstudio_minimal_e2e.py` (UPDATE)
+
+Append the new agent to the `disabled_agents` list (around line 189). Without this,
+the minimal e2e fans out to all extractors, slowing it and adding failure surfaces:
+
+```python
+"disabled_agents": [
+    "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract",
+    "ServicesExtract", "ScheduledTasksExtract", "{Agent}",
+]
+```
+
+### 30. `tests/workflows/test_conversation_log_truncation.py` (NO CHANGE)
 
 Truncation logic is agent-agnostic — no per-agent updates needed.
