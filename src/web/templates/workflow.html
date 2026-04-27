@@ -1080,6 +1080,23 @@
   text-align: center;
 }
 
+.q-table .q-cell-job {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted-slate);
+}
+
+.q-table .q-cell-job a {
+  color: var(--action-info);
+  text-decoration: none;
+}
+
+.q-table .q-cell-job a:hover {
+  color: var(--action-info-hover);
+  text-decoration: underline;
+}
+
 .q-table .q-cell-date {
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
@@ -3331,6 +3348,7 @@
                         <th class="q-sortable" data-sort-key="article_title">Article <span class="q-sort-ind"></span></th>
                         <th class="q-sortable" data-sort-key="rule_title">Rule Title <span class="q-sort-ind"></span></th>
                         <th class="q-sortable" data-sort-key="obs_used">Obs Used <span class="q-sort-ind"></span></th>
+                        <th class="q-sortable" data-sort-key="workflow_execution_id">Job ID <span class="q-sort-ind"></span></th>
                         <th class="q-sortable" data-sort-key="max_similarity">Similarity <span class="q-sort-ind"></span></th>
                         <th class="q-sortable" data-sort-key="status">Status <span class="q-sort-ind"></span></th>
                         <th class="q-sortable" data-sort-key="created_at">Created <span class="q-sort-ind"></span></th>
@@ -3339,7 +3357,7 @@
                 </thead>
                 <tbody id="queueTableBody">
                     <tr>
-                        <td colspan="9" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
+                        <td colspan="10" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -14184,14 +14202,14 @@ async function loadQueue() {
             console.error('Failed to load queue:', response.status, response.statusText);
             const tbody = document.getElementById('queueTableBody');
             if (tbody) {
-                tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-red-500">Error loading queue</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center text-red-500">Error loading queue</td></tr>';
             }
         }
     } catch (error) {
         console.error('Error loading queue:', error);
         const tbody = document.getElementById('queueTableBody');
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center text-red-500">Error: ' + error.message + '</td></tr>';
         }
     }
 }
@@ -14221,6 +14239,7 @@ function _qSortVal(rule, key) {
         case 'article_title': return (rule.article_title || '').toLowerCase();
         case 'rule_title': return ((rule.rule_metadata || {}).title || '').toLowerCase();
         case 'obs_used': return getObservablesUsedCount(rule);
+        case 'workflow_execution_id': return Number.isInteger(rule.workflow_execution_id) ? rule.workflow_execution_id : -1;
         case 'max_similarity': return typeof rule.max_similarity === 'number' ? rule.max_similarity : -1;
         case 'status': return rule.status || '';
         case 'created_at': return rule.created_at || '';
@@ -14260,7 +14279,7 @@ function renderQueue() {
     _updateQSortIndicators();
     
     if (queue.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
         // Check if we need to trigger preview from URL parameter even with empty queue
         checkAndTriggerPreview();
         return;
@@ -14283,6 +14302,9 @@ function renderQueue() {
                 </td>
                 <td class="q-cell-title" title="${(title || '').replace(/"/g, '&quot;')}">${title}</td>
                 <td class="q-cell-obs">${observablesUsedCount}</td>
+                <td class="q-cell-job">
+                    ${Number.isInteger(rule.workflow_execution_id) ? `<a href="#executions" onclick="switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow job ${rule.workflow_execution_id}">${rule.workflow_execution_id}</a>` : '-'}
+                </td>
                 <td class="q-cell-sim">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>

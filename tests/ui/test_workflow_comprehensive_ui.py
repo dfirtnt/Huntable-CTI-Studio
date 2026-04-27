@@ -208,8 +208,10 @@ class TestWorkflowQueueRegressions:
         page.wait_for_timeout(800)
 
         expect(page.locator("#tab-content-queue th", has_text="Obs Used")).to_be_visible()
+        expect(page.locator("#tab-content-queue th", has_text="Job ID")).to_be_visible()
         row = page.locator("#queueTableBody tr").first
         expect(row.locator("td.q-cell-obs")).to_have_text("3")
+        expect(row.locator("td.q-cell-job")).to_contain_text("123")
 
     @pytest.mark.ui
     @pytest.mark.workflow
