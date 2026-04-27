@@ -14,6 +14,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from src.config.workflow_config_loader import (
     export_preset_as_canonical_v2,
     is_ui_ordered_preset,

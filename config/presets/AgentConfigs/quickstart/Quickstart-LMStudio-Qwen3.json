@@ -46,7 +46,7 @@
         "QA": {
             "Provider": "lmstudio",
             "Model": "qwen/qwen3-14b",
-            "Temperature": 0.3,
+            "Temperature": 0.1,
             "TopP": 0.9
         },
         "QAPrompt": {
@@ -78,7 +78,7 @@
         "QA": {
             "Provider": "lmstudio",
             "Model": "qwen/qwen3-14b",
-            "Temperature": 0.3,
+            "Temperature": 0.1,
             "TopP": 0.9
         },
         "QAPrompt": {
@@ -101,7 +101,7 @@
         "QA": {
             "Provider": "lmstudio",
             "Model": "qwen/qwen3-14b",
-            "Temperature": 0.3,
+            "Temperature": 0.1,
             "TopP": 0.9
         },
         "QAPrompt": {
@@ -123,7 +123,7 @@
         "QA": {
             "Provider": "lmstudio",
             "Model": "qwen/qwen3-14b",
-            "Temperature": 0.3,
+            "Temperature": 0.1,
             "TopP": 0.9
         },
         "QAPrompt": {

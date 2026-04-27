@@ -2,7 +2,7 @@
     "Version": "2.0",
     "Metadata": {
         "CreatedAt": "2026-02-23T00:24:03Z",
-        "Description": "Exported preset"
+        "Description": "Quickstart preset -- OpenAI GPT-4.1 mini for all extraction agents"
     },
     "JunkFilter": {
         "JunkFilterThreshold": 0.8
