@@ -10152,6 +10152,7 @@ async function importPresetFromFile(event) {
         
         const isV2 = preset.Version === '2.0';
         if (!preset.version && !isV2) throw new Error('Invalid preset format. Missing version.');
+        let importWarnings = [];
         if (isV2) {
             const response = await fetch('/api/workflow/config/preset/to-legacy', {
                 method: 'POST',
@@ -10160,7 +10161,21 @@ async function importPresetFromFile(event) {
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.detail || data.message || 'Failed to convert preset.');
+            importWarnings = data.warnings || [];
             preset = data;
+        } else {
+            // Legacy preset: validate prompts via dedicated endpoint
+            try {
+                const vResp = await fetch('/api/workflow/config/preset/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(preset)
+                });
+                if (vResp.ok) {
+                    const vData = await vResp.json().catch(() => ({}));
+                    importWarnings = vData.warnings || [];
+                }
+            } catch (_) { /* validation is best-effort; don't block import */ }
         }
         if (preset.scope && SUBAGENT_SCOPES.includes(preset.scope)) {
             if (!preset.agent_models && (!preset.agent_prompts || Object.keys(preset.agent_prompts).length === 0) && (!preset.qa_enabled || Object.keys(preset.qa_enabled).length === 0)) {
@@ -10171,25 +10186,33 @@ async function importPresetFromFile(event) {
                 throw new Error('Invalid preset format. Missing thresholds or agent_models.');
             }
         }
-        
+
         const isSubAgent = preset.scope && SUBAGENT_SCOPES.includes(preset.scope);
         const confirmMsg = isSubAgent
             ? `Load ${SUBAGENT_SCOPE_MAP[preset.scope]?.extract || preset.scope} preset "${file.name}"?\n\nThis will replace only that sub-agent pair's config and prompts.`
             : `Load preset "${file.name}"?\n\nThis will replace all current settings:\n` +
               `- Thresholds\n- Model selections\n- QA toggles\n- Temperature settings\n` +
               `- Extract agent toggles\n- Sigma fallback setting\n- QA max retries\n- Agent prompts\n\nClick OK to proceed or Cancel to abort.`;
-        
+
         if (!confirm(confirmMsg)) {
             event.target.value = '';
             return;
         }
-        
+
         await applyPreset(preset);
-        
+
         const successMsg = isSubAgent
             ? `${SUBAGENT_SCOPE_MAP[preset.scope]?.extract || preset.scope} preset loaded`
             : 'Preset "' + file.name + '" loaded successfully';
         showNotification(successMsg, 'success');
+
+        if (importWarnings.length > 0) {
+            console.warn('Preset import warnings:', importWarnings);
+            const warnSummary = importWarnings.length === 1
+                ? importWarnings[0]
+                : `${importWarnings.length} prompt issues found (see console for details)`;
+            showNotification('Preset warning: ' + warnSummary, 'warning');
+        }
         
         // Reset file input
         event.target.value = '';

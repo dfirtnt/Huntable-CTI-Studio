@@ -598,6 +598,87 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+_TRACEABILITY_REQUIRED = frozenset({"source_evidence", "extraction_justification", "confidence_score"})
+_TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
+
+
+def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str]:
+    """Scan agent_prompts for issues that would cause runtime failures.
+
+    Returns a list of human-readable warning strings. Empty list = clean.
+    Mirrors llm_service._validate_extraction_prompt_config logic but collects
+    all issues instead of raising on the first one.
+    """
+    warnings: list[str] = []
+
+    for agent_name, prompt_entry in agent_prompts.items():
+        if not isinstance(prompt_entry, dict):
+            continue
+        prompt_str = prompt_entry.get("prompt", "")
+        if not isinstance(prompt_str, str):
+            prompt_str = str(prompt_str)
+
+        if not prompt_str.strip():
+            warnings.append(f"{agent_name}: system prompt is empty")
+            continue
+
+        if not prompt_str.strip().startswith("{"):
+            continue
+
+        try:
+            parsed = json.loads(prompt_str)
+        except (ValueError, json.JSONDecodeError):
+            warnings.append(f"{agent_name}: system prompt contains invalid JSON")
+            continue
+
+        if not isinstance(parsed, dict):
+            continue
+
+        json_example_raw = parsed.get("json_example")
+        if json_example_raw is None:
+            # Structured prompt without json_example -- warn only for known extractor agents
+            if agent_name.endswith("Extract") or agent_name == "ExtractAgent":
+                warnings.append(
+                    f"{agent_name}: structured prompt is missing 'json_example' (required by Extractor Contract)"
+                )
+            continue
+
+        if isinstance(json_example_raw, str):
+            try:
+                json_example = json.loads(json_example_raw)
+            except (ValueError, json.JSONDecodeError):
+                warnings.append(f"{agent_name}: json_example is not valid JSON")
+                continue
+        else:
+            json_example = json_example_raw
+
+        if not isinstance(json_example, dict):
+            continue
+
+        # Find the items array (first list of dicts in the top-level dict)
+        item_fields: set[str] = set()
+        for v in json_example.values():
+            if isinstance(v, list) and v and isinstance(v[0], dict):
+                item_fields = set(v[0].keys())
+                break
+
+        if not item_fields:
+            continue
+
+        missing_required = _TRACEABILITY_REQUIRED - item_fields
+        if missing_required:
+            warnings.append(
+                f"{agent_name}: json_example items missing required traceability fields: {sorted(missing_required)}"
+            )
+            continue
+
+        has_domain_fields = bool(item_fields - _TRACEABILITY_FIELDS)
+        if not has_domain_fields and "value" not in item_fields:
+            warnings.append(f"{agent_name}: json_example items missing 'value' field (simple extractor requires it)")
+
+    return warnings
+
+
 @router.post("/config/preset/save")
 async def save_config_preset(save_request: SaveConfigPresetRequest):
     """Save or update a workflow config preset (upsert by name)."""
@@ -702,13 +783,32 @@ async def preset_to_legacy(preset: dict[str, Any]):
     """
     try:
         config = load_workflow_config(preset)
-        return _v2_to_legacy_preset_dict(config)
+        result = _v2_to_legacy_preset_dict(config)
+        result["warnings"] = _scan_preset_prompts_for_warnings(result.get("agent_prompts", {}))
+        if result["warnings"]:
+            logger.warning("Preset import warnings: %s", result["warnings"])
+        return result
     except ValueError as e:
         logger.warning("Preset to-legacy strict validation failed: %s", e)
         raise HTTPException(status_code=400, detail=str(e)) from e
     except ValidationError as e:
         logger.warning("Preset to-legacy validation failed: %s", e)
         raise HTTPException(status_code=400, detail=f"Invalid config: {e}") from e
+
+
+@router.post("/config/preset/validate")
+async def validate_preset_prompts(preset: dict[str, Any]):
+    """Scan a legacy-shaped preset for prompt issues without applying it.
+
+    Returns {warnings: [...]} where each entry is a human-readable description
+    of a field that would cause a runtime failure (empty prompt, invalid JSON,
+    missing traceability fields, etc.). Empty warnings list means clean.
+    """
+    agent_prompts = preset.get("agent_prompts", {})
+    warnings = _scan_preset_prompts_for_warnings(agent_prompts)
+    if warnings:
+        logger.warning("Preset validate warnings: %s", warnings)
+    return {"warnings": warnings}
 
 
 @router.get("/config/preset/list")
