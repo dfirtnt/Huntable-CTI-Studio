@@ -55,6 +55,10 @@
 }
 .source-card[hidden] { display: none !important; }
 .source-card:hover { box-shadow:0 4px 20px rgba(0,0,0,0.25); border-color:var(--border-subtle); }
+.source-card.source-selected {
+  border-color:var(--purple-primary);
+  box-shadow:0 0 0 2px var(--purple-border-50);
+}
 .source-card::before {
   content:''; position:absolute; left:0; top:0; bottom:0;
   width:3px; border-radius:10px 0 0 10px;
@@ -875,6 +879,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const submitBtn = document.getElementById('saveSourceConfigBtn');
         window.ModalManager.register('sourceConfigModal', { hasInput: true, submitButton: submitBtn, isDynamic: false });
     }
+
+    applySourceDeepLink();
 });
 
 // ── Overflow menu ──
@@ -940,6 +946,52 @@ function filterSources() {
         visible === total ? `${total} sources` : `${visible} of ${total}`;
     const empty = document.getElementById('srcEmptyState');
     if (empty) empty.style.display = visible === 0 ? 'block' : 'none';
+}
+
+function applySourceDeepLink() {
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get('status');
+    const method = params.get('method');
+    const sourceId = params.get('source_id');
+    const sourceName = params.get('source');
+    const statusFilter = document.getElementById('statusFilter');
+    const methodFilter = document.getElementById('methodFilter');
+    const search = document.getElementById('sourceSearch');
+    let selectedCard = null;
+
+    if (status && statusFilter && Array.from(statusFilter.options).some(option => option.value === status)) {
+        statusFilter.value = status;
+    }
+    if (method && methodFilter && Array.from(methodFilter.options).some(option => option.value === method)) {
+        methodFilter.value = method;
+    }
+    if (sourceId) {
+        const safeSourceId = sourceId.replace(/[^0-9]/g, '');
+        if (safeSourceId) {
+            selectedCard = document.querySelector('#sourceGrid .source-card[data-source-id="' + safeSourceId + '"]');
+        }
+    }
+    if (!selectedCard && sourceName) {
+        selectedCard = Array.from(document.querySelectorAll('#sourceGrid .source-card')).find(card => {
+            return (card.dataset.sourceName || '').toLowerCase() === sourceName.toLowerCase();
+        });
+    }
+    if (search && (sourceName || selectedCard)) {
+        search.value = sourceName || selectedCard.dataset.sourceName || '';
+    }
+
+    syncChipHighlight();
+    filterSources();
+
+    document.querySelectorAll('#sourceGrid .source-card.source-selected').forEach(card => {
+        card.classList.remove('source-selected');
+        card.removeAttribute('aria-current');
+    });
+    if (selectedCard) {
+        selectedCard.classList.add('source-selected');
+        selectedCard.setAttribute('aria-current', 'true');
+        selectedCard.scrollIntoView({ block: 'center', behavior: 'auto' });
+    }
 }
 
 // ── Stats modal ──

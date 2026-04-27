@@ -94,3 +94,49 @@ test.describe('Dashboard - Stats Display', () => {
     expect(hasActive).toBe(true);
   });
 });
+
+test.describe('Dashboard - Failing Sources', () => {
+  test('[DASH-030] Failing source rows deep-link to selected source filter', async ({ page }) => {
+    await page.route('**/api/dashboard/data', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          health: {
+            uptime: 80,
+            status: 'degraded',
+            label: 'Degraded',
+            total_sources: 1,
+            monitored_sources: 1,
+            healthy_sources: 0,
+            warning_sources: 1,
+            critical_sources: 0,
+            avg_response_time: 1.42,
+          },
+          volume: { daily: {}, hourly: {} },
+          failing_sources: [{
+            id: 42,
+            name: 'Example Threat Source',
+            consecutive_failures: 7,
+            last_success: '2026-04-20T00:00:00',
+            healing_exhausted: true,
+          }],
+          top_articles: [],
+          recent_activities: [],
+          stats: { total_articles: 0, active_sources: 1, avg_hunt_score: 0, filter_efficiency: 0 },
+          healing_enabled: false,
+        }),
+      });
+    });
+
+    await page.goto(`${BASE}/dashboard`);
+    const row = page.locator('#failing-sources-container a.fail-row').filter({ hasText: 'Example Threat Source' });
+    await expect(row).toBeVisible();
+    await row.click();
+    await expect(page).toHaveURL(/\/sources/);
+    const url = new URL(page.url());
+    expect(url.searchParams.get('status')).toBe('failing');
+    expect(url.searchParams.get('source_id')).toBe('42');
+    expect(url.searchParams.get('source')).toBe('Example Threat Source');
+  });
+});

@@ -305,6 +305,16 @@
         border-radius: 2px;
         border-left: 2px solid var(--d-red);
         background: rgba(248, 113, 113, 0.04);
+        color: inherit;
+        cursor: pointer;
+        text-decoration: none;
+    }
+
+    .fail-row:hover,
+    .fail-row:focus-visible {
+        border-color: var(--d-border-hi);
+        background: var(--d-raised);
+        outline: none;
     }
 
     .fail-row.medium {
@@ -836,8 +846,13 @@
                 data.failing_sources.forEach(s => {
                     const fc  = s.consecutive_failures || 0;
                     const cls = fc >= 5 ? 'fail-row' : 'fail-row medium';
-                    const row = document.createElement('div');
+                    const row = document.createElement('a');
                     row.className = cls;
+                    const sourceParams = new URLSearchParams({ status: 'failing' });
+                    if (s.id != null) sourceParams.set('source_id', String(s.id));
+                    if (s.name) sourceParams.set('source', s.name);
+                    row.href = '/sources?' + sourceParams.toString();
+                    row.setAttribute('aria-label', 'Open failing source ' + (s.name || 'Unknown'));
 
                     const nameSpan = document.createElement('span');
                     nameSpan.className = 'fail-name';

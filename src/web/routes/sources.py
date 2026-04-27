@@ -72,6 +72,7 @@ async def api_sources_failing():
 
                 failing_sources.append(
                     {
+                        "source_id": source.id,
                         "source_name": source.name,
                         "consecutive_failures": consecutive_failures,
                         "last_success": last_success_str,

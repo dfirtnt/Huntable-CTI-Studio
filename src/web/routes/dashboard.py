@@ -158,6 +158,7 @@ async def api_dashboard_data():
                 last_success = getattr(source, "last_success", None)
                 failing_sources.append(
                     {
+                        "id": getattr(source, "id", None),
                         "name": getattr(source, "name", "Unknown Source"),
                         "last_success": last_success.isoformat() if last_success else "Never",
                         "last_success_text": _format_time_ago(last_success),
