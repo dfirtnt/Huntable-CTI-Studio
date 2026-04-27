@@ -5,6 +5,11 @@ All notable changes to Huntable CTI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.2] - 2026-04-26
+
+### Fixed
+- **Source count inconsistencies across /health, /sources, and /build-dashboard** (2026-04-26): `/health` reported 41 sources (bare `COUNT(*)` in `get_database_stats()`), `/sources` badges showed 39 (Jinja loop excluded `manual` and `eval_articles`), the `/sources` JS filter counter showed "X of 40" (hidden manual card included in `querySelectorAll`), and `/build-dashboard` Quick Overview showed "Active Sources 39" from a separate unguarded count. Root cause: three independent code paths computed source counts with different exclusion logic. Fix: (1) `get_database_stats()` in `async_manager.py` now filters `_INTERNAL_SOURCE_IDENTIFIERS = ("manual", "eval_articles")` from both `total_sources` and `active_sources` DB counts; (2) `api_dashboard_data()` in `dashboard.py` applies the existing `_EXCLUDED_HEALTH_IDENTIFIERS` constant (already used for uptime) to the `active_sources` and `total_sources` Python-side counts; (3) `sources.html` JS `filterSources()` changes its `querySelectorAll` from `.source-card` to `.source-card:not([hidden])` so the permanently-hidden manual card is not counted in the filter total. All four surfaces now agree on 39 as the canonical source count.
+
 ## [6.0.1] - 2026-04-24
 
 ### Added
