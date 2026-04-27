@@ -200,7 +200,7 @@ async def get_backfill_logs():
 
     except Exception as exc:  # noqa: BLE001
         logger.error("Error reading logs: %s", exc, exc_info=True)
-        return {"success": False, "logs": f"Error reading logs: {exc}"}
+        return {"success": False, "logs": f"Error reading logs: {type(exc).__name__}"}
 
 
 @router.post("/backfill")

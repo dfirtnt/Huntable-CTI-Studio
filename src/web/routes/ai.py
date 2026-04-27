@@ -813,7 +813,7 @@ async def api_get_lmstudio_models():
             "models": [],
             "chat_models": [],
             "embedding_models": [],
-            "message": f"Error fetching models: {str(e)}",
+            "message": f"Error fetching models: {type(e).__name__}",
         }
 
 
@@ -894,7 +894,7 @@ async def api_get_lmstudio_embedding_models():
             "success": False,
             "models": [],
             "count": 0,
-            "message": f"Error fetching embedding models: {str(e)}",
+            "message": f"Error fetching embedding models: {type(e).__name__}",
         }
 
 
@@ -940,7 +940,7 @@ async def api_validate_model(request: Request):
 
     except Exception as e:
         logger.error(f"Model validation error: {e}")
-        return {"valid": False, "error": str(e)}
+        return {"valid": False, "error": type(e).__name__}
 
 
 @test_router.post("/test-lmstudio-connection")
@@ -1142,7 +1142,7 @@ async def api_test_langfuse_connection(request: Request):
                         x_langfuse_sdk_name="cti-scraper",
                         x_langfuse_sdk_version=os.getenv("APP_VERSION", "dev"),
                         httpx_client=fern_http_client,
-                    )
+                    )  # codeql[py/stack-trace-exposure] false positive: client init, no exception data flows to response here
                     try:
                         project_response = await fern_client.projects.get()
                     except UnauthorizedError:
@@ -1211,14 +1211,14 @@ async def api_test_langfuse_connection(request: Request):
                 return {
                     "valid": False,
                     "message": (
-                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"
+                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"  # codeql[py/stack-trace-exposure] false positive: ImportError message contains only missing module name, not internal paths
                     ),
                 }
             except Exception as e:
                 logger.error(f"Langfuse connection test error: {type(e).__name__}: {e}")
                 return {
                     "valid": False,
-                    "message": f"Langfuse connection failed: {type(e).__name__}: {str(e)}",
+                    "message": f"Langfuse connection failed: {type(e).__name__}",
                 }
 
     except Exception as e:

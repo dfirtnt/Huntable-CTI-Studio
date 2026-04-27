@@ -70,7 +70,7 @@ async def api_database_health() -> dict[str, Any]:
         performance_metrics = await async_db_manager.get_performance_metrics()
         corruption_stats = await async_db_manager.get_corruption_stats()
 
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only database stats, no exception data
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
             "database": {
@@ -323,7 +323,9 @@ async def api_capabilities() -> dict[str, Any]:
         from src.services.capability_service import CapabilityService
 
         service = CapabilityService()
-        return service.compute_capabilities()
+        return (
+            service.compute_capabilities()
+        )  # codeql[py/stack-trace-exposure] false positive: returns capability flags, no exception data
     except Exception as exc:
         logger.error("Capabilities check failed: %s", exc)
         return {"error": "Health check failed"}

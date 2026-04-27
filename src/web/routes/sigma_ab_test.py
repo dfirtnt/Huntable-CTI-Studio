@@ -148,7 +148,7 @@ async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest
         }
         result = matching_service.compare_proposed_rule_to_embeddings(proposed_rule=normalized, threshold=0.0)
         matches = result.get("matches", [])[:20]
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only rule metadata, no exception data
             "success": True,
             "matches": [
                 {

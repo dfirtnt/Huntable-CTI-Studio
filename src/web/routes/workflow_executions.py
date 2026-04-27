@@ -813,7 +813,7 @@ async def stream_execution_updates(execution_id: int):
 
         except Exception as e:
             logger.error(f"Error in execution stream: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': type(e).__name__})}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -873,7 +873,7 @@ async def trigger_stuck_executions(request: Request):
                             "execution_id": execution.id,
                             "article_id": execution.article_id,
                             "success": False,
-                            "message": str(e),
+                            "message": type(e).__name__,
                         }
                     )
 
