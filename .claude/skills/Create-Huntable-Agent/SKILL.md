@@ -2,7 +2,8 @@
 name: Create-Huntable-Agent
 description: >
   Add a new extraction sub-agent to Huntable CTI Studio as a first-class peer of CmdlineExtract,
-  ProcTreeExtract, HuntQueriesExtract, and RegistryExtract. Use this skill whenever the user asks
+  ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, and ScheduledTasksExtract.
+  Use this skill whenever the user asks
   to "add a new agent", "create a sub-agent", "wire up a new extractor", "add a new extraction
   type", or anything related to adding a new LangGraph extraction sub-agent to the agentic workflow
   pipeline. This covers the full stack: schema, config pipeline, migration, services, routes,
@@ -70,9 +71,11 @@ These establish the agent's existence in the system. If these are wrong, nothing
 > ALL existing extractor prompts to acknowledge the new sibling in their Architecture Context
 > block and define boundary rules in both directions — what the new agent owns, and what
 > existing agents must not cross into. This applies to every current extractor:
-> CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, HuntQueriesExtract,
-> and any others present at the time. See `docs/contracts/extractor-standard.md` section 3
-> (ARCHITECTURE CONTEXT) for the required format.
+> CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract,
+> HuntQueriesExtract, and any others present at the time. Verify the current list against
+> `AGENT_NAMES_SUB` in `src/config/workflow_config_schema.py` before updating prompts.
+> See `docs/contracts/extractor-standard.md` section 3 (ARCHITECTURE CONTEXT) for the
+> required format.
 
 > **QA prompt traceability (mandatory):** The new QA prompt (`src/prompts/{QAName}`) MUST
 > include all three traceability checks in its `evaluation_criteria` array:
@@ -223,4 +226,4 @@ After all edits, verify in this order:
    - Clicking Extract Agent → expanding new sub-agent shows provider dropdown, model dropdown, temperature, top_p, prompt editor, QA toggle, test button
    - **LMStudio model dropdown is populated** (not just "Use Extract Agents Fallback Model") when LMStudio is selected as provider — this confirms AGENT_CONFIG registration is correct and `loadAgentModels()` is calling the LMStudio API
    - No console errors mentioning the new agent name
-4. **Check for console errors**: Open browser DevTools, reload, search for agent-related errors
+5. **Check for console errors**: Open browser DevTools, reload, search for agent-related errors

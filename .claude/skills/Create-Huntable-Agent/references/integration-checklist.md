@@ -578,7 +578,7 @@ succeed without error).
 mkdir -p config/eval_articles_data/{alias}/
 ```
 
-### 22. Verify Preset Backward Compatibility
+### 21b. Verify Preset Backward Compatibility
 
 After adding the agent, test that presets saved **before** this agent existed still import
 cleanly. This is the "old preset" scenario — a JSON file that has no `{Agent}` section.

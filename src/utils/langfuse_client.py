@@ -307,6 +307,26 @@ def trace_workflow_execution(
     )
 
 
+def _get_langfuse_api():
+    """Return a LangfuseAPI (low-level query client) using the same credentials as the high-level client.
+
+    The high-level Langfuse class sends/instruments traces; LangfuseAPI queries them via REST.
+    Returns None if credentials are not configured.
+    """
+    public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
+    secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+    if not public_key or not secret_key:
+        return None
+    try:
+        from langfuse.api.client import LangfuseAPI
+
+        return LangfuseAPI(base_url=host, username=public_key, password=secret_key)
+    except Exception as e:
+        logger.debug("Could not build LangfuseAPI query client: %s", e)
+        return None
+
+
 def get_langfuse_trace_id_for_session(session_id: str) -> str | None:
     """
     Look up the most recent Langfuse trace ID for the given session.
@@ -326,12 +346,12 @@ def get_langfuse_trace_id_for_session(session_id: str) -> str | None:
     if cached:
         return cached
 
-    client = get_langfuse_client()
-    if client is None:
+    api = _get_langfuse_api()
+    if api is None:
         return None
 
     try:
-        traces = client.api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
+        traces = api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
         if traces and traces.data:
             trace = traces.data[0]
             trace_id = getattr(trace, "id", None)

@@ -118,8 +118,8 @@ async def test_langfuse_connection_success(monkeypatch):
     import langfuse.types as lf_types
 
     monkeypatch.setattr(lf_types, "TraceContext", _TraceContext, raising=False)
-    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk_test")
-    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk_test")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-test-key-00000000-0000-0000-0000")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-test-key")
     monkeypatch.setenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com")
     monkeypatch.setenv("LANGFUSE_PROJECT_ID", "")
     _patch_langfuse_api_client(monkeypatch, _DummyAPIClient)
@@ -157,11 +157,79 @@ async def test_langfuse_connection_invalid_keys(monkeypatch):
 
     monkeypatch.setattr(lf_api, "UnauthorizedError", _TestUnauthorizedError, raising=False)
     monkeypatch.setattr(lf_api, "AccessDeniedError", _FakeAccessDeniedError, raising=False)
-    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk_bad")
-    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk_bad")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-bad-key-00000000-0000-0000-0000")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-bad")
     _patch_langfuse_api_client(monkeypatch, _ErrorAPIClient)
 
     result = await api_test_langfuse_connection(_make_request())
 
     assert result["valid"] is False
     assert "Invalid Langfuse API keys" in result["message"]
+
+
+@pytest.mark.asyncio
+async def test_langfuse_connection_rejects_non_pk_lf_public_key(monkeypatch):
+    """Public keys that don't start with 'pk-lf-' are rejected before any API call is made."""
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "sk-proj-OPENAI_KEY_ACCIDENTALLY_PASTED_HERE")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-valid-secret")
+    monkeypatch.setenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com")
+
+    # No API client should be constructed — patch to detect accidental calls
+    api_call_count = {"n": 0}
+
+    class _ShouldNotBeCalledAPI:
+        def __init__(self, **kwargs):
+            api_call_count["n"] += 1
+
+    _patch_langfuse_api_client(monkeypatch, _ShouldNotBeCalledAPI)
+
+    result = await api_test_langfuse_connection(_make_request())
+
+    assert result["valid"] is False
+    assert "pk-lf-" in result["message"]
+    assert api_call_count["n"] == 0, "API client must not be constructed for a bad-format public key"
+
+
+@pytest.mark.asyncio
+async def test_langfuse_connection_accepts_pk_lf_prefix(monkeypatch):
+    """A public key starting with 'pk-lf-' passes the format check and proceeds to auth."""
+
+    class _OkProjectsClient:
+        async def get(self):
+            return SimpleNamespace(data=[SimpleNamespace(id="proj-ok")])
+
+    class _OkAPIClient:
+        def __init__(self, **kwargs):
+            self.projects = _OkProjectsClient()
+
+    class _DummyObs:
+        trace_id = "t1"
+
+        def update(self, **kw):
+            pass
+
+        def end(self):
+            pass
+
+    class _OkLangfuse:
+        def __init__(self, **kw):
+            pass
+
+        def start_observation(self, **kw):
+            return _DummyObs()
+
+        def flush(self):
+            pass
+
+    import langfuse.types as lf_types
+
+    monkeypatch.setattr(lf_types, "TraceContext", _TraceContext, raising=False)
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-valid")
+    monkeypatch.setenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com")
+    _patch_langfuse_api_client(monkeypatch, _OkAPIClient)
+    monkeypatch.setattr("langfuse.Langfuse", _OkLangfuse)
+
+    result = await api_test_langfuse_connection(_make_request())
+
+    assert result["valid"] is True

@@ -166,7 +166,7 @@ Add `{QA}`.
 
 ---
 
-## Category 8b: getCurrentModelForAgent Function
+## Category 9: getCurrentModelForAgent Function
 
 Search: `getCurrentModelForAgent`
 

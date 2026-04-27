@@ -997,6 +997,7 @@ async def api_load_lmstudio_model(request: Request):
         # SECURITY: Validate model_name to prevent command injection
         # Model names should only contain alphanumeric, dash, underscore, slash, dot
         import re
+
         if not re.match(r"^[\w\-/.]+$", model_name):
             raise HTTPException(status_code=400, detail="Invalid model_name format")
 
@@ -1111,6 +1112,19 @@ async def api_test_langfuse_connection(request: Request):
                 from langfuse.api.client import AsyncLangfuseAPI
                 from langfuse.api.core.api_error import ApiError
                 from langfuse.types import TraceContext
+
+                # Langfuse public keys always start with "pk-lf-".
+                # projects.get() only validates the secret key (Basic Auth password),
+                # so a wrong-format public key passes auth but traces are never written.
+                if not public_key.startswith("pk-lf-"):
+                    return {
+                        "valid": False,
+                        "message": (
+                            "Langfuse Public Key has an unexpected format. "
+                            "It should start with 'pk-lf-'. "
+                            "Find your public key in Langfuse -> Settings -> API Keys."
+                        ),
+                    }
 
                 base_url = host.rstrip("/")
 
