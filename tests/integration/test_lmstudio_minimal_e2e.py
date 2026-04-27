@@ -57,10 +57,12 @@ def _test_db_url() -> str:
 
 @pytest.fixture(scope="module")
 def db_session():
+    manager = None
     try:
         manager = DatabaseManager(database_url=_test_db_url())
     except Exception as exc:
         pytest.skip(f"Test database unavailable: {exc}")
+    assert manager is not None
     session = manager.get_session()
     yield session
     session.close()
