@@ -118,21 +118,53 @@ Also add the QA pair mapping (search for `"ServicesExtract": "ServicesQA"` to fi
 
 **File:** `src/services/llm_service.py`
 
-Search for `"ServicesExtract"` to find every location. Add `{AgentName}` and `{result_key}` in parallel with the ServicesExtract pattern at each location:
+Search for `"ServicesExtract"` to find every location. There are **six** places to update. Add `{AgentName}` and `{result_key}` in parallel with the ServicesExtract pattern at each location:
 
-1. **Agent dispatch list** (sub-agent name → run extraction): add `{AgentName}` to the list that includes `"ServicesExtract"`.
+### 4a. Agent dispatch list (~line 508)
+The list of sub-agent names that trigger extraction mode. Add `{AgentName}`:
+```python
+"ServicesExtract",
+"{AgentName}",
+```
 
-2. **Result key list** (keys to normalize from raw LLM output): add `"{result_key}"` alongside `"windows_services"`.
+### 4b. Traceability block injection (~line 3422)
+The `if agent_name in (...)` tuple that appends the traceability block to the user prompt. Add `{AgentName}`:
+```python
+if agent_name in (
+    "CmdlineExtract",
+    "ProcTreeExtract",
+    "HuntQueriesExtract",
+    "RegistryExtract",
+    "ServicesExtract",
+    "{AgentName}",
+):
+```
 
-3. **Count extraction block** — the block that reads `last_result.get("windows_services", [])`:
-   ```python
-   elif "{result_key}" in last_result:
-       count = len(last_result.get("{result_key}", []))
-       logger.info(f"{agent_name} found {count} {result_key}")
-       last_result["items"] = last_result.pop("{result_key}")
-   ```
+### 4c. Expected-keys list (~line 3665)
+The list of expected result keys used to detect a valid JSON response. Add `"{result_key}"`:
+```python
+"windows_services",
+"{result_key}",
+```
 
-4. **Normalization keys list** — the list `["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]`: add `"{result_key}"`.
+### 4d. Count extraction block (~line 3719)
+The `elif` chain that reads the result key, counts items, and renames the key to `"items"`. Add:
+```python
+elif "{result_key}" in last_result:
+    count = len(last_result.get("{result_key}", []))
+    logger.info(f"{agent_name} found {count} {result_key}")
+    last_result["items"] = last_result.pop("{result_key}")
+```
+
+### 4e. Per-key normalization loop (~line 3783)
+The tuple of keys iterated for traceability-field normalization. Add `"{result_key}"`:
+```python
+"windows_services",
+"{result_key}",
+```
+
+### 4f. Normalization keys list (~line 3805)
+The explicit list `["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]`. Add `"{result_key}"`.
 
 **Checkpoint:** No `AttributeError` or `KeyError` when a workflow run that includes the new agent completes. Verify via `docker-compose logs workflow_worker`.
 
@@ -142,19 +174,42 @@ Search for `"ServicesExtract"` to find every location. Add `{AgentName}` and `{r
 
 **File:** `src/workflows/agentic_workflow.py`
 
-Search for `("ServicesExtract", "windows_services", "ServicesQA")` to find the extraction tuple list. Add:
-```python
-("{AgentName}", "{result_key}", "{QAName}"),
-```
+There are **ten** places to update. Search for `"ServicesExtract"` or `"windows_services"` to locate each one.
 
-Search for `"windows_services": {"items": [], "count": 0}` to find the subresults initialization. Add:
+### 5a. Subresults initialization (~line 1042)
+Search for `"windows_services": {"items": [], "count": 0}`. Add:
 ```python
 "{result_key}": {"items": [], "count": 0},
 ```
 
-Search for the dict that maps subagent name → result key (e.g. `"ServicesExtract": "windows_services"`). Add:
+### 5b–5d. Three `subagent_to_agent` reverse dicts (~lines 1019, 1086, 1865)
+Pattern: `"windows_services": "ServicesExtract"`. This appears in **three** separate dicts used for different eval and result-routing paths. Add to **each**:
+```python
+"{result_key}": "{AgentName}",
+```
+
+### 5e. QA pair mapping (~line 1099)
+Search for `"ServicesExtract": "ServicesQA"` — there is one in `agentic_workflow.py` (separate from the one in `workflow_config_schema.py`). Add:
+```python
+"{AgentName}": "{QAName}",
+```
+
+### 5f. Extraction tuple list (~line 1129)
+Search for `("ServicesExtract", "windows_services", "ServicesQA")`. Add:
+```python
+("{AgentName}", "{result_key}", "{QAName}"),
+```
+
+### 5g–5i. Three `agent_to_subagent` forward dicts (~lines 1384, 1533, 1612)
+Pattern: `"ServicesExtract": "windows_services"`. This appears in **three** separate dicts used in eval routing. Add to **each**:
 ```python
 "{AgentName}": "{result_key}",
+```
+
+### 5j. Display name dict (~line 1867)
+Search for `"windows_services": "Windows Services Extractor"` to find `cat_to_subagent_name`. Add:
+```python
+"{result_key}": "{display_name}",
 ```
 
 **Checkpoint:** After a workflow run with the new agent enabled, `extraction_result.subresults` in the database should contain a `{result_key}` key.
@@ -165,13 +220,37 @@ Search for the dict that maps subagent name → result key (e.g. `"ServicesExtra
 
 ### `src/web/routes/evaluation_api.py`
 
-Search for `"windows_services": "ServicesExtract"` — there are multiple dicts. Add `"{result_key}": "{AgentName}"` to each.
+There are **six** places to update.
 
-Also find the result-key-specific item extraction block (the `if subagent_name == "windows_services":` branch) and add a matching branch:
+**Two result-key → agent-name dicts** (search for `"windows_services": "ServicesExtract"` — appears twice). Add `"{result_key}": "{AgentName}"` to each.
+
+**Item extraction branch (~line 107):** The `if subagent_name == "windows_services":` block. Add:
 ```python
 if subagent_name == "{result_key}":
     items = agent_result.get("{result_key}") or agent_result.get("items", [])
 ```
+
+**Observable type filter (~line 650):** The `elif result_key == "windows_services":` branch that builds `commandlines` from observable type. Add:
+```python
+elif result_key == "{result_key}":
+    commandlines = [
+        obs.get("value", str(obs)) for obs in observables if obs.get("type") == "{result_key}"
+    ]
+```
+
+**Subresults fetch branch (~line 692):** The `elif result_key == "windows_services":` block that reads from `subresults`. Add:
+```python
+elif result_key == "{result_key}":
+    {result_key}_result = subresults.get("{result_key}", {}) or subresults.get(
+        "{AgentName}", {}
+    )
+    if isinstance({result_key}_result, dict):
+        items = {result_key}_result.get("items", [])
+        if items:
+            commandlines = items if isinstance(items, list) else [items]
+```
+
+**Agent name list (~line 1672):** Add `"{AgentName}"` to the list that includes `"ServicesExtract"`.
 
 ### `src/web/routes/workflow_config.py`
 
@@ -179,7 +258,7 @@ Find the list that includes `"ServicesExtract"` (around line 2044) and add `"{Ag
 
 ### `src/web/routes/workflow_executions.py`
 
-Find the dicts mapping agent name to log category (e.g. `"ServicesExtract": "extract_agent"`) and the list of sub-agent names. Add `"{AgentName}"` in parallel.
+Two places. Search for `"ServicesExtract": "extract_agent"` for the log-category dict (~line 712) and for `"ServicesExtract"` in the sub-agent name list (~line 727). Add `"{AgentName}"` in parallel.
 
 **Checkpoint:** `GET /api/workflow/config` returns `{AgentName}` in the agents list. `GET /api/workflow/executions/{id}` includes `{result_key}` in `extraction_result.subresults`.
 
@@ -412,3 +491,5 @@ docker-compose exec web python3 -m pytest tests/integration/ -k "extract" -v
 - Every existing extractor's ARCHITECTURE CONTEXT must be updated. An extractor that doesn't know about the new sibling will trespass on its scope.
 - The eval `articles.json` must be committed so evals work offline.
 - Run `python3 run_tests.py unit` before pushing. `test_subagent_traceability_contract.py` will catch missing fields.
+- **`llm_service.py` has six locations** — a missed location causes silent count-zero results or missing normalization. Grep for both `"ServicesExtract"` and `"windows_services"` to find all six.
+- **`agentic_workflow.py` has ten locations** — the agent→result_key mapping pattern (`"ServicesExtract": "windows_services"`) appears in three separate dicts; the reverse pattern (`"windows_services": "ServicesExtract"`) appears in three more. Grep for both to find all.
