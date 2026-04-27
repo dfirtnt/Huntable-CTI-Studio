@@ -2150,6 +2150,7 @@ async def validate_workflow_config():
             "HuntQueriesExtract",
             "RegistryExtract",
             "ServicesExtract",
+            "ScheduledTasksExtract",
         }
         _QA_AGENTS = {"RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"}
 

@@ -2738,6 +2738,7 @@
           // and QA_AGENTS are declared in a later <script> block and would be undefined at
           // parse time of this block.
           const _TRACEABILITY_FIELDS = ['value', 'source_evidence', 'extraction_justification', 'confidence_score'];
+          const _TRACEABILITY_REQUIRED = ['source_evidence', 'extraction_justification', 'confidence_score'];
           const _SYSTEM_WARN_TOKENS = [
             ['LITERAL TEXT EXTRACTOR',    'ROLE block (sec 1)'],
             ['sub-agent of ExtractAgent', 'ARCHITECTURE CONTEXT (sec 3)'],
@@ -2808,9 +2809,14 @@
                 }
                 if (items) {
                   const itemKeys = new Set(Object.keys(items[0]));
-                  const missing = _TRACEABILITY_FIELDS.filter(f => !itemKeys.has(f));
+                  const missing = _TRACEABILITY_REQUIRED.filter(f => !itemKeys.has(f));
                   if (missing.length > 0) {
                     issues.push({ level: 'error', msg: "json_example items missing traceability fields: " + missing.join(', ') + " (Extractor Contract sec 3-4)." });
+                  }
+                  // value is only required for simple extractors (no domain-specific fields)
+                  const hasDomainFields = [...itemKeys].some(f => !_TRACEABILITY_FIELDS.includes(f));
+                  if (!hasDomainFields && !itemKeys.has('value')) {
+                    issues.push({ level: 'error', msg: "json_example items missing 'value' field (simple extractor requires it)." });
                   }
                 }
               }
@@ -6125,7 +6131,8 @@ function _effReadCurrentSystem(agentName) {
     const promptData = (typeof agentPrompts !== 'undefined' && agentPrompts) ? agentPrompts[agentName] : null;
     const raw = promptData ? (promptData.prompt || '') : '';
     const parts = (typeof parsePromptParts === 'function') ? parsePromptParts(raw) : { system: raw, user: '' };
-    return parts.system || '';
+    // Plain-text prompts land in parts.user; structured (JSON) prompts land in parts.system.
+    return parts.system || parts.user || '';
 }
 
 function _effReadCurrentUserTemplate(agentName) {
@@ -6573,7 +6580,8 @@ function validateAgentPrompt(agentName) {
     } else {
         const stored = (agentPrompts && agentPrompts[agentName] && agentPrompts[agentName].prompt) || '';
         const parts = parsePromptParts(stored);
-        systemVal = (parts.system || '').trim();
+        // Plain-text prompts land in parts.user; structured (JSON) prompts land in parts.system.
+        systemVal = (parts.system || parts.user || '').trim();
     }
 
     const issues = _collectPromptIssues(agentName, systemVal);
