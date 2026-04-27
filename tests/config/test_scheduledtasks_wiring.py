@@ -406,8 +406,17 @@ class TestPresetFiles:
         for preset_file in preset_files:
             data = json.loads(preset_file.read_text())
             assert "ScheduledTasksExtract" in data, f"ScheduledTasksExtract missing from {preset_file.name}"
-            assert "Provider" in data["ScheduledTasksExtract"], (
-                f"ScheduledTasksExtract.Provider missing in {preset_file.name}"
+            section = data["ScheduledTasksExtract"]
+            assert "Provider" in section, f"ScheduledTasksExtract.Provider missing in {preset_file.name}"
+            prompt_val = section.get("Prompt", {}).get("prompt", "")
+            assert prompt_val, (
+                f"ScheduledTasksExtract.Prompt.prompt is empty in {preset_file.name} -- "
+                "quickstart presets must carry the full prompt text"
+            )
+            qa_prompt_val = section.get("QAPrompt", {}).get("prompt", "")
+            assert qa_prompt_val, (
+                f"ScheduledTasksExtract.QAPrompt.prompt is empty in {preset_file.name} -- "
+                "quickstart presets must carry the full QA prompt text"
             )
 
 
