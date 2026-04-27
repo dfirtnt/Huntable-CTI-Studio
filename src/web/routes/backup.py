@@ -160,7 +160,7 @@ async def api_list_backups():
                 size_mb = 0.0
                 for lookahead in range(index + 1, min(index + 4, len(lines))):
                     next_line = lines[lookahead]
-                    if "📊" in next_line and "MB" in next_line:
+                    if "MB" in next_line:
                         for token in next_line.split():
                             try:
                                 size_mb = float(token.replace("MB", ""))
@@ -181,7 +181,7 @@ async def api_list_backups():
 
 
 @router.get("/cron")
-async def api_get_backup_cron():
+async def api_get_backup_cron(_auth: str = RequireAdminAuth):
     """Return current CTI-managed backup cron state and all visible cron jobs."""
     try:
         state = _get_cron_state()
