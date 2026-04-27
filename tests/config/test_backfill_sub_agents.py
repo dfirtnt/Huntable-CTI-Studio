@@ -3,6 +3,9 @@
 Validates that presets saved before a sub-agent existed import cleanly
 by having their missing sections injected with disabled defaults before
 strict validation fires.
+
+Parametrized across all sub-agents covered by _OPTIONAL_SUB_AGENT_SECTIONS:
+RegistryExtract, ServicesExtract, ScheduledTasksExtract.
 """
 
 import copy
@@ -18,9 +21,12 @@ from src.config.workflow_config_loader import (
 pytestmark = pytest.mark.unit
 
 
-def _make_preset_without_registry():
-    """Build a UI-ordered preset that mimics one saved before RegistryExtract existed."""
-    base = {
+# Sub-agents that have backfill defaults; each must support the full backfill contract.
+BACKFILL_AGENTS = ["RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"]
+
+
+def _base_agent_block():
+    return {
         "Enabled": True,
         "Provider": "openai",
         "Model": "gpt-4",
@@ -31,7 +37,15 @@ def _make_preset_without_registry():
         "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
         "QAPrompt": {"prompt": "", "instructions": ""},
     }
-    return {
+
+
+def _make_preset_without(agent_name: str) -> dict:
+    """Build a UI-ordered preset that mimics one saved before `agent_name` existed.
+
+    All other sub-agents covered by backfill are present; the named one is omitted.
+    """
+    base = _base_agent_block()
+    preset = {
         "Version": "2.0",
         "Metadata": {},
         "JunkFilter": {"JunkFilterThreshold": 0.8},
@@ -55,7 +69,9 @@ def _make_preset_without_registry():
         "CmdlineExtract": {**base, "AttentionPreprocessor": True},
         "ProcTreeExtract": dict(base),
         "HuntQueriesExtract": dict(base),
-        # NOTE: RegistryExtract intentionally absent — simulates old preset
+        "RegistryExtract": dict(base),
+        "ServicesExtract": dict(base),
+        "ScheduledTasksExtract": dict(base),
         "SigmaAgent": {
             "Provider": "openai",
             "Model": "gpt-4",
@@ -66,6 +82,8 @@ def _make_preset_without_registry():
             "Prompt": {},
         },
     }
+    del preset[agent_name]
+    return preset
 
 
 # ===========================================================================
@@ -76,44 +94,50 @@ def _make_preset_without_registry():
 class TestBackfillMissingSections:
     """_backfill_ui_ordered_sub_agents injects disabled defaults for absent sections."""
 
-    def test_missing_registry_extract_is_injected(self):
-        preset = _make_preset_without_registry()
-        assert "RegistryExtract" not in preset
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_missing_section_is_injected(self, agent_name):
+        preset = _make_preset_without(agent_name)
+        assert agent_name not in preset
 
         result = _backfill_ui_ordered_sub_agents(preset)
-        assert "RegistryExtract" in result
+        assert agent_name in result
 
-    def test_injected_section_is_disabled(self):
-        preset = _make_preset_without_registry()
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_injected_section_is_disabled(self, agent_name):
+        preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
-        assert result["RegistryExtract"]["Enabled"] is False
+        assert result[agent_name]["Enabled"] is False
 
-    def test_injected_section_has_all_required_keys(self):
-        preset = _make_preset_without_registry()
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_injected_section_has_all_required_keys(self, agent_name):
+        preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
-        section = result["RegistryExtract"]
+        section = result[agent_name]
         required = ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"]
         for key in required:
-            assert key in section, f"Missing required key: {key}"
+            assert key in section, f"{agent_name} missing required key: {key}"
 
-    def test_injected_section_matches_default_block(self):
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_injected_section_matches_default_block(self, agent_name):
         """Values match the _OPTIONAL_SUB_AGENT_SECTIONS default exactly."""
-        preset = _make_preset_without_registry()
+        preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
-        expected = dict(_OPTIONAL_SUB_AGENT_SECTIONS)["RegistryExtract"]
-        assert result["RegistryExtract"] == expected
+        expected = dict(_OPTIONAL_SUB_AGENT_SECTIONS)[agent_name]
+        assert result[agent_name] == expected
 
-    def test_injected_qa_is_disabled(self):
-        preset = _make_preset_without_registry()
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_injected_qa_is_disabled(self, agent_name):
+        preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
-        assert result["RegistryExtract"]["QAEnabled"] is False
+        assert result[agent_name]["QAEnabled"] is False
 
-    def test_injected_provider_is_empty_string(self):
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_injected_provider_is_empty_string(self, agent_name):
         """Empty provider means the agent inherits ExtractAgent's provider at runtime."""
-        preset = _make_preset_without_registry()
+        preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
-        assert result["RegistryExtract"]["Provider"] == ""
-        assert result["RegistryExtract"]["Model"] == ""
+        assert result[agent_name]["Provider"] == ""
+        assert result[agent_name]["Model"] == ""
 
 
 # ===========================================================================
@@ -124,9 +148,10 @@ class TestBackfillMissingSections:
 class TestBackfillPreservesExisting:
     """Sections already present are not touched."""
 
-    def test_existing_registry_extract_not_overwritten(self):
-        preset = _make_preset_without_registry()
-        preset["RegistryExtract"] = {
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_existing_section_not_overwritten(self, agent_name):
+        preset = _make_preset_without(agent_name)
+        preset[agent_name] = {
             "Enabled": True,
             "Provider": "anthropic",
             "Model": "claude-sonnet-4-5",
@@ -138,12 +163,13 @@ class TestBackfillPreservesExisting:
             "QAPrompt": {"prompt": "qa", "instructions": "qa"},
         }
         result = _backfill_ui_ordered_sub_agents(preset)
-        assert result["RegistryExtract"]["Provider"] == "anthropic"
-        assert result["RegistryExtract"]["Model"] == "claude-sonnet-4-5"
-        assert result["RegistryExtract"]["Enabled"] is True
+        assert result[agent_name]["Provider"] == "anthropic"
+        assert result[agent_name]["Model"] == "claude-sonnet-4-5"
+        assert result[agent_name]["Enabled"] is True
 
-    def test_other_sections_untouched(self):
-        preset = _make_preset_without_registry()
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_other_sections_untouched(self, agent_name):
+        preset = _make_preset_without(agent_name)
         original_cmdline = copy.deepcopy(preset["CmdlineExtract"])
         result = _backfill_ui_ordered_sub_agents(preset)
         assert result["CmdlineExtract"] == original_cmdline
@@ -157,12 +183,13 @@ class TestBackfillPreservesExisting:
 class TestBackfillImmutability:
     """Function returns a new dict, doesn't mutate the input."""
 
-    def test_original_dict_not_mutated(self):
-        preset = _make_preset_without_registry()
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_original_dict_not_mutated(self, agent_name):
+        preset = _make_preset_without(agent_name)
         original_keys = set(preset.keys())
         _backfill_ui_ordered_sub_agents(preset)
         assert set(preset.keys()) == original_keys
-        assert "RegistryExtract" not in preset
+        assert agent_name not in preset
 
 
 # ===========================================================================
@@ -173,13 +200,15 @@ class TestBackfillImmutability:
 class TestBackfillBeforeValidation:
     """After backfill, strict validation passes on old presets."""
 
-    def test_old_preset_passes_strict_validation_after_backfill(self):
-        preset = _make_preset_without_registry()
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_old_preset_passes_strict_validation_after_backfill(self, agent_name):
+        preset = _make_preset_without(agent_name)
         backfilled = _backfill_ui_ordered_sub_agents(preset)
         # Should not raise
         validate_ui_ordered_preset_strict(backfilled)
 
-    def test_old_preset_fails_strict_validation_without_backfill(self):
-        preset = _make_preset_without_registry()
-        with pytest.raises(ValueError, match="missing or null.*RegistryExtract"):
+    @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
+    def test_old_preset_fails_strict_validation_without_backfill(self, agent_name):
+        preset = _make_preset_without(agent_name)
+        with pytest.raises(ValueError, match=f"missing or null.*{agent_name}"):
             validate_ui_ordered_preset_strict(preset)
