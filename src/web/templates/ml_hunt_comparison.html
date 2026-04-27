@@ -408,7 +408,7 @@
     </div>
 
     <!-- Model Version History -->
-    <div class="mlops-panel mb-6 mlops-rise mlops-rise-6">
+    <div id="modelVersionHistoryPanel" class="mlops-panel mb-6 mlops-rise mlops-rise-6">
         <div class="mlops-panel-head">
             <span class="mlops-section-title">Version History</span>
             <div class="flex items-center gap-2">
@@ -422,12 +422,17 @@
                     <button onclick="searchModelVersions()" class="text-xs px-2 py-1 rounded transition-colors" style="background: var(--panel-bg-4); border: 1px solid var(--border-muted); color: var(--text-muted-slate);">Search</button>
                     <button id="mvhClearBtn" onclick="clearModelVersionSearch()" class="hidden text-xs px-2 py-1 rounded transition-colors" style="background: var(--panel-bg-4); border: 1px solid var(--border-muted); color: var(--action-warning);">Clear</button>
                 </div>
-                <button onclick="refreshModelVersionHistory()" class="transition-colors p-1 rounded hover:bg-white/5" style="color: var(--text-muted);" title="Refresh">
+                <button onclick="refreshModelVersionHistory(true)" class="transition-colors p-1 rounded hover:bg-white/5" style="color: var(--text-muted);" title="Refresh">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                </button>
+                <button id="mvhToggleBtn" type="button" onclick="toggleModelVersionHistory()" class="transition-colors p-1 rounded hover:bg-white/5 focus:outline-none" style="color: var(--text-muted);" aria-expanded="false" aria-controls="modelVersionHistoryBody" title="Show version history">
+                    <svg id="mvhToggleIcon" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                    </svg>
                 </button>
             </div>
         </div>
-        <div class="mlops-panel-body">
+        <div id="modelVersionHistoryBody" class="mlops-panel-body hidden">
             <p class="text-xs mb-3" style="color: var(--text-muted-slate);">Each trained version is preserved. The <span style="color: var(--action-execute); font-weight: 600;">Active</span> version scores content. Roll back to any prior version — chunk re-scoring runs automatically.</p>
 
             <!-- Rollback progress indicator -->
@@ -878,7 +883,7 @@
                 },
                 plugins: {
                     legend: {
-                        display: true,
+                        display: false,
                         position: 'top',
                         labels: {
                             usePointStyle: true,
@@ -1705,9 +1710,30 @@
         let _pendingRollbackVersionId     = null;
         let _pendingRollbackVersionNumber = null;
 
-        async function refreshModelVersionHistory() {
+        function setModelVersionHistoryCollapsed(collapsed) {
+            const body = document.getElementById('modelVersionHistoryBody');
+            const toggleBtn = document.getElementById('mvhToggleBtn');
+            const toggleIcon = document.getElementById('mvhToggleIcon');
+            if (!body || !toggleBtn || !toggleIcon) return;
+
+            body.classList.toggle('hidden', collapsed);
+            toggleBtn.setAttribute('aria-expanded', String(!collapsed));
+            toggleBtn.title = collapsed ? 'Show version history' : 'Hide version history';
+            toggleIcon.style.transform = collapsed ? 'rotate(0deg)' : 'rotate(180deg)';
+        }
+
+        function toggleModelVersionHistory() {
+            const body = document.getElementById('modelVersionHistoryBody');
+            if (!body) return;
+            setModelVersionHistoryCollapsed(!body.classList.contains('hidden'));
+        }
+
+        async function refreshModelVersionHistory(expandPanel) {
             const listEl = document.getElementById('modelVersionHistoryList');
             if (!listEl) return;
+            if (expandPanel) {
+                setModelVersionHistoryCollapsed(false);
+            }
             listEl.innerHTML = '';
             var loadingP = document.createElement('p');
             loadingP.className = 'text-gray-500 text-sm text-center py-4';
@@ -1857,7 +1883,7 @@
 
         function changeModelVersionPage(delta) {
             _mvhPage = Math.max(1, _mvhPage + delta);
-            refreshModelVersionHistory();
+            refreshModelVersionHistory(true);
         }
 
         function searchModelVersions() {
@@ -1866,7 +1892,7 @@
             _mvhSearch = val;
             _mvhPage = 1;
             document.getElementById('mvhClearBtn').classList.toggle('hidden', !val);
-            refreshModelVersionHistory();
+            refreshModelVersionHistory(true);
         }
 
         function clearModelVersionSearch() {
@@ -1875,7 +1901,7 @@
             _mvhSearch = '';
             _mvhPage = 1;
             document.getElementById('mvhClearBtn').classList.add('hidden');
-            refreshModelVersionHistory();
+            refreshModelVersionHistory(true);
         }
 
         function confirmRollback(versionId, versionNumber) {
