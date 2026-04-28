@@ -1825,9 +1825,27 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             )
 
                 except Exception as e:
-                    from src.services.llm_service import PreprocessInvariantError
+                    from src.services.llm_service import ContextLengthExceededError, PreprocessInvariantError
 
-                    if isinstance(e, PreprocessInvariantError):
+                    if isinstance(e, ContextLengthExceededError):
+                        logger.error(
+                            f"[Workflow {state['execution_id']}] {agent_name} context length exceeded -- "
+                            f"extraction silently dropped. Reduce article size or switch to a larger context model. "
+                            f"Error: {e}"
+                        )
+                        subresults[result_key] = {
+                            "items": [],
+                            "count": 0,
+                            "raw": {"context_length_exceeded": True},
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                            "error_details": {
+                                "message": str(e),
+                                "exception_type": type(e).__name__,
+                                "agent_name": agent_name,
+                            },
+                        }
+                    elif isinstance(e, PreprocessInvariantError):
                         logger.error(
                             f"[Workflow {state['execution_id']}] {agent_name} preprocess invariant failed: {e}. "
                             f"Debug artifacts: {getattr(e, 'debug_artifacts', {})}"

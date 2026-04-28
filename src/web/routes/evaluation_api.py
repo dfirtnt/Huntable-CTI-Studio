@@ -723,6 +723,15 @@ async def get_execution_commandlines(
                 if isinstance(extraction_warnings, list):
                     warnings.extend(extraction_warnings)
 
+            # Check if the relevant subagent hit a context length overflow
+            context_length_exceeded = False
+            if extraction_result and isinstance(extraction_result, dict):
+                subresults = extraction_result.get("subresults", {})
+                subresult = subresults.get(result_key, {}) if isinstance(subresults, dict) else {}
+                raw = subresult.get("raw", {}) if isinstance(subresult, dict) else {}
+                if isinstance(raw, dict) and raw.get("context_length_exceeded"):
+                    context_length_exceeded = True
+
             # Article title and URL for display
             article_title = ""
             article_url = ""
@@ -742,6 +751,7 @@ async def get_execution_commandlines(
                 "subagent_eval": normalized_subagent_eval or (raw_subagent_eval or ""),
                 "result_type": result_key,
                 "warnings": warnings if warnings else None,
+                "context_length_exceeded": context_length_exceeded,
             }
         finally:
             db_session.close()

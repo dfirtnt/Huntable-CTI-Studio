@@ -2737,6 +2737,17 @@ async function showCommandlines(executionId, articleUrl, count) {
         exportBtn.dataset.agentName = agentName;
         
         if (commandlines.length === 0) {
+            if (data.context_length_exceeded) {
+                // context_length_exceeded: all strings are literals or pre-escaped (articleDisplayEscaped)
+                content.innerHTML = `
+                    <div class="text-center py-8">
+                        <p class="text-red-600 dark:text-red-400 font-semibold">Context overflow -- extraction was skipped</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">The prompt exceeded the model's context window. No items were extracted.</p>
+                        <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a></p>
+                    </div>
+                `;
+                return;
+            }
             let emptyMessage = 'No commandlines found for this execution.';
             if (resultType === 'process_lineage' || subagentEval === 'process_lineage') {
                 emptyMessage = 'No process lineage relationships found for this execution.';

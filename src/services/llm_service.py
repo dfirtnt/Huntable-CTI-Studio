@@ -43,6 +43,13 @@ class PreprocessInvariantError(Exception):
         self.debug_artifacts = debug_artifacts or {}
 
 
+class ContextLengthExceededError(RuntimeError):
+    """
+    Raised when the API rejects a request because the prompt exceeds the model's context window.
+    Unrecoverable -- retrying will not help. Fail-fast and surface as execution failure.
+    """
+
+
 # Always-required traceability fields (Extractor Contract sec 3-4)
 _TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
 # Fields that must appear in every item regardless of extractor type
@@ -4338,7 +4345,11 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 raise  # Fail-fast: do not retry infra invariants
             except PromptConfigValidationError:
                 raise  # Fail-fast: contract violations must surface immediately
+            except ContextLengthExceededError:
+                raise  # Fail-fast: context overflow is unrecoverable, retrying will not help
             except Exception as e:
+                if "context_length_exceeded" in str(e):
+                    raise ContextLengthExceededError(str(e)) from e
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
                 # On last attempt, store all API errors in result (not just connection errors)
                 if current_try >= max_retries:
