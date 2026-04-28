@@ -118,11 +118,10 @@ subagents:
     - url: "https://www.microsoft.com/en-us/security/blog/2025/12/15/defending-against-the-cve-2025-55182-react2shell-vulnerability-in-react-server-components/"
       expected_count: 4
     - url: "https://securelist.com/macos-security-and-typical-attacks/117367/"
-      expected_count: 0
+      expected_count: 4
     - url: "https://www.cisa.gov/news-events/analysis-reports/ar25-338a"
       expected_count: 0
     - url: "https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/"
-      expected_count: 0
+      expected_count: 3
     - url: "https://thedfirreport.com/2022/10/31/follina-exploit-leads-to-domain-compromise/"
-      expected_count: 0
-
+      expected_count: 3
