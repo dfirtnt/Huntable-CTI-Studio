@@ -74,7 +74,7 @@ When `status` is `completed`, pull the detailed payload to see extracted observa
 curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
   | jq '{status, discrete_huntables:.extraction_result.discrete_huntables_count, observables:.extraction_result.observables}'
 ```
-You can also review the article page at `http://localhost:8001/articles/${ARTICLE_ID}` (the "Send to Workflow" button mirrors the trigger above and the page surfaces extraction outputs).
+You can also review the article page at `http://localhost:8001/articles/${ARTICLE_ID}` (the "Reprocess" button mirrors the trigger above and the page surfaces extraction outputs).
 
 ![Status check showing completed execution and per-extractor counts](assets/screenshots/05-execution-status.png)
 *When `status` is `completed`, the run is done and `extraction_counts` summarises what each sub-agent produced.*

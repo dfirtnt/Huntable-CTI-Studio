@@ -28,13 +28,13 @@ In the workflow, these are emitted by the Extract Agent sub-agents as typed **ob
 
 ## Where huntables appear
 
-- **Article page**: Hunt scores (regex + ML) and “Send to Workflow”; after a run, extraction results and huntable counts.
+- **Article page**: Hunt scores (regex + ML) and “Reprocess”; after a run, extraction results and huntable counts.
 - **Workflow executions**: `extraction_result.observables`, `discrete_huntables_count`, and `content` (used by Sigma when huntables exist).
 - **API**: `GET /api/workflow/executions/{id}` → `extraction_result` with `discrete_huntables_count`, `subresults`, and merged `observables`.
 
 ## Producing huntables
 
 1. Ingest an article (RSS, scrape, or browser extension).
-2. Trigger the workflow (`POST /api/workflow/articles/{article_id}/trigger` or “Send to Workflow” on the article page).
+2. Trigger the workflow (`POST /api/workflow/articles/{article_id}/trigger` or “Reprocess” on the article page).
 3. Extract Agent sub-agents emit typed observables; the supervisor aggregates them into `observables` and sets `discrete_huntables_count`.
 4. Sigma generation uses the aggregated `content` when `discrete_huntables_count > 0` and content length is sufficient.

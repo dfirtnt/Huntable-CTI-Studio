@@ -33,8 +33,7 @@ The SIGMA Detection Rules System combines three powerful features:
 
 There are two entry paths into the SIGMA detection system:
 
-<!-- TODO: verify: endpoint `POST /api/articles/{id}/analyze` not found in src/web/routes; likely should reference `POST /api/workflow/articles/{id}/trigger` -->
-- **Web/API path**: Triggered via `POST /api/articles/{id}/analyze` — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store
+- **Web/API path**: Triggered via `POST /api/workflow/articles/{id}/trigger` — Article → Match Existing Rules → Classify Coverage → Generate New Rules → Similarity Check → Store
 - **Agentic Workflow path**: Triggered via LangGraph pipeline — OS Detection → Junk Filter → Rank → Extract → Generate SIGMA → Similarity Search → Promote to Queue
 
 ```

@@ -51,7 +51,7 @@ curl -s "http://localhost:8001/api/workflow/executions/${EXECUTION_ID}" \
   | jq '{status, discrete_huntables: .extraction_result.discrete_huntables_count, observables: .extraction_result.observables}'
 ```
 
-You can also view results at `http://localhost:8001/articles/${ARTICLE_ID}` — the "Send to Workflow" button mirrors the API trigger and the page surfaces all extraction outputs.
+You can also view results at `http://localhost:8001/articles/${ARTICLE_ID}` — the "Reprocess" button mirrors the API trigger and the page surfaces all extraction outputs.
 
 ## 4) Review Sigma Rules
 
@@ -71,7 +71,7 @@ The agentic workflow runs these stages in order:
 1. **OS Detection** — classifies the article as Windows/Linux/macOS/cross-platform. Non-Windows articles terminate early with reason `non_windows_os_detected`.
 2. **Content Filtering** — ML classifier + hunt score keywords determine if the article has actionable threat content.
 3. **Chunking** — long articles are split into context-window-sized chunks for LLM processing.
-4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services).
+4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks).
 5. **Supervisor Aggregation** — a supervisor agent merges and deduplicates sub-agent outputs.
 6. **Sigma Generation** — generates detection rules from extracted observables, then runs similarity search against 5,247+ indexed SigmaHQ rules.
 

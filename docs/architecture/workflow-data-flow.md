@@ -43,7 +43,7 @@ Results are persisted to PostgreSQL in JSONB format:
 
 ### Step 1: Sub-Agent Execution
 
-Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract) runs and produces results:
+Each sub-agent (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) runs and produces results:
 
 ```python
 # Sub-agents run sequentially
@@ -55,7 +55,9 @@ subresults = {
     },
     "process_lineage": {...},
     "hunt_queries": {...},
-    "registry_artifacts": {...}
+    "registry_artifacts": {...},
+    "windows_services": {...},
+    "scheduled_tasks": {...}
 }
 ```
 
@@ -429,7 +431,7 @@ All workflow executions run the same LangGraph state machine (`src/workflows/age
 ### 1. Celery (Background + LangGraph state machine)
 
 **When Used:**
-- "Send to Workflow" button on the article page (default)
+- "Reprocess" button on the article page (default)
 - Automated high-hunt-score triggers, scheduled jobs, and the executions retry endpoint
 
 **Flow:**

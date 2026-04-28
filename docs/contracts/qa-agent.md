@@ -92,7 +92,8 @@ QA behavior is controlled by the `QA` configuration object:
       "ProcTreeExtract": false,
       "HuntQueriesExtract": false,
       "RegistryExtract": false,
-      "ServicesExtract": false
+      "ServicesExtract": false,
+      "ScheduledTasksExtract": false
     },
     "MaxRetries": 5
   }

@@ -139,7 +139,7 @@ Test on 30+ diverse articles:
 ### Task Definition
 Extract explicitly stated observables from CTI articles with zero inference or interpretation.
 
-**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract
+**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract
 
 ### Cognitive Requirements
 - Deterministic pattern matching

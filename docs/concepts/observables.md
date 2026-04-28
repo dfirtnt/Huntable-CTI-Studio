@@ -9,9 +9,11 @@ Observables are the **structured extraction output** of the Extract Agent: typed
 - `cmdline`: command-line strings with arguments (CmdlineExtract)
 - `process_lineage`: parent/child process chains (ProcTreeExtract)
 - `hunt_queries`: EDR and Sigma-style detection query fragments (HuntQueriesExtract)
-<!-- TODO: verify: RegistryExtract (added v5.3.0) and ServicesExtract (added v5.3.0) are active sub-agents per workflow_config_schema.py; add their emitted type keys and descriptions here once confirmed from src/workflows/agentic_workflow.py or extraction_result shape -->
+- `registry_artifacts`: Windows registry artifacts — persistence keys, config changes, defense evasion (RegistryExtract)
+- `windows_services`: Windows service artifacts — service name, binary path, command line, start type (ServicesExtract)
+- `scheduled_tasks`: Windows scheduled task artifacts — task name, action, trigger, run-as user (ScheduledTasksExtract)
 
-*Deprecated (no longer extracted): `event_ids` — EventCodeExtract has been removed. Note: an earlier agent "RegExtract" was removed; the current RegistryExtract (added v5.3.0) is active.*
+*Deprecated (no longer extracted): `event_ids` — EventCodeExtract has been removed. An earlier agent "RegExtract" was also removed; the current RegistryExtract is active.*
 
 ## Data shape
 
