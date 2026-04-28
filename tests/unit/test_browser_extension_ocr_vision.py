@@ -186,17 +186,22 @@ def test_vision_provider_select_has_openai_and_anthropic() -> None:
     assert 'value="anthropic"' in html, "popup.html must have anthropic as a vision provider option"
 
 
-def test_vision_api_key_input_is_password_type() -> None:
-    """Vision API key input must use type='password' to mask the key."""
+def test_vision_uses_app_settings_key_not_popup_input() -> None:
+    """Vision LLM mode must use the app-configured key, not a raw input in the popup.
+
+    The extension delegates API key management to the server-side app settings.
+    A popup-level key input is intentionally absent -- 'uses app settings key'
+    means no API key is ever typed into or stored by the extension itself.
+    """
     html = POPUP_HTML.read_text(encoding="utf-8")
-    assert 'id="vision-api-key"' in html, "popup.html must have vision-api-key input"
-    # Verify it's a password input, not a visible text field
-    match = re.search(r'id="vision-api-key"[^>]*>', html)
-    if match is None:
-        match = re.search(r'type="password"[^>]*id="vision-api-key"', html)
-    # Check that password type appears near vision-api-key in the HTML
-    assert 'type="password"' in html and "vision-api-key" in html, (
-        "Vision API key input must be type='password' to avoid exposing the key"
+    # The mode option must advertise that the app key is used, not a popup key
+    assert "uses app settings key" in html, (
+        "Vision LLM option must indicate it uses the app settings key, not a popup-level input"
+    )
+    # There must be no plaintext API key input in the popup (the old design had one)
+    assert 'id="vision-api-key"' not in html, (
+        "popup.html must not have a vision-api-key input -- "
+        "API keys belong in app settings, not the browser extension popup"
     )
 
 

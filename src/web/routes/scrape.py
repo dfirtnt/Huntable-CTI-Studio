@@ -4,6 +4,7 @@ Manual scraping endpoint - FIXED VERSION.
 
 from __future__ import annotations
 
+import base64
 import re
 from datetime import datetime
 
@@ -15,6 +16,120 @@ from src.utils.input_validation import ValidationError, validate_url_for_scrapin
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Scrape"])
+
+_VISION_PROMPT = (
+    "Extract all visible text from this image exactly as it appears. "
+    "Return only the extracted text with no commentary or formatting changes."
+)
+
+
+@router.post("/api/vision/extract")
+async def api_vision_extract(request: dict):
+    """Proxy image-to-text extraction to OpenAI or Anthropic using server-side API keys."""
+    provider = request.get("provider", "openai")
+    image_data_url = request.get("imageDataUrl", "")
+
+    if not image_data_url:
+        raise HTTPException(status_code=400, detail="imageDataUrl is required")
+    if provider not in ("openai", "anthropic"):
+        raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
+
+    # Resolve API key from DB settings with env fallback
+    from src.database.manager import DatabaseManager
+    from src.database.models import AppSettingsTable
+
+    _KEY_MAP = {
+        "openai": ("WORKFLOW_OPENAI_API_KEY", "OPENAI_API_KEY"),
+        "anthropic": ("WORKFLOW_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
+    }
+    import os
+
+    api_key = None
+    db_manager = DatabaseManager()
+    with db_manager.get_session() as session:
+        for env_key in _KEY_MAP[provider]:
+            row = session.query(AppSettingsTable).filter(AppSettingsTable.key == env_key).first()
+            if row and row.value:
+                api_key = row.value
+                break
+    if not api_key:
+        for env_key in _KEY_MAP[provider]:
+            api_key = os.getenv(env_key)
+            if api_key:
+                break
+
+    if not api_key:
+        raise HTTPException(
+            status_code=503,
+            detail=f"No API key configured for provider '{provider}'. Add one in app settings.",
+        )
+
+    try:
+        if provider == "openai":
+            return await _call_openai_vision(image_data_url, api_key)
+        return await _call_anthropic_vision(image_data_url, api_key)
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(status_code=502, detail=f"{provider} API error: {exc.response.status_code}") from exc
+    except Exception as exc:
+        logger.error("Vision extract error (%s): %s", provider, exc)
+        raise HTTPException(status_code=502, detail="Vision extraction failed") from exc
+
+
+async def _call_openai_vision(image_data_url: str, api_key: str) -> dict:
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o",
+                "max_tokens": 4096,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": image_data_url}},
+                            {"type": "text", "text": _VISION_PROMPT},
+                        ],
+                    }
+                ],
+            },
+        )
+        resp.raise_for_status()
+        return {"text": resp.json()["choices"][0]["message"]["content"].strip()}
+
+
+async def _call_anthropic_vision(image_data_url: str, api_key: str) -> dict:
+    match = re.match(r"^data:(image/[a-z]+);base64,(.+)$", image_data_url)
+    if not match:
+        raise HTTPException(status_code=400, detail="imageDataUrl must be a base64 data URL")
+    media_type, b64_data = match.group(1), match.group(2)
+    # Validate it is valid base64 before forwarding
+    base64.b64decode(b64_data, validate=True)
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        resp = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": api_key,
+                "anthropic-version": "2023-06-01",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "claude-sonnet-4-6",
+                "max_tokens": 4096,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": b64_data}},
+                            {"type": "text", "text": _VISION_PROMPT},
+                        ],
+                    }
+                ],
+            },
+        )
+        resp.raise_for_status()
+        return {"text": resp.json()["content"][0]["text"].strip()}
 
 
 @router.post("/api/scrape-url")
@@ -259,6 +374,29 @@ async def _scrape_single_url(
                 session.query(ArticleTable).filter(ArticleTable.canonical_url == url, ~ArticleTable.archived).first()
             )
             if existing:
+                # If OCR blocks are present in the new content, append any that are
+                # not already stored — preserves the server-scraped text while adding
+                # image context that only the browser extension can provide.
+                if pre_scraped_content:
+                    ocr_blocks = re.findall(r"\[Image OCR:[^\]]*\]\n[^\[]*", pre_scraped_content)
+                    existing_content = existing.content or ""
+                    new_blocks = [b for b in ocr_blocks if b.strip() not in existing_content]
+                    if new_blocks:
+                        from src.database.async_manager import AsyncDatabaseManager
+                        from src.models.article import ArticleUpdate
+
+                        appended = existing_content + "\n\n" + "\n\n".join(new_blocks).strip()
+                        async_db_manager = AsyncDatabaseManager()
+                        await async_db_manager.update_article(existing.id, ArticleUpdate(content=appended))
+                        logger.info("Appended %d OCR block(s) to existing article %s", len(new_blocks), existing.id)
+                        return {
+                            "success": True,
+                            "article_id": existing.id,
+                            "article_title": existing.title,
+                            "message": f"Article updated with {len(new_blocks)} OCR block(s)",
+                            "existing": True,
+                        }
+
                 logger.info(f"Article already exists for URL: {url} (ID: {existing.id})")
                 return {
                     "success": True,

@@ -309,7 +309,7 @@
             <label for="extraction-mode">Mode:</label>
             <select id="extraction-mode" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 12px; margin-bottom: 8px;">
                 <option value="ocr">OCR (local, free)</option>
-                <option value="vision">Vision LLM (requires API key)</option>
+                <option value="vision">Vision LLM (uses app settings key)</option>
                 <option value="hybrid">Hybrid (Vision LLM + OCR fallback)</option>
             </select>
 
@@ -319,8 +319,6 @@
                     <option value="openai">OpenAI (GPT-4o Vision)</option>
                     <option value="anthropic">Anthropic (Claude Vision)</option>
                 </select>
-                <label for="vision-api-key">API Key:</label>
-                <input type="password" id="vision-api-key" placeholder="sk-... or sk-ant-..." style="margin-bottom: 8px;">
             </div>
 
             <div style="margin-bottom: 8px;">
