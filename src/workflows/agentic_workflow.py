@@ -74,12 +74,7 @@ _INFRA_FAILURE_RE = re.compile(
 
 
 def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
-    """Return True if every executed (non-skipped) subagent failed with an infra error.
-
-    Infra failures include: LMStudio not ready, context overflow, broken prompt config,
-    missing model, missing API key, async generator errors. These are all cases where
-    no real extraction ran, so the execution should be marked 'failed' not 'completed'.
-    """
+    """Return True if every executed (non-skipped) subagent failed with an infra error."""
     if not isinstance(extraction_result, dict):
         return False
     subresults = extraction_result.get("subresults", {})

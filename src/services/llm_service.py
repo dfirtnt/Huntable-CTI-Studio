@@ -44,10 +44,7 @@ class PreprocessInvariantError(Exception):
 
 
 class ContextLengthExceededError(RuntimeError):
-    """
-    Raised when the API rejects a request because the prompt exceeds the model's context window.
-    Unrecoverable -- retrying will not help. Fail-fast and surface as execution failure.
-    """
+    """Prompt exceeds the model's context window; unrecoverable, do not retry."""
 
 
 # Always-required traceability fields (Extractor Contract sec 3-4)

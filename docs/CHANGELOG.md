@@ -5,6 +5,24 @@ All notable changes to Huntable CTI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.1] - 2026-04-28
+
+### Added
+- **Vision LLM proxied through backend** (2026-04-28): `POST /api/vision/extract` new endpoint accepts an image data-URL and a provider name, resolves the API key from DB settings / env, and forwards the request to OpenAI (`gpt-4o`) or Anthropic (`claude-sonnet-4-6`). The browser extension no longer stores or transmits API keys; `callVisionLLM` in `background.js` now calls the backend proxy instead of hitting cloud providers directly. `vision-api-key` field removed from `popup.html` / `popup.js` and from `chrome.storage.local`.
+- **Image fetch moved to background service worker** (2026-04-28): `fetchImageAsDataURL` is now a dedicated handler in `background.js` (`action: fetchImageAsDataURL`). Both OCR and Vision LLM paths in `popup.js` send a `chrome.runtime.sendMessage` to the background instead of injecting a content script into the active tab, which resolves MV3 `scripting.executeScript` permission issues.
+- **OCR block append-on-revisit** (2026-04-28): When the browser extension re-submits a URL that already exists in the database, `_scrape_single_url` extracts `[Image OCR: ...]` blocks from the new `pre_scraped_content` and appends any blocks not already present to the stored article, rather than discarding the submission. Returns a `"Article updated with N OCR block(s)"` message.
+- **Force-scrape hash dedup short-circuit** (2026-04-28): `_scrape_single_url` now checks `content_hash` uniqueness before attempting an insert when `force_scrape=True`, returning the existing article instead of hitting the `IntegrityError` constraint.
+- **`ContextLengthExceededError` fail-fast** (2026-04-28): New exception class in `llm_service.py`. When an API call is rejected with `context_length_exceeded`, the retry loop re-raises immediately instead of retrying. The workflow graph catches it, stores `context_length_exceeded: True` in `subresults[agent].raw`, and continues to remaining subagents.
+- **Infra-failure detection marks executions as `failed`** (2026-04-28): `_extraction_is_infra_failure()` in `agentic_workflow.py` inspects `extraction_result.subresults` after the graph finishes. If every non-skipped subagent returned an infra error (LMStudio not ready, context overflow, missing key, broken prompt config), `run_workflow()` sets `has_error = True` and records a clear failure message, so the execution appears `failed` in the UI instead of `completed` with zero items.
+- **Context-overflow and infra-not-ready flags in eval API** (2026-04-28): `get_subagent_eval_results` and `get_execution_commandlines` in `evaluation_api.py` now return `context_length_exceeded` and `infra_not_ready` boolean fields per result, populated by the new `_execution_has_context_overflow` and `_execution_infra_not_ready` helpers.
+
+### Fixed
+- **ReDoS in OCR regex** (2026-04-28): `re.findall` in `_scrape_single_url` now operates on `pre_scraped_content[:200_000]` to bound backtracking on crafted inputs (CodeQL `py/polynomial-redos` alert #503).
+- **Error messages no longer leak internal details to HTTP clients** (2026-04-28): `f"...{str(e)}"` patterns in `ai.py`, `sigma_queue.py`, and `capability_service.py` replaced with static strings; full exception details continue to be logged server-side. Addresses CodeQL `py/stack-trace-exposure` findings.
+- **`codex-mini` removed from OpenAI model allowlist** (2026-04-28): `codex-mini` and `codex-mini-latest` removed from `model_validation.py` and `provider_model_catalog.py`. The `codex-` prefix no longer passes the fallback allowlist check. Quickstart preset `Quickstart-openai-codex-mini.json` deleted.
+- **Langfuse session URL uses `/sessions/` path** (2026-04-28): `get_workflow_debug_info` now builds `{host}/project/{project_id}/sessions/{session_id}` when a project ID is available, replacing the earlier `/traces/{trace_id}` logic that required a resolved trace ID.
+- **Duplicate `import re` in `sigma_validator.py`** (2026-04-28): Three redundant inline `import re` statements inside `clean_sigma_rule` removed; the module-level import is sufficient.
+
 ## [6.0.4] - 2026-04-27
 
 ### Added

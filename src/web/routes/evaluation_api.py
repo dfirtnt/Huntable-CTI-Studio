@@ -42,8 +42,7 @@ _THROTTLE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-# Covers LMStudio "Context size has been exceeded" (400) and the
-# context_length_exceeded flag stamped on raw subagent results.
+# Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
 _CONTEXT_OVERFLOW_PATTERNS = re.compile(
     r"context.{0,15}(size|length|window).{0,15}exceeded|context_length_exceeded",
     re.IGNORECASE,
