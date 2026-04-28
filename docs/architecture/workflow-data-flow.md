@@ -159,6 +159,21 @@ if execution:
 }
 ```
 
+### Database vs Langfuse Detail Level
+
+The database and Langfuse are not detail-parity copies of the same execution.
+
+- **Database (`agentic_workflow_executions`)** is the durable workflow system of record. It stores workflow state, step outputs, termination/error state, and enough request/response material for UI rendering, audit, and fallback export.
+- **Langfuse** is the richer per-call telemetry layer. It stores workflow traces plus generation-level request/response detail, token usage, finish reasons, and call metadata.
+
+Important asymmetries:
+
+- Database `error_log.conversation_log` entries may contain truncated top-level `messages` and `llm_response` copies so the JSONB payload stays small enough for persistence and live execution updates.
+- Database logs do not reliably preserve token usage for every LLM call.
+- Langfuse generations are the preferred source when you need the fullest reconstruction of an individual LLM call.
+
+For extraction sub-agents specifically, the workflow keeps full `_llm_messages` and `_llm_response` fallback fields inside per-agent result objects while also writing shortened top-level copies into `error_log['extract_agent']['conversation_log']`.
+
 ### Step 4: SIGMA Agent Consumption
 
 The SIGMA node reads the in-memory `extraction_result` and picks the best content before calling the SigmaGenerationService:
@@ -352,50 +367,40 @@ Every workflow execution creates a Langfuse trace with session tracking for debu
 
 ### Implementation
 
-The Langfuse integration is implemented in `src/utils/langfuse_client.py` using the Langfuse OpenTelemetry SDK:
+The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
 from langfuse.types import TraceContext
 
-# Create trace context with session_id
 trace_context = TraceContext(
     session_id=f"workflow_exec_{execution_id}",
     user_id=f"article_{article_id}",
 )
 
-# Start trace as current span
-span_cm = client.start_as_current_span(
+span_cm = client.start_as_current_observation(
     trace_context=trace_context,
     name=f"agentic_workflow_execution_{execution_id}",
     input={"execution_id": execution_id, "article_id": article_id},
-    metadata={"workflow_type": "agentic_workflow", ...}
+    metadata={"workflow_type": "agentic_workflow", ...},
 )
 span = span_cm.__enter__()
-
-# Explicitly associate with session (required in Langfuse 4.x)
-span.update_trace(session_id=session_id)
-
-# Store trace_id (32 chars) for debug links
-trace_id = span.trace_id
+trace_id = getattr(span, "trace_id", None) or getattr(span, "id", None)
 ```
 
 ### Session Association
 
-In Langfuse 4.x with OpenTelemetry, two steps are required to associate a trace with a session:
-
-1. **Pass session_id in TraceContext**: This provides context during span creation
-2. **Call span.update_trace()**: This explicitly associates the trace with the session
-
-Without the explicit `update_trace()` call, the session view in Langfuse will be empty even though traces exist.
+The workflow trace is created with `TraceContext(session_id=..., user_id=...)`. Child LLM generations are linked to that workflow trace by reusing the active `trace_id` plus the same `workflow_exec_{execution_id}` session identifier.
 
 ### Trace Storage
 
-The trace ID is stored in the database for debug link generation:
+The trace ID is stored in the database inside `error_log` for debug link generation:
 
 ```python
 # In agentic_workflow.py
 trace_id_value = getattr(trace, "trace_id", None) or getattr(trace, "id", None)
-execution.trace_id = trace_id_value  # 32-char trace ID, not 16-char span ID
+log_data = execution.error_log if isinstance(execution.error_log, dict) else {}
+log_data["langfuse_trace_id"] = trace_id_value
+execution.error_log = log_data
 db_session.commit()
 ```
 
