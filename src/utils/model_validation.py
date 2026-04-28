@@ -136,7 +136,6 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
         "o4-mini",
         "o1",
         "o1-pro",
-        "codex-mini",
     ]:
         return True
 
@@ -146,9 +145,9 @@ def is_valid_openai_chat_model(model_id: str) -> bool:
         # Dated version - only allow if base is explicitly known
         return False
 
-    # Fallback: if it starts with gpt-, o, or codex- and doesn't match exclusion patterns, allow it
+    # Fallback: if it starts with gpt- or o and doesn't match exclusion patterns, allow it
     # but this should be rare
-    return bool(model_id.lower().startswith(("gpt-", "o", "codex-")))
+    return bool(model_id.lower().startswith(("gpt-", "o")))
 
 
 # OpenAI: dated suffix is -YYYY-MM-DD or -YYYY-MM-DD-preview; keep only chat + no date (latest).
@@ -178,27 +177,23 @@ PROJECT_OPENAI_ALLOWLIST: frozenset[str] = frozenset(
         "gpt-4.1",
         "o3-mini",
         "o4-mini",
-        "codex-mini-latest",
     }
 )
 
 _GPT5_PATTERN = re.compile(r"^gpt-5", re.IGNORECASE)
-_CODEX_PATTERN = re.compile(r"^codex-", re.IGNORECASE)
 
 
 def filter_openai_models_project_allowlist(model_ids: list[str]) -> list[str]:
     """
     Narrow an OpenAI model list to only the chat/reasoning models CTIScraper workflows
-    actually use. All gpt-5* and codex-* variants pass automatically; other models must be
+    actually use. All gpt-5* variants pass automatically; other models must be
     in the explicit allowlist. Applied in the catalog load path, the /api test-key route,
     and the daily Celery refresh writer so the Workflow dropdown never shows audio/realtime/
     TTS/image/search/moderation/legacy models or unrelated chat models (o1, o3-pro...).
     """
 
     def _allowed(m: str) -> bool:
-        return (
-            _GPT5_PATTERN.match(m) is not None or _CODEX_PATTERN.match(m) is not None or m in PROJECT_OPENAI_ALLOWLIST
-        )
+        return _GPT5_PATTERN.match(m) is not None or m in PROJECT_OPENAI_ALLOWLIST
 
     return sorted({m.strip() for m in model_ids if m and _allowed(m.strip())})
 

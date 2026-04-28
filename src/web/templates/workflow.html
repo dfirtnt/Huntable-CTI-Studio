@@ -4198,8 +4198,7 @@ function isValidOpenAIChatModel(modelId) {
         'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
         'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
         'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo',
-        'o3', 'o3-pro', 'o3-mini', 'o4-mini', 'o1', 'o1-pro',
-        'codex-mini'
+        'o3', 'o3-pro', 'o3-mini', 'o4-mini', 'o1', 'o1-pro'
     ];
     
     if (knownValidBases.includes(baseModel.toLowerCase())) {
@@ -4215,8 +4214,8 @@ function isValidOpenAIChatModel(modelId) {
         };
     }
     
-    // Fallback: allow if it starts with gpt-, o, or codex-
-    if (/^(gpt-|o|codex-)/i.test(trimmed)) {
+    // Fallback: allow if it starts with gpt- or o
+    if (/^(gpt-|o)/i.test(trimmed)) {
         return {valid: true, warning: `Model "${trimmed}" is not explicitly validated`};
     }
     
