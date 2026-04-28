@@ -1677,9 +1677,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     # Store Result
                     items = []
-                    # HuntQueriesExtract extracts EDR queries only
+                    # HuntQueriesExtract extracts EDR/SIEM queries and Sigma rules into one query envelope.
                     if agent_name == "HuntQueriesExtract":
-                        # Extract EDR queries
+                        # Extract query-envelope items. Sigma rules are represented as type="sigma".
                         edr_queries = agent_result.get("queries", [])
                         query_count = agent_result.get("query_count", len(edr_queries))
 
@@ -1715,7 +1715,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             if agent_result.get("error_type"):
                                 subresult_entry["error_type"] = agent_result["error_type"]
                         subresults[result_key] = subresult_entry
-                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} EDR queries")
+                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} query/rule items")
                     else:
                         # Standard extraction agents
                         # Try to find the specific list for this agent
