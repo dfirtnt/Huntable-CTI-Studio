@@ -377,8 +377,8 @@ async def _scrape_single_url(
                 # not already stored — preserves the server-scraped text while adding
                 # image context that only the browser extension can provide.
                 if pre_scraped_content:
-                    safe_content = pre_scraped_content[:200_000]
-                    ocr_blocks = re.findall(r"\[Image OCR:[^\]]*\]\n[^\[]*", safe_content)
+                    safe_content = pre_scraped_content[:50_000]
+                    ocr_blocks = re.findall(r"\[Image OCR:[^\]]{0,2000}\]\n[^\[]{0,10000}", safe_content)
                     existing_content = existing.content or ""
                     new_blocks = [b for b in ocr_blocks if b.strip() not in existing_content]
                     if new_blocks:
