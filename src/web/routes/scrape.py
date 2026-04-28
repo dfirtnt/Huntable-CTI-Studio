@@ -145,9 +145,7 @@ async def api_scrape_url(request: dict):
             if len(urls) == 0:
                 raise HTTPException(status_code=400, detail="At least one URL is required")
 
-            return await _scrape_urls_batch(
-                urls, request.get("force_scrape", False)
-            )  # codeql[py/stack-trace-exposure] false positive: interprocedural FP, helper returns article data not exception messages
+            return await _scrape_urls_batch(urls, request.get("force_scrape", False))
         if url:
             # Single URL mode (backward compatible)
             return await _scrape_single_url(
@@ -226,7 +224,8 @@ async def _scrape_single_url(
                     detail=f"HTTP {exc.response.status_code} error fetching URL: {exc.response.reason_phrase}",
                 ) from exc
             except httpx.RequestError as exc:
-                raise HTTPException(status_code=400, detail=f"Failed to fetch URL: {str(exc)}") from exc
+                logger.warning(f"Failed to fetch URL {url}: {exc}")
+                raise HTTPException(status_code=400, detail="Failed to fetch URL") from exc
 
             html_content = response.content.decode("utf-8", errors="replace")
 
@@ -527,27 +526,27 @@ async def _scrape_urls_batch(urls: list, force_scrape: bool) -> dict:
             )
             successful += 1
         except HTTPException as exc:
-            # HTTPExceptions have status_code and detail
-            error_msg = exc.detail if hasattr(exc, "detail") else str(exc)
+            # HTTPExceptions have status_code and detail; we log full detail but
+            # only return a generic message to avoid leaking exception data
             status_code = exc.status_code if hasattr(exc, "status_code") else 500
-            logger.error(f"Failed to scrape URL {url}: [{status_code}] {error_msg}")
+            internal_detail = exc.detail if hasattr(exc, "detail") else str(exc)
+            logger.error(f"Failed to scrape URL {url}: [{status_code}] {internal_detail}")
             results.append(
                 {
                     "url": url,
                     "success": False,
-                    "error": error_msg,
+                    "error": "Scrape failed",
                     "status_code": status_code,
                 }
             )
             failed += 1
         except Exception as exc:
-            error_msg = str(exc)
-            logger.error(f"Failed to scrape URL {url}: {error_msg}", exc_info=True)
+            logger.error(f"Failed to scrape URL {url}: {exc}", exc_info=True)
             results.append(
                 {
                     "url": url,
                     "success": False,
-                    "error": error_msg,
+                    "error": "Scrape failed",
                 }
             )
             failed += 1

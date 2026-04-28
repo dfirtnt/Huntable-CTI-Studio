@@ -344,7 +344,8 @@ async def _post_lmstudio_chat(
                 logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
                 continue
             except httpx.ConnectError as e:
-                last_error_detail = f"Cannot connect to {lmstudio_url}: {str(e)}"
+                last_error_detail = f"Cannot connect to {lmstudio_url}"
+                logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
                 if idx == len(lmstudio_urls) - 1:
                     # Last URL, raise connection error
                     urls_tried = ", ".join(lmstudio_urls)
@@ -352,14 +353,14 @@ async def _post_lmstudio_chat(
                         status_code=503,
                         detail=(
                             f"Cannot connect to LMStudio service. Please ensure LMStudio is "
-                            f"running and accessible. Tried: {urls_tried}. Last error: {str(e)}"
+                            f"running and accessible. Tried: {urls_tried}"
                         ),
                     ) from e
                 # Try next URL
                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                 continue
             except Exception as e:  # pragma: no cover - defensive logging
-                last_error_detail = f"Error at {lmstudio_url}: {str(e)}"
+                last_error_detail = f"Error at {lmstudio_url}"
                 logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
                 if idx == len(lmstudio_urls) - 1:
                     raise HTTPException(
@@ -1142,7 +1143,7 @@ async def api_test_langfuse_connection(request: Request):
                         x_langfuse_sdk_name="cti-scraper",
                         x_langfuse_sdk_version=os.getenv("APP_VERSION", "dev"),
                         httpx_client=fern_http_client,
-                    )  # codeql[py/stack-trace-exposure] false positive: client init, no exception data flows to response here
+                    )
                     try:
                         project_response = await fern_client.projects.get()
                     except UnauthorizedError:
@@ -1209,9 +1210,7 @@ async def api_test_langfuse_connection(request: Request):
                 logger.error(f"Langfuse ImportError: {e}")
                 return {
                     "valid": False,
-                    "message": (
-                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"  # codeql[py/stack-trace-exposure] false positive: ImportError message contains only missing module name, not internal paths
-                    ),
+                    "message": ("Langfuse Python package not installed. Install with: pip install langfuse"),
                 }
             except Exception as e:
                 logger.error(f"Langfuse connection test error: {type(e).__name__}: {e}")
@@ -1447,7 +1446,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
 
-        return {  # codeql[py/stack-trace-exposure] false positive: response contains only analysis data, no exception info
+        return {
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
@@ -1714,7 +1713,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
 
-        return {  # codeql[py/stack-trace-exposure] false positive: response contains only analysis data, no exception info
+        return {
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
@@ -2533,7 +2532,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Check for existing SIGMA rules (unless force regeneration is requested)
         if not force_regenerate and article.article_metadata and article.article_metadata.get("sigma_rules"):
             existing_rules = article.article_metadata.get("sigma_rules")
-            return {  # codeql[py/stack-trace-exposure] false positive: response contains only cached rule data, no exception info
+            return {
                 "success": True,
                 "rules": existing_rules.get("rules", []),
                 "metadata": existing_rules.get("metadata", {}),
@@ -2968,7 +2967,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         if sigma_response_truncation_warning:
             sigma_warnings.append(sigma_response_truncation_warning)
 
-        return {  # codeql[py/stack-trace-exposure] false positive: response contains only generated SIGMA rule data, no exception info
+        return {
             "success": len(rules) > 0,
             "rules": rules,
             "metadata": current_metadata["sigma_rules"]["metadata"],

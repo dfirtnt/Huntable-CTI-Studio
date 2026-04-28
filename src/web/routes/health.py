@@ -70,7 +70,7 @@ async def api_database_health() -> dict[str, Any]:
         performance_metrics = await async_db_manager.get_performance_metrics()
         corruption_stats = await async_db_manager.get_corruption_stats()
 
-        return {  # codeql[py/stack-trace-exposure] false positive: response contains only database stats, no exception data
+        return {
             "status": "healthy",
             "timestamp": datetime.now().isoformat(),
             "database": {
@@ -156,9 +156,10 @@ async def api_services_health() -> dict[str, Any]:
                 },
             }
         except Exception as redis_exc:
+            logger.warning("Redis health check failed: %s", redis_exc)
             services_status["redis"] = {
                 "status": "unhealthy",
-                "error": str(redis_exc),
+                "error": "Redis check failed",
             }
 
         # Check LMStudio (only when WORKFLOW_LMSTUDIO_ENABLED)
@@ -183,9 +184,10 @@ async def api_services_health() -> dict[str, Any]:
                             "error": f"HTTP {response.status_code}",
                         }
             except Exception as lmstudio_exc:
+                logger.warning("LMStudio health check failed: %s", lmstudio_exc)
                 services_status["lmstudio"] = {
                     "status": "unhealthy",
-                    "error": str(lmstudio_exc),
+                    "error": "LMStudio check failed",
                 }
         else:
             services_status["lmstudio"] = {"status": "not_configured", "message": "LMStudio disabled"}
@@ -326,6 +328,4 @@ async def api_capabilities() -> dict[str, Any]:
         return service.compute_capabilities()
     except Exception as exc:
         logger.error("Capabilities check failed: %s", exc)
-        return {
-            "error": "Health check failed"
-        }  # codeql[py/stack-trace-exposure] false positive: error value is a static string, not exception data
+        return {"error": "Health check failed"}

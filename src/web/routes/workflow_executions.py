@@ -880,7 +880,7 @@ async def trigger_stuck_executions(request: Request):
             successful = sum(1 for r in results if r["success"])
             failed = len(results) - successful
 
-            return {  # codeql[py/stack-trace-exposure] false positive: response contains only execution counts, no exception info
+            return {
                 "success": True,
                 "message": f"Triggered {len(results)} execution(s): {successful} successful, {failed} failed",
                 "count": len(results),
@@ -1400,7 +1400,8 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
             db_session.close()
 
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.info(f"Eval bundle export 404: {e}")
+        raise HTTPException(status_code=404, detail="Execution not found") from e
     except Exception as e:
         logger.error(f"Error exporting eval bundle for execution {execution_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e

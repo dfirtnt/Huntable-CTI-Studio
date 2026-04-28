@@ -1985,7 +1985,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         if validation_result.is_valid:
                             # Validation passed!
                             logger.info(f"Validation passed on attempt {attempt} for rule {queue_id}")
-                            return {  # codeql[py/stack-trace-exposure] false positive: response contains only rule data and counts, no exception info
+                            return {
                                 "success": True,
                                 "validated_yaml": enriched_yaml,
                                 "raw_response": raw_response,
@@ -2059,7 +2059,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
 
             # All attempts failed
             logger.error(f"Validation failed after {max_attempts} attempts for rule {queue_id}")
-            return {  # codeql[py/stack-trace-exposure] false positive: errors are SIGMA validation errors, not Python exception messages
+            return {
                 "success": False,
                 "validated_yaml": enriched_yaml,  # Return last attempt's YAML
                 "errors": validation_errors,
@@ -2077,14 +2077,13 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
     except HTTPException as e:
         # If we have a conversation log, include it in the error response
         if "conversation_log" in locals():
+            logger.error(f"HTTPException during rule validation: {e.detail}")
             return {
                 "success": False,
                 "validated_yaml": None,
-                "errors": [
-                    str(e.detail)
-                ],  # codeql[py/stack-trace-exposure] false positive: e.detail is from HTTPException with a controlled message
+                "errors": ["Validation error during rule processing"],
                 "attempts": len(conversation_log) if "conversation_log" in locals() else 0,
-                "message": str(e.detail),  # codeql[py/stack-trace-exposure] false positive: see above
+                "message": "Validation error during rule processing",
                 "conversation_log": conversation_log if "conversation_log" in locals() else [],
                 "validation_results": validation_results if "validation_results" in locals() else [],
                 "provider": provider if "provider" in locals() else "workflow",
@@ -2095,7 +2094,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
         logger.error(f"Error validating rule: {e}")
         # Return error response with conversation log if available
         if "conversation_log" in locals():
-            return {  # codeql[py/stack-trace-exposure] false positive: only exposes exception class name, not message or trace
+            return {
                 "success": False,
                 "validated_yaml": None,
                 "errors": [type(e).__name__],
@@ -2140,7 +2139,8 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             try:
                 rule_yaml = yaml.safe_load(content_to_parse)
             except yaml.YAMLError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}") from e
+                logger.warning(f"Invalid rule YAML rejected: {e}")
+                raise HTTPException(status_code=400, detail="Invalid YAML in submitted rule") from e
             if not isinstance(rule_yaml, dict):
                 raise HTTPException(status_code=400, detail="Rule YAML did not parse to a dictionary")
 
@@ -2239,7 +2239,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                     db_session.rollback()
 
             # Prepare response (include metadata for empty-state differentiation)
-            response = {  # codeql[py/stack-trace-exposure] false positive: response contains only similarity match metadata, no exception data
+            response = {
                 "success": True,
                 "matches": similar_matches[:20],  # Return top 20
                 "max_similarity": max_similarity,
@@ -2309,9 +2309,7 @@ async def submit_pr_for_approved_rules(request: Request):
             )
             result = pr_service.submit_pr(rules_data)
 
-            if result.get(
-                "success"
-            ):  # codeql[py/stack-trace-exposure] false positive: result is from PR service, no exception data
+            if result.get("success"):
                 # Update database records
                 pr_url = result.get("pr_url")
                 pr_repository = pr_service.github_repo
@@ -2325,7 +2323,7 @@ async def submit_pr_for_approved_rules(request: Request):
 
                 db_session.commit()
 
-                return {  # codeql[py/stack-trace-exposure] false positive: response contains only PR metadata, no exception info
+                return {
                     "success": True,
                     "pr_url": pr_url,
                     "branch": result.get("branch"),
@@ -2337,7 +2335,7 @@ async def submit_pr_for_approved_rules(request: Request):
             error_msg = result.get("error", "Unknown error")
             logger.error(f"PR submission failed: {error_msg}")
 
-            return {  # codeql[py/stack-trace-exposure] false positive: error_msg is from GitHub API result dict, not a Python exception
+            return {
                 "success": False,
                 "error": error_msg,
                 "branch": result.get("branch"),  # May have branch even if PR failed
