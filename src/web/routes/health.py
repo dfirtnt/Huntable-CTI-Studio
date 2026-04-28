@@ -323,9 +323,7 @@ async def api_capabilities() -> dict[str, Any]:
         from src.services.capability_service import CapabilityService
 
         service = CapabilityService()
-        return (  # codeql[py/stack-trace-exposure] false positive: returns capability flags, no exception data
-            service.compute_capabilities()
-        )
+        return service.compute_capabilities()
     except Exception as exc:
         logger.error("Capabilities check failed: %s", exc)
         return {"error": "Health check failed"}

@@ -66,7 +66,8 @@ class CapabilityService:
                 "action": "Run a workflow to ingest and embed articles",
             }
         except Exception as e:
-            return {"enabled": False, "reason": f"Check failed: {e}"}
+            logger.error("_check_article_retrieval failed: %s", e, exc_info=True)
+            return {"enabled": False, "reason": "Check failed"}
 
     def _check_sigma_metadata_indexing(self) -> dict:
         rules_path = self.sigma_repo_path / "rules"
@@ -86,9 +87,10 @@ class CapabilityService:
             EmbeddingService(model_name="intfloat/e5-base-v2")
             return {"enabled": True, "reason": "Embedding model available"}
         except Exception as e:
+            logger.error("_check_sigma_embedding_indexing failed: %s", e, exc_info=True)
             return {
                 "enabled": False,
-                "reason": f"Embedding model unavailable: {e}",
+                "reason": "Embedding model unavailable",
                 "action": "Install sentence-transformers and download intfloat/e5-base-v2",
             }
 
@@ -108,7 +110,8 @@ class CapabilityService:
                 "action": "Run sigma index-embeddings to enable Sigma rule retrieval in RAG",
             }
         except Exception as e:
-            return {"enabled": False, "reason": f"Check failed: {e}"}
+            logger.error("_check_sigma_retrieval failed: %s", e, exc_info=True)
+            return {"enabled": False, "reason": "Check failed"}
 
     def _check_sigma_customer_repo_indexed(self, session) -> dict:
         """Whether approved rules from the customer repo are indexed for similarity search (rule_id like 'cust-%')."""
@@ -134,7 +137,8 @@ class CapabilityService:
                 "action": "Run sigma index-customer-repo to include your approved rules",
             }
         except Exception as e:
-            return {"enabled": False, "reason": f"Check failed: {e}"}
+            logger.error("_check_sigma_customer_repo_indexed failed: %s", e, exc_info=True)
+            return {"enabled": False, "reason": "Check failed"}
 
     def _check_sigma_novelty(self, session) -> dict:
         try:
@@ -152,7 +156,8 @@ class CapabilityService:
                 "action": "Run sigma index-metadata or sigma backfill-metadata",
             }
         except Exception as e:
-            return {"enabled": False, "reason": f"Check failed: {e}"}
+            logger.error("_check_sigma_novelty failed: %s", e, exc_info=True)
+            return {"enabled": False, "reason": "Check failed"}
 
     def _check_llm_generation(self) -> dict:
         openai_key = os.getenv("OPENAI_API_KEY", "")
