@@ -289,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                Send to CTIScraper
+                Send to Huntable CTI Studio
             `;
         }
     }
@@ -331,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const apiUrl = apiUrlInput.value.trim();
         if (!apiUrl) {
-            showError('Please enter CTIScraper API URL');
+            showError('Please enter Huntable CTI Studio API URL');
             return;
         }
 
@@ -344,7 +344,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        showStatus('Sending to CTIScraper...', 'loading');
+        showStatus('Sending to Huntable CTI Studio...', 'loading');
         scrapeBtn.disabled = true;
         scrapeBtn.innerHTML = '<div class="spinner"></div> Sending...';
 
@@ -361,13 +361,13 @@ document.addEventListener('DOMContentLoaded', function() {
             data: requestData
         }, (response) => {
             if (chrome.runtime.lastError) {
-                showError(`Failed to send to CTIScraper: ${chrome.runtime.lastError.message}`);
+                showError(`Failed to send to Huntable CTI Studio: ${chrome.runtime.lastError.message}`);
                 scrapeBtn.disabled = false;
                 scrapeBtn.innerHTML = `
                     <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    Send to CTIScraper
+                    Send to Huntable CTI Studio
                 `;
                 return;
             }
@@ -376,7 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                Send to CTIScraper
+                Send to Huntable CTI Studio
             `;
 
             if (response && response.success) {
@@ -404,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else {
                 const error = response?.error || 'Unknown error occurred';
-                showError(`Failed to send to CTIScraper: ${error}`);
+                showError(`Failed to send to Huntable CTI Studio: ${error}`);
             }
         });
     }
