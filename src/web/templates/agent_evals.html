@@ -679,6 +679,8 @@
                                 <li><span class="status-badge status-pending" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
                                 <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
                                 <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem; background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);">ctx&#8599;</span> &mdash; Context window exceeded; article too long for model</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);">no mdl</span> &mdash; LMStudio not ready when run; re-run to get a real result</li>
                             </ul>
                         </div>
                         <div>
@@ -1614,6 +1616,12 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 if (result.throttled) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1;" title="TPM RATE LIMIT">&#9888;</span>`;
                 }
+                if (result.context_length_exceeded) {
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
+                }
+                if (result.infra_not_ready) {
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+                }
                 html += `</div></td>`;
             }
         });
@@ -1736,10 +1744,16 @@ function renderSubagentResults(results) {
         if (result.throttled) {
             html += ` <span class="status-badge status-mismatch" title="Provider throttled this call. Raise the Concurrency Throttle and re-run.">TPM RATE LIMIT</span>`;
         }
+        if (result.context_length_exceeded) {
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
+        }
+        if (result.infra_not_ready) {
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+        }
         html += `</td>`;
         html += '</tr>';
     });
-    
+
     html += '</tbody></table>';
     resultsTable.innerHTML = html;
 }

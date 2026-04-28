@@ -15,6 +15,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any, TypedDict
 
@@ -59,6 +60,51 @@ def _bool_from_value(val: Any) -> bool:
     if isinstance(val, str):
         return val.lower() == "true"
     return bool(val)
+
+
+_INFRA_FAILURE_RE = re.compile(
+    r"lmstudio is not ready|no model.{0,20}loaded|ensure lmstudio is running"
+    r"|context.{0,15}(size|length|window).{0,15}exceeded"
+    r"|must not contain 'user_template'|promptconfigvalidation"
+    r"|\"code\":\s*\"model_not_found\"|does not exist or you do not have access"
+    r"|openai api key is not configured"
+    r"|generator didn't stop after throw",
+    re.IGNORECASE,
+)
+
+
+def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
+    """Return True if every executed (non-skipped) subagent failed with an infra error.
+
+    Infra failures include: LMStudio not ready, context overflow, broken prompt config,
+    missing model, missing API key, async generator errors. These are all cases where
+    no real extraction ran, so the execution should be marked 'failed' not 'completed'.
+    """
+    if not isinstance(extraction_result, dict):
+        return False
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict) or not subresults:
+        return False
+
+    executed = []
+    for sr in subresults.values():
+        if not isinstance(sr, dict):
+            continue
+        raw = sr.get("raw", {})
+        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+            continue
+        executed.append(sr)
+
+    if not executed:
+        return False
+
+    for sr in executed:
+        raw = sr.get("raw", {}) if isinstance(sr.get("raw"), dict) else {}
+        err = sr.get("error") or raw.get("error") or ""
+        if not (isinstance(err, str) and _INFRA_FAILURE_RE.search(err)):
+            return False
+
+    return True
 
 
 class WorkflowState(TypedDict):
@@ -3200,6 +3246,16 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             # Determine final status based on final state
             # Only mark as failed if there's an actual workflow error (not trace cleanup errors)
             has_error = workflow_error is not None
+
+            # Treat infra failures (LMStudio not ready, context overflow) as hard failures
+            # even when the workflow graph returned without raising -- subagent errors are
+            # swallowed by the ExtractAgent and the graph reports "no error" while every
+            # subagent actually returned zero items due to the infra problem.
+            if not has_error and _extraction_is_infra_failure(execution.extraction_result if execution else None):
+                has_error = True
+                workflow_error = (
+                    "Extraction failed: all subagents hit an infra error (LMStudio not ready or context overflow)"
+                )
 
             if has_error:
                 # Actual error occurred - mark as failed
