@@ -2421,27 +2421,8 @@ async def api_generate_sigma(article_id: int, request: Request):
             request.headers.get("X-OpenAI-API-Key") or request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
         )
 
-        # DEBUG: Log raw key before any processing
-        if api_key_raw:
-            api_key_source = (
-                "header (OpenAI)"
-                if request.headers.get("X-OpenAI-API-Key")
-                else "header (Anthropic)"
-                if request.headers.get("X-Anthropic-API-Key")
-                else "body"
-            )
-            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: logs last 4 chars only (masked partial key for debug tracing)
-                f"🔍 DEBUG SIGMA: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}"
-            )
-
         # Strip whitespace from API key (common issue when copying/pasting)
         api_key = api_key_raw.strip() if api_key_raw else None
-
-        # DEBUG: Log after stripping
-        if api_key:
-            logger.info(
-                f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
-            )  # codeql[py/clear-text-logging-sensitive-data] false positive: last 4 chars only
 
         ai_model = body.get("ai_model", "chatgpt")
         author_name = body.get("author_name", "Huntable CTI Studio User")
