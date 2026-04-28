@@ -283,7 +283,7 @@ Please analyze the following blog content:
         update_data = ArticleUpdate(metadata=article.metadata)
         await async_db_manager.update_article(article_id, update_data)
 
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only analysis data, no exception info
             "success": True,
             "article_id": article_id,
             "analysis": analysis,

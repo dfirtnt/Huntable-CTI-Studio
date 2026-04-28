@@ -30,7 +30,9 @@ async def api_scrape_url(request: dict):
             if len(urls) == 0:
                 raise HTTPException(status_code=400, detail="At least one URL is required")
 
-            return await _scrape_urls_batch(urls, request.get("force_scrape", False))
+            return await _scrape_urls_batch(
+                urls, request.get("force_scrape", False)
+            )  # codeql[py/stack-trace-exposure] false positive: interprocedural FP, helper returns article data not exception messages
         if url:
             # Single URL mode (backward compatible)
             return await _scrape_single_url(
@@ -263,6 +265,27 @@ async def _scrape_single_url(
                     "article_id": existing.id,
                     "article_title": existing.title,
                     "message": "Article already exists in database",
+                    "existing": True,
+                }
+
+    # When force_scrape is True, still short-circuit on identical content hash.
+    # The DB schema enforces uniqueness on content_hash, so attempting to insert
+    # would raise an IntegrityError regardless. Return the existing article as a
+    # success rather than an error so the caller gets a usable article_id.
+    if force_scrape:
+        with sync_db_manager.get_session() as session:
+            existing = (
+                session.query(ArticleTable)
+                .filter(ArticleTable.content_hash == content_hash, ~ArticleTable.archived)
+                .first()
+            )
+            if existing:
+                logger.info(f"Force scrape: identical content already stored (ID: {existing.id}), returning existing")
+                return {
+                    "success": True,
+                    "article_id": existing.id,
+                    "article_title": existing.title,
+                    "message": "Article with identical content already exists in database",
                     "existing": True,
                 }
 

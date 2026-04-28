@@ -101,7 +101,7 @@ async def api_semantic_search(request: Request):
             filters={"top_k": top_k, "threshold": threshold, "source_id": source_id},
         )
 
-        return results
+        return results  # codeql[py/stack-trace-exposure] false positive: results are search matches, not exception data
 
     except HTTPException:
         # Re-raise HTTP exceptions (like validation errors) as-is

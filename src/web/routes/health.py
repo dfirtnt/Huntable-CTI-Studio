@@ -326,4 +326,6 @@ async def api_capabilities() -> dict[str, Any]:
         return service.compute_capabilities()
     except Exception as exc:
         logger.error("Capabilities check failed: %s", exc)
-        return {"error": "Health check failed"}
+        return {
+            "error": "Health check failed"
+        }  # codeql[py/stack-trace-exposure] false positive: error value is a static string, not exception data

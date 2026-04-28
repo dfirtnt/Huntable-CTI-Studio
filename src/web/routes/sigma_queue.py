@@ -841,7 +841,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             )
                             raw_response = raw_response.strip()
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e)) from e
+                            raise HTTPException(status_code=400, detail="Provider response processing error") from e
                         except RuntimeError as e:
                             err = str(e)
                             if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
@@ -980,18 +980,18 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                             raise HTTPException(status_code=503, detail=error_detail)
                                         break
                                     except (KeyError, IndexError, json.JSONDecodeError) as e:
-                                        last_error = f"Failed to parse LMStudio response: {e}"
+                                        last_error = "Failed to parse LMStudio response"
                                         logger.error(
                                             f"LMStudio response parsing error: {e}, Response: {response.text[:500]}"
                                         )
                                         if idx < len(lmstudio_urls) - 1:
                                             continue
-                                        error_detail = f"Failed to parse LMStudio response: {str(e)}"
-                                        error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                                        raise HTTPException(status_code=500, detail=error_detail) from e
+                                        raise HTTPException(
+                                            status_code=500, detail="Failed to parse LMStudio response"
+                                        ) from e
                                 else:
                                     # Non-200 status code
-                                    last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                                    last_error = f"HTTP {response.status_code}"
                                     error_detail = f"LMStudio API error: {response.status_code}"
                                     error_text = response.text[:500] if hasattr(response, "text") else str(response)
 
@@ -1033,26 +1033,19 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 continue
 
                             except httpx.ConnectError as e:
-                                last_error = f"Cannot connect to {lmstudio_url}: {str(e)}"
+                                last_error = f"Cannot connect to {lmstudio_url}"
                                 logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
                                 if idx == len(lmstudio_urls) - 1:
                                     urls_tried = ", ".join(lmstudio_urls)
-                                    error_detail = (
-                                        f"Cannot connect to LMStudio. Tried: {urls_tried}. Last error: {str(e)}"
-                                    )
-                                    error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
+                                    error_detail = f"Cannot connect to LMStudio. Tried: {urls_tried}"
                                     raise HTTPException(status_code=503, detail=error_detail) from e
                                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                                 continue
                             except Exception as e:
-                                last_error = f"Unexpected error with {lmstudio_url}: {str(e)}"
+                                last_error = f"Unexpected error with {lmstudio_url}"
                                 logger.error(f"LMStudio unexpected error at {lmstudio_url}: {e}", exc_info=True)
                                 if idx == len(lmstudio_urls) - 1:
-                                    error_detail = (
-                                        f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}. "
-                                        f"Last error: {str(e)}"
-                                    )
-                                    error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
+                                    error_detail = f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}"
                                     raise HTTPException(status_code=500, detail=error_detail) from e
                                 continue
 
@@ -1804,7 +1797,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 raw_response = raw_response.strip()
                             except ValueError as e:
                                 error_occurred = type(e).__name__
-                                raise HTTPException(status_code=400, detail=str(e)) from e
+                                raise HTTPException(status_code=400, detail="Provider response processing error") from e
                             except RuntimeError as e:
                                 err = str(e)
                                 error_occurred = err
@@ -1992,7 +1985,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         if validation_result.is_valid:
                             # Validation passed!
                             logger.info(f"Validation passed on attempt {attempt} for rule {queue_id}")
-                            return {
+                            return {  # codeql[py/stack-trace-exposure] false positive: response contains only rule data and counts, no exception info
                                 "success": True,
                                 "validated_yaml": enriched_yaml,
                                 "raw_response": raw_response,
@@ -2066,7 +2059,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
 
             # All attempts failed
             logger.error(f"Validation failed after {max_attempts} attempts for rule {queue_id}")
-            return {
+            return {  # codeql[py/stack-trace-exposure] false positive: errors are SIGMA validation errors, not Python exception messages
                 "success": False,
                 "validated_yaml": enriched_yaml,  # Return last attempt's YAML
                 "errors": validation_errors,
@@ -2102,7 +2095,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
         logger.error(f"Error validating rule: {e}")
         # Return error response with conversation log if available
         if "conversation_log" in locals():
-            return {
+            return {  # codeql[py/stack-trace-exposure] false positive: only exposes exception class name, not message or trace
                 "success": False,
                 "validated_yaml": None,
                 "errors": [type(e).__name__],
@@ -2332,7 +2325,7 @@ async def submit_pr_for_approved_rules(request: Request):
 
                 db_session.commit()
 
-                return {
+                return {  # codeql[py/stack-trace-exposure] false positive: response contains only PR metadata, no exception info
                     "success": True,
                     "pr_url": pr_url,
                     "branch": result.get("branch"),
@@ -2344,7 +2337,7 @@ async def submit_pr_for_approved_rules(request: Request):
             error_msg = result.get("error", "Unknown error")
             logger.error(f"PR submission failed: {error_msg}")
 
-            return {
+            return {  # codeql[py/stack-trace-exposure] false positive: error_msg is from GitHub API result dict, not a Python exception
                 "success": False,
                 "error": error_msg,
                 "branch": result.get("branch"),  # May have branch even if PR failed

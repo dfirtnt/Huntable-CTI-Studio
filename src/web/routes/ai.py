@@ -233,7 +233,7 @@ async def _call_anthropic_with_retry(
                     continue
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Anthropic API error after {max_retries} attempts: {str(e)}",
+                    detail=f"Anthropic API error after {max_retries} attempts",
                 ) from e
 
     # Should not reach here, but handle edge case
@@ -364,7 +364,7 @@ async def _post_lmstudio_chat(
                 if idx == len(lmstudio_urls) - 1:
                     raise HTTPException(
                         status_code=500,
-                        detail=f"{failure_context}: {str(e)}",
+                        detail=failure_context,
                     ) from e
                 # Try next URL
                 continue
@@ -737,7 +737,7 @@ async def api_get_lmstudio_models():
                 try:
                     response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
                 except httpx.HTTPError as e:
-                    last_error = str(e)
+                    last_error = "connection error"
                     logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
                     continue
 
@@ -779,8 +779,8 @@ async def api_get_lmstudio_models():
                         ),
                     }
 
-                last_error = f"{response.status_code}: {response.text}"
-                logger.error(f"LMStudio /models returned {last_error}")
+                last_error = f"HTTP {response.status_code}"
+                logger.error(f"LMStudio /models returned {response.status_code}: {response.text}")
 
                 if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
                     logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
@@ -828,7 +828,7 @@ async def api_get_lmstudio_embedding_models():
                 try:
                     response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
                 except httpx.HTTPError as e:
-                    last_error = str(e)
+                    last_error = "connection error"
                     logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
                     continue
 
@@ -860,8 +860,8 @@ async def api_get_lmstudio_embedding_models():
                         "message": f"Found {len(embedding_models)} embedding model(s)",
                     }
 
-                last_error = f"{response.status_code}: {response.text}"
-                logger.error(f"LMStudio /models returned {last_error}")
+                last_error = f"HTTP {response.status_code}"
+                logger.error(f"LMStudio /models returned {response.status_code}: {response.text}")
 
                 if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
                     logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
@@ -1155,11 +1155,10 @@ async def api_test_langfuse_connection(request: Request):
                             "valid": False,
                             "message": "Langfuse API keys are not authorized. Please check your keys and permissions.",
                         }
-                    except ApiError as api_error:
-                        error_detail = getattr(api_error, "body", None) or str(api_error)
+                    except ApiError:
                         return {
                             "valid": False,
-                            "message": f"Langfuse API error: {error_detail}. Please check your Host URL and keys.",
+                            "message": "Langfuse API error. Please check your Host URL and keys.",
                         }
 
                 resolved_project_id = project_id or (project_response.data[0].id if project_response.data else None)
@@ -1448,7 +1447,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
         update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
 
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only analysis data, no exception info
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
@@ -1715,7 +1714,7 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         update_data = ArticleUpdate(article_metadata=article.article_metadata)
         await async_db_manager.update_article(article_id, update_data)
 
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only analysis data, no exception info
             "success": True,
             "article_id": article_id,
             "analysis": analysis,
@@ -1831,7 +1830,7 @@ async def api_extract_observables(article_id: int, request: Request):
             except Exception as e:
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Failed to load ExtractAgent seed file: {e}",
+                    detail="Failed to load ExtractAgent configuration",
                 ) from e
 
         # Filter content if filtering is enabled
@@ -2534,7 +2533,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         # Check for existing SIGMA rules (unless force regeneration is requested)
         if not force_regenerate and article.article_metadata and article.article_metadata.get("sigma_rules"):
             existing_rules = article.article_metadata.get("sigma_rules")
-            return {
+            return {  # codeql[py/stack-trace-exposure] false positive: response contains only cached rule data, no exception info
                 "success": True,
                 "rules": existing_rules.get("rules", []),
                 "metadata": existing_rules.get("metadata", {}),
@@ -2869,7 +2868,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     logger.error(f"❌ HTTP error calling OpenAI API: {e}")
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Network error calling OpenAI API: {str(e)}",
+                        detail="Network error calling OpenAI API",
                     ) from e
                 except Exception as e:
                     logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
@@ -2969,7 +2968,7 @@ async def api_generate_sigma(article_id: int, request: Request):
         if sigma_response_truncation_warning:
             sigma_warnings.append(sigma_response_truncation_warning)
 
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only generated SIGMA rule data, no exception info
             "success": len(rules) > 0,
             "rules": rules,
             "metadata": current_metadata["sigma_rules"]["metadata"],

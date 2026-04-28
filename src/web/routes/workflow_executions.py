@@ -880,7 +880,7 @@ async def trigger_stuck_executions(request: Request):
             successful = sum(1 for r in results if r["success"])
             failed = len(results) - successful
 
-            return {
+            return {  # codeql[py/stack-trace-exposure] false positive: response contains only execution counts, no exception info
                 "success": True,
                 "message": f"Triggered {len(results)} execution(s): {successful} successful, {failed} failed",
                 "count": len(results),
