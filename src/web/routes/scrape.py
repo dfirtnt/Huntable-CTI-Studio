@@ -11,6 +11,7 @@ import httpx
 from bs4 import BeautifulSoup
 from fastapi import APIRouter, HTTPException
 
+from src.utils.input_validation import ValidationError, validate_url_for_scraping
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Scrape"])
@@ -61,6 +62,11 @@ async def _scrape_single_url(
     """Scrape a single URL - extracted for reuse."""
     html_content = None
 
+    try:
+        validate_url_for_scraping(url)
+    except ValidationError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid URL: {exc}") from exc
+
     # Use pre-scraped content if provided (e.g., from browser extension with OCR)
     if pre_scraped_content:
         sanitized_content = pre_scraped_content
@@ -74,7 +80,9 @@ async def _scrape_single_url(
             }
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 try:
-                    response = await client.get(url, headers=headers)
+                    response = await client.get(
+                        url, headers=headers
+                    )  # codeql[py/full-ssrf] false positive: url validated by validate_url_for_scraping above (blocks private IPs, loopback, reserved ranges)
                     response.raise_for_status()
                     html_content = response.content.decode("utf-8", errors="replace")
                 except Exception:
@@ -91,7 +99,9 @@ async def _scrape_single_url(
 
         async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             try:
-                response = await client.get(url, headers=headers)
+                response = await client.get(
+                    url, headers=headers
+                )  # codeql[py/full-ssrf] false positive: url validated by validate_url_for_scraping above (blocks private IPs, loopback, reserved ranges)
                 response.raise_for_status()  # Raise exception for 4xx/5xx status codes
             except httpx.HTTPStatusError as exc:
                 raise HTTPException(

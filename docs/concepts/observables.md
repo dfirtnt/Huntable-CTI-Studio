@@ -9,8 +9,9 @@ Observables are the **structured extraction output** of the Extract Agent: typed
 - `cmdline`: command-line strings with arguments (CmdlineExtract)
 - `process_lineage`: parent/child process chains (ProcTreeExtract)
 - `hunt_queries`: EDR and Sigma-style detection query fragments (HuntQueriesExtract)
+<!-- TODO: verify: RegistryExtract (added v5.3.0) and ServicesExtract (added v5.3.0) are active sub-agents per workflow_config_schema.py; add their emitted type keys and descriptions here once confirmed from src/workflows/agentic_workflow.py or extraction_result shape -->
 
-*Deprecated (no longer extracted): `registry_keys`, `event_ids` — RegExtract and EventCodeExtract have been removed.*
+*Deprecated (no longer extracted): `event_ids` — EventCodeExtract has been removed. Note: an earlier agent "RegExtract" was removed; the current RegistryExtract (added v5.3.0) is active.*
 
 ## Data shape
 

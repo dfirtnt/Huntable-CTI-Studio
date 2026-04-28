@@ -1437,7 +1437,8 @@
         // API key is write-only; never populate from DB
     }
 
-    async function saveSourceHealingSettings() {
+    async function saveSourceHealingSettings(opts) {
+        var silent = !!(opts && opts.silent);
         var status = document.getElementById('sourceHealingStatus');
         try {
             var provider = (document.getElementById('sourcehealing-provider').value || 'openai').trim().toLowerCase();
@@ -1462,19 +1463,25 @@
                 });
             }
 
-            status.textContent = 'Saved';
-            status.className = 'ml-3 text-sm text-green-400';
-            setTimeout(function() { status.textContent = ''; }, 3000);
+            if (!silent) {
+                status.textContent = 'Saved';
+                status.className = 'ml-3 text-sm text-green-400';
+                setTimeout(function() { status.textContent = ''; }, 3000);
+            }
         } catch (error) {
             console.error('Error saving source healing settings:', error);
-            status.textContent = 'Error saving';
-            status.className = 'ml-3 text-sm text-red-400';
+            if (!silent) {
+                status.textContent = 'Error saving';
+                status.className = 'ml-3 text-sm text-red-400';
+            } else {
+                throw error;
+            }
         }
     }
 
     async function loadWorkflowAppSettings() {
         try {
-            const response = await fetch('/api/settings');
+            const response = await fetch('/api/settings', { cache: 'no-store' });
             if (!response.ok) {
                 console.warn('Unable to fetch workflow settings from server', response.status);
                 return {};
@@ -1504,27 +1511,22 @@
     }
 
     async function persistWorkflowAppSettings(payload) {
-        try {
-            const response = await fetch('/api/settings/bulk', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ settings: payload })
-            });
+        const response = await fetch('/api/settings/bulk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ settings: payload })
+        });
 
-            if (!response.ok) {
-                const detail = await response.text();
-                console.error('Failed to save workflow settings', response.status, detail);
-                return;
-            }
+        if (!response.ok) {
+            const detail = await response.text();
+            throw new Error('Failed to save settings (' + response.status + '): ' + detail);
+        }
 
-            const result = await response.json();
-            if (!result.success) {
-                console.warn('Workflow settings save returned unsuccessful response', result);
-            }
-        } catch (error) {
-            console.error('Error saving workflow settings to server', error);
+        const result = await response.json();
+        if (!result.success) {
+            throw new Error('Settings save returned errors: ' + (result.errors || []).join(', '));
         }
     }
 
@@ -1673,7 +1675,7 @@
         return state;
     }
 
-    async function saveScheduledJobs() {
+    async function saveScheduledJobs({ silent = false } = {}) {
         try {
             const response = await fetch('/api/scheduled-jobs', {
                 method: 'PUT',
@@ -1696,9 +1698,10 @@
 
             const state = await response.json();
             renderScheduledJobs(state);
-            showNotification('Scheduled jobs updated and scheduler reloaded', 'success');
+            if (!silent) showNotification('Scheduled jobs updated and scheduler reloaded', 'success');
         } catch (error) {
-            showNotification(`Failed to update scheduled jobs: ${error.message}`, 'error');
+            if (!silent) showNotification(`Failed to update scheduled jobs: ${error.message}`, 'error');
+            else throw error;
         }
     }
 
@@ -1838,7 +1841,7 @@
         return state;
     }
 
-    async function saveCronEditor() {
+    async function saveCronEditor({ silent = false } = {}) {
         const cronEditor = document.getElementById('cronEditor');
         try {
             const response = await fetch('/api/cron', {
@@ -1862,9 +1865,10 @@
 
             const state = await response.json();
             renderBackupCronJobs(state);
-            showNotification('Cron jobs updated', 'success');
+            if (!silent) showNotification('Cron jobs updated', 'success');
         } catch (error) {
-            showNotification(`Failed to update cron jobs: ${error.message}`, 'error');
+            if (!silent) showNotification(`Failed to update cron jobs: ${error.message}`, 'error');
+            else throw error;
         }
     }
 
@@ -1977,52 +1981,44 @@
             'LMSTUDIO_API_URL': settings.lmstudioApiUrl || '',
             'LMSTUDIO_EMBEDDING_URL': settings.lmstudioEmbeddingUrl || ''
         };
-        await persistWorkflowAppSettings(workflowSettingsPayload);
 
-        // Save auto-trigger hunt score threshold to workflow config API
+        const failures = [];
+        const runSection = async (label, fn) => {
+            try { await fn(); }
+            catch (error) {
+                console.error(`Error saving ${label}:`, error);
+                failures.push(label);
+            }
+        };
+
+        await runSection('workflow providers', () => persistWorkflowAppSettings(workflowSettingsPayload));
+
+        // Auto-trigger hunt score threshold
         const autoTriggerThresholdInput = document.getElementById('autoTriggerHuntScoreThreshold');
         const autoTriggerThreshold = parseFloat(autoTriggerThresholdInput.value);
-        const statusElement = document.getElementById('autoTriggerThresholdStatus');
-        
-        if (!isNaN(autoTriggerThreshold) && autoTriggerThreshold >= 0 && autoTriggerThreshold <= 100) {
-            try {
+        document.getElementById('autoTriggerThresholdStatus').textContent = '';
+        if (isNaN(autoTriggerThreshold) || autoTriggerThreshold < 0 || autoTriggerThreshold > 100) {
+            failures.push('auto-trigger threshold (must be 0-100)');
+        } else {
+            await runSection('auto-trigger threshold', async () => {
                 const response = await fetch('/api/workflow/config', {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        auto_trigger_hunt_score_threshold: autoTriggerThreshold
-                    })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ auto_trigger_hunt_score_threshold: autoTriggerThreshold })
                 });
-                if (response.ok) {
-                    statusElement.textContent = '✓ Saved';
-                    statusElement.className = 'text-sm mt-2 text-green-600 dark:text-green-400';
-                    setTimeout(() => {
-                        statusElement.textContent = '';
-                    }, 3000);
-                } else {
-                    const error = await response.json();
-                    statusElement.textContent = `Error: ${error.detail || 'Failed to save'}`;
-                    statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    throw new Error(err.detail || `HTTP ${response.status}`);
                 }
-            } catch (error) {
-                statusElement.textContent = `Error: ${error.message}`;
-                statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
-            }
-        } else {
-            statusElement.textContent = 'Error: Threshold must be between 0 and 100';
-            statusElement.className = 'text-sm mt-2 text-red-600 dark:text-red-400';
+            });
         }
 
-        try {
-            await persistBackupSettingsToServer(false);
-        } catch (error) {
-            console.error('❌ Error saving backup settings:', error);
-        }
+        await runSection('backup configuration', () => persistBackupSettingsToServer(false));
+        await runSection('source auto-healing', () => saveSourceHealingSettings({ silent: true }));
+        await runSection('cron editor', () => saveCronEditor({ silent: true }));
+        await runSection('scheduled jobs', () => saveScheduledJobs({ silent: true }));
 
-        // Save GitHub PR settings to backend API
-        try {
+        await runSection('GitHub PR config', async () => {
             const githubPRSettings = [
                 { key: 'GITHUB_TOKEN', value: document.getElementById('githubToken').value.trim() },
                 { key: 'SIGMA_REPO_PATH', value: document.getElementById('sigmaRepoPath').value.trim() },
@@ -2030,62 +2026,44 @@
                 { key: 'GIT_NAME', value: document.getElementById('gitUserName').value.trim() },
                 { key: 'GIT_EMAIL', value: document.getElementById('gitUserEmail').value.trim() }
             ];
-            
             for (const setting of githubPRSettings) {
                 if (setting.value) {
                     await fetch('/api/settings', {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            key: setting.key,
-                            value: setting.value
-                        })
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ key: setting.key, value: setting.value })
                     });
                 } else {
-                    // Delete if empty (revert to env var)
-                    await fetch(`/api/settings/${setting.key}`, {
-                        method: 'DELETE'
-                    });
+                    await fetch(`/api/settings/${setting.key}`, { method: 'DELETE' });
                 }
             }
-        } catch (error) {
-            console.error('❌ Error saving GitHub PR settings:', error);
-        }
-        
-        // Save Langfuse keys to backend API
-        try {
+        });
+
+        await runSection('Langfuse keys', async () => {
             const langfuseSettings = [
                 { key: 'LANGFUSE_PUBLIC_KEY', value: document.getElementById('langfusePublicKey').value.trim() },
                 { key: 'LANGFUSE_SECRET_KEY', value: document.getElementById('langfuseSecretKey').value.trim() },
                 { key: 'LANGFUSE_HOST', value: document.getElementById('langfuseHost').value.trim() },
                 { key: 'LANGFUSE_PROJECT_ID', value: document.getElementById('langfuseProjectId').value.trim() }
             ];
-            
             for (const setting of langfuseSettings) {
                 if (setting.value) {
-                    // Save non-empty value to database
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
+                    await fetch('/api/settings', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(setting)
-                });
-                } else {
-                    // Delete empty value from database (revert to environment variable)
-                    await fetch(`/api/settings/${setting.key}`, {
-                        method: 'DELETE'
                     });
+                } else {
+                    await fetch(`/api/settings/${setting.key}`, { method: 'DELETE' });
                 }
             }
-            console.log('✅ Langfuse settings saved to database');
-        } catch (error) {
-            console.error('❌ Error saving Langfuse settings:', error);
-        }
+        });
 
-        showSuccessNotification();
+        if (failures.length === 0) {
+            showSuccessNotification();
+        } else {
+            showNotification(`Failed to save: ${failures.join(', ')}`, 'error');
+        }
     }
     
     

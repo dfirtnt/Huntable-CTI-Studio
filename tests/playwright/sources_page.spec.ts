@@ -89,6 +89,20 @@ test.describe('Sources Page - Executable Test Plan', () => {
     await expect(card.getByRole('button', { name: /collect articles from/i })).toBeVisible();
   });
 
+  test('[SOURCES-013] Source deep link filters and selects the matching card', async ({ page, request }) => {
+    const source = await getFirstNonManualSource(request);
+    test.skip(!source, 'No non-manual source available in test environment');
+
+    await page.goto(`${BASE}/sources?source_id=${source!.id}&source=${encodeURIComponent(source!.name)}`);
+    await page.waitForLoadState('networkidle');
+
+    const card = cardForSource(page, source!.id);
+    await expect(page.locator('#sourceSearch')).toHaveValue(source!.name);
+    await expect(card).toBeVisible();
+    await expect(card).toHaveClass(/source-selected/);
+    await expect(card).toHaveAttribute('aria-current', 'true');
+  });
+
   test('[SOURCES-016] Source metadata fields are displayed', async ({ page, request }) => {
     const source = await getFirstNonManualSource(request);
     test.skip(!source, 'No non-manual source available in test environment');

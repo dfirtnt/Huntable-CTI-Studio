@@ -10,6 +10,14 @@ pytestmark = pytest.mark.unit
 class TestOpenAIChatClient:
     """Test openai_chat_client module."""
 
+    def test_openai_is_reasoning_model_delegates_to_model_validation(self):
+        """openai_is_reasoning_model must agree with model_supports_variable_temperature."""
+        from src.services.openai_chat_client import openai_is_reasoning_model
+        from src.utils.model_validation import model_supports_variable_temperature
+
+        for model in ("o1", "o3-mini", "o4-mini", "gpt-5", "gpt-4o", "gpt-4.1-mini"):
+            assert openai_is_reasoning_model(model) == (not model_supports_variable_temperature(model)), model
+
     def test_openai_is_reasoning_model_o1(self):
         """o1 is a reasoning model."""
         from src.services.openai_chat_client import openai_is_reasoning_model

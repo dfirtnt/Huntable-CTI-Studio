@@ -4,8 +4,8 @@ API routes for SIGMA rule A/B pairwise comparison.
 Provides POST /api/sigma-ab-test/compare and /compare-to-repository.
 """
 
-import re
 import logging
+import re
 from typing import Any
 
 import yaml
@@ -27,13 +27,15 @@ def _extract_yaml_block(text: str) -> str:
         return text.strip() if text else ""
     text = text.strip()
     # Handle markdown code fences with optional "yaml" and support CRLF/newline variants.
-    match = re.search(
-        r"```(?:yaml)?[ \t]*\r?\n(.*?)(?:\r?\n[ \t]*```|[ \t]*```|$)",
-        text,
-        re.DOTALL | re.IGNORECASE,
-    )
-    if match:
-        return match.group(1).strip()
+    # Use plain string search (no backtracking) to avoid ReDoS on crafted input.
+    fence_open = re.match(r"```(?:yaml)?[ \t]*\r?\n", text, re.IGNORECASE)
+    if fence_open:
+        content_start = fence_open.end()
+        fence_close = text.find("\n```", content_start)
+        if fence_close == -1:
+            fence_close = text.find("```", content_start)
+        content = text[content_start:fence_close].strip() if fence_close != -1 else text[content_start:].strip()
+        return content
     for start in ("title:", "id:", "logsource:", "detection:"):
         idx = text.find(start)
         if idx != -1:
@@ -144,11 +146,9 @@ async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest
             "level": rule_data.get("level"),
             "status": rule_data.get("status", "experimental"),
         }
-        result = matching_service.compare_proposed_rule_to_embeddings(
-            proposed_rule=normalized, threshold=0.0
-        )
+        result = matching_service.compare_proposed_rule_to_embeddings(proposed_rule=normalized, threshold=0.0)
         matches = result.get("matches", [])[:20]
-        return {
+        return {  # codeql[py/stack-trace-exposure] false positive: response contains only rule metadata, no exception data
             "success": True,
             "matches": [
                 {

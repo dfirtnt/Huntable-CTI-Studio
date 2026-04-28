@@ -32,7 +32,6 @@ _BASE_V2: dict = {
         "RankingThreshold": 6.0,
         "SimilarityThreshold": 0.5,
         "JunkFilterThreshold": 0.8,
-        "AutoTriggerHuntScoreThreshold": 60.0,
     },
     "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
     "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": False},

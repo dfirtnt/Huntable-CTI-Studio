@@ -628,3 +628,98 @@ class TestHTTPClient:
         # Test with invalid URL
         with pytest.raises(ValueError):
             await http_client.get("not-a-url")
+
+
+class TestHTTPClientPolitenessBehaviors:
+    """Tests for honest User-Agent and configure_source_robots polite-crawl behavior."""
+
+    def test_default_user_agent_is_honest(self):
+        config = RequestConfig()
+        assert "Huntable-CTI-Studio" in config.user_agent
+        assert "Mozilla" not in config.user_agent
+
+    def test_configure_source_robots_stores_settings(self):
+        client = HTTPClient()
+        client.configure_source_robots("example", {"enabled": True, "crawl_delay": 2.5, "max_requests_per_minute": 10})
+        assert client._source_robots["example"]["crawl_delay"] == 2.5
+        assert client._source_robots["example"]["max_requests_per_minute"] == 10
+
+    def test_configure_source_robots_skips_disabled(self):
+        client = HTTPClient()
+        client.configure_source_robots("example", {"enabled": False, "crawl_delay": 2.5})
+        assert "example" not in client._source_robots
+
+    def test_configure_source_robots_ignores_empty_config(self):
+        client = HTTPClient()
+        client.configure_source_robots("example", {})
+        assert "example" not in client._source_robots
+
+    @pytest.mark.asyncio
+    async def test_get_applies_crawl_delay_for_configured_source(self):
+        client = HTTPClient()
+        client.configure_source_robots("mysource", {"enabled": True, "crawl_delay": 0.05})
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+        mock_response.headers = {}
+        mock_response.content = b"ok"
+        mock_response.encoding = "utf-8"
+        mock_response.url = "https://example.com"
+
+        sleep_calls = []
+
+        async def fake_sleep(n):
+            sleep_calls.append(n)
+
+        with (
+            patch("httpx.AsyncClient") as mock_client_cls,
+            patch("src.utils.http.asyncio.sleep", side_effect=fake_sleep),
+        ):
+            mock_httpx = AsyncMock()
+            mock_httpx.get.return_value = mock_response
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_httpx)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            await client.get("https://example.com", source_id="mysource")
+
+        assert any(s == pytest.approx(0.05) for s in sleep_calls), f"No crawl delay sleep found in {sleep_calls}"
+
+    @pytest.mark.asyncio
+    async def test_get_no_crawl_delay_when_source_not_configured(self):
+        """Calling get() without a source_id must not trigger asyncio.sleep for crawl delay."""
+        client = HTTPClient()
+
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+        mock_response.headers = {}
+        mock_response.content = b"ok"
+        mock_response.encoding = "utf-8"
+        mock_response.url = "https://example.com"
+
+        sleep_calls = []
+
+        async def fake_sleep(n):
+            sleep_calls.append(n)
+
+        with (
+            patch("httpx.AsyncClient") as mock_client_cls,
+            patch("src.utils.http.asyncio.sleep", side_effect=fake_sleep),
+        ):
+            mock_httpx = AsyncMock()
+            mock_httpx.get.return_value = mock_response
+            mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_httpx)
+            mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            # No source_id — crawl delay block must not fire
+            await client.get("https://example.com")
+
+        assert sleep_calls == [], f"Unexpected sleep calls: {sleep_calls}"
+
+    def test_configure_source_robots_absent_enabled_key_defaults_to_store(self):
+        """configure_source_robots with no 'enabled' key should default to enabled=True and store config."""
+        client = HTTPClient()
+        client.configure_source_robots("example", {"crawl_delay": 1.5, "max_requests_per_minute": 5})
+        assert "example" in client._source_robots
+        assert client._source_robots["example"]["crawl_delay"] == 1.5

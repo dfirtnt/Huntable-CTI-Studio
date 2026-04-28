@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import inspect
+
 import pytest
 
+from src.services.backup_cron_service import CronUnavailableError
 from src.web.routes import cron as cron_routes
 
 pytestmark = pytest.mark.api
@@ -57,3 +60,49 @@ def test_replace_cron_returns_updated_snapshot(monkeypatch):
 
     assert result["success"] is True
     assert result["jobs"][0]["schedule"] == "5 4 * * *"
+
+
+def test_replace_cron_returns_success_when_cron_unavailable(monkeypatch):
+    """Regression: PUT /api/cron must return 200 with cron_available:false when crontab is unavailable.
+
+    On macOS (sandboxed or no Full Disk Access) crontab raises CronUnavailableError.
+    Before the fix this propagated as 503, which the Settings page Save button treated
+    as a failure and displayed 'Failed to save: cron editor'.
+    """
+
+    class FakeService:
+        def replace_crontab(self, content: str):
+            raise CronUnavailableError("crontab not available in this environment")
+
+        def get_snapshot(self):
+            return {
+                "cron_available": False,
+                "automated": False,
+                "jobs": [],
+                "managed_jobs": [],
+                "raw": "",
+            }
+
+    monkeypatch.setattr(cron_routes, "BackupCronService", lambda: FakeService())
+
+    result = __import__("asyncio").run(cron_routes.api_replace_cron(cron_routes.CronUpdate(content="")))
+
+    assert result["success"] is True
+    assert result["cron_available"] is False
+    assert result["jobs"] == []
+
+
+def test_replace_cron_requires_no_admin_auth():
+    """Regression: PUT /api/cron must not require admin auth.
+
+    The Settings page Save button has no mechanism to supply X-API-Key.
+    If RequireAdminAuth is re-added to this handler the endpoint will
+    return 401 for every save, breaking the cron editor save silently.
+    """
+    from src.web.auth import RequireAdminAuth
+
+    sig = inspect.signature(cron_routes.api_replace_cron)
+    for param in sig.parameters.values():
+        assert param.default is not RequireAdminAuth, (
+            "api_replace_cron must not use RequireAdminAuth -- the Settings page sends no X-API-Key header"
+        )

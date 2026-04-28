@@ -17,7 +17,7 @@ class TestSourceConfig:
         """Test SourceConfig initialization with default values."""
         config = SourceConfig()
 
-        assert config.check_frequency == 3600  # 1 hour
+        assert config.check_frequency == 14400  # 4 hours
         assert config.lookback_days == 180
         assert config.min_content_length == 100
         assert config.max_content_length == 50000

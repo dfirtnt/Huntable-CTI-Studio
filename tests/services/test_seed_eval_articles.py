@@ -57,7 +57,9 @@ class TestEvalArticleDataIntegrity:
         """Regression: the 8 DFIR Report articles that were 'Untitled Article' must have real titles."""
         path = _EVAL_DATA_ROOT / "process_lineage" / "articles.json"
         data = json.loads(path.read_text())
-        dfir_articles = [a for a in data if "thedfirreport.com" in a.get("url", "")]
+        dfir_articles = [
+            a for a in data if "thedfirreport.com" in a.get("url", "")
+        ]  # codeql[py/incomplete-url-substring-sanitization] false positive: filtering test data, not a security check
         assert dfir_articles, "Expected at least one thedfirreport.com article in process_lineage"
         offenders = [a["url"] for a in dfir_articles if a.get("title") in (None, "", "Untitled Article")]
         assert offenders == [], f"DFIR Report articles still lack real titles: {offenders}"

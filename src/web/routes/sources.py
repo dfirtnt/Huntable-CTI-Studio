@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException
 
 from src.database.async_manager import async_db_manager
 from src.models.source import SourceFilter, SourceUpdate
+from src.web.auth import RequireAdminAuth
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/sources", tags=["Sources"])
@@ -71,6 +72,7 @@ async def api_sources_failing():
 
                 failing_sources.append(
                     {
+                        "source_id": source.id,
                         "source_name": source.name,
                         "consecutive_failures": consecutive_failures,
                         "last_success": last_success_str,
@@ -101,7 +103,7 @@ async def api_get_source(source_id: int):
 
 
 @router.post("/{source_id}/toggle")
-async def api_toggle_source_status(source_id: int):
+async def api_toggle_source_status(source_id: int, _auth: str = RequireAdminAuth):
     """Toggle source active status."""
     try:
         result = await async_db_manager.toggle_source_status(source_id)
@@ -129,7 +131,7 @@ async def api_toggle_source_status(source_id: int):
 
 
 @router.post("/{source_id}/collect")
-async def api_collect_from_source(source_id: int):
+async def api_collect_from_source(source_id: int, _auth: str = RequireAdminAuth):
     """Manually trigger collection from a specific source."""
     try:
         celery_app = Celery("cti_scraper")
@@ -153,7 +155,7 @@ async def api_collect_from_source(source_id: int):
 
 
 @router.put("/{source_id}/min_content_length")
-async def api_update_source_min_content_length(source_id: int, request: dict):
+async def api_update_source_min_content_length(source_id: int, request: dict, _auth: str = RequireAdminAuth):
     """Update source minimum content length."""
     try:
         min_content_length = request.get("min_content_length")
@@ -180,7 +182,7 @@ async def api_update_source_min_content_length(source_id: int, request: dict):
 
 
 @router.put("/{source_id}/lookback")
-async def api_update_source_lookback(source_id: int, request: dict):
+async def api_update_source_lookback(source_id: int, request: dict, _auth: str = RequireAdminAuth):
     """Update source lookback window."""
     try:
         lookback_days = request.get("lookback_days")
@@ -225,7 +227,7 @@ async def api_update_source_lookback(source_id: int, request: dict):
 
 
 @router.put("/{source_id}/check_frequency")
-async def api_update_source_check_frequency(source_id: int, request: dict):
+async def api_update_source_check_frequency(source_id: int, request: dict, _auth: str = RequireAdminAuth):
     """Update source check frequency."""
     try:
         check_frequency = request.get("check_frequency")
@@ -324,7 +326,7 @@ async def api_source_stats(source_id: int):
 
 
 @router.post("/{source_id}/heal")
-async def api_heal_source(source_id: int):
+async def api_heal_source(source_id: int, _auth: str = RequireAdminAuth):
     """Trigger AI healing for a single source."""
     source = await async_db_manager.get_source(source_id)
     if not source:
@@ -357,7 +359,7 @@ async def api_heal_source(source_id: int):
 
 
 @router.post("/{source_id}/reset-healing")
-async def api_reset_healing(source_id: int):
+async def api_reset_healing(source_id: int, _auth: str = RequireAdminAuth):
     """Reset healing_exhausted and healing_attempts for a source."""
     source = await async_db_manager.get_source(source_id)
     if not source:

@@ -9,7 +9,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 - **Single casing**: PascalCase for schema keys (Version, Metadata, Thresholds, Agents, Embeddings, QA, Features, Prompts, Execution).
 - **Nested agents**: Instead of flat keys like `RankAgent_provider`, `RankAgent_temperature`, config is structured as `Agents.RankAgent.Provider`, `Agents.RankAgent.Temperature`, etc. Each agent has required fields: Provider, Model, Temperature, TopP, Enabled.
 - **Dedicated sections**:
-  - **Thresholds**: MinHuntScore, RankingThreshold, SimilarityThreshold, JunkFilterThreshold, AutoTriggerHuntScoreThreshold.
+  - **Thresholds**: MinHuntScore, RankingThreshold, SimilarityThreshold, JunkFilterThreshold.
   - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, sub-agents, QA agents, OSDetectionFallback).
   - **Embeddings**: OsDetection and Sigma (moved out of `agent_models`).
   - **QA**: Enabled (per-agent) and MaxRetries.
@@ -47,4 +47,4 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 ## ExtractAgent (supervisor)
 
-ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
+ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.

@@ -63,10 +63,17 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "RegistryExtract",
     "ServicesExtract",
     "ProcTreeExtract",
+    "ScheduledTasksExtract",
+    "CmdlineExtract",
+    # HuntQueriesExtract intentionally excluded: its envelope uses `query_count`
+    # rather than `count`, so it would fail test_json_example_has_expected_top_level_key.
+    # Preset-sync for HuntQueriesExtract is asserted separately (TestPresetsSyncedWithPrompts
+    # uses MIGRATED_EXTRACT_AGENTS, so HuntQueriesExtract drift is currently unguarded —
+    # acceptable trade-off until the envelope contract is unified).
 ]
 
 # QA prompts that were migrated alongside their extract agents.
-MIGRATED_QA_AGENTS: list[str] = ["RegistryQA", "ServicesQA"]
+MIGRATED_QA_AGENTS: list[str] = ["RegistryQA", "ServicesQA", "ScheduledTasksQA"]
 
 REQUIRED_TRACEABILITY_FIELDS = (
     "source_evidence",
@@ -258,7 +265,11 @@ class TestPresetsSyncedWithPrompts:
     @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
     def test_preset_qa_prompt_synced(self, qa_name, preset_paths):
         """QA prompts embed as <BaseAgent>.QAPrompt.prompt."""
-        base_for_qa = {"RegistryQA": "RegistryExtract", "ServicesQA": "ServicesExtract"}
+        base_for_qa = {
+            "RegistryQA": "RegistryExtract",
+            "ServicesQA": "ServicesExtract",
+            "ScheduledTasksQA": "ScheduledTasksExtract",
+        }
         base_agent = base_for_qa[qa_name]
         source = _load_prompt(qa_name)
         for preset_path in preset_paths:
@@ -317,11 +328,14 @@ class TestRuntimeContractMatch:
         # Locate the traceability-block emission site and assert deleted names aren't in
         # its allowlist. We pin the block text so we catch the exact call site, not any
         # stray mention of the name in a comment.
-        marker = "user_prompt.rstrip() + _traceability_block"
+        # The traceability block was split into _SIMPLE_EXTRACTORS / _STRUCTURED_EXTRACTORS
+        # in a later refactor. Anchor on the _SIMPLE_EXTRACTORS definition which immediately
+        # precedes the emission sites and encompasses the full allowlist.
+        marker = "_SIMPLE_EXTRACTORS = ("
         idx = src.find(marker)
-        assert idx != -1, "Traceability block emission site not found; test needs updating."
-        # Look back ~400 chars to capture the agent_name tuple preceding the marker.
-        window = src[max(0, idx - 400) : idx]
+        assert idx != -1, "Traceability _SIMPLE_EXTRACTORS definition not found; test needs updating."
+        # Capture _SIMPLE_EXTRACTORS + _STRUCTURED_EXTRACTORS tuple content (~400 chars).
+        window = src[idx : idx + 400]
         for deleted in ("SigExtract", "RegExtract", "EventCodeExtract"):
             assert f'"{deleted}"' not in window, (
                 f"{deleted} was deleted as a sub-agent and must not appear in the "

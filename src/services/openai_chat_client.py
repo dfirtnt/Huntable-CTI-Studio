@@ -12,16 +12,14 @@ from typing import Any
 
 import httpx
 
-logger = logging.getLogger(__name__)
+from src.utils.model_validation import model_supports_variable_temperature
 
-# Reasoning models (o1, o3, o4, gpt-5.x) use max_completion_tokens and omit temperature
-_REASONING_PREFIXES = ("o1", "o3", "o4-mini", "o4-", "o4", "gpt-5")
+logger = logging.getLogger(__name__)
 
 
 def openai_is_reasoning_model(model_name: str) -> bool:
     """True if model uses max_completion_tokens and omits temperature."""
-    m = (model_name or "").lower()
-    return any(x in m for x in _REASONING_PREFIXES)
+    return not model_supports_variable_temperature(model_name)
 
 
 def openai_build_chat_payload(

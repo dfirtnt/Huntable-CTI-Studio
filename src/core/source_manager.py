@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class SourceConfig:
     """Configuration for source management."""
 
-    check_frequency: int = 3600
+    check_frequency: int = 14400
     lookback_days: int = 180
     min_content_length: int = 100
     max_content_length: int = 50000
@@ -214,7 +214,7 @@ class SourceConfigLoader:
         name = source_data["name"]
         url = source_data["url"]
         rss_url = source_data.get("rss_url", "")
-        check_frequency = source_data.get("check_frequency", 3600)
+        check_frequency = source_data.get("check_frequency", 14400)
         lookback_days = source_data.get("lookback_days", 180)
         active = source_data.get("active", True)
 
@@ -598,7 +598,7 @@ class SourceManager:
             name=source_data["name"],
             url=source_data["url"],
             rss_url=source_data.get("rss_url"),
-            check_frequency=source_data.get("check_frequency", 3600),
+            check_frequency=source_data.get("check_frequency", 14400),
             lookback_days=source_data.get("lookback_days", 180),
             active=source_data.get("active", True),
             config=source_data.get("config", {}),

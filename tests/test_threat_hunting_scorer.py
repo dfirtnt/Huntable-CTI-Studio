@@ -215,7 +215,9 @@ class TestThreatHuntingScorer:
         assert ThreatHuntingScorer._keyword_matches("==", "if (x == y)")
         assert ThreatHuntingScorer._keyword_matches("!=", "if (x != y)")
         assert ThreatHuntingScorer._keyword_matches("::", "namespace::class")
-        assert ThreatHuntingScorer._keyword_matches("-->", "x --> y")
+        assert ThreatHuntingScorer._keyword_matches(
+            "-->", "x --> y"
+        )  # codeql[py/bad-tag-filter] false positive: test string literal, not an HTML sanitizer
         assert ThreatHuntingScorer._keyword_matches("->", "x -> y")
 
     def test_keyword_matches_regex_patterns(self):

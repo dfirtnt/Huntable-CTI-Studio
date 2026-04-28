@@ -51,7 +51,9 @@ venv.bak/
 .venv/
 
 # IDE and editors
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/skills/**
 .opencode/
 .vscode/
 .idea/
@@ -124,7 +126,7 @@ dump.rdb
 
 # Test artifacts
 test-results/
-tests/playwright-report/trace/
+tests/playwright-report/
 coverage/
 .coverage
 .pytest_cache/

@@ -23,7 +23,7 @@ import httpx
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
-from src.utils.model_validation import clamp_temperature_for_provider
+from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,13 @@ class PreprocessInvariantError(Exception):
         self.debug_artifacts = debug_artifacts or {}
 
 
+# Always-required traceability fields (Extractor Contract sec 3-4)
 _TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
+# Fields that must appear in every item regardless of extractor type
+_TRACEABILITY_REQUIRED = frozenset({"source_evidence", "extraction_justification", "confidence_score"})
+# "value" is required only for simple extractors; structured extractors with domain-specific
+# identity fields (task_name/task_path/indicator_type/etc.) satisfy the contract without it.
+_TRACEABILITY_VALUE_FIELD = "value"
 
 # Code-owned user-message template for ExtractAgent supervisor (extract_behaviors).
 # Previously lived in src/prompts/ExtractAgentInstructions.txt.
@@ -231,12 +237,24 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
             break
 
     if item_fields:
-        missing = _TRACEABILITY_FIELDS - item_fields
-        if missing:
+        # Always-required: source_evidence, extraction_justification, confidence_score
+        missing_required = _TRACEABILITY_REQUIRED - item_fields
+        if missing_required:
             raise PromptConfigValidationError(
-                f"{agent_name}: json_example items are missing traceability fields: {sorted(missing)}. "
+                f"{agent_name}: json_example items are missing traceability fields: {sorted(missing_required)}. "
                 "Extractor Contract (extractor-standard.md sec 3-4) requires "
-                "value, source_evidence, extraction_justification, confidence_score in every item."
+                "source_evidence, extraction_justification, confidence_score in every item."
+            )
+
+        # "value" is required for simple extractors (no domain-specific identity fields).
+        # Structured extractors (task_name/task_path/indicator_type/etc.) satisfy the
+        # contract through their domain fields and do not need a redundant "value" key.
+        has_domain_fields = bool(item_fields - _TRACEABILITY_FIELDS)
+        if not has_domain_fields and _TRACEABILITY_VALUE_FIELD not in item_fields:
+            raise PromptConfigValidationError(
+                f"{agent_name}: json_example items are missing 'value' field. "
+                "Extractor Contract (extractor-standard.md sec 3-4) requires 'value' "
+                "for simple extractors. Add 'value' or use named domain-specific identity fields."
             )
 
 
@@ -506,6 +524,7 @@ class LLMService:
             "HuntQueriesExtract",
             "RegistryExtract",
             "ServicesExtract",
+            "ScheduledTasksExtract",
         ]:
             # Sub-agents fall back to ExtractAgent top_p
             return self.top_p_extract
@@ -1200,13 +1219,15 @@ class LLMService:
                 f"Specialized models (codex, audio, image, realtime, etc.) and unrecognized IDs are not supported."
             )
 
-        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported)
-        payload = {
+        # gpt-4.1/gpt-5.x require max_completion_tokens (max_tokens unsupported).
+        # Reasoning models (o1/o3/o4/gpt-5.x) reject temperature -- omit proactively.
+        payload: dict[str, Any] = {
             "model": model_name,
             "messages": messages,
             "max_completion_tokens": max_tokens,
-            "temperature": temperature,
         }
+        if model_supports_variable_temperature(model_name):
+            payload["temperature"] = temperature
 
         def _temperature_unsupported(resp: httpx.Response) -> bool:
             if resp.status_code != 400:
@@ -1230,7 +1251,7 @@ class LLMService:
                 json=payload,
             )
 
-            # Some OpenAI models only support default temperature (1.0). Retry once without temperature.
+            # Defense-in-depth: if an unrecognized model rejects temperature, retry without it.
             if _temperature_unsupported(response):
                 logger.warning(
                     "OpenAI model %s rejected non-default temperature=%s; retrying request without temperature.",
@@ -3406,22 +3427,39 @@ IMPORTANT: Your response must end with a valid JSON object matching the structur
 If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
 
-                # Append traceability requirements for observable traceability feature
-                _traceability_block = """
-
-TRACEABILITY (REQUIRED): For each extracted item, the object MUST include these fields:
-- source_evidence: The full paragraph from the article containing this observable (verbatim).
-- extraction_justification: Which prompt rule or rubric triggered this extraction.
-- confidence_score: A number between 0.0 and 1.0 for extraction confidence.
-Every item in the output array MUST be an object (not a plain string). The object MUST have a "value" field plus source_evidence, extraction_justification, and confidence_score."""
-                if user_prompt and agent_name in (
+                # Append traceability requirements for observable traceability feature.
+                # Simple extractors require a generic "value" identity field.
+                # Structured extractors (ScheduledTasksExtract) use domain-specific identity
+                # fields (task_name, task_path, trigger, etc.) in place of "value" -- the
+                # injected reminder must match what the json_example schema actually specifies
+                # so the LLM does not hallucinate a "value" field that is not in the contract.
+                _SIMPLE_EXTRACTORS = (
                     "CmdlineExtract",
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
                     "ServicesExtract",
-                ):
-                    user_prompt = user_prompt.rstrip() + _traceability_block + "\n"
+                )
+                _STRUCTURED_EXTRACTORS = ("ScheduledTasksExtract",)
+                _traceability_common = """
+
+TRACEABILITY (REQUIRED): For each extracted item, the object MUST include these fields:
+- source_evidence: The full paragraph from the article containing this observable (verbatim).
+- extraction_justification: Which prompt rule or rubric triggered this extraction.
+- confidence_score: A number between 0.0 and 1.0 for extraction confidence.
+Every item in the output array MUST be an object (not a plain string)."""
+                if user_prompt and agent_name in _SIMPLE_EXTRACTORS:
+                    user_prompt = (
+                        user_prompt.rstrip()
+                        + _traceability_common
+                        + ' The object MUST have a "value" field plus source_evidence, extraction_justification, and confidence_score.\n'
+                    )
+                elif user_prompt and agent_name in _STRUCTURED_EXTRACTORS:
+                    user_prompt = (
+                        user_prompt.rstrip()
+                        + _traceability_common
+                        + " The object MUST include the domain-specific identity fields defined in your json_example schema plus source_evidence, extraction_justification, and confidence_score.\n"
+                    )
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 if feedback:
@@ -3663,6 +3701,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                             "sigma_queries",
                                             "registry_artifacts",
                                             "windows_services",
+                                            "scheduled_tasks",
                                             "count",
                                         ]
                                         if success and parsed and any(k in parsed for k in expected_keys):
@@ -3720,6 +3759,10 @@ Every item in the output array MUST be an object (not a plain string). The objec
                                 count = len(last_result.get("windows_services", []))
                                 logger.info(f"{agent_name} found {count} windows_services")
                                 last_result["items"] = last_result.pop("windows_services")
+                            elif "scheduled_tasks" in last_result:
+                                count = len(last_result.get("scheduled_tasks", []))
+                                logger.info(f"{agent_name} found {count} scheduled_tasks")
+                                last_result["items"] = last_result.pop("scheduled_tasks")
                             elif "items" in last_result:
                                 count = len(last_result.get("items", []))
                                 logger.info(f"{agent_name} found {count} items")
@@ -3781,6 +3824,7 @@ Every item in the output array MUST be an object (not a plain string). The objec
                         "items",
                         "registry_artifacts",
                         "windows_services",
+                        "scheduled_tasks",
                         "queries",
                         "process_lineage",
                     ):
@@ -3802,7 +3846,13 @@ Every item in the output array MUST be an object (not a plain string). The objec
                         if "cmdline_items" in last_result:
                             output_for_langfuse["cmdline_items"] = last_result["cmdline_items"]
                         # Include any other result fields that might be useful
-                        for key in ["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]:
+                        for key in [
+                            "process_lineage",
+                            "sigma_queries",
+                            "registry_artifacts",
+                            "windows_services",
+                            "scheduled_tasks",
+                        ]:
                             if key in last_result:
                                 output_for_langfuse[key] = last_result[key]
                         # Include error if present

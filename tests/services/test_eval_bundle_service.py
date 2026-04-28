@@ -214,41 +214,37 @@ class TestEvalBundleServiceHelpers:
         assert "MESSAGES_FETCHED_FROM_LANGFUSE" in warnings
         assert "RESPONSE_FETCHED_FROM_LANGFUSE" in warnings
 
-    def test_fetch_langfuse_generation_falls_back_to_manual_filtering(self):
+    def test_fetch_langfuse_generation_uses_v4_observations_api(self):
+        """_fetch_langfuse_generation queries observations.get_many via LangfuseAPI (v4), not client.api.generations (v3)."""
         service = EvalBundleService(Mock())
 
-        matching_generation = Mock()
-        matching_generation.session_id = "workflow_exec_123"
-        matching_generation.trace_id = "trace-xyz"
-        matching_generation.name = "cmdlineextract_extraction"
-        matching_generation.metadata = '{"agent_name":"CmdlineExtract"}'
-        matching_generation.model_parameters = '{"messages":[{"role":"user","content":"payload"}]}'
-        matching_generation.output = {"content": "structured-output"}
+        matching_gen = Mock()
+        matching_gen.name = "cmdlineextract_extraction"
+        matching_gen.metadata = '{"agent_name":"CmdlineExtract"}'
+        matching_gen.model_parameters = '{"messages":[{"role":"user","content":"payload"}]}'
+        matching_gen.output = {"content": "structured-output"}
         usage_obj = Mock()
         usage_obj.prompt_tokens = 8
         usage_obj.completion_tokens = 2
         usage_obj.total_tokens = 10
-        matching_generation.usage_details = usage_obj
+        matching_gen.usage_details = usage_obj
 
-        class Response:
+        class ObsResponse:
             def __init__(self, data):
                 self.data = data
 
-        generations_api = Mock()
-        generations_api.list.side_effect = [
-            RuntimeError("session_id query failed"),
-            RuntimeError("trace_id query failed"),
-            Response([matching_generation]),
-        ]
-        client = Mock()
-        client.api.generations = generations_api
+        mock_api = Mock()
+        mock_api.observations.get_many.return_value = ObsResponse([matching_gen])
+        # trace_id is known via error_log, so trace.list should not be called
+        mock_api.trace.list = Mock()
 
         execution = Mock()
         execution.error_log = {"langfuse_trace_id": "trace-xyz"}
 
         with (
             patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=True),
-            patch("src.services.eval_bundle_service.get_langfuse_client", return_value=client),
+            patch("src.services.eval_bundle_service.get_langfuse_client", return_value=Mock()),
+            patch("src.utils.langfuse_client._get_langfuse_api", return_value=mock_api),
         ):
             result = service._fetch_langfuse_generation(
                 execution_id=123,
@@ -261,7 +257,73 @@ class TestEvalBundleServiceHelpers:
         assert result["messages"][0]["content"] == "payload"
         assert result["response"] == "structured-output"
         assert result["usage"]["total_tokens"] == 10
-        assert generations_api.list.call_count == 3
+        mock_api.observations.get_many.assert_called_once_with(trace_id="trace-xyz", type="GENERATION", limit=100)
+        # The removed v3 attribute must never be reached
+        mock_api.trace.list.assert_not_called()
+
+    def test_fetch_langfuse_generation_resolves_trace_via_session_when_no_trace_id(self):
+        """When trace_id is absent from error_log, falls back to trace.list(session_id=...) then observations."""
+        service = EvalBundleService(Mock())
+
+        matching_gen = Mock()
+        matching_gen.name = "cmdlineextract_extraction"
+        matching_gen.metadata = {}
+        matching_gen.model_parameters = '{"messages":[{"role":"user","content":"session-path"}]}'
+        matching_gen.output = "session-output"
+        matching_gen.usage_details = None
+
+        class ObsResponse:
+            def __init__(self, data):
+                self.data = data
+
+        class TraceResponse:
+            def __init__(self, trace_id):
+                self.data = [Mock(id=trace_id)]
+
+        mock_api = Mock()
+        mock_api.trace.list.return_value = TraceResponse("resolved-trace-id")
+        mock_api.observations.get_many.return_value = ObsResponse([matching_gen])
+
+        execution = Mock()
+        execution.error_log = {}  # no langfuse_trace_id
+
+        with (
+            patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=True),
+            patch("src.services.eval_bundle_service.get_langfuse_client", return_value=Mock()),
+            patch("src.utils.langfuse_client._get_langfuse_api", return_value=mock_api),
+        ):
+            result = service._fetch_langfuse_generation(
+                execution_id=456,
+                agent_name="CmdlineExtract",
+                attempt=1,
+                execution=execution,
+            )
+
+        assert result is not None
+        mock_api.trace.list.assert_called_once_with(session_id="workflow_exec_456", limit=1, order_by="timestamp.desc")
+        mock_api.observations.get_many.assert_called_once_with(
+            trace_id="resolved-trace-id", type="GENERATION", limit=100
+        )
+
+    def test_fetch_langfuse_generation_returns_none_when_api_unavailable(self):
+        """Returns None gracefully when _get_langfuse_api() cannot build a client."""
+        service = EvalBundleService(Mock())
+        execution = Mock()
+        execution.error_log = {"langfuse_trace_id": "trace-xyz"}
+
+        with (
+            patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=True),
+            patch("src.services.eval_bundle_service.get_langfuse_client", return_value=Mock()),
+            patch("src.utils.langfuse_client._get_langfuse_api", return_value=None),
+        ):
+            result = service._fetch_langfuse_generation(
+                execution_id=789,
+                agent_name="CmdlineExtract",
+                attempt=1,
+                execution=execution,
+            )
+
+        assert result is None
 
     def test_extract_system_prompt_and_config_snapshot_string_payloads(self):
         service = EvalBundleService(Mock())

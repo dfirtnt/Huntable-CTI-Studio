@@ -2,7 +2,7 @@
 
 ## ML-Based Hunt Scoring
 
-# ML-Based Hunt Scoring System
+## ML-Based Hunt Scoring System
 
 ## Overview
 
@@ -227,7 +227,7 @@ Use the CLI command to recalculate scores:
 
 ## ML vs Hunt Score Comparison
 
-# ML vs Hunt Comparison Dashboard Guide
+## ML vs Hunt Comparison Dashboard Guide
 
 ## Overview
 

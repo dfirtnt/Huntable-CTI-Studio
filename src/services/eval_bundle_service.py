@@ -181,6 +181,7 @@ class EvalBundleService:
             "HuntQueriesExtract": "hunt_queries",
             "RegistryExtract": "registry_artifacts",
             "ServicesExtract": "windows_services",
+            "ScheduledTasksExtract": "scheduled_tasks",
         }
         subagent_name = agent_to_subagent_map.get(agent_name)
         expected_count = None
@@ -309,6 +310,7 @@ class EvalBundleService:
             "HuntQueriesExtract": "extract_agent",
             "RegistryExtract": "extract_agent",
             "ServicesExtract": "extract_agent",
+            "ScheduledTasksExtract": "extract_agent",
         }
 
         log_key = agent_key_map.get(agent_name, agent_name)
@@ -521,13 +523,21 @@ class EvalBundleService:
             "HuntQueriesExtract": "ExtractAgent",
             "RegistryExtract": "ExtractAgent",
             "ServicesExtract": "ExtractAgent",
+            "ScheduledTasksExtract": "ExtractAgent",
         }
 
         model_config_key = model_key_map.get(agent_name, agent_name)
 
         # Sub-agents use flat keys (e.g., "HuntQueriesExtract_model", "HuntQueriesExtract_provider")
         # Main agents may use nested structure (e.g., agent_models["ExtractAgent"] = {model: "...", provider: "..."})
-        sub_agents = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+        sub_agents = [
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+            "ScheduledTasksExtract",
+        ]
         is_sub_agent = agent_name in sub_agents
 
         # Try to get model config
@@ -715,70 +725,53 @@ class EvalBundleService:
                 generation_name_pattern,
             )
 
-            # Query Langfuse for generations in this session
-            # Try to get the generation that matches our agent
+            # Query Langfuse for generations in this session (v4 SDK: observations.get_many)
             try:
-                # Try querying by session_id first (preferred method)
+                from src.utils.langfuse_client import _get_langfuse_api
+
+                lf_api = _get_langfuse_api()
+                if not lf_api:
+                    logger.warning("Could not build Langfuse query client for execution %s", execution_id)
+                    return None
+
                 generations = None
-                try:
-                    generations = client.api.generations.list(
-                        session_id=session_id,
-                        limit=100,  # Get enough to find our agent
-                        order_by="timestamp.desc",
+
+                # Resolve trace_id from session_id if not already known
+                resolved_trace_id = trace_id
+                if not resolved_trace_id:
+                    try:
+                        traces = lf_api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
+                        if traces and traces.data:
+                            resolved_trace_id = getattr(traces.data[0], "id", None)
+                            logger.debug("Resolved trace_id=%s for session %s", resolved_trace_id, session_id)
+                    except Exception as trace_lookup_error:
+                        logger.warning("Failed to resolve trace_id for session %s: %s", session_id, trace_lookup_error)
+
+                # Query observations of type GENERATION by trace_id
+                if resolved_trace_id:
+                    try:
+                        generations = lf_api.observations.get_many(
+                            trace_id=resolved_trace_id,
+                            type="GENERATION",
+                            limit=100,
+                        )
+                        logger.debug(
+                            "Langfuse observations.get_many by trace_id=%s returned %s items",
+                            resolved_trace_id,
+                            len(generations.data) if generations and generations.data else 0,
+                        )
+                    except Exception as obs_error:
+                        logger.warning(
+                            "Failed to query Langfuse observations by trace_id %s: %s", resolved_trace_id, obs_error
+                        )
+
+                if not generations or not generations.data:
+                    logger.error(
+                        "All Langfuse query methods failed for execution %s (session=%s, trace_id=%s)",
+                        execution_id,
+                        session_id,
+                        resolved_trace_id,
                     )
-                    logger.debug(f"Langfuse API call by session_id completed, response type: {type(generations)}")
-                except Exception as session_query_error:
-                    logger.warning(f"Failed to query Langfuse by session_id {session_id}: {session_query_error}")
-
-                    # Fallback 1: Try querying by trace_id if available
-                    if trace_id:
-                        try:
-                            generations = client.api.generations.list(
-                                trace_id=trace_id, limit=100, order_by="timestamp.desc"
-                            )
-                            logger.debug("Langfuse API call by trace_id completed")
-                        except Exception as trace_query_error:
-                            logger.warning(f"Failed to query Langfuse by trace_id {trace_id}: {trace_query_error}")
-
-                    # Fallback 2: Try querying without filters (less efficient)
-                    if not generations:
-                        try:
-                            all_generations = client.api.generations.list(
-                                limit=1000,  # Need more since we're not filtering
-                                order_by="timestamp.desc",
-                            )
-                            total_generations = len(all_generations.data) if hasattr(all_generations, "data") else 0
-                            logger.debug(
-                                "Langfuse API call without filters completed, got %s total generations",
-                                total_generations,
-                            )
-
-                            # Filter by session_id manually
-                            if hasattr(all_generations, "data") and all_generations.data:
-                                filtered = [
-                                    gen
-                                    for gen in all_generations.data
-                                    if (hasattr(gen, "session_id") and gen.session_id == session_id)
-                                    or (trace_id and hasattr(gen, "trace_id") and gen.trace_id == trace_id)
-                                ]
-
-                                # Create a mock response object
-                                class MockResponse:
-                                    def __init__(self, data):
-                                        self.data = data
-
-                                generations = MockResponse(filtered)
-                                logger.debug(
-                                    f"Manually filtered to {len(filtered)} generations matching session_id or trace_id"
-                                )
-                        except Exception as fallback_error:
-                            logger.error(
-                                f"All Langfuse query methods failed. Last error: {fallback_error}", exc_info=True
-                            )
-                            return None
-
-                if not generations or not hasattr(generations, "data") or not generations.data:
-                    logger.warning(f"No Langfuse generations found for session {session_id}")
                     return None
 
                 logger.debug(
@@ -1274,6 +1267,7 @@ class EvalBundleService:
                 "HuntQueriesExtract",
                 "RegistryExtract",
                 "ServicesExtract",
+                "ScheduledTasksExtract",
             ]
             if agent_name in sub_agents:
                 # Try agent-specific flat keys first

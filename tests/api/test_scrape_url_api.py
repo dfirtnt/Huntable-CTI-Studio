@@ -37,7 +37,10 @@ async def test_scrape_url_upstream_4xx_returns_400_with_reason_phrase():
     request = httpx.Request("GET", "https://example.test/missing")
     upstream = httpx.Response(404, request=request, content=b"gone")
 
-    with patch("src.web.routes.scrape.httpx.AsyncClient", _mock_async_client(upstream)):
+    with (
+        patch("src.web.routes.scrape.httpx.AsyncClient", _mock_async_client(upstream)),
+        patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/missing"),
+    ):
         with pytest.raises(HTTPException) as exc_info:
             await _scrape_single_url(
                 url="https://example.test/missing",

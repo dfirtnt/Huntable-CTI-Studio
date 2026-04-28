@@ -4,7 +4,7 @@
 
 This guide helps you choose the right LLM models for different workflows in Huntable CTI Studio.
 
-# Local Model Selection Guide for Agentic CTI Workflows
+## Local Model Selection Guide for Agentic CTI Workflows
 **Practical, Field-Tested Guidance for SIGMA Detection Pipelines**
 
 ---
@@ -139,7 +139,7 @@ Test on 30+ diverse articles:
 ### Task Definition
 Extract explicitly stated observables from CTI articles with zero inference or interpretation.
 
-**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract
+**Active Agent Types**: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract
 
 ### Cognitive Requirements
 - Deterministic pattern matching
@@ -772,7 +772,7 @@ Always verify model hash against official releases for security.
 
 ## OpenAI Models Reference
 
-# OpenAI Chat Models Reference
+## OpenAI Chat Models Reference
 
 Source: [platform.openai.com/docs/models](https://platform.openai.com/docs/models) (Jan 2025)
 

@@ -41,6 +41,8 @@ function orderModelsByWorkflow(models) {
         'RegistryQA',
         'ServicesExtract',
         'ServicesQA',
+        'ScheduledTasksExtract',
+        'ScheduledTasksQA',
         'SIGMA',
         'OS Fallback'
     ];
@@ -52,16 +54,18 @@ function orderModelsByWorkflow(models) {
         'HuntQueriesExtract',
         'RegistryExtract',
         'ServicesExtract',
+        'ScheduledTasksExtract',
         'RankAgentQA'
     ]);
-    
+
     // Define second-level sub-agents (indent level 2) - QA agents under Extract
     const secondLevelSubAgents = new Set([
         'CmdLineQA',
         'ProcTreeQA',
         'HuntQueriesQA',
         'RegistryQA',
-        'ServicesQA'
+        'ServicesQA',
+        'ScheduledTasksQA'
     ]);
     
     // Create a map for quick lookup
@@ -168,7 +172,8 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             { id: 'ProcTreeExtract', name: 'ProcTreeExtract', qa: 'ProcTreeQA' },
             { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' },
             { id: 'RegistryExtract', name: 'RegistryExtract', qa: 'RegistryQA' },
-            { id: 'ServicesExtract', name: 'ServicesExtract', qa: 'ServicesQA' }
+            { id: 'ServicesExtract', name: 'ServicesExtract', qa: 'ServicesQA' },
+            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract', qa: 'ScheduledTasksQA' }
         ];
         
         // Disabled state from config only so Workflow and Agent-evals show the same status

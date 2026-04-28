@@ -485,6 +485,7 @@
                         <option value="hunt_queries">Hunt Queries</option>
                         <option value="registry_artifacts">Registry Artifacts</option>
                         <option value="windows_services">Windows Services</option>
+                        <option value="scheduled_tasks">Scheduled Tasks</option>
                     </select>
                     <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
@@ -557,7 +558,7 @@
             </button>
             <div id="evalStatus" class="mt-4 hidden">
                 <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
-                    <div class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
+                    <div id="evalSpinner" class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
                     <span class="eval-mono" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
                 </div>
             </div>
@@ -625,7 +626,15 @@
             <div id="maeChartContainer" class="mb-6 hidden">
                 <div style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
-                        <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
+                        <div>
+                            <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
+                            <p class="eval-mono mt-1" style="color: var(--text-muted-slate); font-size: 0.68rem;">
+                                <span style="color: #34d399;">&#9679;</span> nMAE &le;0.20 Excellent &nbsp;
+                                <span style="color: #fbbf24;">&#9679;</span> 0.21&ndash;0.50 Good &nbsp;
+                                <span style="color: #f87171;">&#9679;</span> &gt;0.50 Needs Improvement &nbsp;&mdash;&nbsp;
+                                nMAE = avg(|actual&minus;expected| / expected); MAE = avg absolute delta in observable units
+                            </p>
+                        </div>
                         <div class="flex items-center gap-2">
                             <button id="chartPrevBtn" class="eval-chart-nav" disabled>&larr; Prev</button>
                             <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.625rem; padding: 0 0.25rem;"></span>
@@ -644,6 +653,47 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Results Comparison Legend -->
+            <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" style="list-style: none; color: var(--text-muted-slate); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                    <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
+                    <span style="font-size: 0.65rem; opacity: 0.6;">click to expand</span>
+                </summary>
+                <div class="px-4 pb-4 pt-2" style="font-size: 0.78rem; color: var(--text-muted-slate);">
+                    <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
+                        <div>
+                            <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Cell layout</p>
+                            <ul class="space-y-1" style="line-height: 1.6;">
+                                <li><strong style="color: var(--text-emphasis);">Large number</strong> &mdash; actual observable count extracted by the agent</li>
+                                <li><strong style="color: var(--text-emphasis);">Signed delta</strong> &mdash; actual &minus; expected (e.g. +3 means over-extracted by 3)</li>
+                                <li><strong style="color: var(--text-emphasis);">Expected column</strong> &mdash; ground-truth count from the evaluation dataset</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Badge colors</p>
+                            <ul class="space-y-1" style="line-height: 1.6;">
+                                <li><span class="status-badge status-exact" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#10003;</span> <strong>Exact</strong> &mdash; delta = 0</li>
+                                <li><span class="status-badge status-warning" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;1</span> <strong>Close</strong> &mdash; |delta| &le; 2</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;3+</span> <strong>Miss</strong> &mdash; |delta| &gt; 2</li>
+                                <li><span class="status-badge status-pending" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
+                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
+                            <ul class="space-y-1" style="line-height: 1.6;">
+                                <li><strong>nMAE</strong> (Normalized MAE) &mdash; avg(|actual&minus;expected| / expected) across articles; scale 0&ndash;1</li>
+                                <li><strong>MAE</strong> (raw) &mdash; avg absolute delta in observable units (not normalized)</li>
+                                <li><span style="color: #34d399;">&#9679;</span> nMAE &le; 0.20 &mdash; Excellent</li>
+                                <li><span style="color: #fbbf24;">&#9679;</span> nMAE 0.21&ndash;0.50 &mdash; Good</li>
+                                <li><span style="color: #f87171;">&#9679;</span> nMAE &gt; 0.50 &mdash; Needs Improvement</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </details>
 
             <div id="resultsTable" class="comparison-table">
                 <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
@@ -667,7 +717,8 @@ const SUBAGENT_MAP = {
     'process_lineage': 'ProcTreeExtract',
     'hunt_queries': 'HuntQueriesExtract',
     'registry_artifacts': 'RegistryExtract',
-    'windows_services': 'ServicesExtract'
+    'windows_services': 'ServicesExtract',
+    'scheduled_tasks': 'ScheduledTasksExtract'
 };
 
 // Load active workflow config
@@ -1172,6 +1223,7 @@ async function runEvaluation() {
 
     runBtn.disabled = true;
     statusDiv.classList.remove('hidden');
+    document.getElementById('evalSpinner').classList.remove('hidden');
     const perStep = THROTTLE_INTERNAL_FLOOR_SECONDS + concurrencyThrottle;
     const dispatchWindow = Math.max(0, Math.round((repeatedUrls.length - 1) * perStep));
     statusText.textContent = multiplier > 1
@@ -1227,6 +1279,7 @@ async function runEvaluation() {
             // All articles were evaluated from static files (no workflow executions) — refresh results immediately
             statusText.textContent = `✅ Evaluated ${totalArticles} article(s) from static files. Refreshing results...`;
             statusText.className = 'text-sm text-green-600 dark:text-green-400';
+            document.getElementById('evalSpinner').classList.add('hidden');
             setTimeout(() => {
                 loadPreviousResults();
             }, 100);
@@ -1235,6 +1288,7 @@ async function runEvaluation() {
         console.error('Error running evaluation:', error);
         statusText.textContent = `❌ Error: ${error.message}`;
         statusText.className = 'text-sm text-red-600 dark:text-red-400';
+        document.getElementById('evalSpinner').classList.add('hidden');
     } finally {
         runBtn.disabled = false;
     }
@@ -1397,7 +1451,8 @@ async function pollSubagentResults(executions) {
                 
                 statusText.textContent = `✅ All executions completed. Refreshing results and chart...`;
                 statusText.className = 'text-sm text-green-600 dark:text-green-400';
-                
+                document.getElementById('evalSpinner').classList.add('hidden');
+
                 // Full refresh: refetch results, reload aggregates/chart, render pivot (same as Load Previous Results)
                 setTimeout(() => {
                     loadPreviousResults();
@@ -1415,9 +1470,10 @@ async function pollSubagentResults(executions) {
             isPolling = false;
             statusText.textContent = `❌ Error polling results: ${error.message}`;
             statusText.className = 'text-sm text-red-600 dark:text-red-400';
+            document.getElementById('evalSpinner').classList.add('hidden');
         }
     };
-    
+
     // Start polling
     pollOnce();
 }
@@ -2157,7 +2213,8 @@ async function loadAggregateScores() {
                                                agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
                                                agentName === 'HuntQueriesExtract' ? 'HuntQueriesQA' :
                                                agentName === 'RegistryExtract' ? 'RegistryQA' :
-                                               agentName === 'ServicesExtract' ? 'ServicesQA' : null;
+                                               agentName === 'ServicesExtract' ? 'ServicesQA' :
+                               agentName === 'ScheduledTasksExtract' ? 'ScheduledTasksQA' : null;
                             const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
                             
                             configParamsByVersion[version] = {
@@ -2666,6 +2723,9 @@ async function showCommandlines(executionId, articleUrl, count) {
         } else if (resultType === 'windows_services' || subagentEval === 'windows_services') {
             modalTitle.textContent = 'Extracted Windows Services';
             agentName = 'ServicesExtract';
+        } else if (resultType === 'scheduled_tasks' || subagentEval === 'scheduled_tasks') {
+            modalTitle.textContent = 'Extracted Scheduled Tasks';
+            agentName = 'ScheduledTasksExtract';
         } else {
             modalTitle.textContent = 'Extracted Commandlines';
             agentName = 'CmdlineExtract';

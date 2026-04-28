@@ -711,6 +711,8 @@ async def stream_execution_updates(execution_id: int):
                                     "RegistryQA": "extract_agent",
                                     "ServicesExtract": "extract_agent",
                                     "ServicesQA": "extract_agent",
+                                    "ScheduledTasksExtract": "extract_agent",
+                                    "ScheduledTasksQA": "extract_agent",
                                 }
 
                                 # Deduplicate by mapped agent name to avoid emitting same result twice
@@ -725,6 +727,7 @@ async def stream_execution_updates(execution_id: int):
                                     "HuntQueriesExtract",
                                     "RegistryExtract",
                                     "ServicesExtract",
+                                    "ScheduledTasksExtract",
                                 }
 
                                 # Track which mapped agents we've already sent in this iteration
@@ -810,7 +813,7 @@ async def stream_execution_updates(execution_id: int):
 
         except Exception as e:
             logger.error(f"Error in execution stream: {e}", exc_info=True)
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'message': type(e).__name__})}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -870,7 +873,7 @@ async def trigger_stuck_executions(request: Request):
                             "execution_id": execution.id,
                             "article_id": execution.article_id,
                             "success": False,
-                            "message": str(e),
+                            "message": type(e).__name__,
                         }
                     )
 
@@ -1145,7 +1148,9 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             import hashlib
 
             session_id = f"workflow_exec_{execution_id}"
-            trace_id_hash = hashlib.md5(session_id.encode()).hexdigest()
+            trace_id_hash = hashlib.md5(
+                session_id.encode()
+            ).hexdigest()  # codeql[py/weak-sensitive-data-hashing] false positive: MD5 used for trace ID generation only, not cryptographic security
             resolved_trace_id = None
             trace_lookup_used = False
 

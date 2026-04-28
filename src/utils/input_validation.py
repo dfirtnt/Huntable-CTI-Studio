@@ -1,11 +1,14 @@
 """
 Input validation utilities for security-critical operations.
 
-Prevents command injection, path traversal, and other input-based attacks.
+Prevents command injection, path traversal, SSRF, and other input-based attacks.
 """
 
+import ipaddress
 import re
+import socket
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class ValidationError(ValueError):
@@ -176,6 +179,38 @@ def validate_file_path(
         raise ValidationError(f"File extension {path.suffix!r} not allowed")
 
     return path
+
+
+def validate_url_for_scraping(url: str) -> str:
+    """
+    Validate a URL is safe to fetch (prevents SSRF).
+
+    Blocks private IPs, loopback, link-local, reserved ranges, and non-HTTP(S) schemes.
+
+    Raises:
+        ValidationError: If the URL is unsafe or unresolvable.
+    """
+    if not url or not isinstance(url, str):
+        raise ValidationError("URL must be a non-empty string")
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValidationError("URL must use http or https scheme")
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValidationError("URL must have a valid hostname")
+
+    try:
+        addr_info = socket.getaddrinfo(hostname, None)
+        ip = ipaddress.ip_address(addr_info[0][4][0])
+    except (socket.gaierror, ValueError) as exc:
+        raise ValidationError(f"Cannot resolve hostname '{hostname}'") from exc
+
+    if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+        raise ValidationError("URL resolves to a private or reserved address")
+
+    return url
 
 
 def sanitize_shell_arg(arg: str) -> str:

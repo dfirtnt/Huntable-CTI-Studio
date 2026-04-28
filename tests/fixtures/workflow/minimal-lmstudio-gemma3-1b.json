@@ -4,8 +4,7 @@
     "ranking_threshold": 6.0,
     "similarity_threshold": 0.5,
     "junk_filter_threshold": 0.8,
-    "min_hunt_score": 97.0,
-    "auto_trigger_hunt_score_threshold": 60.0
+    "min_hunt_score": 97.0
   },
   "agent_models": {
     "RankAgent_provider": "lmstudio",

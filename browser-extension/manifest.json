@@ -15,6 +15,9 @@
     "http://127.0.0.1:8001/*",
     "https://*/*"
   ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "Send to CTIScraper",
@@ -43,7 +46,14 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["popup.html"],
+      "resources": [
+        "popup.html",
+        "worker.min.js",
+        "tesseract-core.wasm.js",
+        "tesseract-core.wasm",
+        "tesseract-core-simd.wasm.js",
+        "tesseract-core-simd.wasm"
+      ],
       "matches": ["<all_urls>"]
     }
   ]

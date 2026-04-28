@@ -452,7 +452,7 @@ async def api_test_openai_key(request: Request):
             )
 
         # Log key info for debugging (masked)
-        logger.info(
+        logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: intentionally masked partial key (first 8 + last 4 chars only)
             f"🔑 Testing OpenAI API key: length={len(api_key)}, "
             f"starts_with={api_key[:8]}..., ends_with=...{api_key[-4:]}"
         )
@@ -598,7 +598,9 @@ async def api_test_hf_key(request: Request):
             )
 
         masked = f"{token[:6]}...{token[-4:]}" if len(token) > 12 else "***"
-        logger.info(f"🔑 Testing Hugging Face token (masked): {masked}")
+        logger.info(
+            f"🔑 Testing Hugging Face token (masked): {masked}"
+        )  # codeql[py/clear-text-logging-sensitive-data] false positive: token already masked before logging
 
         async with httpx.AsyncClient() as client:
             response = await client.get(
@@ -811,7 +813,7 @@ async def api_get_lmstudio_models():
             "models": [],
             "chat_models": [],
             "embedding_models": [],
-            "message": f"Error fetching models: {str(e)}",
+            "message": f"Error fetching models: {type(e).__name__}",
         }
 
 
@@ -892,7 +894,7 @@ async def api_get_lmstudio_embedding_models():
             "success": False,
             "models": [],
             "count": 0,
-            "message": f"Error fetching embedding models: {str(e)}",
+            "message": f"Error fetching embedding models: {type(e).__name__}",
         }
 
 
@@ -938,7 +940,7 @@ async def api_validate_model(request: Request):
 
     except Exception as e:
         logger.error(f"Model validation error: {e}")
-        return {"valid": False, "error": str(e)}
+        return {"valid": False, "error": type(e).__name__}
 
 
 @test_router.post("/test-lmstudio-connection")
@@ -1113,6 +1115,19 @@ async def api_test_langfuse_connection(request: Request):
                 from langfuse.api.core.api_error import ApiError
                 from langfuse.types import TraceContext
 
+                # Langfuse public keys always start with "pk-lf-".
+                # projects.get() only validates the secret key (Basic Auth password),
+                # so a wrong-format public key passes auth but traces are never written.
+                if not public_key.startswith("pk-lf-"):
+                    return {
+                        "valid": False,
+                        "message": (
+                            "Langfuse Public Key has an unexpected format. "
+                            "It should start with 'pk-lf-'. "
+                            "Find your public key in Langfuse -> Settings -> API Keys."
+                        ),
+                    }
+
                 base_url = host.rstrip("/")
 
                 # Validate the provided credentials against Langfuse's official API.
@@ -1127,7 +1142,7 @@ async def api_test_langfuse_connection(request: Request):
                         x_langfuse_sdk_name="cti-scraper",
                         x_langfuse_sdk_version=os.getenv("APP_VERSION", "dev"),
                         httpx_client=fern_http_client,
-                    )
+                    )  # codeql[py/stack-trace-exposure] false positive: client init, no exception data flows to response here
                     try:
                         project_response = await fern_client.projects.get()
                     except UnauthorizedError:
@@ -1196,14 +1211,14 @@ async def api_test_langfuse_connection(request: Request):
                 return {
                     "valid": False,
                     "message": (
-                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"
+                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"  # codeql[py/stack-trace-exposure] false positive: ImportError message contains only missing module name, not internal paths
                     ),
                 }
             except Exception as e:
                 logger.error(f"Langfuse connection test error: {type(e).__name__}: {e}")
                 return {
                     "valid": False,
-                    "message": f"Langfuse connection failed: {type(e).__name__}: {str(e)}",
+                    "message": f"Langfuse connection failed: {type(e).__name__}",
                 }
 
     except Exception as e:
@@ -2415,7 +2430,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                 if request.headers.get("X-Anthropic-API-Key")
                 else "body"
             )
-            logger.info(
+            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: logs last 4 chars only (masked partial key for debug tracing)
                 f"🔍 DEBUG SIGMA: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}"
             )
 
@@ -2424,7 +2439,9 @@ async def api_generate_sigma(article_id: int, request: Request):
 
         # DEBUG: Log after stripping
         if api_key:
-            logger.info(f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}")
+            logger.info(
+                f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
+            )  # codeql[py/clear-text-logging-sensitive-data] false positive: last 4 chars only
 
         ai_model = body.get("ai_model", "chatgpt")
         author_name = body.get("author_name", "Huntable CTI Studio User")
@@ -2815,7 +2832,7 @@ async def api_generate_sigma(article_id: int, request: Request):
             api_key_len = len(api_key) if api_key else 0
             api_key_start = api_key[:8] if api_key and len(api_key) >= 8 else "N/A"
             api_key_end = api_key[-4:] if api_key and len(api_key) >= 4 else "N/A"
-            logger.info(
+            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: intentionally masked partial key for debug tracing
                 f"🔑 Making OpenAI API call with api_key length: {api_key_len}, starts_with: {api_key_start}..., ends_with: ...{api_key_end}"
             )
 

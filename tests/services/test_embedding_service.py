@@ -86,6 +86,38 @@ class TestEmbeddingService:
         assert embeddings[1] == [0.0] * 768
         assert embeddings[3] == [0.0] * 768
 
+    def test_zero_vectors_are_independent_when_all_empty(self, service):
+        """Regression: [[0.0]*768]*n aliases all slots to the same list.
+        Mutating one zero-vector must not corrupt the others."""
+        embeddings = service.generate_embeddings_batch(["", "   ", ""])
+
+        assert len(embeddings) == 3
+        # Mutate slot 0 in-place
+        embeddings[0][0] = 999.0
+        # Slots 1 and 2 must be unaffected
+        assert embeddings[1][0] == 0.0, "aliased zero-vector: mutating slot 0 corrupted slot 1"
+        assert embeddings[2][0] == 0.0, "aliased zero-vector: mutating slot 0 corrupted slot 2"
+
+    def test_zero_vectors_are_independent_in_mixed_batch(self, service, mock_sentence_transformer):
+        """Regression: zero slots in a mixed batch must be independent lists."""
+        mock_sentence_transformer.encode.return_value = np.array([[0.5] * 768])
+
+        embeddings = service.generate_embeddings_batch(["valid", "", ""])
+
+        # Mutate the first zero slot
+        embeddings[1][0] = 42.0
+        # Second zero slot must be unaffected
+        assert embeddings[2][0] == 0.0, "aliased zero-vector: mutating slot 1 corrupted slot 2"
+
+    def test_embedding_count_mismatch_raises(self, service, mock_sentence_transformer):
+        """Regression: model returning fewer embeddings than valid texts must raise, not silently drop.
+        zip(strict=True) surfaces this as RuntimeError."""
+        # 2 valid texts but model returns only 1 embedding
+        mock_sentence_transformer.encode.return_value = np.array([[0.1] * 768])
+
+        with pytest.raises(RuntimeError, match="Batch embedding generation failed"):
+            service.generate_embeddings_batch(["text one", "text two"])
+
     def test_create_enriched_text(self, service):
         """Test enriched text creation."""
         enriched = service.create_enriched_text(
@@ -165,15 +197,16 @@ class TestEmbeddingService:
     def test_generate_embeddings_batch_size(self, service, mock_sentence_transformer):
         """Test batch size parameter."""
         texts = ["text"] * 100
+        mock_sentence_transformer.encode.return_value = np.array([[0.1] * 768] * 100)
 
         service.generate_embeddings_batch(texts, batch_size=10)
 
-        # Verify encode was called (may be called multiple times for batches)
         assert mock_sentence_transformer.encode.called
 
     def test_generate_embeddings_batch_progress_bar_disabled_by_default(self, service, mock_sentence_transformer):
         """Batch embedding should not show a progress bar unless explicitly enabled."""
         texts = ["text"] * 150
+        mock_sentence_transformer.encode.return_value = np.array([[0.1] * 768] * 150)
 
         service.generate_embeddings_batch(texts)
 
@@ -184,6 +217,7 @@ class TestEmbeddingService:
     ):
         """Batch embedding should honor EMBEDDING_SHOW_PROGRESS_BAR=true."""
         texts = ["text"] * 2
+        mock_sentence_transformer.encode.return_value = np.array([[0.1] * 768] * 2)
         monkeypatch.setenv("EMBEDDING_SHOW_PROGRESS_BAR", "true")
 
         service.generate_embeddings_batch(texts)

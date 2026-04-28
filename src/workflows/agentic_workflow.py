@@ -34,6 +34,7 @@ from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.qa_agent_service import QAAgentService
 from src.services.rag_service import RAGService
 from src.services.sigma_matching_service import SigmaMatchingService
+from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import (
@@ -1017,6 +1018,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "hunt_queries": "HuntQueriesExtract",
                     "registry_artifacts": "RegistryExtract",
                     "windows_services": "ServicesExtract",
+                    "scheduled_tasks": "ScheduledTasksExtract",
                 }
                 agent_name = subagent_to_agent.get(subagent_eval)
                 if agent_name:
@@ -1040,6 +1042,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "hunt_queries": {"items": [], "count": 0},
                 "registry_artifacts": {"items": [], "count": 0},
                 "windows_services": {"items": [], "count": 0},
+                "scheduled_tasks": {"items": [], "count": 0},
             }
 
             # Get config models for LLMService
@@ -1084,6 +1087,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "hunt_queries": "HuntQueriesExtract",
                         "registry_artifacts": "RegistryExtract",
                         "windows_services": "ServicesExtract",
+                        "scheduled_tasks": "ScheduledTasksExtract",
                     }
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
@@ -1101,6 +1105,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             "HuntQueriesExtract": "HuntQueriesQA",
                             "RegistryExtract": "RegistryQA",
                             "ServicesExtract": "ServicesQA",
+                            "ScheduledTasksExtract": "ScheduledTasksQA",
                         }
                         qa_name = qa_names.get(agent_name)
                         if qa_name:
@@ -1127,6 +1132,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 ("HuntQueriesExtract", "hunt_queries", "HuntQueriesQA"),
                 ("RegistryExtract", "registry_artifacts", "RegistryQA"),
                 ("ServicesExtract", "windows_services", "ServicesQA"),
+                ("ScheduledTasksExtract", "scheduled_tasks", "ScheduledTasksQA"),
             ]
 
             # Initialize conversation log for extract_agent
@@ -1176,7 +1182,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             # Filter out deleted subagents (SigExtract, RegExtract, EventCodeExtract)
-            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract
+            # Valid subagents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract
             deleted_agents = {"SigExtract", "RegExtract", "EventCodeExtract"}
 
             logger.info(
@@ -1382,6 +1388,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "HuntQueriesExtract": "hunt_queries",
                     "RegistryExtract": "registry_artifacts",
                     "ServicesExtract": "windows_services",
+                    "ScheduledTasksExtract": "scheduled_tasks",
                 }
 
                 agent_subagent_name = agent_to_subagent.get(agent_name)
@@ -1531,6 +1538,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "HuntQueriesExtract": "hunt_queries",
                         "RegistryExtract": "registry_artifacts",
                         "ServicesExtract": "windows_services",
+                        "ScheduledTasksExtract": "scheduled_tasks",
                     }
                     agent_subagent = agent_to_subagent.get(agent_name)
 
@@ -1610,6 +1618,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             "HuntQueriesExtract": "hunt_queries",
                             "RegistryExtract": "registry_artifacts",
                             "ServicesExtract": "windows_services",
+                            "ScheduledTasksExtract": "scheduled_tasks",
                         }
                         agent_subagent_final = agent_to_subagent_final.get(agent_name)
                         normalized_agent_subagent = (
@@ -1863,6 +1872,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "hunt_queries": "HuntQueriesExtract",
                 "registry_artifacts": "RegistryExtract",
                 "windows_services": "ServicesExtract",
+                "scheduled_tasks": "ScheduledTasksExtract",
             }
             cat_to_subagent_name = {
                 "cmdline": "Command-line Extractor",
@@ -1870,6 +1880,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "hunt_queries": "Hunt Queries Extractor",
                 "registry_artifacts": "Registry Extractor",
                 "windows_services": "Windows Services Extractor",
+                "scheduled_tasks": "Scheduled Tasks Extractor",
             }
 
             # Enrich subresults items with traceability system fields (observable traceability feature)
@@ -2938,6 +2949,26 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             agent_models_for_loading.get("ExtractAgent_provider", ""),
             agent_models_for_loading.get("SigmaAgent_provider", ""),
         }
+
+        # Health-check gate: abort early when LMStudio is configured but unreachable
+        if agent_models_for_loading and "lmstudio" in _lmstudio_providers:
+            reachable, _ = await _probe_lmstudio()
+            if not reachable:
+                error_msg = "LMStudio is not reachable. Start LMStudio and load a model before running the workflow."
+                logger.error(f"[Workflow {execution.id}] {error_msg}")
+                execution.status = "failed"
+                execution.error_message = error_msg
+                db_session.commit()
+                return {
+                    "success": False,
+                    "execution_id": int(execution.id),
+                    "error": error_msg,
+                    "ranking_score": None,
+                    "discrete_huntables_count": None,
+                    "sigma_rules_count": 0,
+                    "queued_rules_count": 0,
+                }
+
         if agent_models_for_loading and "lmstudio" in _lmstudio_providers:
             logger.info(f"[Workflow {execution.id}] Auto-loading LMStudio models...")
             load_result = auto_load_workflow_models(

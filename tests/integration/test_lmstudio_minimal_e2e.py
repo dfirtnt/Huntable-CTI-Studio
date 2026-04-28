@@ -57,10 +57,12 @@ def _test_db_url() -> str:
 
 @pytest.fixture(scope="module")
 def db_session():
+    manager = None
     try:
         manager = DatabaseManager(database_url=_test_db_url())
     except Exception as exc:
         pytest.skip(f"Test database unavailable: {exc}")
+    assert manager is not None
     session = manager.get_session()
     yield session
     session.close()
@@ -87,7 +89,6 @@ def minimal_active_config(db_session):
         ranking_threshold=legacy["ranking_threshold"],
         similarity_threshold=legacy["similarity_threshold"],
         junk_filter_threshold=legacy["junk_filter_threshold"],
-        auto_trigger_hunt_score_threshold=legacy.get("auto_trigger_hunt_score_threshold", 60.0),
         version=max_version + 1,
         is_active=True,
         description="Minimal LMStudio Gemma 3 1B E2E test",
@@ -184,7 +185,13 @@ def test_lmstudio_gemma3_1b_smoke_workflow_completes(db_session, minimal_active_
         "osdetection_fallback_enabled": False,
         "qa_max_retries": getattr(minimal_active_config, "qa_max_retries", 1),
         "extract_agent_settings": {
-            "disabled_agents": ["ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
+            "disabled_agents": [
+                "ProcTreeExtract",
+                "HuntQueriesExtract",
+                "RegistryExtract",
+                "ServicesExtract",
+                "ScheduledTasksExtract",
+            ]
         },
         "config_id": minimal_active_config.id,
         "config_version": minimal_active_config.version,

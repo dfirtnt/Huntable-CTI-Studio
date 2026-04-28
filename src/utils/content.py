@@ -98,15 +98,14 @@ class ContentCleaner:
             "comments",
         ]
 
-        for pattern in unwanted_patterns:
-            for element in soup.find_all(
-                attrs={"class": lambda x: x and any(pattern.lower() in str(x).lower() for pattern in unwanted_patterns)}
-            ):
-                element.decompose()
-            for element in soup.find_all(
-                attrs={"id": lambda x: x and any(pattern.lower() in str(x).lower() for pattern in unwanted_patterns)}
-            ):
-                element.decompose()
+        for element in soup.find_all(
+            attrs={"class": lambda x: x and any(p.lower() in str(x).lower() for p in unwanted_patterns)}
+        ):
+            element.decompose()
+        for element in soup.find_all(
+            attrs={"id": lambda x: x and any(p.lower() in str(x).lower() for p in unwanted_patterns)}
+        ):
+            element.decompose()
 
         # Find main content area
         content_selectors = [

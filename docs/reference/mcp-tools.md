@@ -1,6 +1,6 @@
 # Huntable CTI Studio MCP tools
 
-The **`huntable-cti-studio`** MCP server exposes **ten read-only tools** for querying the same PostgreSQL corpus and queues as the web app. Run it with the same environment as the API (`python3 run_mcp.py` or `python3 -m src.huntable_mcp`; same `.env` / DB as the web app).
+The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for querying the same PostgreSQL corpus and queues as the web app. Run it with the same environment as the API (`python3 run_mcp.py` or `python3 -m src.huntable_mcp`; same `.env` / DB as the web app).
 
 **Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
 
@@ -18,6 +18,7 @@ The **`huntable-cti-studio`** MCP server exposes **ten read-only tools** for que
 | 8 | `list_sources` | Feed/site registry: names, URLs, RSS, article counts, active flag, last check, failures, average response time. Param: `active_only` (default `true`). |
 | 9 | `list_workflow_executions` | Recent agentic workflow runs (article, status, step, ranking score, errors). Params: optional `status` filter (`pending`, `running`, `completed`, `failed`), `limit`. |
 | 10 | `list_sigma_queue` | SIGMA rule review queue (AI-generated rules): rule title/metadata, source article, max similarity to existing rules, notes, PR link. Params: optional `status` filter (`pending`, `approved`, `rejected`, `submitted`), `limit`. |
+| 11 | `get_queue_rule` | Full YAML, status, similarity scores, and reviewer notes for a single AI-generated queue item. Param: `queue_number` (integer; the number after "Queue #" in `list_sigma_queue` output). Returns the raw YAML block, top-10 similarity matches to existing rules, and any reviewer comments. |
 
 Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`).
 

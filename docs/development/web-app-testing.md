@@ -2,7 +2,7 @@
 
 <!-- MERGED FROM: development/WEB_APP_TESTING.md, development/WebAppDevtestingGuide.md -->
 
-# 🌐 Web App Testing
+## 🌐 Web App Testing
 
 Comprehensive guide for testing the Huntable CTI Studio web interface with Playwright.
 
@@ -699,7 +699,7 @@ page.pause()  # Pause execution for manual inspection
 
 ---
 
-# This file has been moved
+## This file has been moved
 
 This documentation has been consolidated into the testing guide in the tests directory.
 

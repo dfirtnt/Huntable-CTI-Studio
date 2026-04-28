@@ -122,7 +122,6 @@ class TestPresetLifecycle:
             "description": "Test preset for V2 export",
             "created_at": "2026-03-10T00:00:00Z",
             "min_hunt_score": current_config.get("min_hunt_score", 97.0),
-            "auto_trigger_hunt_score_threshold": current_config.get("auto_trigger_hunt_score_threshold", 60.0),
             "thresholds": {
                 "similarity_threshold": current_config["similarity_threshold"],
                 "ranking_threshold": current_config["ranking_threshold"],
@@ -158,7 +157,6 @@ class TestPresetLifecycle:
 
         # Verify thresholds preserved
         assert "MinHuntScore" in v2_config["Thresholds"]
-        assert "AutoTriggerHuntScoreThreshold" in v2_config["Thresholds"]
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -174,7 +172,6 @@ class TestPresetLifecycle:
                 "RankingThreshold": 7.0,
                 "JunkFilterThreshold": 0.8,
                 "MinHuntScore": 97.0,
-                "AutoTriggerHuntScoreThreshold": 60.0,
             },
             "Agents": {},
             "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -324,6 +321,77 @@ class TestPresetLifecycle:
 
         # Clean up
         await async_client.delete(f"/api/workflow/config/preset/{preset_id_2}")
+
+
+class TestPresetToLegacyAgentModels:
+    """Regression tests: to-legacy endpoint must return correct agent_models keys and qa_max_retries.
+
+    The existing test_preset_convert_to_legacy_format uses empty Agents={} which cannot
+    catch regressions in model-key mapping or MaxRetries propagation. These tests use
+    a real V2 preset with agents configured to pin the exact contract applyPreset() relies on.
+    """
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.regression
+    @pytest.mark.asyncio
+    async def test_to_legacy_returns_rankagent_model_and_qa_max_retries(self, async_client: httpx.AsyncClient):
+        """V2 preset with RankAgent configured converts to legacy with correct model key and qa_max_retries.
+
+        Regression: frontend applyPreset() reads agent_models['RankAgent'] for the model dropdown
+        and preset.qa_max_retries for the QA Max Retries input. Both must be present and correct.
+        """
+        v2_preset = {
+            "Version": "2.0",
+            "Metadata": {"CreatedAt": "2026-01-01T00:00:00Z", "Description": "regression preset"},
+            "Thresholds": {
+                "MinHuntScore": 97.0,
+                "RankingThreshold": 6.0,
+                "SimilarityThreshold": 0.5,
+                "JunkFilterThreshold": 0.8,
+            },
+            "Agents": {
+                "RankAgent": {
+                    "Provider": "lmstudio",
+                    "Model": "qwen/qwen3-8b",
+                    "Temperature": 0.0,
+                    "TopP": 0.9,
+                    "Enabled": True,
+                },
+                "RankAgentQA": {
+                    "Provider": "lmstudio",
+                    "Model": "qwen/qwen3-14b",
+                    "Temperature": 0.3,
+                    "TopP": 0.9,
+                    "Enabled": True,
+                },
+            },
+            "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
+            "QA": {"Enabled": {"RankAgent": False, "RankAgentQA": False}, "MaxRetries": 3},
+            "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
+            "Prompts": {
+                "RankAgent": {"prompt": "You are a test analyst.", "instructions": ""},
+                "RankAgentQA": {"prompt": "You are a QA analyst.", "instructions": ""},
+            },
+            "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}},
+        }
+
+        response = await async_client.post("/api/workflow/config/preset/to-legacy", json=v2_preset)
+        assert response.status_code == 200
+        legacy = response.json()
+
+        # Model key contract: main agents use bare name, not "Name_model"
+        assert legacy["agent_models"]["RankAgent"] == "qwen/qwen3-8b"
+        assert legacy["agent_models"]["RankAgent_provider"] == "lmstudio"
+        assert legacy["agent_models"]["RankAgentQA"] == "qwen/qwen3-14b"
+
+        # MaxRetries contract: non-default value must survive conversion
+        assert legacy["qa_max_retries"] == 3
+
+        # Structural sanity
+        assert legacy["version"] == "1.0"
+        assert "thresholds" in legacy
+        assert "qa_enabled" in legacy
 
 
 class TestPresetValidation:

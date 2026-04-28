@@ -270,6 +270,13 @@
         pointer-events: none;
     }
 
+    /* ── Card-as-link: whole card is the anchor ───────────────── */
+    a.module-card {
+        text-decoration: none;
+        color: inherit;
+        cursor: pointer;
+    }
+
     /* ── Entry animations ──────────────────────────────────────── */
     @keyframes fade-up {
         from { opacity: 0; transform: translateY(14px); }
@@ -352,7 +359,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
         <!-- M-01: ML vs Hunt Comparison -->
-        <div class="module-card mod-blue p-6 fade-up d3">
+        <a href="/ml-hunt-comparison" class="module-card mod-blue p-6 fade-up d3">
             <div class="module-header">
                 <div class="flex items-center">
                     <div class="module-icon icon-blue">
@@ -369,16 +376,16 @@
             </div>
             <h3 class="module-title">ML vs Hunt<br>Comparison</h3>
             <p class="module-desc">Compare model output against the hunt scoring system, review confidence intervals, and trigger reprocessing for drift detection.</p>
-            <a href="/ml-hunt-comparison" class="btn-module btn-mod-blue">
+            <span class="btn-module btn-mod-blue">
                 View Analysis
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
                 </svg>
-            </a>
-        </div>
+            </span>
+        </a>
 
         <!-- M-02: Agent Evaluations -->
-        <div class="module-card mod-green p-6 fade-up d4">
+        <a href="/mlops/agent-evals" class="module-card mod-green p-6 fade-up d4">
             <div class="module-header">
                 <div class="flex items-center">
                     <div class="module-icon icon-green">
@@ -395,13 +402,13 @@
             </div>
             <h3 class="module-title">Agent<br>Evaluations</h3>
             <p class="module-desc">Run evaluation articles through workflows with different presets and compare command-line extraction results.</p>
-            <a href="/mlops/agent-evals" class="btn-module btn-mod-green">
+            <span class="btn-module btn-mod-green">
                 Run Evaluations
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"></path>
                 </svg>
-            </a>
-        </div>
+            </span>
+        </a>
 
         <!-- M-03: Observable Training (Planned) -->
         <div class="module-card mod-muted p-6 fade-up d5" title="Planned for a future release">

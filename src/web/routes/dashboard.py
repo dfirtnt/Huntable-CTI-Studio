@@ -106,8 +106,8 @@ async def api_dashboard_data():
         stats = await async_db_manager.get_database_stats()
         sources = await async_db_manager.list_sources()
 
-        total_sources = len(sources)
-        active_sources = len([source for source in sources if source.active])
+        total_sources = len([s for s in sources if s.identifier not in _EXCLUDED_HEALTH_IDENTIFIERS])
+        active_sources = len([s for s in sources if s.active and s.identifier not in _EXCLUDED_HEALTH_IDENTIFIERS])
         health = _compute_ingestion_health(sources)
 
         recent_articles = await async_db_manager.list_articles(limit=1000)
@@ -158,6 +158,7 @@ async def api_dashboard_data():
                 last_success = getattr(source, "last_success", None)
                 failing_sources.append(
                     {
+                        "id": getattr(source, "id", None),
                         "name": getattr(source, "name", "Unknown Source"),
                         "last_success": last_success.isoformat() if last_success else "Never",
                         "last_success_text": _format_time_ago(last_success),

@@ -301,4 +301,4 @@ Please analyze the following blog content:
         raise
     except Exception as e:
         logger.error(f"GPT4o ranking error: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Internal server error") from e

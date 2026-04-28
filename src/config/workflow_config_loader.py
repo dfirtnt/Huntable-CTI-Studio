@@ -21,8 +21,15 @@ logger = logging.getLogger(__name__)
 
 # Canonical agent group order (for tests and other consumers that expect group ordering).
 CORE_AGENTS = ["RankAgent", "ExtractAgent", "SigmaAgent"]
-EXTRACT_AGENTS = ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "RegistryExtract", "ServicesExtract"]
-QA_AGENTS = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA"]
+EXTRACT_AGENTS = [
+    "CmdlineExtract",
+    "ProcTreeExtract",
+    "HuntQueriesExtract",
+    "RegistryExtract",
+    "ServicesExtract",
+    "ScheduledTasksExtract",
+]
+QA_AGENTS = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"]
 UTILITY_AGENTS = ["OSDetectionFallback"]
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
@@ -43,6 +50,8 @@ AGENTS_ORDER_UI = [
     "RegistryQA",
     "ServicesExtract",
     "ServicesQA",
+    "ScheduledTasksExtract",
+    "ScheduledTasksQA",
     "SigmaAgent",
 ]
 
@@ -65,7 +74,6 @@ THRESHOLDS_ORDER_UI = [
     "RankingThreshold",
     "SimilarityThreshold",
     "MinHuntScore",
-    "AutoTriggerHuntScoreThreshold",
 ]
 
 # UI-ordered export: one block per UI section, top-to-bottom order of configurable elements.
@@ -75,7 +83,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "Metadata",
     "JunkFilter",
     "QASettings",
-    "Thresholds",  # only MinHuntScore, AutoTriggerHuntScoreThreshold (not per-panel)
+    "Thresholds",  # only MinHuntScore (not per-panel)
     "OSDetection",
     "RankAgent",
     "ExtractAgent",
@@ -84,6 +92,7 @@ UI_ORDERED_TOP_LEVEL_ORDER = [
     "HuntQueriesExtract",
     "RegistryExtract",
     "ServicesExtract",
+    "ScheduledTasksExtract",
     "SigmaAgent",
 ]
 
@@ -108,7 +117,7 @@ _LEGACY_REQUIRED_KEYS = [
 _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("JunkFilter", ["JunkFilterThreshold"]),
     ("QASettings", ["MaxRetries"]),
-    ("Thresholds", ["MinHuntScore", "AutoTriggerHuntScoreThreshold"]),
+    ("Thresholds", ["MinHuntScore"]),
     ("OSDetection", ["Embedding", "FallbackEnabled", "Fallback", "SelectedOs", "Prompt"]),
     (
         "RankAgent",
@@ -155,6 +164,10 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ),
     (
         "ServicesExtract",
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+    ),
+    (
+        "ScheduledTasksExtract",
         ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
     ),
     (
@@ -212,7 +225,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     out["QASettings"] = {"MaxRetries": int(qa.get("MaxRetries", 5))}
     out["Thresholds"] = {
         "MinHuntScore": float(th.get("MinHuntScore", 97.0)),
-        "AutoTriggerHuntScoreThreshold": float(th.get("AutoTriggerHuntScoreThreshold", 60.0)),
     }
 
     os_fb = _agent_cfg(agents, "OSDetectionFallback")
@@ -264,6 +276,7 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         ("HuntQueriesExtract", "HuntQueriesQA"),
         ("RegistryExtract", "RegistryQA"),
         ("ServicesExtract", "ServicesQA"),
+        ("ScheduledTasksExtract", "ScheduledTasksQA"),
     ]:
         cfg = _agent_cfg(agents, base)
         qa_cfg = _agent_cfg(agents, qa_name)
@@ -411,6 +424,20 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
+    (
+        "ScheduledTasksExtract",
+        {
+            "Enabled": False,
+            "Provider": "",
+            "Model": "",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": "", "instructions": ""},
+            "QAEnabled": False,
+            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
+            "QAPrompt": {"prompt": "", "instructions": ""},
+        },
+    ),
 ]
 
 
@@ -493,6 +520,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         ("HuntQueriesExtract", "HuntQueriesQA"),
         ("RegistryExtract", "RegistryQA"),
         ("ServicesExtract", "ServicesQA"),
+        ("ScheduledTasksExtract", "ScheduledTasksQA"),
     ]:
         block = ui.get(base) or {}
         if not block:
@@ -515,7 +543,6 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "RankingThreshold": rank.get("RankingThreshold", 6.0),
         "SimilarityThreshold": sigma.get("SimilarityThreshold", 0.5),
         "MinHuntScore": th_extra.get("MinHuntScore", 97.0),
-        "AutoTriggerHuntScoreThreshold": th_extra.get("AutoTriggerHuntScoreThreshold", 60.0),
     }
     embeddings = {
         "OsDetection": osd.get("Embedding", "ibm-research/CTI-BERT"),
@@ -629,7 +656,6 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "ranking_threshold": getattr(row, "ranking_threshold", 6.0),
         "similarity_threshold": getattr(row, "similarity_threshold", 0.5),
         "junk_filter_threshold": getattr(row, "junk_filter_threshold", 0.8),
-        "auto_trigger_hunt_score_threshold": getattr(row, "auto_trigger_hunt_score_threshold", 60.0),
         "agent_models": getattr(row, "agent_models", None) or {},
         "agent_prompts": getattr(row, "agent_prompts", None) or {},
         "qa_enabled": getattr(row, "qa_enabled", None) or {},

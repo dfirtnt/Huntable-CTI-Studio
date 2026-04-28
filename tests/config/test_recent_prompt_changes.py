@@ -205,10 +205,12 @@ class TestQuickstartPresetCompliance:
         if not prompt_str:
             pytest.skip(f"{preset_file}: no ExtractAgent prompt to inspect")
 
+        prompt_data = None
         try:
             prompt_data = json.loads(prompt_str)
         except json.JSONDecodeError:
             pytest.skip(f"{preset_file}: prompt not valid JSON")
+        assert prompt_data is not None
 
         instructions = prompt_data.get("instructions", "")
         forbidden = ("USER: Title:", "{title}", "{url}", "{content}")

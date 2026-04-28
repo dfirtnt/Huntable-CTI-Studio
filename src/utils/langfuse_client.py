@@ -172,18 +172,19 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 session_id = session_id[:200]
             self.session_id = session_id
 
-            # Langfuse v4: use propagate_attributes for session/user correlation,
-            # then start_as_current_observation for the span.
-            from langfuse.types import TraceContext
+            # propagate_attributes sets session.id / user.id on the OTEL context so
+            # the SDK attaches them to every trace/span created inside this block.
+            # TraceContext only carries trace_id / parent_span_id for span linkage.
+            from langfuse import propagate_attributes
 
-            trace_context = TraceContext(
+            self._attributes_cm = propagate_attributes(
                 session_id=session_id,
                 user_id=self.user_id or f"article_{self.article_id}",
             )
+            self._attributes_cm.__enter__()
 
             # Get the context manager and enter it (v4: start_as_current_observation)
             self._span_cm = self._client.start_as_current_observation(
-                trace_context=trace_context,
                 name=f"agentic_workflow_execution_{self.execution_id}",
                 input={
                     "execution_id": self.execution_id,
@@ -221,6 +222,12 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
         except Exception as span_error:
             logger.error(f"Failed to create LangFuse span: {span_error}")
             _active_trace_id = None
+            if self._attributes_cm is not None:
+                import contextlib
+
+                with contextlib.suppress(Exception):
+                    self._attributes_cm.__exit__(None, None, None)
+            self._attributes_cm = None
             self._span_cm = None
             self._span = None
             self._client = None
@@ -280,7 +287,14 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 else:
                     logger.error(f"Error flushing LangFuse trace: {flush_error}")
 
+        if self._attributes_cm is not None:
+            try:
+                self._attributes_cm.__exit__(exc_type, exc, tb)
+            except Exception as attr_error:
+                logger.error(f"Error exiting LangFuse attribute propagation: {attr_error}")
+
         _active_trace_id = None
+        self._attributes_cm = None
         self._span_cm = None
         self._span = None
         self._client = None
@@ -307,6 +321,26 @@ def trace_workflow_execution(
     )
 
 
+def _get_langfuse_api():
+    """Return a LangfuseAPI (low-level query client) using the same credentials as the high-level client.
+
+    The high-level Langfuse class sends/instruments traces; LangfuseAPI queries them via REST.
+    Returns None if credentials are not configured.
+    """
+    public_key = _get_langfuse_setting("LANGFUSE_PUBLIC_KEY", "LANGFUSE_PUBLIC_KEY")
+    secret_key = _get_langfuse_setting("LANGFUSE_SECRET_KEY", "LANGFUSE_SECRET_KEY")
+    host = _get_langfuse_setting("LANGFUSE_HOST", "LANGFUSE_HOST", "https://cloud.langfuse.com")
+    if not public_key or not secret_key:
+        return None
+    try:
+        from langfuse.api.client import LangfuseAPI
+
+        return LangfuseAPI(base_url=host, username=public_key, password=secret_key)
+    except Exception as e:
+        logger.debug("Could not build LangfuseAPI query client: %s", e)
+        return None
+
+
 def get_langfuse_trace_id_for_session(session_id: str) -> str | None:
     """
     Look up the most recent Langfuse trace ID for the given session.
@@ -326,12 +360,12 @@ def get_langfuse_trace_id_for_session(session_id: str) -> str | None:
     if cached:
         return cached
 
-    client = get_langfuse_client()
-    if client is None:
+    api = _get_langfuse_api()
+    if api is None:
         return None
 
     try:
-        traces = client.api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
+        traces = api.trace.list(session_id=session_id, limit=1, order_by="timestamp.desc")
         if traces and traces.data:
             trace = traces.data[0]
             trace_id = getattr(trace, "id", None)
@@ -418,17 +452,21 @@ def trace_llm_call(
             "metadata": {**(metadata or {}), "execution_id": execution_id, "article_id": article_id},
         }
 
-        # Use trace_context for trace_id and session_id if we have them
-        trace_context_kwargs = {}
+        # TraceContext is for span hierarchy only (trace_id linkage).
+        # session_id / user_id go through propagate_attributes (OTEL context).
         if resolved_trace_id:
-            trace_context_kwargs["trace_id"] = resolved_trace_id
+            generation_kwargs["trace_context"] = TraceContext(trace_id=resolved_trace_id)
+
+        from langfuse import propagate_attributes
+
         if resolved_session_id:
-            trace_context_kwargs["session_id"] = resolved_session_id
-
-        if trace_context_kwargs:
-            generation_kwargs["trace_context"] = TraceContext(**trace_context_kwargs)
-
-        generation = client.start_observation(**generation_kwargs)
+            with propagate_attributes(
+                session_id=resolved_session_id,
+                user_id=f"article_{article_id}" if article_id else None,
+            ):
+                generation = client.start_observation(**generation_kwargs)
+        else:
+            generation = client.start_observation(**generation_kwargs)
     except Exception as e:
         # Fail open: tracing must never break the application call path.
         logger.error(f"Error creating LangFuse generation: {e}")
@@ -650,21 +688,20 @@ def log_workflow_step(
             "metadata": {**(metadata or {}), "step_result": step_result, "error": str(error) if error else None},
         }
 
-        # Link to parent trace if trace has a trace_id
-        # Also inherit session_id from parent trace context
+        # TraceContext is for span hierarchy only; session_id goes via propagate_attributes.
         trace_id = getattr(trace, "trace_id", None)
         session_id = getattr(trace, "session_id", None)
 
-        trace_context_kwargs = {}
         if trace_id:
-            trace_context_kwargs["trace_id"] = trace_id
+            span_kwargs["trace_context"] = TraceContext(trace_id=trace_id)
+
+        from langfuse import propagate_attributes
+
         if session_id:
-            trace_context_kwargs["session_id"] = session_id
-
-        if trace_context_kwargs:
-            span_kwargs["trace_context"] = TraceContext(**trace_context_kwargs)
-
-        span = client.start_observation(**span_kwargs)
+            with propagate_attributes(session_id=session_id):
+                span = client.start_observation(**span_kwargs)
+        else:
+            span = client.start_observation(**span_kwargs)
 
         if error:
             span.update(level="ERROR", status_message=str(error))

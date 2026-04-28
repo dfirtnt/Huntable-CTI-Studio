@@ -488,6 +488,76 @@ class TestRunExtractionAgentValidation:
                 prompt_config=bad_cfg,
             )
 
+    @pytest.mark.asyncio
+    @pytest.mark.regression
+    async def test_structured_extractor_without_value_field_passes_validation(self, llm_service):
+        """Structured extractors with domain-specific identity fields must NOT be rejected.
+
+        Regression: ScheduledTasksExtract json_example uses task_name/task_path/trigger
+        as identity anchors and was incorrectly rejected by the Extractor Contract validator
+        because it lacked a generic 'value' field. The fix makes 'value' optional when
+        domain-specific fields are present alongside source_evidence/extraction_justification/
+        confidence_score.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        structured_json_example = (
+            '{"scheduled_tasks": [{'
+            '"task_name": "PersistenceTask", '
+            '"task_path": "\\\\Microsoft\\\\Windows\\\\PersistenceTask", '
+            '"trigger": "LogonTrigger", '
+            '"principal": "SYSTEM", '
+            '"source_evidence": "Malware creates scheduled task on logon.", '
+            '"extraction_justification": "Explicit task identity from source.", '
+            '"confidence_score": 0.9'
+            "}], "
+            '"count": 1}'
+        )
+        cfg = {
+            "role": "You are a scheduled-task extractor. LITERAL TEXT EXTRACTOR. sub-agent of ExtractAgent.",
+            "task": "Extract scheduled tasks from threat report.",
+            "instructions": "Output ONLY valid JSON. When in doubt OMIT. source_evidence extraction_justification confidence_score",
+            "json_example": structured_json_example,
+        }
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"scheduled_tasks": [], "count": 0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="ScheduledTasksExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=cfg,
+            )
+        assert "error" not in result, f"Structured extractor should not fail validation: {result.get('error')}"
+
+    @pytest.mark.asyncio
+    @pytest.mark.regression
+    async def test_simple_extractor_without_value_or_domain_fields_still_fails(self, llm_service):
+        """Simple extractor items that lack BOTH 'value' AND domain fields must still be rejected."""
+        bad_cfg = {
+            "role": "You are an extractor. LITERAL TEXT EXTRACTOR. sub-agent of ExtractAgent.",
+            "instructions": "Output ONLY valid JSON. When in doubt OMIT. source_evidence extraction_justification confidence_score",
+            "json_example": (
+                '{"cmdline_items": [{'
+                '"source_evidence": "cmd.exe was run", '
+                '"extraction_justification": "direct quote", '
+                '"confidence_score": 0.9'
+                "}], "
+                '"count": 1}'
+            ),
+        }
+        with pytest.raises(ValueError, match="missing 'value' field"):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=bad_cfg,
+            )
+
 
 # ---------------------------------------------------------------------------
 # run_extraction_agent -- success and error paths

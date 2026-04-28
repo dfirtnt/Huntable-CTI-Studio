@@ -7,7 +7,7 @@
 This app is a suite of utilities for processing open source intel. It is for research, learning, and automation purposes. Code is NOT SECURE, and is not intended to be used in production!! The app is also not intended to support classified or proprietary threat intelligence at this time.
 ##
 
-**Huntable CTI Studio v6.0.0 "Io"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
+**Huntable CTI Studio v6.1.0 "Io"** - A Cyber Threat Intelligence ML/AI workbench that automates collection, extraction, and detection rule generation from 38 seeded OSINT sources (see `config/sources.yaml`; runtime may add or replace rows after DB sync).
 
 ## Purpose
 
@@ -16,7 +16,7 @@ Aggregates cybersecurity threat intelligence from RSS feeds and web scraping; us
 ## Architecture
 
 - **6 services**: PostgreSQL (pgvector), Redis, FastAPI web app, Celery workers (default + workflow), scheduler
-- **LangGraph**: Orchestrates the 7-step agentic workflow (state machine, conditional branching, checkpointing)
+- **LangGraph**: Orchestrates the 7-step agentic workflow as a linear pipeline with conditional early-exit gates (state machine, checkpointing)
 - **Database-backed workflows**: Articles, workflow executions, Sigma rules, presets, settings, evals, and supporting metadata
 - **Source auto-healing**: LLM-powered diagnostics (RSS inspection, sitemap discovery, JS-rendering detection, WP JSON API probing) automatically repair failing sources
 - **Multi-model AI**: OpenAI, Anthropic, LM Studio

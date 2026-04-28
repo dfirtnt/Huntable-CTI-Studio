@@ -208,8 +208,55 @@ class TestWorkflowQueueRegressions:
         page.wait_for_timeout(800)
 
         expect(page.locator("#tab-content-queue th", has_text="Obs Used")).to_be_visible()
+        expect(page.locator("#tab-content-queue th", has_text="Job ID")).to_be_visible()
         row = page.locator("#queueTableBody tr").first
         expect(row.locator("td.q-cell-obs")).to_have_text("3")
+        expect(row.locator("td.q-cell-job")).to_contain_text("123")
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_queue_table_displays_naive_created_at_as_local_time(self, page: Page):
+        """Timezone-less queue timestamps should render without a UTC offset shift."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+        mock_queue = [
+            {
+                "id": 91002,
+                "article_id": 1,
+                "article_title": "Queue Local Time Check",
+                "workflow_execution_id": 123,
+                "rule_yaml": "title: Test\ndetection:\n  condition: true\n",
+                "rule_metadata": {"title": "Local Time Rule"},
+                "similarity_scores": [],
+                "max_similarity": 0.0,
+                "status": "pending",
+                "reviewed_by": None,
+                "review_notes": None,
+                "pr_submitted": False,
+                "pr_url": None,
+                "created_at": "2026-04-24T11:16:00",
+                "reviewed_at": None,
+            }
+        ]
+
+        def handle_route(route):
+            if "/api/sigma-queue/list" in route.request.url:
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps({"items": mock_queue, "total": len(mock_queue), "limit": 50, "offset": 0}),
+                )
+            else:
+                route.continue_()
+
+        page.route("**/api/sigma-queue/list*", handle_route)
+        page.goto(f"{base_url}/workflow#queue")
+        page.wait_for_load_state("load")
+        page.locator("#tab-queue").click()
+        page.wait_for_timeout(800)
+
+        created_cell = page.locator("#queueTableBody tr").first.locator("td.q-cell-date")
+        expect(created_cell).to_contain_text("11:16 AM")
+        expect(created_cell).not_to_contain_text("7:16 AM")
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -489,9 +536,9 @@ class TestWorkflowExecutionsRegressions:
         assert overflow in ("hidden", "clip"), f"expected overflow hidden/clip, got {overflow}"
         assert text_overflow == "ellipsis", f"expected text-overflow ellipsis, got {text_overflow}"
 
-        trace_first = tbody.locator("tr").first.locator('button:has-text("Trace")').first
-        expect(trace_first).to_be_visible()
-        box = trace_first.bounding_box()
+        session_first = tbody.locator("tr").first.locator('button[onclick^="debugInAgentChat"]').first
+        expect(session_first).to_be_visible()
+        box = session_first.bounding_box()
         vp = page.viewport_size
         assert box and box["x"] + box["width"] <= (vp or {}).get("width", 1280) + 2
 
@@ -576,6 +623,52 @@ class TestWorkflowExecutionsRegressions:
                 f"th='{header_labels[i]}' td='{body_td_texts[i]}'; "
                 f"q-table-wrap.scrollLeft={scroll_left}"
             )
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_executions_table_displays_naive_created_at_as_local_time(self, page: Page):
+        """Timezone-less execution timestamps should render without a UTC offset shift."""
+        base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
+
+        mock_payload = {
+            "executions": [
+                {
+                    "id": 88003,
+                    "article_id": 103,
+                    "article_title": "Local Time Check",
+                    "status": "running",
+                    "current_step": "os_detection",
+                    "ranking_score": None,
+                    "created_at": "2026-04-27T15:04:00",
+                }
+            ],
+            "total": 1,
+            "total_pages": 1,
+            "running": 1,
+            "completed": 0,
+            "failed": 0,
+        }
+
+        def handle_route(route):
+            u = urlparse(route.request.url)
+            if u.path == "/api/workflow/executions":
+                route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body=json.dumps(mock_payload),
+                )
+            else:
+                route.continue_()
+
+        page.route("**/api/workflow/executions*", handle_route)
+        page.goto(f"{base_url}/workflow")
+        page.wait_for_load_state("load")
+        page.locator("#tab-executions").click()
+        page.wait_for_timeout(1200)
+
+        created_cell = page.locator("#executionsTableBody tr").first.locator("td.q-cell-date")
+        expect(created_cell).to_contain_text("3:04 PM")
+        expect(created_cell).not_to_contain_text("11:04 AM")
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -862,8 +955,39 @@ class TestWorkflowEnrichModalUI:
         except Exception:
             pass
 
+    def _dismiss_modals(self, page: Page):
+        """Force-hide both overlay modals via JS so the queue table is interactable.
+
+        Safe to call repeatedly -- idempotent. Used at the start of any test
+        that needs to click queue-table rows, to avoid carry-over from the
+        previous test leaving a modal open.
+
+        Also clears ?previewId from the URL: the page fixture is class-scoped so
+        page.goto() deduplication skips re-navigation when the path is unchanged,
+        leaving ?previewId in the URL from a prior test.  checkAndTriggerPreview()
+        then auto-opens ruleModal when loadQueue() fires, blocking queue clicks.
+        """
+        page.evaluate(
+            "() => {"
+            " ['ruleModal', 'enrichModal'].forEach(id => {"
+            "  const el = document.getElementById(id);"
+            "  if (el) { el.classList.add('hidden'); el.style.display = ''; }"
+            " });"
+            " const url = new URL(window.location.href);"
+            " url.searchParams.delete('previewId');"
+            " window.history.replaceState({}, '', url.toString());"
+            "}"
+        )
+        page.wait_for_timeout(200)
+
     def _open_enrich_modal(self, page: Page):
-        """Click Preview then Enrich; return enrich modal locator."""
+        """Click Preview then Enrich; return enrich modal locator.
+
+        Dismisses any lingering modals first so this helper is safe to call
+        in back-to-back tests without manual teardown between them.
+        """
+        self._dismiss_modals(page)
+
         preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
         if not preview_btn.is_visible(timeout=10000):
             pytest.skip("No rules in queue to open enrich modal")
@@ -894,9 +1018,29 @@ class TestWorkflowEnrichModalUI:
     @pytest.mark.ui
     @pytest.mark.workflow
     def test_user_instruction_field_is_hidden(self, page: Page):
-        """enrichInstruction textarea must not be visible (hardcoded instruction)."""
-        self._open_enrich_modal(page)
-        expect(page.locator("#enrichInstruction")).to_be_hidden(timeout=3000)
+        """enrichInstruction wrapper must carry the 'hidden' class in the DOM.
+
+        The instruction is hardcoded in JS, so we verify via DOM inspection
+        rather than opening the modal -- the class is baked into the HTML and
+        does not require modal interaction to assert.
+        """
+        has_hidden = page.evaluate(
+            """() => {
+                const el = document.getElementById('enrichInstruction');
+                if (!el) return null;
+                // Walk up to find the wrapping div that carries the hidden class
+                let node = el;
+                while (node && node !== document.body) {
+                    if (node.classList.contains('hidden')) return true;
+                    node = node.parentElement;
+                }
+                return false;
+            }"""
+        )
+        assert has_hidden is True, (
+            "#enrichInstruction or its wrapper should have class 'hidden' "
+            "(user instruction is hardcoded -- the field must not be shown)"
+        )
 
     @pytest.mark.ui
     @pytest.mark.workflow
@@ -928,8 +1072,9 @@ class TestWorkflowEnrichModalUI:
             }"""
         )
 
-        # Close and reopen the modal
-        enrich_modal.locator('button[onclick="closeEnrichModal()"]').click()
+        # Close via the header X button; use nth(0) to avoid strict-mode violation
+        # (.first property does not suppress strict mode in all Playwright versions)
+        enrich_modal.locator('button[onclick="closeEnrichModal()"]').nth(0).click()
         page.wait_for_timeout(200)
         self._open_enrich_modal(page)
         page.wait_for_timeout(400)
@@ -1016,6 +1161,7 @@ class TestWorkflowEnrichModalUI:
     @pytest.mark.workflow
     def test_validate_rule_label_in_preview_modal(self, page: Page):
         """SIGMA Rule Preview action bar shows 'Validate Rule', not bare 'Validate'."""
+        self._dismiss_modals(page)
         preview_btn = page.locator('#queueTableBody button:has-text("Preview")').first
         if not preview_btn.is_visible(timeout=10000):
             pytest.skip("No rules in queue to test")

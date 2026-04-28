@@ -6,6 +6,7 @@ import logging
 import os
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from src.database.async_manager import async_db_manager
@@ -33,6 +34,8 @@ class SettingsBulkUpdate(BaseModel):
 _SETTINGS_ENV_OVERRIDE_KEYS = ("WORKFLOW_LMSTUDIO_ENABLED", "PROCEED_WITHOUT_LMSTUDIO")
 # LM Studio URL keys: merged from env so UI can show/save them (Settings can override .env)
 _LMSTUDIO_URL_KEYS = ("LMSTUDIO_API_URL", "LMSTUDIO_EMBEDDING_URL")
+# Langfuse credential keys: changing any of these must reset the in-memory client singleton
+_LANGFUSE_KEYS = frozenset({"LANGFUSE_PUBLIC_KEY", "LANGFUSE_SECRET_KEY", "LANGFUSE_HOST"})
 
 
 @router.get("")
@@ -54,7 +57,10 @@ async def get_all_settings():
                     val = os.environ.get(key)
                     if val is not None:
                         out[key] = val
-            return {"success": True, "settings": out}
+            return JSONResponse(
+                content={"success": True, "settings": out},
+                headers={"Cache-Control": "no-store"},
+            )
 
     except Exception as e:
         logger.error(f"Error fetching settings: {e}")
@@ -123,6 +129,12 @@ async def update_setting(update: SettingUpdate):
             elif update.key in _LMSTUDIO_URL_KEYS and not update.value:
                 os.environ.pop(update.key, None)
 
+            if update.key in _LANGFUSE_KEYS:
+                from src.utils.langfuse_client import reset_langfuse_client
+
+                reset_langfuse_client()
+                logger.info("Langfuse client reset after %s update", update.key)
+
             return {
                 "success": True,
                 "key": update.key,
@@ -176,6 +188,12 @@ async def update_settings_bulk(update: SettingsBulkUpdate):
                     os.environ[key] = val
                 elif key in update.settings:
                     os.environ.pop(key, None)
+
+            if _LANGFUSE_KEYS & set(updated_keys):
+                from src.utils.langfuse_client import reset_langfuse_client
+
+                reset_langfuse_client()
+                logger.info("Langfuse client reset after bulk settings update")
 
             logger.info(f"Bulk update completed: {len(updated_keys)} settings updated")
 

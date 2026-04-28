@@ -8,10 +8,10 @@ slice for the moment so you do not pay the full cost on every change.
 
 | Tier         | Command                              | What it runs                                      | Target time |
 |--------------|--------------------------------------|---------------------------------------------------|-------------|
-| 1. Smoke     | `python run_tests.py ui-smoke`       | pytest `ui_smoke` + `smoke` markers; no Playwright | < 2 min     |
-| 2. Touched   | `python run_tests.py ui-fast --area=<X>` | pytest UI (no slow) + one Playwright project | 3-7 min     |
-| 3. Fast      | `python run_tests.py ui-fast`        | full UI minus `@slow` (mobile/a11y/perf), parallel | 10-15 min   |
-| 4. Full      | `python run_tests.py ui-full`        | everything including `@slow` and quarantined suites | ~45 min     |
+| 1. Smoke     | `python3 run_tests.py ui-smoke`       | pytest `ui_smoke` + `smoke` markers; no Playwright | < 2 min     |
+| 2. Touched   | `python3 run_tests.py ui-fast --area=<X>` | pytest UI (no slow) + one Playwright project | 3-7 min     |
+| 3. Fast      | `python3 run_tests.py ui-fast`        | full UI minus `@slow` (mobile/a11y/perf), parallel | 10-15 min   |
+| 4. Full      | `python3 run_tests.py ui-full`        | everything including `@slow` and quarantined suites | ~45 min     |
 
 ## When to use which
 
@@ -40,7 +40,7 @@ disjoint set of spec files:
 | `quarantine`   | 3     | known-flaky / env-dependent (workflow_executions, observables_plain/exact) |
 
 Run a single area: `npx playwright test --config tests/playwright.config.ts --project=sources`
-or via the runner: `python run_tests.py ui-fast --area=sources`.
+or via the runner: `python3 run_tests.py ui-fast --area=sources`.
 
 ## Tags and exclusions
 

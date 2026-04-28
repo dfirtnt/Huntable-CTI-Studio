@@ -690,8 +690,7 @@ class ContentFilter:
             return FilterResult(passed=False, reason="Content too long", score=0.0, cost_estimate=0.0)
 
         # Check age
-        if "published_at" in article:
-            from datetime import datetime
+        from datetime import datetime
 
         if isinstance(article["published_at"], str):
             try:

@@ -14,6 +14,8 @@ from typing import Any
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from src.config.workflow_config_loader import (
     export_preset_as_canonical_v2,
     is_ui_ordered_preset,
@@ -27,7 +29,6 @@ _QUICKSTART_PRESETS = sorted(_QUICKSTART_DIR.glob("*.json"))
 FIDELITY_JUNK = 0.72
 FIDELITY_QA_RETRIES = 2
 FIDELITY_MIN_HUNT = 88.0
-FIDELITY_AUTO_TRIGGER = 55.0
 FIDELITY_OS_EMBEDDING = "test/embedding-model"
 FIDELITY_OS_FALLBACK_ENABLED = True
 FIDELITY_OS_SELECTED = ["Linux", "Darwin"]
@@ -44,6 +45,8 @@ FIDELITY_REGISTRY_ENABLED = True
 FIDELITY_REGISTRY_QA_ENABLED = True
 FIDELITY_SERVICES_ENABLED = True
 FIDELITY_SERVICES_QA_ENABLED = True
+FIDELITY_SCHEDULEDTASKS_ENABLED = True
+FIDELITY_SCHEDULEDTASKS_QA_ENABLED = True
 FIDELITY_SIGMA_THRESHOLD = 0.42
 FIDELITY_SIGMA_FULL_ARTICLE = True
 FIDELITY_DISABLED_AGENTS: list[str] = []  # all enabled
@@ -59,7 +62,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
         "QASettings": {"MaxRetries": FIDELITY_QA_RETRIES},
         "Thresholds": {
             "MinHuntScore": FIDELITY_MIN_HUNT,
-            "AutoTriggerHuntScoreThreshold": FIDELITY_AUTO_TRIGGER,
         },
         "OSDetection": {
             "Embedding": FIDELITY_OS_EMBEDDING,
@@ -148,6 +150,17 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
             "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ServicesQA", "instructions": ""},
         },
+        "ScheduledTasksExtract": {
+            "Enabled": FIDELITY_SCHEDULEDTASKS_ENABLED,
+            "Provider": "anthropic",
+            "Model": "claude-sonnet-4-5",
+            "Temperature": 0.0,
+            "TopP": 0.9,
+            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasks", "instructions": ""},
+            "QAEnabled": FIDELITY_SCHEDULEDTASKS_QA_ENABLED,
+            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
+            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasksQA", "instructions": ""},
+        },
         "SigmaAgent": {
             "Provider": "anthropic",
             "Model": "claude-sonnet-4-5",
@@ -194,7 +207,6 @@ def test_import_enforces_all_settings():
     # Thresholds
     assert config.Thresholds.JunkFilterThreshold == FIDELITY_JUNK
     assert config.Thresholds.MinHuntScore == FIDELITY_MIN_HUNT
-    assert config.Thresholds.AutoTriggerHuntScoreThreshold == FIDELITY_AUTO_TRIGGER
     assert config.Thresholds.RankingThreshold == FIDELITY_RANK_THRESHOLD
     assert config.Thresholds.SimilarityThreshold == FIDELITY_SIGMA_THRESHOLD
 
@@ -242,7 +254,6 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     legacy = config.to_legacy_response_dict()
 
     assert legacy["min_hunt_score"] == FIDELITY_MIN_HUNT
-    assert legacy["auto_trigger_hunt_score_threshold"] == FIDELITY_AUTO_TRIGGER
     assert legacy["junk_filter_threshold"] == FIDELITY_JUNK
     assert legacy["ranking_threshold"] == FIDELITY_RANK_THRESHOLD
     assert legacy["similarity_threshold"] == FIDELITY_SIGMA_THRESHOLD
@@ -285,7 +296,6 @@ def test_export_contains_all_settings():
     assert exported["JunkFilter"]["JunkFilterThreshold"] == FIDELITY_JUNK
     assert exported["QASettings"]["MaxRetries"] == FIDELITY_QA_RETRIES
     assert float(exported["Thresholds"]["MinHuntScore"]) == FIDELITY_MIN_HUNT
-    assert float(exported["Thresholds"]["AutoTriggerHuntScoreThreshold"]) == FIDELITY_AUTO_TRIGGER
 
     osd = exported["OSDetection"]
     assert osd["Embedding"] == FIDELITY_OS_EMBEDDING

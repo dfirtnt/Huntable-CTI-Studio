@@ -74,7 +74,6 @@ def _make_v2_with_registry(**overrides):
             "RankingThreshold": 6.0,
             "SimilarityThreshold": 0.5,
             "JunkFilterThreshold": 0.8,
-            "AutoTriggerHuntScoreThreshold": 60.0,
         },
         "Agents": agents,
         "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
@@ -300,7 +299,7 @@ class TestUIOrderedRoundTrip:
             "Metadata": {},
             "JunkFilter": {"JunkFilterThreshold": 0.8},
             "QASettings": {"MaxRetries": 3},
-            "Thresholds": {"MinHuntScore": 97.0, "AutoTriggerHuntScoreThreshold": 60.0},
+            "Thresholds": {"MinHuntScore": 97.0},
             "OSDetection": {
                 "Embedding": "bert",
                 "FallbackEnabled": False,
@@ -567,4 +566,5 @@ class TestLLMServiceNormalizationKeys:
         llm_service_path = Path(__file__).resolve().parent.parent.parent / "src" / "services" / "llm_service.py"
         source = llm_service_path.read_text()
         # Find the Langfuse output loop line
-        assert 'for key in ["process_lineage", "sigma_queries", "registry_artifacts", "windows_services"]' in source
+        assert '"registry_artifacts"' in source
+        assert '"scheduled_tasks"' in source

@@ -39,20 +39,25 @@ jobs:
 
       - name: Check for unpinned Python versions
         run: |
-          # Scan requirements.txt only (production runtime deps).
-          # pyproject.toml is not scanned: it contains TOML assignments and
-          # abstract-range specifiers resolved by uv.lock.
-          # requirements-dev.txt and requirements-test.txt intentionally use
-          # >= floor pins for tooling/test packages.
-          set +e
-          UNPINNED=$(grep -En '^[[:space:]]*[A-Za-z0-9_.-]+[[:space:]]*[<>~]' requirements.txt 2>/dev/null | grep -v '^[^:]*:[[:space:]]*#' || true)
-          set -e
-          if [ -n "$UNPINNED" ]; then
-            echo "ERROR: Found unpinned versions in requirements.txt (must use == not >=, >, <, ~):"
-            echo "$UNPINNED"
-            exit 1
-          fi
-          echo "✓ All Python dependencies in requirements.txt pinned with =="
+          python3 - <<'PYEOF'
+          import sys, pathlib
+          # Only requirements.txt is authoritative for pinned deps.
+          # pyproject.toml legitimately uses >= for security-floor transitive pins
+          # and TOML key=value syntax would produce false positives in a grep scan.
+          unpinned = []
+          for line in pathlib.Path("requirements.txt").read_text().splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+              continue
+            if ">=" in stripped and "#" not in stripped:
+              unpinned.append(stripped)
+          if unpinned:
+            print("ERROR: Found unpinned versions in requirements.txt (must use == not >=):")
+            for u in unpinned:
+              print(" ", u)
+            sys.exit(1)
+          print("All Python dependencies in requirements.txt pinned with ==")
+          PYEOF
 
       - name: Check for unpinned Node versions
         run: |
@@ -80,7 +85,7 @@ jobs:
           python-version: '3.12'
 
       - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
 

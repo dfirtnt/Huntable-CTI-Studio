@@ -139,7 +139,7 @@ class EmbeddingService:
 
             if not valid_texts:
                 logger.warning("No valid texts provided for batch embedding")
-                return [[0.0] * 768] * len(texts)
+                return [[0.0] * 768 for _ in range(len(texts))]
 
             # Generate embeddings in batches
             embeddings = self.model.encode(
@@ -154,8 +154,8 @@ class EmbeddingService:
                 embeddings = embeddings.tolist()
 
             # Create full result list with zeros for empty texts
-            result = [[0.0] * 768] * len(texts)
-            for i, embedding in zip(valid_indices, embeddings, strict=False):
+            result = [[0.0] * 768 for _ in range(len(texts))]
+            for i, embedding in zip(valid_indices, embeddings, strict=True):
                 result[i] = embedding
 
             logger.info(f"Generated {len(valid_texts)} embeddings in batch processing")

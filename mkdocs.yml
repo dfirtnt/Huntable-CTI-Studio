@@ -56,6 +56,7 @@ nav:
       - Cmdline Preprocessor: features/cmdline-preprocessor.md
       - RAG Search: features/rag-search.md
       - Observable Evaluation: features/observable-evaluation.md
+      - Agent Evals: features/agent-evals.md
   - LLM & Models:
       - Model Selection: llm/model-selection.md
       - LM Studio Integration: llm/lmstudio.md
