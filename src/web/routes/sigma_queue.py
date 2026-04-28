@@ -1739,8 +1739,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                             original_rule=previous_yaml_preview or "No YAML was detected in the previous attempt.",
                         )
                 except KeyError as e:
-                    error_msg = f"Prompt formatting error: Missing parameter {e}"
-                    logger.error(error_msg)
+                    logger.error("Prompt formatting error: missing parameter %s", e)
+                    error_msg = "Prompt formatting error: missing required parameter"
                     conversation_log.append(
                         {
                             "attempt": attempt,
@@ -1758,8 +1758,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         break
                     continue
                 except Exception as e:
-                    error_msg = f"Error building prompt: {str(e)}"
-                    logger.error(error_msg)
+                    logger.error("Error building prompt: %s", e)
+                    error_msg = f"Error building prompt: {type(e).__name__}"
                     conversation_log.append(
                         {
                             "attempt": attempt,
@@ -1818,7 +1818,10 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                         status_code=429,
                                         detail="OpenAI API rate limit exceeded. Please wait and try again.",
                                     ) from e
-                                raise HTTPException(status_code=502, detail=err) from e
+                                logger.error("OpenAI API error: %s", err)
+                                raise HTTPException(
+                                    status_code=502, detail="OpenAI API request failed. Please try again."
+                                ) from e
 
                         elif provider == "anthropic":
                             response = await client.post(
