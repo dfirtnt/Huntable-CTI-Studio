@@ -3923,12 +3923,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                 # old configs with user_template continue to work, but the UI no longer
                 # exposes that field for editing.
                 extracted_commands_text = ""
-                total_count = 0
 
                 # Handle different extraction result formats
                 if "cmdline_items" in last_result:
                     cmdline_items = last_result.get("cmdline_items", [])
-                    total_count = len(cmdline_items)
                     if cmdline_items:
                         extracted_commands_text = "\n".join(
                             [
@@ -3940,7 +3938,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                         extracted_commands_text = "No commands extracted."
                 elif "items" in last_result:
                     items = last_result.get("items", [])
-                    total_count = len(items)
                     if items:
                         extracted_commands_text = "\n".join([f"{i + 1}. {item}" for i, item in enumerate(items)])
                     else:
@@ -3948,7 +3945,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                 else:
                     # Fallback: format entire result as JSON
                     extracted_commands_text = json.dumps(last_result, indent=2)
-                    total_count = len(last_result) if isinstance(last_result, (list, dict)) else 0
 
                 qa_prompt = f"""Task: {qa_task}
 
