@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Eval dataset maintenance guide** (2026-04-29): [Agent Evals](features/agent-evals.md) gains a **Maintaining the Eval Dataset** section covering how to add articles (dump snapshot, update YAML), remove articles (edit both files; DB cleanup is automatic at startup), update expected counts (YAML only), and a quick checklist. Complements the existing `config/eval_articles_data/README.md` snapshot mechanics doc.
+- **Canary-pattern regression tests for `py/stack-trace-exposure`** (2026-04-29): New `tests/api/test_stack_trace_exposure_regression.py` (7 tests, ~4 s) plants uniquely-recognizable strings inside mocked exceptions and recursively asserts those strings never appear in HTTP response bodies. Covers `_scrape_single_url`, `export_eval_bundle`, `_parse_and_validate_rule`, `api_get_lmstudio_models`, `api_get_lmstudio_embedding_models`, and `api_services_health`. Designed to fail loudly if any future change reintroduces `f"...{str(e)}"` or `detail=str(e)` patterns in HTTP responses.
+
+### Fixed
+- **Two more `py/stack-trace-exposure` leaks in service health** (2026-04-29): `health.py` Langfuse flush exception handler returned `f"Flush failed: {str(flush_exc)}"`; outer Langfuse exception handler returned `str(langfuse_exc)`. Both now return static error strings (`"Flush failed"`, `"Langfuse check failed"`) with full exception detail captured via `logger.warning()`. Discovered while writing the regression test suite.
 
 ### Changed
 - **Documentation** (2026-04-29): [Agent Evals](features/agent-evals.md) gains a **Concurrency Throttle** section explaining the `concurrency_throttle_seconds` field (default 5 s, range 0-60 s), the stagger formula `countdown(N) = N x (0.2 s base + throttle_seconds)`, the dispatch window estimate, and why time-spreading dispatches prevents TPM 429 rate limits on fan-out runs.

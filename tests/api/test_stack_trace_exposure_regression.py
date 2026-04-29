@@ -48,9 +48,7 @@ CANARY_INTERNAL_HOST = "internal-canary-host-198.51.100.42"
 CANARY_DB_DETAIL = "canary-db-column-secret_internal_field"
 CANARY_API_KEY_PREFIX = "sk-canary-leaked-12345abcdef"
 CANARY_REDIS_PASSWORD = "canary-redis-pass-deadbeef"
-CANARY_FILE_PATH = "/opt/canary/internal/secrets.json"
 CANARY_YAML_DETAIL = "canary-yaml-internal-mapping-detail"
-CANARY_EXEC_DETAIL = "canary-execution-internal-detail-99"
 
 
 def _assert_no_canary(haystack: object, *canaries: str) -> None:
