@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **Orphaned CLI eval pathway deleted** (2026-04-29): `eval_runner.py`, `langfuse_eval_client.py`, and the four agent evaluator classes (`ExtractAgentEvaluator`, `RankAgentEvaluator`, `SigmaAgentEvaluator`, `OSDetectionEvaluator`) plus `BaseAgentEvaluator` were removed. None had active callers in routes or tasks; they were a parallel Langfuse-backed eval system superseded by the UI pathway. `eval_preset_snapshot_service.py` and seven `scripts/eval_*.py` runner scripts deleted for the same reason. `POST /api/eval/run` endpoint removed (pointed users to the now-deleted scripts). `EvaluationTracker.compare_evaluations()` retains its comparison logic, inlined as a standalone `_compare_metrics()` function. The UI pathway (`evaluation_api.py`, `SubagentEvaluationTable`) is the only eval system remaining.
+
 ### Added
 - **Eval dataset maintenance guide** (2026-04-29): [Agent Evals](features/agent-evals.md) gains a **Maintaining the Eval Dataset** section covering how to add articles (dump snapshot, update YAML), remove articles (edit both files; DB cleanup is automatic at startup), update expected counts (YAML only), and a quick checklist. Complements the existing `config/eval_articles_data/README.md` snapshot mechanics doc.
 - **Canary-pattern regression tests for `py/stack-trace-exposure`** (2026-04-29): New `tests/api/test_stack_trace_exposure_regression.py` (7 tests, ~4 s) plants uniquely-recognizable strings inside mocked exceptions and recursively asserts those strings never appear in HTTP response bodies. Covers `_scrape_single_url`, `export_eval_bundle`, `_parse_and_validate_rule`, `api_get_lmstudio_models`, `api_get_lmstudio_embedding_models`, and `api_services_health`. Designed to fail loudly if any future change reintroduces `f"...{str(e)}"` or `detail=str(e)` patterns in HTTP responses.

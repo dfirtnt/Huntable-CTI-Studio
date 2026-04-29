@@ -369,7 +369,7 @@ This document outlines the test plan for Huntable CTI Studio, focusing on critic
 11. `src/services/llm_service.py` - LLM agent execution (HIGH)
 12. `src/web/routes/annotations.py` - Annotation API (HIGH)
 13. `src/web/routes/evaluation_api.py` - Eval API (MEDIUM)
-14. `src/services/evaluation/eval_runner.py` - Eval execution (MEDIUM)
+14. `src/services/evaluation/evaluation_tracker.py` - Eval history/comparison (MEDIUM)
 15. `src/core/processor.py` - Content processing (HIGH)
 16. `src/utils/ioc_extractor.py` - IOC extraction (MEDIUM, deprecated/disabled)
 17. `src/services/embedding_service.py` - Embedding generation (MEDIUM)
