@@ -2081,9 +2081,9 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
             return {
                 "success": False,
                 "validated_yaml": None,
-                "errors": ["Validation error during rule processing"],
+                "errors": [str(e.detail)],
                 "attempts": len(conversation_log) if "conversation_log" in locals() else 0,
-                "message": "Validation error during rule processing",
+                "message": str(e.detail),
                 "conversation_log": conversation_log if "conversation_log" in locals() else [],
                 "validation_results": validation_results if "validation_results" in locals() else [],
                 "provider": provider if "provider" in locals() else "workflow",
