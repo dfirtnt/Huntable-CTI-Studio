@@ -1,7 +1,5 @@
 # Agentic Workflow Execution Order
 
-<!-- TODO: verify: ASCII sub-agent diagrams below omit RegistryExtract, ServicesExtract, and ScheduledTasksExtract; schema defines 6 sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) per src/config/workflow_config_schema.py -->
-
 The Huntable agentic workflow runs whenever you trigger `/api/workflow/articles/{id}/trigger` or click **Reprocess** on an article. It is **orchestrated by LangGraph** (which manages step sequencing, conditional early-exit gates, and state) and **triggered via Celery tasks**. State is executed by Celery workers and persisted to `agentic_workflow_executions`, with extraction results feeding Sigma generation and similarity matching.
 
 ```
