@@ -5,7 +5,7 @@ All notable changes to Huntable CTI Studio will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [6.1.1] - 2026-04-28
+## [Unreleased]
 
 ### Added
 - **Vision LLM proxied through backend** (2026-04-28): `POST /api/vision/extract` new endpoint accepts an image data-URL and a provider name, resolves the API key from DB settings / env, and forwards the request to OpenAI (`gpt-4o`) or Anthropic (`claude-sonnet-4-6`). The browser extension no longer stores or transmits API keys; `callVisionLLM` in `background.js` now calls the backend proxy instead of hitting cloud providers directly. `vision-api-key` field removed from `popup.html` / `popup.js` and from `chrome.storage.local`.
@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Context-overflow and infra-not-ready flags in eval API** (2026-04-28): `get_subagent_eval_results` and `get_execution_commandlines` in `evaluation_api.py` now return `context_length_exceeded` and `infra_not_ready` boolean fields per result, populated by the new `_execution_has_context_overflow` and `_execution_infra_not_ready` helpers.
 
 ### Fixed
-- **ReDoS in OCR regex** (2026-04-28): `re.findall` in `_scrape_single_url` now operates on `pre_scraped_content[:200_000]` to bound backtracking on crafted inputs (CodeQL `py/polynomial-redos` alert #503).
+- **ReDoS in OCR regex** (2026-04-28): Two-layer fix for CodeQL `py/polynomial-redos`. Alert #503: `re.findall` input capped at 200k chars. Alert #518: both quantifiers in the pattern bounded (`[^\]]{0,2000}`, `[^\[]{0,10000}`) so per-attempt scan cost is O(1) regardless of input length; input cap also lowered to 50k for defence-in-depth.
 - **Error messages no longer leak internal details to HTTP clients** (2026-04-28): `f"...{str(e)}"` patterns in `ai.py`, `sigma_queue.py`, and `capability_service.py` replaced with static strings; full exception details continue to be logged server-side. Addresses CodeQL `py/stack-trace-exposure` findings.
 - **`codex-mini` removed from OpenAI model allowlist** (2026-04-28): `codex-mini` and `codex-mini-latest` removed from `model_validation.py` and `provider_model_catalog.py`. The `codex-` prefix no longer passes the fallback allowlist check. Quickstart preset `Quickstart-openai-codex-mini.json` deleted.
 - **Langfuse session URL uses `/sessions/` path** (2026-04-28): `get_workflow_debug_info` now builds `{host}/project/{project_id}/sessions/{session_id}` when a project ID is available, replacing the earlier `/traces/{trace_id}` logic that required a resolved trace ID.
@@ -440,8 +440,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced LMStudio URL fallback logic and connection error handling
   - Added finish_reason logging for debugging empty responses
   - Verified LMStudio connectivity and model availability
-
-## [Unreleased]
 
 ## [6.1.0 "Io"] - 2026-04-27
 ### Added
