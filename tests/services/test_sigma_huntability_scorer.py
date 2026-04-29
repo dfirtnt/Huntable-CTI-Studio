@@ -99,6 +99,30 @@ level: high
 
         assert 0.0 <= score <= 1.0
 
+    def test_commandline_present_exceeds_floor(self, scorer):
+        """Regression: nonlocal was missing so has_commandline stayed False and score was always 0.3.
+
+        When CommandLine fields are present the specificity must exceed the no-commandline floor.
+        """
+        detection = {
+            "selection": {
+                "CommandLine|contains|all": ["-encodedcommand", "base64"],
+                "ParentImage|endswith": "\\powershell.exe",
+            },
+            "condition": "selection",
+        }
+        score = scorer._score_commandline_specificity(detection)
+        assert score > 0.3, f"Expected score above 0.3 floor when CommandLine fields are present, got {score}"
+
+    def test_no_commandline_returns_floor(self, scorer):
+        """Detection with no CommandLine fields should return the 0.3 floor score."""
+        detection = {
+            "selection": {"Image|endswith": "\\powershell.exe"},
+            "condition": "selection",
+        }
+        score = scorer._score_commandline_specificity(detection)
+        assert score == 0.3
+
     def test_score_ttp_clarity(self, scorer):
         """Test TTP clarity scoring."""
         rule_data = {
