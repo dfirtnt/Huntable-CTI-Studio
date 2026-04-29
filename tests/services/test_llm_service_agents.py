@@ -641,6 +641,72 @@ class TestRunExtractionAgentExecution:
         assert result.get("items") == []
         assert result.get("count") == 0
 
+    @pytest.mark.asyncio
+    async def test_context_tokens_override_applied(self, llm_service):
+        """context_tokens_override replaces the provider default when positive."""
+        captured = {}
+
+        original_truncate = llm_service._truncate_content
+
+        def spy_truncate(content, limit, reserve):
+            captured["limit"] = limit
+            return original_truncate(content, limit, reserve)
+
+        with (
+            patch.object(llm_service, "_truncate_content", side_effect=spy_truncate),
+            patch.object(llm_service, "_get_context_limit_for_provider", return_value=80000),
+            patch.object(
+                llm_service,
+                "request_chat",
+                new_callable=AsyncMock,
+                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
+            ),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_retries=1,
+                context_tokens_override=16000,
+            )
+
+        assert captured.get("limit") == 16000, f"Expected 16000, got {captured.get('limit')}"
+
+    @pytest.mark.asyncio
+    async def test_context_tokens_override_ignored_when_none(self, llm_service):
+        """context_tokens_override=None leaves the provider default unchanged."""
+        captured = {}
+
+        original_truncate = llm_service._truncate_content
+
+        def spy_truncate(content, limit, reserve):
+            captured["limit"] = limit
+            return original_truncate(content, limit, reserve)
+
+        with (
+            patch.object(llm_service, "_truncate_content", side_effect=spy_truncate),
+            patch.object(llm_service, "_get_context_limit_for_provider", return_value=80000),
+            patch.object(
+                llm_service,
+                "request_chat",
+                new_callable=AsyncMock,
+                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
+            ),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_retries=1,
+                context_tokens_override=None,
+            )
+
+        assert captured.get("limit") == 80000, f"Expected 80000, got {captured.get('limit')}"
+
 
 # ---------------------------------------------------------------------------
 # Provider HTTP call methods -- _call_openai_chat, _call_anthropic_chat

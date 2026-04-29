@@ -1568,6 +1568,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         )
                     agent_temperature = agent_models.get(temperature_key, 0.0) if agent_models else 0.0
                     agent_top_p = agent_models.get(top_p_key) if agent_models else None
+                    context_tokens_key = f"{agent_name}_context_tokens"
+                    agent_context_tokens = agent_models.get(context_tokens_key) if agent_models else None
 
                     # FINAL SAFETY CHECK: ALWAYS re-read subagent_eval from execution and block if doesn't match
                     # Map agent name to subagent name
@@ -1712,6 +1714,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         attention_preprocessor_enabled=state.get("config", {}).get(
                             "cmdline_attention_preprocessor_enabled", True
                         ),
+                        context_tokens_override=agent_context_tokens,
                     )
 
                     # Store Result

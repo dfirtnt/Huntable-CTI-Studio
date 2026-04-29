@@ -27,6 +27,7 @@ class AgentConfig(BaseModel):
     Temperature: float = 0.0
     TopP: float = 0.9
     Enabled: bool = True
+    ContextTokens: int | None = None
 
 
 class ThresholdConfig(BaseModel):
@@ -291,6 +292,8 @@ class WorkflowConfigV2(BaseModel):
             out[model_key] = agent.Model
             out[f"{prefix}_temperature"] = agent.Temperature
             out[f"{prefix}_top_p"] = agent.TopP
+            if agent.ContextTokens is not None:
+                out[f"{prefix}_context_tokens"] = agent.ContextTokens
         out["OSDetectionAgent_embedding"] = self.Embeddings.OsDetection
         out["SigmaEmbeddingModel"] = self.Embeddings.Sigma
         if self.Execution.OsDetectionSelectedOs:
