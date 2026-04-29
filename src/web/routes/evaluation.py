@@ -577,37 +577,6 @@ async def api_observables_count_results():
         return {"success": False, "error": "Internal server error", "results": [], "model_summaries": {}}
 
 
-@router.post("/api/eval/run")
-async def api_eval_run(request: Request):
-    """Trigger an evaluation run (returns immediately, runs in background)."""
-    try:
-        body = await request.json()
-        agent_name = body.get("agent_name")
-        test_data_path = body.get("test_data_path")
-        evaluation_type = body.get("evaluation_type", "baseline")
-        save_to_db = body.get("save_to_db", True)
-
-        if not agent_name or not test_data_path:
-            raise HTTPException(status_code=400, detail="agent_name and test_data_path are required")
-
-        # Import evaluators
-
-        # This would ideally run in a background task
-        # For now, return a message that evaluation should be run via CLI
-        return {
-            "status": "info",
-            "message": "Evaluation triggered. Note: Full evaluations should be run via CLI scripts for better control.",
-            "agent_name": agent_name,
-            "suggestion": f"Run: python scripts/eval_{agent_name.lower().replace('agent', 'agent').replace('osdetection', 'os_detection')}.py --test-data {test_data_path} --evaluation-type {evaluation_type} {'--save-to-db' if save_to_db else ''}",
-        }
-
-    except HTTPException:
-        raise
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Evaluation run error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
-
-
 @router.get("/api/eval/rank-agent-benchmarks")
 async def api_rank_agent_benchmarks():
     """Get benchmark data for RankAgent visualizations."""
