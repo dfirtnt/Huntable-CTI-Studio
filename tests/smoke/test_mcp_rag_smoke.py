@@ -117,12 +117,13 @@ async def test_get_sigma_rule_by_id_raw_yaml_populated_after_ingest():
     from sqlalchemy import text as sa_text
     from sqlalchemy.exc import ProgrammingError
 
+    rule_id = None
     try:
         async with mgr.get_session() as session:
             row = await session.execute(sa_text("SELECT rule_id FROM sigma_rules WHERE raw_yaml IS NOT NULL LIMIT 1"))
             rule_id = row.scalar_one_or_none()
     except ProgrammingError:
-        pytest.skip("raw_yaml column not yet in this DB — run scripts/migrate_sigma_raw_yaml.py")
+        pytest.skip("raw_yaml column not yet in this DB -- run scripts/migrate_sigma_raw_yaml.py")
 
     if rule_id is None:
         pytest.skip("No sigma_rules rows have raw_yaml yet — run sigma index-metadata --force")

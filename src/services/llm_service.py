@@ -3919,11 +3919,6 @@ Every item in the output array MUST be an object (not a plain string)."""
 
                 qa_model_to_use = qa_model_override or model_name
 
-                # Legacy programmatic format. The QA scaffold is fixed in runtime so
-                # old configs with user_template continue to work, but the UI no longer
-                # exposes that field for editing.
-                extracted_commands_text = ""
-
                 # Handle different extraction result formats
                 if "cmdline_items" in last_result:
                     cmdline_items = last_result.get("cmdline_items", [])

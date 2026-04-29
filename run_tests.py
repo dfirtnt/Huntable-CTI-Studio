@@ -839,8 +839,7 @@ class RunTestRunner:
                     "--ignore=tests/ui/",  # Exclude UI tests (require browser/Playwright)
                     "--ignore=tests/api/",  # Exclude api (langfuse+pydantic v1 incompatible with Python 3.14)
                     "-m",
-                    "not (smoke or integration or api or ui or e2e or performance "
-                    "or infrastructure or prod_data or production_data)",
+                    "not (smoke or integration or api or ui or e2e or performance or infrastructure or prod_data or production_data)",
                 ],
                 RunTestType.API: ["tests/api/"],
                 RunTestType.INTEGRATION: [

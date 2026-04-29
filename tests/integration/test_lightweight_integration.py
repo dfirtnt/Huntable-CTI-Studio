@@ -128,8 +128,7 @@ class TestDataIngestionPipeline:
             assert "threat intelligence" in article.content.lower()
             assert article.canonical_url == "https://example.com/article1"
 
-        # Execute: Store article in database (if any articles were parsed)
-        if len(articles) > 0:
+            # Execute: Store article in database
             stored_article = await mock_database_manager.create_article(article)
 
             # Verify: Article was stored

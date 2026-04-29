@@ -103,8 +103,7 @@ def test_throttle_patterns_match_known_throttle_errors(error_text):
         "tuple index out of range",
         "Anthropic API key is not configured for agentic workflows.",
         "Model 'qwen/qwen3-8b' is not a valid OpenAI chat completion model.",
-        "LMStudio model 'qwen/qwen3-8b' has context length of 8192 tokens, "
-        "which is below the required threshold of 16384 tokens.",
+        "LMStudio model 'qwen/qwen3-8b' has context length of 8192 tokens, which is below the required threshold of 16384 tokens.",
         "Can't reconnect until invalid transaction is rolled back.",
         "(psycopg2.DatabaseError) error with status PGRES_TUPLES_OK and no message from the libpq",
         "This result object does not return rows. It has been closed automatically.",
