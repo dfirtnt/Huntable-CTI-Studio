@@ -45,13 +45,10 @@ def _read_state(page: Page) -> dict:
 
 
 def _wait_for_settings_hydrated(page: Page) -> None:
-    """Form inputs are populated by async fetch -- wait for that to complete."""
+    """Wait for loadSettings() to finish all async fetches (body gets data-settings-hydrated)."""
     page.wait_for_function(
-        """() => {
-            const t = document.getElementById('autoTriggerHuntScoreThreshold');
-            return t && t.value !== '' && t.value !== '100.0';
-        }""",
-        timeout=10000,
+        "() => document.body.dataset.settingsHydrated === 'true'",
+        timeout=15000,
     )
 
 

@@ -59,9 +59,12 @@ class TestSigmaEnrichUI:
 
     @pytest.fixture(autouse=True)
     def setup(self, page: Page, mock_sigma_queue_list):
-        """Setup: Navigate to sigma queue page (after list mock is applied)."""
+        """Setup: Navigate to workflow Queue tab (after list mock is applied).
+
+        The standalone /sigma-queue page was removed; queue lives in /workflow#queue.
+        """
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/sigma-queue")
+        page.goto(f"{base_url}/workflow#queue")
         page.wait_for_load_state("networkidle")
         yield
         # Close any modals left open so the next test in this class starts clean.
@@ -76,7 +79,7 @@ class TestSigmaEnrichUI:
             pass
 
     def test_sigma_queue_page_shows_pagination_bar(self, page: Page):
-        """Standalone sigma-queue page shows pagination bar with Showing X–Y of Z."""
+        """Workflow Queue tab shows pagination bar with Showing X-Y of Z."""
         page.wait_for_selector("#queueTableBody", timeout=10000)
         bar = page.locator("#queuePaginationBar")
         expect(bar).to_be_visible(timeout=5000)

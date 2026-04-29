@@ -81,6 +81,7 @@ class WorkflowConfigResponse(BaseModel):
     qa_max_retries: int = 5
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
+    auto_trigger_hunt_score_threshold: float = 60.0
     created_at: str
     updated_at: str
 
@@ -101,6 +102,7 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
+    auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
 
 
 class AgentPromptUpdate(BaseModel):
@@ -241,15 +243,17 @@ async def get_workflow_config(request: Request):
             except ValidationError as e:
                 logger.warning("Workflow config validation failed: %s", e)
                 raise HTTPException(status_code=400, detail=f"Invalid workflow config: {e}") from e
-            return WorkflowConfigResponse(
-                **config_v2.to_legacy_response_dict(
-                    id=config.id,
-                    version=config.version,
-                    is_active=config.is_active,
-                    created_at=config.created_at.isoformat(),
-                    updated_at=config.updated_at.isoformat(),
-                )
+            legacy_dict = config_v2.to_legacy_response_dict(
+                id=config.id,
+                version=config.version,
+                is_active=config.is_active,
+                created_at=config.created_at.isoformat(),
+                updated_at=config.updated_at.isoformat(),
             )
+            legacy_dict["auto_trigger_hunt_score_threshold"] = getattr(
+                config, "auto_trigger_hunt_score_threshold", 60.0
+            )
+            return WorkflowConfigResponse(**legacy_dict)
         finally:
             db_session.close()
 
@@ -418,6 +422,13 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     getattr(current_config, "cmdline_attention_preprocessor_enabled", True) if current_config else True
                 )
             )
+            final_auto_trigger_hunt_score_threshold = (
+                config_update.auto_trigger_hunt_score_threshold
+                if config_update.auto_trigger_hunt_score_threshold is not None
+                else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                if current_config
+                else 60.0
+            )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
             if final_agent_prompts:
@@ -458,6 +469,11 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
                     and getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
                     == final_cmdline_attention_preprocessor_enabled
+                    and abs(
+                        getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                        - final_auto_trigger_hunt_score_threshold
+                    )
+                    < 0.0001
                 )
 
                 # Deep compare JSONB fields
@@ -510,6 +526,9 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         cmdline_attention_preprocessor_enabled=getattr(
                             current_config, "cmdline_attention_preprocessor_enabled", True
                         ),
+                        auto_trigger_hunt_score_threshold=getattr(
+                            current_config, "auto_trigger_hunt_score_threshold", 60.0
+                        ),
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat(),
                     )
@@ -531,6 +550,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 qa_max_retries=qa_max_retries,
                 rank_agent_enabled=final_rank_agent_enabled,
                 cmdline_attention_preprocessor_enabled=final_cmdline_attention_preprocessor_enabled,
+                auto_trigger_hunt_score_threshold=final_auto_trigger_hunt_score_threshold,
             )
 
             db_session.add(new_config)
@@ -558,6 +578,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 cmdline_attention_preprocessor_enabled=getattr(
                     new_config, "cmdline_attention_preprocessor_enabled", True
                 ),
+                auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 60.0),
                 created_at=new_config.created_at.isoformat(),
                 updated_at=new_config.updated_at.isoformat(),
             )
