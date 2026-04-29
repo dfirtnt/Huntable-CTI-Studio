@@ -17843,10 +17843,10 @@ function showHelp(fieldName) {
                       <p class="mb-2">Minimum confidence level for content filtering. Higher values mean stricter filtering (more content removed), lower values mean more lenient filtering.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Content is analyzed for junk/noise patterns</li>
-                          <li>Confidence score (0.0-1.0) indicates how likely content is junk</li>
-                          <li>Content with confidence ≥ threshold is kept</li>
-                          <li>Content with confidence < threshold is filtered out</li>
+                          <li>Content is chunked and each chunk is scored for huntability by the ML model</li>
+                          <li>Confidence score (0.0-1.0) indicates how likely the chunk is huntable (high = more huntable)</li>
+                          <li>Chunks classified as huntable AND with confidence &ge; threshold are kept</li>
+                          <li>Chunks below the threshold or classified as non-huntable are filtered out</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.7-0.9 (0.8 is balanced). Higher = stricter (less junk), Lower = more lenient (more content passes)</p>`
         },
@@ -17953,6 +17953,7 @@ function showHelp(fieldName) {
                           <li><strong>HuntQueriesExtract:</strong> EDR/SIEM queries (KQL, SPL, etc.)</li>
                           <li><strong>RegistryExtract:</strong> Windows registry artifacts</li>
                           <li><strong>ServicesExtract:</strong> Malicious Windows service definitions</li>
+                          <li><strong>ScheduledTasksExtract:</strong> Scheduled task identity, triggers, and principal metadata</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Verbatim literal extraction only. Qwen Instruct models are strongest at constraint obedience. Coder variant helps preserve exact token sequences in JSON.</p>`
         },
