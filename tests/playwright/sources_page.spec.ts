@@ -5,6 +5,7 @@ const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
 type SourceRecord = {
   id: number;
   name: string;
+  identifier?: string;
   active?: boolean;
   lookback_days?: number;
   check_frequency?: number;
@@ -29,7 +30,10 @@ async function listSources(request: APIRequestContext): Promise<SourceRecord[]> 
 
 async function getFirstNonManualSource(request: APIRequestContext): Promise<SourceRecord | null> {
   const sources = await listSources(request);
-  return sources.find((s) => (s.name || '').toLowerCase() !== 'manual') ?? null;
+  return sources.find((s) =>
+    (s.name || '').toLowerCase() !== 'manual' &&
+    (s.identifier || '') !== 'eval_articles'
+  ) ?? null;
 }
 
 async function requireFirstNonManualSource(request: APIRequestContext): Promise<SourceRecord> {
