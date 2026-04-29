@@ -3239,6 +3239,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         qa_model_override: str | None = None,
         provider: str | None = None,
         attention_preprocessor_enabled: bool = True,
+        context_tokens_override: int | None = None,
     ) -> dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -3329,6 +3330,17 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                         logger.warning(
                             f"{agent_name} could not determine LMStudio context length for {model_name}: {e}"
                         )
+
+                if (
+                    context_tokens_override is not None
+                    and isinstance(context_tokens_override, int)
+                    and context_tokens_override > 0
+                ):
+                    logger.info(
+                        f"{agent_name} using per-agent ContextTokens override: {context_tokens_override} "
+                        f"(was: {context_limit_tokens})"
+                    )
+                    context_limit_tokens = context_tokens_override
 
                 # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
                 snippet_count: int | None = None
