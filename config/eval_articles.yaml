@@ -30,7 +30,7 @@ subagents:
       expected_count: 5
     - url: "https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die"
       expected_count: 22
-    - url: "https://thedfirreport.com/2025/08/05/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira/"
+    - url: "https://thedfirreport.com/2025/11/04/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira-2/"
       expected_count: 9
 
   process_lineage:
