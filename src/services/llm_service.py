@@ -22,6 +22,7 @@ import httpx
 
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
+from src.services.provider_model_catalog import get_model_context_tokens
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
 
@@ -665,12 +666,18 @@ class LLMService:
         """Rough estimate: ~4 characters per token."""
         return len(text) // 4
 
-    def _get_context_limit_for_provider(self, provider: str | None) -> int:
-        """Return assumed context limit depending on provider type."""
+    def _get_context_limit(self, provider: str | None, model_name: str | None = None) -> int:
+        if model_name:
+            catalog_val = get_model_context_tokens(model_name)
+            if catalog_val is not None:
+                return catalog_val
         canonical = self._canonicalize_provider(provider or "")
         if canonical == "lmstudio":
             return self.assumed_lmstudio_context_tokens
         return self.assumed_cloud_context_tokens
+
+    def _get_context_limit_for_provider(self, provider: str | None) -> int:
+        return self._get_context_limit(provider, model_name=None)
 
     @staticmethod
     def _truncate_content(
@@ -3239,7 +3246,6 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
         qa_model_override: str | None = None,
         provider: str | None = None,
         attention_preprocessor_enabled: bool = True,
-        context_tokens_override: int | None = None,
     ) -> dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -3314,7 +3320,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 if not effective_provider:
                     effective_provider = self._canonicalize_provider(self.provider_extract) or resolved_provider
 
-                context_limit_tokens = self._get_context_limit_for_provider(effective_provider)
+                context_limit_tokens = self._get_context_limit(effective_provider, model_name=model_name)
                 if effective_provider == "lmstudio" and model_name:
                     try:
                         context_check = await self.check_model_context_length(model_name=model_name)
@@ -3330,17 +3336,6 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                         logger.warning(
                             f"{agent_name} could not determine LMStudio context length for {model_name}: {e}"
                         )
-
-                if (
-                    context_tokens_override is not None
-                    and isinstance(context_tokens_override, int)
-                    and context_tokens_override > 0
-                ):
-                    logger.info(
-                        f"{agent_name} using per-agent ContextTokens override: {context_tokens_override} "
-                        f"(was: {context_limit_tokens})"
-                    )
-                    context_limit_tokens = context_tokens_override
 
                 # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
                 snippet_count: int | None = None

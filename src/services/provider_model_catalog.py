@@ -56,6 +56,48 @@ DEFAULT_CATALOG = {
 }
 
 
+MODEL_CONTEXT_TOKENS: dict[str, int] = {
+    "gpt-4o": 128_000,
+    "gpt-4o-mini": 128_000,
+    "gpt-4.1": 1_047_576,
+    "gpt-4.1-mini": 1_047_576,
+    "gpt-4.1-nano": 1_047_576,
+    "gpt-4.1-turbo": 1_047_576,
+    "gpt-5": 128_000,
+    "gpt-5-mini": 128_000,
+    "o1": 128_000,
+    "o1-mini": 128_000,
+    "o1-preview": 128_000,
+    "o1-lite": 128_000,
+    "o3-mini": 200_000,
+    "o3-mini-high": 200_000,
+    "o3-mini-low": 200_000,
+    "o4": 200_000,
+    "o4-mini": 200_000,
+    "claude-3-opus-20240229": 200_000,
+    "claude-3-sonnet-20240229": 200_000,
+    "claude-3-haiku-20240307": 200_000,
+    "claude-3.5-sonnet-20241022": 200_000,
+    "claude-3.5-haiku-20241022": 200_000,
+    "claude-3.5-sonnet-latest": 200_000,
+    "claude-3.5-haiku-latest": 200_000,
+    "claude-3.6-sonnet-20250108": 200_000,
+    "claude-3.6-haiku-20250108": 200_000,
+    "claude-3.7-sonnet-20250219": 200_000,
+    "claude-3.7-haiku-20250219": 200_000,
+    "claude-3.7-sonnet-latest": 200_000,
+    "claude-3.7-haiku-latest": 200_000,
+    "claude-sonnet-4-6": 200_000,
+    "claude-2.1": 200_000,
+    "claude-2.0": 100_000,
+    "claude-instant-1.2": 100_000,
+}
+
+
+def get_model_context_tokens(model_name: str) -> int | None:
+    return MODEL_CONTEXT_TOKENS.get(model_name)
+
+
 def load_catalog() -> dict[str, list[str]]:
     if not CATALOG_PATH.exists():
         catalog = DEFAULT_CATALOG.copy()

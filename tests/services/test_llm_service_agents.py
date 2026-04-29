@@ -641,72 +641,6 @@ class TestRunExtractionAgentExecution:
         assert result.get("items") == []
         assert result.get("count") == 0
 
-    @pytest.mark.asyncio
-    async def test_context_tokens_override_applied(self, llm_service):
-        """context_tokens_override replaces the provider default when positive."""
-        captured = {}
-
-        original_truncate = llm_service._truncate_content
-
-        def spy_truncate(content, limit, reserve):
-            captured["limit"] = limit
-            return original_truncate(content, limit, reserve)
-
-        with (
-            patch.object(llm_service, "_truncate_content", side_effect=spy_truncate),
-            patch.object(llm_service, "_get_context_limit_for_provider", return_value=80000),
-            patch.object(
-                llm_service,
-                "request_chat",
-                new_callable=AsyncMock,
-                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
-            ),
-        ):
-            await llm_service.run_extraction_agent(
-                agent_name="ProcTreeExtract",
-                content="x" * MIN_USER_CONTENT_CHARS,
-                title="Test",
-                url="https://example.com",
-                prompt_config=_EXTRACT_PROMPT_CFG,
-                max_retries=1,
-                context_tokens_override=16000,
-            )
-
-        assert captured.get("limit") == 16000, f"Expected 16000, got {captured.get('limit')}"
-
-    @pytest.mark.asyncio
-    async def test_context_tokens_override_ignored_when_none(self, llm_service):
-        """context_tokens_override=None leaves the provider default unchanged."""
-        captured = {}
-
-        original_truncate = llm_service._truncate_content
-
-        def spy_truncate(content, limit, reserve):
-            captured["limit"] = limit
-            return original_truncate(content, limit, reserve)
-
-        with (
-            patch.object(llm_service, "_truncate_content", side_effect=spy_truncate),
-            patch.object(llm_service, "_get_context_limit_for_provider", return_value=80000),
-            patch.object(
-                llm_service,
-                "request_chat",
-                new_callable=AsyncMock,
-                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
-            ),
-        ):
-            await llm_service.run_extraction_agent(
-                agent_name="ProcTreeExtract",
-                content="x" * MIN_USER_CONTENT_CHARS,
-                title="Test",
-                url="https://example.com",
-                prompt_config=_EXTRACT_PROMPT_CFG,
-                max_retries=1,
-                context_tokens_override=None,
-            )
-
-        assert captured.get("limit") == 80000, f"Expected 80000, got {captured.get('limit')}"
-
 
 # ---------------------------------------------------------------------------
 # Provider HTTP call methods -- _call_openai_chat, _call_anthropic_chat
@@ -834,24 +768,38 @@ class TestCallAnthropic:
 # ---------------------------------------------------------------------------
 
 
-class TestContextLimitForProvider:
-    """Tests for _get_context_limit_for_provider."""
+class TestContextLimit:
+    """Tests for _get_context_limit."""
 
     def test_lmstudio_returns_local_limit(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider("lmstudio")
+        limit = llm_service._get_context_limit("lmstudio")
         assert limit == llm_service.assumed_lmstudio_context_tokens
 
     def test_openai_returns_cloud_limit(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider("openai")
+        limit = llm_service._get_context_limit("openai")
         assert limit == llm_service.assumed_cloud_context_tokens
 
     def test_anthropic_returns_cloud_limit(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider("anthropic")
+        limit = llm_service._get_context_limit("anthropic")
         assert limit == llm_service.assumed_cloud_context_tokens
 
     def test_none_provider_defaults_to_lmstudio(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider(None)
+        limit = llm_service._get_context_limit(None)
         assert limit == llm_service.assumed_lmstudio_context_tokens
+
+    def test_known_model_returns_catalog_value(self, llm_service):
+        limit = llm_service._get_context_limit("openai", model_name="gpt-4o")
+        assert limit == 128_000
+
+    def test_unknown_model_falls_back_to_provider_default(self, llm_service):
+        limit = llm_service._get_context_limit("openai", model_name="not-a-real-model")
+        assert limit == llm_service.assumed_cloud_context_tokens
+
+    def test_model_lookup_takes_priority_over_provider_default(self, llm_service):
+        limit_with_model = llm_service._get_context_limit("openai", model_name="gpt-4.1")
+        limit_without = llm_service._get_context_limit("openai")
+        assert limit_with_model == 1_047_576
+        assert limit_with_model != limit_without
 
 
 # ---------------------------------------------------------------------------
