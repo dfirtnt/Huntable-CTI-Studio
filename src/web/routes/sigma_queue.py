@@ -841,7 +841,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             )
                             raw_response = raw_response.strip()
                         except ValueError as e:
-                            raise HTTPException(status_code=400, detail=str(e)) from e
+                            raise HTTPException(status_code=400, detail="Provider response processing error") from e
                         except RuntimeError as e:
                             err = str(e)
                             if "401" in err or "invalid" in err.lower() or "expired" in err.lower():
@@ -980,18 +980,18 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                             raise HTTPException(status_code=503, detail=error_detail)
                                         break
                                     except (KeyError, IndexError, json.JSONDecodeError) as e:
-                                        last_error = f"Failed to parse LMStudio response: {e}"
+                                        last_error = "Failed to parse LMStudio response"
                                         logger.error(
                                             f"LMStudio response parsing error: {e}, Response: {response.text[:500]}"
                                         )
                                         if idx < len(lmstudio_urls) - 1:
                                             continue
-                                        error_detail = f"Failed to parse LMStudio response: {str(e)}"
-                                        error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
-                                        raise HTTPException(status_code=500, detail=error_detail) from e
+                                        raise HTTPException(
+                                            status_code=500, detail="Failed to parse LMStudio response"
+                                        ) from e
                                 else:
                                     # Non-200 status code
-                                    last_error = f"HTTP {response.status_code}: {response.text[:200]}"
+                                    last_error = f"HTTP {response.status_code}"
                                     error_detail = f"LMStudio API error: {response.status_code}"
                                     error_text = response.text[:500] if hasattr(response, "text") else str(response)
 
@@ -1033,26 +1033,19 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 continue
 
                             except httpx.ConnectError as e:
-                                last_error = f"Cannot connect to {lmstudio_url}: {str(e)}"
+                                last_error = f"Cannot connect to {lmstudio_url}"
                                 logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
                                 if idx == len(lmstudio_urls) - 1:
                                     urls_tried = ", ".join(lmstudio_urls)
-                                    error_detail = (
-                                        f"Cannot connect to LMStudio. Tried: {urls_tried}. Last error: {str(e)}"
-                                    )
-                                    error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
+                                    error_detail = f"Cannot connect to LMStudio. Tried: {urls_tried}"
                                     raise HTTPException(status_code=503, detail=error_detail) from e
                                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                                 continue
                             except Exception as e:
-                                last_error = f"Unexpected error with {lmstudio_url}: {str(e)}"
+                                last_error = f"Unexpected error with {lmstudio_url}"
                                 logger.error(f"LMStudio unexpected error at {lmstudio_url}: {e}", exc_info=True)
                                 if idx == len(lmstudio_urls) - 1:
-                                    error_detail = (
-                                        f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}. "
-                                        f"Last error: {str(e)}"
-                                    )
-                                    error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
+                                    error_detail = f"LMStudio request failed. Tried: {', '.join(lmstudio_urls)}"
                                     raise HTTPException(status_code=500, detail=error_detail) from e
                                 continue
 
@@ -1739,8 +1732,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                             original_rule=previous_yaml_preview or "No YAML was detected in the previous attempt.",
                         )
                 except KeyError as e:
-                    error_msg = f"Prompt formatting error: Missing parameter {e}"
-                    logger.error(error_msg)
+                    logger.error("Prompt formatting error: missing parameter %s", e)
+                    error_msg = "Prompt formatting error: missing required parameter"
                     conversation_log.append(
                         {
                             "attempt": attempt,
@@ -1758,8 +1751,8 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                         break
                     continue
                 except Exception as e:
-                    error_msg = f"Error building prompt: {str(e)}"
-                    logger.error(error_msg)
+                    logger.error("Error building prompt: %s", e)
+                    error_msg = f"Error building prompt: {type(e).__name__}"
                     conversation_log.append(
                         {
                             "attempt": attempt,
@@ -1804,7 +1797,7 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                 raw_response = raw_response.strip()
                             except ValueError as e:
                                 error_occurred = type(e).__name__
-                                raise HTTPException(status_code=400, detail=str(e)) from e
+                                raise HTTPException(status_code=400, detail="Provider response processing error") from e
                             except RuntimeError as e:
                                 err = str(e)
                                 error_occurred = err
@@ -1818,7 +1811,10 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
                                         status_code=429,
                                         detail="OpenAI API rate limit exceeded. Please wait and try again.",
                                     ) from e
-                                raise HTTPException(status_code=502, detail=err) from e
+                                logger.error("OpenAI API error: %s", err)
+                                raise HTTPException(
+                                    status_code=502, detail="OpenAI API request failed. Please try again."
+                                ) from e
 
                         elif provider == "anthropic":
                             response = await client.post(
@@ -2081,14 +2077,13 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
     except HTTPException as e:
         # If we have a conversation log, include it in the error response
         if "conversation_log" in locals():
+            logger.error(f"HTTPException during rule validation: {e.detail}")
             return {
                 "success": False,
                 "validated_yaml": None,
-                "errors": [
-                    str(e.detail)
-                ],  # codeql[py/stack-trace-exposure] false positive: e.detail is from HTTPException with a controlled message
+                "errors": [str(e.detail)],
                 "attempts": len(conversation_log) if "conversation_log" in locals() else 0,
-                "message": str(e.detail),  # codeql[py/stack-trace-exposure] false positive: see above
+                "message": str(e.detail),
                 "conversation_log": conversation_log if "conversation_log" in locals() else [],
                 "validation_results": validation_results if "validation_results" in locals() else [],
                 "provider": provider if "provider" in locals() else "workflow",
@@ -2144,7 +2139,8 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
             try:
                 rule_yaml = yaml.safe_load(content_to_parse)
             except yaml.YAMLError as e:
-                raise HTTPException(status_code=400, detail=f"Invalid rule YAML: {str(e)}") from e
+                logger.warning(f"Invalid rule YAML rejected: {e}")
+                raise HTTPException(status_code=400, detail="Invalid YAML in submitted rule") from e
             if not isinstance(rule_yaml, dict):
                 raise HTTPException(status_code=400, detail="Rule YAML did not parse to a dictionary")
 
@@ -2243,7 +2239,7 @@ async def get_similar_rules_for_queued_rule(request: Request, queue_id: int, for
                     db_session.rollback()
 
             # Prepare response (include metadata for empty-state differentiation)
-            response = {  # codeql[py/stack-trace-exposure] false positive: response contains only similarity match metadata, no exception data
+            response = {
                 "success": True,
                 "matches": similar_matches[:20],  # Return top 20
                 "max_similarity": max_similarity,
@@ -2313,9 +2309,7 @@ async def submit_pr_for_approved_rules(request: Request):
             )
             result = pr_service.submit_pr(rules_data)
 
-            if result.get(
-                "success"
-            ):  # codeql[py/stack-trace-exposure] false positive: result is from PR service, no exception data
+            if result.get("success"):
                 # Update database records
                 pr_url = result.get("pr_url")
                 pr_repository = pr_service.github_repo

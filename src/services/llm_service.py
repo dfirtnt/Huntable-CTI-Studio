@@ -43,6 +43,10 @@ class PreprocessInvariantError(Exception):
         self.debug_artifacts = debug_artifacts or {}
 
 
+class ContextLengthExceededError(RuntimeError):
+    """Prompt exceeds the model's context window; unrecoverable, do not retry."""
+
+
 # Always-required traceability fields (Extractor Contract sec 3-4)
 _TRACEABILITY_FIELDS = frozenset({"value", "source_evidence", "extraction_justification", "confidence_score"})
 # Fields that must appear in every item regardless of extractor type
@@ -3916,12 +3920,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                 # old configs with user_template continue to work, but the UI no longer
                 # exposes that field for editing.
                 extracted_commands_text = ""
-                total_count = 0
 
                 # Handle different extraction result formats
                 if "cmdline_items" in last_result:
                     cmdline_items = last_result.get("cmdline_items", [])
-                    total_count = len(cmdline_items)
                     if cmdline_items:
                         extracted_commands_text = "\n".join(
                             [
@@ -3933,7 +3935,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                         extracted_commands_text = "No commands extracted."
                 elif "items" in last_result:
                     items = last_result.get("items", [])
-                    total_count = len(items)
                     if items:
                         extracted_commands_text = "\n".join([f"{i + 1}. {item}" for i, item in enumerate(items)])
                     else:
@@ -3941,7 +3942,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                 else:
                     # Fallback: format entire result as JSON
                     extracted_commands_text = json.dumps(last_result, indent=2)
-                    total_count = len(last_result) if isinstance(last_result, (list, dict)) else 0
 
                 qa_prompt = f"""Task: {qa_task}
 
@@ -4338,7 +4338,11 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 raise  # Fail-fast: do not retry infra invariants
             except PromptConfigValidationError:
                 raise  # Fail-fast: contract violations must surface immediately
+            except ContextLengthExceededError:
+                raise  # Fail-fast: context overflow is unrecoverable, retrying will not help
             except Exception as e:
+                if "context_length_exceeded" in str(e):
+                    raise ContextLengthExceededError(str(e)) from e
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
                 # On last attempt, store all API errors in result (not just connection errors)
                 if current_try >= max_retries:

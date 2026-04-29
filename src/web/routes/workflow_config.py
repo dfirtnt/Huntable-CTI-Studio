@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
+from src.config.workflow_config_schema import AGENT_NAMES_SPECIAL
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -589,7 +590,9 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             prompt_str = str(prompt_str)
 
         if not prompt_str.strip():
-            warnings.append(f"{agent_name}: system prompt is empty")
+            # Special agents (e.g. OSDetectionFallback) are embedding-based and don't use LLM prompts.
+            if agent_name not in AGENT_NAMES_SPECIAL:
+                warnings.append(f"{agent_name}: system prompt is empty")
             continue
 
         if not prompt_str.strip().startswith("{"):

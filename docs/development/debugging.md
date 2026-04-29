@@ -35,6 +35,13 @@ The Huntable CTI Studio debugging tools provide:
 
 The agentic workflow integrates with Langfuse to provide tracing and debugging for workflow executions and LLM calls. Traces are emitted by the LangGraph/Celery runtime when Langfuse is configured; users do not run standalone Langfuse agents.
 
+Langfuse and the workflow database are complementary, not equivalent:
+
+- The database keeps durable workflow state and selected artifacts for audit, UI rendering, and fallback export.
+- Langfuse keeps richer trace and generation telemetry, including fuller request/response payloads, token usage, finish reasons, and per-call metadata.
+- When both exist, Langfuse is the better source for reconstructing a specific LLM call in detail.
+- For some workflow steps, especially extraction, the database may contain truncated top-level message/response copies in `error_log` to keep JSONB payloads manageable.
+
 !!! warning "Cloud-only support and sensitive trace data"
     Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are not supported by this project.
 
@@ -69,32 +76,26 @@ Each workflow execution creates:
 The Langfuse integration is implemented in `src/utils/langfuse_client.py`:
 
 ```python
-# Create trace with session context
 from langfuse.types import TraceContext
+
 trace_context = TraceContext(
     session_id=f"workflow_exec_{execution_id}",
     user_id=f"article_{article_id}",
 )
 
-# Start trace as current span
-span_cm = client.start_as_current_span(
+span_cm = client.start_as_current_observation(
     trace_context=trace_context,
     name=f"agentic_workflow_execution_{execution_id}",
     input={"execution_id": execution_id, "article_id": article_id},
-    metadata={...}
+    metadata={...},
 )
 span = span_cm.__enter__()
-
-# Explicitly associate trace with session (required in Langfuse 4.x)
-span.update_trace(session_id=session_id)
-
-# Store trace_id (32 chars) not span id (16 chars)
-trace_id = span.trace_id
+trace_id = getattr(span, "trace_id", None) or getattr(span, "id", None)
 ```
 
 ### Key Implementation Points
 
-1. **Session Association**: In Langfuse 4.x with OpenTelemetry, passing `session_id` in `TraceContext` alone is insufficient. An explicit `span.update_trace(session_id=...)` call is required.
+1. **Session Association**: The workflow trace is created with `TraceContext(session_id=..., user_id=...)`. Child generations are linked by `trace_id` and the same `workflow_exec_{execution_id}` session identifier.
 
 2. **Trace ID vs Span ID**:
    - **Trace ID**: 32-character identifier (e.g., `62ed1c144abee5401636ea6c5b9b4f7a`)
@@ -113,6 +114,16 @@ The workflow UI prefers a direct trace view when it has both trace and project m
 2. Open the workflow trace directly in Langfuse
 3. See inputs, outputs, and metadata for each step
 4. Track token usage and latency per agent
+
+### Database Fallback Limits
+
+If Langfuse is unavailable, the workflow database still preserves useful debugging data in `agentic_workflow_executions.error_log`, but it is less complete than Langfuse:
+
+- top-level `conversation_log` copies may be truncated;
+- token usage is not reliably persisted there;
+- some request/response reconstruction relies on fallback fields embedded in step results rather than a first-class trace model.
+
+Use the database as the durable fallback. Use Langfuse when you need maximum per-call detail.
 
 #### Search View (Fallback)
 

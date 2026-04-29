@@ -123,7 +123,7 @@ class TestFilterOpenaiModelsProjectAllowlist:
 
     def test_non_allowlisted_chat_models_dropped(self):
         # Valid chat models the project pipeline does not use.
-        # gpt-5*/codex-* are intentionally excluded here -- they pass by pattern.
+        # gpt-5* is intentionally excluded here -- it passes by pattern.
         ids = ["gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-pro", "o3", "o3-pro"]
         assert filter_openai_models_project_allowlist(ids) == []
 
@@ -135,10 +135,10 @@ class TestFilterOpenaiModelsProjectAllowlist:
             "gpt-4.1-mini",
             "o3-mini",
             "o4-mini",
-            # gpt-5* and codex-* pass by pattern (not noise)
+            # gpt-5* passes by pattern (not noise)
             "gpt-5",
-            "codex-mini-latest",
             # genuine noise -- dropped
+            "codex-mini-latest",
             "gpt-4-turbo",
             "gpt-4o-audio-preview",
             "gpt-4o-2024-05-13",
@@ -174,15 +174,15 @@ class TestFilterOpenaiModelsProjectAllowlist:
         # filter_openai_models_latest_only upstream, so this layer must also reject them.
         assert filter_openai_models_project_allowlist(["gpt-4o-2024-05-13", "gpt-4.1-mini-2025-04-14"]) == []
 
-    def test_codex_pattern_passes_new_variants(self):
-        """codex-* models pass via _CODEX_PATTERN -- no catalog/allowlist entry required."""
+    def test_codex_pattern_dropped(self):
+        """Codex-only model IDs are not admitted by the workflow allowlist."""
         ids = ["codex-large", "codex-v2", "codex-mini", "codex-future-model"]
         out = filter_openai_models_project_allowlist(ids)
-        assert set(out) == {"codex-large", "codex-v2", "codex-mini", "codex-future-model"}
+        assert out == []
 
     def test_allowlist_size_matches_spec(self):
         # Canary: if this changes, update the Todoist task / docs before landing.
-        assert len(PROJECT_OPENAI_ALLOWLIST) == 7
+        assert len(PROJECT_OPENAI_ALLOWLIST) == 6
         assert {
             "gpt-4o-mini",
             "gpt-4o",
@@ -190,7 +190,6 @@ class TestFilterOpenaiModelsProjectAllowlist:
             "gpt-4.1",
             "o3-mini",
             "o4-mini",
-            "codex-mini-latest",
         } == PROJECT_OPENAI_ALLOWLIST
 
 
@@ -265,14 +264,14 @@ class TestIsValidOpenaiChatModel:
         # Base gpt-99 does not match VALID_CHAT_BASE_PATTERNS or whitelist; dated → conservative False
         assert is_valid_openai_chat_model("gpt-99-2025-01-01") is False
 
-    def test_codex_mini_whitelisted(self):
-        """codex-mini is explicitly whitelisted as a chat model."""
-        assert is_valid_openai_chat_model("codex-mini") is True
-        assert is_valid_openai_chat_model("codex-mini-latest") is True
+    def test_codex_mini_not_whitelisted(self):
+        """Codex Mini is not a supported direct-API workflow model."""
+        assert is_valid_openai_chat_model("codex-mini") is False
+        assert is_valid_openai_chat_model("codex-mini-latest") is False
 
-    def test_codex_prefix_fallback(self):
-        """codex- prefix models pass the fallback check (like gpt- and o)."""
-        assert is_valid_openai_chat_model("codex-future-model") is True
+    def test_codex_prefix_no_fallback(self):
+        """codex- prefix models do not pass the fallback check."""
+        assert is_valid_openai_chat_model("codex-future-model") is False
 
     def test_gpt_codex_suffix_still_excluded(self):
         """Models with -codex suffix (e.g. gpt-5-codex) remain non-chat."""
@@ -344,7 +343,7 @@ class TestModelSupportsVariableTemperature:
             assert model_supports_variable_temperature(model) is False, model
 
     def test_standard_gpt_models_return_true(self):
-        for model in ("gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "codex-mini-latest"):
+        for model in ("gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini"):
             assert model_supports_variable_temperature(model) is True, model
 
     def test_anthropic_models_return_true(self):
@@ -367,15 +366,9 @@ class TestModelSupportsVariableTemperature:
 
     def test_project_allowlist_standard_models_are_true(self):
         """Non-reasoning models from PROJECT_OPENAI_ALLOWLIST must return True."""
-        standard_in_allowlist = {"gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "codex-mini-latest"}
+        standard_in_allowlist = {"gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini"}
         for m in standard_in_allowlist:
             assert model_supports_variable_temperature(m) is True, m
-
-    def test_codex_mini_latest_treated_as_standard(self):
-        """codex-mini-latest is in PROJECT_OPENAI_ALLOWLIST and does not match any reasoning
-        prefix, so it is treated as supporting variable temperature. If OpenAI changes behavior
-        for this model, the defense-in-depth retry in llm_service will still handle it."""
-        assert model_supports_variable_temperature("codex-mini-latest") is True
 
     def test_prefix_match_not_substring_match(self):
         """Reasoning prefix check uses startswith, not substring -- a model with a reasoning
@@ -408,7 +401,6 @@ class TestModelSupportsVariableTemperature:
             "gpt-4o-mini": True,
             "gpt-4.1": True,
             "gpt-4.1-mini": True,
-            "codex-mini-latest": True,
             "o3-mini": False,
             "o4-mini": False,
         }

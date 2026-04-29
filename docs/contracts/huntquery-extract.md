@@ -147,10 +147,13 @@ If structurally present but incomplete / fragmentary / not executable as shown, 
 
 ## COUNT SEMANTICS
 
-- Unique key for queries: exact character-for-character match of (platform, query_text).
-- Unique key for Sigma: exact character-for-character match of sigma_text.
+- Unique key for EDR/SIEM queries: exact character-for-character match of (type, query).
+- Unique key for Sigma rules: exact character-for-character match of query where type = "sigma".
 - Identical artifact appearing multiple times = ONE item.
 - Near-duplicates (whitespace, comments, title differences) = separate items.
+- Emit EDR/SIEM queries and Sigma rules in the same `queries` array.
+- `query_count` MUST equal `len(queries)` and MUST be the combined total of EDR/SIEM query items plus Sigma rule items.
+- Do NOT emit or score separate `sigma_rules` / `sigma_count` fields for this extractor contract.
 
 ## EDGE CASES
 
@@ -196,34 +199,32 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
   "queries": [
     {
       "value": "DeviceProcessEvents | where InitiatingProcessCommandLine contains \"certutil\"",
-      "query_text": "DeviceProcessEvents | where InitiatingProcessCommandLine contains \"certutil\"",
-      "platform": "kql",
-      "source_context": "fenced_code_block",
+      "query": "DeviceProcessEvents | where InitiatingProcessCommandLine contains \"certutil\"",
+      "type": "kql",
+      "context": "fenced code block with Microsoft Defender hunting query",
       "source_evidence": "Hunting query (Microsoft Defender): DeviceProcessEvents | where InitiatingProcessCommandLine contains \"certutil\"",
       "extraction_justification": "Complete KQL snippet using the DeviceProcessEvents schema and InitiatingProcessCommandLine field; runnable as a Defender Advanced Hunting query.",
       "confidence_score": 0.97
-    }
-  ],
-  "query_count": 1,
-  "sigma_rules": [
+    },
     {
       "value": "title: Suspicious certutil download\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    Image|endswith: '\\certutil.exe'\n    CommandLine|contains: '-urlcache'\n  condition: selection",
-      "sigma_text": "title: Suspicious certutil download\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    Image|endswith: '\\certutil.exe'\n    CommandLine|contains: '-urlcache'\n  condition: selection",
-      "source_context": "fenced_code_block",
+      "query": "title: Suspicious certutil download\nlogsource:\n  product: windows\n  category: process_creation\ndetection:\n  selection:\n    Image|endswith: '\\certutil.exe'\n    CommandLine|contains: '-urlcache'\n  condition: selection",
+      "type": "sigma",
+      "context": "fenced code block with Sigma YAML rule",
       "source_evidence": "The following Sigma rule detects this behavior: (YAML block follows)",
       "extraction_justification": "Structurally valid Sigma rule with logsource and detection keys; directly usable as detection logic.",
       "confidence_score": 0.98
     }
   ],
-  "sigma_count": 1
+  "query_count": 2
 }
 ```
 
 ### FIELD RULES
 
-Traceability fields (REQUIRED on every item in BOTH arrays):
+Traceability fields (REQUIRED on every item in `queries`):
 
-- value: REQUIRED. Primary artifact content. For queries: duplicate of query_text. For Sigma: duplicate of sigma_text.
+- value: REQUIRED. Primary artifact content. Exact duplicate of query.
 - source_evidence: REQUIRED. Exact excerpt (heading/label/sentence) within 3 lines preceding the artifact,
   or the first line of the artifact itself if no preceding context exists within 3 lines.
 - extraction_justification: REQUIRED. One sentence explaining why this artifact is valid and detection-runnable.
@@ -233,16 +234,12 @@ Traceability fields (REQUIRED on every item in BOTH arrays):
     0.5-0.6     platform = unknown but structurally valid
     below 0.5   DO NOT EXTRACT (fail-closed)
 
-Domain fields (queries):
+Domain fields (queries array):
 
-- query_text: REQUIRED. Verbatim extracted query.
-- platform: REQUIRED. One of: kql, falcon, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, unknown.
-- source_context: REQUIRED. One of: fenced_code_block, indented_code_block, inline, paragraph.
-
-Domain fields (sigma_rules):
-
-- sigma_text: REQUIRED. Verbatim extracted Sigma YAML.
-- source_context: REQUIRED. One of: fenced_code_block, indented_code_block, inline, paragraph.
+- query: REQUIRED. Verbatim extracted EDR/SIEM query or Sigma YAML.
+- type: REQUIRED. One of: kql, falcon, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, sigma, unknown, other.
+- context: Optional short source or detection context. Omit when not useful.
+- query_count: REQUIRED envelope field. Integer equal to len(queries), counting both EDR/SIEM queries and Sigma rules.
 
 Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 
@@ -251,7 +248,7 @@ Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 If no valid artifacts exist, return exactly:
 
 ```json
-{"queries": [], "query_count": 0, "sigma_rules": [], "sigma_count": 0}
+{"queries": [], "query_count": 0}
 ```
 
 ### FINAL REMINDER

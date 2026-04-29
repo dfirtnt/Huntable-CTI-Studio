@@ -4198,8 +4198,7 @@ function isValidOpenAIChatModel(modelId) {
         'gpt-5.2-pro', 'gpt-5.2', 'gpt-5.1', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano',
         'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano',
         'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo',
-        'o3', 'o3-pro', 'o3-mini', 'o4-mini', 'o1', 'o1-pro',
-        'codex-mini'
+        'o3', 'o3-pro', 'o3-mini', 'o4-mini', 'o1', 'o1-pro'
     ];
     
     if (knownValidBases.includes(baseModel.toLowerCase())) {
@@ -4215,8 +4214,8 @@ function isValidOpenAIChatModel(modelId) {
         };
     }
     
-    // Fallback: allow if it starts with gpt-, o, or codex-
-    if (/^(gpt-|o|codex-)/i.test(trimmed)) {
+    // Fallback: allow if it starts with gpt- or o
+    if (/^(gpt-|o)/i.test(trimmed)) {
         return {valid: true, warning: `Model "${trimmed}" is not explicitly validated`};
     }
     
@@ -10178,7 +10177,6 @@ async function importPresetFromFile(event) {
         
         const isV2 = preset.Version === '2.0';
         if (!preset.version && !isV2) throw new Error('Invalid preset format. Missing version.');
-        let importWarnings = [];
         if (isV2) {
             const response = await fetch('/api/workflow/config/preset/to-legacy', {
                 method: 'POST',
@@ -10187,21 +10185,16 @@ async function importPresetFromFile(event) {
             });
             const data = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(data.detail || data.message || 'Failed to convert preset.');
-            importWarnings = data.warnings || [];
+            // V2: warnings are already embedded in the to-legacy response; surface them directly.
+            const v2Warnings = data.warnings || [];
+            if (v2Warnings.length > 0) {
+                console.warn('Preset import warnings:', v2Warnings);
+                const summary = v2Warnings.length === 1
+                    ? v2Warnings[0]
+                    : `${v2Warnings.length} prompt issues found (see console for details)`;
+                showNotification('Preset warning: ' + summary, 'warning');
+            }
             preset = data;
-        } else {
-            // Legacy preset: validate prompts via dedicated endpoint
-            try {
-                const vResp = await fetch('/api/workflow/config/preset/validate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(preset)
-                });
-                if (vResp.ok) {
-                    const vData = await vResp.json().catch(() => ({}));
-                    importWarnings = vData.warnings || [];
-                }
-            } catch (_) { /* validation is best-effort; don't block import */ }
         }
         if (preset.scope && SUBAGENT_SCOPES.includes(preset.scope)) {
             if (!preset.agent_models && (!preset.agent_prompts || Object.keys(preset.agent_prompts).length === 0) && (!preset.qa_enabled || Object.keys(preset.qa_enabled).length === 0)) {
@@ -10231,14 +10224,10 @@ async function importPresetFromFile(event) {
             ? `${SUBAGENT_SCOPE_MAP[preset.scope]?.extract || preset.scope} preset loaded`
             : 'Preset "' + file.name + '" loaded successfully';
         showNotification(successMsg, 'success');
-
-        if (importWarnings.length > 0) {
-            console.warn('Preset import warnings:', importWarnings);
-            const warnSummary = importWarnings.length === 1
-                ? importWarnings[0]
-                : `${importWarnings.length} prompt issues found (see console for details)`;
-            showNotification('Preset warning: ' + warnSummary, 'warning');
-        }
+        // Legacy presets (and V2 presets after conversion) run through the shared helper.
+        // V2 warnings were already shown above; _notifyImportWarnings deduplicates naturally
+        // since the to-legacy response strips the warnings field before storing as preset.
+        if (!isV2) await _notifyImportWarnings(preset);
         
         // Reset file input
         event.target.value = '';
@@ -10356,6 +10345,31 @@ async function showConfigVersionList() {
     await refreshConfigVersionList();
 }
 
+/**
+ * Validate a legacy-shaped preset against the server-side prompt scanner and
+ * surface any warnings as a toast. Best-effort: validation failure never
+ * blocks the load.
+ */
+async function _notifyImportWarnings(preset) {
+    try {
+        const vResp = await fetch('/api/workflow/config/preset/validate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(preset)
+        });
+        if (!vResp.ok) return;
+        const vData = await vResp.json().catch(() => ({}));
+        const warnings = vData.warnings || [];
+        if (warnings.length > 0) {
+            console.warn('Preset load warnings:', warnings);
+            const summary = warnings.length === 1
+                ? warnings[0]
+                : `${warnings.length} prompt issues found (see console for details)`;
+            showNotification('Preset warning: ' + summary, 'warning');
+        }
+    } catch (_) { /* validation is best-effort */ }
+}
+
 async function loadConfigByVersion(versionNumber) {
     try {
         const response = await fetch(`/api/workflow/config/version/${versionNumber}`);
@@ -10372,6 +10386,7 @@ async function loadConfigByVersion(versionNumber) {
         await applyPreset(data);
         closeConfigVersionListModal();
         showNotification('Config v' + versionNumber + ' loaded (prompts + models). Click Save to make it active.', 'info');
+        await _notifyImportWarnings(data);
     } catch (error) {
         console.error('Error loading config by version:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -10549,6 +10564,7 @@ async function loadConfigPresetById(presetId) {
             ? `${SUBAGENT_SCOPE_MAP[data.scope]?.extract || data.scope} preset loaded`
             : 'Preset loaded';
         showNotification(msg, 'success');
+        await _notifyImportWarnings(data);
     } catch (error) {
         console.error('Error loading config preset:', error);
         const errorMessage = error instanceof Error ? error.message : (typeof error === 'string' ? error : (error?.message || JSON.stringify(error) || 'Unknown error'));
@@ -12446,7 +12462,7 @@ function renderExecutions() {
                 ${formatLocalDateTime(exec.created_at)}
             </td>
             <td><div class="q-actions-cell">
-                <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open Langfuse session">Session</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
+                <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open Langfuse session">Trace</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
             </div></td>
         </tr>
     `).join('');

@@ -42,6 +42,18 @@ _THROTTLE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
+_CONTEXT_OVERFLOW_PATTERNS = re.compile(
+    r"context.{0,15}(size|length|window).{0,15}exceeded|context_length_exceeded",
+    re.IGNORECASE,
+)
+
+# Covers LMStudio "not ready" / "no model loaded" transient infra errors.
+_INFRA_NOT_READY_PATTERNS = re.compile(
+    r"lmstudio is not ready|no model.{0,20}loaded|ensure lmstudio is running",
+    re.IGNORECASE,
+)
+
 
 def _execution_is_throttled(
     error_message: str | None,
@@ -74,6 +86,79 @@ def _execution_is_throttled(
             value = result.get(field)
             if isinstance(value, str) and _THROTTLE_PATTERNS.search(value):
                 return True
+    return False
+
+
+def _execution_has_context_overflow(
+    error_message: str | None,
+    error_log: dict | list | str | None,
+    extraction_result: dict | None,
+    subagent_lookup: str | None = None,
+) -> bool:
+    if error_message and _CONTEXT_OVERFLOW_PATTERNS.search(error_message):
+        return True
+
+    if isinstance(error_log, dict):
+        extract_agent = error_log.get("extract_agent")
+        if isinstance(extract_agent, dict):
+            conversation_log = extract_agent.get("conversation_log")
+            if isinstance(conversation_log, list):
+                for entry in conversation_log:
+                    if not isinstance(entry, dict):
+                        continue
+                    result = entry.get("result")
+                    if not isinstance(result, dict):
+                        continue
+                    for field in ("error", "error_type", "error_details"):
+                        value = result.get(field)
+                        if isinstance(value, str) and _CONTEXT_OVERFLOW_PATTERNS.search(value):
+                            return True
+
+    if isinstance(extraction_result, dict) and subagent_lookup:
+        subresults = extraction_result.get("subresults", {})
+        if isinstance(subresults, dict):
+            subresult = subresults.get(subagent_lookup, {})
+            raw = subresult.get("raw", {}) if isinstance(subresult, dict) else {}
+            if isinstance(raw, dict) and raw.get("context_length_exceeded"):
+                return True
+
+    return False
+
+
+def _execution_infra_not_ready(
+    error_message: str | None,
+    error_log: dict | list | str | None,
+    extraction_result: dict | None,
+) -> bool:
+    if error_message and _INFRA_NOT_READY_PATTERNS.search(error_message):
+        return True
+
+    if isinstance(error_log, dict):
+        extract_agent = error_log.get("extract_agent")
+        if isinstance(extract_agent, dict):
+            conversation_log = extract_agent.get("conversation_log")
+            if isinstance(conversation_log, list):
+                for entry in conversation_log:
+                    if not isinstance(entry, dict):
+                        continue
+                    result = entry.get("result")
+                    if not isinstance(result, dict):
+                        continue
+                    for field in ("error", "error_type", "error_details"):
+                        value = result.get(field)
+                        if isinstance(value, str) and _INFRA_NOT_READY_PATTERNS.search(value):
+                            return True
+
+    if isinstance(extraction_result, dict):
+        subresults = extraction_result.get("subresults", {})
+        if isinstance(subresults, dict):
+            for subresult in subresults.values():
+                raw = subresult.get("raw", {}) if isinstance(subresult, dict) else {}
+                if isinstance(raw, dict):
+                    err = raw.get("error", "")
+                    if isinstance(err, str) and _INFRA_NOT_READY_PATTERNS.search(err):
+                        return True
+
     return False
 
 
@@ -723,6 +808,15 @@ async def get_execution_commandlines(
                 if isinstance(extraction_warnings, list):
                     warnings.extend(extraction_warnings)
 
+            # Check if the relevant subagent hit a context length overflow
+            context_length_exceeded = False
+            if extraction_result and isinstance(extraction_result, dict):
+                subresults = extraction_result.get("subresults", {})
+                subresult = subresults.get(result_key, {}) if isinstance(subresults, dict) else {}
+                raw = subresult.get("raw", {}) if isinstance(subresult, dict) else {}
+                if isinstance(raw, dict) and raw.get("context_length_exceeded"):
+                    context_length_exceeded = True
+
             # Article title and URL for display
             article_title = ""
             article_url = ""
@@ -742,6 +836,7 @@ async def get_execution_commandlines(
                 "subagent_eval": normalized_subagent_eval or (raw_subagent_eval or ""),
                 "result_type": result_key,
                 "warnings": warnings if warnings else None,
+                "context_length_exceeded": context_length_exceeded,
             }
         finally:
             db_session.close()
@@ -1233,6 +1328,8 @@ async def get_subagent_eval_results(
                 warnings = []
                 execution_error_message = None
                 throttled = False
+                context_length_exceeded = False
+                infra_not_ready = False
 
                 if record.workflow_execution_id:
                     execution = (
@@ -1254,6 +1351,19 @@ async def get_subagent_eval_results(
                             execution_error_message = execution.error_message
                         if _execution_is_throttled(execution.error_message, execution.error_log):
                             throttled = True
+                        if _execution_has_context_overflow(
+                            execution.error_message,
+                            execution.error_log,
+                            execution.extraction_result,
+                            record.subagent_name,
+                        ):
+                            context_length_exceeded = True
+                        if _execution_infra_not_ready(
+                            execution.error_message,
+                            execution.error_log,
+                            execution.extraction_result,
+                        ):
+                            infra_not_ready = True
 
                 # Calculate score if actual_count is set
                 score = None
@@ -1279,6 +1389,8 @@ async def get_subagent_eval_results(
                         "warnings": warnings if warnings else None,
                         "error_message": execution_error_message,
                         "throttled": throttled,
+                        "context_length_exceeded": context_length_exceeded,
+                        "infra_not_ready": infra_not_ready,
                     }
                 )
 

@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const extractionModeSelect = document.getElementById('extraction-mode');
     const visionConfigDiv = document.getElementById('vision-config');
     const visionProviderSelect = document.getElementById('vision-provider');
-    const visionApiKeyInput = document.getElementById('vision-api-key');
 
     let currentArticleData = null;
     let extractedImages = [];
@@ -289,7 +288,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                Send to CTIScraper
+                Send to Huntable CTI Studio
             `;
         }
     }
@@ -331,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const apiUrl = apiUrlInput.value.trim();
         if (!apiUrl) {
-            showError('Please enter CTIScraper API URL');
+            showError('Please enter Huntable CTI Studio API URL');
             return;
         }
 
@@ -344,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        showStatus('Sending to CTIScraper...', 'loading');
+        showStatus('Sending to Huntable CTI Studio...', 'loading');
         scrapeBtn.disabled = true;
         scrapeBtn.innerHTML = '<div class="spinner"></div> Sending...';
 
@@ -361,13 +360,13 @@ document.addEventListener('DOMContentLoaded', function() {
             data: requestData
         }, (response) => {
             if (chrome.runtime.lastError) {
-                showError(`Failed to send to CTIScraper: ${chrome.runtime.lastError.message}`);
+                showError(`Failed to send to Huntable CTI Studio: ${chrome.runtime.lastError.message}`);
                 scrapeBtn.disabled = false;
                 scrapeBtn.innerHTML = `
                     <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                     </svg>
-                    Send to CTIScraper
+                    Send to Huntable CTI Studio
                 `;
                 return;
             }
@@ -376,7 +375,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                Send to CTIScraper
+                Send to Huntable CTI Studio
             `;
 
             if (response && response.success) {
@@ -404,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } else {
                 const error = response?.error || 'Unknown error occurred';
-                showError(`Failed to send to CTIScraper: ${error}`);
+                showError(`Failed to send to Huntable CTI Studio: ${error}`);
             }
         });
     }
@@ -586,39 +585,48 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             showStatus('Running OCR...', 'loading');
+            statusEl.textContent = 'Fetching image...';
 
-            // Create a canvas to handle CORS issues
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            
-            // Use a proxy approach: fetch image via content script
-            const imageData = await new Promise((resolve, reject) => {
-                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                    chrome.scripting.executeScript({
-                        target: { tabId: tabs[0].id },
-                        function: fetchImageAsDataURL,
-                        args: [image.src]
-                    }, (results) => {
-                        if (results && results[0] && results[0].result) {
-                            resolve(results[0].result);
-                        } else {
-                            reject(new Error('Failed to fetch image'));
+            let imageData;
+            try {
+                imageData = await new Promise((resolve, reject) => {
+                    chrome.runtime.sendMessage(
+                        { action: 'fetchImageAsDataURL', data: { src: image.src } },
+                        (resp) => {
+                            if (chrome.runtime.lastError) return reject(new Error('Msg: ' + chrome.runtime.lastError.message));
+                            if (resp && resp.success) return resolve(resp.dataUrl);
+                            reject(new Error('Fetch: ' + (resp ? resp.error : 'no response')));
                         }
-                    });
+                    );
                 });
-            });
+            } catch (fetchErr) {
+                throw new Error('Image fetch failed - ' + fetchErr.message);
+            }
+            statusEl.textContent = 'Image fetched, starting OCR...';
 
             // Perform OCR using locally-vendored Tesseract files to satisfy
             // Chrome MV3 CSP (no CDN fetches allowed for worker/WASM scripts).
             // workerBlobURL:false forces new Worker(url) instead of a blob
             // wrapper, so self.location.href resolves to the extension origin
             // and the WASM XHR paths compute correctly.
+            // langPath must point to a directory containing eng.traineddata.gz;
+            // the worker fetches it via fetch() so the CDN is reachable from
+            // the worker context even under MV3 CSP.
             const { data: { text } } = await Tesseract.recognize(imageData, 'eng', {
                 workerPath: chrome.runtime.getURL('worker.min.js'),
                 corePath: chrome.runtime.getURL(''),
+                langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng/4.0.0_best_int',
                 workerBlobURL: false,
+                // v5 LSTM mode normally loads tesseract-core-simd-lstm.wasm.js which
+                // isn't bundled; legacyCore:true selects tesseract-core-simd.wasm.js
+                // (the combined file that IS bundled) while still running LSTM OCR.
+                legacyCore: true,
                 logger: m => {
-                    if (m.status === 'recognizing text') {
+                    if (m.status === 'loading tesseract core') {
+                        statusEl.textContent = 'Loading OCR engine...';
+                    } else if (m.status === 'loading language traineddata') {
+                        statusEl.textContent = 'Loading language data...';
+                    } else if (m.status === 'recognizing text') {
                         statusEl.textContent = `OCR: ${Math.round(m.progress * 100)}%`;
                     }
                 }
@@ -647,32 +655,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const statusEl = document.getElementById(`status-${imageId}`);
         if (!statusEl) return;
 
-        const apiKey = visionApiKeyInput.value.trim();
         const provider = visionProviderSelect.value;
-
-        if (!apiKey) {
-            showError('Vision LLM requires an API key. Add one in the extraction config.');
-            return;
-        }
 
         statusEl.textContent = 'Fetching image...';
         statusEl.style.color = '#2a4365';
 
         try {
             const imageData = await new Promise((resolve, reject) => {
-                chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                    chrome.scripting.executeScript({
-                        target: { tabId: tabs[0].id },
-                        function: fetchImageAsDataURL,
-                        args: [image.src]
-                    }, (results) => {
-                        if (results && results[0] && results[0].result) {
-                            resolve(results[0].result);
-                        } else {
-                            reject(new Error('Failed to fetch image'));
-                        }
-                    });
-                });
+                chrome.runtime.sendMessage(
+                    { action: 'fetchImageAsDataURL', data: { src: image.src } },
+                    (resp) => {
+                        if (chrome.runtime.lastError) return reject(new Error(chrome.runtime.lastError.message));
+                        if (resp && resp.success) return resolve(resp.dataUrl);
+                        reject(new Error(resp ? resp.error : 'Failed to fetch image'));
+                    }
+                );
             });
 
             statusEl.textContent = 'Calling Vision LLM...';
@@ -681,7 +678,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const response = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage({
                     action: 'callVisionLLM',
-                    data: { imageDataUrl: imageData, provider, apiKey }
+                    data: { imageDataUrl: imageData, provider, apiUrl: apiUrlInput.value.trim() }
                 }, (resp) => {
                     if (chrome.runtime.lastError) {
                         reject(new Error(chrome.runtime.lastError.message));
@@ -710,42 +707,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Hybrid: try Vision LLM first, fall back to OCR on failure
     async function performHybrid(imageId) {
         const apiKey = visionApiKeyInput.value.trim();
-        if (apiKey) {
-            try {
-                await performVisionLLM(imageId);
-                const statusEl = document.getElementById(`status-${imageId}`);
-                if (statusEl && statusEl.style.color !== '#742a2a') return;
-            } catch (_) {
-                // fall through to OCR
-            }
+        try {
+            await performVisionLLM(imageId);
+            const statusEl = document.getElementById(`status-${imageId}`);
+            if (statusEl && statusEl.style.color !== '#742a2a') return;
+        } catch (_) {
+            // fall through to OCR
         }
         await performOCR(imageId);
-    }
-
-    // Function to fetch image as data URL (injected into page)
-    function fetchImageAsDataURL(imageSrc) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                
-                try {
-                    const dataURL = canvas.toDataURL('image/png');
-                    resolve(dataURL);
-                } catch (e) {
-                    reject(e);
-                }
-            };
-            
-            img.onerror = () => reject(new Error('Failed to load image'));
-            img.src = imageSrc;
-        });
     }
 
     // Get OCR text to append to content
@@ -789,15 +758,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Load vision preferences
-    chrome.storage.local.get(['extractionMode', 'visionProvider', 'visionApiKey'], (result) => {
+    chrome.storage.local.get(['extractionMode', 'visionProvider'], (result) => {
         if (result.extractionMode) {
             extractionModeSelect.value = result.extractionMode;
         }
         if (result.visionProvider) {
             visionProviderSelect.value = result.visionProvider;
-        }
-        if (result.visionApiKey) {
-            visionApiKeyInput.value = result.visionApiKey;
         }
         updateVisionConfigVisibility();
     });
@@ -810,9 +776,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     visionProviderSelect.addEventListener('change', () => {
         chrome.storage.local.set({ visionProvider: visionProviderSelect.value });
-    });
-    visionApiKeyInput.addEventListener('change', () => {
-        chrome.storage.local.set({ visionApiKey: visionApiKeyInput.value });
     });
 
     // Load article data on popup open

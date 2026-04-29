@@ -1185,14 +1185,8 @@ async def get_workflow_debug_info(request: Request, execution_id: int):
             # Normalize host URL (remove trailing slash)
             langfuse_host = langfuse_host.rstrip("/") if langfuse_host else "https://us.cloud.langfuse.com"
 
-            # Prefer /traces/{trace_id}: direct trace URLs work. /sessions/{session_id} 404s
-            # ("Session not found" / sessions.byIdWithScores). Fallback: traces?search={session_id}.
-            if resolved_trace_id and langfuse_project_id:
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces/{resolved_trace_id}"
-            elif resolved_trace_id:
-                agent_chat_url = f"{langfuse_host}/traces/{resolved_trace_id}"
-            elif langfuse_project_id:
-                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/traces?search={session_id}"
+            if langfuse_project_id:
+                agent_chat_url = f"{langfuse_host}/project/{langfuse_project_id}/sessions/{session_id}"
             else:
                 agent_chat_url = f"{langfuse_host}/traces?search={session_id}"
 
@@ -1406,7 +1400,8 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
             db_session.close()
 
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.info(f"Eval bundle export 404: {e}")
+        raise HTTPException(status_code=404, detail="Execution not found") from e
     except Exception as e:
         logger.error(f"Error exporting eval bundle for execution {execution_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e

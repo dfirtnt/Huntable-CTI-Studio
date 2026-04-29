@@ -20,6 +20,34 @@ from src.web.routes.scrape import _scrape_single_url
 pytestmark = pytest.mark.api
 
 
+# ---------------------------------------------------------------------------
+# Helpers shared by OCR-append tests
+# ---------------------------------------------------------------------------
+
+
+def _make_ocr_db(existing_article):
+    """DatabaseManager mock for the OCR-append code path.
+
+    The source lookup returns a fake manual source; the article lookup
+    returns *existing_article*. Only two get_session() calls are expected
+    because the source IS found on the first attempt, skipping the creation
+    block entirely.
+    """
+    source_session = MagicMock()
+    source_session.query.return_value.filter.return_value.first.return_value = MagicMock(id=42)
+    source_session.__enter__ = MagicMock(return_value=source_session)
+    source_session.__exit__ = MagicMock(return_value=None)
+
+    article_session = MagicMock()
+    article_session.query.return_value.filter.return_value.first.return_value = existing_article
+    article_session.__enter__ = MagicMock(return_value=article_session)
+    article_session.__exit__ = MagicMock(return_value=None)
+
+    db = MagicMock()
+    db.get_session.side_effect = [source_session, article_session]
+    return db
+
+
 def _mock_async_client(response: httpx.Response) -> MagicMock:
     """Build a MagicMock that mimics `async with httpx.AsyncClient() as c`."""
     client = MagicMock()
@@ -105,3 +133,106 @@ async def test_scrape_url_happy_path_ingests_and_returns_success():
             return
 
     assert isinstance(result, dict)
+
+
+# ---------------------------------------------------------------------------
+# OCR block append for existing articles
+# ---------------------------------------------------------------------------
+
+_unused_ocr_patches = (
+    "src.web.routes.scrape.validate_url_for_scraping",
+    "src.database.manager.DatabaseManager",
+    "src.database.async_manager.AsyncDatabaseManager",
+    "src.utils.simhash.compute_article_simhash",
+)
+
+
+@pytest.mark.asyncio
+async def test_scrape_existing_article_new_ocr_blocks_are_appended():
+    """OCR blocks absent from stored content must be appended via update_article."""
+    pre_content = "Article text.\n\n[Image OCR: Login screenshot]\nadmin:pass123\n\n"
+    fake_article = MagicMock(id=999, title="Test", content="Original stored content.")
+    fake_db = _make_ocr_db(fake_article)
+
+    mock_async_db = MagicMock()
+    mock_async_db.update_article = AsyncMock()
+
+    with (
+        patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/a"),
+        patch("src.database.manager.DatabaseManager", return_value=fake_db),
+        patch("src.database.async_manager.AsyncDatabaseManager", return_value=mock_async_db),
+        patch("src.utils.simhash.compute_article_simhash", return_value=(0, 0)),
+    ):
+        result = await _scrape_single_url(
+            url="https://example.test/a",
+            title="Test",
+            force_scrape=False,
+            pre_scraped_content=pre_content,
+        )
+
+    assert result["success"] is True
+    assert result["existing"] is True
+    assert "1 OCR block" in result["message"]
+    mock_async_db.update_article.assert_awaited_once()
+    updated_content = mock_async_db.update_article.call_args[0][1].content
+    assert "admin:pass123" in updated_content
+    assert "Original stored content." in updated_content
+
+
+@pytest.mark.asyncio
+async def test_scrape_existing_article_duplicate_ocr_block_not_reappended():
+    """OCR block already stored in the article must not be appended again."""
+    ocr_block = "[Image OCR: Screenshot]\nextracted text here"
+    pre_content = f"Article text.\n\n{ocr_block}\n"
+    # Article already has the block stored
+    existing_content = f"Original content.\n\n{ocr_block}"
+    fake_article = MagicMock(id=999, title="Test", content=existing_content)
+    fake_db = _make_ocr_db(fake_article)
+
+    mock_async_db = MagicMock()
+    mock_async_db.update_article = AsyncMock()
+
+    with (
+        patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/b"),
+        patch("src.database.manager.DatabaseManager", return_value=fake_db),
+        patch("src.database.async_manager.AsyncDatabaseManager", return_value=mock_async_db),
+        patch("src.utils.simhash.compute_article_simhash", return_value=(0, 0)),
+    ):
+        result = await _scrape_single_url(
+            url="https://example.test/b",
+            title="Test",
+            force_scrape=False,
+            pre_scraped_content=pre_content,
+        )
+
+    assert result["success"] is True
+    assert "already exists" in result["message"]
+    mock_async_db.update_article.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_scrape_existing_article_no_ocr_markers_no_update():
+    """Pre-scraped content with no [Image OCR:] markers must not trigger update_article."""
+    pre_content = "Just plain article text. No image OCR markers whatsoever."
+    fake_article = MagicMock(id=888, title="Plain", content="Stored content.")
+    fake_db = _make_ocr_db(fake_article)
+
+    mock_async_db = MagicMock()
+    mock_async_db.update_article = AsyncMock()
+
+    with (
+        patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/c"),
+        patch("src.database.manager.DatabaseManager", return_value=fake_db),
+        patch("src.database.async_manager.AsyncDatabaseManager", return_value=mock_async_db),
+        patch("src.utils.simhash.compute_article_simhash", return_value=(0, 0)),
+    ):
+        result = await _scrape_single_url(
+            url="https://example.test/c",
+            title="Plain",
+            force_scrape=False,
+            pre_scraped_content=pre_content,
+        )
+
+    assert result["success"] is True
+    assert "already exists" in result["message"]
+    mock_async_db.update_article.assert_not_awaited()

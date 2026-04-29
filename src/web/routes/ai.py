@@ -233,7 +233,7 @@ async def _call_anthropic_with_retry(
                     continue
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Anthropic API error after {max_retries} attempts: {str(e)}",
+                    detail=f"Anthropic API error after {max_retries} attempts",
                 ) from e
 
     # Should not reach here, but handle edge case
@@ -344,7 +344,8 @@ async def _post_lmstudio_chat(
                 logger.warning(f"LMStudio timeout at {lmstudio_url}, trying next URL...")
                 continue
             except httpx.ConnectError as e:
-                last_error_detail = f"Cannot connect to {lmstudio_url}: {str(e)}"
+                last_error_detail = f"Cannot connect to {lmstudio_url}"
+                logger.warning(f"LMStudio connection error at {lmstudio_url}: {e}")
                 if idx == len(lmstudio_urls) - 1:
                     # Last URL, raise connection error
                     urls_tried = ", ".join(lmstudio_urls)
@@ -352,19 +353,19 @@ async def _post_lmstudio_chat(
                         status_code=503,
                         detail=(
                             f"Cannot connect to LMStudio service. Please ensure LMStudio is "
-                            f"running and accessible. Tried: {urls_tried}. Last error: {str(e)}"
+                            f"running and accessible. Tried: {urls_tried}"
                         ),
                     ) from e
                 # Try next URL
                 logger.warning(f"LMStudio connection failed at {lmstudio_url}, trying next URL...")
                 continue
             except Exception as e:  # pragma: no cover - defensive logging
-                last_error_detail = f"Error at {lmstudio_url}: {str(e)}"
+                last_error_detail = f"Error at {lmstudio_url}"
                 logger.error(f"LMStudio API request failed at {lmstudio_url}: {e}")
                 if idx == len(lmstudio_urls) - 1:
                     raise HTTPException(
                         status_code=500,
-                        detail=f"{failure_context}: {str(e)}",
+                        detail=failure_context,
                     ) from e
                 # Try next URL
                 continue
@@ -737,7 +738,7 @@ async def api_get_lmstudio_models():
                 try:
                     response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
                 except httpx.HTTPError as e:
-                    last_error = str(e)
+                    last_error = "connection error"
                     logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
                     continue
 
@@ -779,8 +780,8 @@ async def api_get_lmstudio_models():
                         ),
                     }
 
-                last_error = f"{response.status_code}: {response.text}"
-                logger.error(f"LMStudio /models returned {last_error}")
+                last_error = f"HTTP {response.status_code}"
+                logger.error(f"LMStudio /models returned {response.status_code}: {response.text}")
 
                 if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
                     logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
@@ -828,7 +829,7 @@ async def api_get_lmstudio_embedding_models():
                 try:
                     response = await client.get(f"{lmstudio_url}/models", timeout=10.0)
                 except httpx.HTTPError as e:
-                    last_error = str(e)
+                    last_error = "connection error"
                     logger.debug(f"LMStudio models fetch failed via {lmstudio_url}: {e}")
                     continue
 
@@ -860,8 +861,8 @@ async def api_get_lmstudio_embedding_models():
                         "message": f"Found {len(embedding_models)} embedding model(s)",
                     }
 
-                last_error = f"{response.status_code}: {response.text}"
-                logger.error(f"LMStudio /models returned {last_error}")
+                last_error = f"HTTP {response.status_code}"
+                logger.error(f"LMStudio /models returned {response.status_code}: {response.text}")
 
                 if response.status_code == 404 and idx < len(lmstudio_urls) - 1:
                     logger.warning("LMStudio /models endpoint returned 404. Retrying with alternate base URL.")
@@ -1142,7 +1143,7 @@ async def api_test_langfuse_connection(request: Request):
                         x_langfuse_sdk_name="cti-scraper",
                         x_langfuse_sdk_version=os.getenv("APP_VERSION", "dev"),
                         httpx_client=fern_http_client,
-                    )  # codeql[py/stack-trace-exposure] false positive: client init, no exception data flows to response here
+                    )
                     try:
                         project_response = await fern_client.projects.get()
                     except UnauthorizedError:
@@ -1155,11 +1156,10 @@ async def api_test_langfuse_connection(request: Request):
                             "valid": False,
                             "message": "Langfuse API keys are not authorized. Please check your keys and permissions.",
                         }
-                    except ApiError as api_error:
-                        error_detail = getattr(api_error, "body", None) or str(api_error)
+                    except ApiError:
                         return {
                             "valid": False,
-                            "message": f"Langfuse API error: {error_detail}. Please check your Host URL and keys.",
+                            "message": "Langfuse API error. Please check your Host URL and keys.",
                         }
 
                 resolved_project_id = project_id or (project_response.data[0].id if project_response.data else None)
@@ -1210,9 +1210,7 @@ async def api_test_langfuse_connection(request: Request):
                 logger.error(f"Langfuse ImportError: {e}")
                 return {
                     "valid": False,
-                    "message": (
-                        f"Langfuse Python package not installed. Install with: pip install langfuse. Error: {str(e)}"  # codeql[py/stack-trace-exposure] false positive: ImportError message contains only missing module name, not internal paths
-                    ),
+                    "message": ("Langfuse Python package not installed. Install with: pip install langfuse"),
                 }
             except Exception as e:
                 logger.error(f"Langfuse connection test error: {type(e).__name__}: {e}")
@@ -1831,7 +1829,7 @@ async def api_extract_observables(article_id: int, request: Request):
             except Exception as e:
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Failed to load ExtractAgent seed file: {e}",
+                    detail="Failed to load ExtractAgent configuration",
                 ) from e
 
         # Filter content if filtering is enabled
@@ -2421,27 +2419,8 @@ async def api_generate_sigma(article_id: int, request: Request):
             request.headers.get("X-OpenAI-API-Key") or request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
         )
 
-        # DEBUG: Log raw key before any processing
-        if api_key_raw:
-            api_key_source = (
-                "header (OpenAI)"
-                if request.headers.get("X-OpenAI-API-Key")
-                else "header (Anthropic)"
-                if request.headers.get("X-Anthropic-API-Key")
-                else "body"
-            )
-            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: logs last 4 chars only (masked partial key for debug tracing)
-                f"🔍 DEBUG SIGMA: api_key source: {api_key_source}, type: {type(api_key_raw)}, length: {len(api_key_raw) if isinstance(api_key_raw, str) else 'N/A'}, ends_with: ...{api_key_raw[-4:] if isinstance(api_key_raw, str) and len(api_key_raw) >= 4 else 'N/A'}"
-            )
-
         # Strip whitespace from API key (common issue when copying/pasting)
         api_key = api_key_raw.strip() if api_key_raw else None
-
-        # DEBUG: Log after stripping
-        if api_key:
-            logger.info(
-                f"🔍 DEBUG SIGMA: After strip - length: {len(api_key)}, ends_with: ...{api_key[-4:]}"
-            )  # codeql[py/clear-text-logging-sensitive-data] false positive: last 4 chars only
 
         ai_model = body.get("ai_model", "chatgpt")
         author_name = body.get("author_name", "Huntable CTI Studio User")
@@ -2888,7 +2867,7 @@ async def api_generate_sigma(article_id: int, request: Request):
                     logger.error(f"❌ HTTP error calling OpenAI API: {e}")
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Network error calling OpenAI API: {str(e)}",
+                        detail="Network error calling OpenAI API",
                     ) from e
                 except Exception as e:
                     logger.error(f"❌ Unexpected error calling OpenAI API: {e}")

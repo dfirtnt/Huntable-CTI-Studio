@@ -2,7 +2,7 @@ name: Semgrep
 
 on:
   push:
-    branches: [main, dev-io]
+    branches-ignore: [main]
   pull_request:
 
 concurrency:

@@ -2,9 +2,7 @@ name: Tests
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches-ignore: [main]
   pull_request:
   workflow_dispatch:
 

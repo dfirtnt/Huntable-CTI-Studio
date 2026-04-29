@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CTIScraper</title>
+    <title>Huntable CTI Studio</title>
     <style>
         body {
             width: 350px;
@@ -263,7 +263,7 @@
 </head>
 <body>
     <div class="header">
-        <h1>🛡️ CTIScraper</h1>
+        <h1>🛡️ Huntable CTI Studio</h1>
         <p>Send article for threat intelligence analysis</p>
     </div>
 
@@ -284,7 +284,7 @@
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
                 </svg>
-                Send to CTIScraper
+                Send to Huntable CTI Studio
             </button>
             <button id="refresh-btn" class="btn btn-secondary">
                 <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
@@ -296,7 +296,7 @@
 
         <div class="config">
             <h3>Configuration</h3>
-            <label for="api-url">CTIScraper API URL:</label>
+            <label for="api-url">Huntable CTI Studio API URL:</label>
             <input type="text" id="api-url" placeholder="http://127.0.0.1:8001" value="http://127.0.0.1:8001">
             
             <label for="force-scrape">Force scrape (ignore duplicates):</label>
@@ -309,7 +309,7 @@
             <label for="extraction-mode">Mode:</label>
             <select id="extraction-mode" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 12px; margin-bottom: 8px;">
                 <option value="ocr">OCR (local, free)</option>
-                <option value="vision">Vision LLM (requires API key)</option>
+                <option value="vision">Vision LLM (uses app settings key)</option>
                 <option value="hybrid">Hybrid (Vision LLM + OCR fallback)</option>
             </select>
 
@@ -319,8 +319,6 @@
                     <option value="openai">OpenAI (GPT-4o Vision)</option>
                     <option value="anthropic">Anthropic (Claude Vision)</option>
                 </select>
-                <label for="vision-api-key">API Key:</label>
-                <input type="password" id="vision-api-key" placeholder="sk-... or sk-ant-..." style="margin-bottom: 8px;">
             </div>
 
             <div style="margin-bottom: 8px;">

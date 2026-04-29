@@ -31,11 +31,9 @@ class TestLoadCatalog:
         for m in out["openai"]:
             assert "-2024-" not in m and "-2025-" not in m
         # OpenAI: project allowlist applied -- only workflow-relevant models survive.
-        # gpt-5* and codex-* also pass by pattern so strict subset check does not apply.
+        # gpt-5* also passes by pattern so strict subset check does not apply.
         for m in out["openai"]:
-            assert m in PROJECT_OPENAI_ALLOWLIST or m.lower().startswith("gpt-5") or m.lower().startswith("codex-"), (
-                f"Unexpected model in output: {m}"
-            )
+            assert m in PROJECT_OPENAI_ALLOWLIST or m.lower().startswith("gpt-5"), f"Unexpected model in output: {m}"
         # Anthropic: one per family (filter applied)
         assert isinstance(out["anthropic"], list)
         assert len(out["anthropic"]) <= len(DEFAULT_CATALOG["anthropic"])
@@ -65,10 +63,11 @@ class TestLoadCatalog:
                 "gpt-4.1-mini",
                 "o3-mini",
                 "o4-mini",
-                "codex-mini-latest",
-                # gpt-5* and additional codex-* pass by pattern:
+                # gpt-5* passes by pattern:
                 "gpt-5",
                 "gpt-5-mini",
+                # Codex-only models are not workflow-safe direct API defaults:
+                "codex-mini-latest",
                 "codex-mini",
                 # valid chat models but NOT in allowlist or patterns -- dropped:
                 "gpt-4-turbo",
@@ -87,7 +86,8 @@ class TestLoadCatalog:
         # Pattern-matched models also present
         assert "gpt-5" in out["openai"]
         assert "gpt-5-mini" in out["openai"]
-        assert "codex-mini" in out["openai"]
+        assert "codex-mini" not in out["openai"]
+        assert "codex-mini-latest" not in out["openai"]
         # Non-workflow models dropped
         assert "gpt-4-turbo" not in out["openai"]
         assert "o1" not in out["openai"]
@@ -99,11 +99,9 @@ class TestLoadCatalog:
         with patch.object(catalog_module, "CATALOG_PATH", path):
             out = load_catalog()
 
-        # Every surviving model must be in the allowlist OR an auto-pass pattern family
+        # Every surviving model must be in the allowlist OR an auto-pass pattern family.
         for m in out["openai"]:
-            assert m in PROJECT_OPENAI_ALLOWLIST or m.lower().startswith("gpt-5") or m.lower().startswith("codex-"), (
-                f"Unexpected model in output: {m}"
-            )
+            assert m in PROJECT_OPENAI_ALLOWLIST or m.lower().startswith("gpt-5"), f"Unexpected model in output: {m}"
         # Non-chat / non-workflow models from DEFAULT_CATALOG must be gone
         for noise in (
             "gpt-4o-realtime-preview-2024-12-17",

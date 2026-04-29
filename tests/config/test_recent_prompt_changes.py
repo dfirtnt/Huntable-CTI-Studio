@@ -9,7 +9,7 @@ A. QAAgentCMD seed compliance
    - ASCII-only content (no Unicode emoji)
    - Passes _validate_qa_prompt_config end-to-end
 
-B. Quickstart preset compliance (all three presets)
+B. Quickstart preset compliance (all quickstart presets)
    - RankAgent.QAEnabled == false
    - HuntQueriesExtract.Prompt.prompt parses as JSON with
      standard keys: role, task, json_example, instructions
@@ -37,9 +37,14 @@ PROMPT_DIR = REPO_ROOT / "src" / "prompts"
 PRESET_DIR = REPO_ROOT / "config" / "presets" / "AgentConfigs" / "quickstart"
 
 QUICKSTART_PRESETS = [
+    "Quickstart-LMStudio-Gemma4B.json",
     "Quickstart-LMStudio-Qwen3.json",
     "Quickstart-anthropic-sonnet-4-6.json",
     "Quickstart-openai-gpt-4.1-mini.json",
+    "Quickstart-openai-gpt-4.1.json",
+    "Quickstart-openai-gpt-4o-mini.json",
+    "Quickstart-openai-gpt-4o.json",
+    "Quickstart-openai-gpt-5.json",
 ]
 
 STANDARD_ENVELOPE_KEYS = ("role", "task", "json_example", "instructions")
@@ -175,6 +180,22 @@ class TestQuickstartPresetCompliance:
                 f"{preset_file}: HuntQueriesExtract.Prompt.prompt still contains old key '{key}'. "
                 "Rewrite to standard envelope (role/task/json_example/instructions)."
             )
+
+    @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
+    def test_hunt_queries_query_count_combines_queries_and_sigma(self, preset_file):
+        """HuntQueriesExtract query_count must score both EDR/SIEM queries and Sigma rules."""
+        preset = _load_preset(preset_file)
+        prompt_str = preset.get("HuntQueriesExtract", {}).get("Prompt", {}).get("prompt", "")
+        prompt_data = json.loads(prompt_str)
+        instructions = prompt_data.get("instructions", "")
+        task = prompt_data.get("task", "")
+        example = json.loads(prompt_data.get("json_example", "{}"))
+
+        assert "query_count must be the combined total across both categories" in task
+        assert "query_count MUST equal len(queries)" in instructions
+        assert "EDR/SIEM hunt queries plus Sigma rules" in instructions
+        assert any(item.get("type") == "sigma" for item in example.get("queries", []))
+        assert example.get("query_count") == len(example.get("queries", []))
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
     def test_extract_agent_prompt_has_standard_envelope(self, preset_file):

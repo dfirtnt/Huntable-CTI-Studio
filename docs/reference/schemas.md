@@ -55,6 +55,13 @@ Key fields exposed via the workflow APIs:
 
 These payloads are written by the workflow implementation in `src/workflows/agentic_workflow.py`.
 
+Operational note:
+
+- `error_log` is a persisted workflow/debug artifact, not a full-fidelity trace store.
+- The database does not guarantee parity with Langfuse for request/response detail, usage metadata, or per-call telemetry.
+- In current workflow code, some `conversation_log` message/response copies are intentionally truncated before they are written to Postgres.
+- When Langfuse is enabled, treat it as the richer source for reconstructing individual LLM calls; treat the database as the durable fallback and workflow system of record.
+
 ## Extraction Result JSON
 
 Each workflow execution stores the Extract Agent output in JSONB.

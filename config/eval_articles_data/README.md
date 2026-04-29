@@ -27,7 +27,7 @@ Each element in `articles.json`:
 - **title** (string): Article title.
 - **content** (string): Full article body.
 - **filtered_content** (string, optional): Content after junk filter; if present, eval path may use it instead of `content`.
-- **expected_count** (int): Expected observable count for this subagent.
+- **expected_count** (int): Expected observable count for this subagent. For `hunt_queries`, this is the combined count of EDR/SIEM hunt queries plus valid Sigma rules because both categories are emitted in `queries` and scored through `query_count`.
 
 ## Maintainers: updating article snapshots
 

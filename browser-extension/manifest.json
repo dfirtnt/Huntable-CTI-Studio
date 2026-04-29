@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "CTIScraper - Manual URL Scraper",
+  "name": "Huntable CTI Studio - Browser Extension",
   "version": "1.0.0",
-  "description": "Send articles to CTIScraper for threat intelligence analysis",
+  "description": "Send articles to Huntable CTI Studio for threat intelligence analysis",
   "permissions": [
     "activeTab",
     "storage",
@@ -20,7 +20,7 @@
   },
   "action": {
     "default_popup": "popup.html",
-    "default_title": "Send to CTIScraper",
+    "default_title": "Send to Huntable CTI Studio",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

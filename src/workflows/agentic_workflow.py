@@ -15,6 +15,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any, TypedDict
 
@@ -59,6 +60,46 @@ def _bool_from_value(val: Any) -> bool:
     if isinstance(val, str):
         return val.lower() == "true"
     return bool(val)
+
+
+_INFRA_FAILURE_RE = re.compile(
+    r"lmstudio is not ready|no model.{0,20}loaded|ensure lmstudio is running"
+    r"|context.{0,15}(size|length|window).{0,15}exceeded"
+    r"|must not contain 'user_template'|promptconfigvalidation"
+    r"|\"code\":\s*\"model_not_found\"|does not exist or you do not have access"
+    r"|openai api key is not configured"
+    r"|generator didn't stop after throw",
+    re.IGNORECASE,
+)
+
+
+def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
+    """Return True if every executed (non-skipped) subagent failed with an infra error."""
+    if not isinstance(extraction_result, dict):
+        return False
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict) or not subresults:
+        return False
+
+    executed = []
+    for sr in subresults.values():
+        if not isinstance(sr, dict):
+            continue
+        raw = sr.get("raw", {})
+        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+            continue
+        executed.append(sr)
+
+    if not executed:
+        return False
+
+    for sr in executed:
+        raw = sr.get("raw", {}) if isinstance(sr.get("raw"), dict) else {}
+        err = sr.get("error") or raw.get("error") or ""
+        if not (isinstance(err, str) and _INFRA_FAILURE_RE.search(err)):
+            return False
+
+    return True
 
 
 class WorkflowState(TypedDict):
@@ -1677,9 +1718,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     # Store Result
                     items = []
-                    # HuntQueriesExtract extracts EDR queries only
+                    # HuntQueriesExtract extracts EDR/SIEM queries and Sigma rules into one query envelope.
                     if agent_name == "HuntQueriesExtract":
-                        # Extract EDR queries
+                        # Extract query-envelope items. Sigma rules are represented as type="sigma".
                         edr_queries = agent_result.get("queries", [])
                         query_count = agent_result.get("query_count", len(edr_queries))
 
@@ -1715,7 +1756,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             if agent_result.get("error_type"):
                                 subresult_entry["error_type"] = agent_result["error_type"]
                         subresults[result_key] = subresult_entry
-                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} EDR queries")
+                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} query/rule items")
                     else:
                         # Standard extraction agents
                         # Try to find the specific list for this agent
@@ -1825,9 +1866,27 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             )
 
                 except Exception as e:
-                    from src.services.llm_service import PreprocessInvariantError
+                    from src.services.llm_service import ContextLengthExceededError, PreprocessInvariantError
 
-                    if isinstance(e, PreprocessInvariantError):
+                    if isinstance(e, ContextLengthExceededError):
+                        logger.error(
+                            f"[Workflow {state['execution_id']}] {agent_name} context length exceeded -- "
+                            f"extraction silently dropped. Reduce article size or switch to a larger context model. "
+                            f"Error: {e}"
+                        )
+                        subresults[result_key] = {
+                            "items": [],
+                            "count": 0,
+                            "raw": {"context_length_exceeded": True},
+                            "error": str(e),
+                            "error_type": type(e).__name__,
+                            "error_details": {
+                                "message": str(e),
+                                "exception_type": type(e).__name__,
+                                "agent_name": agent_name,
+                            },
+                        }
+                    elif isinstance(e, PreprocessInvariantError):
                         logger.error(
                             f"[Workflow {state['execution_id']}] {agent_name} preprocess invariant failed: {e}. "
                             f"Debug artifacts: {getattr(e, 'debug_artifacts', {})}"
@@ -3182,6 +3241,16 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             # Determine final status based on final state
             # Only mark as failed if there's an actual workflow error (not trace cleanup errors)
             has_error = workflow_error is not None
+
+            # Treat infra failures (LMStudio not ready, context overflow) as hard failures
+            # even when the workflow graph returned without raising -- subagent errors are
+            # swallowed by the ExtractAgent and the graph reports "no error" while every
+            # subagent actually returned zero items due to the infra problem.
+            if not has_error and _extraction_is_infra_failure(execution.extraction_result if execution else None):
+                has_error = True
+                workflow_error = (
+                    "Extraction failed: all subagents hit an infra error (LMStudio not ready or context overflow)"
+                )
 
             if has_error:
                 # Actual error occurred - mark as failed

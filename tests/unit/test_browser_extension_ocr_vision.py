@@ -21,6 +21,7 @@ ROOT = Path(__file__).resolve().parents[2]
 POPUP_JS = ROOT / "browser-extension" / "popup.js"
 POPUP_HTML = ROOT / "browser-extension" / "popup.html"
 MANIFEST = ROOT / "browser-extension" / "manifest.json"
+BACKGROUND_JS = ROOT / "browser-extension" / "background.js"
 
 WASM_FILES = [
     "worker.min.js",
@@ -186,17 +187,22 @@ def test_vision_provider_select_has_openai_and_anthropic() -> None:
     assert 'value="anthropic"' in html, "popup.html must have anthropic as a vision provider option"
 
 
-def test_vision_api_key_input_is_password_type() -> None:
-    """Vision API key input must use type='password' to mask the key."""
+def test_vision_uses_app_settings_key_not_popup_input() -> None:
+    """Vision LLM mode must use the app-configured key, not a raw input in the popup.
+
+    The extension delegates API key management to the server-side app settings.
+    A popup-level key input is intentionally absent -- 'uses app settings key'
+    means no API key is ever typed into or stored by the extension itself.
+    """
     html = POPUP_HTML.read_text(encoding="utf-8")
-    assert 'id="vision-api-key"' in html, "popup.html must have vision-api-key input"
-    # Verify it's a password input, not a visible text field
-    match = re.search(r'id="vision-api-key"[^>]*>', html)
-    if match is None:
-        match = re.search(r'type="password"[^>]*id="vision-api-key"', html)
-    # Check that password type appears near vision-api-key in the HTML
-    assert 'type="password"' in html and "vision-api-key" in html, (
-        "Vision API key input must be type='password' to avoid exposing the key"
+    # The mode option must advertise that the app key is used, not a popup key
+    assert "uses app settings key" in html, (
+        "Vision LLM option must indicate it uses the app settings key, not a popup-level input"
+    )
+    # There must be no plaintext API key input in the popup (the old design had one)
+    assert 'id="vision-api-key"' not in html, (
+        "popup.html must not have a vision-api-key input -- "
+        "API keys belong in app settings, not the browser extension popup"
     )
 
 
@@ -272,3 +278,68 @@ def test_pinned_versions_toml_key_value_not_flagged() -> None:
         "numpy==1.26.0",
     ]
     assert _check_unpinned(requirements_lines) == []
+
+
+# ---------------------------------------------------------------------------
+# Background.js: service-worker image fetch and Vision LLM proxy
+# ---------------------------------------------------------------------------
+
+
+def test_background_js_has_fetch_image_as_data_url() -> None:
+    """fetchImageAsDataURL must be defined in background.js (service-worker level).
+
+    Image fetching was moved here to bypass CORS canvas taint that occurred
+    when the function ran in the page context.
+    """
+    text = BACKGROUND_JS.read_text(encoding="utf-8")
+    assert "async function fetchImageAsDataURL(" in text, (
+        "fetchImageAsDataURL must be in background.js, not injected into the page context"
+    )
+
+
+def test_background_js_vision_llm_calls_backend_proxy() -> None:
+    """callVisionLLM must proxy through the local backend, not call OpenAI/Anthropic directly.
+
+    API keys are managed server-side. The extension should never hold or send
+    provider credentials.
+    """
+    text = BACKGROUND_JS.read_text(encoding="utf-8")
+    assert "/api/vision/extract" in text, (
+        "background.js callVisionLLM must POST to /api/vision/extract (backend proxy), "
+        "not call the provider API directly"
+    )
+
+
+def test_background_js_vision_llm_no_direct_openai_call() -> None:
+    """background.js must not call api.openai.com directly (API key handling moved to server)."""
+    text = BACKGROUND_JS.read_text(encoding="utf-8")
+    assert "api.openai.com" not in text, (
+        "background.js must not contain direct OpenAI API calls — all provider calls go through the backend proxy"
+    )
+
+
+def test_background_js_vision_llm_no_direct_anthropic_call() -> None:
+    """background.js must not call api.anthropic.com directly."""
+    text = BACKGROUND_JS.read_text(encoding="utf-8")
+    assert "api.anthropic.com" not in text, (
+        "background.js must not contain direct Anthropic API calls — all provider calls go through the backend proxy"
+    )
+
+
+# ---------------------------------------------------------------------------
+# popup.js: Tesseract.js v5 WASM compatibility fix
+# ---------------------------------------------------------------------------
+
+
+def test_ocr_uses_legacy_core_for_v5_wasm_compatibility() -> None:
+    """legacyCore: true must be set in the Tesseract.recognize call.
+
+    Tesseract.js v5 in LSTM mode loads tesseract-core-simd-lstm.wasm.js by
+    default, but only the combined tesseract-core-simd.wasm.js is bundled.
+    legacyCore: true selects the bundled file while still running LSTM OCR.
+    """
+    text = POPUP_JS.read_text(encoding="utf-8")
+    assert "legacyCore: true" in text, (
+        "popup.js must set legacyCore: true in Tesseract.recognize options to select "
+        "the bundled combined WASM file instead of the missing lstm-only split file"
+    )

@@ -30,7 +30,6 @@ class ValidationError(Exception):
 
 def clean_sigma_rule(rule_content: str) -> str:
     """Clean SIGMA rule by removing markdown formatting and explanatory text"""
-    import re
 
     cleaned = rule_content.strip()
 
@@ -111,7 +110,6 @@ def clean_sigma_rule(rule_content: str) -> str:
 
     # Strategy 4.5: Pre-fix common YAML issues with regex before line-by-line processing
     # Fix unquoted title/description with special characters using regex
-    import re
 
     # Pattern: title: value (where value contains ? or : and isn't quoted)
     def fix_unquoted_special_chars(text, field_name):
@@ -154,8 +152,6 @@ def clean_sigma_rule(rule_content: str) -> str:
         if ":" in stripped and not stripped.startswith("#"):
             # Split on first colon only (maxsplit=1) to handle values with colons
             # Use regex to be more precise: match key:value where key is a word
-            import re
-
             match = re.match(r"^(\s*)(\w+)\s*:\s*(.+)$", line)
             if match:
                 indent, key, value = match.groups()

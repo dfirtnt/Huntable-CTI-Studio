@@ -68,7 +68,7 @@ def _parse_and_validate_rule(raw: str, field: str) -> dict[str, Any]:
     try:
         data = yaml.safe_load(content)
     except yaml.YAMLError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid YAML in {field}: {e}") from e
+        raise HTTPException(status_code=400, detail=f"Invalid YAML in {field}") from e
     if not isinstance(data, dict):
         raise HTTPException(status_code=400, detail=f"Rule {field} must be a YAML object")
     if not data.get("detection"):
@@ -148,7 +148,7 @@ async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest
         }
         result = matching_service.compare_proposed_rule_to_embeddings(proposed_rule=normalized, threshold=0.0)
         matches = result.get("matches", [])[:20]
-        return {  # codeql[py/stack-trace-exposure] false positive: response contains only rule metadata, no exception data
+        return {
             "success": True,
             "matches": [
                 {

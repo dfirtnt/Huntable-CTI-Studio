@@ -91,7 +91,6 @@ class URLDiscovery:
                                 "top level of the source config for it to take effect.",
                                 source.name,
                             )
-                        pass
 
                 except Exception as e:
                     logger.error(f"Discovery strategy failed for {source.name}: {e}")
