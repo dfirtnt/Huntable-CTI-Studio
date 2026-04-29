@@ -3342,8 +3342,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         # Return error result (sanitized) instead of raising to avoid serialization issues
         # Only re-raise if it's not a generator/trace error
         if "generator" not in str(e).lower() and "trace" not in str(e).lower():
-            # Sanitize error message to ensure no ArticleTable references
-            error_msg = str(e)
+            # Never expose raw exception text to API callers
+            error_msg = "Internal workflow error"
             # Extract execution.id as primitive to avoid ORM serialization issues
             execution_id_primitive = int(execution.id) if execution else None
             # Return sanitized error result instead of raising
