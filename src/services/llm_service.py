@@ -3364,6 +3364,24 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                             },
                         )
 
+                    # Cap snippets to 25% of context budget (tokens) before joining.
+                    # Dense articles can produce 300+ snippets; without a ceiling the
+                    # snippet section crowds out the article itself (article_2068: 0/7
+                    # extracted with preprocessor ON, 6/7 with it OFF).
+                    # Trim from the end -- earlier snippets tend to be higher-signal.
+                    if snippets:
+                        max_snippet_tokens = int(context_limit_tokens * 0.25)
+                        kept: list[str] = []
+                        budget = max_snippet_tokens
+                        for s in snippets:
+                            cost = self._estimate_tokens(s) + 2  # +2 for separator
+                            if cost > budget:
+                                break
+                            kept.append(s)
+                            budget -= cost
+                        snippets = kept or snippets[:1]  # always keep at least one
+                        snippet_count = len(snippets)
+
                     snippets_section = "\n\n".join(snippets) if snippets else ""
                     snippets_header = "=== HIGH-LIKELIHOOD COMMAND SNIPPETS ===\n"
                     full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
