@@ -21,7 +21,7 @@ from pathlib import Path
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.services.seed_eval_articles import run
+from src.services.seed_eval_articles import cleanup_stale_eval_results, run
 
 
 def main() -> int:
@@ -36,6 +36,11 @@ def main() -> int:
         print("No eval articles to seed (no config data: config/eval_articles_data/*/articles.json missing or empty).")
     else:
         print("No new eval articles to seed.")
+
+    deleted = cleanup_stale_eval_results(project_root=project_root)
+    if deleted:
+        print(f"Removed {deleted} stale eval result(s) from DB.")
+
     return 0 if errors == 0 else 1
 
 

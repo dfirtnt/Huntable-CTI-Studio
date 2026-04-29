@@ -117,10 +117,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Seed eval articles from static files so evals and Articles list work after rehydration
         try:
+            from src.services.seed_eval_articles import cleanup_stale_eval_results
             from src.services.seed_eval_articles import run as seed_eval_articles
 
             created, errs, _ = await asyncio.to_thread(seed_eval_articles, None)
             logger.info("Eval articles seed at startup: %s created, %s errors", created, errs)
+            deleted = await asyncio.to_thread(cleanup_stale_eval_results, None)
+            if deleted:
+                logger.info("Eval results cleanup at startup: %s stale row(s) removed", deleted)
         except Exception as e:
             logger.exception("Eval articles seed at startup failed: %s", e)
 
