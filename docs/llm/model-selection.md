@@ -448,6 +448,8 @@ Test on 20+ extracted observable sets:
 
 **Critical**: Models with 4K context will silently truncate. Always verify context window before deployment.
 
+All supported OpenAI and Anthropic models have their context limits hardcoded in `src/services/provider_model_catalog.py` (`MODEL_CONTEXT_TOKENS`). Selecting a supported model sets the correct budget automatically; unsupported or local LMStudio models fall back to `WORKFLOW_CLOUD_CONTEXT_TOKENS` (default 80 000).
+
 ---
 
 ## Model Testing Protocol

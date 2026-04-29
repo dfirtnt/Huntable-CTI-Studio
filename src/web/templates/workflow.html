@@ -17905,18 +17905,7 @@ function showHelp(fieldName) {
 	            content: `<p class="mb-2"><strong>Description:</strong></p>
 	                      <p class="mb-2">The LLM model used to evaluate and rank articles for huntability. This agent determines whether an article contains actionable threat intelligence worth extracting.</p>
 	                      <p class="mb-2"><strong>Hard rule:</strong> Atomic IOCs (hashes, IPs, domains) are ignored for scoring. Articles must be ranked on behavioral/telemetry patterns, not indicator lists.</p>
-	                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>google/gemma-3-4b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                          <li>Qwen3-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.2 – 0.4</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
-                      <p class="mb-2"><strong>How it works:</strong></p>
+	                      <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After junk filtering, the Rank Agent evaluates the article</li>
                           <li>Returns a score from 1-10 (10 = highly huntable)</li>
@@ -17929,17 +17918,6 @@ function showHelp(fieldName) {
             title: 'Extract Agents Fallback Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">The default LLM model used by sub-agents when no specific model is configured for them.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                          <li>Qwen2.5-Coder-14B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.5 – 0.7</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Each sub-agent can have its own model configured</li>
@@ -17961,16 +17939,6 @@ function showHelp(fieldName) {
             title: 'Command-Line Extraction Agent (Windows)',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Specialized sub-agent for extracting command line arguments and command executions from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>qwen/qwen3-14b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.5 – 0.7</li>
-                      </ul>
 	                      <p class="mb-2"><strong>What it extracts:</strong></p>
 	                      <ul class="list-disc list-inside mb-2 space-y-1">
 	                          <li>Command line arguments and switches</li>
@@ -17997,16 +17965,6 @@ function showHelp(fieldName) {
             title: 'ProcTreeExtract Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Specialized sub-agent for extracting process lineage, parent-child relationships, and process tree structures from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>qwen/qwen3-14b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.6 – 0.75</li>
-                      </ul>
 	                      <p class="mb-2"><strong>What it extracts:</strong></p>
 	                      <ul class="list-disc list-inside mb-2 space-y-1">
 	                          <li>Process parent-child relationships</li>
@@ -18036,22 +17994,7 @@ function showHelp(fieldName) {
 	                          <li>For Sigma: require BOTH logsource: and detection: keys. Partial Sigma blocks are skipped.</li>
 	                          <li>Pseudocode and hypothetical or defensive detection guidance is excluded. Only extract runnable, observed detection artifacts.</li>
 	                      </ul>
-	                      <p class="mb-2"><strong>Primary Model (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>Qwen3-Coder-8B-Instruct</li>
-                          <li>microsoft/phi-4-reasoning-plus</li>
-                      </ol>
-                      <p class="mb-2"><strong>Backup Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1" start="2">
-                          <li>Qwen3-14B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.6 – 0.7</li>
-                      </ul>
-                      <p class="mb-2"><strong>What it extracts:</strong></p>
+	                      <p class="mb-2"><strong>What it extracts:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>EDR detection queries (KQL, SPL, etc.)</li>
                           <li>SIEM search queries</li>
@@ -18095,17 +18038,6 @@ function showHelp(fieldName) {
 	            title: 'SIGMA Rule Generation Agent',
 	            content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>Qwen2.5-Coder-14B-Instruct</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>DeepSeek-R1-Distill (largest feasible variant)</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.2 – 0.35</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Receives extracted behaviors and IOCs from Extract Agents</li>
@@ -18141,17 +18073,6 @@ function showHelp(fieldName) {
             title: 'Rank QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates Rank Agent outputs by comparing against source text. Performs adversarial comparison to ensure accuracy.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-14b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates Rank Agent scoring accuracy</li>
@@ -18165,17 +18086,6 @@ function showHelp(fieldName) {
             title: 'CmdlineExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates CmdlineExtract outputs by comparing extracted command lines against source text. Ensures verbatim accuracy.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted command line arguments</li>
@@ -18189,17 +18099,6 @@ function showHelp(fieldName) {
             title: 'ProcTreeExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates ProcTreeExtract outputs by comparing extracted process relationships against source text. Ensures accurate process tree extraction.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted process relationships</li>
@@ -18213,17 +18112,6 @@ function showHelp(fieldName) {
             title: 'HuntQueriesExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates HuntQueriesExtract outputs by comparing extracted EDR/SIEM queries against source text. Ensures query syntax accuracy.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted query syntax</li>
@@ -18257,17 +18145,6 @@ function showHelp(fieldName) {
             title: 'ScheduledTasksExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates ScheduledTasksExtract outputs by comparing extracted task metadata against source text. Ensures verbatim accuracy of task names, triggers, and principal fields.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted task names, paths, triggers, and principal fields</li>
