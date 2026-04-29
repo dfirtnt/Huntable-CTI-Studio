@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.1.1 "Io"] - 2026-04-28
 ### Added
 - **Vision LLM proxied through backend** (2026-04-28): `POST /api/vision/extract` new endpoint accepts an image data-URL and a provider name, resolves the API key from DB settings / env, and forwards the request to OpenAI (`gpt-4o`) or Anthropic (`claude-sonnet-4-6`). The browser extension no longer stores or transmits API keys; `callVisionLLM` in `background.js` now calls the backend proxy instead of hitting cloud providers directly. `vision-api-key` field removed from `popup.html` / `popup.js` and from `chrome.storage.local`.
 - **Image fetch moved to background service worker** (2026-04-28): `fetchImageAsDataURL` is now a dedicated handler in `background.js` (`action: fetchImageAsDataURL`). Both OCR and Vision LLM paths in `popup.js` send a `chrome.runtime.sendMessage` to the background instead of injecting a content script into the active tab, which resolves MV3 `scripting.executeScript` permission issues.
