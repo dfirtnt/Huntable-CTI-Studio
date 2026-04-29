@@ -15,13 +15,6 @@ from urllib.parse import urlparse
 import pytest
 from playwright.sync_api import Page, expect
 
-# Operator Console: steps use #sN + .section-header; Extract sub-agents use #sa-* + .sa-body
-_SUBAGENT_TO_SA_BLOCK = {
-    "cmdlineextract": "sa-cmdline",
-    "proctreeextract": "sa-proctree",
-    "huntqueriesextract": "sa-huntqueries",
-}
-
 
 def _open_operator_step(page: Page, step_id: str) -> None:
     section = page.locator(f"#{step_id}")

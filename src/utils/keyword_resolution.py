@@ -177,7 +177,6 @@ KEYWORD_CATEGORIES: tuple[KeywordCategoryMeta, ...] = (
 )
 
 KEYWORD_CATEGORY_METADATA = {item.key: item for item in KEYWORD_CATEGORIES}
-METADATA_KEY_TO_CATEGORY = {item.metadata_key: item.key for item in KEYWORD_CATEGORIES}
 
 
 def _compile_keyword_pattern(keyword: str) -> re.Pattern[str] | None:

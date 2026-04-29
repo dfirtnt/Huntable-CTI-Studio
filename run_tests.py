@@ -138,10 +138,8 @@ def _load_dotenv() -> None:
 # Import test environment utilities
 try:
     import tests.utils.database_connections  # noqa: F401
-
-    ENVIRONMENT_UTILS_AVAILABLE = True
 except ImportError:
-    ENVIRONMENT_UTILS_AVAILABLE = False
+    pass
 
 # Enhanced debugging imports
 try:
@@ -1067,23 +1065,6 @@ class RunTestRunner:
         # Note: test-results directory is created before this method is called
         # Include timestamp to preserve historical results
         cmd.extend([f"--junit-xml=test-results/junit_{self.timestamp}.xml"])
-
-        # Add HTML report (only if pytest-html is installed)
-        # NOTE: Disabled by default due to FileNotFoundError issues with pytest-html
-        # The plugin tries to write during test execution, causing crashes
-        # Users can enable with --html flag manually if needed
-        # try:
-        #     result = subprocess.run(
-        #         [self.venv_python, "-c", "import pytest_html"],
-        #         capture_output=True,
-        #         check=False,
-        #     )
-        #     if result.returncode == 0:
-        #         test_results_dir = Path("test-results")
-        #         if test_results_dir.exists():
-        #             cmd.extend([f"--html=test-results/report_{self.timestamp}.html", "--self-contained-html"])
-        # except Exception:
-        #     pass
 
         return cmd
 
