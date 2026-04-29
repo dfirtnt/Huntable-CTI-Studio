@@ -1610,6 +1610,10 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 } else {
                     html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
                 }
+                // Show job number for null or zero results so it's traceable
+                if (result.execution_id && (actualCount === '-' || actualCount === 0)) {
+                    html += `<span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#${result.execution_id}</span>`;
+                }
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
@@ -1731,7 +1735,10 @@ function renderSubagentResults(results) {
         html += '<tr>';
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${articleIdCell}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
+        const execIdLabel = result.execution_id && (actualCount === '-' || actualCount === 0)
+            ? `<span class="text-xs text-gray-400 font-mono ml-1">#${result.execution_id}</span>`
+            : '';
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}${execIdLabel}</td>`;
         html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
         html += `<div class="flex items-center gap-2">`;
         html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
