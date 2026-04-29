@@ -139,7 +139,7 @@ async def test_scrape_url_happy_path_ingests_and_returns_success():
 # OCR block append for existing articles
 # ---------------------------------------------------------------------------
 
-_OCR_PATCHES = (
+_unused_ocr_patches = (
     "src.web.routes.scrape.validate_url_for_scraping",
     "src.database.manager.DatabaseManager",
     "src.database.async_manager.AsyncDatabaseManager",
