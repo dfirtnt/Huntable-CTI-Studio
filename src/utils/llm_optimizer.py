@@ -114,7 +114,7 @@ class LLMOptimizer:
             logger.error(f"Content optimization failed: {e}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": "Content optimization failed",
                 "original_content": content,
                 "filtered_content": content,  # Fallback to original
                 "original_tokens": len(content) // 4,

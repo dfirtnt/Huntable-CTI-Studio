@@ -257,7 +257,7 @@ Please analyze the following blog content:
             if response.status_code != 200:
                 error_detail = response.text
                 logger.error(f"OpenAI API error: {error_detail}")
-                raise HTTPException(status_code=500, detail=f"OpenAI API error: {error_detail}")
+                raise HTTPException(status_code=500, detail="OpenAI API request failed")
 
             result = response.json()
             analysis = result["choices"][0]["message"]["content"]
