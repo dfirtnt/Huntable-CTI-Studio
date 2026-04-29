@@ -3915,7 +3915,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                 # Legacy programmatic format. The QA scaffold is fixed in runtime so
                 # old configs with user_template continue to work, but the UI no longer
                 # exposes that field for editing.
-                extracted_commands_text = ""
                 total_count = 0
 
                 # Handle different extraction result formats
