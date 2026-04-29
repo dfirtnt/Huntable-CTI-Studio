@@ -502,7 +502,7 @@ class SigmaNoveltyService:
                 "novelty_score": 1.0,
                 "logsource_key": "",
                 "canonical_class": None,
-                "error": str(e),
+                "error": "Novelty assessment failed",
                 "top_matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
