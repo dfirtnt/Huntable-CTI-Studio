@@ -55,7 +55,7 @@ class QAConfig(BaseModel):
     model_config = {"extra": "forbid"}
 
     Enabled: dict[str, bool] = Field(default_factory=dict)
-    MaxRetries: int = 5
+    MaxRetries: int = 1
 
 
 class FeatureFlags(BaseModel):
