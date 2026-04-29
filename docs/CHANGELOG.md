@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Eval dataset maintenance guide** (2026-04-29): [Agent Evals](features/agent-evals.md) gains a **Maintaining the Eval Dataset** section covering how to add articles (dump snapshot, update YAML), remove articles (edit both files; DB cleanup is automatic at startup), update expected counts (YAML only), and a quick checklist. Complements the existing `config/eval_articles_data/README.md` snapshot mechanics doc.
+
 ### Changed
 - **Documentation** (2026-04-29): [Agent Evals](features/agent-evals.md) gains a **Concurrency Throttle** section explaining the `concurrency_throttle_seconds` field (default 5 s, range 0-60 s), the stagger formula `countdown(N) = N x (0.2 s base + throttle_seconds)`, the dispatch window estimate, and why time-spreading dispatches prevents TPM 429 rate limits on fan-out runs.
 
