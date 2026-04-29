@@ -125,6 +125,94 @@ async def test_delete_backup_cron_removes_managed_jobs(monkeypatch):
 
 
 @pytest.mark.api
+@pytest.mark.asyncio
+async def test_restore_from_file_rejects_invalid_extension():
+    """Only .sql and .sql.gz files should be accepted for file-based restore."""
+    from io import BytesIO
+
+    from fastapi import UploadFile
+
+    bad_file = UploadFile(filename="backup.txt", file=BytesIO(b"irrelevant"))
+    with pytest.raises(Exception) as exc_info:
+        await backup_routes.api_restore_from_file(file=bad_file)
+    assert exc_info.value.status_code == 400
+    assert "Invalid file type" in str(exc_info.value.detail)
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
+async def test_restore_from_file_accepts_sql_extension(monkeypatch, tmp_path):
+    """A .sql file should pass extension validation and proceed to script invocation."""
+    import subprocess
+    from io import BytesIO
+
+    from fastapi import UploadFile
+
+    fake_script = tmp_path / "restore_database_v2.py"
+    fake_script.touch()
+
+    monkeypatch.setattr(
+        backup_routes,
+        "Path",
+        lambda *args: fake_script.parent if args == () else __import__("pathlib").Path(*args),
+    )
+
+    run_calls: list = []
+
+    def fake_run(cmd, **kwargs):
+        run_calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, stdout="restored", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    # Patch project_root resolution inside the handler
+    original_path = backup_routes.Path
+
+    def patched_path(*args):
+        p = original_path(*args)
+        if str(p).endswith("restore_database_v2.py"):
+            return fake_script
+        return p
+
+    monkeypatch.setattr(backup_routes, "Path", patched_path)
+
+    sql_file = UploadFile(filename="backup.sql", file=BytesIO(b"SELECT 1"))
+    result = await backup_routes.api_restore_from_file(file=sql_file)
+    assert result["success"] is True
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
+async def test_restore_from_file_accepts_sql_gz_extension(monkeypatch, tmp_path):
+    """A .sql.gz file should pass extension validation."""
+    import subprocess
+    from io import BytesIO
+
+    from fastapi import UploadFile
+
+    fake_script = tmp_path / "restore_database_v2.py"
+    fake_script.touch()
+    original_path = backup_routes.Path
+
+    def patched_path(*args):
+        p = original_path(*args)
+        if str(p).endswith("restore_database_v2.py"):
+            return fake_script
+        return p
+
+    monkeypatch.setattr(backup_routes, "Path", patched_path)
+
+    def fake_run(cmd, **kwargs):
+        return subprocess.CompletedProcess(cmd, 0, stdout="restored", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    gz_file = UploadFile(filename="backup.sql.gz", file=BytesIO(b"\x1f\x8b"))
+    result = await backup_routes.api_restore_from_file(file=gz_file)
+    assert result["success"] is True
+
+
+@pytest.mark.api
 def test_update_backup_cron_requires_no_admin_auth():
     """Regression: POST /api/backup/cron must not require admin auth.
 
