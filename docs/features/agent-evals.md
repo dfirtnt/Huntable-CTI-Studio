@@ -76,6 +76,51 @@ distribution across all articles for a given config version:
 
 ---
 
+## Concurrency Throttle
+
+When you click **RUN**, the backend submits one Celery task per article and
+staggers their start times so they don't all hit the LLM simultaneously.
+
+**How the stagger works:**
+
+```
+countdown(article N) = N x (0.2 s base + concurrency_throttle_seconds)
+```
+
+The 0.2 s base is a fixed floor that prevents DB connection races between
+forked Celery workers. The **Concurrency Throttle** you set in the UI adds on
+top of that floor and is the primary knob for controlling LLM fan-out.
+
+| Setting | Default | Range |
+|---|---|---|
+| `concurrency_throttle_seconds` | 5 s | 0 – 60 s |
+
+**Estimating the dispatch window:**
+
+```
+window = (article_count - 1) x (0.2 + throttle_seconds)
+```
+
+Example: 10 articles at the default 5 s throttle spans roughly 46 s
+`(9 x 5.2)`. All articles are submitted at the start; the last one just has
+the longest Celery countdown before its worker picks it up.
+
+**Why this prevents TPM errors:**
+
+Without staggering, a 20-article run fires 20 LLM calls within a second.
+Providers cap tokens-per-minute at the account tier; a burst that large
+saturates the budget instantly and returns HTTP 429. The stagger spreads the
+same 20 calls over the dispatch window, keeping instantaneous token demand
+well below the TPM ceiling.
+
+**When to adjust:**
+
+- `⚠ TPM RATE LIMIT` badges appear -> increase the throttle (try 10–15 s)
+- Run window feels too long for iteration -> decrease toward 2–3 s; watch for
+  rate limits to return
+
+---
+
 ## Common failure patterns
 
 | Symptom | Likely cause |

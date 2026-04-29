@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Documentation** (2026-04-29): [Agent Evals](features/agent-evals.md) gains a **Concurrency Throttle** section explaining the `concurrency_throttle_seconds` field (default 5 s, range 0-60 s), the stagger formula `countdown(N) = N x (0.2 s base + throttle_seconds)`, the dispatch window estimate, and why time-spreading dispatches prevents TPM 429 rate limits on fan-out runs.
+
 ## [6.1.1 "Io"] - 2026-04-28
 ### Added
 - **Vision LLM proxied through backend** (2026-04-28): `POST /api/vision/extract` new endpoint accepts an image data-URL and a provider name, resolves the API key from DB settings / env, and forwards the request to OpenAI (`gpt-4o`) or Anthropic (`claude-sonnet-4-6`). The browser extension no longer stores or transmits API keys; `callVisionLLM` in `background.js` now calls the backend proxy instead of hitting cloud providers directly. `vision-api-key` field removed from `popup.html` / `popup.js` and from `chrome.storage.local`.
