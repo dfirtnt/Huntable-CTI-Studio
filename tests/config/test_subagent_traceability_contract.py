@@ -40,6 +40,8 @@ from pathlib import Path
 
 import pytest
 
+from src.config.workflow_config_schema import AGENT_NAMES_SUB
+
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -281,6 +283,33 @@ class TestPresetsSyncedWithPrompts:
             assert embedded == source, (
                 f"{preset_path.name} -> {base_agent}.QAPrompt.prompt drifted from src/prompts/{qa_name}."
             )
+
+
+# ===========================================================================
+# Architecture context presence
+# ===========================================================================
+
+
+class TestArchitectureContextPresence:
+    """Every extract sub-agent prompt must contain an ARCHITECTURE CONTEXT block.
+
+    Agents need to know their siblings to avoid scope overlap. The absence of
+    this block has historically caused agents to silently absorb adjacent
+    artifacts that belong to a sibling (e.g., ScheduledTasksExtract emitting
+    schtasks.exe command lines that CmdlineExtract should own).
+    """
+
+    @pytest.mark.parametrize("agent_name", AGENT_NAMES_SUB)
+    def test_extract_prompt_has_architecture_context(self, agent_name):
+        path = PROMPT_DIR / agent_name
+        assert path.exists(), f"Prompt file missing: {path}"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        instructions = data.get("instructions", "")
+        assert "ARCHITECTURE CONTEXT" in instructions, (
+            f"{agent_name} prompt is missing the ARCHITECTURE CONTEXT block in its "
+            f"'instructions' field. Add a section that lists sibling agents and their "
+            f"boundary rules so the model understands what NOT to extract."
+        )
 
 
 # ===========================================================================
