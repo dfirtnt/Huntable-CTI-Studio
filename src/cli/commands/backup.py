@@ -58,8 +58,8 @@ def create(ctx: CLIContext, backup_dir: str, backup_type: str, no_compress: bool
             cmd.append("--no-verify")
 
     try:
-        result = subprocess.run(cmd, check=True)
-        click.echo("✅ Backup completed successfully!")
+        subprocess.run(cmd, check=True)
+        click.echo("Backup completed successfully!")
     except subprocess.CalledProcessError as e:
         click.echo(f"❌ Backup failed: {e}", err=True)
         sys.exit(1)

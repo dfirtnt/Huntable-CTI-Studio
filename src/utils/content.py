@@ -564,8 +564,6 @@ def _is_garbage_content(content: str) -> bool:
         r"[^\w\s\.\,\;\:\!\?\(\)\-\+\=\<\>\/\"\'\[\]\{\}\|\\\~\#\$\%\^\&\*\_\`\@]{15,}",  # Very long sequences of truly unusual chars
     ]
 
-    import re
-
     for pattern in binary_patterns:
         matches = re.findall(pattern, content)
         if matches:

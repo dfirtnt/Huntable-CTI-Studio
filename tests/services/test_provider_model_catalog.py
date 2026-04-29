@@ -1,6 +1,7 @@
 """Unit tests for src.services.provider_model_catalog."""
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -133,9 +134,6 @@ class TestOnDiskCatalog:
     """Sanity checks against the committed config/provider_model_catalog.json."""
 
     def test_catalog_file_is_valid_json(self):
-        import json
-        from pathlib import Path
-
         path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
         assert path.exists(), "catalog file missing"
         data = json.loads(path.read_text())
@@ -144,8 +142,6 @@ class TestOnDiskCatalog:
 
     def test_gpt5_4_family_in_catalog(self):
         """gpt-5.4 and its mini/nano/pro variants must be in the on-disk catalog."""
-        import json
-        from pathlib import Path
 
         path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
         models = json.loads(path.read_text())["openai"]
@@ -154,9 +150,6 @@ class TestOnDiskCatalog:
 
     def test_gpt5_family_survives_full_load_pipeline(self, tmp_path):
         """gpt-5.x models in the catalog all reach the dropdown after both filters."""
-        import json
-        from pathlib import Path
-        from unittest.mock import patch
 
         real_path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
         raw = json.loads(real_path.read_text())

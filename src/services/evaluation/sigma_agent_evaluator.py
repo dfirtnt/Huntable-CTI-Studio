@@ -93,7 +93,6 @@ class SigmaAgentEvaluator(BaseAgentEvaluator):
 
         for example in test_data:
             article_id = example.get("article_id")
-            expected_rules = example.get("expected_sigma_rules", [])
             reference_rules = example.get("reference_rules", [])
 
             if not article_id:

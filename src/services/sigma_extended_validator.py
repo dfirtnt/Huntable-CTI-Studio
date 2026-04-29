@@ -130,7 +130,7 @@ class SigmaExtendedValidator:
                     # Note: pySigma's SigmaRule.from_yaml may not exist in all versions
                     # Fall back to basic validation if it fails
                     try:
-                        sigma_rule = SigmaRule.from_yaml(cleaned)
+                        _ = SigmaRule.from_yaml(cleaned)
                         pySigma_passed = True
                     except AttributeError:
                         # SigmaRule.from_yaml might not be available
@@ -138,7 +138,7 @@ class SigmaExtendedValidator:
                         try:
                             from io import StringIO
 
-                            sigma_rule = SigmaRule.from_yaml(StringIO(cleaned))
+                            _ = SigmaRule.from_yaml(StringIO(cleaned))
                             pySigma_passed = True
                         except Exception:
                             # If all pySigma methods fail, use basic validation

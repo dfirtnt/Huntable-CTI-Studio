@@ -999,7 +999,6 @@ async def api_load_lmstudio_model(request: Request):
 
         # SECURITY: Validate model_name to prevent command injection
         # Model names should only contain alphanumeric, dash, underscore, slash, dot
-        import re
 
         if not re.match(r"^[\w\-/.]+$", model_name):
             raise HTTPException(status_code=400, detail="Invalid model_name format")
@@ -2745,7 +2744,6 @@ async def api_generate_sigma(article_id: int, request: Request):
                     logger.debug("Using 'content' field for SIGMA generation (contains YAML)")
                 elif reasoning_text:
                     # Try to extract YAML from reasoning_content
-                    import re
 
                     yaml_match = re.search(
                         r"(?:^|\n)title:\s*[^\n]+\n(?:[^\n]+\n)*",

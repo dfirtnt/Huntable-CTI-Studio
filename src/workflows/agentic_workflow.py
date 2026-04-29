@@ -842,8 +842,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             config_snapshot = execution.config_snapshot if execution else {}
             # Handle JSONB - it might be a dict or need parsing
             if isinstance(config_snapshot, str):
-                import json
-
                 try:
                     config_snapshot = json.loads(config_snapshot)
                 except (json.JSONDecodeError, ValueError):
@@ -3323,7 +3321,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         }
 
         # Final validation: ensure it's JSON serializable
-        import json
 
         try:
             # Test serialization - this will catch any ORM objects

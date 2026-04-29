@@ -617,7 +617,6 @@ class ContentProcessor:
                 continue
 
             # Remove special characters except hyphens and underscores
-            import re
 
             tag = re.sub(r"[^\w\s\-_]", "", tag)
 

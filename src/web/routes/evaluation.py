@@ -585,7 +585,6 @@ async def api_eval_run(request: Request):
         agent_name = body.get("agent_name")
         test_data_path = body.get("test_data_path")
         evaluation_type = body.get("evaluation_type", "baseline")
-        model_version = body.get("model_version")
         save_to_db = body.get("save_to_db", True)
 
         if not agent_name or not test_data_path:

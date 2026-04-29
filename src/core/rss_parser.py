@@ -665,7 +665,6 @@ class RSSParser:
                     if attempt == 1:  # Last attempt failed
                         raise e
                     # Wait before retry
-                    import asyncio
 
                     await asyncio.sleep(1)
 

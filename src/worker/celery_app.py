@@ -1205,7 +1205,6 @@ def collect_from_source(self, source_id: int):
 
                             # Log filtering statistics
                             filtered_count = len(dedup_result.duplicates)
-                            duplicates_filtered = filtered_count
 
                             # Extract detailed filtering stats
                             filter_stats = dedup_result.stats if hasattr(dedup_result, "stats") else {}

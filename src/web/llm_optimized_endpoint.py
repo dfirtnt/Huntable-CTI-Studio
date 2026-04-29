@@ -24,7 +24,6 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
         api_key = body.get("api_key")
         use_filtering = body.get("use_filtering", True)  # Enable filtering by default
         min_confidence = body.get("min_confidence", 0.7)  # Confidence threshold

@@ -139,7 +139,6 @@ class ContentFilter:
 
     def _load_pattern_rules(self) -> dict[str, list[str]]:
         """Load pattern-based rules for content classification using Hunt Scoring patterns."""
-        import re
 
         # Separate perfect discriminators from other huntable patterns
         perfect_patterns = []

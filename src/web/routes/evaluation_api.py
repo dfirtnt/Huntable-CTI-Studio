@@ -286,8 +286,6 @@ def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) ->
     """
     # Check database setting first (highest priority - user preference from UI)
     try:
-        from src.database.manager import DatabaseManager
-
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
@@ -372,7 +370,6 @@ async def get_dataset_items(request: Request, dataset_name: str):
                         article_url = item.input.get("article_url", "")
                         if article_url and isinstance(article_url, str):
                             # Try to extract ID from URL patterns like "article://68" or similar
-                            import re
 
                             match = re.search(r"/(\d+)(?:/|$)", article_url)
                             if match:
@@ -387,8 +384,6 @@ async def get_dataset_items(request: Request, dataset_name: str):
 
                         if article_text and len(article_text) > 100:  # Only if substantial content
                             try:
-                                from src.database.models import ArticleTable
-
                                 db_manager = DatabaseManager()
                                 db_session = db_manager.get_session()
                                 try:
@@ -408,7 +403,6 @@ async def get_dataset_items(request: Request, dataset_name: str):
                                     # Strategy 2: Try matching by URL if it contains article info
                                     if not article_id and article_url:
                                         # Try to extract ID from URL
-                                        import re
 
                                         url_match = re.search(r"[^/](\d{2,})[^/]", article_url)
                                         if url_match:
@@ -863,7 +857,6 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
     if not urls:
         return {}
     try:
-        import re
         from urllib.parse import urlparse, urlunparse
 
         db_manager = DatabaseManager()
@@ -1864,7 +1857,6 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
             # Recompute bundle_sha256 with updated workflow metadata
             bundle_for_hash = bundle.copy()
             bundle_for_hash["integrity"] = {"bundle_sha256": "", "warnings": bundle["integrity"]["warnings"]}
-            from src.services.eval_bundle_service import compute_sha256_json
 
             bundle_sha256 = compute_sha256_json(bundle_for_hash)
             bundle["integrity"]["bundle_sha256"] = bundle_sha256
@@ -1937,7 +1929,6 @@ async def get_eval_bundle_metadata(
             # Recompute bundle_sha256
             bundle_for_hash = bundle.copy()
             bundle_for_hash["integrity"] = {"bundle_sha256": "", "warnings": bundle["integrity"]["warnings"]}
-            from src.services.eval_bundle_service import compute_sha256_json
 
             bundle_sha256 = compute_sha256_json(bundle_for_hash)
             bundle["integrity"]["bundle_sha256"] = bundle_sha256

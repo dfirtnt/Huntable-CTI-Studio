@@ -1157,7 +1157,6 @@ class LLMService:
                 # Only normalize if we get an error (handled in _post_lmstudio_chat)
                 # For now, keep the full name - LMStudio will accept it if the model is loaded with that name
                 # Remove only date suffixes (e.g., "-2507", "-2024") but keep prefixes
-                import re
 
                 normalized_model = re.sub(r"-\d{4,8}$", "", normalized_model)
 
@@ -1211,8 +1210,6 @@ class LLMService:
         from src.web.routes.ai import is_valid_openai_chat_model
 
         if not is_valid_openai_chat_model(model_name):
-            import re
-
             base_model = re.sub(r"-\d{4}-\d{2}-\d{2}(-preview)?$", "", model_name)
             base_model = re.sub(r"-latest$", "", base_model)
             base_model = re.sub(r"-preview$", "", base_model)
@@ -1986,7 +1983,6 @@ class LLMService:
                 logger.info(f"Ranking response received: {len(response_text)} chars (finish_reason={finish_reason})")
 
                 # Parse score from response - look for "SIGMA HUNTABILITY SCORE: X" pattern first
-                import re
 
                 score = None
 
@@ -3577,7 +3573,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                     def fix_json_escapes(text: str) -> str:
                         """Fix common JSON escape sequence issues, especially Windows paths."""
                         # Pre-process: Fix patterns where models over-escape quotes
-                        import re
 
                         # Fix four backslashes + quote -> escaped quote (\\\\" -> \")
                         # In the raw text, four backslashes means: backslash + backslash + backslash + backslash
@@ -3658,7 +3653,6 @@ Every item in the output array MUST be an object (not a plain string)."""
 
                     try:
                         # Strategy 1: Try to extract from markdown code fences first
-                        import re
 
                         code_fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", response_text, re.DOTALL)
                         if code_fence_match:
@@ -4085,8 +4079,6 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     except (json.JSONDecodeError, ValueError):
                         # Strategy 3: Try extracting JSON from markdown code blocks
                         try:
-                            import re
-
                             # Look for JSON in ```json ... ``` or ``` ... ``` blocks
                             code_block_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
                             code_match = re.search(code_block_pattern, qa_text, re.DOTALL)
@@ -4225,7 +4217,6 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
                         # Try to extract a meaningful snippet from the QA text
                         # Look for sentences that might contain feedback
-                        import re
 
                         # Try to find feedback-like content (sentences with "missing", "incorrect", "should", etc.)
                         feedback_patterns = re.findall(

@@ -263,7 +263,6 @@ class URLDiscovery:
                 if discovered_count == 0:
                     logger.debug(f"No URLs found with BeautifulSoup, trying regex fallback for {sitemap_url}")
                     logger.debug(f"Response text length: {len(response.text)}, first 500 chars: {response.text[:500]}")
-                    import re
 
                     loc_pattern = r"<loc>(.*?)</loc>"
                     matches = re.findall(loc_pattern, response.text)

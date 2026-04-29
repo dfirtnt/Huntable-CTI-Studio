@@ -230,7 +230,6 @@ class SigmaNoveltyService:
 
             # Step 2: Generate fingerprints
             exact_hash = self.generate_exact_hash(canonical_rule)
-            canonical_text = self.generate_canonical_text(canonical_rule)
             logsource_key, proposed_service = self.normalize_logsource(proposed_rule.get("logsource", {}))
 
             # Try deterministic semantic precompute for proposed rule (enables precomputed-atom path)

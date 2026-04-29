@@ -336,7 +336,6 @@ async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
 
         backup_dir = payload.get("backup_dir", "backups")
         components = payload.get("components")
-        force = payload.get("force", False)
         no_snapshot = payload.get("no_snapshot", False)
 
         # SECURITY: Validate all user inputs to prevent command injection and path traversal
