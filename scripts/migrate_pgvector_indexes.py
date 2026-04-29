@@ -45,7 +45,6 @@ def run_migration():
 
     try:
         engine = create_engine(database_url)
-        inspector = inspect(engine)
 
         with engine.connect() as conn:
             for table, column, btree_index_name in VECTOR_COLUMNS:

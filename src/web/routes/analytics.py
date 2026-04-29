@@ -233,7 +233,6 @@ async def api_scraper_source_performance():
                         else:
                             last_success_date = datetime.fromisoformat(last_success).date()
                     else:
-                        status = "error"
                         continue
 
                     days_since_success = (datetime.now().date() - last_success_date).days

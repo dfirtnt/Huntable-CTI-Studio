@@ -224,11 +224,6 @@ class SigmaCoverageService:
             # Calculate overlap
             overlap = self.calculate_behavior_overlap(article_behaviors, rule_patterns)
 
-            # Classify based on similarity score and behavior overlap
-            coverage_status = "new"
-            confidence = 0.0
-            reasoning = ""
-
             overlap_ratio = overlap["overlap_ratio"]
             matched_count = overlap["matched_count"]
 

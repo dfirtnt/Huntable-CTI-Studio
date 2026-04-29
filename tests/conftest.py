@@ -518,14 +518,6 @@ def mock_async_http_client():
     from tests.utils.async_mocks import AsyncMockHTTPClient
 
     return AsyncMockHTTPClient()
-    client = AsyncMock()
-    client.get = AsyncMock()
-    client.post = AsyncMock()
-    client.put = AsyncMock()
-    client.delete = AsyncMock()
-    client.__aenter__ = AsyncMock(return_value=client)
-    client.__aexit__ = AsyncMock(return_value=None)
-    return client
 
 
 @pytest.fixture

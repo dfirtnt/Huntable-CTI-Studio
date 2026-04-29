@@ -465,10 +465,11 @@ class SigmaSyncService:
         )
 
         # Get existing rule IDs if not forcing reindex (scoped to prefix when set)
-        existing_rule_ids = set()
         if not force_reindex:
             existing_rule_ids = self.get_existing_rule_ids(db_session, rule_id_prefix=rule_id_prefix)
             logger.info(f"Found {len(existing_rule_ids)} existing rules")
+        else:
+            existing_rule_ids = set()
 
         # Find all rule files
         rule_files = self.find_rule_files()

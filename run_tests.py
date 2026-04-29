@@ -1801,9 +1801,6 @@ class RunTestRunner:
             print(f"⏱️  Total (including setup): {total_duration:.2f}s")
             return
 
-        # Calculate duration
-        duration = time.time() - self.start_time
-
         # Aggregate test counts from pytest and playwright
         total_tests = 0
         total_passed = 0

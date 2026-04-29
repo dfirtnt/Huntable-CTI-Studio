@@ -750,14 +750,12 @@ class RSSParser:
         except Exception as e:
             logger.warning(f"Failed to fetch full content from {url}: {e}")
 
-        # Return feed content even if short
-        if content:
-            cleaned_content = ContentCleaner.clean_html(content)
-            # Special cleaning for CrowdStrike articles
-            if "crowdstrike.com" in url.lower():
-                cleaned_content = self._clean_crowdstrike_content(cleaned_content)
-            return cleaned_content
-        return None
+        # Return feed content even if short (content is always truthy at this point)
+        cleaned_content = ContentCleaner.clean_html(content)
+        # Special cleaning for CrowdStrike articles
+        if "crowdstrike.com" in url.lower():
+            cleaned_content = self._clean_crowdstrike_content(cleaned_content)
+        return cleaned_content
 
     async def _extract_with_modern_scraping(self, url: str, source: Source) -> str | None:
         """

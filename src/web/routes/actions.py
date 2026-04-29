@@ -102,15 +102,11 @@ async def api_rescore_all():
 @router.post("/generate-report")
 async def api_generate_report():
     """Generate system report."""
-    try:
-        return {
-            "success": True,
-            "message": "Report generation not yet implemented",
-            "download_url": "/api/export/articles",
-        }
-    except Exception as exc:  # noqa: BLE001
-        logger.error("Generate report error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
+    return {
+        "success": True,
+        "message": "Report generation not yet implemented",
+        "download_url": "/api/export/articles",
+    }
 
 
 @router.post("/trigger-ingestion")

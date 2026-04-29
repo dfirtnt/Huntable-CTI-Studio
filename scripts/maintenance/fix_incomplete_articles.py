@@ -196,7 +196,7 @@ async def main():
                     continue
 
                 content_len = len(article.content)
-                non_printable = len(re.sub(r"[[:print:][:space:]]", "", article.content))
+                non_printable = len(re.sub(r"[ -~\s]", "", article.content))
                 special_ratio = len(re.sub(r"[a-zA-Z0-9\s]", "", article.content)) / max(content_len, 1)
 
                 # Check for corruption indicators
