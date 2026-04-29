@@ -50,8 +50,8 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - **Significance**: <fill>
 - **Features**: <fill>
 
-### v5.3.0 "Callisto" (Unreleased)
-<!-- TODO: verify: fill Significance and Features once 5.3.0 is cut; in-progress changes are tracked under `[Unreleased]` in docs/CHANGELOG.md. -->
+### v5.3.0 "Callisto" (2026-04-14)
+<!-- TODO: verify: fill Significance and Features; pull content from docs/CHANGELOG.md [5.3.0] section. -->
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons (codename reused from the 5.0.0/5.1.0 line)
 
 ### v5.2.0 "Ganymede" (2026-03-26)
