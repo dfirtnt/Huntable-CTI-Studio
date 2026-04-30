@@ -56,7 +56,7 @@ class TestSimilarityMaxFromAllMatches:
         rule_novelty_label = filtered_rules[0].get("novelty_label", "NOVEL") if filtered_rules else "NOVEL"
 
         return {
-            "similar_rules": similar_rules[:10],
+            "similar_rules": [r for r in similar_rules if r.get("similarity", 0.0) > 0][:10],
             "max_similarity": rule_max_sim,
             "novelty_label": rule_novelty_label,
             "novelty_score": rule_min_novelty,
@@ -86,9 +86,9 @@ class TestSimilarityMaxFromAllMatches:
         result = self._compute([], threshold=self.THRESHOLD)
         assert result["max_similarity"] == 0.0
 
-    def test_similar_rules_includes_unfiltered_candidates(self):
-        """similar_rules stored on the result should include ALL top candidates,
-        not just those above threshold — so the queue entry has data to display."""
+    def test_similar_rules_includes_below_threshold_candidates(self):
+        """similar_rules stores all non-zero candidates regardless of threshold,
+        so the queue entry has data to display even when nothing clears the bar."""
         matches = [_match(0.13, title="A"), _match(0.09, title="B")]
         result = self._compute(matches, threshold=self.THRESHOLD)
 
@@ -111,6 +111,55 @@ class TestSimilarityMaxFromAllMatches:
 
         assert len(result["top_matches"]) == 2  # only the 2 above threshold
         assert all(m["similarity"] >= self.THRESHOLD for m in result["top_matches"])
+
+
+class TestZeroSimilarityFilter:
+    """Regression: zero-similarity matches must be stripped from similar_rules.
+
+    compare_proposed_rule_to_embeddings returns ALL candidates (threshold=0.0) so
+    the workflow can compute max_similarity from the full set. Before this fix,
+    similarity=0.0 entries (no semantic overlap at all) were stored in similar_rules
+    and surfaced in the queue UI as spurious matches.
+    """
+
+    @staticmethod
+    def _apply_filter(matches: list[dict]) -> list[dict]:
+        """Mirror the fixed production logic in agentic_workflow.py."""
+        return [r for r in matches if r.get("similarity", 0.0) > 0][:10]
+
+    def test_zero_similarity_match_excluded(self):
+        """A match with similarity=0.0 must not appear in similar_rules."""
+        matches = [_match(0.45), _match(0.0, title="Zero")]
+        result = self._apply_filter(matches)
+        titles = [r["title"] for r in result]
+        assert "Zero" not in titles
+        assert len(result) == 1
+
+    def test_nonzero_match_retained(self):
+        """A match with similarity > 0, even below threshold, must be kept."""
+        matches = [_match(0.01, title="Tiny")]
+        result = self._apply_filter(matches)
+        assert len(result) == 1
+        assert result[0]["title"] == "Tiny"
+
+    def test_all_zero_gives_empty(self):
+        """If every candidate has similarity=0.0, similar_rules should be empty."""
+        matches = [_match(0.0), _match(0.0)]
+        assert self._apply_filter(matches) == []
+
+    def test_missing_similarity_key_treated_as_zero(self):
+        """A match dict with no similarity key defaults to 0.0 and is excluded."""
+        match_no_key = {"rule_id": 1, "title": "NoKey"}
+        result = self._apply_filter([match_no_key])
+        assert result == []
+
+    def test_top_ten_cap_applied_after_filter(self):
+        """Cap of 10 is applied after zero-sim removal, not before."""
+        # 12 matches: 2 zeros, 10 non-zero
+        matches = [_match(0.0)] * 2 + [_match(0.5 + i * 0.01, title=f"R{i}") for i in range(10)]
+        result = self._apply_filter(matches)
+        assert len(result) == 10
+        assert all(r.get("similarity", 0.0) > 0 for r in result)
 
 
 class TestPromoteToQueueMaxSimilarity:

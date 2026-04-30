@@ -758,6 +758,16 @@ class TestCriticalAPIs:
         assert "uses_langsmith" not in info  # Deprecated: removed 2026-02-04
 
     @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_workflow_executions_exclude_evals_param_accepted(self, async_client: httpx.AsyncClient):
+        """exclude_evals=true is accepted and returns valid executions JSON (not 400/422)."""
+        response = await async_client.get("/api/workflow/executions?exclude_evals=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert "executions" in data
+        assert isinstance(data["executions"], list)
+
+    @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_dashboard_data_smoke(self, async_client: httpx.AsyncClient):
