@@ -1704,7 +1704,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
                         qa_prompt_config=qa_config if qa_enabled else None,
-                        max_retries=max_qa_retries if qa_enabled else 1,
+                        # max_retries governs extraction-exception retries only (QA is single-shot post-v1).
+                        # The previous `if qa_enabled else 1` conditional reflected pre-v1 semantics where
+                        # max_retries doubled as the QA retry budget; that distinction no longer exists.
+                        max_retries=max_qa_retries,
                         execution_id=state["execution_id"],
                         model_name=agent_model,
                         temperature=float(agent_temperature),
@@ -1737,6 +1740,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                     "query": q.get("query") or q.get("query_text", ""),
                                     "type": q.get("type") or q.get("platform", "unknown"),
                                     "context": q.get("context") or q.get("source_context", ""),
+                                    # Preserve traceability fields through normalization
+                                    "source_evidence": q.get("source_evidence"),
+                                    "extraction_justification": q.get("extraction_justification"),
+                                    "confidence_score": q.get("confidence_score"),
                                 }
                                 normalized_edr_queries.append(normalized_q)
                             else:
