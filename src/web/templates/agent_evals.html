@@ -1610,10 +1610,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 } else {
                     html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
                 }
-                // Show job number for null or zero results so it's traceable
-                if (result.execution_id && (actualCount === '-' || actualCount === 0)) {
-                    html += `<span class="text-xs text-gray-400 dark:text-gray-500 font-mono">#${result.execution_id}</span>`;
-                }
+
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
@@ -1735,10 +1732,7 @@ function renderSubagentResults(results) {
         html += '<tr>';
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${articleIdCell}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
-        const execIdLabel = result.execution_id && (actualCount === '-' || actualCount === 0)
-            ? `<span class="text-xs text-gray-400 font-mono ml-1">#${result.execution_id}</span>`
-            : '';
-        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}${execIdLabel}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
         html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
         html += `<div class="flex items-center gap-2">`;
         html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
@@ -1813,9 +1807,9 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         versions: validAggregates.map(agg => agg.config_version)
     };
     
-    // Reset window to beginning (Prev disabled on fresh load)
+    // Reset window to show most recent versions; Prev disabled when at start
     if (resetWindow) {
-        chartWindowStart = 0;
+        chartWindowStart = Math.max(0, allChartData.labels.length - CHART_WINDOW_SIZE);
     }
     
     // Ensure window start is valid
@@ -2776,9 +2770,13 @@ async function showCommandlines(executionId, articleUrl, count) {
                 emptyMessage = 'No hunt queries found for this execution.';
             }
             content.innerHTML = `
-                <div class="text-center py-8">
-                    <p class="text-gray-500 dark:text-gray-400">${emptyMessage}</p>
-                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a></p>
+                <div class="py-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        ${emptyMessage.replace(/\.$/, '')} from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a>
+                    </p>
                 </div>
             `;
             return;
