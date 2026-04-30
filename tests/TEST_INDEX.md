@@ -138,7 +138,6 @@
 | `test_chat_api.py` | 10+ | ⚠️ Import Error | Chat API endpoints |
 | `test_dashboard.py` | 17 | ✅ Passing | Dashboard API endpoints |
 | `test_endpoints.py` | 17 | ✅ Passing | REST API endpoints |
-| `test_extract_observables_api.py` | 6 | ✅ Passing | Extract observables API |
 | `test_lmstudio_api.py` | 11 | ✅ Passing | LMStudio API integration |
 | `test_ml_feedback.py` | 4 | ✅ Passing | ML feedback API |
 | (removed) | - | - | Ollama removed |

@@ -134,7 +134,7 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
             "QAPrompt",
         ],
     ),
-    ("ExtractAgent", ["Provider", "Model", "Temperature", "TopP", "Prompt"]),
+    ("ExtractAgent", ["Provider", "Model", "Temperature", "TopP"]),
     (
         "CmdlineExtract",
         [
@@ -267,7 +267,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "Model": extract["Model"],
         "Temperature": extract["Temperature"],
         "TopP": extract["TopP"],
-        "Prompt": _prompt_cfg(prompts, "ExtractAgent"),
     }
 
     for base, qa_name in [
@@ -512,7 +511,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
     add_agent("RankAgent", rank, rank.get("Prompt"), "RankAgentQA", rank.get("QA"), rank.get("QAPrompt"))
     qa_enabled["RankAgent"] = bool(rank.get("QAEnabled", False))
 
-    add_agent("ExtractAgent", extract, extract.get("Prompt") or {"prompt": "", "instructions": ""})
+    add_agent("ExtractAgent", extract, None)
 
     for base, qa_name in [
         ("CmdlineExtract", "CmdLineQA"),

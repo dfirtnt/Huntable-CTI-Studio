@@ -1899,14 +1899,8 @@
                 <div class="section-body">
                   <div class="mt-3 space-y-4">
 
-                    <!-- Supervisor Model -->
+                    <!-- Default model/provider for sub-agents (fallback when per-agent model is unset) -->
                     <div id="extract-agent-model-container"></div>
-
-                    <!-- Supervisor Prompt -->
-                    <div id="extract-agent-prompt-container"></div>
-
-                    <!-- Supervisor QA Prompt -->
-                    <div id="extract-agent-qa-prompt-container" class="hidden"></div>
 
                     <!-- Sub-Agents accordion -->
                     <div class="pt-4 border-t border-yellow-700/40">
@@ -5997,7 +5991,6 @@ const LOCKED_EXTRACTOR_AGENTS = [
     'ServicesExtract',
     'ScheduledTasksExtract',
     'RankAgent',
-    'ExtractAgent',
     'SigmaAgent',
 ];
 
@@ -6013,9 +6006,6 @@ const LOCKED_QA_AGENTS = [
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
 const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nArticle Title: {title}\nArticle URL: {url}\n\nOriginal Extraction Task: {task}\n\nOriginal Extraction Instructions:\n{extraction_instructions}\n\nOriginal Extraction Output Format:\n{extraction_output_format}\n\nSource Text:\n{article_content}\n\nExtracted Data:\n{extracted_commands}\n\nEvaluation Criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
 const LOCKED_RANK_USER_TEMPLATE = 'Article Title: {title}\nSource: {source}\nURL: {url}\n\nContent:\n{content}';
-// Code-owned in llm_service._EXTRACT_BEHAVIORS_TEMPLATE — the supervisor's user message is built
-// from this template at runtime, with {prompt_config} expanded to the full ExtractAgent JSON.
-const LOCKED_EXTRACTAGENT_USER_TEMPLATE = 'Title: {title}\n\nURL: {url}\n\nContent:\n\n{content}\n\nExtract telemetry-aware attacker behaviors and observables for Windows detection/hunting. Use only information explicitly present in the content. Do not invent or autofill missing pieces.\n\nPrompt config (schema and constraints):\n{prompt_config}\n\nOutput a single valid JSON object only. No markdown, no code fences, no prose outside JSON. If a category is empty, return an empty array for that field.';
 // Mirrors src/prompts/sigma_generate_multi.txt — SigmaAgent's user message template. The backend
 // formats this with {title}, {source}, {url}, {content}, {observables_section}.
 const LOCKED_SIGMA_USER_TEMPLATE = [
@@ -6082,7 +6072,6 @@ function isLockedQAPrompt(agentName) {
 
 function getLockedUserTemplate(agentName) {
     if (agentName === 'RankAgent') return LOCKED_RANK_USER_TEMPLATE;
-    if (agentName === 'ExtractAgent') return LOCKED_EXTRACTAGENT_USER_TEMPLATE;
     if (agentName === 'SigmaAgent') return LOCKED_SIGMA_USER_TEMPLATE;
     if (isLockedExtractorPrompt(agentName)) return LOCKED_EXTRACTION_USER_TEMPLATE;
     if (isLockedQAPrompt(agentName)) return LOCKED_QA_USER_TEMPLATE;
@@ -6102,7 +6091,6 @@ const EFFECTIVE_PROMPT_PLACEHOLDER_DOCS = {
     source: 'Article source (feed / publisher)',
     content: 'Full article body text',
     instructions: "Extraction instructions (from the agent's DB prompt config)",
-    prompt_config: 'Full ExtractAgent prompt config JSON (assembled from all configured extractors at runtime)',
     observables_section: 'Optional "Observables" block — present only when behaviors were extracted upstream',
     objective: 'QA task objective',
     task: "The original extractor's task string",
@@ -9040,18 +9028,6 @@ function renderAgentPrompts() {
         }, 0);
     }
 
-    // Render Extract Agent Prompt
-    const extractPromptContainer = document.getElementById('extract-agent-prompt-container');
-    if (extractPromptContainer) {
-        const promptData = getOrCreatePromptData('ExtractAgent');
-        extractPromptContainer.innerHTML = renderSinglePrompt('ExtractAgent', promptData, 'extract-agent');
-        setTimeout(() => {
-            if (typeof initCollapsiblePanels === 'function') {
-                initCollapsiblePanels(extractPromptContainer);
-            }
-        }, 0);
-    }
-    
     // Render Sub-Agent Prompts
     const subAgents = [
         { name: 'CmdlineExtract', container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },

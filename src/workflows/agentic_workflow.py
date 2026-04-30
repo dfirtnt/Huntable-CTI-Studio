@@ -3038,10 +3038,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 logger.warning(
                     f"[Workflow {execution.id}] ⚠️ Failed to load {len(load_result['models_failed'])} model(s) - workflow will continue"
                 )
-            if not load_result["lmstudio_cli_available"]:
-                logger.warning(
-                    f"[Workflow {execution.id}] ⚠️ LMStudio CLI not available - models must be loaded manually"
-                )
+            if not load_result.get("lmstudio_available", load_result.get("lmstudio_cli_available")):
+                logger.warning(f"[Workflow {execution.id}] LMStudio API not reachable - models must be loaded manually")
 
         # Initialize state
         execution.status = "running"

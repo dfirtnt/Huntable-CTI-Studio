@@ -2,14 +2,17 @@
 LMStudio Model Auto-Loader Service
 
 Automatically loads required models in LMStudio when workflows start.
+Uses the LM Studio v1 REST API (/api/v1/models) instead of the lms CLI,
+so it works inside Docker containers and anywhere HTTP is available.
 """
 
 import logging
-import os
-import re
-import subprocess
 import time
 from typing import Any
+
+import httpx
+
+from src.utils.lmstudio_url import get_lmstudio_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -31,18 +34,41 @@ MODEL_CONTEXT_LIMITS = {
 # Workflow minimum requirement
 WORKFLOW_MIN_CONTEXT = 16384
 
+# HTTP timeout for LM Studio API calls (seconds)
+_API_TIMEOUT = 10.0
+# Longer timeout for model loading (can take a while for large models)
+_LOAD_TIMEOUT = 120.0
 
-def find_lms_cli() -> str | None:
-    """Find LMStudio CLI command."""
-    result = subprocess.run(["which", "lms"], capture_output=True, text=True, timeout=5)
-    if result.returncode == 0:
-        return "lms"
 
-    lms_path = os.path.expanduser("~/.cache/lm-studio/bin/lms")
-    if os.path.exists(lms_path):
-        return lms_path
+def _get_api_base() -> str:
+    """Return the LM Studio management API base URL (without trailing slash).
 
-    return None
+    The management API lives at /api/v1 on the same host:port as the
+    OpenAI-compatible /v1 endpoint.  We derive it from the configured
+    LMSTUDIO_API_URL by stripping the /v1 suffix.
+    """
+    base = get_lmstudio_base_url("http://host.docker.internal:1234/v1")
+    # Strip trailing /v1 to get the root (e.g. http://host:1234)
+    if base.lower().endswith("/v1"):
+        return base[: -len("/v1")]
+    return base
+
+
+def _api_base_candidates() -> list[str]:
+    """Return a list of LM Studio root URLs to try (primary + Docker/localhost fallbacks)."""
+    primary = _get_api_base()
+    candidates = [primary]
+
+    if "localhost" in primary.lower() or "127.0.0.1" in primary:
+        alt = primary.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
+        if alt not in candidates:
+            candidates.append(alt)
+    elif "host.docker.internal" in primary:
+        alt = primary.replace("host.docker.internal", "localhost")
+        if alt not in candidates:
+            candidates.append(alt)
+
+    return candidates
 
 
 def get_model_context_length(model_name: str) -> int:
@@ -134,89 +160,74 @@ def extract_lmstudio_models(
     return models_to_load
 
 
-def check_model_loaded(lms_cmd: str, model_name: str) -> bool:
-    """Check if a model is currently loaded in LMStudio."""
+def _fetch_models(api_base: str) -> list[dict] | None:
+    """GET /api/v1/models and return the model list, or None on failure."""
     try:
-        result = subprocess.run([lms_cmd, "ps"], capture_output=True, text=True, timeout=10)
-
-        if result.returncode == 0:
-            # Check if model name appears in the output
-            return model_name in result.stdout
-        return False
+        resp = httpx.get(f"{api_base}/api/v1/models", timeout=_API_TIMEOUT)
+        if resp.status_code == 200:
+            return resp.json().get("data", [])
     except Exception as e:
-        logger.warning(f"Failed to check if model {model_name} is loaded: {e}")
-        return False
+        logger.debug("Failed to reach LM Studio at %s: %s", api_base, e)
+    return None
 
 
-def _loaded_model_contexts(lms_cmd: str, model_name: str) -> list[int]:
-    """Return all loaded context sizes for a model (including suffixed identifiers)."""
+def _is_model_downloaded(models_data: list[dict], model_name: str) -> bool:
+    """Check whether a model appears in the /api/v1/models response."""
+    return any(entry.get("id") == model_name or entry.get("path", "").endswith(model_name) for entry in models_data)
+
+
+def _loaded_model_contexts(models_data: list[dict], model_name: str) -> list[int]:
+    """Return all loaded context sizes for a model from the API response.
+
+    Each model entry in /api/v1/models may have a ``loaded_instances`` list.
+    Each instance has ``config.context_length``.
+    """
     contexts: list[int] = []
-    try:
-        result = subprocess.run([lms_cmd, "ps"], capture_output=True, text=True, timeout=10)
-        if result.returncode != 0:
-            return contexts
+    for entry in models_data:
+        entry_id = entry.get("id", "")
+        entry_path = entry.get("path", "")
+        if entry_id != model_name and not entry_path.endswith(model_name):
+            continue
 
-        for raw_line in result.stdout.splitlines():
-            line = raw_line.strip()
-            if not line or line.startswith("IDENTIFIER"):
-                continue
-
-            # Expected row shape:
-            # IDENTIFIER MODEL STATUS SIZE UNIT CONTEXT DEVICE [TTL]
-            match = re.match(r"^(\S+)\s+(\S+)\s+\S+\s+\S+\s+\S+\s+(\d+)\b", line)
-            if not match:
-                continue
-
-            identifier = match.group(1)
-            model = match.group(2)
-            context = int(match.group(3))
-
-            if identifier == model_name or model == model_name or identifier.startswith(f"{model_name}:"):
-                contexts.append(context)
-    except Exception as e:
-        logger.warning(f"Failed to inspect loaded contexts for {model_name}: {e}")
+        for instance in entry.get("loaded_instances", []):
+            ctx = (instance.get("config") or {}).get("context_length")
+            if ctx and isinstance(ctx, int):
+                contexts.append(ctx)
     return contexts
 
 
-def load_model(lms_cmd: str, model_name: str, context_length: int, timeout: int = 60) -> tuple[bool, str | None]:
-    """
-    Load a model with specified context length.
+def _load_model_via_api(api_base: str, model_name: str, context_length: int) -> tuple[bool, str | None]:
+    """POST /api/v1/models/load to load a model.
 
     Returns:
-        Tuple of (success: bool, error_message: Optional[str])
+        Tuple of (success, error_message).
     """
+    payload = {
+        "model": model_name,
+        "context_length": context_length,
+    }
     try:
-        # Check if model exists
-        list_result = subprocess.run([lms_cmd, "ls"], capture_output=True, text=True, timeout=10)
-
-        if model_name not in list_result.stdout:
-            error_msg = f"Model not found in LMStudio: {model_name}"
-            logger.warning(error_msg)
-            return False, error_msg
-
-        # Load model
-        result = subprocess.run(
-            [lms_cmd, "load", model_name, "--context-length", str(context_length), "--yes"],
-            capture_output=True,
-            text=True,
-            timeout=timeout,
+        resp = httpx.post(
+            f"{api_base}/api/v1/models/load",
+            json=payload,
+            timeout=_LOAD_TIMEOUT,
         )
-
-        if result.returncode == 0:
-            logger.info(f"Successfully loaded {model_name} with context length {context_length}")
+        if resp.status_code == 200:
+            logger.info("Successfully loaded %s with context length %d", model_name, context_length)
             time.sleep(2)  # Wait for model to be ready
             return True, None
-        error_output = result.stderr or result.stdout
-        error_msg = f"Failed to load {model_name}: {error_output[:500]}"
+
+        body = resp.text[:500] if resp.text else "(empty)"
+        error_msg = f"Failed to load {model_name}: HTTP {resp.status_code} -- {body}"
         logger.error(error_msg)
         return False, error_msg
 
-    except subprocess.TimeoutExpired:
-        error_msg = f"Timeout loading {model_name} (>{timeout}s)"
+    except httpx.TimeoutException:
+        error_msg = f"Timeout loading {model_name} (>{_LOAD_TIMEOUT}s)"
         logger.error(error_msg)
         return False, error_msg
     except Exception as e:
-        error_msg = f"Error loading {model_name}: {str(e)}"
+        error_msg = f"Error loading {model_name}: {e}"
         logger.error(error_msg, exc_info=True)
         return False, error_msg
 
@@ -239,25 +250,35 @@ def auto_load_workflow_models(
             'models_loaded': List[str],
             'models_failed': List[Tuple[str, str]],  # (model_name, error_message)
             'models_skipped': List[str],  # Already loaded
-            'lmstudio_cli_available': bool
+            'lmstudio_available': bool
         }
     """
-    result = {
+    result: dict[str, Any] = {
         "success": True,
         "models_loaded": [],
         "models_failed": [],
         "models_skipped": [],
+        "lmstudio_available": False,
+        # Keep old key for backward compatibility with callers
         "lmstudio_cli_available": False,
     }
 
-    # Find LMStudio CLI
-    lms_cmd = find_lms_cli()
-    if not lms_cmd:
-        logger.warning("LMStudio CLI not found. Skipping auto-load.")
+    # Probe LM Studio REST API across candidate URLs
+    api_base: str | None = None
+    models_data: list[dict] | None = None
+    for candidate in _api_base_candidates():
+        models_data = _fetch_models(candidate)
+        if models_data is not None:
+            api_base = candidate
+            break
+
+    if api_base is None or models_data is None:
+        logger.warning("LM Studio API not reachable. Skipping auto-load.")
         result["success"] = False
         return result
 
-    result["lmstudio_cli_available"] = True
+    result["lmstudio_available"] = True
+    result["lmstudio_cli_available"] = True  # backward compat
 
     # Extract LMStudio models from config
     models_to_load = extract_lmstudio_models(
@@ -276,7 +297,7 @@ def auto_load_workflow_models(
     for model_name in sorted(models_to_load):
         # Skip only when a loaded instance already meets required context.
         required_context = get_model_context_length(model_name)
-        loaded_contexts = _loaded_model_contexts(lms_cmd, model_name)
+        loaded_contexts = _loaded_model_contexts(models_data, model_name)
         if loaded_contexts and max(loaded_contexts) >= required_context:
             logger.info(
                 "Model %s already loaded with sufficient context (%s), skipping",
@@ -286,8 +307,16 @@ def auto_load_workflow_models(
             result["models_skipped"].append(model_name)
             continue
 
-        # Load model
-        success, error_msg = load_model(lms_cmd, model_name, required_context)
+        # Check if model is downloaded
+        if not _is_model_downloaded(models_data, model_name):
+            error_msg = f"Model not found in LMStudio: {model_name}"
+            logger.warning(error_msg)
+            result["models_failed"].append((model_name, error_msg))
+            result["success"] = False
+            continue
+
+        # Load model via REST API
+        success, error_msg = _load_model_via_api(api_base, model_name, required_context)
 
         if success:
             result["models_loaded"].append(model_name)
@@ -297,15 +326,15 @@ def auto_load_workflow_models(
 
     # Log summary
     if result["models_loaded"]:
-        logger.info(f"✅ Loaded {len(result['models_loaded'])} model(s): {', '.join(result['models_loaded'])}")
+        logger.info(f"Loaded {len(result['models_loaded'])} model(s): {', '.join(result['models_loaded'])}")
 
     if result["models_skipped"]:
         logger.info(
-            f"⏭️  Skipped {len(result['models_skipped'])} already-loaded model(s): {', '.join(result['models_skipped'])}"
+            f"Skipped {len(result['models_skipped'])} already-loaded model(s): {', '.join(result['models_skipped'])}"
         )
 
     if result["models_failed"]:
-        logger.warning(f"❌ Failed to load {len(result['models_failed'])} model(s)")
+        logger.warning(f"Failed to load {len(result['models_failed'])} model(s)")
         for model_name, error_msg in result["models_failed"]:
             logger.warning(f"  - {model_name}: {error_msg}")
 
