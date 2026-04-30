@@ -19,6 +19,7 @@ Pre-exported presets (v2 format) are in `quickstart/`. They are tracked in git. 
 | File | Provider | All agents use |
 |------|----------|----------------|
 | `Quickstart-LMStudio-Qwen3.json` | LM Studio | Qwen3 (local) |
+| `Quickstart-anthropic-haiku-4-5.json` | Anthropic | claude-haiku-4-5-20251001 |
 | `Quickstart-anthropic-sonnet-4-6.json` | Anthropic | claude-sonnet-4-6 |
 | `Quickstart-openai-gpt-4.1-mini.json` | OpenAI | gpt-4.1-mini |
 | `Quickstart-openai-gpt-4.1.json` | OpenAI | gpt-4.1 |
