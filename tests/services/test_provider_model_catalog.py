@@ -1,6 +1,7 @@
 """Unit tests for src.services.provider_model_catalog."""
 
 import json
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -133,9 +134,6 @@ class TestOnDiskCatalog:
     """Sanity checks against the committed config/provider_model_catalog.json."""
 
     def test_catalog_file_is_valid_json(self):
-        import json
-        from pathlib import Path
-
         path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
         assert path.exists(), "catalog file missing"
         data = json.loads(path.read_text())
@@ -144,19 +142,25 @@ class TestOnDiskCatalog:
 
     def test_gpt5_4_family_in_catalog(self):
         """gpt-5.4 and its mini/nano/pro variants must be in the on-disk catalog."""
-        import json
-        from pathlib import Path
 
         path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
         models = json.loads(path.read_text())["openai"]
         for m in ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4-pro"]:
             assert m in models, f"{m} missing from catalog"
 
+    def test_codex_models_not_in_catalog(self):
+        """gpt-5.1-codex-max and gpt-5.1-codex-mini must not be in the committed catalog.
+        Regression: they were present before the -codex anchor fix and slipped into the UI."""
+        path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
+        models = json.loads(path.read_text())["openai"]
+        assert "gpt-5.1-codex-max" not in models
+        assert "gpt-5.1-codex-mini" not in models
+        # General assertion: no -codex- model should ever appear in the catalog
+        codex_models = [m for m in models if "-codex" in m.lower()]
+        assert codex_models == [], f"Codex models found in catalog: {codex_models}"
+
     def test_gpt5_family_survives_full_load_pipeline(self, tmp_path):
         """gpt-5.x models in the catalog all reach the dropdown after both filters."""
-        import json
-        from pathlib import Path
-        from unittest.mock import patch
 
         real_path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
         raw = json.loads(real_path.read_text())
@@ -167,10 +171,9 @@ class TestOnDiskCatalog:
             out = load_catalog()
 
         gpt5_in = [m for m in raw["openai"] if m.startswith("gpt-5")]
-        # gpt-5.3-codex ends in -codex and is intentionally excluded
-        expected_excluded = {"gpt-5.3-codex"}
+        # Any gpt-5* model containing -codex is excluded by the NON_CHAT_MODEL_PATTERNS rule
         for m in gpt5_in:
-            if m in expected_excluded:
+            if "-codex" in m.lower():
                 assert m not in out["openai"], f"{m} should be filtered out"
             else:
                 assert m in out["openai"], f"{m} should survive the pipeline"

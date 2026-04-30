@@ -102,12 +102,13 @@ class TestFilterOpenaiModelsLatestOnly:
         out = filter_openai_models_latest_only(ids)
         assert set(out) >= {"gpt-4o", "gpt-4.1-mini", "o1", "o3-mini"}
 
-    def test_gpt5_codex_terminal_blocked_by_is_valid(self):
-        """gpt-5.3-codex ends in -codex and is rejected by is_valid inside this filter."""
-        out = filter_openai_models_latest_only(["gpt-5.3-codex", "gpt-5.3-codex-spark", "gpt-5.4"])
-        assert "gpt-5.3-codex" not in out  # terminal -codex -> excluded
-        assert "gpt-5.3-codex-spark" in out  # non-terminal -> valid via fallback
-        assert "gpt-5.4" in out  # base pattern match
+    def test_codex_variants_all_blocked_by_is_valid(self):
+        """Any model with -codex anywhere is rejected; terminal and compound forms both excluded."""
+        out = filter_openai_models_latest_only(["gpt-5.3-codex", "gpt-5.3-codex-spark", "gpt-5.1-codex-max", "gpt-5.4"])
+        assert "gpt-5.3-codex" not in out
+        assert "gpt-5.3-codex-spark" not in out  # -codex- mid-string, now excluded
+        assert "gpt-5.1-codex-max" not in out  # regression: was wrongly passing before fix
+        assert "gpt-5.4" in out
 
 
 class TestFilterOpenaiModelsProjectAllowlist:
@@ -164,10 +165,12 @@ class TestFilterOpenaiModelsProjectAllowlist:
         out = filter_openai_models_project_allowlist(models)
         assert set(out) == set(models)
 
-    def test_gpt5_codex_spark_passes_via_gpt5_pattern(self):
-        """gpt-5.3-codex-spark starts with gpt-5 so it passes the allowlist pattern check."""
+    def test_gpt5_codex_passes_allowlist_pattern_in_isolation(self):
+        """filter_openai_models_project_allowlist alone does no chat-validity check; gpt-5*
+        passes by pattern. The chat-validity gate lives in filter_openai_models_latest_only,
+        which runs upstream in the load_catalog pipeline and blocks all -codex variants."""
         out = filter_openai_models_project_allowlist(["gpt-5.3-codex-spark"])
-        assert out == ["gpt-5.3-codex-spark"]
+        assert out == ["gpt-5.3-codex-spark"]  # allowlist filter is pattern-only, no NON_CHAT check
 
     def test_dated_variants_excluded(self):
         # The base-name allowlist is exact; dated variants are filtered by
@@ -278,12 +281,14 @@ class TestIsValidOpenaiChatModel:
         assert is_valid_openai_chat_model("gpt-5-codex") is False
         assert is_valid_openai_chat_model("gpt-5.2-codex") is False
 
-    def test_codex_exclusion_anchor_precision(self):
-        """The -codex$ pattern only excludes a terminal suffix; -codex- mid-string is not excluded."""
+    def test_codex_exclusion_anywhere_in_name(self):
+        """The -codex pattern excludes any model with -codex anywhere, not only as a terminal suffix."""
         # Terminal suffix: excluded
         assert is_valid_openai_chat_model("gpt-5-codex") is False
-        # Mid-string: passes (gpt- fallback; not a terminal -codex suffix)
-        assert is_valid_openai_chat_model("gpt-5-codex-mini") is True
+        # Compound suffix: also excluded (regression for gpt-5.1-codex-max / -codex-mini)
+        assert is_valid_openai_chat_model("gpt-5-codex-mini") is False
+        assert is_valid_openai_chat_model("gpt-5.1-codex-max") is False
+        assert is_valid_openai_chat_model("gpt-5.1-codex-mini") is False
 
     def test_gpt5_point_releases_all_valid(self):
         """gpt-5.1 through gpt-5.4 match VALID_CHAT_BASE_PATTERNS."""
@@ -299,9 +304,11 @@ class TestIsValidOpenaiChatModel:
         """gpt-5.3-codex ends in -codex -- excluded by the terminal-anchor NON_CHAT rule."""
         assert is_valid_openai_chat_model("gpt-5.3-codex") is False
 
-    def test_gpt5_codex_spark_valid(self):
-        """gpt-5.3-codex-spark does NOT end in -codex, so it is NOT excluded and passes via fallback."""
-        assert is_valid_openai_chat_model("gpt-5.3-codex-spark") is True
+    def test_gpt5_codex_compound_excluded(self):
+        """Any model containing -codex- is excluded, regardless of what follows."""
+        assert is_valid_openai_chat_model("gpt-5.3-codex-spark") is False
+        assert is_valid_openai_chat_model("gpt-5.1-codex-max") is False
+        assert is_valid_openai_chat_model("gpt-5.1-codex-mini") is False
 
     def test_fallback_gpt_or_o_true(self):
         assert is_valid_openai_chat_model("gpt-some-new-model") is True

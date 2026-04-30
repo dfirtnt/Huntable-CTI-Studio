@@ -1610,6 +1610,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 } else {
                     html += `<span class="text-gray-400 dark:text-gray-600">-</span>`;
                 }
+
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
@@ -1806,8 +1807,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         versions: validAggregates.map(agg => agg.config_version)
     };
     
-    // Reset window to show latest if resetWindow is true or if this is first load
-    if (resetWindow || chartWindowStart === 0) {
+    // Reset window to show most recent versions; Prev disabled when at start
+    if (resetWindow) {
         chartWindowStart = Math.max(0, allChartData.labels.length - CHART_WINDOW_SIZE);
     }
     
@@ -2769,9 +2770,13 @@ async function showCommandlines(executionId, articleUrl, count) {
                 emptyMessage = 'No hunt queries found for this execution.';
             }
             content.innerHTML = `
-                <div class="text-center py-8">
-                    <p class="text-gray-500 dark:text-gray-400">${emptyMessage}</p>
-                    <p class="text-sm text-gray-400 dark:text-gray-500 mt-2">Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a></p>
+                <div class="py-4">
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                        ${emptyMessage.replace(/\.$/, '')} from execution <a href="/workflow?exec=${executionId}#executions" class="text-blue-600 dark:text-blue-400 hover:underline" title="View execution #${executionId}">#${executionId}</a>
+                    </p>
+                    <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                        Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a>
+                    </p>
                 </div>
             `;
             return;
@@ -2781,8 +2786,8 @@ async function showCommandlines(executionId, articleUrl, count) {
         let html = `
             <div class="mb-4">
                 <p class="text-sm text-gray-500 dark:text-gray-400">
-                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)'} 
-                    from execution <strong class="text-gray-700 dark:text-gray-300">#${executionId}</strong>
+                    Found <strong class="text-gray-700 dark:text-gray-300">${commandlines.length}</strong> ${resultType === 'process_lineage' || subagentEval === 'process_lineage' ? 'process lineage relationship(s)' : resultType === 'hunt_queries' || subagentEval === 'hunt_queries' ? 'hunt query/queries' : 'commandline(s)'}
+                    from execution <a href="/workflow?exec=${executionId}#executions" class="text-blue-600 dark:text-blue-400 hover:underline" title="View execution #${executionId}">#${executionId}</a>
                 </p>
                 <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
                     Article: <a href="/articles/${data.article_id}" class="text-blue-600 dark:text-blue-400 hover:underline" title="${(data.article_url || articleUrl || '').replace(/"/g, '&quot;')}">${articleDisplayEscaped}</a>

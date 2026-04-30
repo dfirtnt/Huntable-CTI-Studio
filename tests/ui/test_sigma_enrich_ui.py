@@ -59,9 +59,12 @@ class TestSigmaEnrichUI:
 
     @pytest.fixture(autouse=True)
     def setup(self, page: Page, mock_sigma_queue_list):
-        """Setup: Navigate to sigma queue page (after list mock is applied)."""
+        """Setup: Navigate to workflow Queue tab (after list mock is applied).
+
+        The standalone /sigma-queue page was removed; queue lives in /workflow#queue.
+        """
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        page.goto(f"{base_url}/sigma-queue")
+        page.goto(f"{base_url}/workflow#queue")
         page.wait_for_load_state("networkidle")
         yield
         # Close any modals left open so the next test in this class starts clean.
@@ -76,7 +79,7 @@ class TestSigmaEnrichUI:
             pass
 
     def test_sigma_queue_page_shows_pagination_bar(self, page: Page):
-        """Standalone sigma-queue page shows pagination bar with Showing X–Y of Z."""
+        """Workflow Queue tab shows pagination bar with Showing X-Y of Z."""
         page.wait_for_selector("#queueTableBody", timeout=10000)
         bar = page.locator("#queuePaginationBar")
         expect(bar).to_be_visible(timeout=5000)
@@ -135,13 +138,13 @@ class TestSigmaEnrichUI:
         expect(page.locator("#enrichOriginalRule")).to_be_visible()
         expect(page.locator("#enrichInstruction")).to_be_visible()
         expect(page.locator("#enrichBtn")).to_be_visible()
-        expect(page.locator('#enrichModal button:has-text("Cancel")')).to_be_visible()
+        expect(page.locator("#enrichCancelBtn")).to_be_visible()
 
     def test_enrich_modal_closes_on_cancel(self, page: Page):
         """Test that enrich modal closes when cancel button is clicked."""
         _rule_modal, enrich_modal = self._open_preview_then_enrich(page)
 
-        cancel_button = page.locator('#enrichModal button:has-text("Cancel")')
+        cancel_button = page.locator("#enrichCancelBtn")
         cancel_button.click()
 
         # Modal should be hidden; use not_to_be_visible() because the element
@@ -219,6 +222,32 @@ class TestSigmaEnrichUI:
         page.route("**/api/sigma-queue/*/enrich", slow_response)
 
         self._open_preview_then_enrich(page)
+
+        # Set provider/model selects to lmstudio so enrichRule() proceeds past
+        # the provider/model guard without waiting for catalog API calls that
+        # are not mocked in this test. LMStudio skips the API-key check too.
+        page.evaluate(
+            """() => {
+                const ps = document.getElementById('enrichProviderSelect');
+                const ms = document.getElementById('enrichModelSelect');
+                if (ps) {
+                    while (ps.options.length > 0) ps.remove(0);
+                    const opt = document.createElement('option');
+                    opt.value = 'lmstudio';
+                    opt.textContent = 'LMStudio';
+                    ps.appendChild(opt);
+                    ps.value = 'lmstudio';
+                }
+                if (ms) {
+                    while (ms.options.length > 0) ms.remove(0);
+                    const opt = document.createElement('option');
+                    opt.value = 'test-model';
+                    opt.textContent = 'test-model';
+                    ms.appendChild(opt);
+                    ms.value = 'test-model';
+                }
+            }"""
+        )
 
         enrich_rule_button = page.locator("#enrichBtn")
         enrich_rule_button.click()

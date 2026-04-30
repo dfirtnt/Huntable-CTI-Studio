@@ -15,13 +15,6 @@ from urllib.parse import urlparse
 import pytest
 from playwright.sync_api import Page, expect
 
-# Operator Console: steps use #sN + .section-header; Extract sub-agents use #sa-* + .sa-body
-_SUBAGENT_TO_SA_BLOCK = {
-    "cmdlineextract": "sa-cmdline",
-    "proctreeextract": "sa-proctree",
-    "huntqueriesextract": "sa-huntqueries",
-}
-
 
 def _open_operator_step(page: Page, step_id: str) -> None:
     section = page.locator(f"#{step_id}")
@@ -136,13 +129,8 @@ def _stub_sigma_queue_list(page: Page) -> None:
 
 
 def _trigger_load_queue(page: Page) -> None:
-    """Reload the queue list. Prefer Refresh when the rule modal is not blocking clicks."""
-    modal = page.locator("#ruleModal")
-    obscures = modal.evaluate("el => el && !el.classList.contains('hidden')")
-    if obscures:
-        page.evaluate("async () => { await window.loadQueue(); }")
-    else:
-        page.locator('button[onclick="loadQueue()"]').first.click()
+    """Reload the queue list via JavaScript to avoid race with modal open/close animations."""
+    page.evaluate("async () => { await window.loadQueue(); }")
     page.wait_for_timeout(200)
 
 

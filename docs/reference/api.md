@@ -90,7 +90,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
 
-Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`).
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`).
 
 Each prompt object is a JSON dict with these fields:
 
@@ -141,7 +141,7 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 #### Subagent Evaluation Endpoints
 
-These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, **RegistryExtract**):
+These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, **ScheduledTasksExtract**):
 
 - `GET /api/evaluation/subagent-eval-articles` — List seeded eval articles for a given subagent.
 - `POST /api/evaluation/run-subagent-eval` — Trigger a subagent eval run.

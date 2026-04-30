@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v6.1.1 "Io"** - Current stable release
-**v6.1.0 "Io"** - Previous stable release
-**v6.0.0 "Io"** - Earlier stable release
+**v6.2.0 "Io"** - Current stable release
+**v6.1.1 "Io"** - Previous stable release
+**v6.1.0 "Io"** - Earlier stable release
 **v4.0.0 "Kepler"** - Earlier stable release
 
 ## Planetary Moon Naming System
@@ -38,29 +38,40 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 
 ## Version History
 
-### v6.1.1 "Io" (2026-04-28)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.1.1] section. -->
+### v6.2.0 "Io" (2026-04-30)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.2.0] section. -->
 - **Named After**: <fill>
 - **Significance**: <fill>
 - **Features**: <fill>
+
+### v6.1.1 "Io" (2026-04-28)
+- **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
+- **Significance**: Security hardening patch -- two CodeQL alerts closed (ReDoS, stack-trace exposure), Vision LLM API key handling hardened, and browser extension MV3 compatibility fixes
+- **Features**: Vision LLM proxied through backend (API keys no longer stored in extension); image fetch moved to background service worker (MV3 fix); OCR block append-on-revisit; force-scrape hash dedup short-circuit; ContextLengthExceededError fail-fast; infra-failure detection marks executions as failed; context-overflow and infra-not-ready flags in eval API; ReDoS fix (bounded quantifiers + input cap); error messages no longer leak internals to HTTP clients; codex-mini removed from model allowlist; Langfuse session URL path fix
 
 ### v6.1.0 "Io" (2026-04-27)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.1.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
+- **Significance**: Agentic workflow hardening and infrastructure reliability -- infra-failure detection, context-length fast-fail, execution tracking overhaul, and three dependency security fixes (PyPDF2, aiohttp, jaraco.context CVE)
+- **Features**: Infra guard circuit breaker (LLM never invoked with empty messages); ContextLengthExceededError fail-fast with per-subagent continuation; workflow executions table sorting and filtering; cmdline attention preprocessor; multi-rule SIGMA generation with phased approach; OS Detection fallback preset fields; Chosen/Rejected article classification removed; Ollama and LangSmith support removed; eval bundle illegal-state detection
 
-### v5.3.0 "Callisto" (Unreleased)
-<!-- TODO: verify: fill Significance and Features once 5.3.0 is cut; in-progress changes are tracked under `[Unreleased]` in docs/CHANGELOG.md. -->
+### v6.0.0 "Io" (2026-04-23)
+- **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
+- **Significance**: Major version introducing the Io codename -- browser extension Vision LLM mode, source self-healing with trafilatura and platform auto-detection, SSRF protection, and large-scale UI and test-suite overhaul
+- **Features**: Browser extension Vision LLM extraction mode (GPT-4o / Claude Vision) with Hybrid fallback; OCR Tesseract.js MV3 CSP fix; source healing trafilatura probe and Ghost/Substack platform detection; eval concurrency throttle with per-article stagger; GPT-5 family in model catalog; SSRF protection on scrape endpoint; workflow config v1->v2 migration and agent normalization; extractor contract runtime validators; prompt UI sub-agent full JSON display; in-app RAG Chat removed (moved to Huntable MCP); UI test suite pruned 952->257 active tests
+
+### v5.3.0 "Callisto" (2026-04-14)
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons (codename reused from the 5.0.0/5.1.0 line)
+- **Significance**: New extraction sub-agents and unified traceability schema -- ServicesExtract, RegistryExtract, cross-field SIGMA similarity, Celery fork-safe DB pool, and release automation scripts
+- **Features**: ServicesExtract/ServicesQA sub-agent (Windows services artifacts); unified traceability envelope across all five extract sub-agents (value, source_evidence, extraction_justification, confidence_score); cross-field soft matching for SIGMA similarity (50%-dampened partial credit across process fields); Celery fork-safe DB pool fix; RegistryExtract/RegistryQA sub-agent; source-check distributed Redis lock; dashboard ingestion health scoring; release lock/unlock scripts; real scraper metrics from source_checks; OpenAI model catalog narrowed to allowlist
 
 ### v5.2.0 "Ganymede" (2026-03-26)
 - **Named After**: Largest moon in the solar system (Jupiter)
 - **Features**: Read-only `huntable_mcp` MCP server; `sigma_corpus` embedding stats via `GET /api/embeddings/stats`; multi-round source auto-healing with audit trail; Langfuse from Settings; v3 deep probes (RSS, sitemap, WordPress API, JS-render cues); Zscaler ThreatLabz source; Red Canary removed from default `config/sources.yaml`
 
 ### v5.1.0 "Callisto" (2026-03-13)
-<!-- TODO: verify: fill Significance and Features from docs/CHANGELOG.md entries between 2026-01-15 and 2026-03-13. -->
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons
+- **Significance**: Sigma deterministic semantic similarity engine, major test infrastructure overhaul, and LMStudio made optional
+- **Features**: Sigma deterministic precompute (canonical_class, positive/negative atoms, surface_score); Cron CLI and API for backup scheduling; LMStudio made optional (missing provider now raises clear error); eval articles repo-first (no network fetch at install); cloud LLM keys stripped at test startup; sigma observables_used in prompts and UI; agent evals historical results per-column display; preset layout consolidated under config/presets/; Anthropic and OpenAI model list filtering (latest-only); comprehensive test coverage (+38 tests); integration test full-system confidence suite
 
 ### v5.0.0 "Callisto" (2026-01-15)
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons

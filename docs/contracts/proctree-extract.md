@@ -23,6 +23,7 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
 - **CmdlineExtract** -- Windows command-line observables
 - **RegistryExtract** -- Windows registry artifacts
 - **ServicesExtract** -- Windows service artifacts
+- **ScheduledTasksExtract** -- Windows scheduled task artifacts
 - **HuntQueriesExtract** -- Finished detection logic (Sigma rules, KQL/SPL/EQL/XQL queries)
 
 ### Boundary rules

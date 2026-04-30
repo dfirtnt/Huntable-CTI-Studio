@@ -13,16 +13,8 @@ import asyncio
 from unittest.mock import Mock, patch
 
 try:
-    from src.utils.gpt4o_optimizer import GPT4oContentOptimizer
-
     from src.services.sigma_generation_service import SigmaGenerationService
-    from src.services.sigma_validator import SigmaValidator
-    from src.utils.ioc_extractor import HybridIOCExtractor
 except ImportError:
-    # Mock imports for testing without full dependencies
-    GPT4oContentOptimizer = None
-    HybridIOCExtractor = None
-    SigmaValidator = None
     SigmaGenerationService = None
 
 

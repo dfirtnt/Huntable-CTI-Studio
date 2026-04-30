@@ -124,6 +124,7 @@ class SigmaHuntabilityScorer:
         commandline_values = []
 
         def find_commandlines(d: dict):
+            nonlocal has_commandline
             for key, value in d.items():
                 if "commandline" in key.lower() or "command" in key.lower():
                     has_commandline = True

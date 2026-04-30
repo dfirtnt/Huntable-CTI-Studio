@@ -1,11 +1,11 @@
-"""Unit tests for similarity match filtering logic used in sigma_queue route.
+"""Unit tests for similarity match filtering logic.
 
-Tests the behavioral overlap filter and to_store filter that determine
-which similarity matches are persisted and displayed (2026-04-12, dev-io).
+Covers two predicate families:
+  - sigma_queue route: jaccard > 0 (behavioral atom overlap, for storage)
+  - agentic_workflow + ai route: similarity > 0 (weighted score, for display)
 
-These tests validate the *predicate logic* extracted from
-``get_similar_rules_for_queued_rule`` -- the route handler applies these
-filters inline, so we replicate the exact expressions here.
+Tests validate the *predicate logic* extracted from inline list comprehensions
+in the respective handlers, so they remain fast and dependency-free.
 """
 
 import pytest
@@ -188,3 +188,101 @@ class TestSoftCrossFieldMatchFiltering:
         assert len(stored) == 2
         titles = {m["title"] for m in stored}
         assert titles == {"Strong", "Soft"}
+
+
+# ── Display filter: similarity > 0 (agentic_workflow + ai route) ─────────
+#
+# These predicates guard what ends up in `similar_rules` / `similar_existing_rules`
+# on the novelty_results dict.  Mirrors the inline comprehension:
+#   [r for r in similar_rules if r.get("similarity", 0.0) > 0][:10]
+
+
+def _display_filter(matches: list, limit: int = 10) -> list:
+    """Mirror the display filter added to agentic_workflow.py and ai.py."""
+    return [r for r in matches if r.get("similarity", 0.0) > 0][:limit]
+
+
+class TestWorkflowDisplayFilter:
+    """Tests for the similarity > 0 display filter (agentic_workflow.py / ai.py)."""
+
+    def test_all_zero_similarity_returns_empty(self):
+        """When every candidate scores 0.0 the display list should be empty."""
+        candidates = [
+            {"title": "Rule A", "similarity": 0.0},
+            {"title": "Rule B", "similarity": 0.0},
+            {"title": "Rule C", "similarity": 0.0},
+        ]
+        assert _display_filter(candidates) == []
+
+    def test_nonzero_similarity_included(self):
+        """Candidates with any positive similarity score are kept."""
+        candidates = [
+            {"title": "High", "similarity": 0.75},
+            {"title": "Low", "similarity": 0.05},
+        ]
+        result = _display_filter(candidates)
+        assert len(result) == 2
+
+    def test_mixed_zero_and_nonzero(self):
+        """Only nonzero-similarity candidates appear in the display list."""
+        candidates = [
+            {"title": "Real", "similarity": 0.40},
+            {"title": "Zero", "similarity": 0.0},
+            {"title": "Also Real", "similarity": 0.12},
+        ]
+        result = _display_filter(candidates)
+        assert len(result) == 2
+        titles = {r["title"] for r in result}
+        assert titles == {"Real", "Also Real"}
+
+    def test_missing_similarity_field_treated_as_zero(self):
+        """Match dicts with no similarity key default to 0.0 and are excluded."""
+        candidates = [{"title": "No score field"}]
+        assert _display_filter(candidates) == []
+
+    def test_limit_respected(self):
+        """Display list is capped at the specified limit."""
+        candidates = [{"title": f"Rule {i}", "similarity": 0.5} for i in range(15)]
+        result = _display_filter(candidates, limit=10)
+        assert len(result) == 10
+
+    def test_max_similarity_computed_before_filter(self):
+        """max_similarity must be derived from ALL candidates (including zeros),
+        not from the filtered display list -- regression guard for the
+        intentional threshold=0.0 comment in agentic_workflow.py."""
+        all_candidates = [
+            {"similarity": 0.0},
+            {"similarity": 0.0},
+            {"similarity": 0.65},
+        ]
+        all_sims = [r.get("similarity", 0.0) for r in all_candidates]
+        max_sim = max(all_sims) if all_sims else 0.0
+
+        display = _display_filter(all_candidates)
+
+        assert max_sim == 0.65
+        assert len(display) == 1
+
+    def test_ai_route_entry_suppressed_when_all_zero(self):
+        """ai.py only appends to similar_rules_by_generated when the
+        filtered list is non-empty.  All-zero candidates => nothing appended."""
+        all_matches = [{"similarity": 0.0}, {"similarity": 0.0}]
+        similar_matches = _display_filter(all_matches)
+        similar_rules_by_generated: list = []
+
+        if similar_matches:
+            similar_rules_by_generated.append({"similar_existing_rules": similar_matches[:5]})
+
+        assert similar_rules_by_generated == []
+
+    def test_ai_route_entry_added_when_nonzero_match_exists(self):
+        """ai.py appends an entry when at least one match has similarity > 0."""
+        all_matches = [{"similarity": 0.0}, {"similarity": 0.35}]
+        similar_matches = _display_filter(all_matches)
+        similar_rules_by_generated: list = []
+
+        if similar_matches:
+            similar_rules_by_generated.append({"similar_existing_rules": similar_matches[:5]})
+
+        assert len(similar_rules_by_generated) == 1
+        assert len(similar_rules_by_generated[0]["similar_existing_rules"]) == 1

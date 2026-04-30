@@ -103,9 +103,10 @@ def trace_execution(execution_id: int):
 
         # Check normalized result
         print("\n📊 Normalized Result:")
-        query_count = hunt_queries_result.get("query_count", 0)
+        # Prefer unified `count`; legacy executions may still carry `query_count`.
+        query_count = hunt_queries_result.get("count", hunt_queries_result.get("query_count", 0))
         sigma_count = hunt_queries_result.get("sigma_count", 0)
-        print(f"   query_count: {query_count}")
+        print(f"   count: {query_count}")
         print(f"   sigma_count: {sigma_count}")
 
         sigma_rules = hunt_queries_result.get("sigma_rules", [])

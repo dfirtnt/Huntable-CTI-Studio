@@ -184,7 +184,7 @@ async def _scrape_single_url(
 
     # Use pre-scraped content if provided (e.g., from browser extension with OCR)
     if pre_scraped_content:
-        sanitized_content = pre_scraped_content
+        sanitized_content = re.sub(r"\s+", " ", pre_scraped_content).strip()
         # Still need to fetch HTML for title extraction if not provided
         if not title:
             headers = {

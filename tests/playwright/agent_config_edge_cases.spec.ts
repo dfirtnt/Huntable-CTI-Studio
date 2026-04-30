@@ -16,7 +16,8 @@ test.describe('Agent Config Edge Cases', () => {
     await page.waitForTimeout(1000);
 
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    await page.waitForTimeout(2000);
+    // Wait for initialization flag to clear (set false after loadConfig completes)
+    await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
   });
 
   test('should handle empty model selections correctly', async ({ page }) => {
@@ -110,7 +111,8 @@ test.describe('Agent Config Edge Cases', () => {
     await page.waitForTimeout(1000);
 
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    await page.waitForTimeout(2000);
+    // Wait for initialization flag to clear (set false after loadConfig completes)
+    await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
 
     // Page should still load and be functional
     const form = page.locator('#workflowConfigForm');

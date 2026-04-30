@@ -165,31 +165,6 @@ test.describe('Collapsible Sections', () => {
       await expect(toggle).toHaveText('▼');
     });
 
-    test('should expand and collapse Extract Agent prompt panel', async ({ page }) => {
-      await page.locator('#s3 .section-header').click();
-      await page.waitForTimeout(500);
-      await expect(page.locator('#s3')).toHaveClass(/open/);
-
-      const panelId = 'extract-agent-prompt-panel';
-      const content = page.locator(`#${panelId}-content`);
-      const toggle = page.locator(`#${panelId}-toggle`);
-      const header = page.locator(`[data-collapsible-panel="${panelId}"]`);
-
-      await expect(header).toBeVisible({ timeout: 10000 });
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-
-      await header.click();
-      await page.waitForTimeout(300);
-      await expect(content).toBeVisible();
-      await expect(toggle).toHaveText('▲');
-
-      await header.click();
-      await page.waitForTimeout(300);
-      await expect(content).toHaveClass(/hidden/);
-      await expect(toggle).toHaveText('▼');
-    });
-
     test('should expand and collapse CmdlineExtract Sub-Agent prompt panel', async ({ page }) => {
       await page.locator('#s3 .section-header').click();
       await page.waitForTimeout(500);

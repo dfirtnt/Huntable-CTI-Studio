@@ -210,9 +210,10 @@ async def api_services_health() -> dict[str, Any]:
                             "configured": True,
                         }
                     except Exception as flush_exc:
+                        logger.warning("Langfuse flush failed: %s", flush_exc)
                         services_status["langfuse"] = {
                             "status": "unhealthy",
-                            "error": f"Flush failed: {str(flush_exc)}",
+                            "error": "Flush failed",
                             "configured": True,
                         }
                 else:
@@ -228,9 +229,10 @@ async def api_services_health() -> dict[str, Any]:
                     "message": "LangFuse not configured (missing keys)",
                 }
         except Exception as langfuse_exc:
+            logger.warning("Langfuse health check failed: %s", langfuse_exc)
             services_status["langfuse"] = {
                 "status": "unhealthy",
-                "error": str(langfuse_exc),
+                "error": "Langfuse check failed",
                 "configured": False,
             }
 

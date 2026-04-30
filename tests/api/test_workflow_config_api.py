@@ -97,6 +97,70 @@ class TestWorkflowConfigCRUD:
         assert response.status_code == 422  # Validation error
 
 
+class TestWorkflowConfigDeduplication:
+    """Regression tests for the configs_identical check in PUT /config.
+
+    The save endpoint skips creating a new version when the submitted values
+    match the current active config.  Each test changes exactly ONE field and
+    verifies that a new version IS created -- catching any field accidentally
+    omitted from the comparison expression.
+    """
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_changing_auto_trigger_threshold_creates_new_version(self, async_client: httpx.AsyncClient):
+        """Regression: auto_trigger_hunt_score_threshold was missing from
+        configs_identical, so changing it alone was silently ignored."""
+        response = await async_client.get("/api/workflow/config")
+        assert response.status_code == 200
+        current = response.json()
+        original_version = current["version"]
+        original_threshold = current.get("auto_trigger_hunt_score_threshold", 60.0)
+
+        # Pick a value that differs from the current one
+        new_threshold = 55.0 if original_threshold != 55.0 else 65.0
+        update_response = await async_client.put(
+            "/api/workflow/config",
+            json={"auto_trigger_hunt_score_threshold": new_threshold},
+        )
+        assert update_response.status_code == 200
+
+        verify_response = await async_client.get("/api/workflow/config")
+        assert verify_response.status_code == 200
+        updated = verify_response.json()
+
+        assert updated["auto_trigger_hunt_score_threshold"] == pytest.approx(new_threshold)
+        assert updated["version"] > original_version, (
+            "Changing auto_trigger_hunt_score_threshold must create a new config version"
+        )
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_identical_save_does_not_create_new_version(self, async_client: httpx.AsyncClient):
+        """Saving the exact same config twice should reuse the existing version."""
+        response = await async_client.get("/api/workflow/config")
+        assert response.status_code == 200
+        current = response.json()
+        version_before = current["version"]
+
+        # Re-submit the same values (only scalar fields to avoid JSONB drift)
+        same_payload = {
+            "min_hunt_score": current["min_hunt_score"],
+            "ranking_threshold": current["ranking_threshold"],
+            "similarity_threshold": current["similarity_threshold"],
+            "junk_filter_threshold": current["junk_filter_threshold"],
+            "auto_trigger_hunt_score_threshold": current.get("auto_trigger_hunt_score_threshold", 60.0),
+        }
+        dup_response = await async_client.put("/api/workflow/config", json=same_payload)
+        assert dup_response.status_code == 200
+
+        verify_response = await async_client.get("/api/workflow/config")
+        assert verify_response.status_code == 200
+        assert verify_response.json()["version"] == version_before, "Identical config save should not bump the version"
+
+
 class TestWorkflowConfigConsistency:
     """Consistency checks across workflow config endpoints."""
 

@@ -24,7 +24,8 @@ test.describe('Agent Config Presets', () => {
     await page.waitForTimeout(1000);
 
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    await page.waitForTimeout(2000);
+    // Wait for initialization flag to clear (set false after loadConfig completes)
+    await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
   });
 
   test('should save preset with all config state', async ({ page }) => {
@@ -378,11 +379,11 @@ test.describe('Agent Config Presets', () => {
     await page.waitForTimeout(3000);
 
     // Expand panels to verify values were applied
-    // similarityThreshold is in sigma-agent-panel
-    // rankingThreshold is in rank-agent-configs-panel
-    await expandPanelIfNeeded(page, 'sigma-agent-panel');
-    await page.waitForTimeout(500);
+    // rankingThreshold is in rank-agent-configs-panel (s2)
+    // similarityThreshold is in other-thresholds-panel (s5), NOT sigma-agent-panel
     await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
+    await page.waitForTimeout(500);
+    await expandPanelIfNeeded(page, 'other-thresholds-panel');
     await page.waitForTimeout(500);
 
     // Step 4: Verify the preset was applied correctly

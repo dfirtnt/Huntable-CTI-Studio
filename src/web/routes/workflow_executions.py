@@ -164,6 +164,7 @@ async def list_workflow_executions(
     article_id: int | None = None,
     status: str | None = None,
     step: str | None = None,
+    exclude_evals: bool = False,
     sort_by: str = "created_at",
     sort_order: str = "desc",
     page: int = Query(1, ge=1),
@@ -181,6 +182,14 @@ async def list_workflow_executions(
                 base_filters.append(E.article_id == article_id)
             if step:
                 base_filters.append(E.current_step == step)
+            if exclude_evals:
+                # IS DISTINCT FROM handles NULL correctly: rows without eval_run key are kept
+                base_filters.append(
+                    or_(
+                        E.config_snapshot.is_(None),
+                        E.config_snapshot["eval_run"].astext.is_distinct_from("true"),
+                    )
+                )
 
             # Single aggregated count query instead of 5 separate COUNTs
             count_q = db_session.query(
@@ -213,6 +222,13 @@ async def list_workflow_executions(
                 query = query.filter(E.status == status)
             if step:
                 query = query.filter(E.current_step == step)
+            if exclude_evals:
+                query = query.filter(
+                    or_(
+                        E.config_snapshot.is_(None),
+                        E.config_snapshot["eval_run"].astext.is_distinct_from("true"),
+                    )
+                )
 
             # Sort
             order_col = _SORT_COLUMNS.get(sort_by, E.created_at)
@@ -379,7 +395,14 @@ def _build_observables_response(
     type_filter: str | None = None,
 ) -> ObservablesResponse:
     """Build observables response grouped by type from extraction_result."""
-    OBS_TYPES = ("cmdline", "process_lineage", "hunt_queries")
+    OBS_TYPES = (
+        "cmdline",
+        "process_lineage",
+        "hunt_queries",
+        "registry_artifacts",
+        "windows_services",
+        "scheduled_tasks",
+    )
     grouped: dict[str, list[ObservableTraceabilityItem]] = {t: [] for t in OBS_TYPES}
     if not extraction_result or not isinstance(extraction_result, dict):
         return ObservablesResponse(execution_id=execution_id, observables=grouped)

@@ -29,13 +29,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# Database configuration
+# Database configuration -- read from env vars to match deployment context
 DB_CONFIG = {
-    "host": "localhost",
-    "port": "5432",
-    "database": "cti_scraper",
-    "user": "cti_user",
-    "password": "cti_password",
+    "host": os.getenv("POSTGRES_HOST", "localhost"),
+    "port": os.getenv("POSTGRES_PORT", "5432"),
+    "database": os.getenv("POSTGRES_DB", "cti_scraper"),
+    "user": os.getenv("POSTGRES_USER", "cti_user"),
+    "password": os.getenv("POSTGRES_PASSWORD", "cti_password"),
 }
 
 # Docker volume names
@@ -202,12 +202,12 @@ def restore_database(
         print(f"❌ Database backup file not found: {db_backup_file}")
         return False
 
-    # Create snapshot if requested
+    # Create snapshot if requested (independent of --force; force only skips confirmation)
     snapshot_path = None
-    if create_snapshot and not force:
+    if create_snapshot:
         snapshot_path = create_database_snapshot()
         if not snapshot_path:
-            print("❌ Failed to create snapshot. Use --force to skip snapshot creation.")
+            print("❌ Failed to create snapshot. Use --no-snapshot to skip snapshot creation.")
             return False
 
     print(f"🔄 Restoring database from: {db_filename}")

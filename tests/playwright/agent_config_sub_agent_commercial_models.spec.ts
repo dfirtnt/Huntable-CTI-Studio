@@ -39,7 +39,8 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
     });
     await page.waitForTimeout(1000);
     await page.waitForSelector('#workflowConfigForm', { timeout: 10000 });
-    await page.waitForTimeout(2000);
+    // Wait for initialization flag to clear (set false after loadConfig completes)
+    await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
   });
 
   // -------------------------------------------------------------------------

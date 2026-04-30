@@ -131,7 +131,6 @@ class SigmaMatchingService:
             # Calculate weighted similarity (article matches against signature only)
             # Since articles don't have title/description/tags structure, weight signature at 100%
             # This is equivalent to signature_sim * 0.874 + 0 (for missing sections)
-            import json
 
             matches = []
             for row in rows:

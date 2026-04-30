@@ -138,10 +138,8 @@ def _load_dotenv() -> None:
 # Import test environment utilities
 try:
     import tests.utils.database_connections  # noqa: F401
-
-    ENVIRONMENT_UTILS_AVAILABLE = True
 except ImportError:
-    ENVIRONMENT_UTILS_AVAILABLE = False
+    pass
 
 # Enhanced debugging imports
 try:
@@ -839,8 +837,7 @@ class RunTestRunner:
                     "--ignore=tests/ui/",  # Exclude UI tests (require browser/Playwright)
                     "--ignore=tests/api/",  # Exclude api (langfuse+pydantic v1 incompatible with Python 3.14)
                     "-m",
-                    "not (smoke or integration or api or ui or e2e or performance "
-                    "or infrastructure or prod_data or production_data)",
+                    "not (smoke or integration or api or ui or e2e or performance or infrastructure or prod_data or production_data)",
                 ],
                 RunTestType.API: ["tests/api/"],
                 RunTestType.INTEGRATION: [
@@ -1069,23 +1066,6 @@ class RunTestRunner:
         # Include timestamp to preserve historical results
         cmd.extend([f"--junit-xml=test-results/junit_{self.timestamp}.xml"])
 
-        # Add HTML report (only if pytest-html is installed)
-        # NOTE: Disabled by default due to FileNotFoundError issues with pytest-html
-        # The plugin tries to write during test execution, causing crashes
-        # Users can enable with --html flag manually if needed
-        # try:
-        #     result = subprocess.run(
-        #         [self.venv_python, "-c", "import pytest_html"],
-        #         capture_output=True,
-        #         check=False,
-        #     )
-        #     if result.returncode == 0:
-        #         test_results_dir = Path("test-results")
-        #         if test_results_dir.exists():
-        #             cmd.extend([f"--html=test-results/report_{self.timestamp}.html", "--self-contained-html"])
-        # except Exception:
-        #     pass
-
         return cmd
 
     def run_tests(self) -> bool:
@@ -1150,9 +1130,19 @@ class RunTestRunner:
             if self.config.skip_real_api:
                 env["SKIP_REAL_API_TESTS"] = "1"
 
-            # Use in-process ASGI client for API and security tests (no live server on 127.0.0.1:8001 required)
-            # Security tests in tests/api/ use patch() to inject errors; those mocks only work in-process.
-            if self.config.test_type in (RunTestType.API, RunTestType.SECURITY):
+            # Use in-process ASGI client for any run that may collect from tests/api/.
+            # API/Security: direct. Regression/All/Coverage: sweep tests/ with markers that
+            # include api-marked tests -- without this flag the async_client fixture falls
+            # through to http://127.0.0.1:8001 which has no live server, causing ConnectError.
+            _api_collecting_runs = (
+                RunTestType.API,
+                RunTestType.SECURITY,
+                RunTestType.REGRESSION,
+                RunTestType.ALL,
+                RunTestType.ALL_NO_UI,
+                RunTestType.COVERAGE,
+            )
+            if self.config.test_type in _api_collecting_runs:
                 env["USE_ASGI_CLIENT"] = "1"
                 # In-process app must reach Redis on host (docker port map 6379)
                 if (
@@ -1333,11 +1323,8 @@ class RunTestRunner:
                         "counts": pytest_counts,
                     }
 
-                    # Save failure details to file (even if pytest had internal errors)
-                    if not pytest_success:
-                        failed_count = pytest_counts.get("failed", 0) + pytest_counts.get("errors", 0)
-                        if failed_count > 0 or "INTERNALERROR" in stdout_text or "FAILED" in stdout_text:
-                            self._save_failure_log(stdout_text + stderr_text, pytest_counts)
+                    # Always write a run log so test-results/ always has a record.
+                    self._save_failure_log(stdout_text + stderr_text, pytest_counts)
 
                     # Clear progress line and show final status
                     if pytest_groups:
@@ -1801,9 +1788,6 @@ class RunTestRunner:
                 print(f"\n⏱️  Test execution only: {test_only_duration:.2f}s")
             print(f"⏱️  Total (including setup): {total_duration:.2f}s")
             return
-
-        # Calculate duration
-        duration = time.time() - self.start_time
 
         # Aggregate test counts from pytest and playwright
         total_tests = 0

@@ -1151,7 +1151,6 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     raise
                 except Exception as e:
                     logger.error(f"Error calling {provider} API: {e}", exc_info=True)
-                    error_msg = _sanitize_error_detail(str(e) if e else "Unknown error")
                     raise HTTPException(status_code=500, detail="Internal server error") from e
         finally:
             db_session.close()

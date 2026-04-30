@@ -55,7 +55,7 @@ def check_execution(execution_id: int):
             hunt_queries_result = subresults.get("hunt_queries", {}) or subresults.get("HuntQueriesExtract", {})
             if hunt_queries_result:
                 print("\n  HuntQueriesExtract Results:")
-                print(f"    Query Count: {hunt_queries_result.get('query_count', 'N/A')}")
+                print(f"    Query Count: {hunt_queries_result.get('count', hunt_queries_result.get('query_count', 'N/A'))}")
                 print(f"    SIGMA Count: {hunt_queries_result.get('sigma_count', 'N/A')}")
 
                 # Check raw agent result

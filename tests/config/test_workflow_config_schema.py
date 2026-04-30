@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from src.config.workflow_config_schema import (
     AgentConfig,
+    QAConfig,
     WorkflowConfigV2,
 )
 
@@ -103,6 +104,12 @@ def test_agent_config_required_fields():
     assert agent.Provider == "openai"
     assert agent.Model == "gpt-4"
     assert agent.Enabled is True
+
+
+@pytest.mark.regression
+def test_qa_config_max_retries_default_is_one():
+    """QAConfig.MaxRetries default is 1 (changed from 5 to reduce runaway QA loops)."""
+    assert QAConfig().MaxRetries == 1
 
 
 @pytest.mark.regression

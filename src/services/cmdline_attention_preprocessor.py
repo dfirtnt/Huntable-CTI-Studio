@@ -390,7 +390,11 @@ def _extract_windowed_snippets(
     return snippets
 
 
-def process(article_text: str, agent_name: str | None = None) -> dict[str, Any]:
+def process(
+    article_text: str,
+    agent_name: str | None = None,
+    max_snippets: int | None = None,
+) -> dict[str, Any]:
     """
     Scan article for high-likelihood command-line regions and return structured payload.
 
@@ -398,6 +402,8 @@ def process(article_text: str, agent_name: str | None = None) -> dict[str, Any]:
         article_text: Raw article content.
         agent_name: When "CmdlineExtract", enables byte-preserving mode (disables sentence
             split, period/comma reflow, and space-join). Required by HARD CONTRACT.
+        max_snippets: Hard cap on returned snippets. Excess entries are dropped from the
+            end (earliest/highest-signal snippets are preserved). None = no cap.
 
     Returns:
         {
@@ -449,6 +455,9 @@ def process(article_text: str, agent_name: str | None = None) -> dict[str, Any]:
             continue
         seen.add(snippet)
         snippets_ordered.append(snippet)
+
+    if max_snippets is not None and len(snippets_ordered) > max_snippets:
+        snippets_ordered = snippets_ordered[:max_snippets]
 
     return {
         "high_likelihood_snippets": snippets_ordered,

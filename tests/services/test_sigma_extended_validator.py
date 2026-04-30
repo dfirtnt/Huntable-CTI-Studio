@@ -127,8 +127,7 @@ level: medium
         rule_data = {
             "detection": {
                 "selection": {
-                    "CommandLine|contains": "schtasks",
-                    "CommandLine|contains": "/create",  # noqa: F601
+                    "CommandLine|contains": ["schtasks", "/create"],
                 },
                 "condition": "selection",
             },

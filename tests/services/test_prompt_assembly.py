@@ -554,14 +554,14 @@ class TestActualCountFallback:
         subresults = {"cmdline": {}}
         assert _extract_actual_count("cmdline", subresults, execution_id=1) == 0
 
-    def test_hunt_queries_prefers_query_count(self):
-        """hunt_queries subagent prefers query_count over count."""
+    def test_hunt_queries_prefers_count(self):
+        """hunt_queries subagent prefers `count` (current contract) over legacy `query_count` alias."""
         subresults = {"hunt_queries": {"query_count": 7, "count": 3, "queries": [1]}}
-        assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 7
+        assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 3
 
-    def test_hunt_queries_falls_back_to_count(self):
-        """hunt_queries falls back to count when query_count is missing."""
-        subresults = {"hunt_queries": {"count": 4, "queries": [1, 2]}}
+    def test_hunt_queries_falls_back_to_query_count(self):
+        """hunt_queries falls back to legacy `query_count` when `count` is missing (cached executions)."""
+        subresults = {"hunt_queries": {"query_count": 4, "queries": [1, 2]}}
         assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 4
 
     def test_hunt_queries_falls_back_to_len_queries(self):

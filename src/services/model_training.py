@@ -49,8 +49,6 @@ def convert_observable_to_workshop_format(input_path: Path, output_path: Path, o
             try:
                 data = json.loads(line.strip())
                 value = data.get("value", "")
-                start_pos = data.get("start_position", 0)
-                end_pos = data.get("end_position", 0)
                 context_before = data.get("context_before", "")
                 context_after = data.get("context_after", "")
 

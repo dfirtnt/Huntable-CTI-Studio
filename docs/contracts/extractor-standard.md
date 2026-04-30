@@ -110,7 +110,7 @@ Purpose: Declare sibling agents and boundary rules to prevent overlap.
 Required elements:
 
 - "You are a sub-agent of ExtractAgent."
-- List ALL sibling extractors by name (CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, HuntQueriesExtract, plus any future agents)
+- List ALL sibling extractors by name (CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract, plus any future agents)
 - Explicit "Do NOT extract" rules for each sibling's scope
 - Any "You MAY extract" carve-outs where scopes partially overlap (e.g., RegistryExtract may extract the key from a reg.exe command, but not the command itself)
 

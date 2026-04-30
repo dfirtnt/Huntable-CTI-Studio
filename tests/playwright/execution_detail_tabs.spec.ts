@@ -69,6 +69,13 @@ test.describe('Execution Detail - Tabbed UI', () => {
     );
     await page.goto(`${BASE}/workflow#executions`);
     await page.waitForLoadState('networkidle');
+    // Guard against the context-destroyed race: the page may do a brief hash
+    // re-navigation after networkidle, destroying the JS context.  Wait until
+    // viewExecution is callable in a stable context before evaluating.
+    await page.waitForFunction(
+      () => typeof (window as any).viewExecution === 'function',
+      { timeout: 5000 }
+    );
     // Open modal programmatically
     await page.evaluate(() => (window as any).viewExecution(99999));
     await page.waitForSelector('#executionModal:not(.hidden)', { timeout: 5000 });

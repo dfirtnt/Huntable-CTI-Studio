@@ -264,7 +264,6 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 else:
                     # For other errors, log but don't suppress (let them propagate)
                     logger.error(f"Unexpected error exiting LangFuse trace: {exit_error}")
-                    suppress = False
                     # Re-raise non-generator errors
                     raise
 

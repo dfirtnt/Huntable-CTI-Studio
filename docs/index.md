@@ -2,8 +2,6 @@
 
 **Turn threat intelligence into Sigma detections; faster.**
 
-> Test deployment: 2026-04-19 staging site configured; PR #43 closed
-
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No black box required: the system exposes explicit workflows, stored execution state, versioned configuration, and testable interfaces.
 
 ## Who Is This For?

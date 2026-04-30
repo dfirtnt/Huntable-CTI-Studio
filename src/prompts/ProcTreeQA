@@ -14,5 +14,5 @@
     "[WARN] Missing parent-child edges present in the source are identified and added.",
     "[FAIL] No inferred relationships without evidence."
   ],
-  "instructions": "USER: Compare extracted_lineage to source_text. Flag any missing or invented parent-child edges. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": []}}."
+  "instructions": "USER: Compare extracted_lineage to source_text. Flag any missing or invented parent-child edges. The corrections object is REQUIRED in every response even if empty (use {\"removed\": [], \"added\": []}). Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": []}}."
 }

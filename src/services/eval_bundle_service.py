@@ -785,7 +785,7 @@ class EvalBundleService:
                 # Find generation matching our agent name
                 matching_generation = None
                 for gen in generations.data:
-                    gen_name = getattr(gen, "name", "")
+                    gen_name = getattr(gen, "name", None) or ""
                     gen_metadata = getattr(gen, "metadata", {}) or {}
                     if not isinstance(gen_metadata, dict):
                         # metadata might be a string or other type
@@ -1160,11 +1160,15 @@ class EvalBundleService:
         if not isinstance(qa_results_all, dict):
             return None
 
-        # Map agent names to QA agent names
+        # Map agent names to QA agent names. All extractor + RankAgent QA pairs must be listed
+        # here -- agents missing from this map have their QA results silently dropped from the bundle.
         qa_agent_map = {
             "CmdlineExtract": "CmdLineQA",
             "ProcTreeExtract": "ProcTreeQA",
             "HuntQueriesExtract": "HuntQueriesQA",
+            "RegistryExtract": "RegistryQA",
+            "ServicesExtract": "ServicesQA",
+            "ScheduledTasksExtract": "ScheduledTasksQA",
             "rank_article": "RankAgentQA",
         }
 
@@ -1183,6 +1187,13 @@ class EvalBundleService:
             "issues": qa_result.get("issues", []),
             "has_issues": len(qa_result.get("issues", [])) > 0,
         }
+
+        # Surface corrections_applied and pre_filter_count at the top-level qa_context so
+        # eval dashboards can read them without spelunking into raw_result._qa_result.
+        if "corrections_applied" in qa_result:
+            qa_context["corrections_applied"] = qa_result.get("corrections_applied")
+        if "pre_filter_count" in qa_result:
+            qa_context["pre_filter_count"] = qa_result.get("pre_filter_count")
 
         # Extract feedback if available
         feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied")

@@ -28,11 +28,23 @@ subagents:
       expected_count: 3
     - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
       expected_count: 5
+    - url: "https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die"
+      expected_count: 22
+    - url: "https://thedfirreport.com/2025/11/04/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira-2/"
+      expected_count: 9
 
   process_lineage:
     - url: "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/"
       expected_count: 2
+    - url: "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/"
+      expected_count: 0
+    - url: "https://thedfirreport.com/2021/05/12/conti-ransomware/"
+      expected_count: 0
+    - url: "https://thedfirreport.com/2021/05/02/trickbot-brief-creds-and-beacons/"
+      expected_count: 0
     - url: "https://thedfirreport.com/2021/03/29/sodinokibi-aka-revil-ransomware/"
+      expected_count: 0
+    - url: "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/"
       expected_count: 0
     - url: "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability"
       expected_count: 2
@@ -40,21 +52,9 @@ subagents:
       expected_count: 1
     - url: "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/"
       expected_count: 1
-    - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
-      expected_count: 7
-    - url: "https://thedfirreport.com/2022/10/31/follina-exploit-leads-to-domain-compromise/"
-      expected_count: 0
-    - url: "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery"
-      expected_count: 2
     - url: "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793"
       expected_count: 2
-    - url: "https://www.huntress.com/blog/velociraptor-misuse-part-one-wsus-up"
-      expected_count: 1
-    - url: "https://thedfirreport.com/2025/05/19/another-confluence-bites-the-dust-falling-to-elpaco-team-ransomware/"
-      expected_count: 4
-    - url: "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/"
-      expected_count: 2
-    - url: "https://thedfirreport.com/2025/09/29/from-a-single-click-how-lunar-spider-enabled-a-near-two-month-intrusion/"
+    - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
       expected_count: 2
   windows_services:
     - url: "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/"
@@ -120,7 +120,7 @@ subagents:
     - url: "https://securelist.com/macos-security-and-typical-attacks/117367/"
       expected_count: 4
     - url: "https://www.cisa.gov/news-events/analysis-reports/ar25-338a"
-      expected_count: 0
+      expected_count: 1
     - url: "https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/"
       expected_count: 3
     - url: "https://thedfirreport.com/2022/10/31/follina-exploit-leads-to-domain-compromise/"

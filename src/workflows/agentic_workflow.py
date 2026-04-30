@@ -279,16 +279,18 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
             query_count = len(queries) if isinstance(queries, list) else 0
         return query_count
 
-    # hunt_queries: prefer query_count, then count, then len(queries/items)
+    # hunt_queries: prefer count (current contract), then query_count (legacy alias),
+    # then len(queries/items). The query_count alias is deprecated and will be removed
+    # after one release; reads remain tolerant for cached/in-flight subresults.
     if subagent_name == "hunt_queries":
         hq = subresults.get("hunt_queries", {})
         if not isinstance(hq, dict):
             logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
             return None
-        n = hq.get("query_count")
+        n = hq.get("count")
         if n is not None:
             return int(n)
-        n = hq.get("count")
+        n = hq.get("query_count")
         if n is not None:
             return int(n)
         q = hq.get("queries") or hq.get("items", [])
@@ -842,8 +844,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             config_snapshot = execution.config_snapshot if execution else {}
             # Handle JSONB - it might be a dict or need parsing
             if isinstance(config_snapshot, str):
-                import json
-
                 try:
                     config_snapshot = json.loads(config_snapshot)
                 except (json.JSONDecodeError, ValueError):
@@ -1704,7 +1704,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
                         qa_prompt_config=qa_config if qa_enabled else None,
-                        max_retries=max_qa_retries if qa_enabled else 1,
+                        # max_retries governs extraction-exception retries only (QA is single-shot post-v1).
+                        # The previous `if qa_enabled else 1` conditional reflected pre-v1 semantics where
+                        # max_retries doubled as the QA retry budget; that distinction no longer exists.
+                        max_retries=max_qa_retries,
                         execution_id=state["execution_id"],
                         model_name=agent_model,
                         temperature=float(agent_temperature),
@@ -1722,7 +1725,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if agent_name == "HuntQueriesExtract":
                         # Extract query-envelope items. Sigma rules are represented as type="sigma".
                         edr_queries = agent_result.get("queries", [])
-                        query_count = agent_result.get("query_count", len(edr_queries))
+                        # Prefer `count` (current contract); `query_count` is a deprecated alias kept for one release.
+                        query_count = agent_result.get("count")
+                        if query_count is None:
+                            query_count = agent_result.get("query_count", len(edr_queries))
 
                         # Normalize field names for UI compatibility
                         # LLM may return: platform, query_text, source_context
@@ -1734,6 +1740,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                     "query": q.get("query") or q.get("query_text", ""),
                                     "type": q.get("type") or q.get("platform", "unknown"),
                                     "context": q.get("context") or q.get("source_context", ""),
+                                    # Preserve traceability fields through normalization
+                                    "source_evidence": q.get("source_evidence"),
+                                    "extraction_justification": q.get("extraction_justification"),
+                                    "confidence_score": q.get("confidence_score"),
                                 }
                                 normalized_edr_queries.append(normalized_q)
                             else:
@@ -2468,7 +2478,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 novelty_results.append(
                     {
                         "rule_title": rule.get("title"),
-                        "similar_rules": similar_rules[:10],  # Top matches from all candidates
+                        "similar_rules": [r for r in similar_rules if r.get("similarity", 0.0) > 0][:10],
                         "max_similarity": rule_max_sim,  # Actual max from all candidates
                         "novelty_label": rule_novelty_label,
                         "novelty_score": rule_min_novelty,
@@ -3040,10 +3050,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 logger.warning(
                     f"[Workflow {execution.id}] ⚠️ Failed to load {len(load_result['models_failed'])} model(s) - workflow will continue"
                 )
-            if not load_result["lmstudio_cli_available"]:
-                logger.warning(
-                    f"[Workflow {execution.id}] ⚠️ LMStudio CLI not available - models must be loaded manually"
-                )
+            if not load_result.get("lmstudio_available", load_result.get("lmstudio_cli_available")):
+                logger.warning(f"[Workflow {execution.id}] LMStudio API not reachable - models must be loaded manually")
 
         # Initialize state
         execution.status = "running"
@@ -3323,7 +3331,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         }
 
         # Final validation: ensure it's JSON serializable
-        import json
 
         try:
             # Test serialization - this will catch any ORM objects
@@ -3411,8 +3418,8 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         # Return error result (sanitized) instead of raising to avoid serialization issues
         # Only re-raise if it's not a generator/trace error
         if "generator" not in str(e).lower() and "trace" not in str(e).lower():
-            # Sanitize error message to ensure no ArticleTable references
-            error_msg = str(e)
+            # Never expose raw exception text to API callers
+            error_msg = "Internal workflow error"
             # Extract execution.id as primitive to avoid ORM serialization issues
             execution_id_primitive = int(execution.id) if execution else None
             # Return sanitized error result instead of raising

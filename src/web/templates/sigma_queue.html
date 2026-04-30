@@ -441,33 +441,30 @@ function renderRulePreview(rule, observablesData) {
         `;
     }
     
-    const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
+    const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries', registry_artifacts: 'Registry Artifacts', windows_services: 'Windows Services', scheduled_tasks: 'Scheduled Tasks' };
+    const OBS_TYPE_ORDER = ['cmdline', 'process_lineage', 'hunt_queries', 'registry_artifacts', 'windows_services', 'scheduled_tasks'];
     function filterObservablesForRule(rule, observablesData) {
         if (!observablesData?.observables) return observablesData;
         var indices = (rule.rule_metadata && rule.rule_metadata.observables_used) || null;
-        if (!indices || !Array.isArray(indices) || indices.length === 0) return { observables: { cmdline: [], process_lineage: [], hunt_queries: [] } };
-        var flat = [].concat(
-            observablesData.observables.cmdline || [],
-            observablesData.observables.process_lineage || [],
-            observablesData.observables.hunt_queries || []
-        );
+        const emptyObs = Object.fromEntries(OBS_TYPE_ORDER.map(t => [t, []]));
+        if (!indices || !Array.isArray(indices) || indices.length === 0) return { observables: emptyObs };
+        var flat = [].concat(...OBS_TYPE_ORDER.map(t => observablesData.observables[t] || []));
         var keep = {};
         indices.forEach(function(i) { if (i >= 0 && i < flat.length) keep[i] = true; });
-        var cmdLen = (observablesData.observables.cmdline || []).length;
-        var procLen = (observablesData.observables.process_lineage || []).length;
-        return {
-            observables: {
-                cmdline: (observablesData.observables.cmdline || []).filter(function(_, idx) { return keep[idx]; }),
-                process_lineage: (observablesData.observables.process_lineage || []).filter(function(_, idx) { return keep[cmdLen + idx]; }),
-                hunt_queries: (observablesData.observables.hunt_queries || []).filter(function(_, idx) { return keep[cmdLen + procLen + idx]; })
-            }
-        };
+        var offset = 0;
+        var result = {};
+        OBS_TYPE_ORDER.forEach(function(t) {
+            var bucket = observablesData.observables[t] || [];
+            result[t] = bucket.filter(function(_, idx) { return keep[offset + idx]; });
+            offset += bucket.length;
+        });
+        return { observables: result };
     }
     function observablesUsedSection() {
         const filtered = filterObservablesForRule(rule, observablesData);
         if (!filtered || !filtered.observables) return '';
         const obs = filtered.observables;
-        const total = (obs.cmdline?.length || 0) + (obs.process_lineage?.length || 0) + (obs.hunt_queries?.length || 0);
+        const total = OBS_TYPE_ORDER.reduce((sum, t) => sum + (obs[t]?.length || 0), 0);
         if (total === 0) return '<div class="mt-4"><details open class="border border-gray-600 rounded-lg"><summary class="cursor-pointer px-3 py-2 font-semibold text-gray-100">Observables Used</summary><p class="px-3 pb-3 text-gray-400 text-sm">No observables for this execution.</p></details></div>';
         function confidenceBadge(score) {
             if (score == null) return '<span class="text-gray-500 text-xs">N/A</span>';

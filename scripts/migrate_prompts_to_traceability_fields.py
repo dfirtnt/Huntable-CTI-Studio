@@ -16,16 +16,16 @@ have stale copies inside agentic_workflow_config.agent_prompts (JSONB). Those
 stored prompts still reference raw_text_snippet / confidence_level and will
 contradict the runtime traceability block until refreshed.
 
-This script refreshes the five affected agents' prompt strings in every row of
-agentic_workflow_config from the current on-disk source:
-
-  RegistryExtract, ServicesExtract, ProcTreeExtract, RegistryQA, ServicesQA
+This script refreshes affected agents' prompt strings in every row of
+agentic_workflow_config from the current on-disk source.  The agent list is
+driven by AGENT_NAMES_SUB (all extract sub-agents) plus RegistryQA/ServicesQA,
+which also carried the deprecated field names at migration time.
 
 Safety properties
 -----------------
 - Idempotent: re-running after a successful migration is a no-op (detected by
   absence of deprecated field names in the stored prompt).
-- Scoped: only the five agents listed above are touched. Every other agent's
+- Scoped: only agents in MIGRATED_AGENTS are touched. Every other agent's
   customized prompt is preserved exactly.
 - Active-row-only by default: `agentic_workflow_config` retains every past
   version as an inactive history row. Rewriting those rows would corrupt the
@@ -67,15 +67,16 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROMPT_DIR = REPO_ROOT / "src" / "prompts"
 
-# Only the agents whose prompts were rewritten for the traceability contract.
-# Touching anything else risks overwriting user customizations.
-MIGRATED_AGENTS: tuple[str, ...] = (
-    "RegistryExtract",
-    "ServicesExtract",
-    "ProcTreeExtract",
-    "RegistryQA",
-    "ServicesQA",
-)
+# Make the repo importable when the script is run directly (e.g. docker-compose exec web).
+sys.path.insert(0, str(REPO_ROOT))
+from src.config.workflow_config_schema import AGENT_NAMES_SUB  # noqa: E402
+
+# Agents to scan during migration.  AGENT_NAMES_SUB is the canonical list of
+# extract sub-agents (source of truth in workflow_config_schema.py).  RegistryQA
+# and ServicesQA are added explicitly because they also had deprecated field names
+# at migration time.  All other agents are no-ops if they never carried the
+# deprecated fields.
+MIGRATED_AGENTS: tuple[str, ...] = tuple(AGENT_NAMES_SUB) + ("RegistryQA", "ServicesQA")
 
 DEPRECATED_FIELDS: tuple[str, ...] = ("raw_text_snippet", "confidence_level")
 

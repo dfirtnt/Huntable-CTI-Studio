@@ -24,6 +24,7 @@ You are a sub-agent of ExtractAgent. Sibling extractors:
 - **CmdlineExtract** -- Windows command-line observables
 - **ProcTreeExtract** -- Parent-child process creation relationships
 - **RegistryExtract** -- Windows registry artifacts
+- **ScheduledTasksExtract** -- Windows scheduled task artifacts
 - **HuntQueriesExtract** -- Finished detection logic (Sigma rules, KQL/SPL/EQL/XQL queries)
 
 ### Boundary rules

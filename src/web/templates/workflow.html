@@ -1268,6 +1268,37 @@
   color: var(--text-primary);
 }
 
+/* ─── Exclude-Evals toggle pill ─────────────────────── */
+.q-cmd-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  background: var(--panel-bg-5);
+  border: 1px solid var(--purple-border-20);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.q-cmd-toggle input[type="checkbox"] {
+  accent-color: #8b5cf6;
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+.q-cmd-toggle:has(input:checked) {
+  color: #c4b5fd;
+  border-color: rgba(139, 92, 246, 0.45);
+  background: rgba(139, 92, 246, 0.12);
+}
+
 /* ─── Filter input ───────────────────────────────────── */
 .q-cmd-input {
   padding: 6px 10px;
@@ -1899,14 +1930,8 @@
                 <div class="section-body">
                   <div class="mt-3 space-y-4">
 
-                    <!-- Supervisor Model -->
+                    <!-- Default model/provider for sub-agents (fallback when per-agent model is unset) -->
                     <div id="extract-agent-model-container"></div>
-
-                    <!-- Supervisor Prompt -->
-                    <div id="extract-agent-prompt-container"></div>
-
-                    <!-- Supervisor QA Prompt -->
-                    <div id="extract-agent-qa-prompt-container" class="hidden"></div>
 
                     <!-- Sub-Agents accordion -->
                     <div class="pt-4 border-t border-yellow-700/40">
@@ -1916,6 +1941,7 @@
                       <div id="sa-cmdline" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-cmdline-body" onclick="toggleSA('sa-cmdline')">
                           <span class="sa-title">CmdlineExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('cmdlineExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Command Line Extraction</span>
                           <span id="cmdlineextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
                           <span id="cmdlineextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
@@ -1940,7 +1966,6 @@
                           <div class="space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
                               Model Provider
-                              <button type="button" onclick="showHelp('cmdlineExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -1994,7 +2019,7 @@
                           <!-- QA Toggle -->
                           <div class="flex items-center justify-between">
                             <div>
-                              <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">CmdlineExtract QA Agent</label>
+                              <label class="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">CmdlineExtract QA Agent <button type="button" onclick="showHelp('cmdlineQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></label>
                               <p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
@@ -2005,7 +2030,6 @@
                           <!-- CmdLineQA sub-panel -->
                           <div id="cmdlineextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">CmdLine QA Model Provider
-                              <button type="button" onclick="showHelp('cmdlineQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -2040,6 +2064,7 @@
                       <div id="sa-proctree" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-proctree-body" onclick="toggleSA('sa-proctree')">
                           <span class="sa-title">ProcTreeExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('procTreeExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Process Lineage Extraction</span>
                           <span id="proctreeextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
                           <span id="proctreeextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
@@ -2056,7 +2081,6 @@
 	                          <div class="space-y-2">
 	                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
 	                              Model Provider
-	                              <button type="button" onclick="showHelp('procTreeExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
 	                            </label>
 	                            <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -2077,12 +2101,11 @@
                           </div>
                           <div id="proctreeextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
-                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ProcTreeExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <div><label class="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">ProcTreeExtract QA Agent <button type="button" onclick="showHelp('procTreeQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-proctreeextract" name="qa_enabled[ProcTreeExtract]" class="sr-only peer" onchange="updateQABadge('proctreeextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="proctreeextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">ProcTree QA Model Provider
-                              <button type="button" onclick="showHelp('procTreeQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -2114,6 +2137,7 @@
                       <div id="sa-huntqueries" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-huntqueries-body" onclick="toggleSA('sa-huntqueries')">
                           <span class="sa-title">HuntQueriesExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('huntQueriesExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Hunt Queries Extraction</span>
                           <span id="huntqueriesextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
                           <span id="huntqueriesextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
@@ -2148,12 +2172,11 @@
                           </div>
                           <div id="huntqueriesextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
-                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueriesExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <div><label class="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueriesExtract QA Agent <button type="button" onclick="showHelp('huntQueriesQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-huntqueriesextract" name="qa_enabled[HuntQueriesExtract]" class="sr-only peer" onchange="updateQABadge('huntqueriesextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="huntqueriesextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">HuntQueries QA Model Provider
-                              <button type="button" onclick="showHelp('huntQueriesQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -2185,6 +2208,7 @@
                       <div id="sa-registry" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-registry-body" onclick="toggleSA('sa-registry')">
                           <span class="sa-title">RegistryExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('registryExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Registry Artifacts Extraction</span>
                           <span id="registryextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
                           <span id="registryextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
@@ -2201,7 +2225,6 @@
 	                          <div class="space-y-2">
 	                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
 	                              Model Provider
-	                              <button type="button" onclick="showHelp('registryExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
 	                            </label>
 	                            <div class="grid grid-cols-2 gap-3">
 	                              <div>
@@ -2222,12 +2245,11 @@
                           </div>
                           <div id="registryextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
-                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">RegistryExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <div><label class="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">RegistryExtract QA Agent <button type="button" onclick="showHelp('registryQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-registryextract" name="qa_enabled[RegistryExtract]" class="sr-only peer" onchange="updateQABadge('registryextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="registryextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">Registry QA Model Provider
-                              <button type="button" onclick="showHelp('registryQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -2259,6 +2281,7 @@
                       <div id="sa-services" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-services-body" onclick="toggleSA('sa-services')">
                           <span class="sa-title">ServicesExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('servicesExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Windows Services Extraction</span>
                           <span id="servicesextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
                           <span id="servicesextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
@@ -2275,7 +2298,6 @@
 	                          <div class="space-y-2">
 	                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
 	                              Model Provider
-	                              <button type="button" onclick="showHelp('servicesExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
 	                            </label>
 	                            <div class="grid grid-cols-2 gap-3">
 	                              <div>
@@ -2296,12 +2318,11 @@
                           </div>
                           <div id="servicesextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
-                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ServicesExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <div><label class="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">ServicesExtract QA Agent <button type="button" onclick="showHelp('servicesQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-servicesextract" name="qa_enabled[ServicesExtract]" class="sr-only peer" onchange="updateQABadge('servicesextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="servicesextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">Services QA Model Provider
-                              <button type="button" onclick="showHelp('servicesQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -2333,6 +2354,7 @@
                       <div id="sa-scheduledtasks" class="sa-item">
                         <div class="sa-header" role="button" tabindex="0" aria-expanded="false" aria-controls="sa-scheduledtasks-body" onclick="toggleSA('sa-scheduledtasks')">
                           <span class="sa-title">ScheduledTasksExtract</span>
+                          <button type="button" onclick="event.stopPropagation(); showHelp('scheduledTasksExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                           <span class="text-xs text-gray-500 dark:text-gray-400">Scheduled Tasks Extraction</span>
                           <span id="scheduledtasksextract-agent-enabled-pill" class="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 ml-auto">Enabled</span>
                           <span id="scheduledtasksextract-agent-qa-badge" class="px-2 py-1 text-xs rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 ml-1">QA: OFF</span>
@@ -2349,7 +2371,6 @@
 	                          <div class="space-y-2">
 	                            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">
 	                              Model Provider
-	                              <button type="button" onclick="showHelp('scheduledTasksExtract')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
 	                            </label>
 	                            <div class="grid grid-cols-2 gap-3">
 	                              <div>
@@ -2370,12 +2391,11 @@
                           </div>
                           <div id="scheduledtasksextract-agent-prompt-container"></div>
                           <div class="flex items-center justify-between">
-                            <div><label class="block text-xs font-medium text-gray-700 dark:text-gray-300">ScheduledTasksExtract QA Agent</label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
+                            <div><label class="flex items-center gap-1 text-xs font-medium text-gray-700 dark:text-gray-300">ScheduledTasksExtract QA Agent <button type="button" onclick="showHelp('scheduledTasksQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Agent info"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></label><p class="text-[10px] text-gray-500 dark:text-gray-400">Enable QA validation</p></div>
                             <label class="relative inline-flex items-center cursor-pointer"><input type="checkbox" id="qa-scheduledtasksextract" name="qa_enabled[ScheduledTasksExtract]" class="sr-only peer" onchange="updateQABadge('scheduledtasksextract-agent'); autoSaveConfig();"><div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed"></div></label>
                           </div>
                           <div id="scheduledtasksextract-agent-qa-configs" class="hidden space-y-2">
                             <label class="flex items-center gap-2 text-xs font-medium text-gray-700 dark:text-gray-300">Scheduled Tasks QA Model Provider
-                              <button type="button" onclick="showHelp('scheduledTasksQA')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button>
                             </label>
                             <div class="grid grid-cols-2 gap-3">
                               <div>
@@ -3177,6 +3197,10 @@
             </select>
             <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="q-cmd-input" onkeydown="if(event.key==='Enter')filterExecutions()">
             <button onclick="filterExecutions()" class="q-cmd-btn neutral">Apply</button>
+            <label class="q-cmd-toggle" title="Hide executions triggered by eval runs">
+                <input type="checkbox" id="excludeEvalsToggle" onchange="filterExecutions()" checked>
+                Excl. Evals
+            </label>
             <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
             <label class="hidden" aria-hidden="true">
                 <input type="checkbox" id="observableCountsToggle" onchange="toggleObservableCounts(event)">
@@ -3441,8 +3465,11 @@
                             Include article content (0.8 junk-filtered) in enrichment prompt
                         </label>
                     </div>
-                    <div class="hidden">
-                        <textarea id="enrichInstruction" rows="3"></textarea>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Enrichment Instructions (optional):
+                        </label>
+                        <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.</textarea>
                     </div>
                     <div>
                         <div class="flex items-center justify-between mb-2">
@@ -3756,7 +3783,7 @@ END SYSTEM PROMPT</textarea>
                         <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Enrich Further
                         </button>
-                        <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
+                        <button id="enrichCancelBtn" onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                             Cancel
                         </button>
                     </div>
@@ -3911,7 +3938,16 @@ function switchTab(tab) {
     if (tab === 'config') {
             loadConfig().catch(err => console.error('Error loading config:', err));
     } else if (tab === 'executions') {
-            loadExecutions().catch(err => console.error('Error loading executions:', err));
+            loadExecutions().then(() => {
+                const execParam = getURLParameter('exec');
+                if (execParam) {
+                    const execId = parseInt(execParam, 10);
+                    if (!isNaN(execId)) {
+                        removeURLParameter('exec');
+                        viewExecution(execId);
+                    }
+                }
+            }).catch(err => console.error('Error loading executions:', err));
     } else if (tab === 'queue') {
             loadQueue().catch(err => console.error('Error loading queue:', err));
             // Check URL parameter on tab switch (in case data is already loaded)
@@ -6002,7 +6038,6 @@ const LOCKED_EXTRACTOR_AGENTS = [
     'ServicesExtract',
     'ScheduledTasksExtract',
     'RankAgent',
-    'ExtractAgent',
     'SigmaAgent',
 ];
 
@@ -6018,9 +6053,6 @@ const LOCKED_QA_AGENTS = [
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
 const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nArticle Title: {title}\nArticle URL: {url}\n\nOriginal Extraction Task: {task}\n\nOriginal Extraction Instructions:\n{extraction_instructions}\n\nOriginal Extraction Output Format:\n{extraction_output_format}\n\nSource Text:\n{article_content}\n\nExtracted Data:\n{extracted_commands}\n\nEvaluation Criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
 const LOCKED_RANK_USER_TEMPLATE = 'Article Title: {title}\nSource: {source}\nURL: {url}\n\nContent:\n{content}';
-// Code-owned in llm_service._EXTRACT_BEHAVIORS_TEMPLATE — the supervisor's user message is built
-// from this template at runtime, with {prompt_config} expanded to the full ExtractAgent JSON.
-const LOCKED_EXTRACTAGENT_USER_TEMPLATE = 'Title: {title}\n\nURL: {url}\n\nContent:\n\n{content}\n\nExtract telemetry-aware attacker behaviors and observables for Windows detection/hunting. Use only information explicitly present in the content. Do not invent or autofill missing pieces.\n\nPrompt config (schema and constraints):\n{prompt_config}\n\nOutput a single valid JSON object only. No markdown, no code fences, no prose outside JSON. If a category is empty, return an empty array for that field.';
 // Mirrors src/prompts/sigma_generate_multi.txt — SigmaAgent's user message template. The backend
 // formats this with {title}, {source}, {url}, {content}, {observables_section}.
 const LOCKED_SIGMA_USER_TEMPLATE = [
@@ -6087,7 +6119,6 @@ function isLockedQAPrompt(agentName) {
 
 function getLockedUserTemplate(agentName) {
     if (agentName === 'RankAgent') return LOCKED_RANK_USER_TEMPLATE;
-    if (agentName === 'ExtractAgent') return LOCKED_EXTRACTAGENT_USER_TEMPLATE;
     if (agentName === 'SigmaAgent') return LOCKED_SIGMA_USER_TEMPLATE;
     if (isLockedExtractorPrompt(agentName)) return LOCKED_EXTRACTION_USER_TEMPLATE;
     if (isLockedQAPrompt(agentName)) return LOCKED_QA_USER_TEMPLATE;
@@ -6107,7 +6138,6 @@ const EFFECTIVE_PROMPT_PLACEHOLDER_DOCS = {
     source: 'Article source (feed / publisher)',
     content: 'Full article body text',
     instructions: "Extraction instructions (from the agent's DB prompt config)",
-    prompt_config: 'Full ExtractAgent prompt config JSON (assembled from all configured extractors at runtime)',
     observables_section: 'Optional "Observables" block — present only when behaviors were extracted upstream',
     objective: 'QA task objective',
     task: "The original extractor's task string",
@@ -9045,18 +9075,6 @@ function renderAgentPrompts() {
         }, 0);
     }
 
-    // Render Extract Agent Prompt
-    const extractPromptContainer = document.getElementById('extract-agent-prompt-container');
-    if (extractPromptContainer) {
-        const promptData = getOrCreatePromptData('ExtractAgent');
-        extractPromptContainer.innerHTML = renderSinglePrompt('ExtractAgent', promptData, 'extract-agent');
-        setTimeout(() => {
-            if (typeof initCollapsiblePanels === 'function') {
-                initCollapsiblePanels(extractPromptContainer);
-            }
-        }, 0);
-    }
-    
     // Render Sub-Agent Prompts
     const subAgents = [
         { name: 'CmdlineExtract', container: 'cmdlineextract-agent-prompt-container', prefix: 'cmdlineextract-agent' },
@@ -12365,10 +12383,13 @@ async function loadExecutions() {
         const statusFilter = statusFilterEl ? statusFilterEl.value : '';
         const stepFilter = stepFilterEl ? stepFilterEl.value : '';
         const articleId = articleIdEl && articleIdEl.value.trim() ? parseInt(articleIdEl.value.trim(), 10) : null;
+        const excludeEvalsEl = document.getElementById('excludeEvalsToggle');
+        const excludeEvals = excludeEvalsEl ? excludeEvalsEl.checked : false;
         const params = new URLSearchParams();
         if (statusFilter) params.set('status', statusFilter);
         if (stepFilter) params.set('step', stepFilter);
         if (articleId && !isNaN(articleId)) params.set('article_id', articleId);
+        if (excludeEvals) params.set('exclude_evals', 'true');
         params.set('sort_by', executionSortState.sortBy);
         params.set('sort_order', executionSortState.sortOrder);
         params.set('page', _execPage);
@@ -12663,7 +12684,7 @@ async function viewExecution(executionId) {
                     inputDetails: contentInputDetails,
                     output: `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Filtered:</strong> ${exec.junk_filter_result.is_huntable ? 'Yes' : 'No'}</div>
-                        <div><strong>Confidence:</strong> ${(exec.junk_filter_result.confidence || 0).toFixed(2)}</div>
+                        <div><strong>Confidence:</strong> ${(exec.junk_filter_result.confidence || 0).toFixed(2)} <button type="button" onclick="event.stopPropagation(); showHelp('junkFilterConfidence')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none inline-align-middle" title="What is this?"><svg class="w-3 h-3 inline" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg></button></div>
                         <div><strong>Original Length:</strong> ${exec.junk_filter_result.original_length || 0} chars</div>
                         <div><strong>Filtered Length:</strong> ${exec.junk_filter_result.filtered_length || 0} chars</div>
                         <div><strong>Chunks Kept:</strong> ${exec.junk_filter_result.chunks_kept || 0}</div>
@@ -13526,7 +13547,7 @@ async function viewExecution(executionId) {
                 if (score == null) return '<span class="text-[#dee2e8] text-xs">N/A</span>';
                 const pct = Math.round(Number(score) * 100);
                 const cls = pct >= 80 ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : pct >= 50 ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-                return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}" title="Confidence">${pct}%</span>`;
+                return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}" title="Confidence">${pct}% Confidence</span>`;
             }
             function traceabilitySection() {
                 if (totalObs === 0) return `<div class="observable-traceability border-t pt-2 border-gray-700"><h4 class="font-bold mb-3 text-white">Observable Traceability</h4><p class="text-[#dee2e8] text-sm">Traceability unavailable (legacy execution or no observables).</p></div>`;
@@ -14557,7 +14578,7 @@ function observablesUsedSection(rule, observablesData) {
         if (score == null) return '<span class="text-gray-500 text-xs">N/A</span>';
         const pct = Math.round(Number(score) * 100);
         const cls = pct >= 80 ? 'bg-green-900/40 text-green-300' : pct >= 50 ? 'bg-yellow-900/40 text-yellow-300' : 'bg-red-900/40 text-red-300';
-        return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${pct}%</span>`;
+        return `<span class="px-2 py-0.5 rounded text-xs font-medium ${cls}">${pct}% Confidence</span>`;
     }
     let html = '<div class="mt-4"><details open class="border border-gray-600 rounded-lg"><summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Observables Used (' + total + ')</summary><div class="px-3 pb-3 space-y-2">';
     for (const [typeKey, label] of Object.entries(typeLabels)) {
@@ -14646,6 +14667,7 @@ function renderRulePreview(rule, observablesData) {
         <div class="space-y-4 text-gray-600 dark:text-gray-300">
             <div><strong>Rule ID:</strong> ${rule.id}</div>
             <div><strong>Article:</strong> <a href="/articles/${rule.article_id}" class="text-purple-600">${rule.article_title || 'Article ' + rule.article_id}</a></div>
+            ${Number.isInteger(rule.workflow_execution_id) ? `<div><strong>Job:</strong> <a href="#executions" class="text-purple-600" onclick="closeModal(); switchTab('executions'); setTimeout(() => viewExecution(${rule.workflow_execution_id}), 100); return false;" title="Open workflow execution ${rule.workflow_execution_id}">Execution #${rule.workflow_execution_id}</a></div>` : ''}
             <div><strong>Max Similarity:</strong> ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : 'N/A'}</div>
             ${similarRulesHtml}
             ${observablesUsedSection(rule, observablesData)}
@@ -16490,21 +16512,35 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
 }
 
 async function enrichRule() {
+    // Disable immediately to prevent double-click; re-enable on any early return.
+    const enrichBtn = document.getElementById('enrichBtn');
+    enrichBtn.disabled = true;
+    enrichBtn.textContent = 'Enriching...';
+    enrichBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
     const rule = queue.find(r => r.id === currentRuleId);
-    if (!rule) return;
-    
+    if (!rule) {
+        enrichBtn.disabled = false;
+        enrichBtn.textContent = 'Enrich Rule';
+        enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+        return;
+    }
+
     // Get selected provider and model
     const providerSelect = document.getElementById('enrichProviderSelect');
     const modelSelect = document.getElementById('enrichModelSelect');
     const selectedProvider = providerSelect ? providerSelect.value : '';
     const selectedModel = modelSelect ? modelSelect.value : '';
-    
+
     if (!selectedProvider || !selectedModel) {
         document.getElementById('enrichError').textContent = 'Please select both a provider and model.';
         document.getElementById('enrichError').classList.remove('hidden');
+        enrichBtn.disabled = false;
+        enrichBtn.textContent = 'Enrich Rule';
+        enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
         return;
     }
-    
+
     // Get API key - try settings API first, fallback to localStorage (not needed for LMStudio)
     let apiKey = null;
     if (selectedProvider !== 'lmstudio') {
@@ -16513,7 +16549,7 @@ async function enrichRule() {
             if (response.ok) {
                 const data = await response.json();
                 const settings = data.settings || {};
-                
+
                 // Get API key based on selected provider
                 if (selectedProvider === 'openai') {
                     apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
@@ -16524,7 +16560,7 @@ async function enrichRule() {
         } catch (error) {
             console.warn('Could not fetch API key from settings API, trying localStorage:', error);
         }
-        
+
         // Fallback to localStorage if not found in settings API
         if (!apiKey) {
             const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -16534,27 +16570,26 @@ async function enrichRule() {
                 apiKey = settings.anthropicApiKey || settings.workflowAnthropicApiKey;
             }
         }
-        
+
         if (!apiKey || !apiKey.trim()) {
             const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
             document.getElementById('enrichError').textContent = `Please configure your ${providerName} API key in Settings first.`;
             document.getElementById('enrichError').classList.remove('hidden');
             console.error('API key not found for provider:', selectedProvider);
+            enrichBtn.disabled = false;
+            enrichBtn.textContent = 'Enrich Rule';
+            enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             return;
         }
-        
+
         // Trim API key to remove any whitespace
         apiKey = apiKey.trim();
     }
-    
+
     const instruction = 'Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.';
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
-    
-    // Show loading, hide error and result
-    const enrichBtn = document.getElementById('enrichBtn');
-    enrichBtn.disabled = true;
-    enrichBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Enriching...';
-    enrichBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
+    // Show loading, hide error and result (button already disabled above)
     
     document.getElementById('enrichLoading').classList.remove('hidden');
     document.getElementById('enrichError').classList.add('hidden');
@@ -17841,6 +17876,26 @@ function showHelp(fieldName) {
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 95.0-99.0 for production (high quality), 85.0-95.0 for testing (more volume)</p>`
         },
+        'junkFilterConfidence': {
+            title: 'Junk Filter Confidence',
+            content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
+                      <p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">How certain the Junk Filter was that the <em>kept</em> content is huntable. It is the average confidence score across all text chunks that survived filtering.</p>
+                      <p class="mb-2"><strong>How it is calculated:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>The article is split into ~1000-character chunks</li>
+                          <li>Each chunk is scored by the ML classifier (or pattern-based fallback)</li>
+                          <li>Only chunks above the configured threshold are kept</li>
+                          <li>This value is the mean confidence of those kept chunks</li>
+                      </ul>
+                      <p class="mb-2"><strong>What it means:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li><strong>0.9+</strong> - Very high confidence; retained content is almost certainly huntable</li>
+                          <li><strong>0.7-0.9</strong> - Normal range; content passed with solid evidence</li>
+                          <li><strong>Below 0.7</strong> - Marginal; content was kept but the classifier was uncertain</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400">This score reflects quality of what was <em>kept</em>, not whether the article passed the filter overall.</p>`
+        },
         'junkFilterThreshold': {
             title: 'Junk Filter Threshold',
             content: `<p class="mb-2"><strong>Range:</strong> 0.0 - 1.0</p>
@@ -17849,10 +17904,10 @@ function showHelp(fieldName) {
                       <p class="mb-2">Minimum confidence level for content filtering. Higher values mean stricter filtering (more content removed), lower values mean more lenient filtering.</p>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li>Content is analyzed for junk/noise patterns</li>
-                          <li>Confidence score (0.0-1.0) indicates how likely content is junk</li>
-                          <li>Content with confidence ≥ threshold is kept</li>
-                          <li>Content with confidence < threshold is filtered out</li>
+                          <li>Content is chunked and each chunk is scored for huntability by the ML model</li>
+                          <li>Confidence score (0.0-1.0) indicates how likely the chunk is huntable (high = more huntable)</li>
+                          <li>Chunks classified as huntable AND with confidence &ge; threshold are kept</li>
+                          <li>Chunks below the threshold or classified as non-huntable are filtered out</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Recommended:</strong> 0.7-0.9 (0.8 is balanced). Higher = stricter (less junk), Lower = more lenient (more content passes)</p>`
         },
@@ -17911,18 +17966,7 @@ function showHelp(fieldName) {
 	            content: `<p class="mb-2"><strong>Description:</strong></p>
 	                      <p class="mb-2">The LLM model used to evaluate and rank articles for huntability. This agent determines whether an article contains actionable threat intelligence worth extracting.</p>
 	                      <p class="mb-2"><strong>Hard rule:</strong> Atomic IOCs (hashes, IPs, domains) are ignored for scoring. Articles must be ranked on behavioral/telemetry patterns, not indicator lists.</p>
-	                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>google/gemma-3-4b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                          <li>Qwen3-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.2 – 0.4</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
-                      <p class="mb-2"><strong>How it works:</strong></p>
+	                      <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>After junk filtering, the Rank Agent evaluates the article</li>
                           <li>Returns a score from 1-10 (10 = highly huntable)</li>
@@ -17935,17 +17979,6 @@ function showHelp(fieldName) {
             title: 'Extract Agents Fallback Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">The default LLM model used by sub-agents when no specific model is configured for them.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                          <li>Qwen2.5-Coder-14B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.5 – 0.7</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Each sub-agent can have its own model configured</li>
@@ -17959,6 +17992,7 @@ function showHelp(fieldName) {
                           <li><strong>HuntQueriesExtract:</strong> EDR/SIEM queries (KQL, SPL, etc.)</li>
                           <li><strong>RegistryExtract:</strong> Windows registry artifacts</li>
                           <li><strong>ServicesExtract:</strong> Malicious Windows service definitions</li>
+                          <li><strong>ScheduledTasksExtract:</strong> Scheduled task identity, triggers, and principal metadata</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Verbatim literal extraction only. Qwen Instruct models are strongest at constraint obedience. Coder variant helps preserve exact token sequences in JSON.</p>`
         },
@@ -17966,16 +18000,6 @@ function showHelp(fieldName) {
             title: 'Command-Line Extraction Agent (Windows)',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Specialized sub-agent for extracting command line arguments and command executions from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>qwen/qwen3-14b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.5 – 0.7</li>
-                      </ul>
 	                      <p class="mb-2"><strong>What it extracts:</strong></p>
 	                      <ul class="list-disc list-inside mb-2 space-y-1">
 	                          <li>Command line arguments and switches</li>
@@ -18002,16 +18026,6 @@ function showHelp(fieldName) {
             title: 'ProcTreeExtract Model',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">Specialized sub-agent for extracting process lineage, parent-child relationships, and process tree structures from threat intelligence articles.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>qwen/qwen3-14b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.6 – 0.75</li>
-                      </ul>
 	                      <p class="mb-2"><strong>What it extracts:</strong></p>
 	                      <ul class="list-disc list-inside mb-2 space-y-1">
 	                          <li>Process parent-child relationships</li>
@@ -18041,22 +18055,7 @@ function showHelp(fieldName) {
 	                          <li>For Sigma: require BOTH logsource: and detection: keys. Partial Sigma blocks are skipped.</li>
 	                          <li>Pseudocode and hypothetical or defensive detection guidance is excluded. Only extract runnable, observed detection artifacts.</li>
 	                      </ul>
-	                      <p class="mb-2"><strong>Primary Model (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>Qwen3-Coder-8B-Instruct</li>
-                          <li>microsoft/phi-4-reasoning-plus</li>
-                      </ol>
-                      <p class="mb-2"><strong>Backup Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1" start="2">
-                          <li>Qwen3-14B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.0 – 0.1</li>
-                          <li><strong>Top-P:</strong> 0.6 – 0.7</li>
-                      </ul>
-                      <p class="mb-2"><strong>What it extracts:</strong></p>
+	                      <p class="mb-2"><strong>What it extracts:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>EDR detection queries (KQL, SPL, etc.)</li>
                           <li>SIEM search queries</li>
@@ -18100,17 +18099,6 @@ function showHelp(fieldName) {
 	            title: 'SIGMA Rule Generation Agent',
 	            content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">The LLM model used to generate SIGMA detection rules from extracted behaviors and IOCs. Converts threat intelligence into actionable detection rules.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>Qwen2.5-Coder-14B-Instruct</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>DeepSeek-R1-Distill (largest feasible variant)</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.2 – 0.35</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Receives extracted behaviors and IOCs from Extract Agents</li>
@@ -18146,17 +18134,6 @@ function showHelp(fieldName) {
             title: 'Rank QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates Rank Agent outputs by comparing against source text. Performs adversarial comparison to ensure accuracy.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-14b</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates Rank Agent scoring accuracy</li>
@@ -18170,17 +18147,6 @@ function showHelp(fieldName) {
             title: 'CmdlineExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates CmdlineExtract outputs by comparing extracted command lines against source text. Ensures verbatim accuracy.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted command line arguments</li>
@@ -18194,17 +18160,6 @@ function showHelp(fieldName) {
             title: 'ProcTreeExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates ProcTreeExtract outputs by comparing extracted process relationships against source text. Ensures accurate process tree extraction.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted process relationships</li>
@@ -18218,17 +18173,6 @@ function showHelp(fieldName) {
             title: 'HuntQueriesExtract QA / Verification Agent',
             content: `<p class="mb-2"><strong>Description:</strong></p>
                       <p class="mb-2">QA agent that validates HuntQueriesExtract outputs by comparing extracted EDR/SIEM queries against source text. Ensures query syntax accuracy.</p>
-                      <p class="mb-2"><strong>Primary Models (LMStudio):</strong></p>
-                      <ol class="list-decimal list-inside mb-2 space-y-1">
-                          <li>DeepSeek-R1-Distill-Qwen-7B (or larger)</li>
-                          <li>Qwen3-32B-Instruct</li>
-                          <li>Meta-Llama-3.1-8B-Instruct</li>
-                      </ol>
-                      <p class="mb-2"><strong>Sampling Presets:</strong></p>
-                      <ul class="list-disc list-inside mb-2 space-y-1">
-                          <li><strong>Temperature:</strong> 0.1 – 0.25</li>
-                          <li><strong>Top-P:</strong> 0.8 – 0.9</li>
-                      </ul>
                       <p class="mb-2"><strong>How it works:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
                           <li>Validates extracted query syntax</li>
@@ -18237,9 +18181,42 @@ function showHelp(fieldName) {
                           <li>Reports structured validation issues</li>
                       </ul>
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires adversarial comparison against source text. R1 models are strongest for grounding judgments. Qwen/Llama provide stable structured issue reporting.</p>`
+        },
+        'scheduledTasksExtract': {
+            title: 'Scheduled Task Extraction Agent (Windows)',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">Specialized sub-agent for extracting Windows scheduled task identity and scheduling metadata from threat intelligence articles.</p>
+                      <p class="mb-2"><strong>Hard rules (contract):</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Extract task name/path, trigger semantics, principal (RunAs/RunLevel), task-store file paths, and operation context only when explicitly stated.</li>
+                          <li>Trigger semantics from a schtasks.exe command-line only (e.g., /sc daily) are NOT extracted here unless also described as a task property in prose or XML.</li>
+                          <li>Do NOT extract the schtasks.exe / Register-ScheduledTask invocation itself (CmdlineExtract owns it), the payload command inside &lt;Actions&gt;&lt;Exec&gt; (CmdlineExtract), registry paths (RegistryExtract), or process lineage (ProcTreeExtract).</li>
+                      </ul>
+                      <p class="mb-2"><strong>What it extracts:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Task name and full path (e.g., \\Microsoft\\Windows\\folder\\TaskName)</li>
+                          <li>Trigger type: OnLogon, OnStartup, Daily, Weekly, OnEvent, etc.</li>
+                          <li>Principal: RunAs account, RunLevel (HighestAvailable / LeastPrivilege)</li>
+                          <li>Task-store file paths (C:\\Windows\\System32\\Tasks\\...)</li>
+                          <li>Operation: created, modified, deleted, queried, executed</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Scheduled task telemetry is observable via Security EID 4698/4699/4700/4701/4702 and Microsoft-Windows-TaskScheduler/Operational. Identity and trigger metadata are the detection-relevant fields at that source.</p>`
+        },
+        'scheduledTasksQA': {
+            title: 'ScheduledTasksExtract QA / Verification Agent',
+            content: `<p class="mb-2"><strong>Description:</strong></p>
+                      <p class="mb-2">QA agent that validates ScheduledTasksExtract outputs by comparing extracted task metadata against source text. Ensures verbatim accuracy of task names, triggers, and principal fields.</p>
+                      <p class="mb-2"><strong>How it works:</strong></p>
+                      <ul class="list-disc list-inside mb-2 space-y-1">
+                          <li>Validates extracted task names, paths, triggers, and principal fields</li>
+                          <li>Compares against source article for verbatim accuracy</li>
+                          <li>Flags hallucinated or inferred task properties not present in the source</li>
+                          <li>Reports structured validation issues</li>
+                      </ul>
+                      <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Requires adversarial comparison against source text. R1 models are strongest for grounding judgments. Qwen/Llama provide stable structured issue reporting.</p>`
         }
     };
-    
+
     const help = helpTexts[fieldName];
     if (!help) return;
     

@@ -15,13 +15,13 @@ import re
 import subprocess
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from pathlib import Path
 from typing import Any
 
 import httpx
 
 from src.database.manager import DatabaseManager
 from src.database.models import AppSettingsTable
+from src.services.provider_model_catalog import get_model_context_tokens
 from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
 from src.utils.model_validation import clamp_temperature_for_provider, model_supports_variable_temperature
 
@@ -44,7 +44,10 @@ class PreprocessInvariantError(Exception):
 
 
 class ContextLengthExceededError(RuntimeError):
-    """Prompt exceeds the model's context window; unrecoverable, do not retry."""
+    """
+    Raised when the API rejects a request because the prompt exceeds the model's context window.
+    Unrecoverable -- retrying will not help. Fail-fast and surface as execution failure.
+    """
 
 
 # Always-required traceability fields (Extractor Contract sec 3-4)
@@ -55,23 +58,6 @@ _TRACEABILITY_REQUIRED = frozenset({"source_evidence", "extraction_justification
 # identity fields (task_name/task_path/indicator_type/etc.) satisfy the contract without it.
 _TRACEABILITY_VALUE_FIELD = "value"
 
-# Code-owned user-message template for ExtractAgent supervisor (extract_behaviors).
-# Previously lived in src/prompts/ExtractAgentInstructions.txt.
-# Inlined here so the file dependency is eliminated and the template is always available.
-# {title}, {url}, {content}, {prompt_config} are substituted at call time.
-_EXTRACT_BEHAVIORS_TEMPLATE = (
-    "Title: {title}\n\n"
-    "URL: {url}\n\n"
-    "Content:\n\n"
-    "{content}\n\n"
-    "Extract huntable behaviors and observables relevant to EDR detection, threat hunting, "
-    "and Sigma rule generation. Use only information explicitly present in the content. "
-    "Do not invent or autofill missing pieces.\n\n"
-    "Prompt config (schema and constraints):\n"
-    "{prompt_config}\n\n"
-    "Output a single valid JSON object only. No markdown, no code fences, no prose outside JSON. "
-    "If a category is empty, return an empty array for that field."
-)
 
 # Text tokens required by the Extractor Contract (extractor-standard.md).
 # HARD_FAIL checks raise ValueError -- missing these makes the prompt structurally broken.
@@ -662,12 +648,18 @@ class LLMService:
         """Rough estimate: ~4 characters per token."""
         return len(text) // 4
 
-    def _get_context_limit_for_provider(self, provider: str | None) -> int:
-        """Return assumed context limit depending on provider type."""
+    def _get_context_limit(self, provider: str | None, model_name: str | None = None) -> int:
+        if model_name:
+            catalog_val = get_model_context_tokens(model_name)
+            if catalog_val is not None:
+                return catalog_val
         canonical = self._canonicalize_provider(provider or "")
         if canonical == "lmstudio":
             return self.assumed_lmstudio_context_tokens
         return self.assumed_cloud_context_tokens
+
+    def _get_context_limit_for_provider(self, provider: str | None) -> int:
+        return self._get_context_limit(provider, model_name=None)
 
     @staticmethod
     def _truncate_content(
@@ -1154,7 +1146,6 @@ class LLMService:
                 # Only normalize if we get an error (handled in _post_lmstudio_chat)
                 # For now, keep the full name - LMStudio will accept it if the model is loaded with that name
                 # Remove only date suffixes (e.g., "-2507", "-2024") but keep prefixes
-                import re
 
                 normalized_model = re.sub(r"-\d{4,8}$", "", normalized_model)
 
@@ -1208,8 +1199,6 @@ class LLMService:
         from src.web.routes.ai import is_valid_openai_chat_model
 
         if not is_valid_openai_chat_model(model_name):
-            import re
-
             base_model = re.sub(r"-\d{4}-\d{2}-\d{2}(-preview)?$", "", model_name)
             base_model = re.sub(r"-latest$", "", base_model)
             base_model = re.sub(r"-preview$", "", base_model)
@@ -1983,7 +1972,6 @@ class LLMService:
                 logger.info(f"Ranking response received: {len(response_text)} chars (finish_reason={finish_reason})")
 
                 # Parse score from response - look for "SIGMA HUNTABILITY SCORE: X" pattern first
-                import re
 
                 score = None
 
@@ -2091,1139 +2079,6 @@ class LLMService:
                     log_llm_error(generation, e)
                 raise
 
-    async def extract_behaviors(
-        self,
-        content: str,
-        title: str,
-        url: str,
-        prompt_file_path: str | None = None,
-        prompt_config_dict: dict[str, Any] | None = None,
-        instructions_template_str: str | None = None,
-        execution_id: int | None = None,
-        article_id: int | None = None,
-        qa_feedback: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Extract huntable behaviors using ExtractAgent prompt (Step 2 of workflow).
-
-        Args:
-            content: Filtered article content
-            title: Article title
-            url: Article URL
-            prompt_file_path: Path to ExtractAgent prompt file (optional, used if prompt_config_dict not provided)
-            prompt_config_dict: Prompt config dict (optional, takes precedence over prompt_file_path)
-            instructions_template_str: Instructions template string (optional, used if prompt_config_dict provided)
-
-        Returns:
-            Dict with extracted behaviors and count of discrete huntables
-        """
-        # Use provided prompt config or load from file.
-        # instructions_template_str is accepted for backward compatibility but is no longer
-        # required -- the template is now code-owned in _EXTRACT_BEHAVIORS_TEMPLATE.
-        if prompt_config_dict:
-            prompt_config = prompt_config_dict
-            instructions_template = instructions_template_str or _EXTRACT_BEHAVIORS_TEMPLATE
-        elif prompt_file_path:
-            # Legacy file-based path: load ExtractAgent seed from disk.
-            prompt_path = Path(prompt_file_path)
-            if not prompt_path.exists():
-                raise FileNotFoundError(f"ExtractAgent prompt file not found: {prompt_file_path}")
-            prompt_config = await asyncio.to_thread(self._read_json_file_sync, str(prompt_path))
-            instructions_template = _EXTRACT_BEHAVIORS_TEMPLATE
-        else:
-            raise ValueError("Either prompt_config_dict or prompt_file_path must be provided")
-
-        # Use extraction-specific model
-        model_name = self.model_extract
-
-        # For reasoning models (deepseek-r1), need higher max_tokens (reasoning + JSON)
-        # But keep conservative to avoid exceeding context
-        # With 3072 context cap and ~1500 prompt overhead, we have ~1500 tokens available
-        is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
-        max_output_tokens = 2000 if is_reasoning_model else 1500  # Further reduced to fit in available context
-
-        # Determine model-specific context limits based on model size
-        model_max_context = self.estimate_model_max_context(model_name, is_reasoning_model)
-
-        try:
-            context_check = await self.check_model_context_length(model_name=model_name)
-            detected_length = context_check["context_length"]
-            detection_method = context_check.get("method", "unknown")
-        except Exception as e:
-            logger.warning(f"Could not get model context length for extraction: {e}")
-            detected_length = model_max_context
-            detection_method = "fallback"
-
-        # Trust detected context if reasonable, otherwise use conservative caps
-        if detection_method == "environment_override":
-            actual_context_length = detected_length
-        elif detection_method == "api_models_endpoint":
-            actual_context_length = int(detected_length * 0.90)
-            logger.info(f"Trusting LMStudio reported context {detected_length} for {model_name}")
-        elif 4096 <= detected_length <= model_max_context:
-            actual_context_length = int(detected_length * 0.90)
-            logger.info(f"Trusting detected context {detected_length} for {model_name} (method: {detection_method})")
-        elif detected_length > model_max_context:
-            actual_context_length = int(model_max_context * 0.90)
-            logger.warning(
-                f"Detected context {detected_length} exceeds model max {model_max_context}, "
-                f"capping to {actual_context_length}"
-            )
-        else:
-            conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
-            actual_context_length = int(conservative_cap * 0.75)
-            logger.warning(
-                f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
-            )
-
-        logger.info(
-            f"Using context length {actual_context_length} for extraction truncation "
-            f"(detected: {detected_length}, reasoning: {is_reasoning_model}, "
-            f"model_max: {model_max_context}, method: {detection_method})"
-        )
-
-        # Estimate prompt overhead more accurately
-        # Account for: template text + title + URL + prompt_config JSON + system message + formatting
-        prompt_config_json = json.dumps(prompt_config, indent=2)
-        base_prompt_tokens = self._estimate_tokens(
-            instructions_template.format(
-                title=title,
-                url=url,
-                content="",  # Estimate without content first
-                prompt_config=prompt_config_json,
-            )
-        )
-        # Add system message if present
-        system_message_tokens = 50 if not self._model_needs_system_conversion(model_name) else 0
-        # Add message formatting overhead (~100 tokens for JSON structure, role fields, etc.)
-        message_formatting_overhead = 100
-        # Total prompt overhead (not including content)
-        total_prompt_overhead = base_prompt_tokens + system_message_tokens + message_formatting_overhead
-
-        # Truncate content to fit within remaining context
-        # Reserve: prompt overhead + output tokens + safety margin (15%)
-        available_tokens = actual_context_length - total_prompt_overhead - max_output_tokens
-        available_tokens = int(available_tokens * 0.85)  # 15% safety margin
-
-        if available_tokens <= 0:
-            logger.error(f"Available tokens for content is {available_tokens} - prompt overhead too large")
-            available_tokens = 1000  # Minimum fallback
-
-        content_tokens = self._estimate_tokens(content)
-        truncation_warning = None
-        if content_tokens <= available_tokens:
-            truncated_content = content
-        else:
-            # Truncate to fit
-            max_chars = available_tokens * 4
-            truncated = content[:max_chars]
-
-            # Try to truncate at sentence boundary
-            last_period = truncated.rfind(".")
-            last_newline = truncated.rfind("\n")
-            last_boundary = max(last_period, last_newline)
-
-            if last_boundary > max_chars * 0.8:
-                truncated = truncated[: last_boundary + 1]
-
-            truncated_content = truncated + "\n\n[Content truncated to fit context window]"
-
-            truncation_warning = (
-                f"Content truncated: {content_tokens} → {self._estimate_tokens(truncated_content)} tokens "
-                f"(available: {available_tokens}, context: {actual_context_length})"
-            )
-            logger.warning(
-                f"Truncated article content from {content_tokens} to "
-                f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
-                f"prompt overhead: {total_prompt_overhead}, max_output: {max_output_tokens}, "
-                f"context: {actual_context_length})"
-            )
-
-        # Build user prompt from instructions template with truncated content
-        user_prompt = instructions_template.format(
-            title=title, url=url, content=truncated_content, prompt_config=prompt_config_json
-        )
-
-        # Add QA feedback if provided
-        if qa_feedback:
-            user_prompt = f"{qa_feedback}\n\n{user_prompt}"
-
-        # Final verification: estimate total prompt tokens
-        total_prompt_tokens = self._estimate_tokens(user_prompt) + system_message_tokens + message_formatting_overhead
-        total_tokens_needed = total_prompt_tokens + max_output_tokens
-        if total_tokens_needed > actual_context_length:
-            logger.error(
-                f"WARNING: Total tokens needed ({total_tokens_needed}) "
-                f"exceeds context length ({actual_context_length}). "
-                f"This may cause context overflow errors."
-            )
-
-        # Determine system message content based on prompt structure
-        # Must have either "role" or "task" field - no fallbacks
-        if not isinstance(prompt_config, dict):
-            raise ValueError("ExtractAgent prompt_config must be a dictionary")
-
-        # Prefer "system" (bulk instructions), fall back to "role" or "task"
-        system_content = prompt_config.get("system") or prompt_config.get("role") or prompt_config.get("task")
-        if not system_content or not isinstance(system_content, str):
-            raise ValueError("ExtractAgent prompt_config must contain 'system', 'role', or 'task' (non-empty string)")
-
-        messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
-
-        # Convert system messages for models that don't support them
-        messages = self._convert_messages_for_model(messages, model_name)
-
-        converted_messages = self._convert_messages_for_model(messages, model_name)
-
-        logger.info(f"Extract behaviors request: max_tokens={max_output_tokens} (reasoning_model={is_reasoning_model})")
-
-        # Trace LLM call with Langfuse
-        with trace_llm_call(
-            name="extract_behaviors",
-            model=model_name,
-            execution_id=execution_id,
-            article_id=article_id,
-            metadata={
-                "prompt_length": len(user_prompt),
-                "max_tokens": max_output_tokens,
-                "title": title,
-                "has_reasoning": is_reasoning_model,
-                "messages": messages,  # Include messages for input display
-            },
-        ) as generation:
-            try:
-                # Reasoning models need much longer timeouts - they generate extensive reasoning + JSON
-                # With 10000 max_tokens and reasoning, can take 5-10 minutes
-                extraction_timeout = 600.0 if is_reasoning_model else 180.0
-
-                result = await self.request_chat(
-                    provider=self.provider_extract,
-                    model_name=model_name,
-                    messages=converted_messages,
-                    max_tokens=max_output_tokens,
-                    temperature=self.temperature_extract,
-                    timeout=extraction_timeout,
-                    failure_context="Failed to extract behaviors",
-                    top_p=self.top_p_extract,
-                    seed=self.seed,
-                )
-
-                # Deepseek-R1: check both content and reasoning_content
-                # Often the final answer is in 'content' while reasoning is in 'reasoning_content'
-                message = result["choices"][0]["message"]
-                content_text = message.get("content", "")
-                reasoning_text = message.get("reasoning_content", "")
-
-                # Check for token limit hit
-                finish_reason = result["choices"][0].get("finish_reason", "")
-                if finish_reason == "length":
-                    logger.error(
-                        f"Token limit hit! Used {result.get('usage', {}).get('completion_tokens', 0)} completion tokens. "
-                        f"Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars. "
-                        f"max_tokens={max_output_tokens} may be too low for reasoning model."
-                    )
-
-                # Prefer content if it looks like JSON, otherwise check reasoning_content
-                # Deepseek-R1 might put JSON in either field
-                if content_text and (
-                    content_text.strip().startswith("{")
-                    or "behavioral_observables" in content_text
-                    or "observables" in content_text
-                ):
-                    response_text = content_text
-                    logger.info("Using 'content' field for extraction (looks like JSON)")
-                elif reasoning_text and (
-                    reasoning_text.strip().startswith("{")
-                    or "behavioral_observables" in reasoning_text
-                    or "observables" in reasoning_text
-                ):
-                    response_text = reasoning_text
-                    logger.info("Using 'reasoning_content' field for extraction (looks like JSON)")
-                else:
-                    # Fallback: use content first, then reasoning
-                    response_text = content_text or reasoning_text
-                    if finish_reason == "length":
-                        logger.error(
-                            f"Token limit hit and no JSON found. Check max_tokens setting (current: {max_output_tokens})"
-                        )
-                    logger.warning(
-                        f"Neither field looks like JSON. Using content ({len(content_text)} chars) or reasoning ({len(reasoning_text)} chars)"
-                    )
-
-                # Log response for debugging
-                if not response_text or len(response_text.strip()) == 0:
-                    logger.error("LLM returned empty response for extraction")
-                    raise ValueError("LLM returned empty response. Check LMStudio is responding correctly.")
-
-                logger.info(f"Extraction response received: {len(response_text)} chars")
-
-                # Try to parse JSON from response
-                try:
-                    # Deepseek-R1 may provide reasoning, then JSON at the end
-                    # Strategy: Look for JSON at the end of the response first, then fallback to anywhere
-
-                    json_text = None
-
-                    # First, try to extract JSON from markdown code fences (```json ... ``` or ``` ... ```)
-                    code_fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", response_text, re.DOTALL)
-                    if code_fence_match:
-                        json_text = code_fence_match.group(1).strip()
-                        logger.info("Extracted JSON from markdown code fence")
-                    else:
-                        # Look for JSON object at the END of response (most likely after reasoning)
-                        # Strategy: Find ALL potential JSON objects, then take the largest/root one
-                        # This handles cases where reasoning contains nested JSON examples
-
-                        # Find all potential JSON object start positions
-                        json_candidates = []
-                        search_pos = 0
-                        while search_pos <= len(response_text):
-                            open_pos = response_text.find("{", search_pos)
-                            if open_pos == -1:
-                                break
-
-                            # Try to find matching closing brace
-                            brace_count = 0
-                            json_end = -1
-                            for i in range(open_pos, len(response_text)):
-                                if response_text[i] == "{":
-                                    brace_count += 1
-                                elif response_text[i] == "}":
-                                    brace_count -= 1
-                                    if brace_count == 0:
-                                        json_end = i + 1
-                                        break
-
-                            if json_end != -1:
-                                candidate_json = response_text[open_pos:json_end]
-                                # Try to parse it to validate it's valid JSON
-                                try:
-                                    candidate_data = json.loads(candidate_json)
-                                    # Check if it has expected root-level keys (not a nested object)
-                                    if any(
-                                        key in candidate_data
-                                        for key in [
-                                            "behavioral_observables",
-                                            "detection_queries",
-                                            "observables",
-                                            "summary",
-                                            "url",
-                                            "content",
-                                            "discrete_huntables_count",
-                                        ]
-                                    ):
-                                        json_candidates.append(
-                                            (open_pos, json_end, len(candidate_json), candidate_data)
-                                        )
-                                except json.JSONDecodeError:
-                                    pass
-
-                            search_pos = open_pos + 1
-
-                        if json_candidates:
-                            # Prefer the one with expected keys, then largest, then last
-                            root_candidates = [
-                                c
-                                for c in json_candidates
-                                if any(
-                                    k in c[3]
-                                    for k in ["behavioral_observables", "observables", "summary", "url", "content"]
-                                )
-                            ]
-                            if root_candidates:
-                                # Take the largest root-level candidate
-                                _, _, _, root_data = max(root_candidates, key=lambda x: x[2])
-                                json_text = json.dumps(root_data)  # Re-serialize to get clean JSON
-                                logger.info("Extracted root JSON object from end of response")
-                            else:
-                                # Fallback to largest candidate
-                                _, _, _, largest_data = max(json_candidates, key=lambda x: x[2])
-                                json_text = json.dumps(largest_data)
-                                logger.info("Extracted largest JSON object from response")
-                        else:
-                            raise ValueError("No valid JSON found in response")
-
-                    # Parse JSON
-                    extracted = json.loads(json_text)
-
-                    # Check if model wrapped the actual JSON in a raw_response field (common mistake)
-                    if "raw_response" in extracted and isinstance(extracted["raw_response"], str):
-                        try:
-                            # Try to parse the string as JSON - this might be the actual data
-                            nested_data = json.loads(extracted["raw_response"])
-                            # If nested_data has the expected fields, use it instead
-                            if any(
-                                key in nested_data
-                                for key in [
-                                    "behavioral_observables",
-                                    "observable_list",
-                                    "observables",
-                                    "discrete_huntables_count",
-                                ]
-                            ):
-                                logger.warning("Model wrapped JSON in raw_response field - extracting nested data")
-                                # Merge nested data into extracted, but keep raw_response as original response_text
-                                for key, value in nested_data.items():
-                                    if key != "raw_response":  # Don't overwrite with nested raw_response
-                                        extracted[key] = value
-                        except (json.JSONDecodeError, TypeError):
-                            pass  # raw_response is just a string, not nested JSON
-
-                    # Ensure required fields exist
-                    if "raw_response" not in extracted:
-                        extracted["raw_response"] = response_text
-
-                    # Validate and normalize new format (observables + summary)
-                    if "observables" in extracted and "summary" in extracted:
-                        # New format: ensure structure is correct
-                        observables = extracted.get("observables", [])
-                        summary = extracted.get("summary", {})
-
-                        # Ensure observables is a list
-                        if not isinstance(observables, list):
-                            logger.warning("observables is not a list, converting to empty list")
-                            observables = []
-
-                        # Set discrete_huntables_count from summary.count
-                        discrete_huntables_count = summary.get("count", len(observables))
-                        if not isinstance(discrete_huntables_count, (int, float)):
-                            logger.warning(
-                                f"summary.count is not a number: {discrete_huntables_count}, defaulting to {len(observables)}"
-                            )
-                            discrete_huntables_count = len(observables)
-
-                        # Ensure summary has required fields
-                        if "source_url" not in summary:
-                            summary["source_url"] = url
-                        if "platforms_detected" not in summary:
-                            summary["platforms_detected"] = []
-
-                        # Update extracted with normalized values
-                        extracted["observables"] = observables
-                        extracted["summary"] = summary
-                        extracted["discrete_huntables_count"] = discrete_huntables_count
-                        extracted["url"] = summary.get("source_url", url)
-
-                        logger.info(
-                            f"Parsed extraction result (new format): {len(observables)} observables, {discrete_huntables_count} huntables"
-                        )
-                    elif "behavioral_observables" in extracted and "observable_list" in extracted:
-                        # Updated format: behavioral_observables + observable_list (from updated prompt)
-                        behavioral_obs = extracted.get("behavioral_observables", [])
-                        observable_list = extracted.get("observable_list", [])
-                        discrete_count = extracted.get("discrete_huntables_count", len(observable_list))
-
-                        # Ensure behavioral_observables is a list (can be array or dict)
-                        if isinstance(behavioral_obs, dict):
-                            # Convert dict to list of all values
-                            behavioral_obs_list = []
-                            for _key, values in behavioral_obs.items():
-                                if isinstance(values, list):
-                                    behavioral_obs_list.extend(values)
-                                elif isinstance(values, (str, dict)):
-                                    behavioral_obs_list.append(values)
-                            behavioral_obs = behavioral_obs_list
-
-                        if not isinstance(behavioral_obs, list):
-                            behavioral_obs = []
-                        if not isinstance(observable_list, list):
-                            observable_list = []
-
-                        extracted["behavioral_observables"] = behavioral_obs
-                        extracted["observable_list"] = observable_list
-                        extracted["discrete_huntables_count"] = discrete_count
-                        extracted["url"] = extracted.get("url", url)
-                        extracted["content"] = extracted.get("content", "")
-
-                        logger.info(
-                            f"Parsed extraction result (behavioral_observables format): {len(observable_list)} observables, {discrete_count} huntables"
-                        )
-                    else:
-                        # Missing required fields - check what we have
-                        available_keys = list(extracted.keys())
-                        raise ValueError(
-                            f"Extraction result missing required fields. Expected 'observables'+'summary' OR 'behavioral_observables'+'observable_list'. Found keys: {available_keys}"
-                        )
-                except (json.JSONDecodeError, ValueError) as e:
-                    logger.warning(
-                        f"Could not parse JSON from extraction response: {e}. Using fallback. Response preview: {response_text[:200]}"
-                    )
-                    extracted = {
-                        "observables": [],
-                        "summary": {"count": 0, "source_url": url, "platforms_detected": []},
-                        "discrete_huntables_count": 0,
-                        "raw_response": response_text,
-                    }
-
-                # Log completion to Langfuse
-                usage = result.get("usage", {})
-                log_llm_completion(
-                    generation,
-                    input_messages=messages,
-                    output=response_text.strip(),
-                    usage={
-                        "prompt_tokens": usage.get("prompt_tokens", 0),
-                        "completion_tokens": usage.get("completion_tokens", 0),
-                        "total_tokens": usage.get("total_tokens", 0),
-                    },
-                    metadata={
-                        "discrete_huntables_count": extracted.get("discrete_huntables_count", 0),
-                        "finish_reason": finish_reason,
-                        "response_length": len(response_text),
-                        "has_json": bool(json_text) if "json_text" in locals() else False,
-                    },
-                )
-
-                return extracted
-
-            except Exception as e:
-                logger.error(f"Error extracting behaviors: {e}")
-                if generation:
-                    log_llm_error(generation, e)
-                raise
-
-    async def extract_observables(
-        self,
-        content: str,
-        title: str,
-        url: str,
-        prompt_file_path: str,
-        cancellation_event: asyncio.Event | None = None,
-        qa_feedback: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Extract observables (IOCs and behavioral indicators) using ExtractObservables prompt.
-
-        Args:
-            content: Filtered article content
-            title: Article title
-            url: Article URL
-            prompt_file_path: Path to ExtractObservables prompt file
-
-        Returns:
-            Dict with extracted observables including atomic IOCs and behavioral patterns
-        """
-        # Load ExtractObservables prompt (async file read)
-        prompt_path = Path(prompt_file_path)
-        if not prompt_path.exists():
-            raise FileNotFoundError(f"ExtractObservables prompt file not found: {prompt_file_path}")
-
-        prompt_config = await asyncio.to_thread(self._read_json_file_sync, str(prompt_path))
-
-        # Use extract model for observable extraction
-        model_name = self.model_extract
-
-        # Get actual model context length (similar to extract_behaviors)
-        is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
-
-        # Determine model-specific context limits based on model size
-        model_max_context = self.estimate_model_max_context(model_name, is_reasoning_model)
-
-        try:
-            context_check = await self.check_model_context_length(model_name=model_name)
-            detected_length = context_check["context_length"]
-            detection_method = context_check.get("method", "unknown")
-        except Exception as e:
-            logger.warning(f"Could not get model context length for observables extraction: {e}")
-            detected_length = model_max_context
-            detection_method = "fallback"
-
-        # Trust detected context if reasonable, otherwise use conservative caps
-        if detection_method == "environment_override":
-            actual_context_length = detected_length
-        elif detection_method == "api_models_endpoint":
-            actual_context_length = int(detected_length * 0.90)
-            logger.info(f"Trusting LMStudio reported context {detected_length} for {model_name}")
-        elif 4096 <= detected_length <= model_max_context:
-            actual_context_length = int(detected_length * 0.90)
-            logger.info(f"Trusting detected context {detected_length} for {model_name} (method: {detection_method})")
-        elif detected_length > model_max_context:
-            actual_context_length = int(model_max_context * 0.90)
-            logger.warning(
-                f"Detected context {detected_length} exceeds model max {model_max_context}, "
-                f"capping to {actual_context_length}"
-            )
-        else:
-            conservative_cap = min(4096, model_max_context) if is_reasoning_model else min(2048, model_max_context)
-            actual_context_length = int(conservative_cap * 0.75)
-            logger.warning(
-                f"Using conservative context {actual_context_length} for {model_name} (detected: {detected_length}, method: {detection_method})"
-            )
-
-        logger.info(
-            f"Using context length {actual_context_length} for observables extraction "
-            f"(detected: {detected_length}, reasoning: {is_reasoning_model}, "
-            f"model_max: {model_max_context}, method: {detection_method})"
-        )
-
-        # Get task for prompt overhead estimation
-        task = prompt_config.get("task", "Extract observables from threat intelligence content.")
-
-        # Estimate prompt overhead
-        # Account for: title + URL + task + prompt_config JSON + system message + formatting
-        base_prompt_tokens = self._estimate_tokens(
-            f"Title: {title}\n\nURL: {url}\n\nContent:\n\n{task}\n\n{json.dumps(prompt_config, indent=2)}"
-        )
-        system_message_tokens = 50 if not self._model_needs_system_conversion(model_name) else 0
-        message_formatting_overhead = 100
-        total_prompt_overhead = base_prompt_tokens + system_message_tokens + message_formatting_overhead
-
-        # Truncate content to fit within remaining context
-        max_output_tokens = 4000
-        available_tokens = actual_context_length - total_prompt_overhead - max_output_tokens
-        available_tokens = int(available_tokens * 0.85)  # 15% safety margin
-
-        if available_tokens <= 0:
-            logger.error(f"Available tokens for content is {available_tokens} - prompt overhead too large")
-            available_tokens = 1000  # Minimum fallback
-
-        content_tokens = self._estimate_tokens(content)
-        truncation_warning = None
-        if content_tokens <= available_tokens:
-            truncated_content = content
-        else:
-            # Truncate to fit
-            max_chars = available_tokens * 4
-            truncated = content[:max_chars]
-
-            # Try to truncate at sentence boundary
-            last_period = truncated.rfind(".")
-            last_newline = truncated.rfind("\n")
-            last_boundary = max(last_period, last_newline)
-
-            if last_boundary > max_chars * 0.8:
-                truncated = truncated[: last_boundary + 1]
-
-            truncated_content = truncated + "\n\n[Content truncated to fit context window]"
-
-            truncation_warning = (
-                f"Content truncated: {content_tokens} → {self._estimate_tokens(truncated_content)} tokens "
-                f"(available: {available_tokens}, context: {actual_context_length})"
-            )
-            logger.warning(
-                f"Truncated article content from {content_tokens} to "
-                f"{self._estimate_tokens(truncated_content)} tokens (available: {available_tokens}, "
-                f"prompt overhead: {total_prompt_overhead}, max_output: {max_output_tokens}, "
-                f"context: {actual_context_length})"
-            )
-
-        # Build user prompt from config (task already set above)
-        instructions = prompt_config.get("instructions", "Output valid JSON only.")
-
-        user_prompt = f"""Title: {title}
-
-URL: {url}
-
-Content:
-
-{truncated_content}
-
-{task}
-
-{json.dumps(prompt_config, indent=2)}
-
-CRITICAL: {instructions} If you are a reasoning model, you may include reasoning text, but you MUST end your response with a valid JSON object. The JSON object must follow the output_format structure exactly. If no observables are found, still output the complete JSON structure with empty arrays."""
-
-        # Prepend QA feedback if provided
-        if qa_feedback:
-            user_prompt = f"{qa_feedback}\n\n{user_prompt}"
-
-        # model_name already set above
-
-        # Build system message: prefer "system", then "role" — must be present in prompt config
-        system_content = (prompt_config.get("system") or prompt_config.get("role") or "").strip()
-        if not system_content:
-            raise PreprocessInvariantError(
-                "ExtractObservables prompt resolved to an empty system message. "
-                "Ensure the prompt config contains a non-empty 'system' or 'role' key."
-            )
-
-        messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
-
-        # Convert system messages for models that don't support them
-        messages = self._convert_messages_for_model(messages, model_name)
-
-        converted_messages = self._convert_messages_for_model(messages, model_name)
-
-        try:
-            # Check for cancellation before making the request
-            if cancellation_event and cancellation_event.is_set():
-                raise asyncio.CancelledError("Extraction cancelled by client")
-
-            result = await self.request_chat(
-                provider=self.provider_extract,
-                model_name=model_name,
-                messages=converted_messages,
-                max_tokens=4000,
-                temperature=self.temperature_extract,
-                timeout=180.0,
-                failure_context="Failed to extract observables",
-                seed=self.seed,
-                cancellation_event=cancellation_event,
-            )
-
-            # Check for cancellation after the request
-            if cancellation_event and cancellation_event.is_set():
-                raise asyncio.CancelledError("Extraction cancelled by client")
-
-            # Deepseek-R1: check both content and reasoning_content
-            # Often the final answer is in 'content' while reasoning is in 'reasoning_content'
-            message = result["choices"][0]["message"]
-            content_text = message.get("content", "")
-            reasoning_text = message.get("reasoning_content", "")
-            finish_reason = result["choices"][0].get("finish_reason", "")
-
-            # Prefer content if it looks like JSON, otherwise check reasoning_content
-            # Deepseek-R1 might put JSON in either field
-            # Check for both old format (atomic_iocs, behavioral_observables) and new format (observables, summary)
-            if content_text and (
-                content_text.strip().startswith("{")
-                or "atomic_iocs" in content_text
-                or "behavioral_observables" in content_text
-                or "observables" in content_text
-                or "summary" in content_text
-            ):
-                response_text = content_text
-                logger.info("Using 'content' field for observable extraction (looks like JSON)")
-            elif reasoning_text and (
-                reasoning_text.strip().startswith("{")
-                or "atomic_iocs" in reasoning_text
-                or "behavioral_observables" in reasoning_text
-                or "observables" in reasoning_text
-                or "summary" in reasoning_text
-            ):
-                response_text = reasoning_text
-                logger.info("Using 'reasoning_content' field for observable extraction (looks like JSON)")
-            else:
-                # Fallback: combine both or use whichever is available
-                # Reasoning models may put reasoning in reasoning_content and JSON in content, or combine them
-                response_text = (
-                    content_text + "\n\n" + reasoning_text
-                    if (content_text and reasoning_text)
-                    else (content_text or reasoning_text)
-                )
-                logger.info(
-                    f"Combining or using available fields. Content: {len(content_text)} chars, Reasoning: {len(reasoning_text)} chars"
-                )
-
-            if not response_text or len(response_text.strip()) == 0:
-                logger.error("LLM returned empty response for observable extraction")
-                raise ValueError("LLM returned empty response. Check LMStudio is responding correctly.")
-
-            # Check if response was truncated
-            finish_reason = result["choices"][0].get("finish_reason", "")
-            response_truncation_warning = None
-            if finish_reason == "length":
-                response_truncation_warning = (
-                    f"Response truncated (finish_reason=length). Attempting to parse partial JSON. "
-                    f"Used {result.get('usage', {}).get('completion_tokens', 0)} tokens."
-                )
-                logger.warning(
-                    "Observable extraction response was truncated (finish_reason=length). Attempting to parse partial JSON."
-                )
-
-            logger.info(
-                f"Observable extraction response received: {len(response_text)} chars (finish_reason={finish_reason})"
-            )
-
-            # Parse JSON from response (reuse same logic as extract_behaviors)
-            # Deepseek-R1 may provide reasoning, then JSON at the end
-            # Strategy: Look for JSON at the end of the response first, then fallback to anywhere
-            try:
-                json_text = None
-
-                # First, try to extract JSON from markdown code fences (```json ... ``` or ``` ... ```)
-                code_fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", response_text, re.DOTALL)
-                if code_fence_match:
-                    json_text = code_fence_match.group(1).strip()
-                    logger.info("Extracted JSON from markdown code fence")
-                else:
-                    # Look for JSON object at the END of response (most likely after reasoning)
-                    # Strategy: Find ALL potential JSON objects, then take the one with expected keys from the end
-                    json_candidates = []
-                    search_pos = 0
-                    while search_pos <= len(response_text):
-                        open_pos = response_text.find("{", search_pos)
-                        if open_pos == -1:
-                            break
-
-                        # Try to find matching closing brace
-                        brace_count = 0
-                        json_end = -1
-                        for i in range(open_pos, len(response_text)):
-                            if response_text[i] == "{":
-                                brace_count += 1
-                            elif response_text[i] == "}":
-                                brace_count -= 1
-                                if brace_count == 0:
-                                    json_end = i + 1
-                                    break
-
-                        if json_end != -1:
-                            candidate_json = response_text[open_pos:json_end]
-                            # Try to parse it to validate it's valid JSON
-                            try:
-                                candidate_data = json.loads(candidate_json)
-                                # Check if it has expected root-level keys (not a nested object)
-                                # Support both old format (atomic_iocs, behavioral_observables, metadata) and new format (observables, summary)
-                                expected_keys = [
-                                    "atomic_iocs",
-                                    "behavioral_observables",
-                                    "metadata",
-                                    "observables",
-                                    "summary",
-                                ]
-                                if any(key in candidate_data for key in expected_keys):
-                                    json_candidates.append((open_pos, json_end, len(candidate_json), candidate_data))
-                            except json.JSONDecodeError:
-                                pass
-
-                        search_pos = open_pos + 1
-
-                    if json_candidates:
-                        # Prefer candidates with expected keys, and prefer those from the end of the response
-                        # (reasoning models typically output JSON after reasoning)
-                        root_candidates = [
-                            c
-                            for c in json_candidates
-                            if any(
-                                k in c[3]
-                                for k in ["atomic_iocs", "behavioral_observables", "metadata", "observables", "summary"]
-                            )
-                        ]
-                        if root_candidates:
-                            # Prefer the one closest to the end (highest open_pos), but also consider size
-                            # Sort by position (descending) first, then by size (descending)
-                            root_candidates.sort(key=lambda x: (x[0], x[2]), reverse=True)
-                            _, _, _, root_data = root_candidates[0]
-                            json_text = json.dumps(root_data)
-                            logger.info(
-                                f"Extracted root JSON object from position {root_candidates[0][0]} (near end of response)"
-                            )
-                        else:
-                            # Fallback to largest candidate, preferring later in response
-                            json_candidates.sort(key=lambda x: (x[0], x[2]), reverse=True)
-                            _, _, _, largest_data = json_candidates[0]
-                            json_text = json.dumps(largest_data)
-                            logger.info(
-                                f"Extracted largest JSON object from position {json_candidates[0][0]} (fallback)"
-                            )
-                    else:
-                        # If no complete JSON found and response was truncated, try to repair partial JSON
-                        if finish_reason == "length":
-                            logger.info(
-                                "No complete JSON found in truncated response. Attempting to repair partial JSON."
-                            )
-                            # Try to extract and repair partial JSON
-                            cleaned = response_text.strip()
-                            # Remove any leading/trailing whitespace or markdown
-                            if cleaned.startswith("{{"):
-                                cleaned = cleaned[1:]
-                            if cleaned.endswith("}}"):
-                                cleaned = cleaned[:-1]
-
-                            # Find where JSON starts
-                            json_start = cleaned.find("{")
-                            if json_start == -1:
-                                raise ValueError("No JSON object found in response")
-
-                            # Start from the opening brace
-                            partial_json = cleaned[json_start:]
-
-                            # Remove trailing comma and whitespace from the end (common in truncated arrays)
-                            partial_json = partial_json.rstrip()
-                            if partial_json.endswith(","):
-                                partial_json = partial_json[:-1].rstrip()
-
-                            # Count open/close braces and brackets
-                            open_braces = partial_json.count("{")
-                            close_braces = partial_json.count("}")
-                            open_brackets = partial_json.count("[")
-                            close_brackets = partial_json.count("]")
-
-                            # Close incomplete arrays first (they're nested inside objects)
-                            if open_brackets > close_brackets:
-                                partial_json += "]" * (open_brackets - close_brackets)
-
-                            # Close incomplete objects
-                            if open_braces > close_braces:
-                                partial_json += "}" * (open_braces - close_braces)
-
-                            try:
-                                repaired_data = json.loads(partial_json)
-                                # Check if it has expected structure (new or old format)
-                                if (
-                                    "atomic_iocs" in repaired_data
-                                    or "behavioral_observables" in repaired_data
-                                    or "observables" in repaired_data
-                                ):
-                                    # Ensure all expected sections exist for old format
-                                    if "atomic_iocs" not in repaired_data and "observables" not in repaired_data:
-                                        repaired_data["atomic_iocs"] = {}
-                                    if (
-                                        "behavioral_observables" not in repaired_data
-                                        and "observables" not in repaired_data
-                                    ):
-                                        repaired_data["behavioral_observables"] = {}
-                                    # Ensure summary exists for new format
-                                    if "observables" in repaired_data and "summary" not in repaired_data:
-                                        repaired_data["summary"] = {}
-
-                                    json_text = json.dumps(repaired_data)
-                                    logger.info("Successfully repaired partial JSON from truncated response")
-                                else:
-                                    raise ValueError("Repaired JSON doesn't have expected structure")
-                            except json.JSONDecodeError as e:
-                                logger.warning(
-                                    f"Could not repair partial JSON: {e}. Attempting alternative repair strategy."
-                                )
-                                # Alternative: try to extract observables or atomic_iocs section if it exists
-                                # Look for observables array (new format) or atomic_iocs (old format)
-                                observables_pattern = r'"observables"\s*:\s*\['
-                                atomic_iocs_pattern = r'"atomic_iocs"\s*:\s*\{'
-                                observables_match = re.search(observables_pattern, cleaned)
-                                atomic_iocs_match = re.search(atomic_iocs_pattern, cleaned)
-
-                                if observables_match:
-                                    # New format: extract from root to observables
-                                    root_start = cleaned.rfind("{", 0, observables_match.start())
-                                    if root_start != -1:
-                                        partial = cleaned[root_start:]
-                                        partial = partial.rstrip().rstrip(",")
-                                        if partial.count('"') % 2 != 0:
-                                            partial = partial.rstrip('"').rstrip()
-                                        open_brackets = partial.count("[")
-                                        close_brackets = partial.count("]")
-                                        open_braces = partial.count("{")
-                                        close_braces = partial.count("}")
-                                        if open_brackets > close_brackets:
-                                            partial += "]" * (open_brackets - close_brackets)
-                                        if open_braces > close_braces:
-                                            partial += "}" * (open_braces - close_braces)
-                                        try:
-                                            minimal_data = json.loads(partial)
-                                            if "observables" in minimal_data:
-                                                repaired_data = {
-                                                    "observables": minimal_data.get("observables", []),
-                                                    "summary": minimal_data.get("summary", {}),
-                                                }
-                                                json_text = json.dumps(repaired_data)
-                                                logger.info(
-                                                    "Successfully extracted observables from truncated JSON using alternative strategy"
-                                                )
-                                            else:
-                                                raise ValueError("Could not extract observables")
-                                        except json.JSONDecodeError as parse_err:
-                                            logger.warning(f"Alternative repair also failed: {parse_err}")
-                                            raise ValueError(
-                                                "No valid JSON found in response (truncated and repair failed)"
-                                            ) from parse_err
-                                    else:
-                                        raise ValueError(
-                                            "No valid JSON found in response (truncated and repair failed)"
-                                        ) from e
-                                elif atomic_iocs_match:
-                                    # Find the start of the root object
-                                    root_start = cleaned.rfind("{", 0, atomic_iocs_match.start())
-                                    if root_start != -1:
-                                        # Extract from root to end, then repair
-                                        partial = cleaned[root_start:]
-                                        # Remove trailing comma/newline
-                                        partial = partial.rstrip().rstrip(",")
-
-                                        # Try to close incomplete string values first
-                                        # If we end with a quote, close it
-                                        if partial.count('"') % 2 != 0:
-                                            # Odd number of quotes means unclosed string
-                                            partial = partial.rstrip('"').rstrip()
-
-                                        # Close arrays and objects
-                                        open_brackets = partial.count("[")
-                                        close_brackets = partial.count("]")
-                                        open_braces = partial.count("{")
-                                        close_braces = partial.count("}")
-
-                                        # Close arrays first
-                                        if open_brackets > close_brackets:
-                                            partial += "]" * (open_brackets - close_brackets)
-
-                                        # Close objects
-                                        if open_braces > close_braces:
-                                            partial += "}" * (open_braces - close_braces)
-
-                                        try:
-                                            minimal_data = json.loads(partial)
-                                            if "atomic_iocs" in minimal_data or "observables" in minimal_data:
-                                                # Build complete structure with what we have
-                                                if "observables" in minimal_data:
-                                                    # New format
-                                                    repaired_data = {
-                                                        "observables": minimal_data.get("observables", []),
-                                                        "summary": minimal_data.get("summary", {}),
-                                                    }
-                                                else:
-                                                    # Old format
-                                                    repaired_data = {
-                                                        "atomic_iocs": minimal_data.get("atomic_iocs", {}),
-                                                        "behavioral_observables": {},
-                                                        "metadata": {},
-                                                    }
-                                                json_text = json.dumps(repaired_data)
-                                                logger.info(
-                                                    "Successfully extracted observables from truncated JSON using alternative strategy"
-                                                )
-                                            else:
-                                                raise ValueError("Could not extract atomic_iocs")
-                                        except json.JSONDecodeError as parse_err:
-                                            logger.warning(f"Alternative repair also failed: {parse_err}")
-                                            raise ValueError(
-                                                "No valid JSON found in response (truncated and repair failed)"
-                                            ) from parse_err
-                                    else:
-                                        raise ValueError(
-                                            "No valid JSON found in response (truncated and repair failed)"
-                                        ) from e
-                                else:
-                                    raise ValueError(
-                                        "No valid JSON found in response (truncated and repair failed)"
-                                    ) from e
-                        else:
-                            raise ValueError("No valid JSON found in response")
-
-                # Try to parse the JSON
-                try:
-                    extracted = json.loads(json_text)
-                except json.JSONDecodeError as e:
-                    # If parsing fails and response was truncated, try repair
-                    if finish_reason == "length":
-                        logger.warning(f"JSON parsing failed for truncated response: {e}. Attempting repair.")
-                        # Try to repair by finding the last valid structure
-                        cleaned = response_text.strip()
-                        if cleaned.startswith("{{"):
-                            cleaned = cleaned[1:]
-                        if cleaned.endswith("}}"):
-                            cleaned = cleaned[:-1]
-
-                        # Find last complete brace and try to close incomplete structures
-                        last_brace = cleaned.rfind("}")
-                        if last_brace > 0:
-                            partial = cleaned[: last_brace + 1]
-                            # Close incomplete arrays/objects
-                            open_braces = partial.count("{")
-                            close_braces = partial.count("}")
-                            open_brackets = partial.count("[")
-                            close_brackets = partial.count("]")
-
-                            if open_brackets > close_brackets:
-                                partial += "]" * (open_brackets - close_brackets)
-                            if open_braces > close_braces:
-                                partial += "}" * (open_braces - close_braces)
-
-                            try:
-                                extracted = json.loads(partial)
-                                logger.info("Successfully repaired and parsed truncated JSON")
-                            except json.JSONDecodeError as inner:
-                                raise e from inner  # Re-raise original error if repair fails
-                        else:
-                            raise e  # Re-raise original error if no valid structure found
-                    else:
-                        raise e  # Re-raise original error if not truncated
-
-                if "raw_response" not in extracted:
-                    extracted["raw_response"] = response_text
-
-                # Add truncation warnings if any
-                warnings = []
-                if truncation_warning:
-                    warnings.append(truncation_warning)
-                if response_truncation_warning:
-                    warnings.append(response_truncation_warning)
-                if warnings:
-                    extracted["warnings"] = warnings
-
-                # Handle new format (observables array + summary) or old format (atomic_iocs + behavioral_observables + metadata)
-                if "observables" in extracted and "summary" in extracted:
-                    # New format: observables array with type/value/platform/source_context
-                    observables_list = extracted.get("observables", [])
-                    observable_count = len(observables_list)
-                    summary = extracted.get("summary", {})
-
-                    # Convert to old format for backward compatibility with UI
-                    extracted["atomic_iocs"] = {}
-                    extracted["behavioral_observables"] = {
-                        "command_line": [
-                            obs.get("value", "") for obs in observables_list if obs.get("type") == "process_cmdline"
-                        ]
-                    }
-                    extracted["metadata"] = {
-                        "observable_count": observable_count,
-                        "atomic_count": 0,
-                        "behavioral_count": observable_count,
-                        "url": summary.get("source_url", url),
-                        "platforms_detected": summary.get("platforms_detected", []),
-                    }
-
-                    logger.info(
-                        f"Parsed observable extraction result (new format): {observable_count} command-line observables"
-                    )
-                else:
-                    # Old format: atomic_iocs + behavioral_observables + metadata
-                    atomic_count = 0
-                    behavioral_count = 0
-
-                    if "atomic_iocs" in extracted:
-                        atomic_count = sum(
-                            len(v) if isinstance(v, list) else 0 for v in extracted["atomic_iocs"].values()
-                        )
-
-                    if "behavioral_observables" in extracted:
-                        behavioral_count = sum(
-                            len(v) if isinstance(v, list) else 0 for v in extracted["behavioral_observables"].values()
-                        )
-
-                    if "metadata" not in extracted:
-                        extracted["metadata"] = {}
-
-                    extracted["metadata"]["observable_count"] = atomic_count + behavioral_count
-                    extracted["metadata"]["atomic_count"] = atomic_count
-                    extracted["metadata"]["behavioral_count"] = behavioral_count
-                    extracted["metadata"]["url"] = url
-
-                    if atomic_count == 0 and behavioral_count == 0:
-                        logger.warning(
-                            f"No observables extracted from article. Raw response length: {len(response_text)} chars. First 500 chars: {response_text[:500]}"
-                        )
-                        logger.warning(f"Extracted JSON keys: {list(extracted.keys())}")
-                        if "atomic_iocs" in extracted:
-                            logger.warning(
-                                f"atomic_iocs structure: {list(extracted['atomic_iocs'].keys()) if isinstance(extracted['atomic_iocs'], dict) else 'not a dict'}"
-                            )
-                        if "behavioral_observables" in extracted:
-                            logger.warning(
-                                f"behavioral_observables structure: {list(extracted['behavioral_observables'].keys()) if isinstance(extracted['behavioral_observables'], dict) else 'not a dict'}"
-                            )
-                    else:
-                        logger.info(
-                            f"Parsed observable extraction result: {atomic_count} atomic IOCs, {behavioral_count} behavioral observables"
-                        )
-
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Could not parse JSON from observable extraction response: {e}. Using fallback.")
-                extracted = {
-                    "observables": [],
-                    "summary": {"count": 0, "source_url": url, "platforms_detected": []},
-                    "atomic_iocs": {},
-                    "behavioral_observables": {"command_line": []},
-                    "metadata": {"url": url, "observable_count": 0, "atomic_count": 0, "behavioral_count": 0},
-                    "raw_response": response_text,
-                }
-
-            return extracted
-
-        except Exception as e:
-            logger.error(f"Error extracting observables: {e}")
-            raise
-
     async def run_extraction_agent(
         self,
         agent_name: str,
@@ -3314,7 +2169,7 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                 if not effective_provider:
                     effective_provider = self._canonicalize_provider(self.provider_extract) or resolved_provider
 
-                context_limit_tokens = self._get_context_limit_for_provider(effective_provider)
+                context_limit_tokens = self._get_context_limit(effective_provider, model_name=model_name)
                 if effective_provider == "lmstudio" and model_name:
                     try:
                         context_check = await self.check_model_context_length(model_name=model_name)
@@ -3357,6 +2212,24 @@ CRITICAL: {instructions} If you are a reasoning model, you may include reasoning
                                 "prep_newline_count": prep_nl,
                             },
                         )
+
+                    # Cap snippets to 25% of context budget (tokens) before joining.
+                    # Dense articles can produce 300+ snippets; without a ceiling the
+                    # snippet section crowds out the article itself (article_2068: 0/7
+                    # extracted with preprocessor ON, 6/7 with it OFF).
+                    # Trim from the end -- earlier snippets tend to be higher-signal.
+                    if snippets:
+                        max_snippet_tokens = int(context_limit_tokens * 0.25)
+                        kept: list[str] = []
+                        budget = max_snippet_tokens
+                        for s in snippets:
+                            cost = self._estimate_tokens(s) + 2  # +2 for separator
+                            if cost > budget:
+                                break
+                            kept.append(s)
+                            budget -= cost
+                        snippets = kept or snippets[:1]  # always keep at least one
+                        snippet_count = len(snippets)
 
                     snippets_section = "\n\n".join(snippets) if snippets else ""
                     snippets_header = "=== HIGH-LIKELIHOOD COMMAND SNIPPETS ===\n"
@@ -3574,7 +2447,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                     def fix_json_escapes(text: str) -> str:
                         """Fix common JSON escape sequence issues, especially Windows paths."""
                         # Pre-process: Fix patterns where models over-escape quotes
-                        import re
 
                         # Fix four backslashes + quote -> escaped quote (\\\\" -> \")
                         # In the raw text, four backslashes means: backslash + backslash + backslash + backslash
@@ -3655,7 +2527,6 @@ Every item in the output array MUST be an object (not a plain string)."""
 
                     try:
                         # Strategy 1: Try to extract from markdown code fences first
-                        import re
 
                         code_fence_match = re.search(r"```(?:json)?\s*\n(.*?)\n```", response_text, re.DOTALL)
                         if code_fence_match:
@@ -3916,11 +2787,6 @@ Every item in the output array MUST be an object (not a plain string)."""
 
                 qa_model_to_use = qa_model_override or model_name
 
-                # Legacy programmatic format. The QA scaffold is fixed in runtime so
-                # old configs with user_template continue to work, but the UI no longer
-                # exposes that field for editing.
-                extracted_commands_text = ""
-
                 # Handle different extraction result formats
                 if "cmdline_items" in last_result:
                     cmdline_items = last_result.get("cmdline_items", [])
@@ -4087,8 +2953,6 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     except (json.JSONDecodeError, ValueError):
                         # Strategy 3: Try extracting JSON from markdown code blocks
                         try:
-                            import re
-
                             # Look for JSON in ```json ... ``` or ``` ... ``` blocks
                             code_block_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
                             code_match = re.search(code_block_pattern, qa_text, re.DOTALL)
@@ -4205,11 +3069,12 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         f"Treating as pass to avoid retry loop."
                     )
 
-                # Default to pass if parse fail to avoid retry loops, but log as error
-                status = qa_result.get("status", "pass").lower() if not parsing_failed else "pass"
-                # Handle "needs_revision" as fail for retry logic
-                if status == "needs_revision":
-                    status = "fail"
+                # Fail-closed: parse failure means QA output is unvalidated. Treat as needs_revision
+                # so the trace records the failure rather than silently passing the result through.
+                # The one exception (handled below) is when there are no items to validate at all.
+                status = (
+                    (qa_result.get("status") or "needs_revision").lower() if not parsing_failed else "needs_revision"
+                )
 
                 # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
                 extracted_feedback = ""
@@ -4227,7 +3092,6 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
                         # Try to extract a meaningful snippet from the QA text
                         # Look for sentences that might contain feedback
-                        import re
 
                         # Try to find feedback-like content (sentences with "missing", "incorrect", "should", etc.)
                         feedback_patterns = re.findall(
@@ -4243,10 +3107,58 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     else:
                         extracted_feedback = ""
 
+                # Capture pre-filter count so traces can distinguish "extractor found nothing"
+                # from "extractor found things and QA removed them all".
+                # Defensive: handle the case where the model emits e.g. {"cmdline_items": null}
+                # by treating None as an empty list.
+                items_key = "cmdline_items" if "cmdline_items" in last_result else "items"
+                pre_filter_count = len(last_result.get(items_key) or [])
+
+                # If QA parsing failed and there was nothing to validate, return cleanly --
+                # the QA call was effectively a no-op, no need to record a parse-failure verdict.
+                if parsing_failed and pre_filter_count == 0:
+                    logger.info(
+                        f"{agent_name} QA parse failed but extraction returned 0 items; "
+                        f"returning without recording verdict (no-op)."
+                    )
+                    return last_result
+
+                # Apply QA corrections directly to the result. v1 scope: CmdlineExtract only.
+                # Other extractors use structured items where identity isn't a flat `value` string,
+                # so per-agent identity mapping is required before filtering can be safely extended.
+                applied_removals: list[str] = []
+                if (
+                    not parsing_failed
+                    and qa_result
+                    and agent_name == "CmdlineExtract"
+                    and isinstance(qa_result.get("corrections"), dict)
+                ):
+                    removals = {
+                        (r.get("command") or "").strip()
+                        for r in qa_result["corrections"].get("removed", [])
+                        if isinstance(r, dict) and (r.get("command") or "").strip()
+                    }
+                    if removals:
+                        before_items = last_result.get(items_key) or []
+                        after_items = [
+                            item
+                            for item in before_items
+                            if ((item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip())
+                            not in removals
+                        ]
+                        last_result[items_key] = after_items
+                        last_result["count"] = len(after_items)
+                        applied_removals = sorted(removals)
+                        logger.info(
+                            f"{agent_name} QA removed {len(before_items) - len(after_items)} items "
+                            f"(pre={len(before_items)}, post={len(after_items)}). "
+                            f"Removed: {applied_removals}"
+                        )
+
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
                     # Convert QA result format to match UI expectations
-                    qa_status = qa_result.get("status", "pass").lower() if qa_result else "fail"
+                    qa_status = (qa_result.get("status") or "needs_revision").lower() if qa_result else "fail"
                     # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
                     if qa_status == "needs_revision":
                         verdict = "needs_revision"
@@ -4255,27 +3167,32 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     else:
                         verdict = "needs_revision"
 
-                    # Build issues list from corrected_commands if available
+                    # Build display issues list from corrections (read for display only;
+                    # actual filtering already happened above for CmdlineExtract).
                     issues = []
-                    if qa_result and "corrected_commands" in qa_result:
-                        corrected = qa_result["corrected_commands"]
-                        for removed in corrected.get("removed", []):
-                            cmd = removed.get("command", "")
+                    if qa_result and isinstance(qa_result.get("corrections"), dict):
+                        corrections_obj = qa_result["corrections"]
+                        for removed in corrections_obj.get("removed", []):
+                            if not isinstance(removed, dict):
+                                continue
+                            ident = removed.get("command") or removed.get("query") or ""
                             reason = removed.get("reason", "")
                             issues.append(
                                 {
                                     "type": "compliance",
-                                    "description": f"Removed: {cmd} - {reason}",
+                                    "description": f"Removed: {ident} - {reason}",
                                     "severity": "medium",
                                 }
                             )
-                        for added in corrected.get("added", []):
-                            cmd = added.get("command", "")
+                        for added in corrections_obj.get("added", []):
+                            if not isinstance(added, dict):
+                                continue
+                            ident = added.get("command") or added.get("query") or ""
                             found = added.get("found_in", "")
                             issues.append(
                                 {
                                     "type": "completeness",
-                                    "description": f"Added: {cmd} - Found in: {found}",
+                                    "description": f"Added (not applied): {ident} - Found in: {found}",
                                     "severity": "low",
                                 }
                             )
@@ -4314,6 +3231,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                             "status": "fail",
                             "feedback": feedback_with_diagnostic,
                             "issues": [{"type": "compliance", "description": error_description, "severity": "medium"}],
+                            "corrections_applied": {"removed": []},
+                            "pre_filter_count": pre_filter_count,
                         }
                     else:
                         last_result["_qa_result"] = {
@@ -4322,17 +3241,18 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                             "status": qa_status,
                             "feedback": extracted_feedback,
                             "issues": issues,
+                            "corrections_applied": {"removed": applied_removals},
+                            "pre_filter_count": pre_filter_count,
                         }
 
-                if status == "pass":
-                    items = last_result.get("cmdline_items", last_result.get("items", []))
-                    logger.info(f"{agent_name} QA Passed on attempt {current_try}. Returning {len(items)} items")
-                    return last_result
-                # Use the extracted feedback (already extracted above)
-                feedback = extracted_feedback
-                items = last_result.get("cmdline_items", last_result.get("items", []))
-                logger.info(f"{agent_name} QA Failed on attempt {current_try}: {feedback}. Current items: {len(items)}")
-                # Continue loop
+                # After applying corrections (or recording the parse failure),
+                # always return -- extraction QA no longer drives a re-extraction loop.
+                items = last_result.get("cmdline_items") or last_result.get("items") or []
+                logger.info(
+                    f"{agent_name} QA complete on attempt {current_try} (status={status}). "
+                    f"Returning {len(items)} items."
+                )
+                return last_result
 
             except PreprocessInvariantError:
                 raise  # Fail-fast: do not retry infra invariants

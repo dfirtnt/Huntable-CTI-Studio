@@ -1,6 +1,6 @@
 # Agents and Responsibilities
 
-The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks** when you call `POST /api/workflow/articles/{id}/trigger` or click **Send to Workflow** on an article. LangGraph manages step sequencing, conditional early-exit gates (e.g. termination on non-Windows OS or below-threshold ranking score), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
+The agentic workflow is a multi-step pipeline **orchestrated by LangGraph** and **triggered via Celery tasks** when you call `POST /api/workflow/articles/{id}/trigger` or click **Reprocess** on an article. LangGraph manages step sequencing, conditional early-exit gates (e.g. termination on non-Windows OS or below-threshold ranking score), and state propagation; Celery is the task queue that schedules and distributes the work. Each agent focuses on a narrow task and writes its results to `agentic_workflow_executions`.
 
 ## Core agents (execution order)
 
@@ -74,7 +74,7 @@ These are enforced by a hardcoded append in the runtime. Prompt authors should i
 ## Execution surfaces
 
 - **API**: `POST /api/workflow/articles/{article_id}/trigger` triggers the workflow via Celery.
-- **UI**: Article page → **Send to Workflow**. The Workflow page surfaces executions and per-step statuses; article pages render extraction results and Sigma output when present.
+- **UI**: Article page → **Reprocess**. The Workflow page surfaces executions and per-step statuses; article pages render extraction results and Sigma output when present.
 
 ## Status vocabulary
 

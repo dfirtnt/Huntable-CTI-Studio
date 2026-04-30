@@ -16,6 +16,38 @@ from src.database.models import AgentEvaluationTable
 logger = logging.getLogger(__name__)
 
 
+def _compare_metrics(baseline_metrics: dict[str, Any], current_metrics: dict[str, Any]) -> dict[str, Any]:
+    """Compare two metrics dicts, bucketing numeric differences into improvements/degradations/unchanged."""
+    comparison: dict[str, Any] = {
+        "baseline": baseline_metrics,
+        "current": current_metrics,
+        "improvements": {},
+        "degradations": {},
+        "unchanged": {},
+    }
+
+    def _compare_dicts(baseline: dict, current: dict, prefix: str = "") -> None:
+        for key in set(list(baseline.keys()) + list(current.keys())):
+            full_key = f"{prefix}.{key}" if prefix else key
+            b_val = baseline.get(key)
+            c_val = current.get(key)
+            if isinstance(b_val, dict) and isinstance(c_val, dict):
+                _compare_dicts(b_val, c_val, full_key)
+            elif isinstance(b_val, (int, float)) and isinstance(c_val, (int, float)):
+                diff = c_val - b_val
+                pct = (diff / b_val * 100) if b_val != 0 else 0
+                entry = {"baseline": b_val, "current": c_val, "diff": diff, "pct_change": pct}
+                if abs(diff) < 0.001:
+                    comparison["unchanged"][full_key] = entry
+                elif diff > 0:
+                    comparison["improvements"][full_key] = entry
+                else:
+                    comparison["degradations"][full_key] = entry
+
+    _compare_dicts(baseline_metrics or {}, current_metrics or {})
+    return comparison
+
+
 class EvaluationTracker:
     """
     Tracks and compares agent evaluations over time.
@@ -120,20 +152,7 @@ class EvaluationTracker:
         if baseline.agent_name != current.agent_name:
             raise ValueError("Cannot compare evaluations from different agents")
 
-        # Use the base evaluator's comparison method
-        from src.services.evaluation.base_evaluator import BaseAgentEvaluator
-
-        # Create a dummy evaluator to use comparison method
-        dummy_evaluator = BaseAgentEvaluator(
-            agent_name=baseline.agent_name,
-            model_version=baseline.model_version,
-            evaluation_type=baseline.evaluation_type,
-        )
-        dummy_evaluator.metrics = baseline.metrics
-
-        comparison = dummy_evaluator.compare_with_baseline(
-            baseline_metrics=baseline.metrics, current_metrics=current.metrics
-        )
+        comparison = _compare_metrics(baseline.metrics, current.metrics)
 
         return {
             "baseline": {

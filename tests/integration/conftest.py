@@ -183,8 +183,6 @@ async def external_api_preference():
             continue
         print("Invalid choice. Please enter 'm' or 'r'")
 
-    return "mock"  # Default fallback
-
 
 @pytest.fixture
 def mock_llm_service(external_api_preference):

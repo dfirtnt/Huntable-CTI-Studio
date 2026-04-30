@@ -40,6 +40,8 @@ from pathlib import Path
 
 import pytest
 
+from src.config.workflow_config_schema import AGENT_NAMES_SUB
+
 pytestmark = pytest.mark.unit
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -65,15 +67,20 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "ProcTreeExtract",
     "ScheduledTasksExtract",
     "CmdlineExtract",
-    # HuntQueriesExtract intentionally excluded: its envelope uses `query_count`
-    # rather than `count`, so it would fail test_json_example_has_expected_top_level_key.
-    # Preset-sync for HuntQueriesExtract is asserted separately (TestPresetsSyncedWithPrompts
-    # uses MIGRATED_EXTRACT_AGENTS, so HuntQueriesExtract drift is currently unguarded —
-    # acceptable trade-off until the envelope contract is unified).
+    "HuntQueriesExtract",
 ]
 
-# QA prompts that were migrated alongside their extract agents.
-MIGRATED_QA_AGENTS: list[str] = ["RegistryQA", "ServicesQA", "ScheduledTasksQA"]
+# QA prompts that must stay synced between src/prompts/<QAName> and the embedded
+# copies in config/presets/AgentConfigs/quickstart/*.json. All six are checked --
+# leaving any out lets that prompt drift silently between source and presets.
+MIGRATED_QA_AGENTS: list[str] = [
+    "CmdLineQA",
+    "HuntQueriesQA",
+    "ProcTreeQA",
+    "RegistryQA",
+    "ServicesQA",
+    "ScheduledTasksQA",
+]
 
 REQUIRED_TRACEABILITY_FIELDS = (
     "source_evidence",
@@ -266,6 +273,9 @@ class TestPresetsSyncedWithPrompts:
     def test_preset_qa_prompt_synced(self, qa_name, preset_paths):
         """QA prompts embed as <BaseAgent>.QAPrompt.prompt."""
         base_for_qa = {
+            "CmdLineQA": "CmdlineExtract",
+            "HuntQueriesQA": "HuntQueriesExtract",
+            "ProcTreeQA": "ProcTreeExtract",
             "RegistryQA": "RegistryExtract",
             "ServicesQA": "ServicesExtract",
             "ScheduledTasksQA": "ScheduledTasksExtract",
@@ -281,6 +291,33 @@ class TestPresetsSyncedWithPrompts:
             assert embedded == source, (
                 f"{preset_path.name} -> {base_agent}.QAPrompt.prompt drifted from src/prompts/{qa_name}."
             )
+
+
+# ===========================================================================
+# Architecture context presence
+# ===========================================================================
+
+
+class TestArchitectureContextPresence:
+    """Every extract sub-agent prompt must contain an ARCHITECTURE CONTEXT block.
+
+    Agents need to know their siblings to avoid scope overlap. The absence of
+    this block has historically caused agents to silently absorb adjacent
+    artifacts that belong to a sibling (e.g., ScheduledTasksExtract emitting
+    schtasks.exe command lines that CmdlineExtract should own).
+    """
+
+    @pytest.mark.parametrize("agent_name", AGENT_NAMES_SUB)
+    def test_extract_prompt_has_architecture_context(self, agent_name):
+        path = PROMPT_DIR / agent_name
+        assert path.exists(), f"Prompt file missing: {path}"
+        data = json.loads(path.read_text(encoding="utf-8"))
+        instructions = data.get("instructions", "")
+        assert "ARCHITECTURE CONTEXT" in instructions, (
+            f"{agent_name} prompt is missing the ARCHITECTURE CONTEXT block in its "
+            f"'instructions' field. Add a section that lists sibling agents and their "
+            f"boundary rules so the model understands what NOT to extract."
+        )
 
 
 # ===========================================================================

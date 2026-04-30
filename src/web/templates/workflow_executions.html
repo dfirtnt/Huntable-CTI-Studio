@@ -249,13 +249,14 @@ async function viewExecution(executionId) {
         if (response.ok) {
             const exec = await response.json();
             const config = exec.config_snapshot || {};
-            let observablesData = { execution_id: exec.id, observables: { cmdline: [], process_lineage: [], hunt_queries: [] } };
+            const OBS_TYPE_ORDER = ['cmdline', 'process_lineage', 'hunt_queries', 'registry_artifacts', 'windows_services', 'scheduled_tasks'];
+            let observablesData = { execution_id: exec.id, observables: Object.fromEntries(OBS_TYPE_ORDER.map(t => [t, []])) };
             try {
                 const obsRes = await fetch(`/api/workflow/executions/${exec.id}/observables`);
                 if (obsRes.ok) observablesData = await obsRes.json();
             } catch (e) { console.warn('Observables fetch failed', e); }
-            const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
-            const totalObs = (observablesData.observables.cmdline?.length || 0) + (observablesData.observables.process_lineage?.length || 0) + (observablesData.observables.hunt_queries?.length || 0);
+            const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries', registry_artifacts: 'Registry Artifacts', windows_services: 'Windows Services', scheduled_tasks: 'Scheduled Tasks' };
+            const totalObs = OBS_TYPE_ORDER.reduce((sum, t) => sum + (observablesData.observables[t]?.length || 0), 0);
             function confidenceBadge(score) {
                 if (score == null) return '<span class="text-gray-500 dark:text-gray-400 text-xs">N/A</span>';
                 const pct = Math.round(Number(score) * 100);

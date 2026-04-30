@@ -3,15 +3,22 @@ Seed eval articles from config/eval_articles_data into the database.
 
 Used at web startup (after a fresh DB) and by scripts/seed_eval_articles_to_db.py
 so eval articles are ingested and the regular workflow can process them.
+
+Also exposes cleanup_stale_eval_results() which removes subagent_evaluations rows
+whose article_url is no longer listed in eval_articles.yaml for that subagent.
+Call it after run() to keep the eval UI tables clean when the eval set changes.
 """
 
 import json
 import logging
+from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
 
+import yaml
+
 from src.database.manager import DatabaseManager
-from src.database.models import ArticleTable, SourceTable
+from src.database.models import ArticleTable, SourceTable, SubagentEvaluationTable
 from src.models.article import ArticleCreate
 from src.utils.content import ContentCleaner
 
@@ -155,3 +162,86 @@ def run(project_root: Path | None = None) -> tuple[int, int, str]:
         len(errors),
     )
     return len(created), len(errors), ""
+
+
+def _load_active_yaml_pairs(project_root: Path) -> dict[str, set[str]]:
+    """Return {subagent_name: {url, ...}} from eval_articles.yaml."""
+    yaml_path = project_root / "config" / "eval_articles.yaml"
+    if not yaml_path.exists():
+        logger.warning("eval_articles.yaml not found at %s; skipping stale cleanup", yaml_path)
+        return {}
+    with open(yaml_path) as f:
+        cfg = yaml.safe_load(f) or {}
+    result: dict[str, set[str]] = defaultdict(set)
+    for subagent, articles in cfg.get("subagents", {}).items():
+        if not isinstance(articles, list):
+            continue
+        for entry in articles:
+            if entry and entry.get("url"):
+                result[subagent].add(entry["url"])
+    return dict(result)
+
+
+def cleanup_stale_eval_results(project_root: Path | None = None) -> int:
+    """
+    Delete subagent_evaluations rows whose article_url is no longer in eval_articles.yaml.
+
+    This keeps the eval UI tables clean when articles are removed from or moved
+    between eval sets.  Safe to call repeatedly -- no-op when nothing is stale.
+
+    Returns the number of rows deleted.
+    """
+    root = project_root or _project_root()
+    active_pairs = _load_active_yaml_pairs(root)
+    if not active_pairs:
+        return 0
+
+    db_manager = DatabaseManager()
+    total_deleted = 0
+
+    with db_manager.get_session() as session:
+        for subagent, active_urls in active_pairs.items():
+            stale = (
+                session.query(SubagentEvaluationTable)
+                .filter(
+                    SubagentEvaluationTable.subagent_name == subagent,
+                    SubagentEvaluationTable.article_url.notin_(active_urls),
+                )
+                .all()
+            )
+            if not stale:
+                continue
+            for row in stale:
+                logger.info(
+                    "Removing stale eval result: subagent=%s url=%s id=%s",
+                    subagent,
+                    row.article_url,
+                    row.id,
+                )
+                session.delete(row)
+            total_deleted += len(stale)
+
+        # Also catch rows for subagent names not in the YAML at all
+        known_subagents = list(active_pairs.keys())
+        orphan_subagents = (
+            session.query(SubagentEvaluationTable)
+            .filter(SubagentEvaluationTable.subagent_name.notin_(known_subagents))
+            .all()
+        )
+        for row in orphan_subagents:
+            logger.info(
+                "Removing orphan eval result (unknown subagent): subagent=%s url=%s id=%s",
+                row.subagent_name,
+                row.article_url,
+                row.id,
+            )
+            session.delete(row)
+        total_deleted += len(orphan_subagents)
+
+        if total_deleted:
+            session.commit()
+            logger.info("Cleaned up %d stale subagent_evaluations row(s)", total_deleted)
+        else:
+            logger.info("Eval results cleanup: nothing stale found")
+
+    return total_deleted

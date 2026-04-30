@@ -6,7 +6,7 @@ import re
 
 # Patterns for non-chat models that should be excluded
 NON_CHAT_MODEL_PATTERNS = [
-    re.compile(r"-codex$", re.IGNORECASE),  # -codex suffix on gpt-5* (non-chat specialization)
+    re.compile(r"-codex", re.IGNORECASE),  # -codex anywhere (gpt-5.1-codex-max, -codex-mini, etc.)
     re.compile(r"-audio", re.IGNORECASE),  # Audio models
     re.compile(r"-image", re.IGNORECASE),  # Image models
     re.compile(r"-realtime", re.IGNORECASE),  # Realtime models (unless chat-enabled)

@@ -46,7 +46,8 @@ Key fields exposed via the workflow APIs:
 - `current_step`
 - `ranking_score`
 - `config_snapshot`
-<!-- TODO: verify: termination_reason and termination_details are not present in AgenticWorkflowExecutionTable in src/database/models.py; confirm with src/workflows/agentic_workflow.py before re-adding -->
+- `termination_reason` (API response field; derived from `error_log` via `extract_termination_info()` — not a direct DB column)
+- `termination_details` (API response field; derived from `error_log` — not a direct DB column)
 - `error_log`
 - `junk_filter_result`
 - `extraction_result`
@@ -89,8 +90,8 @@ Known `subresults` keys (one per sub-agent):
 | `process_lineage` | ProcTreeExtract |
 | `hunt_queries` | HuntQueriesExtract |
 | `registry_artifacts` | RegistryExtract |
-<!-- TODO: verify: ServicesExtract (AGENT_NAMES_SUB in workflow_config_schema.py) should have a subresults key; confirm exact key name from src/workflows/agentic_workflow.py -->
-| <!-- TODO: verify key name --> | ServicesExtract |
+| `windows_services` | ServicesExtract |
+| `scheduled_tasks` | ScheduledTasksExtract |
 
 ## Workflow Config V2
 

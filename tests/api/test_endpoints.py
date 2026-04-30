@@ -2,6 +2,10 @@
 API endpoint tests for CTI Scraper.
 """
 
+import io
+import zipfile
+from unittest.mock import MagicMock
+
 import httpx
 import pytest
 
@@ -754,6 +758,16 @@ class TestCriticalAPIs:
         assert "uses_langsmith" not in info  # Deprecated: removed 2026-02-04
 
     @pytest.mark.api
+    @pytest.mark.asyncio
+    async def test_workflow_executions_exclude_evals_param_accepted(self, async_client: httpx.AsyncClient):
+        """exclude_evals=true is accepted and returns valid executions JSON (not 400/422)."""
+        response = await async_client.get("/api/workflow/executions?exclude_evals=true")
+        assert response.status_code == 200
+        data = response.json()
+        assert "executions" in data
+        assert isinstance(data["executions"], list)
+
+    @pytest.mark.api
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_dashboard_data_smoke(self, async_client: httpx.AsyncClient):
@@ -864,3 +878,69 @@ class TestPerformance:
         # All should succeed
         for response in responses:
             assert response.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# ZIP bundle export filename uniqueness
+# ---------------------------------------------------------------------------
+
+
+class TestZipBundleFilenameUniqueness:
+    """Guard against duplicate filenames in the ZIP bundle export.
+
+    When the same article is evaluated twice under the same config version the
+    old code produced `article_{article_id}.json` for both, triggering a
+    UserWarning from zipfile and silently dropping one bundle on extraction.
+    The fix appends the eval record ID: `article_{article_id}_{record_id}.json`.
+    """
+
+    @pytest.mark.api
+    def test_same_article_two_runs_produce_unique_zip_names(self):
+        """Two eval records with the same article_id produce different filenames."""
+        article_id = 42
+
+        r1 = MagicMock()
+        r1.article_id = article_id
+        r1.id = 101
+
+        r2 = MagicMock()
+        r2.article_id = article_id
+        r2.id = 102
+
+        fn1 = f"article_{r1.article_id or r1.id}_{r1.id}.json"
+        fn2 = f"article_{r2.article_id or r2.id}_{r2.id}.json"
+
+        assert fn1 != fn2, "Same article_id with different record IDs must produce different filenames"
+        assert fn1 == "article_42_101.json"
+        assert fn2 == "article_42_102.json"
+
+    @pytest.mark.api
+    def test_zip_with_two_same_article_records_has_no_duplicates(self):
+        """Writing two bundles for the same article to a ZipFile must not trigger Duplicate name."""
+        import warnings
+
+        article_id = 99
+
+        r1 = MagicMock()
+        r1.article_id = article_id
+        r1.id = 201
+
+        r2 = MagicMock()
+        r2.article_id = article_id
+        r2.id = 202
+
+        buf = io.BytesIO()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for r in (r1, r2):
+                    filename = f"article_{r.article_id or r.id}_{r.id}.json"
+                    zf.writestr(filename, '{"ok": true}')
+
+        duplicate_warnings = [w for w in caught if "Duplicate name" in str(w.message)]
+        assert not duplicate_warnings, f"Duplicate name warning triggered: {duplicate_warnings}"
+
+        buf.seek(0)
+        with zipfile.ZipFile(buf) as zf:
+            names = zf.namelist()
+        assert len(set(names)) == 2, f"Expected 2 unique names, got {names}"

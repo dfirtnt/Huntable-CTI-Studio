@@ -225,12 +225,13 @@ class SigmaNoveltyService:
             Dictionary with novelty classification and explainability
         """
         try:
+            _warnings: list[str] = []
+
             # Step 1: Build canonical rule
             canonical_rule = self.build_canonical_rule(proposed_rule)
 
             # Step 2: Generate fingerprints
             exact_hash = self.generate_exact_hash(canonical_rule)
-            canonical_text = self.generate_canonical_text(canonical_rule)
             logsource_key, proposed_service = self.normalize_logsource(proposed_rule.get("logsource", {}))
 
             # Try deterministic semantic precompute for proposed rule (enables precomputed-atom path)
@@ -241,7 +242,10 @@ class SigmaNoveltyService:
 
                     proposed_sem = precompute_semantic_fields(proposed_rule)
                 except Exception:
-                    pass
+                    logger.warning(
+                        "sigma_novelty: semantic precompute failed, falling back to legacy engine", exc_info=True
+                    )
+                    _warnings.append("semantic_precompute_failed: falling back to legacy similarity engine")
 
             use_deterministic = proposed_sem is not None
             canonical_class = proposed_sem["canonical_class"] if proposed_sem else None
@@ -490,6 +494,7 @@ class SigmaNoveltyService:
                 "total_candidates_evaluated": len(candidates),
                 "behavioral_matches_found": behavioral_matches_found,
                 "engine_used": engine_used,
+                **({"warnings": _warnings} if _warnings else {}),
             }
 
         except Exception as e:
@@ -502,7 +507,7 @@ class SigmaNoveltyService:
                 "novelty_score": 1.0,
                 "logsource_key": "",
                 "canonical_class": None,
-                "error": str(e),
+                "error": "Novelty assessment failed",
                 "top_matches": [],
                 "total_candidates_evaluated": 0,
                 "behavioral_matches_found": 0,
@@ -1164,7 +1169,7 @@ class SigmaNoveltyService:
                         out["surface_score"] = getattr(exact_match, "surface_score", None) or 1
                     return [out]
             except Exception:
-                pass
+                logger.warning("sigma_novelty: exact hash DB lookup failed, skipping duplicate check", exc_info=True)
 
             # Build query
             candidates = []
@@ -1178,7 +1183,9 @@ class SigmaNoveltyService:
                             .all()
                         )
                 except Exception:
-                    pass
+                    logger.warning(
+                        "sigma_novelty: canonical_class DB query failed, falling back to logsource_key", exc_info=True
+                    )
                 if not candidates and logsource_key and logsource_key != "|":
                     # Fallback to logsource_key + limit when canonical_class column missing or no matches
                     candidates = (

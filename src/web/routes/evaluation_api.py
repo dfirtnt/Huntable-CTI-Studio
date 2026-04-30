@@ -176,7 +176,10 @@ _SUBAGENT_TO_AGENT = {
 def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> int | None:
     """Derive observable count from run_extraction_agent result for a single subagent."""
     if subagent_name == "hunt_queries":
-        n = agent_result.get("query_count")
+        # Prefer unified `count`; accept legacy `query_count` from cached/in-flight results.
+        n = agent_result.get("count")
+        if n is None:
+            n = agent_result.get("query_count")
         if n is not None:
             return int(n)
         q = agent_result.get("queries") or agent_result.get("items", [])
@@ -286,8 +289,6 @@ def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) ->
     """
     # Check database setting first (highest priority - user preference from UI)
     try:
-        from src.database.manager import DatabaseManager
-
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
 
@@ -372,7 +373,6 @@ async def get_dataset_items(request: Request, dataset_name: str):
                         article_url = item.input.get("article_url", "")
                         if article_url and isinstance(article_url, str):
                             # Try to extract ID from URL patterns like "article://68" or similar
-                            import re
 
                             match = re.search(r"/(\d+)(?:/|$)", article_url)
                             if match:
@@ -387,8 +387,6 @@ async def get_dataset_items(request: Request, dataset_name: str):
 
                         if article_text and len(article_text) > 100:  # Only if substantial content
                             try:
-                                from src.database.models import ArticleTable
-
                                 db_manager = DatabaseManager()
                                 db_session = db_manager.get_session()
                                 try:
@@ -408,7 +406,6 @@ async def get_dataset_items(request: Request, dataset_name: str):
                                     # Strategy 2: Try matching by URL if it contains article info
                                     if not article_id and article_url:
                                         # Try to extract ID from URL
-                                        import re
 
                                         url_match = re.search(r"[^/](\d{2,})[^/]", article_url)
                                         if url_match:
@@ -863,7 +860,6 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
     if not urls:
         return {}
     try:
-        import re
         from urllib.parse import urlparse, urlunparse
 
         db_manager = DatabaseManager()
@@ -1320,6 +1316,17 @@ async def get_subagent_eval_results(
                     return (id_to_title.get(rec.article_id) or "").strip()
                 return ""
 
+            # Batch-fetch all executions in one query to avoid N+1 round-trips.
+            execution_ids = [r.workflow_execution_id for r in eval_records if r.workflow_execution_id]
+            executions_by_id: dict[int, AgenticWorkflowExecutionTable] = {}
+            if execution_ids:
+                exec_rows = (
+                    db_session.query(AgenticWorkflowExecutionTable)
+                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
+                    .all()
+                )
+                executions_by_id = {e.id: e for e in exec_rows}
+
             results = []
             for record in eval_records:
                 if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
@@ -1332,11 +1339,7 @@ async def get_subagent_eval_results(
                 infra_not_ready = False
 
                 if record.workflow_execution_id:
-                    execution = (
-                        db_session.query(AgenticWorkflowExecutionTable)
-                        .filter(AgenticWorkflowExecutionTable.id == record.workflow_execution_id)
-                        .first()
-                    )
+                    execution = executions_by_id.get(record.workflow_execution_id)
 
                     if execution:
                         if (
@@ -1864,7 +1867,6 @@ async def export_eval_bundle(request: Request, execution_id: int, export_request
             # Recompute bundle_sha256 with updated workflow metadata
             bundle_for_hash = bundle.copy()
             bundle_for_hash["integrity"] = {"bundle_sha256": "", "warnings": bundle["integrity"]["warnings"]}
-            from src.services.eval_bundle_service import compute_sha256_json
 
             bundle_sha256 = compute_sha256_json(bundle_for_hash)
             bundle["integrity"]["bundle_sha256"] = bundle_sha256
@@ -1937,7 +1939,6 @@ async def get_eval_bundle_metadata(
             # Recompute bundle_sha256
             bundle_for_hash = bundle.copy()
             bundle_for_hash["integrity"] = {"bundle_sha256": "", "warnings": bundle["integrity"]["warnings"]}
-            from src.services.eval_bundle_service import compute_sha256_json
 
             bundle_sha256 = compute_sha256_json(bundle_for_hash)
             bundle["integrity"]["bundle_sha256"] = bundle_sha256
@@ -1980,7 +1981,7 @@ async def export_bundles_by_config_version(
     """
     Export eval bundles for all articles evaluated under a given config version.
 
-    Returns a ZIP file with one JSON bundle per article (article_{id}.json).
+    Returns a ZIP file with one JSON bundle per eval record (article_{article_id}_{record_id}.json).
     """
     try:
         db_manager = DatabaseManager()
@@ -2030,12 +2031,12 @@ async def export_bundles_by_config_version(
                             "warnings": bundle["integrity"]["warnings"],
                         }
                         bundle["integrity"]["bundle_sha256"] = compute_sha256_json(bundle_for_hash)
-                        filename = f"article_{record.article_id or record.id}.json"
+                        filename = f"article_{record.article_id or record.id}_{record.id}.json"
                         zf.writestr(filename, json.dumps(bundle, indent=2, ensure_ascii=False))
                     except (ValueError, AttributeError) as e:
                         logger.warning(f"Skipping bundle for execution {record.workflow_execution_id}: {e}")
                         zf.writestr(
-                            f"article_{record.article_id or record.id}_error.txt",
+                            f"article_{record.article_id or record.id}_{record.id}_error.txt",
                             f"Bundle generation failed: {e}",
                         )
 

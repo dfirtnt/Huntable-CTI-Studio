@@ -1180,6 +1180,8 @@
 
         // Load auto-trigger hunt score threshold from workflow config API
         await loadAutoTriggerThreshold();
+        // Signal that all async settings fetches have completed (used by Playwright tests)
+        document.body.dataset.settingsHydrated = 'true';
     }
     
     // Load auto-trigger threshold from workflow config API
