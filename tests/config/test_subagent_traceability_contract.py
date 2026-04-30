@@ -67,11 +67,7 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "ProcTreeExtract",
     "ScheduledTasksExtract",
     "CmdlineExtract",
-    # HuntQueriesExtract intentionally excluded: its envelope uses `query_count`
-    # rather than `count`, so it would fail test_json_example_has_expected_top_level_key.
-    # Preset-sync for HuntQueriesExtract is asserted separately (TestPresetsSyncedWithPrompts
-    # uses MIGRATED_EXTRACT_AGENTS, so HuntQueriesExtract drift is currently unguarded —
-    # acceptable trade-off until the envelope contract is unified).
+    "HuntQueriesExtract",
 ]
 
 # QA prompts that were migrated alongside their extract agents.
@@ -282,23 +278,6 @@ class TestPresetsSyncedWithPrompts:
             embedded = json.loads(prompt_str)
             assert embedded == source, (
                 f"{preset_path.name} -> {base_agent}.QAPrompt.prompt drifted from src/prompts/{qa_name}."
-            )
-
-    def test_hunt_queries_extract_preset_synced(self, preset_paths):
-        """HuntQueriesExtract is excluded from MIGRATED_EXTRACT_AGENTS because its envelope
-        uses query_count not count; that exclusion means it falls outside the parametrized
-        preset-sync check. This focused test guards against silent drift without imposing
-        the count-key contract that doesn't apply to it."""
-        source = _load_prompt("HuntQueriesExtract")
-        for preset_path in preset_paths:
-            preset = json.loads(preset_path.read_text(encoding="utf-8"))
-            agent_entry = preset.get("HuntQueriesExtract", {})
-            prompt_str = agent_entry.get("Prompt", {}).get("prompt", "")
-            assert prompt_str, f"HuntQueriesExtract.Prompt.prompt missing in {preset_path.name}"
-            embedded = json.loads(prompt_str)
-            assert embedded == source, (
-                f"{preset_path.name} -> HuntQueriesExtract.Prompt.prompt drifted from "
-                f"src/prompts/HuntQueriesExtract. Re-run preset regeneration."
             )
 
 

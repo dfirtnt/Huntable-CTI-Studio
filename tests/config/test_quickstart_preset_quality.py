@@ -34,9 +34,10 @@ _QA_SECTIONS = [
 ]
 
 # Sections whose top-level Temperature must be deterministic (0.0).
+# ExtractAgent is intentionally excluded: it no longer carries a Prompt field;
+# it only provides model/provider/temperature fallback defaults for sub-agents.
 _BASE_AGENT_SECTIONS = [
     "RankAgent",
-    "ExtractAgent",
     "CmdlineExtract",
     "ProcTreeExtract",
     "HuntQueriesExtract",

@@ -92,7 +92,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Model": "claude-sonnet-4-5",
             "Temperature": 0.0,
             "TopP": 0.9,
-            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Extract", "instructions": ""},
         },
         "CmdlineExtract": {
             "Enabled": FIDELITY_CMDLINE_ENABLED,

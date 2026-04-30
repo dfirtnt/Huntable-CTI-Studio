@@ -279,16 +279,18 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
             query_count = len(queries) if isinstance(queries, list) else 0
         return query_count
 
-    # hunt_queries: prefer query_count, then count, then len(queries/items)
+    # hunt_queries: prefer count (current contract), then query_count (legacy alias),
+    # then len(queries/items). The query_count alias is deprecated and will be removed
+    # after one release; reads remain tolerant for cached/in-flight subresults.
     if subagent_name == "hunt_queries":
         hq = subresults.get("hunt_queries", {})
         if not isinstance(hq, dict):
             logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
             return None
-        n = hq.get("query_count")
+        n = hq.get("count")
         if n is not None:
             return int(n)
-        n = hq.get("count")
+        n = hq.get("query_count")
         if n is not None:
             return int(n)
         q = hq.get("queries") or hq.get("items", [])
@@ -1720,7 +1722,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if agent_name == "HuntQueriesExtract":
                         # Extract query-envelope items. Sigma rules are represented as type="sigma".
                         edr_queries = agent_result.get("queries", [])
-                        query_count = agent_result.get("query_count", len(edr_queries))
+                        # Prefer `count` (current contract); `query_count` is a deprecated alias kept for one release.
+                        query_count = agent_result.get("count")
+                        if query_count is None:
+                            query_count = agent_result.get("query_count", len(edr_queries))
 
                         # Normalize field names for UI compatibility
                         # LLM may return: platform, query_text, source_context

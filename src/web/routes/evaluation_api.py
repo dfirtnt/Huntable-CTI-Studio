@@ -176,7 +176,10 @@ _SUBAGENT_TO_AGENT = {
 def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> int | None:
     """Derive observable count from run_extraction_agent result for a single subagent."""
     if subagent_name == "hunt_queries":
-        n = agent_result.get("query_count")
+        # Prefer unified `count`; accept legacy `query_count` from cached/in-flight results.
+        n = agent_result.get("count")
+        if n is None:
+            n = agent_result.get("query_count")
         if n is not None:
             return int(n)
         q = agent_result.get("queries") or agent_result.get("items", [])
@@ -1313,6 +1316,17 @@ async def get_subagent_eval_results(
                     return (id_to_title.get(rec.article_id) or "").strip()
                 return ""
 
+            # Batch-fetch all executions in one query to avoid N+1 round-trips.
+            execution_ids = [r.workflow_execution_id for r in eval_records if r.workflow_execution_id]
+            executions_by_id: dict[int, AgenticWorkflowExecutionTable] = {}
+            if execution_ids:
+                exec_rows = (
+                    db_session.query(AgenticWorkflowExecutionTable)
+                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
+                    .all()
+                )
+                executions_by_id = {e.id: e for e in exec_rows}
+
             results = []
             for record in eval_records:
                 if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
@@ -1325,11 +1339,7 @@ async def get_subagent_eval_results(
                 infra_not_ready = False
 
                 if record.workflow_execution_id:
-                    execution = (
-                        db_session.query(AgenticWorkflowExecutionTable)
-                        .filter(AgenticWorkflowExecutionTable.id == record.workflow_execution_id)
-                        .first()
-                    )
+                    execution = executions_by_id.get(record.workflow_execution_id)
 
                     if execution:
                         if (

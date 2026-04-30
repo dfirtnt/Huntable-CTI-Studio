@@ -182,8 +182,8 @@ class TestQuickstartPresetCompliance:
             )
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
-    def test_hunt_queries_query_count_combines_queries_and_sigma(self, preset_file):
-        """HuntQueriesExtract query_count must score both EDR/SIEM queries and Sigma rules."""
+    def test_hunt_queries_count_combines_queries_and_sigma(self, preset_file):
+        """HuntQueriesExtract `count` must score both EDR/SIEM queries and Sigma rules combined."""
         preset = _load_preset(preset_file)
         prompt_str = preset.get("HuntQueriesExtract", {}).get("Prompt", {}).get("prompt", "")
         prompt_data = json.loads(prompt_str)
@@ -191,11 +191,11 @@ class TestQuickstartPresetCompliance:
         task = prompt_data.get("task", "")
         example = json.loads(prompt_data.get("json_example", "{}"))
 
-        assert "query_count must be the combined total across both categories" in task
-        assert "query_count MUST equal len(queries)" in instructions
+        assert "count must be the combined total across both categories" in task
+        assert "count MUST equal len(queries)" in instructions
         assert "EDR/SIEM hunt queries plus Sigma rules" in instructions
         assert any(item.get("type") == "sigma" for item in example.get("queries", []))
-        assert example.get("query_count") == len(example.get("queries", []))
+        assert example.get("count") == len(example.get("queries", []))
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
     def test_extract_agent_prompt_has_standard_envelope(self, preset_file):

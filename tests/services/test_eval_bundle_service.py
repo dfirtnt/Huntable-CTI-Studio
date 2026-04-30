@@ -325,6 +325,46 @@ class TestEvalBundleServiceHelpers:
 
         assert result is None
 
+    def test_fetch_langfuse_generation_null_name_does_not_crash(self):
+        """Generations with name=None must not raise AttributeError on .lower()."""
+        service = EvalBundleService(Mock())
+
+        null_name_gen = Mock()
+        null_name_gen.name = None  # explicit None, not missing attribute
+        null_name_gen.metadata = {}
+
+        matching_gen = Mock()
+        matching_gen.name = "cmdlineextract_extraction"
+        matching_gen.metadata = {}
+        matching_gen.model_parameters = '{"messages":[{"role":"user","content":"ok"}]}'
+        matching_gen.output = "result"
+        matching_gen.usage_details = None
+
+        class ObsResponse:
+            def __init__(self, data):
+                self.data = data
+
+        mock_api = Mock()
+        mock_api.observations.get_many.return_value = ObsResponse([null_name_gen, matching_gen])
+
+        execution = Mock()
+        execution.error_log = {"langfuse_trace_id": "trace-null"}
+
+        with (
+            patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=True),
+            patch("src.services.eval_bundle_service.get_langfuse_client", return_value=Mock()),
+            patch("src.utils.langfuse_client._get_langfuse_api", return_value=mock_api),
+        ):
+            result = service._fetch_langfuse_generation(
+                execution_id=999,
+                agent_name="CmdlineExtract",
+                attempt=1,
+                execution=execution,
+            )
+
+        assert result is not None
+        assert result["messages"][0]["content"] == "ok"
+
     def test_extract_system_prompt_and_config_snapshot_string_payloads(self):
         service = EvalBundleService(Mock())
         execution = Mock()

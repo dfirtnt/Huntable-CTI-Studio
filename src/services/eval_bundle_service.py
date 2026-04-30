@@ -785,7 +785,7 @@ class EvalBundleService:
                 # Find generation matching our agent name
                 matching_generation = None
                 for gen in generations.data:
-                    gen_name = getattr(gen, "name", "")
+                    gen_name = getattr(gen, "name", None) or ""
                     gen_metadata = getattr(gen, "metadata", {}) or {}
                     if not isinstance(gen_metadata, dict):
                         # metadata might be a string or other type
