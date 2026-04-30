@@ -395,7 +395,14 @@ def _build_observables_response(
     type_filter: str | None = None,
 ) -> ObservablesResponse:
     """Build observables response grouped by type from extraction_result."""
-    OBS_TYPES = ("cmdline", "process_lineage", "hunt_queries")
+    OBS_TYPES = (
+        "cmdline",
+        "process_lineage",
+        "hunt_queries",
+        "registry_artifacts",
+        "windows_services",
+        "scheduled_tasks",
+    )
     grouped: dict[str, list[ObservableTraceabilityItem]] = {t: [] for t in OBS_TYPES}
     if not extraction_result or not isinstance(extraction_result, dict):
         return ObservablesResponse(execution_id=execution_id, observables=grouped)

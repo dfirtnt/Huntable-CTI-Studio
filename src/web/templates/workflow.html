@@ -3198,7 +3198,7 @@
             <input type="number" id="articleIdFilter" placeholder="Article ID" min="1" class="q-cmd-input" onkeydown="if(event.key==='Enter')filterExecutions()">
             <button onclick="filterExecutions()" class="q-cmd-btn neutral">Apply</button>
             <label class="q-cmd-toggle" title="Hide executions triggered by eval runs">
-                <input type="checkbox" id="excludeEvalsToggle" onchange="filterExecutions()">
+                <input type="checkbox" id="excludeEvalsToggle" onchange="filterExecutions()" checked>
                 Excl. Evals
             </label>
             <!-- Unreleased feature: extract observable counts toggle kept but hidden from UI -->
