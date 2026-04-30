@@ -54,7 +54,9 @@ venv.bak/
 .claude/*
 !.claude/skills/
 !.claude/skills/**
+.claude/skills/finish-task/
 .opencode/
+.context/
 .vscode/
 .idea/
 *.swp
