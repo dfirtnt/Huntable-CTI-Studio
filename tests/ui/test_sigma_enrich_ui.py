@@ -223,6 +223,32 @@ class TestSigmaEnrichUI:
 
         self._open_preview_then_enrich(page)
 
+        # Set provider/model selects to lmstudio so enrichRule() proceeds past
+        # the provider/model guard without waiting for catalog API calls that
+        # are not mocked in this test. LMStudio skips the API-key check too.
+        page.evaluate(
+            """() => {
+                const ps = document.getElementById('enrichProviderSelect');
+                const ms = document.getElementById('enrichModelSelect');
+                if (ps) {
+                    while (ps.options.length > 0) ps.remove(0);
+                    const opt = document.createElement('option');
+                    opt.value = 'lmstudio';
+                    opt.textContent = 'LMStudio';
+                    ps.appendChild(opt);
+                    ps.value = 'lmstudio';
+                }
+                if (ms) {
+                    while (ms.options.length > 0) ms.remove(0);
+                    const opt = document.createElement('option');
+                    opt.value = 'test-model';
+                    opt.textContent = 'test-model';
+                    ms.appendChild(opt);
+                    ms.value = 'test-model';
+                }
+            }"""
+        )
+
         enrich_rule_button = page.locator("#enrichBtn")
         enrich_rule_button.click()
 
