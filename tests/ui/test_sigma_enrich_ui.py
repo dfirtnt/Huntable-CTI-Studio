@@ -138,13 +138,13 @@ class TestSigmaEnrichUI:
         expect(page.locator("#enrichOriginalRule")).to_be_visible()
         expect(page.locator("#enrichInstruction")).to_be_visible()
         expect(page.locator("#enrichBtn")).to_be_visible()
-        expect(page.locator('#enrichModal button:has-text("Cancel")')).to_be_visible()
+        expect(page.locator("#enrichCancelBtn")).to_be_visible()
 
     def test_enrich_modal_closes_on_cancel(self, page: Page):
         """Test that enrich modal closes when cancel button is clicked."""
         _rule_modal, enrich_modal = self._open_preview_then_enrich(page)
 
-        cancel_button = page.locator('#enrichModal button:has-text("Cancel")')
+        cancel_button = page.locator("#enrichCancelBtn")
         cancel_button.click()
 
         # Modal should be hidden; use not_to_be_visible() because the element

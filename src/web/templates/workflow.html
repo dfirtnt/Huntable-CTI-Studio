@@ -3465,8 +3465,11 @@
                             Include article content (0.8 junk-filtered) in enrichment prompt
                         </label>
                     </div>
-                    <div class="hidden">
-                        <textarea id="enrichInstruction" rows="3"></textarea>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                            Enrichment Instructions (optional):
+                        </label>
+                        <textarea id="enrichInstruction" rows="3" class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm">Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.</textarea>
                     </div>
                     <div>
                         <div class="flex items-center justify-between mb-2">
@@ -3780,7 +3783,7 @@ END SYSTEM PROMPT</textarea>
                         <button onclick="enrichRuleFurther()" id="enrichFurtherBtn" class="hidden px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md">
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Enrich Further
                         </button>
-                        <button onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
+                        <button id="enrichCancelBtn" onclick="closeEnrichModal()" class="px-4 py-2 border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">
                             Cancel
                         </button>
                     </div>
@@ -16509,21 +16512,35 @@ async function generateEnrichmentDiff(originalYaml, enrichedYaml) {
 }
 
 async function enrichRule() {
+    // Disable immediately to prevent double-click; re-enable on any early return.
+    const enrichBtn = document.getElementById('enrichBtn');
+    enrichBtn.disabled = true;
+    enrichBtn.textContent = 'Enriching...';
+    enrichBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
     const rule = queue.find(r => r.id === currentRuleId);
-    if (!rule) return;
-    
+    if (!rule) {
+        enrichBtn.disabled = false;
+        enrichBtn.textContent = 'Enrich Rule';
+        enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+        return;
+    }
+
     // Get selected provider and model
     const providerSelect = document.getElementById('enrichProviderSelect');
     const modelSelect = document.getElementById('enrichModelSelect');
     const selectedProvider = providerSelect ? providerSelect.value : '';
     const selectedModel = modelSelect ? modelSelect.value : '';
-    
+
     if (!selectedProvider || !selectedModel) {
         document.getElementById('enrichError').textContent = 'Please select both a provider and model.';
         document.getElementById('enrichError').classList.remove('hidden');
+        enrichBtn.disabled = false;
+        enrichBtn.textContent = 'Enrich Rule';
+        enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
         return;
     }
-    
+
     // Get API key - try settings API first, fallback to localStorage (not needed for LMStudio)
     let apiKey = null;
     if (selectedProvider !== 'lmstudio') {
@@ -16532,7 +16549,7 @@ async function enrichRule() {
             if (response.ok) {
                 const data = await response.json();
                 const settings = data.settings || {};
-                
+
                 // Get API key based on selected provider
                 if (selectedProvider === 'openai') {
                     apiKey = settings.WORKFLOW_OPENAI_API_KEY || settings.OPENAI_API_KEY;
@@ -16543,7 +16560,7 @@ async function enrichRule() {
         } catch (error) {
             console.warn('Could not fetch API key from settings API, trying localStorage:', error);
         }
-        
+
         // Fallback to localStorage if not found in settings API
         if (!apiKey) {
             const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -16553,27 +16570,26 @@ async function enrichRule() {
                 apiKey = settings.anthropicApiKey || settings.workflowAnthropicApiKey;
             }
         }
-        
+
         if (!apiKey || !apiKey.trim()) {
             const providerName = selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1);
             document.getElementById('enrichError').textContent = `Please configure your ${providerName} API key in Settings first.`;
             document.getElementById('enrichError').classList.remove('hidden');
             console.error('API key not found for provider:', selectedProvider);
+            enrichBtn.disabled = false;
+            enrichBtn.textContent = 'Enrich Rule';
+            enrichBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             return;
         }
-        
+
         // Trim API key to remove any whitespace
         apiKey = apiKey.trim();
     }
-    
+
     const instruction = 'Validate and minimally enrich this SIGMA rule per the enabled directives. Preserve detection logic. Return the JSON output contract only.';
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
-    
-    // Show loading, hide error and result
-    const enrichBtn = document.getElementById('enrichBtn');
-    enrichBtn.disabled = true;
-    enrichBtn.innerHTML = '<span class="inline-block animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></span>Enriching...';
-    enrichBtn.classList.add('opacity-75', 'cursor-not-allowed');
+
+    // Show loading, hide error and result (button already disabled above)
     
     document.getElementById('enrichLoading').classList.remove('hidden');
     document.getElementById('enrichError').classList.add('hidden');
