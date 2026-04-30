@@ -826,3 +826,207 @@ class TestTraceabilityNormalization:
         for item in result["items"]:
             assert isinstance(item, dict), "items should be normalized to dicts"
             assert "value" in item
+
+
+class TestQACorrectionsApplication:
+    """Tests for the QA corrections-application path in run_extraction_agent.
+
+    Verifies the v1 QA model (CmdlineExtract): extractor runs once, QA runs once,
+    QA's `corrections.removed` is applied as a filter on the items list, and the
+    function returns immediately with no further re-extraction.
+    """
+
+    _EXTRACT_PROMPT = {
+        "role": "You are a Windows command-line extractor.",
+        "task": "Extract command-line strings.",
+        "instructions": "Output JSON only.",
+        "json_example": '{"cmdline_items": [], "count": 0}',
+    }
+
+    _QA_PROMPT = {
+        "role": "You are a QA validator.",
+        "instructions": "Validate extractions and return corrections.",
+        "evaluation_criteria": [
+            "Each command appears verbatim in source.",
+            "Each command starts with a recognized executable.",
+        ],
+        "objective": "Validate command-line extractions.",
+    }
+
+    @pytest.fixture
+    def llm_service(self):
+        config_models = {
+            "RankAgent": "gpt-4",
+            "RankAgent_provider": "openai",
+            "ExtractAgent": "gpt-4",
+            "ExtractAgent_provider": "openai",
+            "SigmaAgent": "gpt-4",
+            "SigmaAgent_provider": "openai",
+        }
+        with patch("src.services.llm_service.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
+            return LLMService(config_models=config_models)
+
+    async def _run_with_qa(
+        self,
+        llm_service,
+        extract_response_json: str,
+        qa_response_json: str,
+        agent_name: str = "CmdlineExtract",
+    ):
+        """Helper: run extraction with mocked extract + QA responses."""
+        responses = [
+            {"choices": [{"message": {"content": extract_response_json}}], "usage": {}},
+            {"choices": [{"message": {"content": qa_response_json}}], "usage": {}},
+        ]
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_req:
+            mock_req.side_effect = responses
+            return await llm_service.run_extraction_agent(
+                agent_name=agent_name,
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=self._EXTRACT_PROMPT,
+                qa_prompt_config=self._QA_PROMPT,
+                max_retries=3,
+            )
+
+    @pytest.mark.asyncio
+    async def test_qa_corrections_removed_filters_items(self, llm_service):
+        """When QA returns a removal, that item must be absent from the result.
+
+        Regression fixture: article_11 from eval_bundles_v2599_cmdline.zip --
+        QA flagged 'findstr searches for cpassword in SYSVOL' as a non-command
+        every run, but the item kept appearing in the output. After this fix it
+        should be filtered out.
+        """
+        extract_resp = (
+            '{"cmdline_items": ['
+            '{"value": "nltest /DCLIST", "confidence_score": 0.95},'
+            '{"value": "findstr searches for cpassword in SYSVOL", "confidence_score": 0.9},'
+            '{"value": "cmd.exe /c ipconfig /all & whoami", "confidence_score": 0.95}'
+            '], "count": 3}'
+        )
+        qa_resp = (
+            '{"status": "needs_revision", "summary": "found one bad item", '
+            '"issues": [], '
+            '"corrections": {"removed": ['
+            '{"command": "findstr searches for cpassword in SYSVOL", "reason": "not a command"}'
+            '], "added": []}}'
+        )
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        values = [item["value"] for item in result["cmdline_items"]]
+        assert "findstr searches for cpassword in SYSVOL" not in values
+        assert "nltest /DCLIST" in values
+        assert "cmd.exe /c ipconfig /all & whoami" in values
+        assert result["count"] == 2
+
+        qa_meta = result["_qa_result"]
+        assert qa_meta["pre_filter_count"] == 3
+        assert qa_meta["corrections_applied"]["removed"] == ["findstr searches for cpassword in SYSVOL"]
+
+    @pytest.mark.asyncio
+    async def test_qa_pass_with_empty_corrections_returns_unchanged(self, llm_service):
+        """A clean QA pass with empty corrections must return items unchanged in 1 attempt."""
+        extract_resp = '{"cmdline_items": [{"value": "cmd.exe /c whoami", "confidence_score": 0.95}], "count": 1}'
+        qa_resp = '{"status": "pass", "summary": "all good", "issues": [], "corrections": {"removed": [], "added": []}}'
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        assert result["count"] == 1
+        assert result["cmdline_items"][0]["value"] == "cmd.exe /c whoami"
+        assert result["_llm_attempt"] == 1
+        assert result["_qa_result"]["verdict"] == "pass"
+        assert result["_qa_result"]["pre_filter_count"] == 1
+        assert result["_qa_result"]["corrections_applied"]["removed"] == []
+
+    @pytest.mark.asyncio
+    async def test_qa_parse_failure_marks_needs_revision(self, llm_service):
+        """Fail-closed: QA returning unparseable output must NOT pass the result through.
+
+        Previously the code defaulted to status='pass' on parse failure (silent fail-open).
+        After this change it must record needs_revision so the trace surfaces the issue.
+        """
+        extract_resp = '{"cmdline_items": [{"value": "cmd.exe /c whoami", "confidence_score": 0.95}], "count": 1}'
+        qa_resp = "this is not JSON at all, just plain text from a confused model"
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        # Items pass through (we don't have parsed corrections to apply).
+        assert result["count"] == 1
+        # But the QA verdict reflects the parse failure.
+        assert result["_qa_result"]["verdict"] == "needs_revision"
+        assert result["_qa_result"]["status"] == "fail"
+        assert result["_qa_result"]["pre_filter_count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_qa_parse_failure_zero_items_returns_clean(self, llm_service):
+        """Parse failure on a zero-item extraction is a no-op: return without recording verdict."""
+        extract_resp = '{"cmdline_items": [], "count": 0}'
+        qa_resp = "garbage non-JSON output"
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        assert result["count"] == 0
+        # Early-exit path doesn't write _qa_result -- the QA call was effectively a no-op.
+        assert "_qa_result" not in result
+
+    @pytest.mark.asyncio
+    async def test_qa_returns_immediately_no_re_extraction(self, llm_service):
+        """After QA runs, run_extraction_agent must return -- no second extract call.
+
+        Before this fix the loop would re-run the extractor with vague feedback up to
+        max_retries times. After the fix QA always terminates the loop.
+        """
+        extract_resp = '{"cmdline_items": [{"value": "cmd.exe /c bad", "confidence_score": 0.5}], "count": 1}'
+        qa_resp = (
+            '{"status": "needs_revision", "summary": "bad", "issues": [], '
+            '"corrections": {"removed": [{"command": "cmd.exe /c bad", "reason": "n/a"}], "added": []}}'
+        )
+
+        responses = [
+            {"choices": [{"message": {"content": extract_resp}}], "usage": {}},
+            {"choices": [{"message": {"content": qa_resp}}], "usage": {}},
+        ]
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_req:
+            mock_req.side_effect = responses
+            result = await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=self._EXTRACT_PROMPT,
+                qa_prompt_config=self._QA_PROMPT,
+                max_retries=5,  # large budget; verify we don't consume it
+            )
+            # Exactly 2 calls: 1 extract + 1 QA. No re-extraction loop.
+            assert mock_req.call_count == 2
+
+        assert result["_llm_attempt"] == 1
+        assert result["count"] == 0  # the one bad item was filtered out
+
+    @pytest.mark.asyncio
+    async def test_qa_corrections_not_applied_for_non_cmdline_in_v1(self, llm_service):
+        """v1 scope guard: non-CmdlineExtract agents do NOT have corrections applied.
+
+        The display issues are still built from corrections, but the items list is untouched.
+        Per-agent identity mapping is required before extending the filter.
+        """
+        # RegistryExtract gets renamed to 'items' by the pipeline.
+        extract_resp = (
+            '{"registry_artifacts": ['
+            '{"value": "HKLM\\\\Run\\\\evil", "source_evidence": "x"},'
+            '{"value": "HKCU\\\\Run\\\\good", "source_evidence": "y"}'
+            '], "count": 2}'
+        )
+        qa_resp = (
+            '{"status": "needs_revision", "summary": "one bad", "issues": [], '
+            '"corrections": {"removed": ['
+            '{"command": "HKLM\\\\Run\\\\evil", "reason": "should be removed"}'
+            '], "added": []}}'
+        )
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp, agent_name="RegistryExtract")
+
+        # Items list is unchanged for non-cmdline agents in v1.
+        assert result["count"] == 2
+        # But corrections_applied reflects that nothing was applied.
+        assert result["_qa_result"]["corrections_applied"]["removed"] == []
+        assert result["_qa_result"]["pre_filter_count"] == 2

@@ -15,5 +15,5 @@
     "[WARN] Missing queries from code blocks or examples are identified and added.",
     "[FAIL] No hallucinated queries or syntax not present in the source."
   ],
-  "instructions": "USER: Compare extracted_queries to source_text. If missing or miscategorized, flag issues. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness|syntax\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrected_queries\": {\"added\": [{\"query\": \"...\", \"type\": \"...\", \"reason\": \"...\", \"found_in\": \"...\"}], \"removed\": [{\"query\": \"...\", \"reason\": \"...\"}]}}."
+  "instructions": "USER: Compare extracted_queries to source_text. If missing or miscategorized, flag issues. The corrections object is REQUIRED in every response even if empty (use {\"removed\": [], \"added\": []}). Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness|syntax\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [{\"query\": \"...\", \"reason\": \"...\"}], \"added\": [{\"query\": \"...\", \"type\": \"...\", \"reason\": \"...\", \"found_in\": \"...\"}]}}."
 }

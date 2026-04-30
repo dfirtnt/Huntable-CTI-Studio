@@ -18,5 +18,5 @@
     "extraction_justification is populated with the prompt rule that triggered the extraction.",
     "confidence_score is a numeric value in [0.0, 1.0]."
   ],
-  "instructions": "USER: Compare extracted_services to source_text. Flag any missing, incorrect, hallucinated, or attribution-less artifacts. Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness|hallucination|attribution\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": [...]}}"
+  "instructions": "USER: Compare extracted_services to source_text. Flag any missing, incorrect, hallucinated, or attribution-less artifacts. The corrections object is REQUIRED in every response even if empty (use {\"removed\": [], \"added\": []}). Output JSON only: {\"status\": \"pass|fail|needs_revision\", \"summary\": \"...\", \"issues\": [{\"type\": \"compliance|completeness|hallucination|attribution\", \"description\": \"...\", \"severity\": \"low|medium|high\"}], \"corrections\": {\"removed\": [...], \"added\": [...]}}"
 }

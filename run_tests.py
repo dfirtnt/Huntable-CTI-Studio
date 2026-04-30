@@ -1323,13 +1323,8 @@ class RunTestRunner:
                         "counts": pytest_counts,
                     }
 
-                    # Save failure details to file whenever pytest exits non-zero.
-                    # Inner count/string checks are intentionally omitted: collection errors,
-                    # import failures, and interrupted runs (exit codes 2-5) produce a non-zero
-                    # return code but zero parsed failures and no "FAILED" in output, which
-                    # previously prevented the log from being written at all.
-                    if not pytest_success:
-                        self._save_failure_log(stdout_text + stderr_text, pytest_counts)
+                    # Always write a run log so test-results/ always has a record.
+                    self._save_failure_log(stdout_text + stderr_text, pytest_counts)
 
                     # Clear progress line and show final status
                     if pytest_groups:
