@@ -1130,9 +1130,19 @@ class RunTestRunner:
             if self.config.skip_real_api:
                 env["SKIP_REAL_API_TESTS"] = "1"
 
-            # Use in-process ASGI client for API and security tests (no live server on 127.0.0.1:8001 required)
-            # Security tests in tests/api/ use patch() to inject errors; those mocks only work in-process.
-            if self.config.test_type in (RunTestType.API, RunTestType.SECURITY):
+            # Use in-process ASGI client for any run that may collect from tests/api/.
+            # API/Security: direct. Regression/All/Coverage: sweep tests/ with markers that
+            # include api-marked tests -- without this flag the async_client fixture falls
+            # through to http://127.0.0.1:8001 which has no live server, causing ConnectError.
+            _api_collecting_runs = (
+                RunTestType.API,
+                RunTestType.SECURITY,
+                RunTestType.REGRESSION,
+                RunTestType.ALL,
+                RunTestType.ALL_NO_UI,
+                RunTestType.COVERAGE,
+            )
+            if self.config.test_type in _api_collecting_runs:
                 env["USE_ASGI_CLIENT"] = "1"
                 # In-process app must reach Redis on host (docker port map 6379)
                 if (
@@ -1313,11 +1323,13 @@ class RunTestRunner:
                         "counts": pytest_counts,
                     }
 
-                    # Save failure details to file (even if pytest had internal errors)
+                    # Save failure details to file whenever pytest exits non-zero.
+                    # Inner count/string checks are intentionally omitted: collection errors,
+                    # import failures, and interrupted runs (exit codes 2-5) produce a non-zero
+                    # return code but zero parsed failures and no "FAILED" in output, which
+                    # previously prevented the log from being written at all.
                     if not pytest_success:
-                        failed_count = pytest_counts.get("failed", 0) + pytest_counts.get("errors", 0)
-                        if failed_count > 0 or "INTERNALERROR" in stdout_text or "FAILED" in stdout_text:
-                            self._save_failure_log(stdout_text + stderr_text, pytest_counts)
+                        self._save_failure_log(stdout_text + stderr_text, pytest_counts)
 
                     # Clear progress line and show final status
                     if pytest_groups:
