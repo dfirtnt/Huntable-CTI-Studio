@@ -193,6 +193,19 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             const isEnabled = !disabled.has(agent.id);
             addAgent(agent.id, agent.name, 1, isEnabled, extractModel, extractProvider);
 
+            // Add CmdAttnPreprocessor status under CmdlineExtract
+            if (agent.id === 'CmdlineExtract') {
+                const attnEnabled = currentConfig.cmdline_attention_preprocessor_enabled !== false;
+                const attnBadgeClass = attnEnabled
+                    ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+                modelsList.push({
+                    text: 'CmdAttnPreprocessor',
+                    indentLevel: 2,
+                    badge: `<span class="${attnBadgeClass} ml-1.5">${attnEnabled ? 'Enabled' : 'Disabled'}</span>`
+                });
+            }
+
             // Add QA for this sub-agent (fall back to peer QA model if not explicitly set)
             const qaModel = agentModels[agent.qa] || qaFallbackModel;
             if (qaModel) {
