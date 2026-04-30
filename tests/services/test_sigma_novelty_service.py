@@ -1,6 +1,6 @@
 """Tests for SIGMA novelty service functionality."""
 
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -222,6 +222,98 @@ class TestNormalizeAtomIdentity:
         """Edge cases: empty string, no pipe separator."""
         assert _normalize_atom_identity("") == ""
         assert _normalize_atom_identity("justafieldname") == "justafieldname"
+
+
+# ── Regression: silent-pass degradation warnings (2026-04-30) ─────────────────
+# assess_novelty() must surface degradation in return dict when the deterministic
+# semantic precompute path fails, so the execution trace UI shows the fallback.
+
+
+class TestAssessNoveltyDegradationWarnings:
+    """Verify that fallback paths emit warnings into the return dict."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    @pytest.fixture
+    def sample_rule(self):
+        return {
+            "title": "Test Rule",
+            "id": "test-warn-001",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {
+                "selection": {"CommandLine|contains": "malware.exe"},
+                "condition": "selection",
+            },
+        }
+
+    def test_no_warnings_key_on_clean_run(self, service, sample_rule):
+        """Return dict must NOT contain 'warnings' when no degradation occurs."""
+        service.retrieve_candidates = Mock(return_value=[])
+
+        result = service.assess_novelty(sample_rule, threshold=0.7)
+
+        assert "warnings" not in result
+
+    def test_warnings_key_present_when_semantic_precompute_raises(self, service, sample_rule):
+        """Return dict must contain 'warnings' when semantic precompute throws."""
+        service.retrieve_candidates = Mock(return_value=[])
+
+        with (
+            patch(
+                "src.services.sigma_novelty_service._sigma_compare_rules_available",
+                True,
+            ),
+            patch(
+                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                side_effect=RuntimeError("precompute boom"),
+            ),
+        ):
+            result = service.assess_novelty(sample_rule, threshold=0.7)
+
+        assert "warnings" in result
+        assert len(result["warnings"]) == 1
+        assert "semantic_precompute_failed" in result["warnings"][0]
+
+    def test_engine_used_is_legacy_when_semantic_precompute_raises(self, service, sample_rule):
+        """engine_used must be 'legacy' when semantic precompute fails."""
+        service.retrieve_candidates = Mock(return_value=[])
+
+        with (
+            patch(
+                "src.services.sigma_novelty_service._sigma_compare_rules_available",
+                True,
+            ),
+            patch(
+                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                side_effect=RuntimeError("precompute boom"),
+            ),
+        ):
+            result = service.assess_novelty(sample_rule, threshold=0.7)
+
+        assert result["engine_used"] == "legacy"
+
+    def test_warnings_logged_when_semantic_precompute_raises(self, service, sample_rule, caplog):
+        """A logger.warning must be emitted (not just silently suppressed) on precompute failure."""
+        import logging
+
+        service.retrieve_candidates = Mock(return_value=[])
+
+        with (
+            patch(
+                "src.services.sigma_novelty_service._sigma_compare_rules_available",
+                True,
+            ),
+            patch(
+                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                side_effect=RuntimeError("precompute boom"),
+            ),
+            caplog.at_level(logging.WARNING, logger="src.services.sigma_novelty_service"),
+        ):
+            service.assess_novelty(sample_rule, threshold=0.7)
+
+        assert any("semantic precompute" in r.message for r in caplog.records)
 
     def test_assess_novelty_with_snake_case_fields(self):
         """End-to-end: assess_novelty with snake_case fields finds matches against PascalCase candidates."""
