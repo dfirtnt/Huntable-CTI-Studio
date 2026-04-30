@@ -254,18 +254,18 @@ Output format (return ONLY this JSON structure):
                                 with contextlib.suppress(
                                     asyncio.CancelledError, httpx.RequestError, httpx.ConnectError
                                 ):
-                                    await request_task  # codeql[py/ineffectual-statement]
+                                    _ = await request_task
                             # Cancel the cancellation task cleanup
                             cancellation_task.cancel()
                             with contextlib.suppress(asyncio.CancelledError):
-                                await cancellation_task  # codeql[py/ineffectual-statement]
+                                _ = await cancellation_task
                             raise asyncio.CancelledError("IOC validation cancelled by client")
 
                         # Request completed first - cancel the cancellation monitor
                         if not cancellation_task.done():
                             cancellation_task.cancel()
                             with contextlib.suppress(asyncio.CancelledError):
-                                await cancellation_task  # codeql[py/ineffectual-statement]
+                                _ = await cancellation_task
 
                         # Get the response from the completed request task
                         response = await request_task

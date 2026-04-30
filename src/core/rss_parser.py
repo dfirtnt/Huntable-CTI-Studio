@@ -4,6 +4,7 @@ import asyncio
 import logging
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 import feedparser
 
@@ -13,6 +14,12 @@ from src.utils.content import ContentCleaner, DateExtractor
 from src.utils.http import HTTPClient
 
 logger = logging.getLogger(__name__)
+
+
+def _is_crowdstrike_url(url: str) -> bool:
+    """Return True only when the URL hostname is crowdstrike.com or a subdomain."""
+    host = urlparse(url).hostname or ""
+    return host == "crowdstrike.com" or host.endswith(".crowdstrike.com")
 
 
 class RSSParser:
@@ -734,8 +741,8 @@ class RSSParser:
                         cleaned_content = ContentCleaner.clean_html(extracted_content)
 
                         # Special cleaning for CrowdStrike articles
-                        if (
-                            "crowdstrike.com" in url.lower()
+                        if _is_crowdstrike_url(
+                            url
                         ):  # codeql[py/incomplete-url-substring-sanitization] false positive: routing decision only, not a security gate
                             cleaned_content = self._clean_crowdstrike_content(cleaned_content)
 
@@ -752,7 +759,7 @@ class RSSParser:
         # Return feed content even if short (content is always truthy at this point)
         cleaned_content = ContentCleaner.clean_html(content)
         # Special cleaning for CrowdStrike articles
-        if "crowdstrike.com" in url.lower():
+        if _is_crowdstrike_url(url):
             cleaned_content = self._clean_crowdstrike_content(cleaned_content)
         return cleaned_content
 
@@ -844,8 +851,8 @@ class RSSParser:
                         cleaned_content = ContentCleaner.basic_html_clean(extracted_content)
 
                         # Special cleaning for CrowdStrike articles
-                        if (
-                            "crowdstrike.com" in url.lower()
+                        if _is_crowdstrike_url(
+                            url
                         ):  # codeql[py/incomplete-url-substring-sanitization] false positive: routing decision only, not a security gate
                             cleaned_content = self._clean_crowdstrike_content(cleaned_content)
 
