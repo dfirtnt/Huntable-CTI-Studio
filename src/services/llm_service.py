@@ -3072,7 +3072,9 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 # Fail-closed: parse failure means QA output is unvalidated. Treat as needs_revision
                 # so the trace records the failure rather than silently passing the result through.
                 # The one exception (handled below) is when there are no items to validate at all.
-                status = qa_result.get("status", "needs_revision").lower() if not parsing_failed else "needs_revision"
+                status = (
+                    (qa_result.get("status") or "needs_revision").lower() if not parsing_failed else "needs_revision"
+                )
 
                 # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
                 extracted_feedback = ""
@@ -3107,8 +3109,10 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
 
                 # Capture pre-filter count so traces can distinguish "extractor found nothing"
                 # from "extractor found things and QA removed them all".
+                # Defensive: handle the case where the model emits e.g. {"cmdline_items": null}
+                # by treating None as an empty list.
                 items_key = "cmdline_items" if "cmdline_items" in last_result else "items"
-                pre_filter_count = len(last_result.get(items_key, []))
+                pre_filter_count = len(last_result.get(items_key) or [])
 
                 # If QA parsing failed and there was nothing to validate, return cleanly --
                 # the QA call was effectively a no-op, no need to record a parse-failure verdict.
@@ -3130,16 +3134,16 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     and isinstance(qa_result.get("corrections"), dict)
                 ):
                     removals = {
-                        r.get("command", "").strip()
+                        (r.get("command") or "").strip()
                         for r in qa_result["corrections"].get("removed", [])
-                        if isinstance(r, dict) and r.get("command", "").strip()
+                        if isinstance(r, dict) and (r.get("command") or "").strip()
                     }
                     if removals:
-                        before_items = last_result.get(items_key, [])
+                        before_items = last_result.get(items_key) or []
                         after_items = [
                             item
                             for item in before_items
-                            if (item.get("value", "").strip() if isinstance(item, dict) else str(item).strip())
+                            if ((item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip())
                             not in removals
                         ]
                         last_result[items_key] = after_items
@@ -3154,7 +3158,7 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
                     # Convert QA result format to match UI expectations
-                    qa_status = qa_result.get("status", "needs_revision").lower() if qa_result else "fail"
+                    qa_status = (qa_result.get("status") or "needs_revision").lower() if qa_result else "fail"
                     # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
                     if qa_status == "needs_revision":
                         verdict = "needs_revision"
@@ -3243,7 +3247,7 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
 
                 # After applying corrections (or recording the parse failure),
                 # always return -- extraction QA no longer drives a re-extraction loop.
-                items = last_result.get("cmdline_items", last_result.get("items", []))
+                items = last_result.get("cmdline_items") or last_result.get("items") or []
                 logger.info(
                     f"{agent_name} QA complete on attempt {current_try} (status={status}). "
                     f"Returning {len(items)} items."

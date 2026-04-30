@@ -1030,3 +1030,72 @@ class TestQACorrectionsApplication:
         # But corrections_applied reflects that nothing was applied.
         assert result["_qa_result"]["corrections_applied"]["removed"] == []
         assert result["_qa_result"]["pre_filter_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_qa_handles_null_command_in_corrections(self, llm_service):
+        """Defensive: a model emitting `{"command": null}` must not crash the filter."""
+        extract_resp = '{"cmdline_items": [{"value": "cmd.exe /c whoami", "confidence_score": 0.95}], "count": 1}'
+        # Mix of bad and good entries: the bad ones should be ignored, not crash.
+        qa_resp = (
+            '{"status": "needs_revision", "summary": "messy", "issues": [], '
+            '"corrections": {"removed": ['
+            '{"command": null, "reason": "model emitted null"},'
+            '{"command": "", "reason": "empty string"},'
+            '{"reason": "no command field at all"},'
+            '{"command": "cmd.exe /c whoami", "reason": "this one is real"}'
+            '], "added": []}}'
+        )
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        # The one valid removal applies; the malformed entries are silently skipped.
+        assert result["count"] == 0
+        assert result["_qa_result"]["corrections_applied"]["removed"] == ["cmd.exe /c whoami"]
+
+    @pytest.mark.asyncio
+    async def test_qa_handles_null_items_field(self, llm_service):
+        """Defensive: a model emitting `{"cmdline_items": null, "count": 0}` must not crash on len()."""
+        extract_resp = '{"cmdline_items": null, "count": 0}'
+        qa_resp = (
+            '{"status": "pass", "summary": "nothing to validate", "issues": [], '
+            '"corrections": {"removed": [], "added": []}}'
+        )
+        # Should not raise; pre_filter_count should be 0.
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+        assert result["_qa_result"]["pre_filter_count"] == 0
+
+    @pytest.mark.asyncio
+    async def test_qa_handles_null_status_field(self, llm_service):
+        """Defensive: a model emitting `{"status": null}` must not crash on .lower()."""
+        extract_resp = '{"cmdline_items": [{"value": "cmd.exe /c whoami", "confidence_score": 0.95}], "count": 1}'
+        qa_resp = (
+            '{"status": null, "summary": "model returned null status", "issues": [], '
+            '"corrections": {"removed": [], "added": []}}'
+        )
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        # Null status must not crash; it falls through to needs_revision.
+        assert result["count"] == 1  # nothing removed
+        assert result["_qa_result"]["status"] == "needs_revision"
+
+    @pytest.mark.asyncio
+    async def test_qa_handles_null_value_in_extracted_item(self, llm_service):
+        """Defensive: an item with `value: null` must not crash the filter, just be left alone."""
+        extract_resp = (
+            '{"cmdline_items": ['
+            '{"value": null, "confidence_score": 0.5},'
+            '{"value": "cmd.exe /c whoami", "confidence_score": 0.95}'
+            '], "count": 2}'
+        )
+        qa_resp = (
+            '{"status": "needs_revision", "summary": "remove one", "issues": [], '
+            '"corrections": {"removed": ['
+            '{"command": "cmd.exe /c whoami", "reason": "test"}'
+            '], "added": []}}'
+        )
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        # The null-valued item stays (filter compared "" not in {"cmd.exe /c whoami"}, which is True).
+        # The matching item is removed.
+        values = [item.get("value") for item in result["cmdline_items"]]
+        assert values == [None]
+        assert result["count"] == 1
