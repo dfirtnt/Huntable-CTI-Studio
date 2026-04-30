@@ -3935,7 +3935,16 @@ function switchTab(tab) {
     if (tab === 'config') {
             loadConfig().catch(err => console.error('Error loading config:', err));
     } else if (tab === 'executions') {
-            loadExecutions().catch(err => console.error('Error loading executions:', err));
+            loadExecutions().then(() => {
+                const execParam = getURLParameter('exec');
+                if (execParam) {
+                    const execId = parseInt(execParam, 10);
+                    if (!isNaN(execId)) {
+                        removeURLParameter('exec');
+                        viewExecution(execId);
+                    }
+                }
+            }).catch(err => console.error('Error loading executions:', err));
     } else if (tab === 'queue') {
             loadQueue().catch(err => console.error('Error loading queue:', err));
             // Check URL parameter on tab switch (in case data is already loaded)
