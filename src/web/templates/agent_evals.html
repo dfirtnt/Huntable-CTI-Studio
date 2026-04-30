@@ -1813,9 +1813,9 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         versions: validAggregates.map(agg => agg.config_version)
     };
     
-    // Reset window to show latest if resetWindow is true or if this is first load
-    if (resetWindow || chartWindowStart === 0) {
-        chartWindowStart = Math.max(0, allChartData.labels.length - CHART_WINDOW_SIZE);
+    // Reset window to beginning (Prev disabled on fresh load)
+    if (resetWindow) {
+        chartWindowStart = 0;
     }
     
     // Ensure window start is valid
