@@ -1,6 +1,7 @@
 """Tests for LLM service functionality."""
 
 import contextlib
+import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -1099,3 +1100,93 @@ class TestQACorrectionsApplication:
         values = [item.get("value") for item in result["cmdline_items"]]
         assert values == [None]
         assert result["count"] == 1
+
+    @pytest.mark.asyncio
+    async def test_qa_fail_does_not_inject_previous_feedback(self, llm_service):
+        """Lock in v1 behavior: QA fail must NOT trigger a re-extraction with PREVIOUS FEEDBACK injected.
+
+        Pre-v1, when QA failed the loop would set `feedback = extracted_feedback` and re-enter
+        the extract call with `PREVIOUS FEEDBACK (FIX THESE ISSUES):...` prepended to the user
+        message. The extractor would then re-extract and get flagged again, looping for up to
+        max_retries. This test asserts the second LLM call (the QA call itself) does not contain
+        that marker, and that no third call (a re-extraction) ever happens.
+        """
+        extract_resp = '{"cmdline_items": [{"value": "x", "confidence_score": 0.5}], "count": 1}'
+        qa_resp = (
+            '{"status": "needs_revision", "summary": "bad", "issues": [], "corrections": {"removed": [], "added": []}}'
+        )
+        responses = [
+            {"choices": [{"message": {"content": extract_resp}}], "usage": {}},
+            {"choices": [{"message": {"content": qa_resp}}], "usage": {}},
+        ]
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_req:
+            mock_req.side_effect = responses
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=self._EXTRACT_PROMPT,
+                qa_prompt_config=self._QA_PROMPT,
+                max_retries=5,  # generous budget; we should still see only 2 calls
+            )
+
+            # No call's user message may contain the feedback-injection marker.
+            for call in mock_req.call_args_list:
+                messages = call.kwargs.get("messages", [])
+                for msg in messages:
+                    if msg.get("role") == "user":
+                        assert "PREVIOUS FEEDBACK" not in msg.get("content", ""), (
+                            "QA fail must not trigger feedback-injection retry"
+                        )
+            # Exactly 2 calls: 1 extract + 1 QA. No re-extraction.
+            assert mock_req.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_article_11_regression_fixture(self, llm_service):
+        """Regression fixture from eval_bundles_v2599_cmdline.zip / article_11_*.json (2026-04-30).
+
+        Pre-v1, this article ran 3 extract+QA loops and STILL emitted
+        'findstr searches for cpassword in SYSVOL' as a cmdline_item every run.
+        The QA agent correctly flagged it every attempt; the bad item never left
+        the output because corrections.removed was never applied to the items list.
+
+        Post-v1, QA's removal applies on the first attempt and the bad item is gone.
+        This test pins the exact item identities and the QA response shape we saw in
+        production so anyone reintroducing the loop-and-discard behavior trips the
+        regression.
+        """
+        extract_resp = json.dumps(
+            {
+                "cmdline_items": [
+                    {"value": "nltest /DCLIST", "confidence_score": 0.95},
+                    {"value": "findstr searches for cpassword in SYSVOL", "confidence_score": 0.9},
+                    {"value": "cmd.exe /c ipconfig /all & whoami", "confidence_score": 0.95},
+                ],
+                "count": 3,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "removing one bad item",
+                "issues": [],
+                "corrections": {
+                    "removed": [
+                        {
+                            "command": "findstr searches for cpassword in SYSVOL",
+                            "reason": "Does not start with a recognized Windows execution component",
+                        }
+                    ],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa(llm_service, extract_resp, qa_resp)
+
+        values = [item["value"] for item in result["cmdline_items"]]
+        assert "findstr searches for cpassword in SYSVOL" not in values
+        assert result["count"] == 2
+        assert result["_llm_attempt"] == 1  # single attempt, not 3 like pre-v1
+        assert result["_qa_result"]["pre_filter_count"] == 3
+        assert result["_qa_result"]["corrections_applied"]["removed"] == ["findstr searches for cpassword in SYSVOL"]

@@ -70,8 +70,17 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "HuntQueriesExtract",
 ]
 
-# QA prompts that were migrated alongside their extract agents.
-MIGRATED_QA_AGENTS: list[str] = ["RegistryQA", "ServicesQA", "ScheduledTasksQA"]
+# QA prompts that must stay synced between src/prompts/<QAName> and the embedded
+# copies in config/presets/AgentConfigs/quickstart/*.json. All six are checked --
+# leaving any out lets that prompt drift silently between source and presets.
+MIGRATED_QA_AGENTS: list[str] = [
+    "CmdLineQA",
+    "HuntQueriesQA",
+    "ProcTreeQA",
+    "RegistryQA",
+    "ServicesQA",
+    "ScheduledTasksQA",
+]
 
 REQUIRED_TRACEABILITY_FIELDS = (
     "source_evidence",
@@ -264,6 +273,9 @@ class TestPresetsSyncedWithPrompts:
     def test_preset_qa_prompt_synced(self, qa_name, preset_paths):
         """QA prompts embed as <BaseAgent>.QAPrompt.prompt."""
         base_for_qa = {
+            "CmdLineQA": "CmdlineExtract",
+            "HuntQueriesQA": "HuntQueriesExtract",
+            "ProcTreeQA": "ProcTreeExtract",
             "RegistryQA": "RegistryExtract",
             "ServicesQA": "ServicesExtract",
             "ScheduledTasksQA": "ScheduledTasksExtract",
