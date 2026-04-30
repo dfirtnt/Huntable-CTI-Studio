@@ -1704,10 +1704,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
                         qa_prompt_config=qa_config if qa_enabled else None,
-                        # max_retries governs extraction-exception retries only (QA is single-shot post-v1).
+                        # max_extraction_retries governs extraction-exception retries only (QA is single-shot post-v1).
                         # The previous `if qa_enabled else 1` conditional reflected pre-v1 semantics where
                         # max_retries doubled as the QA retry budget; that distinction no longer exists.
-                        max_retries=max_qa_retries,
+                        max_extraction_retries=max_qa_retries,
                         execution_id=state["execution_id"],
                         model_name=agent_model,
                         temperature=float(agent_temperature),

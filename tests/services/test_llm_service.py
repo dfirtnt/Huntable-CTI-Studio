@@ -407,7 +407,7 @@ class TestLLMService:
                 url="https://example.com/test",
                 prompt_config=prompt_config,
                 qa_prompt_config=None,
-                max_retries=1,
+                max_extraction_retries=1,
                 execution_id=None,
                 model_name="local-large-model",
                 provider="lmstudio",
@@ -634,7 +634,7 @@ class TestNewlineInvariantGuard:
                     title="Test",
                     url="https://example.com",
                     prompt_config=prompt_cfg,
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
         assert result.get("error") == "Temperature not supported for this model"
         assert result.get("error_type") == "RuntimeError"
@@ -672,7 +672,7 @@ class TestNewlineInvariantGuard:
                     title="Test",
                     url="https://example.com",
                     prompt_config=prompt_cfg,
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
         mock_log_error.assert_called_once()
         call_args = mock_log_error.call_args
@@ -889,7 +889,7 @@ class TestQACorrectionsApplication:
                 url="https://example.com",
                 prompt_config=self._EXTRACT_PROMPT,
                 qa_prompt_config=self._QA_PROMPT,
-                max_retries=3,
+                max_extraction_retries=3,
             )
 
     @pytest.mark.asyncio
@@ -996,7 +996,7 @@ class TestQACorrectionsApplication:
                 url="https://example.com",
                 prompt_config=self._EXTRACT_PROMPT,
                 qa_prompt_config=self._QA_PROMPT,
-                max_retries=5,  # large budget; verify we don't consume it
+                max_extraction_retries=5,  # large budget; verify we don't consume it
             )
             # Exactly 2 calls: 1 extract + 1 QA. No re-extraction loop.
             assert mock_req.call_count == 2
@@ -1128,7 +1128,7 @@ class TestQACorrectionsApplication:
                 url="https://example.com",
                 prompt_config=self._EXTRACT_PROMPT,
                 qa_prompt_config=self._QA_PROMPT,
-                max_retries=5,  # generous budget; we should still see only 2 calls
+                max_extraction_retries=5,  # generous budget; we should still see only 2 calls
             )
 
             # No call's user message may contain the feedback-injection marker.

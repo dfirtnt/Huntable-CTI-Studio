@@ -2087,7 +2087,7 @@ class LLMService:
         url: str,
         prompt_config: dict[str, Any],
         qa_prompt_config: dict[str, Any] | None = None,
-        max_retries: int = 5,
+        max_extraction_retries: int = 5,
         execution_id: int | None = None,
         model_name: str | None = None,
         temperature: float = 0.0,
@@ -2106,7 +2106,7 @@ class LLMService:
             url: Article URL
             prompt_config: Extraction prompt configuration
             qa_prompt_config: QA prompt configuration (optional)
-            max_retries: Max QA retries
+            max_extraction_retries: Max retries on extraction exceptions/timeouts (QA runs exactly once per attempt)
             provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
                      If None, uses self.provider_extract (from ExtractAgent_provider)
 
@@ -2151,7 +2151,7 @@ class LLMService:
         source = "parameter" if model_name == prompt_config.get("model") else "fallback"
         logger.info(f"{agent_name} resolved model: {model_name} (from: {source})")
 
-        while current_try < max_retries:
+        while current_try < max_extraction_retries:
             current_try += 1
 
             # 1. Run Extraction
@@ -3265,7 +3265,7 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     raise ContextLengthExceededError(str(e)) from e
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
                 # On last attempt, store all API errors in result (not just connection errors)
-                if current_try >= max_retries:
+                if current_try >= max_extraction_retries:
                     last_result = {
                         "items": [],
                         "count": 0,
@@ -3282,5 +3282,5 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 feedback = f"Previous attempt failed with error: {str(e)}"
                 # Continue loop
 
-        logger.warning(f"{agent_name} failed all {max_retries} attempts. Returning last result.")
+        logger.warning(f"{agent_name} failed all {max_extraction_retries} attempts. Returning last result.")
         return last_result
