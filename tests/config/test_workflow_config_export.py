@@ -541,10 +541,8 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
     }
     # Must not raise -- that is the primary regression guard.
     config = load_workflow_config(ui)
-    # The schema's llm_agent_symmetry validator auto-populates an empty PromptConfig
-    # for every agent that has Provider+Model, so ExtractAgent will appear in Prompts.
-    # The key invariant is that its prompt string is empty (no legacy prompt content
-    # was carried over from the now-removed Prompt key).
+    # ExtractAgent no longer carries a Prompt field after the supervisor removal.
+    # It only provides model/provider/temperature fallback defaults for sub-agents.
+    # The loader must skip the empty-prompt backfill for ExtractAgent.
     ea_prompt = config.Prompts.get("ExtractAgent")
-    assert ea_prompt is not None, "ExtractAgent must appear in Prompts after schema symmetry pass"
-    assert ea_prompt.prompt == "", f"ExtractAgent prompt must be empty; got: {ea_prompt.prompt!r}"
+    assert ea_prompt is None, f"ExtractAgent must NOT appear in Prompts after supervisor removal; got: {ea_prompt!r}"

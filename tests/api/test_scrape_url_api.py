@@ -236,3 +236,67 @@ async def test_scrape_existing_article_no_ocr_markers_no_update():
     assert result["success"] is True
     assert "already exists" in result["message"]
     mock_async_db.update_article.assert_not_awaited()
+
+
+# ---------------------------------------------------------------------------
+# Whitespace normalization for pre-scraped content
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_pre_scraped_content_whitespace_is_normalized():
+    """Extension-scraped content with excessive whitespace must be collapsed.
+
+    The browser extension sends raw article content that preserves newlines
+    around image elements, producing large blank gaps in the article detail
+    view. The server must apply the same re.sub(r'\\s+', ' ', ...) normalization
+    it already applies to the server-side scrape path.
+    """
+    raw_content = "Intro paragraph.\n\n\n\n   \n\nSome   command   here.\n\n\n\nEnd."
+    expected_content = "Intro paragraph. Some command here. End."
+
+    fake_source_session = MagicMock()
+    fake_source_session.query.return_value.filter.return_value.first.return_value = MagicMock(id=10)
+    fake_source_session.__enter__ = MagicMock(return_value=fake_source_session)
+    fake_source_session.__exit__ = MagicMock(return_value=None)
+
+    fake_article_session = MagicMock()
+    fake_article_session.query.return_value.filter.return_value.first.return_value = None
+    fake_article_session.__enter__ = MagicMock(return_value=fake_article_session)
+    fake_article_session.__exit__ = MagicMock(return_value=None)
+
+    fake_db = MagicMock()
+    fake_db.get_session.side_effect = [fake_source_session, fake_article_session]
+    created = MagicMock(id=77, title="Whitespace Test")
+    fake_db.create_articles_bulk.return_value = ([created], [])
+
+    mock_async_db = MagicMock()
+    mock_async_db.update_article = AsyncMock()
+
+    normalized_calls: list[str] = []
+
+    def capture_simhash(content, title):
+        normalized_calls.append(content)
+        return (0, 0)
+
+    with (
+        patch("src.web.routes.scrape.validate_url_for_scraping", return_value="https://example.test/ws"),
+        patch("src.database.manager.DatabaseManager", return_value=fake_db),
+        patch("src.database.async_manager.AsyncDatabaseManager", return_value=mock_async_db),
+        patch("src.utils.simhash.compute_article_simhash", side_effect=capture_simhash),
+    ):
+        try:
+            await _scrape_single_url(
+                url="https://example.test/ws",
+                title="Whitespace Test",
+                force_scrape=False,
+                pre_scraped_content=raw_content,
+            )
+        except Exception:
+            pass  # DB stub may not be complete enough for full ingest
+
+    assert normalized_calls, "compute_article_simhash was never called -- pre-scraped path not reached"
+    stored_content = normalized_calls[0]
+    assert stored_content == expected_content, (
+        f"Expected whitespace collapsed to single spaces; got: {repr(stored_content)}"
+    )

@@ -199,10 +199,16 @@ class TestQuickstartPresetCompliance:
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
     def test_extract_agent_prompt_has_standard_envelope(self, preset_file):
-        """ExtractAgent.Prompt.prompt must parse as JSON with standard 4 keys."""
+        """ExtractAgent.Prompt.prompt must parse as JSON with standard 4 keys when present.
+
+        ExtractAgent no longer carries a Prompt field after the supervisor removal
+        (refactor: remove ExtractAgent supervisor and extract_behaviors pathway).
+        When absent the test is skipped; if a prompt is present it must be valid.
+        """
         preset = _load_preset(preset_file)
         prompt_str = preset.get("ExtractAgent", {}).get("Prompt", {}).get("prompt", "")
-        assert prompt_str, f"{preset_file}: ExtractAgent.Prompt.prompt is empty"
+        if not prompt_str:
+            pytest.skip(f"{preset_file}: ExtractAgent carries no Prompt (intentional after supervisor removal)")
 
         try:
             prompt_data = json.loads(prompt_str)

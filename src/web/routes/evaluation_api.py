@@ -1981,7 +1981,7 @@ async def export_bundles_by_config_version(
     """
     Export eval bundles for all articles evaluated under a given config version.
 
-    Returns a ZIP file with one JSON bundle per article (article_{id}.json).
+    Returns a ZIP file with one JSON bundle per eval record (article_{article_id}_{record_id}.json).
     """
     try:
         db_manager = DatabaseManager()
@@ -2031,12 +2031,12 @@ async def export_bundles_by_config_version(
                             "warnings": bundle["integrity"]["warnings"],
                         }
                         bundle["integrity"]["bundle_sha256"] = compute_sha256_json(bundle_for_hash)
-                        filename = f"article_{record.article_id or record.id}.json"
+                        filename = f"article_{record.article_id or record.id}_{record.id}.json"
                         zf.writestr(filename, json.dumps(bundle, indent=2, ensure_ascii=False))
                     except (ValueError, AttributeError) as e:
                         logger.warning(f"Skipping bundle for execution {record.workflow_execution_id}: {e}")
                         zf.writestr(
-                            f"article_{record.article_id or record.id}_error.txt",
+                            f"article_{record.article_id or record.id}_{record.id}_error.txt",
                             f"Bundle generation failed: {e}",
                         )
 

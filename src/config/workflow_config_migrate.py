@@ -128,9 +128,14 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
         for k, v in prompts.items()
         if k in CANONICAL_PROMPT_AGENT_NAMES
     }
-    # Ensure every agent with Provider+Model has a prompt block (schema Part 3)
+    # Ensure every agent with Provider+Model has a prompt block (schema Part 3).
+    # ExtractAgent is intentionally excluded: it no longer carries a Prompt field after
+    # the supervisor removal; it only provides model/provider/temperature fallback defaults.
+    _PROMPT_FREE_AGENTS = {"ExtractAgent"}
     for name, cfg in agents.items():
         if isinstance(cfg, dict) and name == "OSDetectionFallback" and not cfg.get("Enabled") and not cfg.get("Model"):
+            continue
+        if name in _PROMPT_FREE_AGENTS:
             continue
         if (
             isinstance(cfg, dict)
@@ -272,9 +277,14 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
             Prompts[name] = {"prompt": val.get("prompt", ""), "instructions": val.get("instructions", "")}
         else:
             Prompts[name] = {"prompt": "", "instructions": ""}
-    # Ensure every agent with Provider+Model has a prompt block (schema Part 3)
+    # Ensure every agent with Provider+Model has a prompt block (schema Part 3).
+    # ExtractAgent is intentionally excluded: it no longer carries a Prompt field after
+    # the supervisor removal; it only provides model/provider/temperature fallback defaults.
+    _PROMPT_FREE_AGENTS = {"ExtractAgent"}
     for name, cfg in Agents.items():
         if name == "OSDetectionFallback" and not cfg.get("Enabled") and not cfg.get("Model"):
+            continue
+        if name in _PROMPT_FREE_AGENTS:
             continue
         if cfg.get("Provider") and cfg.get("Model") and name not in Prompts and name in CANONICAL_PROMPT_AGENT_NAMES:
             Prompts[name] = {"prompt": "", "instructions": ""}

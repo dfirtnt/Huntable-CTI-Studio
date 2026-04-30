@@ -237,9 +237,13 @@ class WorkflowConfigV2(BaseModel):
             if base not in agents:
                 raise ValueError(f"Orphan QA agent {name}: base agent {base} must exist in Agents")
         # Part 3: every agent with Provider+Model must have a prompt block
-        # (except OSDetectionFallback when disabled and no model)
+        # (except OSDetectionFallback when disabled/no model, and ExtractAgent which
+        # no longer carries a Prompt after the supervisor removal)
+        _PROMPT_FREE = {"OSDetectionFallback", "ExtractAgent"}
         for name, cfg in agents.items():
             if name == "OSDetectionFallback" and not cfg.Enabled and not cfg.Model:
+                continue
+            if name in _PROMPT_FREE:
                 continue
             if cfg.Provider and cfg.Model and name not in prompts:
                 raise ValueError(f"Missing prompt block for agent {name}")
