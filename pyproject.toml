@@ -1,6 +1,6 @@
 [project]
 name = "cti-scraper"
-version = "6.1.1"
+version = "6.2.0"
 description = "CTI Scraper - Threat intelligence aggregator"
 readme = "README.md"
 requires-python = ">=3.11"

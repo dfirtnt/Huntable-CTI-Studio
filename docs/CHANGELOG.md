@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.2.0 "Io"] - 2026-04-30
 ### Added
 - **RegistryQA `corrections.removed[]` explicit schema** (2026-04-30): `src/prompts/RegistryQA` `removed[]` entries now specify `{registry_hive, registry_key_path, registry_value_name, reason}` instead of a `[...]` placeholder. Gives the model a concrete shape to emit and enables the per-agent identity filter (todo 001) to match removal entries against extracted items by their natural composite key.
 - **Eval bundle surfaces `corrections_applied` and `pre_filter_count`** (2026-04-30): `EvalBundleService._extract_qa_results` now populates `corrections_applied` and `pre_filter_count` at the curated `qa_context` level when present on `_qa_result`, so eval dashboards can read filter metadata without spelunking into `extraction_context.raw_result`. The `qa_agent_map` is extended to include `RegistryExtract`, `ServicesExtract`, and `ScheduledTasksExtract` -- their QA results were previously silently dropped from bundles.
