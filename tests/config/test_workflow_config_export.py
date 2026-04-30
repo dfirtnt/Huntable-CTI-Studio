@@ -273,7 +273,7 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "QA": {},
             "QAPrompt": {},
         },
-        "ExtractAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0, "TopP": 0.9, "Prompt": {}},
+        "ExtractAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0, "TopP": 0.9},
         "CmdlineExtract": {
             "Enabled": True,
             "Provider": "openai",
@@ -405,3 +405,146 @@ def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompt
     assert list(config.Execution.ExtractAgentSettings.DisabledAgents) == ["CmdlineExtract", "ProcTreeExtract"]
     legacy = config.to_legacy_response_dict()
     assert legacy["agent_prompts"]["ExtractAgentSettings"]["disabled_agents"] == ["CmdlineExtract", "ProcTreeExtract"]
+
+
+def test_extract_agent_export_has_no_prompt_key():
+    """ExtractAgent section in a v2 export must not contain a Prompt key.
+
+    Regression guard: ExtractAgent is a model-config fallback for sub-agents,
+    not an LLM itself. The extract-observables route that consumed its prompt was
+    removed; re-introducing Prompt here would cause the config loader to register
+    a dead prompt in agent_prompts and reintroduce the orphaned path.
+    """
+    raw = dict(_FULL_LEGACY_V1)
+    out = export_preset_as_canonical_v2(raw)
+    extract = out.get("ExtractAgent", {})
+    assert "Prompt" not in extract, (
+        "ExtractAgent must not have a Prompt key in exported preset; it is a sub-agent model-fallback config only."
+    )
+    # Model/provider/temperature fallback config must still be present.
+    assert "Model" in extract
+    assert "Provider" in extract
+    assert "Temperature" in extract
+
+
+def test_load_preset_without_extract_agent_prompt_succeeds():
+    """Loading a UI-ordered preset that has no Prompt in ExtractAgent must succeed.
+
+    Regression guard: the loader must not raise when ExtractAgent.Prompt is absent.
+    Previously, add_agent("ExtractAgent", extract, None) would silently skip prompt
+    registration, but validation could still fail if any code path required the key.
+    """
+    ui = {
+        "Version": "2.0",
+        "Metadata": {"CreatedAt": "2025-01-01T00:00:00Z", "Description": "Test"},
+        "JunkFilter": {"JunkFilterThreshold": 0.8},
+        "QASettings": {"MaxRetries": 3},
+        "Thresholds": {"MinHuntScore": 85.0},
+        "OSDetection": {
+            "Embedding": "bert",
+            "FallbackEnabled": False,
+            "Fallback": {},
+            "SelectedOs": ["Windows"],
+            "Prompt": {},
+        },
+        "RankAgent": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "RankingThreshold": 6.0,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        # ExtractAgent deliberately has no Prompt key.
+        "ExtractAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9},
+        "CmdlineExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+            "AttentionPreprocessor": True,
+        },
+        "ProcTreeExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        "HuntQueriesExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        "RegistryExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        "ServicesExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        "ScheduledTasksExtract": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "Prompt": {},
+            "QAEnabled": False,
+            "QA": {},
+            "QAPrompt": {},
+        },
+        "SigmaAgent": {
+            "Enabled": True,
+            "Provider": "openai",
+            "Model": "gpt-4",
+            "Temperature": 0,
+            "TopP": 0.9,
+            "SimilarityThreshold": 0.5,
+            "UseFullArticleContent": False,
+            "Prompt": {},
+        },
+    }
+    # Must not raise -- that is the primary regression guard.
+    config = load_workflow_config(ui)
+    # The schema's llm_agent_symmetry validator auto-populates an empty PromptConfig
+    # for every agent that has Provider+Model, so ExtractAgent will appear in Prompts.
+    # The key invariant is that its prompt string is empty (no legacy prompt content
+    # was carried over from the now-removed Prompt key).
+    ea_prompt = config.Prompts.get("ExtractAgent")
+    assert ea_prompt is not None, "ExtractAgent must appear in Prompts after schema symmetry pass"
+    assert ea_prompt.prompt == "", f"ExtractAgent prompt must be empty; got: {ea_prompt.prompt!r}"
