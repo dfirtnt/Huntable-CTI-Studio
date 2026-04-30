@@ -74,7 +74,7 @@ class AsyncDebugger:
         if self._monitor_task:
             self._monitor_task.cancel()
             with suppress(asyncio.CancelledError):
-                await self._monitor_task  # codeql[py/ineffectual-statement]
+                _ = await self._monitor_task
 
         logger.debug("Async monitoring stopped")
 
@@ -352,7 +352,7 @@ class AsyncTestIsolation:
             if not task.done():
                 task.cancel()
                 with suppress(asyncio.CancelledError):
-                    await task  # codeql[py/ineffectual-statement]
+                    _ = await task
 
         # Run cleanup functions
         for cleanup_func in self.cleanup_functions:

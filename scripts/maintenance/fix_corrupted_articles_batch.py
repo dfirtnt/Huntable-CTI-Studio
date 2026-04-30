@@ -29,7 +29,7 @@ async def fix_article(article_id: int) -> bool:
 
     # Count current corruption
     replacement_chars = article.content.count("\ufffd")
-    non_printable = len(re.sub(r"[ -~\s]", "", article.content))
+    non_printable = len(re.sub(r"[\x09-\x0d\x20-\x7e]", "", article.content))
     print(
         f"📊 Current: {len(article.content)} chars, {replacement_chars} replacement chars, {non_printable} non-printable"
     )
@@ -92,7 +92,7 @@ async def fix_article(article_id: int) -> bool:
 
         # Check for corruption in sanitized content
         replacement_chars_final = sanitized_content.count("\ufffd")
-        non_printable_final = len(re.sub(r"[ -~\s]", "", sanitized_content))
+        non_printable_final = len(re.sub(r"[\x09-\x0d\x20-\x7e]", "", sanitized_content))
 
         print(
             f"✅ Scraped: {len(sanitized_content)} chars, {replacement_chars_final} replacement chars, {non_printable_final} non-printable"
