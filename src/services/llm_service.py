@@ -90,8 +90,11 @@ class _QaAgentSpec(NamedTuple):
 
     items_key:    Key in last_result that holds the items list.
     matcher:      Returns True when a removal entry matches an item.
-    removal_id:   Converts a removal entry to its stored representation
-                  (str for simple agents, dict for structured agents).
+    removal_id:   Converts a removal entry to its stored representation.
+                  Returns str for simple agents (CmdlineExtract, HuntQueriesExtract)
+                  and dict (the full removal entry, including reason) for structured
+                  agents (Registry/ProcTree/Services/ScheduledTasks). Intentionally
+                  inhomogeneous -- no current consumer reads the list type-sensitively.
     """
 
     items_key: str
