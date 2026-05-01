@@ -34,7 +34,7 @@ Required Structure:
 title: [descriptive rule title]
 id: [UUID]
 description: [behavior detected]
-observables_used: [list of 0-based indices from the Observables list above that this rule uses; omit if no observables provided]
+observables_used: [REQUIRED: 0-based indices from the Observables list that this rule uses, e.g. [0, 3]; use [] if none apply]
 logsource:
   category: [process_creation/network_connection/registry_event/...]
   product: [windows/linux/macos]
