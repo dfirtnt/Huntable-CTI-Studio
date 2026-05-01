@@ -19,7 +19,6 @@
 .settings-card.acc-backup::before { background:var(--step-1,#60a5fa); }
 .settings-card.acc-jobs::before { background:var(--step-2,#4ade80); }
 .settings-card.acc-workflow::before { background:var(--purple-primary); }
-.settings-card.acc-healing::before { background:var(--step-3,#a78bfa); }
 .settings-card.acc-github::before { background:var(--step-4,#fb923c); }
 .settings-card.acc-langfuse::before { background:var(--step-5,#f472b6); }
 .settings-section-header { font-family:'DM Sans',sans-serif; font-size: 1rem; font-weight:600; color:var(--text-primary); }
@@ -371,8 +370,8 @@
                          <div>
                              <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">Automated Backup Cron</h3>
                              <p class="text-sm text-gray-500 dark:text-gray-400">
-                                 Inspect the managed crontab entries used for automated backups. When the web app runs in a container,
-                                 the host crontab may be unavailable even if backups are configured on the host.
+                                 Inspect the managed crontab entries used for automated backups. Huntable runs in Docker, so the
+                                 host crontab may be unavailable here even when backups are configured on the host.
                              </p>
                          </div>
                          <div class="flex flex-wrap gap-3">
@@ -755,138 +754,6 @@
               </div>
         </div>
 
-        <!-- Source Auto-Healing -->
-        <div class="settings-card acc-healing">
-            <div data-collapsible-panel="sourceHealing" class="flex items-center justify-between cursor-pointer">
-                <h2 class="text-xl font-semibold settings-section-header"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.503 1.503 0 002.124 2.124"/></svg> Source Auto-Healing</h2>
-                <span id="sourceHealing-toggle" class="text-gray-500 dark:text-gray-400 transform transition-transform duration-200" aria-hidden="true">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                    </svg>
-                </span>
-            </div>
-
-            <div id="sourceHealing-content" class="space-y-4 hidden">
-                <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                    When enabled, an AI agent autonomously diagnoses and repairs sources that exceed the
-                    consecutive failure threshold. The agent probes source URLs, analyzes error history,
-                    and may update the source's URL, RSS feed, scraping method, or active status.
-                </p>
-
-                <!-- Enable toggle -->
-                <div class="flex items-center gap-3">
-                    <input type="checkbox" id="sourceHealingEnabled"
-                           class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
-                    <label for="sourceHealingEnabled" class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Enable Source Auto-Healing
-                    </label>
-                </div>
-
-                <!-- Check interval -->
-                <div>
-                    <label for="sourceHealingCheckInterval" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Check Interval (hours)
-                    </label>
-                    <div class="flex items-center gap-4">
-                        <input type="number" id="sourceHealingCheckInterval"
-                               min="1" max="168" step="1" value="1"
-                               class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">(1-168, default: 1)</span>
-                    </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        How often to scan for sources that need healing.
-                    </p>
-                </div>
-
-                <!-- Failure threshold -->
-                <div>
-                    <label for="sourceHealingThreshold" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Failure Threshold
-                    </label>
-                    <div class="flex items-center gap-4">
-                        <input type="number" id="sourceHealingThreshold"
-                               min="1" max="10000" step="1" value="100"
-                               class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">(1-10000, default: 100)</span>
-                    </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        Minimum consecutive failures before a source is eligible for healing.
-                    </p>
-                </div>
-
-                <!-- Max healing attempts -->
-                <div>
-                    <label for="sourceHealingMaxAttempts" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Max Healing Attempts
-                    </label>
-                    <div class="flex items-center gap-4">
-                        <input type="number" id="sourceHealingMaxAttempts"
-                               min="1" max="50" step="1" value="5"
-                               class="w-32 bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                        <span class="text-sm text-gray-500 dark:text-gray-400">(1-50, default: 5)</span>
-                    </div>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                        After this many attempts, the source is flagged on the dashboard as needing user attention.
-                    </p>
-                </div>
-
-                <!-- Provider selection -->
-                <div>
-                    <label for="sourcehealing-provider" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        AI Provider
-                    </label>
-                    <select id="sourcehealing-provider"
-                            onchange="onHealingProviderChange()"
-                            class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 text-sm">
-                        <option value="lmstudio">LMStudio (Local)</option>
-                        <option value="openai">OpenAI (Cloud)</option>
-                        <option value="anthropic">Anthropic Claude (Cloud)</option>
-                    </select>
-                </div>
-
-                <!-- Model (conditional per provider, same pattern as workflow agent config) -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Model</label>
-                    <div data-agent-prefix="sourcehealing" data-provider="lmstudio">
-                        <select id="sourcehealing-model"
-                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                    <div data-agent-prefix="sourcehealing" data-provider="openai" class="hidden">
-                        <select id="sourcehealing-model-openai"
-                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                    <div data-agent-prefix="sourcehealing" data-provider="anthropic" class="hidden">
-                        <select id="sourcehealing-model-anthropic"
-                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-mono text-sm">
-                            <option value="">Loading models...</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Dedicated API key -->
-                <div>
-                    <label for="sourceHealingApiKey" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        API Key <span class="text-gray-500 dark:text-gray-400 font-normal">(optional override)</span>
-                    </label>
-                    <input type="password" id="sourceHealingApiKey"
-                           placeholder="Leave blank to use the key from Agentic Workflow Configuration"
-                           class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                </div>
-
-                <!-- Save button -->
-                <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                    <button type="button" id="saveSourceHealingBtn" class="settings-btn-primary">
-                        Save Auto-Healing Settings
-                    </button>
-                    <span id="sourceHealingStatus" class="ml-3 text-sm"></span>
-                </div>
-            </div>
-        </div>
-
         <!-- GitHub PR Configuration -->
         <div class="settings-card acc-github">
             <div data-collapsible-panel="githubPRConfig" class="flex items-center justify-between cursor-pointer">
@@ -1114,9 +981,6 @@
         // Load workflow configuration
         const workflowAppSettings = await loadWorkflowAppSettings();
 
-        // Load source auto-healing settings (uses same allSettings dict)
-        await loadSourceHealingSettings(workflowAppSettings);
-
         const workflowOpenaiEnabled = parseWorkflowBooleanSetting(
             workflowAppSettings,
             WORKFLOW_PROVIDER_SETTING_KEYS.openaiEnabled,
@@ -1137,7 +1001,8 @@
             settings.workflowLmstudioEnabled || false
         );
         document.getElementById('workflowLmstudioEnabled').checked = workflowLmstudioEnabled;
-        const proceedWithoutLmstudio = String(workflowAppSettings.PROCEED_WITHOUT_LMSTUDIO || '').trim() !== '';
+        const _plv = String(workflowAppSettings.PROCEED_WITHOUT_LMSTUDIO || '').trim().toLowerCase();
+        const proceedWithoutLmstudio = _plv === '1' || _plv === 'true';
         window.__proceedWithoutLmstudio = proceedWithoutLmstudio;
         if (proceedWithoutLmstudio) {
             const row = document.getElementById('workflowLmstudioRow');
@@ -1264,223 +1129,6 @@
         }
     }
     
-    // ── Source Auto-Healing settings ──
-    const SOURCE_HEALING_KEYS = {
-        enabled: 'SOURCE_HEALING_ENABLED',
-        threshold: 'SOURCE_HEALING_THRESHOLD',
-        maxAttempts: 'SOURCE_HEALING_MAX_ATTEMPTS',
-        checkInterval: 'SOURCE_HEALING_CHECK_INTERVAL',
-        provider: 'SOURCE_HEALING_PROVIDER',
-        model: 'SOURCE_HEALING_MODEL',
-        apiKey: 'SOURCE_HEALING_API_KEY',
-    };
-
-    // Default model catalogs (same as workflow.html) used when API is unavailable
-    var healingModelCatalog = {
-        openai: [
-            'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini',
-            'o4-mini', 'o3-mini'
-        ],
-        anthropic: [
-            'claude-sonnet-4-5-20250514',
-            'claude-3.7-sonnet-latest', 'claude-3.7-haiku-latest',
-            'claude-3.5-sonnet-latest', 'claude-3.5-haiku-latest'
-        ]
-    };
-
-    // Fetch the live commercial model catalog (same endpoint as workflow.html)
-    async function loadHealingModelCatalog() {
-        try {
-            var resp = await fetch('/api/provider-model-catalog');
-            if (resp.ok) {
-                var data = await resp.json();
-                if (data.catalog) {
-                    if (Array.isArray(data.catalog.openai) && data.catalog.openai.length > 0) {
-                        healingModelCatalog.openai = data.catalog.openai;
-                    }
-                    if (Array.isArray(data.catalog.anthropic) && data.catalog.anthropic.length > 0) {
-                        healingModelCatalog.anthropic = data.catalog.anthropic;
-                    }
-                }
-            }
-        } catch (e) {
-            // Use defaults silently
-        }
-    }
-
-    // Helper: clear all children from an element
-    function clearChildren(el) {
-        while (el.firstChild) el.removeChild(el.firstChild);
-    }
-
-    // Helper: populate a <select> from an array of string model names
-    function populateModelSelect(sel, models, selectedModel) {
-        clearChildren(sel);
-        models.forEach(function(name) {
-            var opt = document.createElement('option');
-            opt.value = name;
-            opt.textContent = name;
-            if (name === selectedModel) opt.selected = true;
-            sel.appendChild(opt);
-        });
-        // If saved model is not in catalog, add it at the top so it's not lost
-        if (selectedModel && sel.value !== selectedModel) {
-            var extra = document.createElement('option');
-            extra.value = selectedModel;
-            extra.textContent = selectedModel + ' (custom)';
-            extra.selected = true;
-            sel.insertBefore(extra, sel.firstChild);
-        }
-    }
-
-    // Populate all model dropdowns (LMStudio from /api/lmstudio-models, commercial from catalog)
-    async function populateHealingModelDropdowns(savedProvider, savedModel) {
-        // Populate OpenAI dropdown
-        var openaiSel = document.getElementById('sourcehealing-model-openai');
-        if (openaiSel) {
-            populateModelSelect(openaiSel, healingModelCatalog.openai,
-                savedProvider === 'openai' ? savedModel : '');
-        }
-        // Populate Anthropic dropdown
-        var anthropicSel = document.getElementById('sourcehealing-model-anthropic');
-        if (anthropicSel) {
-            populateModelSelect(anthropicSel, healingModelCatalog.anthropic,
-                savedProvider === 'anthropic' ? savedModel : '');
-        }
-        // Populate LMStudio dropdown
-        await loadHealingLMStudioModels(savedProvider === 'lmstudio' ? savedModel : '');
-    }
-
-    // Show/hide the correct model dropdown based on selected provider (mirrors workflow.html pattern)
-    function onHealingProviderChange() {
-        var select = document.getElementById('sourcehealing-provider');
-        if (!select) return;
-        var provider = (select.value || 'openai').toString().trim().toLowerCase();
-        var groups = document.querySelectorAll('[data-agent-prefix="sourcehealing"]');
-        groups.forEach(function(group) {
-            if (!group.dataset.provider) return;
-            if (group.dataset.provider === provider) {
-                group.classList.remove('hidden');
-                group.style.display = '';
-            } else {
-                group.classList.add('hidden');
-                group.style.display = 'none';
-            }
-        });
-    }
-
-    // Populate the LMStudio model dropdown for source healing
-    async function loadHealingLMStudioModels(selectedModel) {
-        var sel = document.getElementById('sourcehealing-model');
-        if (!sel) return;
-        try {
-            var resp = await fetch('/api/lmstudio-models');
-            if (!resp.ok) {
-                clearChildren(sel);
-                var opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = '(LMStudio unavailable)';
-                sel.appendChild(opt);
-                return;
-            }
-            var data = await resp.json();
-            var models = (data.models || []);
-            if (!models.length) {
-                clearChildren(sel);
-                var opt = document.createElement('option');
-                opt.value = '';
-                opt.textContent = '(No models loaded)';
-                sel.appendChild(opt);
-                return;
-            }
-            populateModelSelect(sel, models, selectedModel);
-        } catch (e) {
-            clearChildren(sel);
-            var opt = document.createElement('option');
-            opt.value = '';
-            opt.textContent = '(LMStudio unavailable)';
-            sel.appendChild(opt);
-        }
-    }
-
-    // Get the active model value based on current provider selection
-    function getHealingModelValue() {
-        var provider = (document.getElementById('sourcehealing-provider').value || 'openai').trim().toLowerCase();
-        if (provider === 'lmstudio') {
-            return (document.getElementById('sourcehealing-model').value || '').trim();
-        } else if (provider === 'openai') {
-            return (document.getElementById('sourcehealing-model-openai').value || '').trim();
-        } else if (provider === 'anthropic') {
-            return (document.getElementById('sourcehealing-model-anthropic').value || '').trim();
-        }
-        return '';
-    }
-
-    async function loadSourceHealingSettings(allSettings) {
-        document.getElementById('sourceHealingEnabled').checked =
-            parseWorkflowBooleanSetting(allSettings, SOURCE_HEALING_KEYS.enabled, false);
-        document.getElementById('sourceHealingThreshold').value =
-            parseInt(parseWorkflowStringSetting(allSettings, SOURCE_HEALING_KEYS.threshold, '100'), 10);
-        document.getElementById('sourceHealingMaxAttempts').value =
-            parseInt(parseWorkflowStringSetting(allSettings, SOURCE_HEALING_KEYS.maxAttempts, '5'), 10);
-        document.getElementById('sourceHealingCheckInterval').value =
-            parseInt(parseWorkflowStringSetting(allSettings, SOURCE_HEALING_KEYS.checkInterval, '1'), 10);
-
-        var provider = parseWorkflowStringSetting(allSettings, SOURCE_HEALING_KEYS.provider, 'openai');
-        var model = parseWorkflowStringSetting(allSettings, SOURCE_HEALING_KEYS.model, 'gpt-4o-mini');
-
-        // Fetch commercial model catalog, then populate all dropdowns
-        await loadHealingModelCatalog();
-        await populateHealingModelDropdowns(provider, model);
-
-        // Set provider and toggle visibility
-        document.getElementById('sourcehealing-provider').value = provider;
-        onHealingProviderChange();
-        // API key is write-only; never populate from DB
-    }
-
-    async function saveSourceHealingSettings(opts) {
-        var silent = !!(opts && opts.silent);
-        var status = document.getElementById('sourceHealingStatus');
-        try {
-            var provider = (document.getElementById('sourcehealing-provider').value || 'openai').trim().toLowerCase();
-            var model = getHealingModelValue() || (provider === 'anthropic' ? 'claude-sonnet-4-5' : 'gpt-4o-mini');
-
-            var payload = {};
-            payload[SOURCE_HEALING_KEYS.enabled] = document.getElementById('sourceHealingEnabled').checked ? 'true' : 'false';
-            payload[SOURCE_HEALING_KEYS.threshold] = String(document.getElementById('sourceHealingThreshold').value || '100');
-            payload[SOURCE_HEALING_KEYS.maxAttempts] = String(document.getElementById('sourceHealingMaxAttempts').value || '5');
-            payload[SOURCE_HEALING_KEYS.checkInterval] = String(document.getElementById('sourceHealingCheckInterval').value || '1');
-            payload[SOURCE_HEALING_KEYS.provider] = provider;
-            payload[SOURCE_HEALING_KEYS.model] = model;
-            await persistWorkflowAppSettings(payload);
-
-            // Save API key separately if provided (write-only field)
-            var healKey = document.getElementById('sourceHealingApiKey').value.trim();
-            if (healKey) {
-                await fetch('/api/settings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ key: SOURCE_HEALING_KEYS.apiKey, value: healKey })
-                });
-            }
-
-            if (!silent) {
-                status.textContent = 'Saved';
-                status.className = 'ml-3 text-sm text-green-400';
-                setTimeout(function() { status.textContent = ''; }, 3000);
-            }
-        } catch (error) {
-            console.error('Error saving source healing settings:', error);
-            if (!silent) {
-                status.textContent = 'Error saving';
-                status.className = 'ml-3 text-sm text-red-400';
-            } else {
-                throw error;
-            }
-        }
-    }
-
     async function loadWorkflowAppSettings() {
         try {
             const response = await fetch('/api/settings', { cache: 'no-store' });
@@ -2016,7 +1664,6 @@
         }
 
         await runSection('backup configuration', () => persistBackupSettingsToServer(false));
-        await runSection('source auto-healing', () => saveSourceHealingSettings({ silent: true }));
         await runSection('cron editor', () => saveCronEditor({ silent: true }));
         await runSection('scheduled jobs', () => saveScheduledJobs({ silent: true }));
 
@@ -2616,9 +2263,6 @@
         safeAddListener('saveCronEditorBtn', 'click', saveCronEditor);
         safeAddListener('applyBackupCronBtn', 'click', applyBackupCronSchedule);
         safeAddListener('disableBackupCronBtn', 'click', disableBackupCronSchedule);
-
-        // Source Auto-Healing save button
-        safeAddListener('saveSourceHealingBtn', 'click', saveSourceHealingSettings);
 
         // Save settings button
         document.getElementById('saveSettings').addEventListener('click', function() {

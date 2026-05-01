@@ -36,7 +36,6 @@ from src.database.models import (
     ArticleAnnotationTable,
     ArticleTable,
     Base,
-    HealingEventTable,
     SigmaRuleTable,
     SourceCheckTable,
     SourceTable,
@@ -595,8 +594,6 @@ class AsyncDatabaseManager:
                 if success:
                     db_source.consecutive_failures = 0
                     db_source.last_success = datetime.now()
-                    db_source.healing_exhausted = False
-                    db_source.healing_attempts = 0
                 else:
                     db_source.consecutive_failures += 1
 
@@ -616,43 +613,6 @@ class AsyncDatabaseManager:
         except Exception as e:
             logger.error(f"Failed to update source health for {source_id}: {e}")
             raise
-
-    async def create_healing_event(self, event_data) -> None:
-        """Record a healing event in the audit trail."""
-
-        try:
-            async with self.get_session() as session:
-                row = HealingEventTable(
-                    source_id=event_data.source_id,
-                    round_number=event_data.round_number,
-                    diagnosis=event_data.diagnosis,
-                    actions_proposed=event_data.actions_proposed,
-                    actions_applied=event_data.actions_applied,
-                    validation_success=event_data.validation_success,
-                    error_message=event_data.error_message,
-                )
-                session.add(row)
-                await session.commit()
-        except Exception:
-            logger.exception("Failed to record healing event for source %s", event_data.source_id)
-
-    async def get_healing_events(self, source_id: int, limit: int = 20) -> list:
-        """Get recent healing events for a source, newest first."""
-        from src.models.healing_event import HealingEvent
-
-        try:
-            async with self.get_session() as session:
-                result = await session.execute(
-                    select(HealingEventTable)
-                    .where(HealingEventTable.source_id == source_id)
-                    .order_by(HealingEventTable.created_at.desc())
-                    .limit(limit)
-                )
-                rows = result.scalars().all()
-                return [HealingEvent.model_validate(r) for r in rows]
-        except Exception:
-            logger.exception("Failed to get healing events for source %s", source_id)
-            return []
 
     async def update_source_article_count(self, source_id: int):
         """Update the total articles count for a source."""
@@ -1323,8 +1283,6 @@ class AsyncDatabaseManager:
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
             average_response_time=db_source.average_response_time,
-            healing_exhausted=getattr(db_source, "healing_exhausted", False),
-            healing_attempts=getattr(db_source, "healing_attempts", 0),
             created_at=created_at,
             updated_at=updated_at,
         )

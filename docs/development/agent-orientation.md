@@ -67,7 +67,6 @@ Examples:
 | Workflow config or presets | `src/config/workflow_config_schema.py`, `src/config/workflow_config_loader.py`, `config/presets/AgentConfigs/README.md`, `tests/config/` |
 | A prompt-backed agent | `src/services/llm_service.py` (prompt assembly + hardcoded scaffold), `src/prompts/` (seed defaults only), the workflow/config schema, `docs/concepts/agents.md#prompt-architecture`, relevant prompt tests and UI specs |
 | Sources or scraping | `src/core/fetcher.py`, `src/core/rss_parser.py`, `src/core/modern_scraper.py`, `src/services/source_sync.py`, `docs/guides/source-config.md` |
-| Source auto-healing | `src/services/source_healing_service.py`, `src/services/source_healing_coordinator.py`, `docs/internals/source-healing.md` |
 | ML model training, evaluation, or rollback | `src/web/routes/models.py`, `src/utils/model_versioning.py`, `src/utils/content_filter.py`, `scripts/retrain_with_feedback.py`, `docs/features/content-filtering.md`, `tests/api/test_model_rollback_api.py` |
 | Sigma generation or matching | `src/services/sigma_generation_service.py`, `src/services/sigma_matching_service.py`, `src/services/sigma_*`, `docs/features/sigma-rules.md` |
 | MCP tools or agent DB read surface | `src/huntable_mcp/`, `run_mcp.py`, `docs/reference/mcp-tools.md` |

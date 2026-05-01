@@ -4,7 +4,7 @@ Source management API routes.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from celery import Celery
@@ -76,7 +76,6 @@ async def api_sources_failing():
                         "source_name": source.name,
                         "consecutive_failures": consecutive_failures,
                         "last_success": last_success_str,
-                        "healing_exhausted": getattr(source, "healing_exhausted", False),
                     }
                 )
 
@@ -322,106 +321,4 @@ async def api_source_stats(source_id: int):
         raise
     except Exception as exc:
         logger.error("API source stats error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
-
-
-@router.post("/{source_id}/heal")
-async def api_heal_source(source_id: int, _auth: str = RequireAdminAuth):
-    """Trigger AI healing for a single source."""
-    source = await async_db_manager.get_source(source_id)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source not found")
-
-    from src.services.source_healing_config import SourceHealingConfig
-
-    config = SourceHealingConfig.load()
-    if not config.enabled:
-        raise HTTPException(status_code=409, detail="Source auto-healing is disabled in settings.")
-
-    try:
-        celery_app = Celery("cti_scraper")
-        celery_app.config_from_object("src.worker.celeryconfig")
-
-        task = celery_app.send_task(
-            "src.worker.celery_app.heal_source",
-            args=[source_id],
-            queue="maintenance",
-        )
-
-        return {
-            "success": True,
-            "message": f"Healing dispatched for source '{source.name}'",
-            "task_id": task.id,
-        }
-    except Exception as exc:
-        logger.error("API heal source error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
-
-
-@router.post("/{source_id}/reset-healing")
-async def api_reset_healing(source_id: int, _auth: str = RequireAdminAuth):
-    """Reset healing_exhausted and healing_attempts for a source."""
-    source = await async_db_manager.get_source(source_id)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source not found")
-
-    try:
-        update_data = SourceUpdate(healing_exhausted=False, healing_attempts=0)
-        await async_db_manager.update_source(source_id, update_data)
-
-        return {
-            "success": True,
-            "message": f"Healing reset for source '{source.name}'",
-        }
-    except Exception as exc:
-        logger.error("API reset healing error: %s", exc)
-        raise HTTPException(status_code=500, detail="Internal server error") from exc
-
-
-@router.get("/{source_id}/healing-history")
-async def api_healing_history(source_id: int):
-    """Get healing event audit trail for a source."""
-    source = await async_db_manager.get_source(source_id)
-    if not source:
-        raise HTTPException(status_code=404, detail="Source not found")
-
-    try:
-        events = await async_db_manager.get_healing_events(source_id, limit=50)
-
-        # Load healing config to get max_attempts
-        from src.services.source_healing_config import SourceHealingConfig
-
-        config = SourceHealingConfig.load()
-
-        # Determine healing status
-        # Status can be: "idle", "in_progress", "healed", "exhausted"
-        status = "idle"
-        current_round = 0
-
-        if events:
-            latest_event = events[0]
-            current_round = latest_event.round_number
-
-            if source.healing_exhausted:
-                status = "exhausted"
-            elif latest_event.validation_success is True:
-                status = "healed"
-            elif current_round < config.max_attempts:
-                if latest_event.created_at > datetime.now() - timedelta(minutes=5):
-                    status = "in_progress"
-        elif source.consecutive_failures >= config.threshold and not source.healing_exhausted:
-            # No events yet but eligible for healing - might be starting
-            status = "starting"
-
-        return {
-            "source_id": source_id,
-            "source_name": source.name,
-            "events": [e.model_dump(mode="json") for e in events],
-            "max_attempts": config.max_attempts,
-            "current_round": current_round,
-            "status": status,
-            "healing_exhausted": source.healing_exhausted,
-        }
-    except Exception as exc:
-        logger.error("API healing history error: %s", exc)
         raise HTTPException(status_code=500, detail="Internal server error") from exc

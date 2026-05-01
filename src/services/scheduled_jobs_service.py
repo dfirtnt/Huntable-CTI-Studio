@@ -81,15 +81,6 @@ SCHEDULED_JOB_DEFINITIONS: tuple[ScheduledJobDefinition, ...] = (
         default_cron="0 4 * * *",
         queue="maintenance",
     ),
-    ScheduledJobDefinition(
-        job_id="check_sources_for_healing",
-        label="Source Auto-Healing Check",
-        description="Scan for sources above the failure threshold and dispatch AI healing tasks.",
-        task_name="src.worker.celery_app.check_sources_for_healing",
-        registered_name="check-sources-for-healing-hourly",
-        default_cron="0 * * * *",
-        queue="maintenance",
-    ),
 )
 
 SCHEDULED_JOB_MAP = {job.job_id: job for job in SCHEDULED_JOB_DEFINITIONS}
