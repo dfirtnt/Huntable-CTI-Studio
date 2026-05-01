@@ -1,8 +1,8 @@
 # Huntable CTI Studio
 
-**Turn threat intelligence into Sigma detections; faster.**
+**Reports to Rules… in Record time.**
 
-Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No black box required: the system exposes explicit workflows, stored execution state, versioned configuration, and testable interfaces.
+Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No black box required: the system exposes explicit workflows, stored execution state, versioned configuration, and testable interfaces.
 
 ## Who Is This For?
 
@@ -89,5 +89,5 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTc2ODYyMDc1Nl19
+eyJoaXN0b3J5IjpbMTAyOTIyODM4OSwtNzY4NjIwNzU2XX0=
 -->
