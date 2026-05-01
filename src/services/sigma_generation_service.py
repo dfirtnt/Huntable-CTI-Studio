@@ -83,8 +83,16 @@ def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
         lines.append(f"[{i}] {obs_type}: {val_str}")
     if not lines:
         return ""
-    return "\n\nExtracted Observables (0-based indices; add observables_used: [indices] to each rule):\n" + "\n".join(
-        lines
+    obs_list = "\n".join(lines)
+    return (
+        "\n\nExtracted Observables (0-based index):\n"
+        + obs_list
+        + "\n\nREQUIRED: Every rule you output MUST include the field `observables_used` listing "
+        "which observable indices (0-based) grounded that rule. Example:\n"
+        "  observables_used: [0, 3]\n"
+        "If no observable applies, write:\n"
+        "  observables_used: []\n"
+        "Do NOT omit this field."
     )
 
 
@@ -100,6 +108,7 @@ class RuleValidationResult:
     repair_attempts: list[dict[str, Any]] = None
     final_status: str = "pending"
     observables_used: list[int] | None = None
+    observables_used_inferred: bool = False
 
     def __post_init__(self):
         if self.repair_attempts is None:
@@ -113,6 +122,44 @@ class ValidationResults:
     valid_rules: list[RuleValidationResult]
     invalid_rules: list[RuleValidationResult]
     all_rules: list[RuleValidationResult]
+
+
+def _infer_observables_used(rule_yaml: str, extraction_result: dict[str, Any]) -> list[int] | None:
+    """Infer observables_used via keyword overlap when the LLM omitted the field.
+
+    Tokenizes each observable value and checks whether any meaningful token (>=4 chars)
+    appears as a substring in the rule's detection block. Returns matched indices or None
+    when no overlap is found. Matched results are flagged as inferred by the caller.
+    """
+    observables = extraction_result.get("observables") or []
+    if not observables:
+        return None
+
+    try:
+        parsed = yaml.safe_load(rule_yaml)
+        if not isinstance(parsed, dict):
+            return None
+        detection_text = yaml.dump(parsed.get("detection", {}), default_flow_style=False).lower()
+    except Exception:
+        return None
+
+    matched = []
+    for i, obs in enumerate(observables):
+        if not isinstance(obs, dict):
+            continue
+        val = obs.get("value", "")
+        if isinstance(val, dict):
+            raw = " ".join(str(v) for v in val.values())
+        else:
+            raw = str(val)
+        # Split on whitespace and common delimiters; keep tokens >=4 chars, non-numeric
+        import re as _re
+
+        tokens = [t for t in _re.split(r"[\s/\\,;|=\[\]()]+", raw.lower()) if len(t) >= 4 and not t.isdigit()]
+        if any(t in detection_text for t in tokens):
+            matched.append(i)
+
+    return matched if matched else None
 
 
 class SigmaGenerationService:
@@ -274,7 +321,7 @@ class SigmaGenerationService:
 
             # Phase 2: Validation & Categorization
             logger.info("Phase 2: Validation & categorization")
-            validation_results = self._validate_all_rules(generated_yaml)
+            validation_results = self._validate_all_rules(generated_yaml, extraction_result=extraction_result)
 
             # Phase 3: Per-rule repair (strict mode)
             logger.info(f"Phase 3: Per-rule repair ({len(validation_results.invalid_rules)} invalid rules)")
@@ -326,7 +373,7 @@ class SigmaGenerationService:
                         article_id=article_id,
                     )
 
-                    expansion_validation = self._validate_all_rules(expansion_yaml)
+                    expansion_validation = self._validate_all_rules(expansion_yaml, extraction_result=extraction_result)
                     # Mark expansion rules with correct phase
                     for rule in expansion_validation.all_rules:
                         rule.generation_phase = "expansion"
@@ -369,6 +416,8 @@ class SigmaGenerationService:
                                 }
                                 if rule_result.observables_used is not None:
                                     rule_metadata["observables_used"] = rule_result.observables_used
+                                    if rule_result.observables_used_inferred:
+                                        rule_metadata["observables_used_inferred"] = True
                                 final_rules.append(rule_metadata)
                     except Exception as e:
                         logger.warning(f"Failed to parse rule {rule_result.rule_id}: {e}")
@@ -474,7 +523,9 @@ class SigmaGenerationService:
         logger.info(f"Phase 1: Generated {len(sigma_response)} chars of YAML")
         return sigma_response
 
-    def _validate_all_rules(self, yaml_content: str) -> ValidationResults:
+    def _validate_all_rules(
+        self, yaml_content: str, extraction_result: dict[str, Any] | None = None
+    ) -> ValidationResults:
         """Phase 2: Parse and validate all rules with defensive parsing."""
         # Handle multiple rules: first try extracting from markdown code blocks, then split by ---
         rule_blocks = []
@@ -555,6 +606,14 @@ class SigmaGenerationService:
             except Exception as e:
                 logger.debug(f"Could not parse observables_used from block {i + 1}: {e}")
 
+            # Inference fallback: if LLM omitted observables_used, infer from detection keyword overlap
+            observables_used_inferred = False
+            if observables_used is None and extraction_result:
+                observables_used = _infer_observables_used(block_for_validation, extraction_result)
+                if observables_used is not None:
+                    observables_used_inferred = True
+                    logger.debug(f"Inferred observables_used={observables_used} for block {i + 1}")
+
             # Validate rule (without observables_used for pySIGMA compatibility)
             validation_result = validate_sigma_rule(block_for_validation)
             rule_id = str(uuid.uuid4())
@@ -567,6 +626,7 @@ class SigmaGenerationService:
                 generation_phase="generation",
                 final_status="valid" if validation_result.is_valid else "invalid",
                 observables_used=observables_used,
+                observables_used_inferred=observables_used_inferred,
             )
 
             all_rules.append(rule_result)
@@ -810,7 +870,7 @@ Focus on generating rules for the uncovered categories listed above."""
         model_name = raw_model_name
 
         # Use provided system prompt or fall back to default
-        default_system_prompt = "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\"."
+        default_system_prompt = "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations. IMPORTANT: If title or description contains special YAML characters (?, :, [, ], {, }, |, &, *, #, @, `), quote the value with double quotes, e.g., title: \"Rule Title with ?\". REQUIRED: When observables are provided, every rule MUST include the field observables_used: [indices] listing which 0-based observable indices grounded that rule. Never omit this field when observables are listed."
         system_content = system_prompt if system_prompt else default_system_prompt
 
         messages = [{"role": "system", "content": system_content}, {"role": "user", "content": prompt}]
