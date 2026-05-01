@@ -12,12 +12,14 @@ Comprehensive system for AI-powered SIGMA detection rule generation, matching ag
 2. [Rule Generation](#rule-generation)
 3. [Rule Matching Pipeline](#rule-matching-pipeline)
 4. [Similarity Search](#similarity-search)
-5. [Technical Architecture](#technical-architecture)
-6. [Usage & Examples](#usage--examples)
-7. [CLI Commands](#cli-commands)
-8. [API Reference](#api-reference)
-9. [Configuration](#configuration)
-10. [Troubleshooting](#troubleshooting)
+5. [Observables-Used Tracing](#observables-used-tracing)
+6. [Novelty Service Architecture](#novelty-service-architecture)
+7. [Technical Architecture](#technical-architecture)
+8. [Usage & Examples](#usage--examples)
+9. [CLI Commands](#cli-commands)
+10. [API Reference](#api-reference)
+11. [Configuration](#configuration)
+12. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -339,6 +341,87 @@ Similarity search uses the single `sigma_rules` table. By default it is populate
 ```
 
 Customer rules are stored with `rule_id` prefix `cust-` and `file_path` prefix `customer/`, so they coexist with SigmaHQ rules and appear in similarity results. Re-run after adding or changing rules in the customer repo (optionally with `--force` to reindex all customer rules).
+
+---
+
+## Observables-Used Tracing
+
+Every LLM-generated Sigma rule carries an `observables_used` field that links the rule back to the specific extracted observables it was built from.
+
+### What it is
+
+During rule generation the LLM is required to include a top-level `observables_used` key in its YAML response alongside the valid Sigma fields:
+
+```yaml
+title: Suspicious Rundll32 Execution
+...
+observables_used: [0, 3]   # indices into the observables array for this article
+```
+
+The value is a list of integer indices into the `observables` array produced by the extraction agent for the same article. An empty list `[]` means the rule was synthesized from article context without directly using any extracted observable.
+
+`observables_used` is **not a valid Sigma field** — the generation service strips it before pySIGMA validation and stores it separately in rule metadata (`SigmaGenerationResult.observables_used`).
+
+### Inference fallback
+
+If the LLM omits `observables_used`, `_infer_observables_used()` (`src/services/sigma_generation_service.py`) attempts to recover it by:
+
+1. Tokenizing each observable's `value` field into tokens >= 4 characters.
+2. Checking whether any token appears as a substring in the rule's `detection` block.
+3. Returning indices of observables with at least one matching token, or `None` if no match.
+
+When the field is recovered via inference, `observables_used_inferred: true` is set in rule metadata so consumers know the linkage is approximate.
+
+### Where it is stored
+
+After generation the field is threaded into `rule_metadata["observables_used"]` and (if inferred) `rule_metadata["observables_used_inferred"]` in the workflow execution record (`WorkflowExecutionTable.sigma_results`). It is also propagated to the `sigma_queue` entry for display in the Sigma Queue UI.
+
+### Why it matters
+
+- **Traceability audit**: analysts can see which observables drove each detection hypothesis.
+- **QA scoring**: the QA loop uses `observables_used` to verify that rules reference the observables they should.
+- **Deduplication**: rules from the same observables are more likely to duplicate each other; this metadata speeds that check.
+
+---
+
+## Novelty Service Architecture
+
+The behavioral novelty stack lives in `src/services/` and is composed of these layers:
+
+| Layer | File | Role |
+|---|---|---|
+| Entry point | `sigma_matching_service.py` | Calls `SigmaNoveltyService.assess_novelty()` with proposed rule + threshold |
+| Orchestrator | `sigma_novelty_service.py` | Retrieves candidate rules from DB, applies precomputed atoms, computes Jaccard/containment/filter scores |
+| Precompute | `sigma_semantic_precompute.py` | Materializes canonical atom sets and logsource keys into `sigma_rules` rows at index time |
+| Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical atom identities |
+| Novelty detector | `sigma_novelty_detector.py` | Heuristics for detecting near-duplicate rules before full scoring |
+| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based fallback when deterministic atoms are unavailable |
+| Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
+| External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine (Jaccard x Containment - Filter); used when installed |
+
+### Scoring formula (deterministic path)
+
+When `sigma_semantic_similarity` is installed:
+
+```
+novelty_score = 1 - similarity_score
+similarity_score = (atom_jaccard * containment) - filter_penalty
+```
+
+Where:
+- `atom_jaccard` = |atoms(A) ∩ atoms(B)| / |atoms(A) ∪ atoms(B)|, with 50%-dampened cross-field soft matching for process-exe fields when strict intersection is empty
+- `containment` = |atoms(A) ∩ atoms(B)| / |atoms(A)| (how much of the proposed rule is covered by the existing rule)
+- `filter_penalty` = reduction applied when one rule's filter conditions would exclude the other's detection
+
+### Candidate retrieval strategy
+
+1. Compute `logsource_key` for the proposed rule (e.g. `windows|process_creation`).
+2. Filter `sigma_rules` table to rows matching that `logsource_key` (hard gate — cross-product rules are excluded).
+3. If `canonical_class` is available (from the external engine), further restrict to matching class.
+4. Apply behavioral novelty scoring to this filtered candidate set (typically 50-300 rules, not all 5000+).
+5. Return `top_k` matches above `threshold`, sorted by similarity descending.
+
+The `total_candidates_evaluated` and `logsource_key` / `canonical_class` values are surfaced in the `/api/sigma-queue/{id}/similar-rules` response so the UI can explain why the candidate count may be lower than total indexed rules.
 
 ---
 
