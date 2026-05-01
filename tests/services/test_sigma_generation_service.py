@@ -960,8 +960,9 @@ level: high
             ]
         }
         section = _build_observables_section(extraction_result)
-        assert "Extracted Observables (0-based indices" in section
-        assert "observables_used: [indices]" in section
+        assert "Extracted Observables (0-based index)" in section
+        assert "observables_used:" in section
+        assert "REQUIRED" in section
         assert "[0] cmdline:" in section
         assert "[1] process_lineage:" in section
         assert "powershell -enc" in section
