@@ -59,6 +59,8 @@ nav:
       - Agent Evals: features/agent-evals.md
   - LLM & Models:
       - Model Selection: llm/model-selection.md
+      - Context Window Rationale: llm/context-window-rationale.md
+      - Cloud Model Reference: llm/cloud-model-reference.md
       - LM Studio Integration: llm/lmstudio.md
       - Extract Agent Evaluation: llm/extract-agent-eval.md
   - ML Training:
