@@ -110,11 +110,28 @@ def _value_matcher(removal_key: str) -> "Callable[[dict, dict], bool]":
     return _match
 
 
+_REGISTRY_HIVE_ALIASES: dict[str, str] = {
+    "hklm": "hkey_local_machine",
+    "hkcu": "hkey_current_user",
+    "hkcr": "hkey_classes_root",
+    "hku": "hkey_users",
+}
+
+
+def _norm_field(value: str, field_name: str) -> str:
+    """Normalize a field value for comparison; expands registry hive abbreviations."""
+    v = value.strip().lower()
+    if field_name == "registry_hive":
+        return _REGISTRY_HIVE_ALIASES.get(v, v)
+    return v
+
+
 def _composite_matcher(field_pairs: list[tuple[str, str]]) -> "Callable[[dict, dict], bool]":
     """Match a removal entry against an item using multiple identity fields.
 
     At least one field must be non-empty in the removal, and all non-empty
     removal fields must match the corresponding item field (case-insensitive).
+    Registry hive abbreviations (HKLM, HKCU, etc.) are expanded before comparison.
     """
 
     def _match(removal: dict, item: dict) -> bool:
@@ -124,7 +141,7 @@ def _composite_matcher(field_pairs: list[tuple[str, str]]) -> "Callable[[dict, d
         if not active:
             return False
         return all(
-            (removal.get(rf) or "").strip().lower() == (item.get(itf) or "").strip().lower() for rf, itf in active
+            _norm_field((removal.get(rf) or ""), rf) == _norm_field((item.get(itf) or ""), itf) for rf, itf in active
         )
 
     return _match

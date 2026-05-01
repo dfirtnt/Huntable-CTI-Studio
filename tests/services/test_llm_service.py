@@ -10,6 +10,7 @@ from src.services.llm_service import (
     MIN_USER_CONTENT_CHARS,
     LLMService,
     PreprocessInvariantError,
+    _norm_field,
     _validate_preprocess_invariants,
 )
 
@@ -829,6 +830,31 @@ class TestTraceabilityNormalization:
             assert "value" in item
 
 
+class TestNormField:
+    """Unit tests for _norm_field -- registry hive abbreviation expansion."""
+
+    def test_hklm_expands(self):
+        assert _norm_field("HKLM", "registry_hive") == "hkey_local_machine"
+
+    def test_hkcu_expands(self):
+        assert _norm_field("hkcu", "registry_hive") == "hkey_current_user"
+
+    def test_hkcr_expands(self):
+        assert _norm_field("HKCR", "registry_hive") == "hkey_classes_root"
+
+    def test_hku_expands(self):
+        assert _norm_field("HKU", "registry_hive") == "hkey_users"
+
+    def test_full_name_unchanged(self):
+        assert _norm_field("HKEY_LOCAL_MACHINE", "registry_hive") == "hkey_local_machine"
+
+    def test_non_hive_field_not_expanded(self):
+        assert _norm_field("HKLM", "registry_key_path") == "hklm"
+
+    def test_whitespace_stripped(self):
+        assert _norm_field("  HKLM  ", "registry_hive") == "hkey_local_machine"
+
+
 class TestQACorrectionsApplication:
     """Tests for the QA corrections-application path in run_extraction_agent.
 
@@ -1301,6 +1327,57 @@ class TestQACorrectionsApplication:
         remaining = result["items"]
         assert remaining[0]["registry_key_path"] == "SOFTWARE\\\\Legit\\\\Key"
         assert result["_qa_result"]["pre_filter_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_registry_extract_qa_hive_abbreviation_matches_normalized(self, llm_service):
+        """RegistryExtract: QA returns abbreviated hive (HKLM) but item has normalized form (HKEY_LOCAL_MACHINE).
+
+        The extractor prompt requires full hive names; the QA prompt is instructed to match,
+        but models sometimes abbreviate. _norm_field expands both sides before comparing so the
+        removal still applies.
+        """
+        extract_resp = json.dumps(
+            {
+                "registry_artifacts": [
+                    {
+                        "registry_hive": "HKEY_LOCAL_MACHINE",
+                        "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
+                        "registry_value_name": "BadValue",
+                        "confidence_score": 0.9,
+                    },
+                    {
+                        "registry_hive": "HKEY_CURRENT_USER",
+                        "registry_key_path": "SOFTWARE\\\\Legit\\\\Key",
+                        "registry_value_name": "GoodValue",
+                        "confidence_score": 0.95,
+                    },
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one hallucinated registry entry",
+                "issues": [],
+                "corrections": {
+                    "removed": [
+                        {
+                            "registry_hive": "HKLM",
+                            "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
+                            "registry_value_name": "BadValue",
+                            "reason": "not in source",
+                        }
+                    ],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "RegistryExtract")
+
+        assert result["count"] == 1
+        remaining = result["items"]
+        assert remaining[0]["registry_key_path"] == "SOFTWARE\\\\Legit\\\\Key"
 
     @pytest.mark.asyncio
     async def test_proc_tree_extract_qa_corrections(self, llm_service):
