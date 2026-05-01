@@ -31,7 +31,7 @@
     }
   },
   "RankAgent": {
-    "Enabled": true,
+    "Enabled": false,
     "Provider": "anthropic",
     "Model": "claude-haiku-4-5-20251001",
     "Temperature": 0.0,

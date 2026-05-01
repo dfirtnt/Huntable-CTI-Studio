@@ -31,7 +31,7 @@
     }
   },
   "RankAgent": {
-    "Enabled": true,
+    "Enabled": false,
     "Provider": "openai",
     "Model": "gpt-5",
     "Temperature": 0.0,

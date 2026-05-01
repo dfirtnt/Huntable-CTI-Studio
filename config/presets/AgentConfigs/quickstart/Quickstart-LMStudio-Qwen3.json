@@ -31,7 +31,7 @@
     }
   },
   "RankAgent": {
-    "Enabled": true,
+    "Enabled": false,
     "Provider": "lmstudio",
     "Model": "qwen/qwen3-8b",
     "Temperature": 0.0,

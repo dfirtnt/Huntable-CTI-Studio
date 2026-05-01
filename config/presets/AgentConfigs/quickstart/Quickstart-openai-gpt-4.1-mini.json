@@ -31,7 +31,7 @@
     }
   },
   "RankAgent": {
-    "Enabled": true,
+    "Enabled": false,
     "Provider": "openai",
     "Model": "gpt-4.1-mini",
     "Temperature": 0.0,
