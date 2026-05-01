@@ -1,8 +1,10 @@
 # Huntable CTI Studio
 
-**Turn threat intelligence into Sigma detections; faster.**
+**Reports to Rules… in record time.**
 
-Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No black box required: the system exposes explicit workflows, stored execution state, versioned configuration, and testable interfaces.
+Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables — command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries — and turns them into Sigma rules you can validate, review, and ship.
+
+No black box required: every article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model — OpenAI, Anthropic, or local LM Studio.
 
 ## Who Is This For?
 
@@ -15,12 +17,12 @@ Huntable CTI Studio is an AI-assisted workbench for detection engineers and thre
 
 ## Highlights
 
-- **Multi-source aggregation** — RSS feeds, direct scrape endpoints, and browser extension
-- **Agentic workflows** — OS detection → junk filter → ranking → extraction → Sigma generation → similarity → queue promotion
-- **Detection support** — validation, similarity matching, and coverage classification
-- **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
-- **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
-- **MCP (optional)** — Read-only Model Context Protocol server: `python3 run_mcp.py` (same env as the web app; [tool reference](reference/mcp-tools.md))
+- **Multi-source aggregation** — 38 seeded OSINT sources via RSS, direct scraping, and a browser extension; LLM-powered source auto-healing repairs broken feeds.
+- **Agentic workflow** — LangGraph pipeline: OS detection → junk filter → relevance ranking → observable extraction → Sigma generation → similarity check → queue promotion, with conditional early-exit gates and Postgres checkpointing.
+- **Detection engineering tools** — Iterative Sigma validation, behavioral similarity against 3,000+ community rules, and coverage classification.
+- **Multi-model AI** — Mix and match OpenAI, Anthropic, and local LM Studio per workflow step; configuration is versioned through presets.
+- **Semantic search & MCP** — pgvector-backed search across collected intelligence; a read-only Model Context Protocol server (`python3 run_mcp.py`) exposes nine tools for conversational retrieval ([tool reference](reference/mcp-tools.md)).
+- **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, and Celery workers/scheduler.
 
 ## Quick Start
 
