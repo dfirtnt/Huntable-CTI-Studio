@@ -2849,237 +2849,33 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     {"role": "user", "content": qa_prompt},
                 ]
 
-                converted_qa_messages = self._convert_messages_for_model(qa_messages, qa_model_to_use)
+                # Delegate LLM call, parsing, and normalization to QAEvaluator
+                from src.services.qa_evaluator import QAEvaluator
 
-                # Trace QA call with Langfuse
-                with trace_llm_call(
-                    name=f"{agent_name.lower()}_qa",
-                    model=qa_model_to_use,
+                _qa_eval = await QAEvaluator(self).evaluate(
+                    messages=qa_messages,
+                    agent_name=agent_name,
+                    model_name=qa_model_to_use,
+                    provider=self.provider_extract,
+                    temperature=temperature,
+                    seed=self.seed,
+                    max_tokens=1000,
+                    timeout=180.0,
                     execution_id=execution_id,
-                    metadata={
-                        "agent_name": agent_name,
-                        "attempt": current_try,
-                        "qa_task": qa_task,
-                        "messages": qa_messages,  # Include messages for input display
-                    },
-                ) as qa_generation:
-                    qa_response = await self.request_chat(
-                        provider=self.provider_extract,
-                        model_name=qa_model_to_use,
-                        messages=converted_qa_messages,
-                        max_tokens=1000,
-                        temperature=temperature,
-                        timeout=180.0,
-                        failure_context=f"{agent_name} QA attempt {current_try}",
-                        seed=self.seed,
-                    )
-
-                qa_text = qa_response["choices"][0]["message"].get("content", "")
-                logger.info(f"{agent_name} QA response (first 500 chars): {qa_text[:500]}")
-
-                # Log QA completion to Langfuse
-                if qa_generation:
-                    qa_text_preview = qa_text[:500]
-                    log_llm_completion(
-                        generation=qa_generation,
-                        input_messages=qa_messages,
-                        output=qa_text_preview,
-                        usage=qa_response.get("usage", {}),
-                        metadata={"agent_name": agent_name, "attempt": current_try, "qa": True},
-                    )
-
-                qa_result = {}
-                parse_error = None
-                parsing_failed = False
-
-                # Try multiple parsing strategies in order
-                strategies_tried = []
-
-                try:
-                    # Strategy 1: Find balanced braces (most reliable for nested JSON)
-                    # This handles nested objects correctly by counting braces
-                    start_idx = qa_text.find("{")
-                    if start_idx != -1:
-                        brace_count = 0
-                        end_idx = start_idx
-                        in_string = False
-                        escape_next = False
-
-                        for i in range(start_idx, len(qa_text)):
-                            char = qa_text[i]
-
-                            if escape_next:
-                                escape_next = False
-                                continue
-
-                            if char == "\\":
-                                escape_next = True
-                                continue
-
-                            if char == '"' and not escape_next:
-                                in_string = not in_string
-                                continue
-
-                            if not in_string:
-                                if char == "{":
-                                    brace_count += 1
-                                elif char == "}":
-                                    brace_count -= 1
-                                    if brace_count == 0:
-                                        end_idx = i
-                                        break
-
-                        if brace_count == 0 and end_idx > start_idx:
-                            json_str = qa_text[start_idx : end_idx + 1]
-                            qa_result = json.loads(json_str)
-                            logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
-                        else:
-                            strategies_tried.append(f"balanced_braces_unbalanced(count={brace_count})")
-                            raise ValueError(f"Unbalanced braces in JSON (count: {brace_count})")
-                    else:
-                        strategies_tried.append("no_opening_brace")
-                        raise ValueError("No opening brace found")
-
-                except (json.JSONDecodeError, ValueError):
-                    # Strategy 2: Try parsing entire text if it looks like JSON
-                    try:
-                        qa_text_stripped = qa_text.strip()
-                        if qa_text_stripped.startswith("{") and qa_text_stripped.endswith("}"):
-                            qa_result = json.loads(qa_text_stripped)
-                            logger.info(f"{agent_name} QA parsed keys (full text): {list(qa_result.keys())}")
-                        else:
-                            strategies_tried.append("full_text_not_json")
-                            raise ValueError("Full text doesn't look like JSON")
-                    except (json.JSONDecodeError, ValueError):
-                        # Strategy 3: Try extracting JSON from markdown code blocks
-                        try:
-                            # Look for JSON in ```json ... ``` or ``` ... ``` blocks
-                            code_block_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
-                            code_match = re.search(code_block_pattern, qa_text, re.DOTALL)
-                            if code_match:
-                                json_str = code_match.group(1)
-                                qa_result = json.loads(json_str)
-                                logger.info(f"{agent_name} QA parsed keys (code block): {list(qa_result.keys())}")
-                            else:
-                                strategies_tried.append("no_code_block")
-                                raise ValueError("No code block found")
-                        except (json.JSONDecodeError, ValueError):
-                            # Strategy 4: Try regex to find any JSON-like structure
-                            try:
-                                # More permissive regex that finds JSON objects
-                                json_pattern = r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}"
-                                json_matches = re.findall(json_pattern, qa_text, re.DOTALL)
-                                for match in json_matches:
-                                    try:
-                                        qa_result = json.loads(match)
-                                        if "status" in qa_result or "verdict" in qa_result:
-                                            logger.info(
-                                                f"{agent_name} QA parsed keys (regex match): {list(qa_result.keys())}"
-                                            )
-                                            break
-                                    except json.JSONDecodeError:
-                                        continue
-                                if not qa_result:
-                                    strategies_tried.append("regex_no_valid_json")
-                                    raise ValueError("No valid JSON found via regex")
-                            except (json.JSONDecodeError, ValueError):
-                                # Strategy 5: Try finding JSON after common prefixes
-                                try:
-                                    prefixes = ["```json", "```", "JSON:", "Response:", "Output:"]
-                                    for prefix in prefixes:
-                                        prefix_idx = qa_text.find(prefix)
-                                        if prefix_idx != -1:
-                                            # Look for JSON after prefix
-                                            after_prefix = qa_text[prefix_idx + len(prefix) :].strip()
-                                            start_idx = after_prefix.find("{")
-                                            if start_idx != -1:
-                                                # Try balanced brace extraction on remaining text
-                                                # (simplified, no string handling)
-                                                brace_count = 0
-                                                end_idx = start_idx
-                                                for i in range(start_idx, len(after_prefix)):
-                                                    if after_prefix[i] == "{":
-                                                        brace_count += 1
-                                                    elif after_prefix[i] == "}":
-                                                        brace_count -= 1
-                                                        if brace_count == 0:
-                                                            end_idx = i
-                                                            break
-                                                if brace_count == 0:
-                                                    json_str = after_prefix[start_idx : end_idx + 1]
-                                                    qa_result = json.loads(json_str)
-                                                    logger.info(
-                                                        f"{agent_name} QA parsed keys "
-                                                        f"(after prefix '{prefix}'): {list(qa_result.keys())}"
-                                                    )
-                                                    break
-                                    if not qa_result:
-                                        strategies_tried.append("prefix_extraction_failed")
-                                        raise ValueError("Could not extract JSON after common prefixes")
-                                except (json.JSONDecodeError, ValueError):
-                                    # Strategy 6: Last resort - try to find any substring that parses as JSON
-                                    try:
-                                        # Find all potential JSON start positions
-                                        for start_pos in range(len(qa_text)):
-                                            if qa_text[start_pos] == "{":
-                                                # Try to parse from this position with increasing lengths
-                                                for end_pos in range(
-                                                    start_pos + 1, min(start_pos + 5000, len(qa_text) + 1)
-                                                ):
-                                                    try:
-                                                        candidate = qa_text[start_pos:end_pos]
-                                                        test_result = json.loads(candidate)
-                                                        # Validate it has expected QA fields
-                                                        if isinstance(test_result, dict) and (
-                                                            "status" in test_result
-                                                            or "verdict" in test_result
-                                                            or "summary" in test_result
-                                                        ):
-                                                            qa_result = test_result
-                                                            logger.info(
-                                                                f"{agent_name} QA parsed keys "
-                                                                f"(brute force): {list(qa_result.keys())}"
-                                                            )
-                                                            break
-                                                    except (json.JSONDecodeError, ValueError):
-                                                        continue
-                                                if qa_result:
-                                                    break
-                                        if not qa_result:
-                                            strategies_tried.append("brute_force_failed")
-                                            raise ValueError("Brute force extraction failed")
-                                    except (json.JSONDecodeError, ValueError) as e6:
-                                        # All strategies failed
-                                        strategies = ", ".join(strategies_tried)
-                                        parse_error = (
-                                            f"All parsing strategies failed. Tried: {strategies}. Last error: {str(e6)}"
-                                        )
-                                        parsing_failed = True
-                                        logger.error(
-                                            f"{agent_name} QA parsing failed: {parse_error}. "
-                                            f"Response preview: {qa_text[:500]}. "
-                                            f"Treating as pass to avoid retry loop."
-                                        )
-                except Exception as e:
-                    parse_error = f"Unexpected parse error: {e}"
-                    parsing_failed = True
-                    logger.error(
-                        f"{agent_name} QA parsing failed: {parse_error}. "
-                        f"Response preview: {qa_text[:500]}. "
-                        f"Treating as pass to avoid retry loop."
-                    )
-
-                # Fail-closed: parse failure means QA output is unvalidated. Treat as needs_revision
-                # so the trace records the failure rather than silently passing the result through.
-                # The one exception (handled below) is when there are no items to validate at all.
-                status = (
-                    (qa_result.get("status") or "needs_revision").lower() if not parsing_failed else "needs_revision"
+                    attempt=current_try,
                 )
+                qa_result = _qa_eval
+                parsing_failed = _qa_eval.get("parsing_failed", False)
+                parse_error = _qa_eval.get("_parse_error")
+                qa_text = _qa_eval.get("_qa_text", "")
+
+                # QAEvaluator normalizes verdict; status is kept only for backward-compat storage.
+                # The one exception (handled below) is when there are no items to validate at all.
+                status = qa_result.get("verdict", "needs_revision")
 
                 # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
                 extracted_feedback = ""
-                if qa_result and len(qa_result) > 0:
-                    # Try multiple possible feedback fields
+                if not parsing_failed:
                     extracted_feedback = (
                         qa_result.get("feedback")
                         or qa_result.get("qa_corrections_applied")
@@ -3088,19 +2884,14 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     )
                 else:
                     # QA parsing failed - try to extract feedback from raw text
-                    # Look for common feedback patterns in the raw QA text
                     if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
-                        # Try to extract a meaningful snippet from the QA text
-                        # Look for sentences that might contain feedback
-
-                        # Try to find feedback-like content (sentences with "missing", "incorrect", "should", etc.)
                         feedback_patterns = re.findall(
                             r"[^.!?]*(?:missing|incorrect|wrong|should|must|need|issue|problem)[^.!?]*[.!?]",
                             qa_text,
                             re.IGNORECASE,
                         )
                         if feedback_patterns:
-                            extracted_feedback = " ".join(feedback_patterns[:3])  # Take first 3 feedback sentences
+                            extracted_feedback = " ".join(feedback_patterns[:3])
                         else:
                             # Fallback: use first 200 chars of QA text as feedback
                             extracted_feedback = qa_text[:200] if qa_text else ""
@@ -3157,15 +2948,10 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
 
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
-                    # Convert QA result format to match UI expectations
-                    qa_status = (qa_result.get("status") or "needs_revision").lower() if qa_result else "fail"
-                    # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
-                    if qa_status == "needs_revision":
-                        verdict = "needs_revision"
-                    elif qa_status == "pass":
-                        verdict = "pass"
-                    else:
-                        verdict = "needs_revision"
+                    # verdict is already normalized by QAEvaluator
+                    verdict = qa_result.get("verdict", "needs_revision")
+                    # Keep status for backward-compat in stored _qa_result bundles
+                    qa_status = qa_result.get("status") or verdict
 
                     # Build display issues list from corrections (read for display only;
                     # actual filtering already happened above for CmdlineExtract).
@@ -3212,19 +2998,17 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         extracted_feedback = "QA failed without feedback."
 
                     # Always store QA result when QA runs, even if parsing failed
-                    if not qa_result or len(qa_result) == 0:
-                        # QA parsing failed, store error result with diagnostic info
-                        error_description = "QA response parsing failed"
-                        if parse_error:
-                            error_description = f"QA response parsing failed: {parse_error}"
-
-                        # Include raw response snippet in feedback for debugging
+                    if parsing_failed:
+                        error_description = (
+                            f"QA response parsing failed: {parse_error}"
+                            if parse_error
+                            else "QA response parsing failed"
+                        )
                         raw_snippet = qa_text[:500] if qa_text else "No response received"
                         feedback_with_diagnostic = (
                             extracted_feedback
                             or f"QA response could not be parsed. Raw response preview: {raw_snippet}"
                         )
-
                         last_result["_qa_result"] = {
                             "verdict": "needs_revision",
                             "summary": extracted_feedback or "QA evaluation ran but response parsing failed",
