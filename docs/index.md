@@ -4,7 +4,7 @@
 
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables, command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries, and turns them into Sigma rules you can validate, review, and ship.
 
-With full transparencyarticle moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model — OpenAI, Anthropic, or local LM Studio.
+With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
 
 ## Who Is This For?
 
@@ -91,6 +91,6 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE0ODQ4OTk2NDUsLTkzNzQyMjY5MywtNz
-Y4NjIwNzU2XX0=
+eyJoaXN0b3J5IjpbMTkxOTE0MzM5NCwtOTM3NDIyNjkzLC03Nj
+g2MjA3NTZdfQ==
 -->
