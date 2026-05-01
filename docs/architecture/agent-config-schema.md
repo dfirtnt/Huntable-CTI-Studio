@@ -47,4 +47,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 ## ExtractAgent (supervisor)
 
-ExtractAgent is the supervisor; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
+ExtractAgent is the supervisor node in the LangGraph flow; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTQ5MDY2ODM1Nl19
+-->
