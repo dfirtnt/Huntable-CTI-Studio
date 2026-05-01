@@ -18,9 +18,8 @@ from src.config.workflow_config_schema import (
 
 pytestmark = pytest.mark.unit
 
-# OSDetectionAgent is a legacy key kept for display purposes only;
-# it is NOT in ALL_AGENT_NAMES but IS allowed in AGENT_DISPLAY_NAMES.
-_ALLOWED_EXTRAS = {"OSDetectionAgent"}
+# Legacy keys kept for display/backward-compat; NOT in ALL_AGENT_NAMES but allowed in AGENT_DISPLAY_NAMES.
+_ALLOWED_EXTRAS = {"OSDetectionAgent", "QAAgent"}
 
 
 def test_display_names_cover_all_agents():

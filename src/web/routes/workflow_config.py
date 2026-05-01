@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
-from src.config.workflow_config_schema import AGENT_NAMES_SPECIAL
+from src.config.workflow_config_schema import AGENT_DISPLAY_NAMES, AGENT_NAMES_SPECIAL
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -621,6 +621,14 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
     for agent_name, prompt_entry in agent_prompts.items():
         if not isinstance(prompt_entry, dict):
             continue
+
+        # Skip non-prompt entries (e.g. ExtractAgentSettings stores disabled_agents, not a prompt).
+        if "prompt" not in prompt_entry:
+            continue
+
+        display = AGENT_DISPLAY_NAMES.get(agent_name)
+        label = f"{display} ({agent_name})" if display else agent_name
+
         prompt_str = prompt_entry.get("prompt", "")
         if not isinstance(prompt_str, str):
             prompt_str = str(prompt_str)
@@ -628,7 +636,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
         if not prompt_str.strip():
             # Special agents (e.g. OSDetectionFallback) are embedding-based and don't use LLM prompts.
             if agent_name not in AGENT_NAMES_SPECIAL:
-                warnings.append(f"{agent_name}: system prompt is empty")
+                warnings.append(f"{label}: system prompt is empty")
             continue
 
         if not prompt_str.strip().startswith("{"):
@@ -637,7 +645,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
         try:
             parsed = json.loads(prompt_str)
         except (ValueError, json.JSONDecodeError):
-            warnings.append(f"{agent_name}: system prompt contains invalid JSON")
+            warnings.append(f"{label}: system prompt contains invalid JSON")
             continue
 
         if not isinstance(parsed, dict):
@@ -648,7 +656,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             # Structured prompt without json_example -- warn only for known extractor agents
             if agent_name.endswith("Extract") or agent_name == "ExtractAgent":
                 warnings.append(
-                    f"{agent_name}: structured prompt is missing 'json_example' (required by Extractor Contract)"
+                    f"{label}: structured prompt is missing 'json_example' (required by Extractor Contract)"
                 )
             continue
 
@@ -656,7 +664,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             try:
                 json_example = json.loads(json_example_raw)
             except (ValueError, json.JSONDecodeError):
-                warnings.append(f"{agent_name}: json_example is not valid JSON")
+                warnings.append(f"{label}: json_example is not valid JSON")
                 continue
         else:
             json_example = json_example_raw
@@ -677,7 +685,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
         missing_required = _TRACEABILITY_REQUIRED - item_fields
         if missing_required:
             warnings.append(
-                f"{agent_name}: json_example items missing required traceability fields: {sorted(missing_required)}"
+                f"{label}: json_example items missing required traceability fields: {sorted(missing_required)}"
             )
             continue
 
