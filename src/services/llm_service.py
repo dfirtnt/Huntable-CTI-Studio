@@ -13,9 +13,10 @@ import math
 import os
 import re
 import subprocess
+from collections.abc import Callable
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 
@@ -77,6 +78,129 @@ _INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
     ("When in doubt, OMIT", "FINAL REMINDER (sec 16)"),
     ("source_evidence", "traceability field mention (sec 14)"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# QA corrections dispatch
+# ---------------------------------------------------------------------------
+
+
+class _QaAgentSpec(NamedTuple):
+    """Per-agent spec for applying QA corrections.
+
+    items_key:    Key in last_result that holds the items list.
+    matcher:      Returns True when a removal entry matches an item.
+    removal_id:   Converts a removal entry to its stored representation
+                  (str for simple agents, dict for structured agents).
+    """
+
+    items_key: str
+    matcher: "Callable[[dict, dict], bool]"
+    removal_id: "Callable[[dict], Any]"
+
+
+def _value_matcher(removal_key: str) -> "Callable[[dict, dict], bool]":
+    """Match a single removal field against item.value (CmdlineExtract, HuntQueriesExtract)."""
+
+    def _match(removal: dict, item: dict) -> bool:
+        r = (removal.get(removal_key) or "").strip()
+        v = (item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip()
+        return bool(r) and r == v
+
+    return _match
+
+
+def _composite_matcher(field_pairs: list[tuple[str, str]]) -> "Callable[[dict, dict], bool]":
+    """Match a removal entry against an item using multiple identity fields.
+
+    At least one field must be non-empty in the removal, and all non-empty
+    removal fields must match the corresponding item field (case-insensitive).
+    """
+
+    def _match(removal: dict, item: dict) -> bool:
+        if not isinstance(item, dict):
+            return False
+        active = [(rf, itf) for rf, itf in field_pairs if (removal.get(rf) or "").strip()]
+        if not active:
+            return False
+        return all(
+            (removal.get(rf) or "").strip().lower() == (item.get(itf) or "").strip().lower() for rf, itf in active
+        )
+
+    return _match
+
+
+def _first_nonempty_matcher(fields: list[str]) -> "Callable[[dict, dict], bool]":
+    """Match using the first non-empty identity field in the removal entry.
+
+    Used by ScheduledTasksExtract where identity is whichever of
+    task_name / task_path / store_path is non-null.
+    """
+
+    def _match(removal: dict, item: dict) -> bool:
+        if not isinstance(item, dict):
+            return False
+        for field in fields:
+            r = (removal.get(field) or "").strip()
+            if r:
+                return r.lower() == (item.get(field) or "").strip().lower()
+        return False
+
+    return _match
+
+
+# Map agent names to their QA-corrections spec.
+# items_key reflects the key in last_result AFTER the rename step
+# (registry_artifacts / process_lineage / windows_services / scheduled_tasks
+# are all renamed to "items" before QA runs; queries and cmdline_items stay).
+_QA_AGENT_SPECS: dict[str, _QaAgentSpec] = {
+    "CmdlineExtract": _QaAgentSpec(
+        "cmdline_items",
+        _value_matcher("command"),
+        lambda r: (r.get("command") or "").strip(),
+    ),
+    "HuntQueriesExtract": _QaAgentSpec(
+        "queries",
+        _value_matcher("query"),
+        lambda r: (r.get("query") or "").strip(),
+    ),
+    "RegistryExtract": _QaAgentSpec(
+        "items",
+        _composite_matcher(
+            [
+                ("registry_hive", "registry_hive"),
+                ("registry_key_path", "registry_key_path"),
+                ("registry_value_name", "registry_value_name"),
+            ]
+        ),
+        lambda r: r,
+    ),
+    "ProcTreeExtract": _QaAgentSpec(
+        "items",
+        _composite_matcher(
+            [
+                ("parent", "parent"),
+                ("child", "child"),
+            ]
+        ),
+        lambda r: r,
+    ),
+    "ServicesExtract": _QaAgentSpec(
+        "items",
+        _composite_matcher(
+            [
+                ("service_name", "service_name"),
+                ("binary_path", "binary_path"),
+            ]
+        ),
+        lambda r: r,
+    ),
+    "ScheduledTasksExtract": _QaAgentSpec(
+        "items",
+        _first_nonempty_matcher(["task_name", "task_path", "store_path"]),
+        lambda r: r,
+    ),
+}
 
 
 class PromptConfigValidationError(ValueError):
@@ -2902,7 +3026,10 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 # from "extractor found things and QA removed them all".
                 # Defensive: handle the case where the model emits e.g. {"cmdline_items": null}
                 # by treating None as an empty list.
-                items_key = "cmdline_items" if "cmdline_items" in last_result else "items"
+                _spec = _QA_AGENT_SPECS.get(agent_name)
+                items_key = (
+                    _spec.items_key if _spec else ("cmdline_items" if "cmdline_items" in last_result else "items")
+                )
                 pre_filter_count = len(last_result.get(items_key) or [])
 
                 # If QA parsing failed and there was nothing to validate, return cleanly --
@@ -2914,37 +3041,38 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     )
                     return last_result
 
-                # Apply QA corrections directly to the result. v1 scope: CmdlineExtract only.
-                # Other extractors use structured items where identity isn't a flat `value` string,
-                # so per-agent identity mapping is required before filtering can be safely extended.
-                applied_removals: list[str] = []
+                # Apply QA corrections for all extractors that have a spec entry.
+                applied_removals: list = []
                 if (
                     not parsing_failed
                     and qa_result
-                    and agent_name == "CmdlineExtract"
+                    and _spec is not None
                     and isinstance(qa_result.get("corrections"), dict)
                 ):
-                    removals = {
-                        (r.get("command") or "").strip()
-                        for r in qa_result["corrections"].get("removed", [])
-                        if isinstance(r, dict) and (r.get("command") or "").strip()
-                    }
-                    if removals:
+                    removal_entries = [r for r in qa_result["corrections"].get("removed", []) if isinstance(r, dict)]
+                    if removal_entries:
                         before_items = last_result.get(items_key) or []
-                        after_items = [
-                            item
-                            for item in before_items
-                            if ((item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip())
-                            not in removals
-                        ]
-                        last_result[items_key] = after_items
-                        last_result["count"] = len(after_items)
-                        applied_removals = sorted(removals)
-                        logger.info(
-                            f"{agent_name} QA removed {len(before_items) - len(after_items)} items "
-                            f"(pre={len(before_items)}, post={len(after_items)}). "
-                            f"Removed: {applied_removals}"
-                        )
+                        after_items = []
+                        actual_removals: list = []
+                        for item in before_items:
+                            matched = any(_spec.matcher(r, item) for r in removal_entries)
+                            if matched:
+                                # Find first matching removal to record identity
+                                for r in removal_entries:
+                                    if _spec.matcher(r, item):
+                                        actual_removals.append(_spec.removal_id(r))
+                                        break
+                            else:
+                                after_items.append(item)
+                        if actual_removals:
+                            last_result[items_key] = after_items
+                            last_result["count"] = len(after_items)
+                            applied_removals = actual_removals
+                            logger.info(
+                                f"{agent_name} QA removed {len(before_items) - len(after_items)} items "
+                                f"(pre={len(before_items)}, post={len(after_items)}). "
+                                f"Removed: {applied_removals}"
+                            )
 
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
@@ -2954,14 +3082,36 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     qa_status = qa_result.get("status") or verdict
 
                     # Build display issues list from corrections (read for display only;
-                    # actual filtering already happened above for CmdlineExtract).
+                    # actual filtering already happened above via _QA_AGENT_SPECS dispatch).
+                    _CORRECTION_IDENT_FIELDS = (
+                        "command",
+                        "query",
+                        "registry_key_path",
+                        "registry_value_name",
+                        "service_name",
+                        "task_name",
+                        "task_path",
+                        "parent",
+                        "child",
+                    )
+
+                    def _correction_ident(
+                        entry: dict,
+                        _fields: tuple = _CORRECTION_IDENT_FIELDS,
+                    ) -> str:
+                        for f in _fields:
+                            v = (entry.get(f) or "").strip()
+                            if v:
+                                return v
+                        return ""
+
                     issues = []
                     if qa_result and isinstance(qa_result.get("corrections"), dict):
                         corrections_obj = qa_result["corrections"]
                         for removed in corrections_obj.get("removed", []):
                             if not isinstance(removed, dict):
                                 continue
-                            ident = removed.get("command") or removed.get("query") or ""
+                            ident = _correction_ident(removed)
                             reason = removed.get("reason", "")
                             issues.append(
                                 {
@@ -2973,7 +3123,7 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         for added in corrections_obj.get("added", []):
                             if not isinstance(added, dict):
                                 continue
-                            ident = added.get("command") or added.get("query") or ""
+                            ident = _correction_ident(added)
                             found = added.get("found_in", "")
                             issues.append(
                                 {
