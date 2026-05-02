@@ -22,7 +22,7 @@ requests-mock==1.11.0
 
 # Database testing
 testcontainers==3.7.0  # Docker containers for integration tests
-faker==28.1.0  # Generate test data
+faker==40.15.0  # Generate test data
 
 # Performance and profiling
 psutil>=7.0.0
