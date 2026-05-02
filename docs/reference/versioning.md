@@ -39,10 +39,9 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 ## Version History
 
 ### v6.2.1 "Io" (2026-05-02)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.2.1] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
+- **Significance**: Test suite green-up, source auto-healing feature removal, and eval bulk export coverage
+- **Features**: `all-no-ui` suite restored to 0/0 (2949 tests); source auto-healing subsystem moved to feature branch (~7,400 lines removed); eval bulk export test coverage; 11 MkDocs strict-mode warnings resolved; dead test dependencies removed (faker, flake8, pytest-benchmark)
 
 ### v6.2.0 "Io" (2026-04-30)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
