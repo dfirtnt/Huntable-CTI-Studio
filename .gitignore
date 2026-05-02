@@ -267,3 +267,4 @@ Workshop/.worktrees/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+.setup_complete
