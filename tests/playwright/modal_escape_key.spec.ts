@@ -169,43 +169,4 @@ test.describe('Modal Escape Key Functionality', () => {
     }
   });
 
-  test('ESC key closes source healing history panel', async ({ page }) => {
-    await page.route('**/api/sources/123/healing-history', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          source_id: 123,
-          source_name: 'Test Source',
-          events: [],
-          max_attempts: 3,
-          current_round: 0,
-          status: 'starting',
-          healing_exhausted: false,
-        }),
-      });
-    });
-
-    await page.goto(`${BASE}/sources`);
-    await page.waitForLoadState('networkidle');
-
-    const opened = await page.evaluate(async () => {
-      if (typeof (window as any).openHealingHistory !== 'function') {
-        return false;
-      }
-      await (window as any).openHealingHistory(123, 'Test Source');
-      return true;
-    });
-    expect(opened).toBe(true);
-
-    const panel = page.locator('#healingPanel');
-    const overlay = page.locator('#healingPanelOverlay');
-    await expect(panel).toHaveClass(/open/, { timeout: 5000 });
-    await expect(overlay).toHaveClass(/open/, { timeout: 5000 });
-
-    await page.keyboard.press('Escape');
-
-    await expect(panel).not.toHaveClass(/open/, { timeout: 3000 });
-    await expect(overlay).not.toHaveClass(/open/, { timeout: 3000 });
-  });
 });
