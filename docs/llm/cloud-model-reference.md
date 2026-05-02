@@ -165,3 +165,5 @@ improving the prompt in a model-agnostic way.
    worthwhile.
 4. Maintain model-specific prompt variants in presets if the optimal prompts for the two
    tiers diverge significantly.
+
+_Last updated: 2026-05-01_

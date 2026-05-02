@@ -1,75 +1,73 @@
-# Prompt Mapping: File System ↔ Database
+# Prompt Mapping: File System to Database
 
-## Agent Prompts (Mapped)
+## Source Of Truth
 
-| File System | Database Agent | Mapping Type | Notes |
-|------------|----------------|--------------|-------|
-| `ExtractAgent` + `ExtractAgentInstructions.txt` | `ExtractAgent` | **2 files → 1 DB entry** | Combined: `prompt` (from ExtractAgent) + `instructions` (from ExtractAgentInstructions.txt) |
-| `lmstudio_sigma_ranking.txt` | `RankAgent` | **1 file → 1 DB entry** | Primary ranking prompt |
-| `sigma_generation.txt` | `SigmaAgent` | **1 file → 1 DB entry** | SIGMA rule generation |
-| `QAAgent` | `QAAgent` | **1 file → 1 DB entry** | Quality assurance agent |
-| `OSDetectionAgent` | `OSDetectionAgent` | **1 file → 1 DB entry** | Optional in DB; file used as fallback in scoring scripts |
+- Live prompts live in the database workflow config (`agent_prompts`). Disk files in `src/prompts/` are **seed defaults** read only on bootstrap, empty fallback, or explicit reset.
+- Canonical agent names: `src/config/workflow_config_schema.py`
+- Loader logic: `src/config/workflow_config_loader.py`
 
-## Agent Prompts (File System Only)
+If this document and code disagree, trust the code.
 
-| File System | Database Agent | Status | Usage |
-|------------|----------------|--------|-------|
-| `ObservablesCountAgent` | ❌ None | **Not in workflow config** | Used in evaluation scripts (local utility script) |
-| `ExtractObservables` | ❌ None | **Not mapped** | Unknown usage |
+## Workflow Agents (Mapped to DB)
 
-## Utility/Support Prompts (Not Agents)
+These agents have both a seed file in `src/prompts/` and a database entry in workflow config. The database takes precedence at runtime.
 
-| File System | Type | Usage |
-|------------|------|-------|
-| `article_summary.txt` | Utility | General article summarization |
-| `database_chat.txt` | Utility | Database chat functionality |
-| `metadata_summary.txt` | Utility | Metadata summarization |
-| `sigma_system.txt` | Support | SIGMA system context |
-| `sigma_guidance.txt` | Support | SIGMA guidance/instructions |
-| `sigma_feedback.txt` | Support | SIGMA feedback handling |
+| Seed File | DB Agent Name | Notes |
+|-----------|---------------|-------|
+| `ExtractAgent` | `ExtractAgent` | Parent config for all extract sub-agents (model/provider fallback) |
+| `lmstudio_sigma_ranking.txt` | `RankAgent` | Primary ranking prompt |
+| `sigma_generation.txt` | `SigmaAgent` | Sigma rule generation |
+| `CmdlineExtract` | `CmdlineExtract` | Command-line artifact extraction |
+| `ProcTreeExtract` | `ProcTreeExtract` | Process lineage extraction |
+| `HuntQueriesExtract` | `HuntQueriesExtract` | Hunt query extraction |
+| `RegistryExtract` | `RegistryExtract` | Registry artifact extraction |
+| `ServicesExtract` | `ServicesExtract` | Windows services extraction |
+| `ScheduledTasksExtract` | `ScheduledTasksExtract` | Scheduled tasks extraction |
+| `QAAgentCMD` | `CmdLineQA` | QA for CmdlineExtract |
+| `ProcTreeQA` | `ProcTreeQA` | QA for ProcTreeExtract |
+| `HuntQueriesQA` | `HuntQueriesQA` | QA for HuntQueriesExtract |
+| `RegistryQA` | `RegistryQA` | QA for RegistryExtract |
+| `ServicesQA` | `ServicesQA` | QA for ServicesExtract |
+| `ScheduledTasksQA` | `ScheduledTasksQA` | QA for ScheduledTasksExtract |
 
-## Alternate Versions (Not Mapped)
+## File-Only Prompts (Not in Workflow Config)
 
-| File System | Purpose | Notes |
-|------------|---------|-------|
-| `gpt4o_sigma_ranking.txt` | Alternate | GPT-4o specific ranking prompt |
-| `huntability_ranking.txt` | Alternate | Alternative ranking prompt |
-| `huntability_ranking_alt.txt` | Alternate | Alternative ranking prompt variant |
-| `llm_sigma_ranking_simple.txt` | Alternate | Simplified LLM ranking prompt |
-| `sigma_generation_simple.txt` | Alternate | Simplified SIGMA generation |
-| `SIGMA_Huntability_Ranking_v2C-R.md` | Documentation | Markdown documentation |
+| Seed File | Usage |
+|-----------|-------|
+| `OSDetectionAgent` | Referenced by scoring scripts; OS detection uses regex at runtime, not an LLM call |
+| `ObservablesCountAgent` | Used in evaluation scripts only |
 
-## Database-Only Agents
+## Sigma Support Prompts
 
-| Database Agent | File System | Status | Notes |
-|----------------|-------------|--------|-------|
-| Custom agents | ❌ None | **DB-only** | Agents created directly in database via UI/API without file system counterpart |
+| File | Purpose |
+|------|---------|
+| `sigma_system.txt` | Sigma system context |
+| `sigma_guidance.txt` | Sigma guidance/instructions |
+| `sigma_generate_multi.txt` | Multi-rule Sigma generation |
+| `sigma_generation_simple.txt` | Simplified Sigma generation |
+| `sigma_enrichment.txt` | Sigma rule enrichment |
+| `sigma_repair_single.txt` | Single-rule Sigma repair |
 
-## Mapping Rules
+## Utility Prompts
 
-### Priority Order
-1. **Database** (if exists) → Takes precedence
-2. **File System** → Fallback default
+| File | Purpose |
+|------|---------|
+| `article_summary.txt` | Article summarization |
+| `metadata_summary.txt` | Metadata summarization |
 
-### Special Cases
-- **ExtractAgent**: Only agent that combines 2 files into 1 database entry
-- **OSDetectionAgent**: Used in scoring scripts but not explicitly mapped in `workflow_config.py`
-- **ObservablesCountAgent**: File exists but not part of workflow configuration
+## Alternate/Historical Versions (Not Active)
 
-### Access Patterns
-- **Workflow agents** (ExtractAgent, RankAgent, SigmaAgent, QAAgent): Loaded via `workflow_config.py` → Database first, file fallback
-- **Scoring scripts**: Direct file access with optional database lookup (OSDetectionAgent, ExtractAgent)
-- **Evaluation scripts**: Direct file access (ObservablesCountAgent)
+| File | Notes |
+|------|-------|
+| `huntability_ranking.txt` | Alternative ranking prompt |
+| `huntability_ranking_alt.txt` | Alternative ranking variant |
+| `llm_sigma_ranking.txt` | Generic LLM ranking |
+| `llm_sigma_ranking_simple.txt` | Simplified LLM ranking |
+| `SIGMA_Huntability_Ranking_v2C-R.md` | Historical documentation |
 
-## Summary Statistics
+## Priority Order
 
-- **Total file system prompts**: 20 files
-- **Mapped to database**: 5 agents (4 explicit + 1 implicit)
-- **File system only**: 2 agent files
-- **Utility/support**: 6 files
-- **Alternate versions**: 6 files
-- **Database-only agents**: Variable (user-created)
+1. **Database** (workflow config `agent_prompts`) -- takes precedence
+2. **Seed file** (`src/prompts/`) -- fallback on bootstrap or reset
 
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTEwNjUzMjY4MDJdfQ==
--->
+_Last updated: 2026-05-01_

@@ -479,4 +479,4 @@ pip install torch --index-url https://download.pytorch.org/whl/cu118
 
 ---
 
-_Last updated: February 2025_
+_Last updated: 2026-05-01_

@@ -225,3 +225,5 @@ If the relationship is implied ("used", "via", "leveraged") rather than stated, 
 If injection, hollowing, or DLL loading is described, SKIP -- that is not process creation.
 If the source is a code listing or shell command without narrative lineage, SKIP.
 When in doubt, OMIT.
+
+_Last updated: 2026-05-01_

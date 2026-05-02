@@ -113,17 +113,17 @@ Raw article (variable, up to 40K tokens)
   Output: Structured extraction JSON (~1-2K tokens)
     |
     v
-[SIGMA Generator Agent]
-  Input:  Extraction JSON + SIGMA template (~3-4K tokens)
+[Sigma Generator Agent]
+  Input:  Extraction JSON + Sigma template (~3-4K tokens)
   n_ctx:  8192
-  Output: SIGMA rule (~500-800 tokens)
+  Output: Sigma rule (~500-800 tokens)
 ```
 
 This design means:
 
 - The Rank Agent never sees the full article -- no need for large context
 - The Extractor Agent sees the full article but with a hard 16K truncation ceiling
-- The SIGMA Generator sees only the structured extraction, which is always compact
+- The Sigma Generator sees only the structured extraction, which is always compact
 
 A monolithic agent handling all three tasks would require a 32K+ context window to
 handle the largest articles end-to-end, would need to be re-run for all tasks (no
@@ -239,3 +239,5 @@ fundamentally different infrastructure model.
 Increasing n_ctx beyond 16K should only be done if empirical testing shows a meaningful
 quality improvement for your specific article corpus, on hardware with VRAM headroom to
 absorb the cost without concurrency degradation.
+
+_Last updated: 2026-05-01_

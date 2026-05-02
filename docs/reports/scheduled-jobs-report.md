@@ -1,7 +1,6 @@
 # Scheduled Jobs Report
 
-**Generated:** 2025-03-12  
-**Scope:** Huntable CTI Studio — all scheduled/periodic jobs (Celery Beat + host crontab).
+All scheduled/periodic jobs (Celery Beat + host crontab).
 
 ---
 
@@ -60,3 +59,5 @@
 - **Celery Beat:** `src/worker/celery_app.py` (periodic registration), `src/worker/celeryconfig.py` (queues/routes).
 - **Backup cron:** `src/services/backup_cron_service.py`, `config/backup.yaml`, `src/cli/commands/backup.py` (`backup cron`), `src/web/routes/backup.py` (`/api/backup/cron`).
 - **Generic crontab:** `src/cli/commands/cron.py` (`cron show` / `cron set`), `src/web/routes/cron.py` (`/api/cron`).
+
+_Last updated: 2026-05-01_

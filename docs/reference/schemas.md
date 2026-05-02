@@ -142,3 +142,5 @@ Operationally important tables include:
 - workflow config/version tables
 
 Use `src/database/models.py` when you need exact field names, nullability, or relationships.
+
+_Last updated: 2026-05-01_

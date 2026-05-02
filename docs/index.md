@@ -69,7 +69,7 @@ Semantic search across your CTI corpus using embeddings. See [Semantic Search](f
 
 ### Source Auto-Healing
 
-LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See [Source Healing Architecture](internals/source-healing.md).
+LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See `src/services/source_healing_service.py` for implementation details.
 
 ### Model Versioning And Rollback
 
@@ -90,7 +90,5 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Documentation**: Navigate using the docs sidebar
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTkxOTE0MzM5NCwtOTM3NDIyNjkzLC03Nj
-g2MjA3NTZdfQ==
--->
+
+_Last updated: 2026-05-01_

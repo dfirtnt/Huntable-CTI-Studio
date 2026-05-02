@@ -405,3 +405,5 @@ A: The pipeline will attempt to parse it. If parsing fails, the evaluation is tr
 ## Final Note
 
 QA agents are the final safeguard before outputs enter downstream systems. Invest time in clear, specific evaluation criteria and evidence-based reasoning. A well-designed QA prompt prevents hallucinations and schema violations from propagating through the pipeline.
+
+_Last updated: 2026-05-01_

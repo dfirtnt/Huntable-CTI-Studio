@@ -544,9 +544,9 @@ pytest -m ui -v -s
 
 The project includes TypeScript Playwright tests that are integrated into the pytest suite:
 
-- **`tests/playwright/workflow_tabs.spec.ts`** - Verifies workflow agent config subpages (Configuration, Executions, SIGMA Queue) remain visible and functional
+- **`tests/playwright/workflow_tabs.spec.ts`** - Verifies workflow agent config subpages (Configuration, Executions, Sigma Queue) remain visible and functional
 - **`tests/playwright/workflow_save_button.spec.ts`** - Tests workflow configuration save button functionality
-- **`tests/playwright/sigma.spec.ts`** - SIGMA generation with LMStudio
+- **`tests/playwright/sigma.spec.ts`** - Sigma generation with LMStudio
 - **`tests/playwright/workflow_executions.spec.ts`** - Workflow execution features
 
 These tests can be run directly via npm:
@@ -708,4 +708,4 @@ Reason: Documentation restructure to eliminate duplication
 
 ---
 
-_Last updated: February 2025_
+_Last updated: 2026-05-01_

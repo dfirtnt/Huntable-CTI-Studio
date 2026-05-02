@@ -164,3 +164,5 @@ Before finalizing the generated prompt, ensure:
 - The prompt length is appropriate for the target model class.
 
 If any invariant is violated, regenerate.
+
+_Last updated: 2026-05-01_

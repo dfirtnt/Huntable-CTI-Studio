@@ -153,3 +153,5 @@ If containers are consistently near their limits, increase them. If they're well
 - Check total memory usage: `docker stats`
 - Ensure total limits don't exceed available RAM
 - Consider reducing limits further if system has < 8GB RAM
+
+_Last updated: 2026-05-01_

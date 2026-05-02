@@ -493,3 +493,5 @@ The system uses `ThreatHuntingScorer._keyword_matches()` for pattern matching:
 - **Accuracy:** ~80% on test data
 
 The model learns which features are most important for classification, but only among the features actually passed into the training matrix. In the current runtime path, the hunt_score bins are debug-only and do not contribute to the fitted forest unless the training code is changed to include them.
+
+_Last updated: 2026-05-01_

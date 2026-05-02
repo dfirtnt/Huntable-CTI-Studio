@@ -260,3 +260,5 @@ If the command is multi-line or visually wrapped, SKIP.
 If a cmd.exe wrapper strips down to a trivial command, SKIP.
 If the source is malware source code, detection logic, or defensive guidance, SKIP.
 When in doubt, OMIT.
+
+_Last updated: 2026-05-01_

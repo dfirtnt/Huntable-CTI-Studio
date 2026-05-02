@@ -222,3 +222,5 @@ If a task name appears only inside a schtasks command-line, apply the soft-overl
 If a store_path contains `\Schedule\TaskCache\`, SKIP -- that is a registry path.
 If the reference is hypothetical, speculative, or defensive guidance, SKIP.
 When in doubt, OMIT.
+
+_Last updated: 2026-05-01_

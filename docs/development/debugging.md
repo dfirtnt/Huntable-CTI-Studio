@@ -69,7 +69,7 @@ Each workflow execution creates:
 
 1. **Session ID**: Format `workflow_exec_{execution_id}` (e.g., `workflow_exec_86`)
 2. **Trace ID**: 32-character unique identifier for the execution trace
-3. **Spans**: Individual workflow steps (extraction, ranking, SIGMA generation, etc.)
+3. **Spans**: Individual workflow steps (extraction, ranking, Sigma generation, etc.)
 
 ### Implementation Details
 
@@ -1034,4 +1034,4 @@ for exec in pending:
 
 ---
 
-_Last updated: February 2025_
+_Last updated: 2026-05-01_

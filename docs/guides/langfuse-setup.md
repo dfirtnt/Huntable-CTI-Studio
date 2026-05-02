@@ -116,3 +116,5 @@ Traces only exist for executions that ran while Langfuse tracing was enabled. If
 - [Installation](../getting-started/installation.md)
 - [Configuration](../getting-started/configuration.md)
 - [Debugging](../development/debugging.md)
+
+_Last updated: 2026-05-01_

@@ -260,3 +260,5 @@ If a Sigma block lacks logsource OR detection, SKIP.
 If the query is presented as "you could detect..." or "defenders should...", SKIP -- it is a recommendation, not a detection.
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
+
+_Last updated: 2026-05-01_

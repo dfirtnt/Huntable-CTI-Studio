@@ -155,3 +155,5 @@ Use `status` to detect "is this source reachable right now?" and `error_rate` to
 2. **Document your preference**: Do you want database or YAML to be source of truth?
 3. **After restore**: Decide whether to sync from YAML or use database values
 4. **Version control**: Keep `config/sources.yaml` in git for tracking changes
+
+_Last updated: 2026-05-01_

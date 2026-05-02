@@ -8,7 +8,7 @@ It covers local models (LM Studio / GGUF) and cloud models (OpenAI, Anthropic) f
 
 1. **Rank Agent** — Evaluates article quality and huntability (1–10 score)
 2. **Extractor Agents** — Extracts observables (command lines, process trees, registry keys, services, hunt queries, scheduled tasks)
-3. **SIGMA Generator** — Synthesizes extracted observables into detection rules
+3. **Sigma Generator** — Synthesizes extracted observables into detection rules
 
 **Related documents:**
 - [Context Window Rationale](context-window-rationale.md) — Engineering rationale for the 16K local context ceiling, KV cache math, fail-closed protocol
@@ -27,15 +27,15 @@ Start here. Optimize from measured bottlenecks, not theory.
 | **Rank** | Qwen3-8B-Instruct | 8B | Q4_K_M | ~5 GB | 0.1–0.3 | 8–16K |
 | **Extract** | Qwen3-14B-Instruct | 14B | Q5_K_M | ~9 GB | 0.0–0.1 | 16K |
 | **Extract (Parallel)** | Qwen3-8B-Instruct ×4 | 8B | Q4_K_M | ~5 GB each | 0.0–0.1 | 16K |
-| **SIGMA Gen** | Qwen3-14B-Instruct | 14B | Q5_K_M | ~9 GB | 0.2–0.4 | 16K |
-| **SIGMA Gen (Optimal)** | Llama 3.1-70B-Instruct | 70B | Q4_K_M | ~40 GB | 0.2–0.4 | 16K |
+| **Sigma Gen** | Qwen3-14B-Instruct | 14B | Q5_K_M | ~9 GB | 0.2–0.4 | 16K |
+| **Sigma Gen (Optimal)** | Llama 3.1-70B-Instruct | 70B | Q4_K_M | ~40 GB | 0.2–0.4 | 16K |
 
 ### Cloud Models
 
 | Agent | Preferred | Alternative | Notes |
 |-------|-----------|-------------|-------|
 | **Extract** | gpt-4o | gpt-4o-mini | mini needs heavier guardrail prompts |
-| **SIGMA Gen** | claude-sonnet-4-6 | gpt-4o | Use bare model names for production |
+| **Sigma Gen** | claude-sonnet-4-6 | gpt-4o | Use bare model names for production |
 
 **Default starting point:** Qwen3-14B-Instruct across all stages. Optimize from there.
 
@@ -68,11 +68,11 @@ Chain-of-thought models (DeepSeek-R1, QwQ, o-series) excel at multi-step plannin
 - **7–8B**: Minimum viable for simple extraction and classification
 - **14B**: Sweet spot for precision extraction and generation
 - **33B+**: Marginal gains for most CTI tasks at significant VRAM cost
-- **70B**: Worth it only for SIGMA generation if hardware permits
+- **70B**: Worth it only for Sigma generation if hardware permits
 
 ### 5. Code Models Are Not Required for YAML
 
-SIGMA YAML is structurally simple. Instruction-tuned models handle it well. Over-specialized code models sometimes add "best practices" not present in your extractions. Code variants provide marginal benefit over base instruct models.
+Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over-specialized code models sometimes add "best practices" not present in your extractions. Code variants provide marginal benefit over base instruct models.
 
 ---
 
@@ -159,9 +159,9 @@ SIGMA YAML is structurally simple. Instruction-tuned models handle it well. Over
 
 ---
 
-### 3. SIGMA Generator Agent
+### 3. Sigma Generator Agent
 
-**Task:** Synthesize extracted observables into valid, deployable SIGMA detection rules.
+**Task:** Synthesize extracted observables into valid, deployable Sigma detection rules.
 
 **Cognitive profile:** Structured synthesis, moderate reasoning, schema-constrained YAML output. Must combine multiple observables coherently without inventing new ones.
 
@@ -170,7 +170,7 @@ SIGMA YAML is structurally simple. Instruction-tuned models handle it well. Over
 | Allowed | Forbidden |
 |---------|-----------|
 | Combining command line + registry key into one detection | Adding observables not in extraction results |
-| Selecting appropriate SIGMA field mappings | Inventing process relationships not in source |
+| Selecting appropriate Sigma field mappings | Inventing process relationships not in source |
 | AND/OR logic based on article context | Speculating on evasion techniques |
 | Choosing detection level (low/med/high/critical) | Multi-stage detections unsupported by extractions |
 
@@ -183,7 +183,7 @@ SIGMA YAML is structurally simple. Instruction-tuned models handle it well. Over
 **Config:** Q5_K_M strongly preferred, 16K context, temperature 0.2–0.4, 9–40 GB VRAM depending on model.
 
 **Prompt guidance:**
-- Include complete SIGMA rule template
+- Include complete Sigma rule template
 - Provide explicit field mapping guide
 - Instruct: "Use ONLY observables from extraction results"
 - Include logic operator guidance (when AND vs OR)
@@ -224,7 +224,7 @@ Test each model on YOUR CTI sources. Generic benchmarks don't predict your perfo
 
 **Red flags:** Extracting content not in source text, adding context or explanation, "fixing" malformed patterns, precision <90%.
 
-### SIGMA Generator Validation
+### Sigma Generator Validation
 
 **Dataset:** 20+ extraction result sets with expected rules.
 
@@ -289,7 +289,7 @@ Parallel extraction (4× Qwen3-14B) + Llama 3.1-70B generator.
 
 **Week 2:** Test Qwen3-8B parallel vs. 14B sequential for extraction. Choose based on measured speed/accuracy trade-off.
 
-**Week 3:** If VRAM available, test Llama 3.1-70B for SIGMA generation. Assess if improvement justifies cost.
+**Week 3:** If VRAM available, test Llama 3.1-70B for Sigma generation. Assess if improvement justifies cost.
 
 **Week 4:** Lock model versions, document model hashes, establish monitoring.
 
@@ -307,7 +307,7 @@ Same prompt format — drop-in replacement. Test on 20 articles, compare precisi
 
 **Extract:** Precision (sample 10 articles/week), empty result rate (expect ~20–30% for specialized extractors), JSON parse error rate (target 0%).
 
-**SIGMA Gen:** YAML validation pass rate (target 100%), rule deployment success rate (target >90%), average observables per rule.
+**Sigma Gen:** YAML validation pass rate (target 100%), rule deployment success rate (target >90%), average observables per rule.
 
 ### Drift Detection
 
@@ -329,6 +329,4 @@ Always verify model hash against official releases.
 
 ---
 
-**Document Version:** 2.0
-**Last Updated:** May 2026
-**Maintainer:** Andrew (Cybersecurity / Detection Engineering)
+_Last updated: 2026-05-01_
