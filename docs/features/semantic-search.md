@@ -7,7 +7,7 @@ Huntable CTI Studio indexes articles and Sigma rules as dense vectors and expose
 
 The previous in-app RAG Chat UI was removed in v5.5.0. Conversational retrieval has moved to MCP.
 
-## Core components
+## Core Components
 
 1. **Embedding Service** (`src/services/embedding_service.py`)
    - Model: Sentence Transformers `all-mpnet-base-v2` (768-dimensional)
@@ -60,3 +60,5 @@ Run once after setup, then again whenever Sigma rules change:
 ## Embedding coverage API
 
 `GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by `/search`, CLI `embed stats`, and MCP `get_stats`.
+
+_Last updated: 2026-05-01_

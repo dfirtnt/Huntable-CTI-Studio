@@ -65,7 +65,7 @@ Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection]
 
 ### RAG Search
 
-Semantic search across your CTI corpus using embeddings. See [RAG Search](features/rag-search.md).
+Semantic search across your CTI corpus using embeddings. See [Semantic Search](features/semantic-search.md).
 
 ### Source Auto-Healing
 

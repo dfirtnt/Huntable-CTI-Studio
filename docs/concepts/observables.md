@@ -2,7 +2,7 @@
 
 Observables are the **structured extraction output** of the Extract Agent: typed items (command lines, process lineage, detection queries) that downstream Sigma generation and similarity matching consume. They are stored per workflow execution in `extraction_result`.
 
-**Relation to Huntables:** Huntables are enterprise-specific, telemetry-rich content that can drive detections; they are tailored to your org and workflow (ML junk filtering, agent prompts). In this app, “observables” means the **structured extraction output** of that content—the `observables` array and `subresults` in `extraction_result`. See [Huntables](huntables.md) for the full definition and article-level hunt scores.
+**Relation to Huntables:** Huntables are enterprise-specific, telemetry-rich content that can drive detections; they are tailored to your org and workflow (ML junk filtering, agent prompts). Observables are the structured representation of that content — the `observables` array and `subresults` in `extraction_result`. See [Huntables](huntables.md) for the full definition and article-level hunt scores.
 
 ## Types emitted (active sub-agents)
 
@@ -49,3 +49,5 @@ Observables are the **structured extraction output** of the Extract Agent: typed
 1. Ensure the article exists (RSS ingestion or `POST /api/scrape-url`).
 2. Trigger the workflow (`POST /api/workflow/articles/{article_id}/trigger`).
 3. Wait for `status=completed`, then read `extraction_result` from the API or UI. Re-run the trigger if you change models, prompts, or input content.
+
+_Last updated: 2026-05-01_

@@ -61,7 +61,7 @@ If you enter these during `./setup.sh`, they are written to `.env` and used at r
 - `LMSTUDIO_MODEL` - Main completion model
 - `LMSTUDIO_MODEL_RANK` - Ranking model
 - `LMSTUDIO_MODEL_EXTRACT` - Observable extraction model
-- `LMSTUDIO_MODEL_SIGMA` - SIGMA rule generation model
+- `LMSTUDIO_MODEL_SIGMA` - Sigma rule generation model
 
 ### Langfuse Tracing (Optional)
 Langfuse is an optional tracing integration for workflow and LLM observability.
@@ -211,4 +211,4 @@ The committed eval article directories cover all six extraction sub-agents:
 
 ---
 
-_Last verified: April 2026_
+_Last updated: 2026-05-01_

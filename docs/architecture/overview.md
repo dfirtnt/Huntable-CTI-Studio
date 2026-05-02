@@ -46,7 +46,7 @@ The main workflow is implemented in `src/workflows/agentic_workflow.py`. The hig
 1. OS detection
 2. Junk filter
 3. LLM ranking
-4. Extract Agent supervisor
+4. Extract Agent
 5. Sigma generation
 6. Similarity search
 7. Queue promotion
@@ -104,3 +104,5 @@ The isolated test stack is defined separately in `docker-compose.test.yml`.
 - [Scoring](scoring.md)
 - [Schemas](../reference/schemas.md)
 - [Agent Orientation](../development/agent-orientation.md)
+
+_Last updated: 2026-05-01_

@@ -1,4 +1,4 @@
-# Huntables.
+# Huntables
 
 ## What is a “Huntable”?
 
@@ -10,7 +10,7 @@ Out of the box, the application supports these:
 
 - **Command lines** — Literal command lines observable in an EDR, EventCode 4688 (security.evtx if configured), and/or EventCode 1 (Sysmon.evtx).
 - **Process trees** — Lineage information such as parent–child relationships.
-- **Hunt queries** — EDR, Splunk, SIEM, or SIGMA queries found in intel articles.
+- **Hunt queries** — EDR, Splunk, SIEM, or Sigma queries found in intel articles.
 
 In the workflow, these are emitted by the Extract Agent sub-agents as typed **observables** (`cmdline`, `process_lineage`, `hunt_queries`) and stored in `extraction_result`. See [Observables](observables.md) for the extraction schema and API.
 
@@ -38,3 +38,5 @@ In the workflow, these are emitted by the Extract Agent sub-agents as typed **ob
 2. Trigger the workflow (`POST /api/workflow/articles/{article_id}/trigger` or “Reprocess” on the article page).
 3. Extract Agent sub-agents emit typed observables; the supervisor aggregates them into `observables` and sets `discrete_huntables_count`.
 4. Sigma generation uses the aggregated `content` when `discrete_huntables_count > 0` and content length is sufficient.
+
+_Last updated: 2026-05-01_
