@@ -1,4 +1,5 @@
 ---
+title: "Agent prompt state refactor to stop recurring save-display bug"
 module: Agent Prompt Management
 date: "2026-03-11"
 problem_type: workflow_issue

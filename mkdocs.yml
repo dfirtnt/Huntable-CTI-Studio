@@ -97,7 +97,16 @@ nav:
       - Hunt Query Eval: prompts/huntquery-eval.md
       - Process Tree Eval: prompts/proctree-eval.md
   - Solutions:
-      - Test failures: solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md
+      - Test failures:
+          - Async fixture teardown loop mismatch: solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md
+          - Cmdline extract preset prompt drift (IEX): solutions/test-failures/cmdline-extract-preset-prompt-drift-iex-2026-05-01.md
+      - Logic errors:
+          - SIGMA similarity case-sensitive atom matching: solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md
+          - SIGMA cross-field soft matching zero similarity: solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md
+      - UI bugs:
+          - Agent prompt save/display revert race: solutions/ui-bugs/agent-prompt-save-display-revert-AgentPrompts-20260202.md
+      - Workflow issues:
+          - Agent prompt state refactor recurring save: solutions/workflow-issues/agent-prompt-state-refactor-stop-recurring-save-display-20260311.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md
 

@@ -1,4 +1,5 @@
 ---
+title: "Async fixture teardown runs in different event loop (annotation persistence tests)"
 module: Integration tests
 date: "2026-03-10"
 problem_type: test_failure
