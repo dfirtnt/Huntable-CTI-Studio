@@ -175,6 +175,7 @@ extend-ignore = [
 "src/cli/main.py" = ["E402"]
 "src/web/routes/chat.py" = ["E501"]
 "src/worker/celery_app.py" = ["E402", "E501", "SIM105", "RET504", "B904", "B905", "F841"]
+"vulture_whitelist.py" = ["F821", "B018"]
 
 [tool.ruff.format]
 # Use ruff as the formatter (enabled by default when ruff is installed)

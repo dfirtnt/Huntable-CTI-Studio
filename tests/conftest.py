@@ -193,7 +193,6 @@ except ImportError:
 try:
     from tests.utils.test_failure_analyzer import (
         TestFailureReporter,
-        analyze_test_failure,
         generate_failure_report,
     )
 
@@ -201,33 +200,25 @@ try:
 except ImportError:
     FAILURE_ANALYZER_AVAILABLE = False
     TestFailureReporter = None
-    analyze_test_failure = None
     generate_failure_report = None
 
 # Optional: test isolation
 try:
-    from tests.utils.test_isolation import TestIsolationManager, test_isolation
+    from tests.utils.test_isolation import TestIsolationManager
 
     ISOLATION_AVAILABLE = True
 except ImportError:
     ISOLATION_AVAILABLE = False
     TestIsolationManager = None
-    test_isolation = None
 
 # Optional: test output formatter
 try:
-    from tests.utils.test_output_formatter import (
-        TestOutputFormatter,
-        print_test_failure,
-        print_test_result,
-    )
+    from tests.utils.test_output_formatter import TestOutputFormatter
 
     OUTPUT_FORMATTER_AVAILABLE = True
 except ImportError:
     OUTPUT_FORMATTER_AVAILABLE = False
     TestOutputFormatter = None
-    print_test_failure = None
-    print_test_result = None
 
 # Set up logging for tests
 logging.basicConfig(
