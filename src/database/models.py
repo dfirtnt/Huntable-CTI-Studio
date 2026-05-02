@@ -51,10 +51,6 @@ class SourceTable(Base):
     # Health metrics
     average_response_time = Column(Float, nullable=False, default=0.0)
 
-    # Legacy columns retained for DB compatibility (feature removed from code)
-    healing_exhausted = Column(Boolean, nullable=False, default=False)
-    healing_attempts = Column(Integer, nullable=False, default=0)
-
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
