@@ -1,6 +1,6 @@
 # Huntable CTI Studio
 
-**Reports to Rules… in Record time.**
+**Reports to Rules... in Record time.**
 
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables, command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries, and turns them into Sigma rules you can validate, review, and ship.
 

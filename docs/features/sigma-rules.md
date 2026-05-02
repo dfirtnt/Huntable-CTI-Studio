@@ -467,7 +467,7 @@ Studio as the embedding backend.
 ```bash
 LOG_LEVEL=DEBUG
 docker-compose logs -f web | grep "SIGMA"
-docker-compose exec web python -c "from src.services.embedding_service import EmbeddingService; print('OK')"
+docker-compose exec web python3 -c "from src.services.embedding_service import EmbeddingService; print('OK')"
 ```
 
 ---

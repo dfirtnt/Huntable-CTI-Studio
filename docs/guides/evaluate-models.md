@@ -14,7 +14,7 @@ Use the built-in evaluation scripts to measure Extract Agent quality before and 
 
 ## Run a baseline evaluation
 ```bash
-docker-compose exec -T web python scripts/eval_extract_agent.py \
+docker-compose exec -T web python3 scripts/eval_extract_agent.py \
   --test-data outputs/training_data/test_finetuning_data.json \
   --output outputs/evaluations/extract_agent_baseline.json \
   --model baseline
@@ -22,7 +22,7 @@ docker-compose exec -T web python scripts/eval_extract_agent.py \
 
 ## Evaluate a fine-tuned model
 ```bash
-docker-compose exec -T web python scripts/eval_extract_agent.py \
+docker-compose exec -T web python3 scripts/eval_extract_agent.py \
   --test-data outputs/training_data/test_finetuning_data.json \
   --output outputs/evaluations/extract_agent_finetuned.json \
   --model finetuned-mistral-7b

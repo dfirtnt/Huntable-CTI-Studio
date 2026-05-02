@@ -5,7 +5,8 @@ Huntable CTI Studio indexes articles and Sigma rules as dense vectors and expose
 - The in-app **semantic search** page (`/search`)
 - The **Huntable MCP server**, which any MCP-capable client (Claude Desktop, Cursor, etc.) can drive for conversational retrieval
 
-The previous in-app RAG Chat UI was removed in v5.5.0. Conversational retrieval has moved to MCP.
+The previous in-app RAG Chat UI was removed in v6.0.0. Conversational retrieval has moved to MCP.
+<!-- TODO: verify: versioning.md lists this removal under v6.0.0; CHANGELOG references v5.5.0 which has no entry in the public version history. -->
 
 ## Core Components
 

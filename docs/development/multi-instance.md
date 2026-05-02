@@ -63,12 +63,12 @@ docker exec -i cti_postgres_dev2 psql -U cti_user -d cti_scraper < backup_dev2.s
 
 ### Run CLI in Dev2 Instance
 ```bash
-docker-compose -f docker-compose.dev2.yml run --rm cli python -m src.cli.main [command]
+docker-compose -f docker-compose.dev2.yml run --rm cli python3 -m src.cli.main [command]
 ```
 
 ### Example: Rescore Articles
 ```bash
-docker-compose -f docker-compose.dev2.yml run --rm cli python -m src.cli.main rescore
+docker-compose -f docker-compose.dev2.yml run --rm cli python3 -m src.cli.main rescore
 ```
 
 ## Stopping Instances

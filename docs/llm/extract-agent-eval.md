@@ -67,7 +67,7 @@ Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **st
 
 ```bash
 # Evaluate current model
-docker compose exec -T web python scripts/eval_extract_agent.py \
+docker compose exec -T web python3 scripts/eval_extract_agent.py \
     --test-data outputs/training_data/test_finetuning_data.json \
     --output outputs/evaluations/extract_agent_baseline.json \
     --model baseline
@@ -77,7 +77,7 @@ docker compose exec -T web python scripts/eval_extract_agent.py \
 
 ```bash
 # Evaluate fine-tuned model
-docker compose exec -T web python scripts/eval_extract_agent.py \
+docker compose exec -T web python3 scripts/eval_extract_agent.py \
     --test-data outputs/training_data/test_finetuning_data.json \
     --output outputs/evaluations/extract_agent_finetuned.json \
     --model finetuned-mistral-7b
@@ -88,7 +88,7 @@ docker compose exec -T web python scripts/eval_extract_agent.py \
 ```bash
 # Compare baseline vs fine-tuned
 # Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
-python scripts/compare_evaluations.py \
+python3 scripts/compare_evaluations.py \
     --baseline outputs/evaluations/extract_agent_baseline.json \
     --finetuned outputs/evaluations/extract_agent_finetuned.json
 ```
@@ -175,17 +175,17 @@ After fine-tuning, aim for:
 
 1. **Before Fine-Tuning:**
    ```bash
-   python scripts/eval_extract_agent.py --output outputs/evaluations/baseline.json
+   python3 scripts/eval_extract_agent.py --output outputs/evaluations/baseline.json
    ```
 
 2. **Fine-Tune Model:**
    ```bash
-   python scripts/finetune_extract_agent.py ...
+   python3 scripts/finetune_extract_agent.py ...
    ```
 
 3. **After Fine-Tuning:**
    ```bash
-   python scripts/eval_extract_agent.py \
+   python3 scripts/eval_extract_agent.py \
        --model finetuned \
        --output outputs/evaluations/finetuned.json
    ```
@@ -193,7 +193,7 @@ After fine-tuning, aim for:
 4. **Compare:**
    ```bash
    # Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
-   python scripts/compare_evaluations.py \
+   python3 scripts/compare_evaluations.py \
        --baseline outputs/evaluations/baseline.json \
        --finetuned outputs/evaluations/finetuned.json
    ```
@@ -256,19 +256,19 @@ Collect training examples from database and JSON result files:
 
 ```bash
 # From database only
-python scripts/harvest_extract_training_data.py \
+python3 scripts/harvest_extract_training_data.py \
     --from-database \
     --min-observables 3 \
     --output outputs/training_data/extract_training_data.json
 
 # From JSON files only
-python scripts/harvest_extract_training_data.py \
+python3 scripts/harvest_extract_training_data.py \
     --auto-find-json \
     --min-observables 3 \
     --output outputs/training_data/extract_training_data.json
 
 # From both
-python scripts/harvest_extract_training_data.py \
+python3 scripts/harvest_extract_training_data.py \
     --from-database \
     --auto-find-json \
     --min-observables 3 \
@@ -286,7 +286,7 @@ python scripts/harvest_extract_training_data.py \
 Convert harvested data into instruction-following format:
 
 ```bash
-python scripts/format_extract_training_data.py \
+python3 scripts/format_extract_training_data.py \
     --input outputs/training_data/extract_training_data.json \
     --output outputs/training_data/extract_formatted.json \
     --format alpaca
@@ -303,7 +303,7 @@ python scripts/format_extract_training_data.py \
 Fine-tune using HuggingFace Transformers:
 
 ```bash
-python scripts/finetune_extract_agent.py \
+python3 scripts/finetune_extract_agent.py \
     --model mistralai/Mistral-7B-Instruct-v0.2 \
     --data outputs/training_data/extract_formatted_alpaca.json \
     --output models/extract_agent_finetuned \
@@ -434,20 +434,20 @@ python3 scripts/evalore_extract_agentlmstudio.py \
 
 ```bash
 # 1. Harvest data
-python scripts/harvest_extract_training_data.py \
+python3 scripts/harvest_extract_training_data.py \
     --from-database \
     --auto-find-json \
     --min-observables 3 \
     --output outputs/training_data/extract_training_data.json
 
 # 2. Format data
-python scripts/format_extract_training_data.py \
+python3 scripts/format_extract_training_data.py \
     --input outputs/training_data/extract_training_data.json \
     --output outputs/training_data/extract_formatted.json \
     --format alpaca
 
 # 3. Fine-tune
-python scripts/finetune_extract_agent.py \
+python3 scripts/finetune_extract_agent.py \
     --model mistralai/Mistral-7B-Instruct-v0.2 \
     --data outputs/training_data/extract_formatted_alpaca.json \
     --output models/extract_agent_mistral_7b \
