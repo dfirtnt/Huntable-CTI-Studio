@@ -213,6 +213,10 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c "SELECT 1;"
 
 ## Related Documentation
 
-- [Backup and Restore Guide](./BACKUP_AND_RESTORE.md)
+- [Backup and Restore Guide](../guides/backup-and-restore.md)
 - **ML Model Versioning System**: See model_versioning.py in src/utils/
+
+> **Note:** The verification scripts referenced above (`utils/temp/verify_backup_restore_*.sh`) have been removed. The verification steps documented here remain valid for manual execution.
+
+_Last updated: 2026-05-01_
 

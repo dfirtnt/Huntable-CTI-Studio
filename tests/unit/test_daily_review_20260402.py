@@ -124,17 +124,6 @@ async def test_rss_parser_no_dummy_article_on_all_filtered():
     assert len(dummy_articles) == 0, "Dummy articles with empty URL should not be created"
 
 
-# ── error_detail truncation ──────────────────────────────────────
-
-
-def test_healing_error_detail_truncated():
-    """error_detail stored in healing event should be truncated to 500 chars."""
-    # Simulate the truncation logic from source_healing_service.py
-    raw_detail = "x" * 1000
-    truncated = raw_detail[:500] if raw_detail else None
-    assert len(truncated) == 500
-
-
 # ── SQL parameterization ────���────────────────────────────────────
 
 

@@ -65,21 +65,12 @@ This project and everyone participating in it is governed by our Code of Conduct
 
 ```bash
 # Quick health check (recommended first step)
-python3 run_tests.py --smoke
-
-# Run all tests with coverage
-python3 run_tests.py --all --coverage
+python3 run_tests.py smoke
 
 # Run specific test categories
-python3 run_tests.py --unit
-python3 run_tests.py --api
-python3 run_tests.py --integration
-
-# Docker-based testing
-python3 run_tests.py --docker --integration
-
-# Install test dependencies
-python3 run_tests.py --install
+python3 run_tests.py unit
+python3 run_tests.py api
+python3 run_tests.py integration
 ```
 
 ## Code Style
@@ -95,30 +86,18 @@ We follow PEP 8 with some modifications:
 
 ### Code Formatting
 
-We use automated tools for code formatting:
-
-```bash
-# Install formatting tools
-pip3 install black isort mypy flake8
-
-# Format code
-black src/
-isort src/
-
-# Check types
-mypy src/
-
-# Lint code
-flake8 src/
-```
-
-### Pre-commit Hooks
-
-Install pre-commit hooks for automatic formatting:
+The project uses `ruff` for linting and formatting (configured in `pyproject.toml`). Pre-commit hooks run automatically on `git commit`:
 
 ```bash
 pip3 install pre-commit
 pre-commit install
+```
+
+To run manually:
+
+```bash
+ruff check src/
+ruff format src/
 ```
 
 ## File Organization
@@ -177,20 +156,11 @@ Huntable-CTI-Studio/
 ### Quick Testing Commands
 
 ```bash
-# Quick health check (recommended first step)
-python3 run_tests.py --smoke
-
-# Run all tests with coverage
-python3 run_tests.py --all --coverage
-
-# Run specific test categories
-python3 run_tests.py --unit
-python3 run_tests.py --api
-python3 run_tests.py --integration
-python3 run_tests.py --ui
-
-# Docker-based testing
-python3 run_tests.py --docker --all
+python3 run_tests.py smoke
+python3 run_tests.py unit
+python3 run_tests.py api
+python3 run_tests.py integration
+python3 run_tests.py ui
 ```
 
 ### Test Requirements
@@ -216,7 +186,7 @@ For ML feedback features, follow the balanced testing approach:
 - **Keep tests simple and maintainable**
 - **Test the 3 essential areas**: Huntable probability calculation, API contracts, and retraining workflow
 
-See `tests/ML_FEEDBACK_TESTS_README.md` for detailed guidelines.
+See the testing documentation for detailed guidelines.
 
 ## Pull Request Process
 
@@ -313,7 +283,6 @@ Clear description of what you expected to happen.
 **Environment:**
 - OS: [e.g. macOS 14.0]
 - Python: [e.g. 3.11.0]
-- Huntable CTI Studio: [e.g. 52.0.0]
 
 **Additional context**
 Add any other context about the problem here.
@@ -398,7 +367,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-**Note**: This contributing guide is a living document. Please suggest improvements through issues or pull requests.
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbOTg4MjI5Mzc1XX0=
--->
+_Last updated: 2026-05-01_

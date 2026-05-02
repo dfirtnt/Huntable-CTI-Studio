@@ -40,3 +40,5 @@ The comparison highlights JSON validity, field completeness, average huntable co
 - Low JSON validity: verify model availability and prompt loading.
 - Missing fields: ensure the Extract Agent prompt and schema are unchanged; rerun with debug logging enabled.
 - Count mismatches: review `discrete_huntables_count` vs. the `observable_list` in the output JSON to see whether a sub-agent under-reported.
+
+_Last updated: 2026-05-01_

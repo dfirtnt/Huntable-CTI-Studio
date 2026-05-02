@@ -136,7 +136,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### backup
 
-**When:** Create, list, restore, or verify system backups; prune old backups. For full procedures see [Backup & Restore](../operations/BACKUP_AND_RESTORE.md).
+**When:** Create, list, restore, or verify system backups; prune old backups. For full procedures see [Backup & Restore](../guides/backup-and-restore.md).
 
 **Subcommands:**
 
@@ -177,7 +177,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh backup stats
 ```
 
-**See also:** [Backup & Restore](../operations/BACKUP_AND_RESTORE.md).
+**See also:** [Backup & Restore](../guides/backup-and-restore.md).
 
 ---
 
@@ -270,11 +270,11 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 | Subcommand | Description |
 |------------|-------------|
-| `embed`*(none)* | Generate embeddings for articles missing them (interactive confirm; use `--dry-run` to preview) |
+| `embed` | Generate embeddings for articles missing them (interactive confirm; use `--dry-run` to preview) |
 | `stats` | Show embedding coverage (total, embedded, pending, per-source) |
 | `search` | Semantic search: prompt for query, return similar articles |
 
-**Options (embed embed, no subcommand):**
+**Options (embed embed):**
 
 | Option | Default | Description |
 |--------|---------|-------------|
@@ -299,7 +299,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh embed search --limit 5 --threshold 0.75
 ```
 
-**See also:** [RAG Search](../features/rag-search.md), [Sigma Detection Rules](../features/sigma-rules.md).
+**See also:** [Semantic Search](../features/semantic-search.md), [Sigma Detection Rules](../features/sigma-rules.md).
 
 ---
 
@@ -317,6 +317,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `index-embeddings` | Generate embeddings for rules (uses local intfloat/e5-base-v2) |
 | `index-customer-repo` | Index approved rules from customer repo (SIGMA_REPO_PATH) for similarity search |
 | `backfill-metadata` | Recompute canonical fields for existing rules (no repo access needed) |
+| `recompute-semantics` | Backfill `canonical_class`, `atoms`, `surface_score` for all indexed rules (requires `sigma_similarity` package) |
 | `match ARTICLE_ID` | Match one article to Sigma rules; `--save` to persist |
 | `stats` | Show Sigma rule and match statistics |
 
@@ -367,7 +368,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh capabilities check --json-output
 ```
 
-**See also:** [Sigma](#sigma), [RAG Search](../features/rag-search.md).
+**See also:** [Sigma](#sigma), [Semantic Search](../features/semantic-search.md).
 
 ---
 
@@ -454,8 +455,10 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `rescore` | Recompute keyword-based threat hunting scores |
 | `rescore-ml` | Recompute ML-based hunt scores |
 | `embed embed` / `embed stats` / `embed search` | Embedding coverage, generation, coverage stats, semantic search |
-| `sigma sync/index/index-metadata/index-embeddings/index-customer-repo/backfill-metadata/recompute-semantics/match/stats` | Sigma rules sync, index, matching |
+| `sigma sync/index/index-metadata/index-embeddings/index-customer-repo/backfill-metadata/recompute-semantics/match/stats` | Sigma rules: sync, index, semantic backfill, matching |
 | `capabilities check` | Runtime feature capability status |
 | `export` | Dump articles to JSON/CSV |
 | `stats` | DB summary (sources, articles, activity) |
 | `archive add/remove/list/cleanup` | Soft-delete, or restore, or clean up articles |
+
+_Last updated: 2026-05-01_

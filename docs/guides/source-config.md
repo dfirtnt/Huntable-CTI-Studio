@@ -113,19 +113,6 @@ docker exec cti_postgres psql -U cti_user -d cti_scraper -c \
 cat config/sources.yaml | grep -A 5 "active:"
 ```
 
-## Auto-Healing
-
-Sources that accumulate consecutive failures are automatically diagnosed and repaired by an LLM-powered healing pipeline. The healer runs deep diagnostic probes (RSS content inspection, sitemap sampling, JS-rendering detection, WP JSON API discovery) before proposing config changes.
-
-For full details on what the healer can and cannot fix, see [`docs/internals/source-healing.md`](../internals/source-healing.md).
-
-Key config fields the healer modifies: `url`, `rss_url`, and `config` (merged). It **cannot** change `active` status — that is operator-only.
-
-The healer can also use a local OpenAI-compatible backend. In Settings, set
-`SOURCE_HEALING_PROVIDER=lmstudio` and choose a loaded local model in `SOURCE_HEALING_MODEL`.
-No API key is required for LMStudio. See [`docs/internals/source-healing.md`](../internals/source-healing.md)
-and [`docs/llm/model-selection.md`](../llm/model-selection.md) for model guidance.
-
 ## Source health status (dashboard badges)
 
 The `/analytics/scraper-metrics` "Source Performance Details" table shows a status badge per source. The badge reflects **scraper reachability**, not publisher cadence.
@@ -168,3 +155,5 @@ Use `status` to detect "is this source reachable right now?" and `error_rate` to
 2. **Document your preference**: Do you want database or YAML to be source of truth?
 3. **After restore**: Decide whether to sync from YAML or use database values
 4. **Version control**: Keep `config/sources.yaml` in git for tracking changes
+
+_Last updated: 2026-05-01_

@@ -147,7 +147,7 @@ class TestArticlesSearchAndFilter:
         # Test AND operator
         search_input.fill("malware AND ransomware")
         search_input.press("Enter")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("load")
 
         # Verify URL contains search parameter
         expect(page).to_have_url(re.compile(r".*search=malware.*"))
@@ -171,7 +171,7 @@ class TestArticlesSearchAndFilter:
         options = source_filter.locator("option")
         if options.count() > 1:
             source_filter.select_option(index=1)
-            page.wait_for_timeout(1000)
+            page.wait_for_load_state("load")
             expect(page).to_have_url(re.compile(r".*source=.*"))
 
     @pytest.mark.ui
@@ -191,7 +191,7 @@ class TestArticlesSearchAndFilter:
 
         # Select score range
         score_filter.select_option("80-100")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("load")
 
         # Verify URL contains score range parameter
         expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
@@ -209,7 +209,7 @@ class TestArticlesSearchAndFilter:
         score_filter = page.locator("#threat_hunting_range")
         if score_filter.is_visible():
             score_filter.select_option("80-100")
-            page.wait_for_timeout(1000)
+            page.wait_for_load_state("load")
 
         # Find clear all link
         clear_link = page.locator("a:has-text('Clear all')")
@@ -266,7 +266,7 @@ class TestArticlesSorting:
         # Change sort by
         sort_by = page.locator("#sort-by")
         sort_by.select_option("title")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("load")
 
         # Verify URL contains sort parameter
         expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
@@ -278,8 +278,8 @@ class TestArticlesSorting:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         # Use JS navigation to bypass _UrlAwarePage dedup (which ignores query params)
         page.goto(f"{base_url}/articles")
-        page.evaluate(f"window.location.href = '{base_url}/articles?sort_by=title&sort_order=asc'")
-        page.wait_for_load_state("load")
+        with page.expect_navigation(wait_until="load", timeout=15000):
+            page.evaluate(f"window.location.href = '{base_url}/articles?sort_by=title&sort_order=asc'")
 
         # Verify sort parameters are preserved
         sort_by = page.locator("#sort-by")
@@ -301,12 +301,12 @@ class TestArticlesSorting:
         score_filter = page.locator("#threat_hunting_range")
         if score_filter.is_visible():
             score_filter.select_option("80-100")
-            page.wait_for_timeout(1000)
+            page.wait_for_load_state("load")
 
         # Change sort
         sort_by = page.locator("#sort-by")
         sort_by.select_option("title")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("load")
 
         # Verify both parameters are in URL (threat_hunting_range from filter, sort_by from sort dropdown)
         expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
@@ -350,7 +350,7 @@ class TestArticlesPagination:
         # Change per-page
         per_page = page.locator("#per_page")
         per_page.select_option("50")
-        page.wait_for_timeout(1000)
+        page.wait_for_load_state("load")
 
         # Verify URL contains per_page parameter
         expect(page).to_have_url(re.compile(r".*per_page=50.*"))
@@ -382,8 +382,8 @@ class TestArticlesPagination:
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
         # Use JS navigation to bypass _UrlAwarePage dedup (which ignores query params)
         page.goto(f"{base_url}/articles")
-        page.evaluate(f"window.location.href = '{base_url}/articles?search=nonexistent_article_xyz_12345'")
-        page.wait_for_load_state("load")
+        with page.expect_navigation(wait_until="load", timeout=15000):
+            page.evaluate(f"window.location.href = '{base_url}/articles?search=nonexistent_article_xyz_12345'")
 
         # Verify empty state message
         empty_message = page.locator("text=No articles found")

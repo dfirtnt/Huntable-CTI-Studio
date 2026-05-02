@@ -193,7 +193,6 @@ except ImportError:
 try:
     from tests.utils.test_failure_analyzer import (
         TestFailureReporter,
-        analyze_test_failure,
         generate_failure_report,
     )
 
@@ -201,33 +200,25 @@ try:
 except ImportError:
     FAILURE_ANALYZER_AVAILABLE = False
     TestFailureReporter = None
-    analyze_test_failure = None
     generate_failure_report = None
 
 # Optional: test isolation
 try:
-    from tests.utils.test_isolation import TestIsolationManager, test_isolation
+    from tests.utils.test_isolation import TestIsolationManager
 
     ISOLATION_AVAILABLE = True
 except ImportError:
     ISOLATION_AVAILABLE = False
     TestIsolationManager = None
-    test_isolation = None
 
 # Optional: test output formatter
 try:
-    from tests.utils.test_output_formatter import (
-        TestOutputFormatter,
-        print_test_failure,
-        print_test_result,
-    )
+    from tests.utils.test_output_formatter import TestOutputFormatter
 
     OUTPUT_FORMATTER_AVAILABLE = True
 except ImportError:
     OUTPUT_FORMATTER_AVAILABLE = False
     TestOutputFormatter = None
-    print_test_failure = None
-    print_test_result = None
 
 # Set up logging for tests
 logging.basicConfig(
@@ -437,12 +428,23 @@ async def test_database_session(test_environment_config):
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
 
+    if test_environment_config is not None and hasattr(test_environment_config, "database_url"):
+        database_url = test_environment_config.database_url
+        pool_size = getattr(test_environment_config, "db_pool_size", 5)
+        max_overflow = getattr(test_environment_config, "db_max_overflow", 10)
+    else:
+        database_url = os.getenv("TEST_DATABASE_URL")
+        if not database_url:
+            pytest.skip("TEST_DATABASE_URL not set; cannot provide test_database_session")
+        if "asyncpg" not in database_url:
+            database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        pool_size = 5
+        max_overflow = 10
+
     engine = create_async_engine(
-        test_environment_config.database_url,
-        pool_size=test_environment_config.db_pool_size if hasattr(test_environment_config, "db_pool_size") else 5,
-        max_overflow=test_environment_config.db_max_overflow
-        if hasattr(test_environment_config, "db_max_overflow")
-        else 10,
+        database_url,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
         pool_pre_ping=True,
         pool_recycle=1800,
     )

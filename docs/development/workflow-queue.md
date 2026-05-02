@@ -169,8 +169,6 @@ workflow_worker:
 ## Related Files
 - `src/worker/celeryconfig.py` - Queue and routing configuration
 - `docker-compose.yml` - Worker service definitions
-- `src/worker/celery_app.py:629` - `trigger_agentic_workflow` task
+- `src/worker/celery_app.py` - `trigger_agentic_workflow` task
 
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTI5Mjg4MDkzMl19
--->
+_Last updated: 2026-05-01_

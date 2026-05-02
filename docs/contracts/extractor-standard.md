@@ -400,3 +400,5 @@ Use this when reviewing any extractor prompt (new or revised):
     - Ensure terminology, field names, and design patterns remain consistent
     - Check that the fleet's combined coverage has no gaps or overlaps
     - Verify all `json_examples` still match the pipeline's traceability requirements
+
+_Last updated: 2026-05-01_

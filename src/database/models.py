@@ -51,11 +51,6 @@ class SourceTable(Base):
     # Health metrics
     average_response_time = Column(Float, nullable=False, default=0.0)
 
-    # Auto-healing: set True when AI healing has exhausted max attempts
-    healing_exhausted = Column(Boolean, nullable=False, default=False)
-    # Auto-healing: count of healing cycles dispatched for this source (reset on success)
-    healing_attempts = Column(Integer, nullable=False, default=0)
-
     # Timestamps
     created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
@@ -138,24 +133,6 @@ class SourceCheckTable(Base):
     def __repr__(self):
         status = "SUCCESS" if self.success else "FAILED"
         return f"<SourceCheck(source_id={self.source_id}, {status}, {self.articles_found} articles)>"
-
-
-class HealingEventTable(Base):
-    """Audit trail for AI source healing actions."""
-
-    __tablename__ = "healing_events"
-
-    id = Column(Integer, primary_key=True, index=True)
-    source_id = Column(Integer, ForeignKey("sources.id"), nullable=False, index=True)
-    round_number = Column(Integer, nullable=False)
-    diagnosis = Column(Text, nullable=False)
-    actions_proposed = Column(JSON, nullable=False, default=list)
-    actions_applied = Column(JSON, nullable=False, default=list)
-    validation_success = Column(Boolean, nullable=True)
-    error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=func.now(), index=True)
-
-    source = relationship("SourceTable", backref="healing_events")
 
 
 class ArticleAnnotationTable(Base):

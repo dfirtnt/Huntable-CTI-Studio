@@ -43,7 +43,6 @@ task_routes = {
     "src.worker.celery_app.trigger_agentic_workflow": {"queue": "workflows"},
     "src.worker.celery_app.sync_sigma_rules": {"queue": "maintenance"},
     "src.worker.celery_app.update_provider_model_catalogs": {"queue": "maintenance"},
-    "src.worker.celery_app.check_sources_for_healing": {"queue": "maintenance"},
     "test_agents.test_sub_agent": {"queue": "workflows"},
     "test_agents.test_rank_agent": {"queue": "workflows"},
     "test_agents.test_sigma_agent": {"queue": "workflows"},

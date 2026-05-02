@@ -146,7 +146,7 @@ def test_sub_agent_task(
                 url=article.canonical_url or "",
                 prompt_config=prompt_config,
                 qa_prompt_config=qa_prompt_config,
-                max_retries=max_qa_retries,
+                max_extraction_retries=max_qa_retries,
                 execution_id=None,
                 model_name=agent_model or None,
                 temperature=agent_temperature,

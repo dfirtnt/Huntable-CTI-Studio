@@ -482,7 +482,7 @@ class TestRunExtractionAgentExecution:
                 title="Test",
                 url="https://example.com",
                 prompt_config=_EXTRACT_PROMPT_CFG,
-                max_retries=2,
+                max_extraction_retries=2,
             )
 
         # Should eventually return a result (either parsed or fallback)
@@ -503,7 +503,7 @@ class TestRunExtractionAgentExecution:
                 title="Test",
                 url="https://example.com",
                 prompt_config=_EXTRACT_PROMPT_CFG,
-                max_retries=1,
+                max_extraction_retries=1,
             )
 
         assert result.get("error") is not None
@@ -547,7 +547,7 @@ class TestRunExtractionAgentExecution:
                 title="Dense Article",
                 url="https://example.com",
                 prompt_config=_EXTRACT_PROMPT_CFG,
-                max_retries=1,
+                max_extraction_retries=1,
                 attention_preprocessor_enabled=True,
             )
 

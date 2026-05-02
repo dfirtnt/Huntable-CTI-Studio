@@ -225,3 +225,5 @@ When you see:
 5. Re-evaluate with new bundles to measure improvement
 
 **Note**: You provide the bundles directly - they are not exported automatically. Paste the JSON bundle(s) along with this prompt.
+
+_Last updated: 2026-05-01_

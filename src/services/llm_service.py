@@ -13,9 +13,10 @@ import math
 import os
 import re
 import subprocess
+from collections.abc import Callable
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 import httpx
 
@@ -77,6 +78,149 @@ _INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
     ("When in doubt, OMIT", "FINAL REMINDER (sec 16)"),
     ("source_evidence", "traceability field mention (sec 14)"),
 ]
+
+
+# ---------------------------------------------------------------------------
+# QA corrections dispatch
+# ---------------------------------------------------------------------------
+
+
+class _QaAgentSpec(NamedTuple):
+    """Per-agent spec for applying QA corrections.
+
+    items_key:    Key in last_result that holds the items list.
+    matcher:      Returns True when a removal entry matches an item.
+    removal_id:   Converts a removal entry to its stored representation.
+                  Returns str for simple agents (CmdlineExtract, HuntQueriesExtract)
+                  and dict (the full removal entry, including reason) for structured
+                  agents (Registry/ProcTree/Services/ScheduledTasks). Intentionally
+                  inhomogeneous -- no current consumer reads the list type-sensitively.
+    """
+
+    items_key: str
+    matcher: "Callable[[dict, dict], bool]"
+    removal_id: "Callable[[dict], Any]"
+
+
+def _value_matcher(removal_key: str) -> "Callable[[dict, dict], bool]":
+    """Match a single removal field against item.value (CmdlineExtract, HuntQueriesExtract)."""
+
+    def _match(removal: dict, item: dict) -> bool:
+        r = (removal.get(removal_key) or "").strip()
+        v = (item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip()
+        return bool(r) and r == v
+
+    return _match
+
+
+_REGISTRY_HIVE_ALIASES: dict[str, str] = {
+    "hklm": "hkey_local_machine",
+    "hkcu": "hkey_current_user",
+    "hkcr": "hkey_classes_root",
+    "hku": "hkey_users",
+}
+
+
+def _norm_field(value: str, field_name: str) -> str:
+    """Normalize a field value for comparison; expands registry hive abbreviations."""
+    v = value.strip().lower()
+    if field_name == "registry_hive":
+        return _REGISTRY_HIVE_ALIASES.get(v, v)
+    return v
+
+
+def _composite_matcher(field_pairs: list[tuple[str, str]]) -> "Callable[[dict, dict], bool]":
+    """Match a removal entry against an item using multiple identity fields.
+
+    At least one field must be non-empty in the removal, and all non-empty
+    removal fields must match the corresponding item field (case-insensitive).
+    Registry hive abbreviations (HKLM, HKCU, etc.) are expanded before comparison.
+    """
+
+    def _match(removal: dict, item: dict) -> bool:
+        if not isinstance(item, dict):
+            return False
+        active = [(rf, itf) for rf, itf in field_pairs if (removal.get(rf) or "").strip()]
+        if not active:
+            return False
+        return all(
+            _norm_field((removal.get(rf) or ""), rf) == _norm_field((item.get(itf) or ""), itf) for rf, itf in active
+        )
+
+    return _match
+
+
+def _first_nonempty_matcher(fields: list[str]) -> "Callable[[dict, dict], bool]":
+    """Match using the first non-empty identity field in the removal entry.
+
+    Used by ScheduledTasksExtract where identity is whichever of
+    task_name / task_path / store_path is non-null.
+    """
+
+    def _match(removal: dict, item: dict) -> bool:
+        if not isinstance(item, dict):
+            return False
+        for field in fields:
+            r = (removal.get(field) or "").strip()
+            if r:
+                return r.lower() == (item.get(field) or "").strip().lower()
+        return False
+
+    return _match
+
+
+# Map agent names to their QA-corrections spec.
+# items_key reflects the key in last_result AFTER the rename step
+# (registry_artifacts / process_lineage / windows_services / scheduled_tasks
+# are all renamed to "items" before QA runs; queries and cmdline_items stay).
+_QA_AGENT_SPECS: dict[str, _QaAgentSpec] = {
+    "CmdlineExtract": _QaAgentSpec(
+        "cmdline_items",
+        _value_matcher("command"),
+        lambda r: (r.get("command") or "").strip(),
+    ),
+    "HuntQueriesExtract": _QaAgentSpec(
+        "queries",
+        _value_matcher("query"),
+        lambda r: (r.get("query") or "").strip(),
+    ),
+    "RegistryExtract": _QaAgentSpec(
+        "items",
+        _composite_matcher(
+            [
+                ("registry_hive", "registry_hive"),
+                ("registry_key_path", "registry_key_path"),
+                ("registry_value_name", "registry_value_name"),
+            ]
+        ),
+        lambda r: r,
+    ),
+    "ProcTreeExtract": _QaAgentSpec(
+        "items",
+        _composite_matcher(
+            [
+                ("parent", "parent"),
+                ("child", "child"),
+            ]
+        ),
+        lambda r: r,
+    ),
+    "ServicesExtract": _QaAgentSpec(
+        "items",
+        _composite_matcher(
+            [
+                ("service_name", "service_name"),
+                ("binary_path", "binary_path"),
+            ]
+        ),
+        lambda r: r,
+    ),
+    "ScheduledTasksExtract": _QaAgentSpec(
+        "items",
+        _first_nonempty_matcher(["task_name", "task_path", "store_path"]),
+        lambda r: r,
+    ),
+}
 
 
 class PromptConfigValidationError(ValueError):
@@ -2087,7 +2231,7 @@ class LLMService:
         url: str,
         prompt_config: dict[str, Any],
         qa_prompt_config: dict[str, Any] | None = None,
-        max_retries: int = 5,
+        max_extraction_retries: int = 5,
         execution_id: int | None = None,
         model_name: str | None = None,
         temperature: float = 0.0,
@@ -2106,7 +2250,7 @@ class LLMService:
             url: Article URL
             prompt_config: Extraction prompt configuration
             qa_prompt_config: QA prompt configuration (optional)
-            max_retries: Max QA retries
+            max_extraction_retries: Max retries on extraction exceptions/timeouts (QA runs exactly once per attempt)
             provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
                      If None, uses self.provider_extract (from ExtractAgent_provider)
 
@@ -2151,7 +2295,7 @@ class LLMService:
         source = "parameter" if model_name == prompt_config.get("model") else "fallback"
         logger.info(f"{agent_name} resolved model: {model_name} (from: {source})")
 
-        while current_try < max_retries:
+        while current_try < max_extraction_retries:
             current_try += 1
 
             # 1. Run Extraction
@@ -2849,237 +2993,33 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     {"role": "user", "content": qa_prompt},
                 ]
 
-                converted_qa_messages = self._convert_messages_for_model(qa_messages, qa_model_to_use)
+                # Delegate LLM call, parsing, and normalization to QAEvaluator
+                from src.services.qa_evaluator import QAEvaluator
 
-                # Trace QA call with Langfuse
-                with trace_llm_call(
-                    name=f"{agent_name.lower()}_qa",
-                    model=qa_model_to_use,
+                _qa_eval = await QAEvaluator(self).evaluate(
+                    messages=qa_messages,
+                    agent_name=agent_name,
+                    model_name=qa_model_to_use,
+                    provider=self.provider_extract,
+                    temperature=temperature,
+                    seed=self.seed,
+                    max_tokens=1000,
+                    timeout=180.0,
                     execution_id=execution_id,
-                    metadata={
-                        "agent_name": agent_name,
-                        "attempt": current_try,
-                        "qa_task": qa_task,
-                        "messages": qa_messages,  # Include messages for input display
-                    },
-                ) as qa_generation:
-                    qa_response = await self.request_chat(
-                        provider=self.provider_extract,
-                        model_name=qa_model_to_use,
-                        messages=converted_qa_messages,
-                        max_tokens=1000,
-                        temperature=temperature,
-                        timeout=180.0,
-                        failure_context=f"{agent_name} QA attempt {current_try}",
-                        seed=self.seed,
-                    )
-
-                qa_text = qa_response["choices"][0]["message"].get("content", "")
-                logger.info(f"{agent_name} QA response (first 500 chars): {qa_text[:500]}")
-
-                # Log QA completion to Langfuse
-                if qa_generation:
-                    qa_text_preview = qa_text[:500]
-                    log_llm_completion(
-                        generation=qa_generation,
-                        input_messages=qa_messages,
-                        output=qa_text_preview,
-                        usage=qa_response.get("usage", {}),
-                        metadata={"agent_name": agent_name, "attempt": current_try, "qa": True},
-                    )
-
-                qa_result = {}
-                parse_error = None
-                parsing_failed = False
-
-                # Try multiple parsing strategies in order
-                strategies_tried = []
-
-                try:
-                    # Strategy 1: Find balanced braces (most reliable for nested JSON)
-                    # This handles nested objects correctly by counting braces
-                    start_idx = qa_text.find("{")
-                    if start_idx != -1:
-                        brace_count = 0
-                        end_idx = start_idx
-                        in_string = False
-                        escape_next = False
-
-                        for i in range(start_idx, len(qa_text)):
-                            char = qa_text[i]
-
-                            if escape_next:
-                                escape_next = False
-                                continue
-
-                            if char == "\\":
-                                escape_next = True
-                                continue
-
-                            if char == '"' and not escape_next:
-                                in_string = not in_string
-                                continue
-
-                            if not in_string:
-                                if char == "{":
-                                    brace_count += 1
-                                elif char == "}":
-                                    brace_count -= 1
-                                    if brace_count == 0:
-                                        end_idx = i
-                                        break
-
-                        if brace_count == 0 and end_idx > start_idx:
-                            json_str = qa_text[start_idx : end_idx + 1]
-                            qa_result = json.loads(json_str)
-                            logger.info(f"{agent_name} QA parsed keys: {list(qa_result.keys())}")
-                        else:
-                            strategies_tried.append(f"balanced_braces_unbalanced(count={brace_count})")
-                            raise ValueError(f"Unbalanced braces in JSON (count: {brace_count})")
-                    else:
-                        strategies_tried.append("no_opening_brace")
-                        raise ValueError("No opening brace found")
-
-                except (json.JSONDecodeError, ValueError):
-                    # Strategy 2: Try parsing entire text if it looks like JSON
-                    try:
-                        qa_text_stripped = qa_text.strip()
-                        if qa_text_stripped.startswith("{") and qa_text_stripped.endswith("}"):
-                            qa_result = json.loads(qa_text_stripped)
-                            logger.info(f"{agent_name} QA parsed keys (full text): {list(qa_result.keys())}")
-                        else:
-                            strategies_tried.append("full_text_not_json")
-                            raise ValueError("Full text doesn't look like JSON")
-                    except (json.JSONDecodeError, ValueError):
-                        # Strategy 3: Try extracting JSON from markdown code blocks
-                        try:
-                            # Look for JSON in ```json ... ``` or ``` ... ``` blocks
-                            code_block_pattern = r"```(?:json)?\s*(\{.*?\})\s*```"
-                            code_match = re.search(code_block_pattern, qa_text, re.DOTALL)
-                            if code_match:
-                                json_str = code_match.group(1)
-                                qa_result = json.loads(json_str)
-                                logger.info(f"{agent_name} QA parsed keys (code block): {list(qa_result.keys())}")
-                            else:
-                                strategies_tried.append("no_code_block")
-                                raise ValueError("No code block found")
-                        except (json.JSONDecodeError, ValueError):
-                            # Strategy 4: Try regex to find any JSON-like structure
-                            try:
-                                # More permissive regex that finds JSON objects
-                                json_pattern = r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}"
-                                json_matches = re.findall(json_pattern, qa_text, re.DOTALL)
-                                for match in json_matches:
-                                    try:
-                                        qa_result = json.loads(match)
-                                        if "status" in qa_result or "verdict" in qa_result:
-                                            logger.info(
-                                                f"{agent_name} QA parsed keys (regex match): {list(qa_result.keys())}"
-                                            )
-                                            break
-                                    except json.JSONDecodeError:
-                                        continue
-                                if not qa_result:
-                                    strategies_tried.append("regex_no_valid_json")
-                                    raise ValueError("No valid JSON found via regex")
-                            except (json.JSONDecodeError, ValueError):
-                                # Strategy 5: Try finding JSON after common prefixes
-                                try:
-                                    prefixes = ["```json", "```", "JSON:", "Response:", "Output:"]
-                                    for prefix in prefixes:
-                                        prefix_idx = qa_text.find(prefix)
-                                        if prefix_idx != -1:
-                                            # Look for JSON after prefix
-                                            after_prefix = qa_text[prefix_idx + len(prefix) :].strip()
-                                            start_idx = after_prefix.find("{")
-                                            if start_idx != -1:
-                                                # Try balanced brace extraction on remaining text
-                                                # (simplified, no string handling)
-                                                brace_count = 0
-                                                end_idx = start_idx
-                                                for i in range(start_idx, len(after_prefix)):
-                                                    if after_prefix[i] == "{":
-                                                        brace_count += 1
-                                                    elif after_prefix[i] == "}":
-                                                        brace_count -= 1
-                                                        if brace_count == 0:
-                                                            end_idx = i
-                                                            break
-                                                if brace_count == 0:
-                                                    json_str = after_prefix[start_idx : end_idx + 1]
-                                                    qa_result = json.loads(json_str)
-                                                    logger.info(
-                                                        f"{agent_name} QA parsed keys "
-                                                        f"(after prefix '{prefix}'): {list(qa_result.keys())}"
-                                                    )
-                                                    break
-                                    if not qa_result:
-                                        strategies_tried.append("prefix_extraction_failed")
-                                        raise ValueError("Could not extract JSON after common prefixes")
-                                except (json.JSONDecodeError, ValueError):
-                                    # Strategy 6: Last resort - try to find any substring that parses as JSON
-                                    try:
-                                        # Find all potential JSON start positions
-                                        for start_pos in range(len(qa_text)):
-                                            if qa_text[start_pos] == "{":
-                                                # Try to parse from this position with increasing lengths
-                                                for end_pos in range(
-                                                    start_pos + 1, min(start_pos + 5000, len(qa_text) + 1)
-                                                ):
-                                                    try:
-                                                        candidate = qa_text[start_pos:end_pos]
-                                                        test_result = json.loads(candidate)
-                                                        # Validate it has expected QA fields
-                                                        if isinstance(test_result, dict) and (
-                                                            "status" in test_result
-                                                            or "verdict" in test_result
-                                                            or "summary" in test_result
-                                                        ):
-                                                            qa_result = test_result
-                                                            logger.info(
-                                                                f"{agent_name} QA parsed keys "
-                                                                f"(brute force): {list(qa_result.keys())}"
-                                                            )
-                                                            break
-                                                    except (json.JSONDecodeError, ValueError):
-                                                        continue
-                                                if qa_result:
-                                                    break
-                                        if not qa_result:
-                                            strategies_tried.append("brute_force_failed")
-                                            raise ValueError("Brute force extraction failed")
-                                    except (json.JSONDecodeError, ValueError) as e6:
-                                        # All strategies failed
-                                        strategies = ", ".join(strategies_tried)
-                                        parse_error = (
-                                            f"All parsing strategies failed. Tried: {strategies}. Last error: {str(e6)}"
-                                        )
-                                        parsing_failed = True
-                                        logger.error(
-                                            f"{agent_name} QA parsing failed: {parse_error}. "
-                                            f"Response preview: {qa_text[:500]}. "
-                                            f"Treating as pass to avoid retry loop."
-                                        )
-                except Exception as e:
-                    parse_error = f"Unexpected parse error: {e}"
-                    parsing_failed = True
-                    logger.error(
-                        f"{agent_name} QA parsing failed: {parse_error}. "
-                        f"Response preview: {qa_text[:500]}. "
-                        f"Treating as pass to avoid retry loop."
-                    )
-
-                # Fail-closed: parse failure means QA output is unvalidated. Treat as needs_revision
-                # so the trace records the failure rather than silently passing the result through.
-                # The one exception (handled below) is when there are no items to validate at all.
-                status = (
-                    (qa_result.get("status") or "needs_revision").lower() if not parsing_failed else "needs_revision"
+                    attempt=current_try,
                 )
+                qa_result = _qa_eval
+                parsing_failed = _qa_eval.get("parsing_failed", False)
+                parse_error = _qa_eval.get("_parse_error")
+                qa_text = _qa_eval.get("_qa_text", "")
+
+                # QAEvaluator normalizes verdict; status is kept only for backward-compat storage.
+                # The one exception (handled below) is when there are no items to validate at all.
+                status = qa_result.get("verdict", "needs_revision")
 
                 # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
                 extracted_feedback = ""
-                if qa_result and len(qa_result) > 0:
-                    # Try multiple possible feedback fields
+                if not parsing_failed:
                     extracted_feedback = (
                         qa_result.get("feedback")
                         or qa_result.get("qa_corrections_applied")
@@ -3088,19 +3028,14 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     )
                 else:
                     # QA parsing failed - try to extract feedback from raw text
-                    # Look for common feedback patterns in the raw QA text
                     if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
-                        # Try to extract a meaningful snippet from the QA text
-                        # Look for sentences that might contain feedback
-
-                        # Try to find feedback-like content (sentences with "missing", "incorrect", "should", etc.)
                         feedback_patterns = re.findall(
                             r"[^.!?]*(?:missing|incorrect|wrong|should|must|need|issue|problem)[^.!?]*[.!?]",
                             qa_text,
                             re.IGNORECASE,
                         )
                         if feedback_patterns:
-                            extracted_feedback = " ".join(feedback_patterns[:3])  # Take first 3 feedback sentences
+                            extracted_feedback = " ".join(feedback_patterns[:3])
                         else:
                             # Fallback: use first 200 chars of QA text as feedback
                             extracted_feedback = qa_text[:200] if qa_text else ""
@@ -3111,7 +3046,10 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 # from "extractor found things and QA removed them all".
                 # Defensive: handle the case where the model emits e.g. {"cmdline_items": null}
                 # by treating None as an empty list.
-                items_key = "cmdline_items" if "cmdline_items" in last_result else "items"
+                _spec = _QA_AGENT_SPECS.get(agent_name)
+                items_key = (
+                    _spec.items_key if _spec else ("cmdline_items" if "cmdline_items" in last_result else "items")
+                )
                 pre_filter_count = len(last_result.get(items_key) or [])
 
                 # If QA parsing failed and there was nothing to validate, return cleanly --
@@ -3123,59 +3061,77 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     )
                     return last_result
 
-                # Apply QA corrections directly to the result. v1 scope: CmdlineExtract only.
-                # Other extractors use structured items where identity isn't a flat `value` string,
-                # so per-agent identity mapping is required before filtering can be safely extended.
-                applied_removals: list[str] = []
+                # Apply QA corrections for all extractors that have a spec entry.
+                applied_removals: list = []
                 if (
                     not parsing_failed
                     and qa_result
-                    and agent_name == "CmdlineExtract"
+                    and _spec is not None
                     and isinstance(qa_result.get("corrections"), dict)
                 ):
-                    removals = {
-                        (r.get("command") or "").strip()
-                        for r in qa_result["corrections"].get("removed", [])
-                        if isinstance(r, dict) and (r.get("command") or "").strip()
-                    }
-                    if removals:
+                    removal_entries = [r for r in qa_result["corrections"].get("removed", []) if isinstance(r, dict)]
+                    if removal_entries:
                         before_items = last_result.get(items_key) or []
-                        after_items = [
-                            item
-                            for item in before_items
-                            if ((item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip())
-                            not in removals
-                        ]
-                        last_result[items_key] = after_items
-                        last_result["count"] = len(after_items)
-                        applied_removals = sorted(removals)
-                        logger.info(
-                            f"{agent_name} QA removed {len(before_items) - len(after_items)} items "
-                            f"(pre={len(before_items)}, post={len(after_items)}). "
-                            f"Removed: {applied_removals}"
-                        )
+                        after_items = []
+                        actual_removals: list = []
+                        for item in before_items:
+                            matched = any(_spec.matcher(r, item) for r in removal_entries)
+                            if matched:
+                                # Find first matching removal to record identity
+                                for r in removal_entries:
+                                    if _spec.matcher(r, item):
+                                        actual_removals.append(_spec.removal_id(r))
+                                        break
+                            else:
+                                after_items.append(item)
+                        if actual_removals:
+                            last_result[items_key] = after_items
+                            last_result["count"] = len(after_items)
+                            applied_removals = actual_removals
+                            logger.info(
+                                f"{agent_name} QA removed {len(before_items) - len(after_items)} items "
+                                f"(pre={len(before_items)}, post={len(after_items)}). "
+                                f"Removed: {applied_removals}"
+                            )
 
                 # Store QA result in the agent result for later retrieval (always store if QA ran)
                 if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
-                    # Convert QA result format to match UI expectations
-                    qa_status = (qa_result.get("status") or "needs_revision").lower() if qa_result else "fail"
-                    # Normalize status: "needs_revision" -> "needs_revision", "pass" -> "pass", "fail" -> "fail"
-                    if qa_status == "needs_revision":
-                        verdict = "needs_revision"
-                    elif qa_status == "pass":
-                        verdict = "pass"
-                    else:
-                        verdict = "needs_revision"
+                    # verdict is already normalized by QAEvaluator
+                    verdict = qa_result.get("verdict", "needs_revision")
+                    # Keep status for backward-compat in stored _qa_result bundles
+                    qa_status = qa_result.get("status") or verdict
 
                     # Build display issues list from corrections (read for display only;
-                    # actual filtering already happened above for CmdlineExtract).
+                    # actual filtering already happened above via _QA_AGENT_SPECS dispatch).
+                    _CORRECTION_IDENT_FIELDS = (
+                        "command",
+                        "query",
+                        "registry_key_path",
+                        "registry_value_name",
+                        "service_name",
+                        "task_name",
+                        "task_path",
+                        "parent",
+                        "child",
+                    )
+
+                    def _correction_ident(
+                        entry: dict,
+                        _fields: tuple = _CORRECTION_IDENT_FIELDS,
+                    ) -> str:
+                        for f in _fields:
+                            v = (entry.get(f) or "").strip()
+                            if v:
+                                return v
+                        return ""
+
                     issues = []
                     if qa_result and isinstance(qa_result.get("corrections"), dict):
                         corrections_obj = qa_result["corrections"]
                         for removed in corrections_obj.get("removed", []):
                             if not isinstance(removed, dict):
                                 continue
-                            ident = removed.get("command") or removed.get("query") or ""
+                            ident = _correction_ident(removed)
                             reason = removed.get("reason", "")
                             issues.append(
                                 {
@@ -3187,7 +3143,7 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         for added in corrections_obj.get("added", []):
                             if not isinstance(added, dict):
                                 continue
-                            ident = added.get("command") or added.get("query") or ""
+                            ident = _correction_ident(added)
                             found = added.get("found_in", "")
                             issues.append(
                                 {
@@ -3212,19 +3168,17 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         extracted_feedback = "QA failed without feedback."
 
                     # Always store QA result when QA runs, even if parsing failed
-                    if not qa_result or len(qa_result) == 0:
-                        # QA parsing failed, store error result with diagnostic info
-                        error_description = "QA response parsing failed"
-                        if parse_error:
-                            error_description = f"QA response parsing failed: {parse_error}"
-
-                        # Include raw response snippet in feedback for debugging
+                    if parsing_failed:
+                        error_description = (
+                            f"QA response parsing failed: {parse_error}"
+                            if parse_error
+                            else "QA response parsing failed"
+                        )
                         raw_snippet = qa_text[:500] if qa_text else "No response received"
                         feedback_with_diagnostic = (
                             extracted_feedback
                             or f"QA response could not be parsed. Raw response preview: {raw_snippet}"
                         )
-
                         last_result["_qa_result"] = {
                             "verdict": "needs_revision",
                             "summary": extracted_feedback or "QA evaluation ran but response parsing failed",
@@ -3265,7 +3219,7 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     raise ContextLengthExceededError(str(e)) from e
                 logger.error(f"{agent_name} error on attempt {current_try}: {e}", exc_info=True)
                 # On last attempt, store all API errors in result (not just connection errors)
-                if current_try >= max_retries:
+                if current_try >= max_extraction_retries:
                     last_result = {
                         "items": [],
                         "count": 0,
@@ -3282,5 +3236,5 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                 feedback = f"Previous attempt failed with error: {str(e)}"
                 # Continue loop
 
-        logger.warning(f"{agent_name} failed all {max_retries} attempts. Returning last result.")
+        logger.warning(f"{agent_name} failed all {max_extraction_retries} attempts. Returning last result.")
         return last_result

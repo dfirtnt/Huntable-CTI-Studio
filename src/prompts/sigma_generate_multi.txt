@@ -30,6 +30,7 @@ When generating multiple rules, separate them with `---` (three dashes on a line
 title: First Rule Title
 id: uuid-1
 description: First behavior detected
+observables_used: [0]
 logsource:
   category: process_creation
   product: windows
@@ -44,6 +45,7 @@ tags:
 title: Second Rule Title
 id: uuid-2
 description: Second behavior detected
+observables_used: []
 logsource:
   category: network_connection
   product: windows
@@ -59,7 +61,7 @@ Required Structure (per rule):
 title: [descriptive rule title]
 id: [UUID]
 description: [behavior detected]
-observables_used: [list of 0-based indices from the Observables list above that this rule uses; omit if no observables provided]
+observables_used: [REQUIRED: 0-based indices from the Observables list that this rule uses, e.g. [0, 3]; use [] if none apply]
 logsource:
   category: [process_creation/network_connection/registry_event/file_event/powershell/wmi]
   product: [windows/linux/macos]

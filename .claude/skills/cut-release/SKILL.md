@@ -83,6 +83,26 @@ release -- abort and tell the operator.
 `scripts/release_cut.py` repeats these preflight checks, but catching
 failures earlier keeps the flow tight.
 
+## Phase 2b: Security Review
+
+Before touching the repo, invoke the built-in security review skill:
+
+```
+/security-review
+```
+
+This scans the diff between `dev-io` and `main` for common vulnerability
+classes (injection, auth gaps, exposed secrets, insecure deserialization,
+etc.). Review every finding. You have two options:
+
+- **Fix and commit on dev-io**, then loop back to Phase 2 preflight to
+  re-confirm the branch is clean and up-to-date.
+- **Accept the risk** with an explicit operator decision. Document the
+  accepted risk in a follow-up commit or the CHANGELOG before proceeding.
+
+Do not proceed to Phase 3 until all findings are resolved or explicitly
+accepted.
+
 ## Phase 3: Run release_cut.py
 
 Execute:

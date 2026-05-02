@@ -135,6 +135,7 @@ CANONICAL_PROMPT_AGENT_NAMES = frozenset(ALL_AGENT_NAMES)
 AGENT_DISPLAY_NAMES: dict[str, str] = {
     "RankAgent": "Rank Agent",
     "ExtractAgent": "Extract Agent",
+    "QAAgent": "QA Agent (legacy)",
     "SigmaAgent": "SIGMA Agent",
     "OSDetectionAgent": "OS Detection",
     "OSDetectionFallback": "OS Detection Fallback",

@@ -490,4 +490,4 @@ The dashboard metrics are influenced by three key content filter settings:
 
 ---
 
-_Last updated: February 2025_
+_Last updated: 2026-05-01_

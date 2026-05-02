@@ -282,7 +282,7 @@ class TestLegacyScaffold:
                     "instructions": "Return JSON with pass/fail findings.",
                     "evaluation_criteria": ["Check grounding", "Check completeness"],
                 },
-                max_retries=1,
+                max_extraction_retries=1,
             )
 
             qa_messages = mock_chat.await_args_list[1].kwargs["messages"]
@@ -348,7 +348,7 @@ class TestQAPromptValidator:
                         "instructions": "Return JSON.",
                         "evaluation_criteria": ["Check grounding"],
                     },
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
 
     @pytest.mark.asyncio
@@ -373,7 +373,7 @@ class TestQAPromptValidator:
                         "objective": "Verify extraction.",
                         "evaluation_criteria": ["Check grounding"],
                     },
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
 
     @pytest.mark.asyncio
@@ -399,7 +399,7 @@ class TestQAPromptValidator:
                         "instructions": "Return JSON.",
                         "evaluation_criteria": [],
                     },
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
 
     @pytest.mark.asyncio
@@ -425,7 +425,7 @@ class TestQAPromptValidator:
                         "instructions": "Return JSON.",
                         "evaluation_criteria": "Check everything",
                     },
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
 
     @pytest.mark.asyncio
@@ -452,7 +452,7 @@ class TestQAPromptValidator:
                 url="https://example.com",
                 prompt_config=self.VALID_EXTRACT_CONFIG,
                 qa_prompt_config=self.VALID_QA_CONFIG,
-                max_retries=1,
+                max_extraction_retries=1,
             )
 
 

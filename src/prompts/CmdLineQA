@@ -14,7 +14,7 @@
         "1. Literal presence in article_content with exact character fidelity (case, spacing, quoting, punctuation).",
         "2. Appears on one physical line only; no continuation, joining, or reconstruction.",
         "3. Wrapper handling is correct: only cmd.exe/cmd/%COMSPEC% with /c or /k may be stripped; evaluate only post-wrapper text.",
-        "4. Post-wrapper (or original command when no wrapper) starts with a recognized Windows execution component (quoting ignored for first-token recognition).",
+        "4. Post-wrapper (or original command when no wrapper) starts with a recognized Windows execution component (quoting ignored for first-token recognition), OR starts with a PowerShell execution alias (IEX, Invoke-Expression). For IEX / Invoke-Expression: the full string including the alias is the valid command; the argument does not independently need to satisfy this check.",
         "5. Contains at least one space and has non-trivial syntax (argument/switch/parameter/pipeline/redirection/chaining).",
         "6. Bare commands and chains with only trivial components are excluded."
       ],
@@ -24,6 +24,7 @@
       "name": "QA STEP 2 - TARGETED RESCAN",
       "instructions": "Rescan article_content with special attention to:",
       "targets": [
+        "PowerShell execution aliases (IEX, Invoke-Expression): extract full string including alias and argument.",
         "Specific executables/utilities: regsvr32.exe, rundll32.exe, powershell.exe, certutil.exe, schtasks.exe, mshta.exe, net, nltest, reg, wmic, whoami, ipconfig, systeminfo, taskkill, sc, findstr, and any *.exe with parameters.",
         "Recognized wrappers: cmd.exe /c, cmd.exe /k, cmd /c, cmd /k, %COMSPEC% /c, %COMSPEC% /k (strip wrapper prefix only).",
         "Windows built-ins/utilities with switches/redirection/chaining (e.g., dir > out.txt, ipconfig /all & whoami).",
@@ -43,7 +44,7 @@
   "evaluation_criteria": [
     "[PASS] Each extracted command appears literally in the source text on one physical line.",
     "[PASS] Wrapper logic is correct and limited to cmd/%COMSPEC% with /c or /k; PowerShell is never stripped.",
-    "[PASS] Each accepted command starts with a recognized Windows execution component and is non-trivial.",
+    "[PASS] Each accepted command starts with a recognized Windows execution component or a PowerShell execution alias (IEX, Invoke-Expression) and is non-trivial.",
     "[PASS] Chaining uses full verbatim chain with at least one non-trivial component.",
     "[PASS] source_evidence contains the verbatim source text supporting the extraction.",
     "[PASS] extraction_justification explains which rule triggered the extraction.",

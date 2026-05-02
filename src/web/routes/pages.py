@@ -11,7 +11,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from src.database.async_manager import async_db_manager
-from src.services.source_healing_config import SourceHealingConfig
 from src.utils.keyword_resolution import build_keyword_resolution_context
 from src.utils.search_parser import parse_boolean_search
 from src.web.dependencies import ENVIRONMENT, logger, templates
@@ -266,8 +265,6 @@ async def sources_list(request: Request):
 
             return _get_collection_method(source)
 
-        healing_enabled = SourceHealingConfig.load().enabled
-
         return templates.TemplateResponse(
             "sources.html",
             {
@@ -277,7 +274,6 @@ async def sources_list(request: Request):
                 "hunt_score_lookup": hunt_score_lookup,
                 "total_articles": total_articles,
                 "get_collection_method": get_collection_method,
-                "healing_enabled": healing_enabled,
             },
         )
     except Exception as exc:

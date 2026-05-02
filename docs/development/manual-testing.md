@@ -658,4 +658,4 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 
 ---
 
-_Last updated: February 2025_
+_Last updated: 2026-05-01_

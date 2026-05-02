@@ -389,3 +389,5 @@ If restore fails:
 - **Config Loader:** `src/config/workflow_config_loader.py`
 - **Database Model:** `src/database/models.py` (`WorkflowConfigPresetTable`)
 - **Config Schema:** `src/config/workflow_config_schema.py`
+
+_Last updated: 2026-05-01_

@@ -43,3 +43,5 @@ Aggregates in article metadata:
 ## Boundaries
 - Chunks are **not** sent to the Extract Agent or Sigma generator; they support scoring, triage, and dataset selection only.
 - Training inputs remain the full article content paired with complete extraction results.
+
+_Last updated: 2026-05-01_

@@ -421,7 +421,10 @@ def test_full_workflow_with_lmstudio(db_session, lmstudio_active_config, test_ar
         "agent_prompts": config.agent_prompts or {},
         "qa_enabled": config.qa_enabled or {},
         # Feature flags
-        "rank_agent_enabled": getattr(config, "rank_agent_enabled", True),
+        # Always enable ranking for this test — the preset sets rank_agent_enabled=False
+        # (it assumes a fast eval loop), but this E2E test explicitly exercises the full
+        # pipeline including LLM ranking, so we override it here.
+        "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False),
         "osdetection_fallback_enabled": getattr(config, "osdetection_fallback_enabled", False),

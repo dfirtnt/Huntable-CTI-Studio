@@ -10,6 +10,7 @@ from src.services.llm_service import (
     MIN_USER_CONTENT_CHARS,
     LLMService,
     PreprocessInvariantError,
+    _norm_field,
     _validate_preprocess_invariants,
 )
 
@@ -407,7 +408,7 @@ class TestLLMService:
                 url="https://example.com/test",
                 prompt_config=prompt_config,
                 qa_prompt_config=None,
-                max_retries=1,
+                max_extraction_retries=1,
                 execution_id=None,
                 model_name="local-large-model",
                 provider="lmstudio",
@@ -634,7 +635,7 @@ class TestNewlineInvariantGuard:
                     title="Test",
                     url="https://example.com",
                     prompt_config=prompt_cfg,
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
         assert result.get("error") == "Temperature not supported for this model"
         assert result.get("error_type") == "RuntimeError"
@@ -672,7 +673,7 @@ class TestNewlineInvariantGuard:
                     title="Test",
                     url="https://example.com",
                     prompt_config=prompt_cfg,
-                    max_retries=1,
+                    max_extraction_retries=1,
                 )
         mock_log_error.assert_called_once()
         call_args = mock_log_error.call_args
@@ -829,6 +830,31 @@ class TestTraceabilityNormalization:
             assert "value" in item
 
 
+class TestNormField:
+    """Unit tests for _norm_field -- registry hive abbreviation expansion."""
+
+    def test_hklm_expands(self):
+        assert _norm_field("HKLM", "registry_hive") == "hkey_local_machine"
+
+    def test_hkcu_expands(self):
+        assert _norm_field("hkcu", "registry_hive") == "hkey_current_user"
+
+    def test_hkcr_expands(self):
+        assert _norm_field("HKCR", "registry_hive") == "hkey_classes_root"
+
+    def test_hku_expands(self):
+        assert _norm_field("HKU", "registry_hive") == "hkey_users"
+
+    def test_full_name_unchanged(self):
+        assert _norm_field("HKEY_LOCAL_MACHINE", "registry_hive") == "hkey_local_machine"
+
+    def test_non_hive_field_not_expanded(self):
+        assert _norm_field("HKLM", "registry_key_path") == "hklm"
+
+    def test_whitespace_stripped(self):
+        assert _norm_field("  HKLM  ", "registry_hive") == "hkey_local_machine"
+
+
 class TestQACorrectionsApplication:
     """Tests for the QA corrections-application path in run_extraction_agent.
 
@@ -889,7 +915,7 @@ class TestQACorrectionsApplication:
                 url="https://example.com",
                 prompt_config=self._EXTRACT_PROMPT,
                 qa_prompt_config=self._QA_PROMPT,
-                max_retries=3,
+                max_extraction_retries=3,
             )
 
     @pytest.mark.asyncio
@@ -996,7 +1022,7 @@ class TestQACorrectionsApplication:
                 url="https://example.com",
                 prompt_config=self._EXTRACT_PROMPT,
                 qa_prompt_config=self._QA_PROMPT,
-                max_retries=5,  # large budget; verify we don't consume it
+                max_extraction_retries=5,  # large budget; verify we don't consume it
             )
             # Exactly 2 calls: 1 extract + 1 QA. No re-extraction loop.
             assert mock_req.call_count == 2
@@ -1005,11 +1031,11 @@ class TestQACorrectionsApplication:
         assert result["count"] == 0  # the one bad item was filtered out
 
     @pytest.mark.asyncio
-    async def test_qa_corrections_not_applied_for_non_cmdline_in_v1(self, llm_service):
-        """v1 scope guard: non-CmdlineExtract agents do NOT have corrections applied.
+    async def test_qa_corrections_wrong_identity_field_no_match(self, llm_service):
+        """RegistryExtract uses composite identity (registry_hive/key_path/value_name).
 
-        The display issues are still built from corrections, but the items list is untouched.
-        Per-agent identity mapping is required before extending the filter.
+        A removal entry that only contains `command` has no active identity fields
+        for the registry matcher, so no items are removed and corrections_applied is empty.
         """
         # RegistryExtract gets renamed to 'items' by the pipeline.
         extract_resp = (
@@ -1021,14 +1047,13 @@ class TestQACorrectionsApplication:
         qa_resp = (
             '{"status": "needs_revision", "summary": "one bad", "issues": [], '
             '"corrections": {"removed": ['
-            '{"command": "HKLM\\\\Run\\\\evil", "reason": "should be removed"}'
+            '{"command": "HKLM\\\\Run\\\\evil", "reason": "wrong field -- no match"}'
             '], "added": []}}'
         )
         result = await self._run_with_qa(llm_service, extract_resp, qa_resp, agent_name="RegistryExtract")
 
-        # Items list is unchanged for non-cmdline agents in v1.
+        # Wrong identity field -> composite matcher finds no active pairs -> no removal.
         assert result["count"] == 2
-        # But corrections_applied reflects that nothing was applied.
         assert result["_qa_result"]["corrections_applied"]["removed"] == []
         assert result["_qa_result"]["pre_filter_count"] == 2
 
@@ -1128,7 +1153,7 @@ class TestQACorrectionsApplication:
                 url="https://example.com",
                 prompt_config=self._EXTRACT_PROMPT,
                 qa_prompt_config=self._QA_PROMPT,
-                max_retries=5,  # generous budget; we should still see only 2 calls
+                max_extraction_retries=5,  # generous budget; we should still see only 2 calls
             )
 
             # No call's user message may contain the feedback-injection marker.
@@ -1190,3 +1215,256 @@ class TestQACorrectionsApplication:
         assert result["_llm_attempt"] == 1  # single attempt, not 3 like pre-v1
         assert result["_qa_result"]["pre_filter_count"] == 3
         assert result["_qa_result"]["corrections_applied"]["removed"] == ["findstr searches for cpassword in SYSVOL"]
+
+    # ------------------------------------------------------------------
+    # Extended extractor coverage (Task: extend QA corrections to all 5)
+    # ------------------------------------------------------------------
+
+    _STRUCTURED_EXTRACT_PROMPT = {
+        "role": "You are an extractor.",
+        "task": "Extract structured artifacts.",
+        "instructions": "Output JSON only.",
+        "json_example": '{"items": [], "count": 0}',
+    }
+
+    async def _run_with_qa_structured(
+        self,
+        llm_service,
+        extract_response_json: str,
+        qa_response_json: str,
+        agent_name: str,
+    ):
+        """Helper for structured (non-cmdline) extractors."""
+        responses = [
+            {"choices": [{"message": {"content": extract_response_json}}], "usage": {}},
+            {"choices": [{"message": {"content": qa_response_json}}], "usage": {}},
+        ]
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_req:
+            mock_req.side_effect = responses
+            return await llm_service.run_extraction_agent(
+                agent_name=agent_name,
+                content="x" * MIN_USER_CONTENT_CHARS,
+                title="Test",
+                url="https://example.com",
+                prompt_config=self._STRUCTURED_EXTRACT_PROMPT,
+                qa_prompt_config=self._QA_PROMPT,
+                max_extraction_retries=3,
+            )
+
+    @pytest.mark.asyncio
+    async def test_hunt_queries_extract_qa_corrections(self, llm_service):
+        """HuntQueriesExtract: removal by query value filters the queries list."""
+        extract_resp = json.dumps(
+            {
+                "queries": [
+                    {"value": 'process where process.name == "evil.exe"', "confidence_score": 0.9},
+                    {"value": "network where destination.port == 443", "confidence_score": 0.95},
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one query is not grounded",
+                "issues": [],
+                "corrections": {
+                    "removed": [{"query": 'process where process.name == "evil.exe"', "reason": "hallucinated"}],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "HuntQueriesExtract")
+
+        assert result["count"] == 1
+        remaining = [q["value"] for q in result["queries"]]
+        assert 'process where process.name == "evil.exe"' not in remaining
+        assert result["_qa_result"]["corrections_applied"]["removed"] == ['process where process.name == "evil.exe"']
+
+    @pytest.mark.asyncio
+    async def test_registry_extract_qa_corrections(self, llm_service):
+        """RegistryExtract: composite matcher removes item matching registry_key_path."""
+        extract_resp = json.dumps(
+            {
+                "registry_artifacts": [
+                    {
+                        "registry_hive": "HKLM",
+                        "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
+                        "registry_value_name": "BadValue",
+                        "confidence_score": 0.9,
+                    },
+                    {
+                        "registry_hive": "HKCU",
+                        "registry_key_path": "SOFTWARE\\\\Legit\\\\Key",
+                        "registry_value_name": "GoodValue",
+                        "confidence_score": 0.95,
+                    },
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one hallucinated registry entry",
+                "issues": [],
+                "corrections": {
+                    "removed": [
+                        {
+                            "registry_hive": "HKLM",
+                            "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
+                            "registry_value_name": "BadValue",
+                            "reason": "not in source",
+                        }
+                    ],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "RegistryExtract")
+
+        assert result["count"] == 1
+        remaining = result["items"]
+        assert remaining[0]["registry_key_path"] == "SOFTWARE\\\\Legit\\\\Key"
+        assert result["_qa_result"]["pre_filter_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_registry_extract_qa_hive_abbreviation_matches_normalized(self, llm_service):
+        """RegistryExtract: QA returns abbreviated hive (HKLM) but item has normalized form (HKEY_LOCAL_MACHINE).
+
+        The extractor prompt requires full hive names; the QA prompt is instructed to match,
+        but models sometimes abbreviate. _norm_field expands both sides before comparing so the
+        removal still applies.
+        """
+        extract_resp = json.dumps(
+            {
+                "registry_artifacts": [
+                    {
+                        "registry_hive": "HKEY_LOCAL_MACHINE",
+                        "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
+                        "registry_value_name": "BadValue",
+                        "confidence_score": 0.9,
+                    },
+                    {
+                        "registry_hive": "HKEY_CURRENT_USER",
+                        "registry_key_path": "SOFTWARE\\\\Legit\\\\Key",
+                        "registry_value_name": "GoodValue",
+                        "confidence_score": 0.95,
+                    },
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one hallucinated registry entry",
+                "issues": [],
+                "corrections": {
+                    "removed": [
+                        {
+                            "registry_hive": "HKLM",
+                            "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
+                            "registry_value_name": "BadValue",
+                            "reason": "not in source",
+                        }
+                    ],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "RegistryExtract")
+
+        assert result["count"] == 1
+        remaining = result["items"]
+        assert remaining[0]["registry_key_path"] == "SOFTWARE\\\\Legit\\\\Key"
+
+    @pytest.mark.asyncio
+    async def test_proc_tree_extract_qa_corrections(self, llm_service):
+        """ProcTreeExtract: composite matcher removes item by parent+child fields."""
+        extract_resp = json.dumps(
+            {
+                "process_lineage": [
+                    {"parent": "cmd.exe", "child": "evil.exe", "confidence_score": 0.9},
+                    {"parent": "explorer.exe", "child": "svchost.exe", "confidence_score": 0.95},
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one inferred edge",
+                "issues": [],
+                "corrections": {
+                    "removed": [{"parent": "cmd.exe", "child": "evil.exe", "reason": "inferred, not stated"}],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "ProcTreeExtract")
+
+        assert result["count"] == 1
+        remaining = result["items"]
+        assert remaining[0]["parent"] == "explorer.exe"
+        assert result["_qa_result"]["pre_filter_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_services_extract_qa_corrections(self, llm_service):
+        """ServicesExtract: composite matcher removes item by service_name+binary_path."""
+        extract_resp = json.dumps(
+            {
+                "windows_services": [
+                    {"service_name": "EvilSvc", "binary_path": "C:\\\\evil.exe", "confidence_score": 0.9},
+                    {"service_name": "LegitSvc", "binary_path": "C:\\\\legit.exe", "confidence_score": 0.95},
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one hallucinated service",
+                "issues": [],
+                "corrections": {
+                    "removed": [{"service_name": "EvilSvc", "binary_path": "C:\\\\evil.exe", "reason": "hallucinated"}],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "ServicesExtract")
+
+        assert result["count"] == 1
+        remaining = result["items"]
+        assert remaining[0]["service_name"] == "LegitSvc"
+        assert result["_qa_result"]["pre_filter_count"] == 2
+
+    @pytest.mark.asyncio
+    async def test_scheduled_tasks_extract_qa_corrections(self, llm_service):
+        """ScheduledTasksExtract: first-nonempty matcher removes item by task_name."""
+        extract_resp = json.dumps(
+            {
+                "scheduled_tasks": [
+                    {"task_name": "EvilTask", "task_path": "\\\\Microsoft\\\\EvilTask", "confidence_score": 0.9},
+                    {"task_name": "WindowsUpdate", "task_path": "\\\\Microsoft\\\\Update", "confidence_score": 0.95},
+                ],
+                "count": 2,
+            }
+        )
+        qa_resp = json.dumps(
+            {
+                "status": "needs_revision",
+                "summary": "one out-of-scope task",
+                "issues": [],
+                "corrections": {
+                    "removed": [{"task_name": "EvilTask", "reason": "not supported by source text"}],
+                    "added": [],
+                },
+            }
+        )
+        result = await self._run_with_qa_structured(llm_service, extract_resp, qa_resp, "ScheduledTasksExtract")
+
+        assert result["count"] == 1
+        remaining = result["items"]
+        assert remaining[0]["task_name"] == "WindowsUpdate"
+        assert result["_qa_result"]["pre_filter_count"] == 2

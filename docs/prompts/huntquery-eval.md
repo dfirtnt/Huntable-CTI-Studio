@@ -104,4 +104,6 @@ Provide analysis with: Summary (bundles analyzed, performance, key issues, prior
 
 **Field Names**: Non-standard → Specify preferred (query/type/context), note normalization.
 
-**JSON Errors**: Markdown/prose → "Output ONLY JSON, no markdown/prose/code fences".
+**JSON Errors**: Markdown/prose -> "Output ONLY JSON, no markdown/prose/code fences".
+
+_Last updated: 2026-05-01_

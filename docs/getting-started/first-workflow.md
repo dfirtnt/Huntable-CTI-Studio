@@ -70,10 +70,9 @@ The agentic workflow runs these stages in order:
 
 1. **OS Detection** — classifies the article as Windows/Linux/macOS/cross-platform. Non-Windows articles terminate early with reason `non_windows_os_detected`.
 2. **Content Filtering** — ML classifier + hunt score keywords determine if the article has actionable threat content.
-3. **Chunking** — long articles are split into context-window-sized chunks for LLM processing.
-4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks).
-5. **Supervisor Aggregation** — a supervisor agent merges and deduplicates sub-agent outputs.
-6. **Sigma Generation** — generates detection rules from extracted observables, then runs similarity search against 5,247+ indexed SigmaHQ rules.
+3. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks).
+4. **Aggregation** — code in the extract step merges and deduplicates sub-agent outputs.
+5. **Sigma Generation** — generates detection rules from extracted observables, then runs similarity search against indexed SigmaHQ rules.
 
 ## Troubleshooting
 
@@ -83,3 +82,5 @@ The agentic workflow runs these stages in order:
 | Status stuck on `running` | Worker not processing tasks | Check `docker-compose logs workflow_worker` |
 | Empty extraction results | Article filtered as non-huntable | Check `termination_reason` in execution record |
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
+
+_Last updated: 2026-05-01_

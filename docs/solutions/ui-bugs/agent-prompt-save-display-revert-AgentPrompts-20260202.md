@@ -1,4 +1,5 @@
 ---
+title: "Agent prompt save-display revert (race with loadAgentPrompts)"
 module: Agent Prompt Management
 date: "2026-02-02"
 problem_type: ui_bug

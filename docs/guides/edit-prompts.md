@@ -134,4 +134,6 @@ See [Workflow baseline presets](../getting-started/configuration.md#workflow-bas
 - [Evaluate Models](evaluate-models.md) — measuring prompt changes against eval articles
 - [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
 - [Workflow baseline presets](../getting-started/configuration.md#workflow-baseline-presets-getting-started) — quickstart preset files and how to import/export configs
-- Contract test: `tests/config/test_subagent_traceability_contract.py` — authoritative schema enforcement
+- Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
+
+_Last updated: 2026-05-01_

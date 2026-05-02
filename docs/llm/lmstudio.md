@@ -64,7 +64,7 @@ If the configured URL is unreachable, the app tries fallback hosts (e.g. localho
 ### Per-Agent Model Overrides
 - `LMSTUDIO_MODEL_RANK`: Model for ranking agent (default: `qwen/qwen3-4b-2507`)
 - `LMSTUDIO_MODEL_EXTRACT`: Model for extraction agent (default: `qwen/qwen3-4b-2507`)
-- `LMSTUDIO_MODEL_SIGMA`: Model for SIGMA generation (default: `qwen/qwen3-4b-2507`)
+- `LMSTUDIO_MODEL_SIGMA`: Model for Sigma generation (default: `qwen/qwen3-4b-2507`)
 - `LMSTUDIO_MAX_CONTEXT`: Maximum context window size (tokens). Must also be set in LM Studio UI.
 
 ### Recommended Settings (for Deterministic Scoring)
@@ -106,13 +106,13 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
 
 #### Context Length Requirements by Use Case
 
-**Article Scoring (SIGMA Huntability Ranking):**
+**Article Scoring (Sigma Huntability Ranking):**
 - **Minimum Required:** 8192 tokens (for smaller articles)
 - **Recommended:** 16384-32768 tokens (for full article analysis)
 - **Prompt Size:** ~6000-8000 input tokens (full rubric + article content)
 - **Error if too small:** "Trying to keep the first X tokens when context overflows. However, the model is loaded with context length of only Y tokens"
 
-**SIGMA Rule Generation:**
+**Sigma Rule Generation:**
 - Huntable CTI Studio automatically truncates content based on detected model size:
   - 1B models: ~550 tokens of content (~2200 chars)
   - 3B models: ~2600 tokens of content (~10400 chars)  
@@ -461,3 +461,5 @@ For issues or questions:
 ---
 
 **Note:** Currently only LM Studio is implemented as an active local provider. MLX and llama.cpp are planned for future releases.
+
+_Last updated: 2026-05-01_

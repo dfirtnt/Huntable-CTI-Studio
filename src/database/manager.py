@@ -736,8 +736,6 @@ class DatabaseManager:
             consecutive_failures=db_source.consecutive_failures,
             total_articles=db_source.total_articles,
             average_response_time=db_source.average_response_time,
-            healing_exhausted=getattr(db_source, "healing_exhausted", False),
-            healing_attempts=getattr(db_source, "healing_attempts", 0),
             created_at=created_at,
             updated_at=updated_at,
         )

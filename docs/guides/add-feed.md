@@ -42,4 +42,6 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 - To reset the database to YAML defaults, rerun sync **without** `--no-remove` (overwrites DB rows not present in YAML).
 - Set `active: false` to keep a source defined but disabled; collectors skip inactive sources at runtime.
 - Scheduler cadence is controlled by `check_frequency` (seconds) and the Celery Beat schedule defined in `docker-compose.yml`. The default is 14400 (4 hours); add an explicit `check_frequency` in YAML only when a faster cadence is needed.
-- If a new source starts failing, the auto-healing pipeline will diagnose it after the configured failure threshold is reached (default: 100 consecutive failures in fresh installs). It runs deep probes and proposes config fixes. See [Source Healing](../internals/source-healing.md) for details.
+- If a new source starts failing, the auto-healing pipeline will diagnose it after the configured failure threshold is reached (default: 100 consecutive failures in fresh installs). It runs deep probes and proposes config fixes. See `src/services/source_healing_service.py` for details.
+
+_Last updated: 2026-05-01_

@@ -76,3 +76,5 @@ To add anchors, edit `cmdline_attention_preprocessor.py`:
 - **Regex anchors**: Add pattern to `REGEX_ANCHOR_PATTERNS` (pre-compiled at module load)
 
 Keep anchors aligned with LOLBAS tradecraft. Do not add scoring, weighting, or caps.
+
+_Last updated: 2026-05-01_

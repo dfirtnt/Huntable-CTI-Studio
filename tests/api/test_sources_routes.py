@@ -55,7 +55,6 @@ def _mock_source(**overrides):
     source.consecutive_failures = overrides.get("consecutive_failures", 0)
     source.last_success = overrides.get("last_success", now)
     source.last_check = overrides.get("last_check", now)
-    source.healing_exhausted = overrides.get("healing_exhausted", False)
     source.dict = Mock(return_value={"id": source.id, "name": source.name})
     return source
 

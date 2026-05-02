@@ -18,7 +18,7 @@ To include **approved rules from your customer repo** (the repo at `SIGMA_REPO_P
 ```bash
 ./run_cli.sh sigma index-customer-repo   # metadata + embeddings; use --no-embeddings for metadata only
 ```
-Re-run after adding or changing rules in the customer repo. See [Sigma Detection Rules — Customer repo rules in similarity search](../features/sigma-rules.md#customer-repo-rules-in-similarity-search).
+Re-run after adding or changing rules in the customer repo. See [Sigma Detection Rules — Customer repo rules in similarity search](../features/sigma-rules.md#customer-repo-rules).
 
 ## 2) Trigger workflow for the article
 Sigma runs automatically after extraction:
@@ -75,3 +75,5 @@ Configure in **Settings → GitHub**:
 - If validation fails, the Sigma agent retries up to three times with pySigma error feedback.
 - No rules are generated when extraction produces zero huntables and the filtered content toggle is disabled.
 - Similarity search requires embeddings; run `sigma index-embeddings` (uses local sentence-transformers). Use `capabilities check` to verify status.
+
+_Last updated: 2026-05-01_

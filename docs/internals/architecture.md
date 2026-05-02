@@ -14,7 +14,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │                 │    │                 │    │     Tasks       │    │                 │
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
-│ • 303+ Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
+│ • Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
 │ • Browser Ext.  │    │ • RAG Search    │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
@@ -23,9 +23,9 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │                        Docker Container Environment                            │
 │                                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
-│  │    Web      │  │   Worker    │  │  Scheduler  │  │  LM Studio  │          │
-│  │  (FastAPI)  │  │  (Celery)   │  │  (Celery)   │  │    (LLM)    │          │
-│  │   Port 8001 │  │             │  │             │  │  Port 1234  │          │
+│  │    Web      │  │   Worker    │  │  Workflow   │  │  Scheduler  │          │
+│  │  (FastAPI)  │  │  (Celery)   │  │   Worker   │  │  (Celery)   │          │
+│  │   Port 8001 │  │             │  │  (Celery)  │  │             │          │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘          │
 │                                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │
@@ -58,7 +58,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
           ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Source List   │───▶│  RSS Parser     │───▶│ Modern Scraper  │
-│   (303+ sources) │    │                 │    │                 │
+│   (sources) │    │                 │    │                 │
 └─────────────────┘    └─────────┬───────┘    └─────────┬───────┘
                                  │                      │
                                  ▼                      ▼
@@ -323,7 +323,7 @@ API Endpoints:
 │ • name          │
 │ • url           │
 │ • rss_url       │
-│ • check_frequencytier          │
+│ • check_frequency│
 │ • active        │
 │ • config (JSON) │
 │ • last_check    │
@@ -400,7 +400,7 @@ API Endpoints:
 │   LLM Services  │    │   RAG Service   │    │ SIGMA Generation│
 │                 │    │                 │    │                 │
 │ • LM Studio     │    │ • Vector Search │    │ • AI Analysis   │
-│ • OpenAI        │    │ • Context Build │    │ • pySIGMA Valid │
+│ • OpenAI        │    │ • Context Build │    │ • pySigma Valid │
 │ • Anthropic     │    │ • MCP Retrieval │    │ • Rule Creation │
 └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
           │                      │                      │
@@ -533,7 +533,7 @@ API Endpoints:
             └─────────────────┘    └─────────────────┘
 
 Note: Cron jobs are configured but require Docker to be running.
-Manual backups via CLI: ./scripts/backup_restore.sh create
+Manual backups via CLI: ./run_cli.sh backup create
 ```
 
 ## 11. CLI Tool Service Workflow
@@ -703,25 +703,4 @@ Manual backups via CLI: ./scripts/backup_restore.sh create
 └─────────────────┘
 ```
 
-## Usage Notes
-
-These diagrams are designed to fit on single pages for easy screenshot capture into PowerPoint slides. Each diagram shows a specific workflow or component of the Huntable CTI Studio system:
-
-1. **System Architecture** - Overall system components and Docker environment with all services
-2. **Article Collection** - How articles are collected from RSS feeds and web scraping
-3. **Content Processing** - Deduplication, quality filtering, and scoring pipeline
-4. **Threat Hunting Scoring** - Keyword-based scoring system for threat intelligence relevance
-5. **Web Interface** - FastAPI application and database interaction
-6. **Background Tasks** - Celery-based task scheduling and execution
-7. **Database Schema** - PostgreSQL table relationships and structure with new tables
-8. **AI-Powered Analysis** - LLM integration, RAG search/MCP retrieval, and SIGMA rule generation workflows
-9. **ML Training Data Annotation** - Annotation system with auto-expand functionality for ML training
-10. **Automated Backup System** - Backup scheduling, retention policies, and verification
-11. **CLI Tool Service** - Command-line interface workflow and database consistency
-12. **Browser Extension** - Browser extension workflow for direct article ingestion
-13. **HTTP Client** - Rate limiting, robots.txt compliance, and request handling
-
-Each diagram uses consistent ASCII art styling and is optimized for readability when captured as screenshots.
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE4NzgxMjk2MzZdfQ==
--->
+_Last updated: 2026-05-01_

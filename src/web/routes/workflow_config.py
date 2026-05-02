@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
-from src.config.workflow_config_schema import AGENT_NAMES_SPECIAL
+from src.config.workflow_config_schema import AGENT_DISPLAY_NAMES, AGENT_NAMES_SPECIAL
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -60,6 +60,31 @@ def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]
     if providers:
         db_session.commit()
         logger.info("Auto-enabled providers from preset: %s", sorted(providers))
+
+
+def _active_workflow_config_query(db_session):
+    return (
+        db_session.query(AgenticWorkflowConfigTable)
+        .filter(AgenticWorkflowConfigTable.is_active == True)
+        .order_by(AgenticWorkflowConfigTable.version.desc(), AgenticWorkflowConfigTable.id.desc())
+    )
+
+
+def _next_workflow_config_version(db_session) -> int:
+    max_version = db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0
+    return int(max_version) + 1
+
+
+def _deactivate_active_workflow_configs(db_session) -> None:
+    active_configs = (
+        db_session.query(AgenticWorkflowConfigTable)
+        .filter(AgenticWorkflowConfigTable.is_active == True)
+        .with_for_update()
+        .all()
+    )
+    for config in active_configs:
+        config.is_active = False
+    db_session.flush()
 
 
 class WorkflowConfigResponse(BaseModel):
@@ -199,14 +224,10 @@ async def get_workflow_config(request: Request):
         db_session = db_manager.get_session()
 
         try:
-            config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .first()
-            )
+            config = _active_workflow_config_query(db_session).first()
 
             if not config:
+                new_version = _next_workflow_config_version(db_session)
                 # Create default config with prompts from src/prompts so agents ship with working defaults
                 default_prompts = get_default_agent_prompts()
                 config = AgenticWorkflowConfigTable(
@@ -214,7 +235,7 @@ async def get_workflow_config(request: Request):
                     ranking_threshold=6.0,
                     similarity_threshold=0.5,
                     junk_filter_threshold=0.8,
-                    version=1,
+                    version=new_version,
                     is_active=True,
                     description="Default configuration",
                     sigma_fallback_enabled=False,
@@ -276,23 +297,17 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
             # Deactivate current active config
             # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .with_for_update()
-                .first()
+                _active_workflow_config_query(db_session).with_for_update().first()
             )  # Lock the row to prevent concurrent updates
 
             if current_config:
-                current_config.is_active = False
-                db_session.flush()  # Ensure old config is deactivated before creating new one
+                _deactivate_active_workflow_configs(db_session)
             else:
                 db_session.flush()
 
             # Version must be monotonic even if newer inactive rows exist (e.g. tests or fixtures
             # that temporarily activate a higher version then restore an older version).
-            max_version = db_session.query(func.max(AgenticWorkflowConfigTable.version)).scalar() or 0
-            new_version = int(max_version) + 1
+            new_version = _next_workflow_config_version(db_session)
 
             # Validate thresholds
             ranking_threshold = (
@@ -606,6 +621,14 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
     for agent_name, prompt_entry in agent_prompts.items():
         if not isinstance(prompt_entry, dict):
             continue
+
+        # Skip non-prompt entries (e.g. ExtractAgentSettings stores disabled_agents, not a prompt).
+        if "prompt" not in prompt_entry:
+            continue
+
+        display = AGENT_DISPLAY_NAMES.get(agent_name)
+        label = f"{display} ({agent_name})" if display else agent_name
+
         prompt_str = prompt_entry.get("prompt", "")
         if not isinstance(prompt_str, str):
             prompt_str = str(prompt_str)
@@ -613,7 +636,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
         if not prompt_str.strip():
             # Special agents (e.g. OSDetectionFallback) are embedding-based and don't use LLM prompts.
             if agent_name not in AGENT_NAMES_SPECIAL:
-                warnings.append(f"{agent_name}: system prompt is empty")
+                warnings.append(f"{label}: system prompt is empty")
             continue
 
         if not prompt_str.strip().startswith("{"):
@@ -622,7 +645,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
         try:
             parsed = json.loads(prompt_str)
         except (ValueError, json.JSONDecodeError):
-            warnings.append(f"{agent_name}: system prompt contains invalid JSON")
+            warnings.append(f"{label}: system prompt contains invalid JSON")
             continue
 
         if not isinstance(parsed, dict):
@@ -633,7 +656,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             # Structured prompt without json_example -- warn only for known extractor agents
             if agent_name.endswith("Extract") or agent_name == "ExtractAgent":
                 warnings.append(
-                    f"{agent_name}: structured prompt is missing 'json_example' (required by Extractor Contract)"
+                    f"{label}: structured prompt is missing 'json_example' (required by Extractor Contract)"
                 )
             continue
 
@@ -641,7 +664,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             try:
                 json_example = json.loads(json_example_raw)
             except (ValueError, json.JSONDecodeError):
-                warnings.append(f"{agent_name}: json_example is not valid JSON")
+                warnings.append(f"{label}: json_example is not valid JSON")
                 continue
         else:
             json_example = json_example_raw
@@ -662,7 +685,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
         missing_required = _TRACEABILITY_REQUIRED - item_fields
         if missing_required:
             warnings.append(
-                f"{agent_name}: json_example items missing required traceability fields: {sorted(missing_required)}"
+                f"{label}: json_example items missing required traceability fields: {sorted(missing_required)}"
             )
             continue
 
@@ -931,7 +954,9 @@ async def list_config_versions(
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
-            query = db_session.query(AgenticWorkflowConfigTable).order_by(AgenticWorkflowConfigTable.version.desc())
+            query = db_session.query(AgenticWorkflowConfigTable).order_by(
+                AgenticWorkflowConfigTable.version.desc(), AgenticWorkflowConfigTable.id.desc()
+            )
             if version is not None and version.strip():
                 try:
                     query = query.filter(AgenticWorkflowConfigTable.version == int(version.strip()))
@@ -1006,13 +1031,7 @@ async def get_agent_prompts(request: Request):
             # Use with_for_update(skip_locked=True) to ensure we get the latest committed data
             # This prevents race conditions where a new config was just created but not yet visible
             # skip_locked=True allows the query to proceed even if another transaction has a lock
-            config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .with_for_update(skip_locked=True)
-                .first()
-            )
+            config = _active_workflow_config_query(db_session).with_for_update(skip_locked=True).first()
 
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1102,12 +1121,7 @@ async def get_agent_prompt(request: Request, agent_name: str):
         db_session = db_manager.get_session()
 
         try:
-            config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .first()
-            )
+            config = _active_workflow_config_query(db_session).first()
 
             if not config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1163,11 +1177,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             # This prevents race conditions where another operation creates a new config
             # between when we query and when we update
             current_config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .with_for_update()
-                .first()
+                _active_workflow_config_query(db_session).with_for_update().first()
             )  # Lock the row to prevent concurrent updates
 
             if not current_config:
@@ -1181,9 +1191,8 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             old_instructions = agent_prompts.get(prompt_update.agent_name, {}).get("instructions", "")
 
             # Deactivate current config
-            current_config.is_active = False
-            db_session.flush()  # Ensure old config is deactivated before creating new one
-            new_version = current_config.version + 1
+            _deactivate_active_workflow_configs(db_session)
+            new_version = _next_workflow_config_version(db_session)
 
             # Update or create agent prompt
             if prompt_update.agent_name not in agent_prompts:
@@ -1439,20 +1448,15 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             # Get current active config
             # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .with_for_update()
-                .first()
+                _active_workflow_config_query(db_session).with_for_update().first()
             )  # Lock the row to prevent concurrent updates
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
 
             # Deactivate current config
-            current_config.is_active = False
-            db_session.flush()  # Ensure old config is deactivated before creating new one
-            new_version = current_config.version + 1
+            _deactivate_active_workflow_configs(db_session)
+            new_version = _next_workflow_config_version(db_session)
 
             # Get existing prompts
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
@@ -1672,11 +1676,7 @@ async def bootstrap_prompts_from_files(request: Request):
         try:
             # CRITICAL: Use order_by and lock to prevent race conditions
             current_config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .with_for_update()
-                .first()
+                _active_workflow_config_query(db_session).with_for_update().first()
             )  # Lock the row to prevent concurrent updates
 
             if not current_config:
@@ -1751,9 +1751,8 @@ async def bootstrap_prompts_from_files(request: Request):
                 raise HTTPException(status_code=404, detail="No prompt files found to bootstrap from")
 
             # Deactivate current config
-            current_config.is_active = False
-            db_session.flush()
-            new_version = current_config.version + 1
+            _deactivate_active_workflow_configs(db_session)
+            new_version = _next_workflow_config_version(db_session)
 
             # Create new config with bootstrapped prompts
             new_config = AgenticWorkflowConfigTable(
@@ -1816,13 +1815,7 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
         db_session = db_manager.get_session()
 
         try:
-            current_config = (
-                db_session.query(AgenticWorkflowConfigTable)
-                .filter(AgenticWorkflowConfigTable.is_active == True)
-                .order_by(AgenticWorkflowConfigTable.version.desc())
-                .with_for_update()
-                .first()
-            )
+            current_config = _active_workflow_config_query(db_session).with_for_update().first()
 
             if not current_config:
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
@@ -1849,9 +1842,8 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
                 )
 
             # Deactivate current config and create a new version
-            current_config.is_active = False
-            db_session.flush()
-            new_version = current_config.version + 1
+            _deactivate_active_workflow_configs(db_session)
+            new_version = _next_workflow_config_version(db_session)
 
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
@@ -2104,12 +2096,7 @@ async def validate_workflow_config():
     db_manager = DatabaseManager()
     db_session = db_manager.get_session()
     try:
-        current_config = (
-            db_session.query(AgenticWorkflowConfigTable)
-            .filter_by(is_active=True)
-            .order_by(AgenticWorkflowConfigTable.version.desc())
-            .first()
-        )
+        current_config = _active_workflow_config_query(db_session).first()
         if not current_config:
             return {"issues": [{"level": "error", "msg": "No active workflow config found."}]}
 

@@ -216,3 +216,17 @@ class TestWarningCases:
         assert "AgentA" in agents_warned
         assert "AgentB" in agents_warned
         assert "HuntabilityScore" not in agents_warned
+
+    def test_extract_agent_settings_silently_skipped(self):
+        """ExtractAgentSettings stores disabled_agents, not a prompt -- must never warn."""
+        prompts = {
+            "ExtractAgentSettings": {"disabled_agents": ["CmdlineExtract"]},
+        }
+        assert _scan_preset_prompts_for_warnings(prompts) == []
+
+    def test_display_name_included_in_warning(self):
+        """Agents with an AGENT_DISPLAY_NAMES entry show the human-readable name in warnings."""
+        warnings = _scan_preset_prompts_for_warnings({"CmdlineExtract": _make_entry("")})
+        assert len(warnings) == 1
+        assert "Command Line Extraction" in warnings[0]
+        assert "CmdlineExtract" in warnings[0]

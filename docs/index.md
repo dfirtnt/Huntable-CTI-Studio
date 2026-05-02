@@ -1,8 +1,10 @@
 # Huntable CTI Studio
 
-**Turn threat intelligence into Sigma detections; faster.**
+**Reports to Rules… in Record time.**
 
-Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It helps turn open-source threat intelligence into Sigma rules you can validate, review, and deploy. No black box required: the system exposes explicit workflows, stored execution state, versioned configuration, and testable interfaces.
+Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables, command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries, and turns them into Sigma rules you can validate, review, and ship.
+
+With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
 
 ## Who Is This For?
 
@@ -63,11 +65,11 @@ Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection]
 
 ### RAG Search
 
-Semantic search across your CTI corpus using embeddings. See [RAG Search](features/rag-search.md).
+Semantic search across your CTI corpus using embeddings. See [Semantic Search](features/semantic-search.md).
 
 ### Source Auto-Healing
 
-LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See [Source Healing Architecture](internals/source-healing.md).
+LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See `src/services/source_healing_service.py` for implementation details.
 
 ### Model Versioning And Rollback
 
@@ -88,3 +90,5 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Documentation**: Navigate using the docs sidebar
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
+
+_Last updated: 2026-05-01_

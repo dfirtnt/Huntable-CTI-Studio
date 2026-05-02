@@ -5,11 +5,9 @@ Tests all UI components, API endpoints, and user workflows.
 """
 
 import asyncio
-from collections.abc import AsyncGenerator
 
 import httpx
 import pytest
-import pytest_asyncio
 
 # Test configuration
 BASE_URL = "http://localhost:8001"
@@ -208,23 +206,25 @@ class TestSourceManagement:
             assert "articles_by_date" in data
 
     @pytest.mark.asyncio
-    async def test_source_toggle_functionality(self, async_client: httpx.AsyncClient):
-        """Test the source toggle functionality."""
-        # First check if we have any sources
+    async def test_source_toggle_functionality(self, async_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+        """Test the source toggle functionality (admin-authenticated)."""
         sources_response = await async_client.get("/api/sources")
         assert sources_response.status_code == 200
 
         sources_data = sources_response.json()
-        if sources_data["sources"]:
-            source_id = sources_data["sources"][0]["id"]
+        if not sources_data["sources"]:
+            return
 
-            # Test the source toggle endpoint
-            response = await async_client.post(f"/api/sources/{source_id}/toggle")
-            assert response.status_code == 200
+        source_id = sources_data["sources"][0]["id"]
+        monkeypatch.setenv("ADMIN_API_KEY", "test-admin-key")
+        response = await async_client.post(
+            f"/api/sources/{source_id}/toggle",
+            headers={"X-API-Key": "test-admin-key"},
+        )
+        assert response.status_code == 200
 
-            data = response.json()
-            # The response should contain information about the toggle operation
-            assert "source_name" in data or "message" in data
+        data = response.json()
+        assert "source_name" in data or "message" in data
 
 
 @pytest.mark.api
@@ -430,27 +430,4 @@ class TestUserWorkflows:
         assert sources_response.status_code == 200
 
 
-# Fixture for async HTTP client
-@pytest_asyncio.fixture
-async def async_client() -> AsyncGenerator[httpx.AsyncClient, None]:
-    """Async HTTP client for testing."""
-    # Use shorter timeout to prevent hanging tests
-    client = httpx.AsyncClient(
-        base_url=BASE_URL,
-        timeout=httpx.Timeout(TEST_TIMEOUT, connect=5.0, read=TEST_TIMEOUT, write=TEST_TIMEOUT, pool=5.0),
-    )
-    try:
-        yield client
-    finally:
-        # Manually close the client to avoid event loop closure issues
-        try:
-            # Use asyncio.wait_for to prevent hanging on close
-            await asyncio.wait_for(client.aclose(), timeout=2.0)
-        except (TimeoutError, RuntimeError, Exception):
-            # Event loop already closed, timeout, or any other error - ignore to prevent hanging
-            # Force close connections if still open
-            try:
-                if hasattr(client, "_transport") and client._transport:
-                    client._transport.close()
-            except Exception:
-                pass
+# async_client fixture is provided by tests/conftest.py and respects USE_ASGI_CLIENT

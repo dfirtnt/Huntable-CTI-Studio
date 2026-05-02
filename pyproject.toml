@@ -1,6 +1,6 @@
 [project]
 name = "cti-scraper"
-version = "6.2.0"
+version = "6.2.1"
 description = "CTI Scraper - Threat intelligence aggregator"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -175,6 +175,7 @@ extend-ignore = [
 "src/cli/main.py" = ["E402"]
 "src/web/routes/chat.py" = ["E501"]
 "src/worker/celery_app.py" = ["E402", "E501", "SIM105", "RET504", "B904", "B905", "F841"]
+"vulture_whitelist.py" = ["F821", "B018"]
 
 [tool.ruff.format]
 # Use ruff as the formatter (enabled by default when ruff is installed)

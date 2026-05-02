@@ -103,4 +103,6 @@ Provide analysis with: Summary (bundles analyzed, performance, key issues, prior
 
 **Command Line Extraction**: Extracting from command lines → "extract from narrative text only", "do NOT extract from command lines/code blocks", negative example.
 
-**Multi-Step Chains**: Missing intermediate relationships → "extract all adjacent pairs in chains", "A→B→C extracted as A→B and B→C", example.
+**Multi-Step Chains**: Missing intermediate relationships -> "extract all adjacent pairs in chains", "A->B->C extracted as A->B and B->C", example.
+
+_Last updated: 2026-05-01_

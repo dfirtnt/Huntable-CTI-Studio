@@ -399,6 +399,5 @@ WHERE NOT EXISTS (
 - Consider using connection pooling for production deployments
 - Regularly rotate database passwords
 - Monitor database access logs
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbMTc1NTQ0MzM4Ml19
--->
+
+_Last updated: 2026-05-01_

@@ -11,7 +11,7 @@ from typing import Any
 
 from src.database.models import ArticleTable
 from src.services.llm_service import LLMService
-from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_llm_call
+from src.services.qa_evaluator import QAEvaluator
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +20,6 @@ class QAAgentService:
     """Service for quality assurance evaluation of agent outputs."""
 
     def __init__(self, llm_service: LLMService):
-        """
-        Initialize QA Agent Service.
-
-        Args:
-            llm_service: LLMService instance for QA evaluation
-        """
         self.llm_service = llm_service
 
     async def evaluate_agent_output(
@@ -40,14 +34,6 @@ class QAAgentService:
     ) -> dict[str, Any]:
         """
         Evaluate agent output for compliance, accuracy, and fidelity.
-
-        Args:
-            article: Source article
-            agent_prompt: Original prompt given to the agent
-            agent_output: Agent's output to evaluate
-            agent_name: Name of the agent being evaluated
-            config_obj: Workflow config object (for getting QA prompt)
-            execution_id: Optional workflow execution id for Langfuse tracing
 
         Returns:
             Dict with keys: summary, issues[], verdict
@@ -70,11 +56,10 @@ class QAAgentService:
                         except json.JSONDecodeError:
                             logger.warning("Failed to parse QAAgent prompt JSON, using default")
 
-            # Use default QA prompt structure if not found in config
             if not qa_prompt_dict:
                 qa_prompt_dict = self._get_default_qa_prompt()
 
-            # Format QA evaluation prompt
+            # Build system prompt
             qa_system_prompt = (
                 (qa_prompt_dict.get("system") or qa_prompt_dict.get("role") or "").strip()
                 + "\n\n"
@@ -88,14 +73,13 @@ class QAAgentService:
 
             # Build evaluation input
             evaluation_input = {
-                "article": article.content[:10000] if article.content else "",  # Truncate for context
-                "agent_prompt": agent_prompt[:5000] if agent_prompt else "",  # Truncate for context
+                "article": article.content[:10000] if article.content else "",
+                "agent_prompt": agent_prompt[:5000] if agent_prompt else "",
                 "agent_output": json.dumps(agent_output, indent=2)
                 if isinstance(agent_output, dict)
                 else str(agent_output),
             }
 
-            # Create user message with evaluation criteria
             evaluation_criteria = qa_prompt_dict.get("evaluation_criteria", [])
             criteria_text = "\n".join([f"- {criterion}" for criterion in evaluation_criteria])
 
@@ -127,103 +111,66 @@ Please provide your evaluation in the following JSON format:
   "verdict": "pass | needs_revision | critical_failure"
 }}"""
 
-            # Call LLM for QA evaluation
-            # Use extract model for QA (can be configured separately later)
             messages = [{"role": "system", "content": qa_system_prompt}, {"role": "user", "content": user_message}]
 
-            # Determine target model for QA evaluation
-            # Override model if QA-specific model configured
+            # Resolve model and sampling parameters
             qa_model_override = None
-            qa_temperature = 0.1  # Default temperature
-            qa_top_p = 0.9  # Default top_p
+            qa_temperature = 0.1
+            qa_top_p = 0.9
             if config_obj and hasattr(config_obj, "agent_models") and config_obj.agent_models:
                 qa_model_override = config_obj.agent_models.get(agent_name)
                 if not qa_model_override:
                     qa_model_override = config_obj.agent_models.get(f"{agent_name}QA")
 
-                # Get QA temperature from config (e.g., RankAgentQA_temperature, CmdLineQA_temperature)
                 qa_temp_key = f"{agent_name}QA_temperature"
                 if qa_temp_key in config_obj.agent_models:
                     qa_temperature = float(config_obj.agent_models[qa_temp_key])
                 elif agent_name == "RankAgent":
-                    # Special case for RankAgent - check RankAgentQA_temperature
                     qa_temperature = float(config_obj.agent_models.get("RankAgentQA_temperature", 0.1))
 
-                # Get QA top_p from config (e.g., RankAgentQA_top_p, CmdLineQA_top_p)
                 qa_top_p_key = f"{agent_name}QA_top_p"
                 if qa_top_p_key in config_obj.agent_models:
                     qa_top_p = float(config_obj.agent_models[qa_top_p_key])
                 elif agent_name == "RankAgent":
-                    # Special case for RankAgent - check RankAgentQA_top_p
                     qa_top_p = float(config_obj.agent_models.get("RankAgentQA_top_p", 0.9))
 
             target_model = qa_model_override or self.llm_service.model_extract
 
-            # Determine provider for QA - use provided provider or fallback to ExtractAgent provider
+            # Resolve provider
             qa_provider = provider
             if not qa_provider and config_obj and hasattr(config_obj, "agent_models") and config_obj.agent_models:
-                # Try to get QA-specific provider (e.g., RankAgentQA_provider)
                 qa_provider_key = f"{agent_name}QA_provider"
                 qa_provider = config_obj.agent_models.get(qa_provider_key)
-                # Fallback to agent provider (e.g., RankAgent_provider)
                 if not qa_provider:
                     agent_provider_key = f"{agent_name}_provider"
                     qa_provider = config_obj.agent_models.get(agent_provider_key)
-                # Fallback to ExtractAgent provider
                 if not qa_provider:
                     qa_provider = config_obj.agent_models.get("ExtractAgent_provider")
-            # Final fallback to ExtractAgent provider from llm_service
             if not qa_provider:
                 qa_provider = self.llm_service.provider_extract
 
-            # Convert messages for model compatibility
-            converted_messages = self.llm_service._convert_messages_for_model(messages, target_model)
-
-            # Call LLM API with provider-aware method and Langfuse tracing
-            with trace_llm_call(
-                name=f"qa_{agent_name.lower()}",
-                model=target_model,
+            # Delegate LLM call, parsing, and normalization to QAEvaluator
+            evaluator = QAEvaluator(self.llm_service)
+            qa_result = await evaluator.evaluate(
+                messages=messages,
+                agent_name=agent_name,
+                model_name=target_model,
+                provider=qa_provider,
+                temperature=qa_temperature,
+                top_p=qa_top_p,
+                max_tokens=2000,
+                timeout=300.0,
                 execution_id=execution_id,
                 article_id=article.id if article else None,
-                metadata={"messages": converted_messages, "agent_name": agent_name, "provider": qa_provider},
-            ) as generation:
-                response = await self.llm_service.request_chat(
-                    provider=qa_provider,
-                    model_name=target_model,
-                    messages=converted_messages,
-                    max_tokens=2000,
-                    temperature=qa_temperature,
-                    top_p=qa_top_p,
-                    timeout=300.0,
-                    failure_context=f"QA evaluation for {agent_name}",
-                )
+            )
 
-                # Parse response
-                response_text = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-                if generation:
-                    log_llm_completion(
-                        generation=generation,
-                        input_messages=converted_messages,
-                        output=response_text or "",
-                        usage=response.get("usage", {}),
-                        metadata={"agent_name": agent_name, "qa_prompt": qa_prompt_dict},
-                    )
-
-                # Try to extract JSON from response
-                qa_result = self._parse_qa_response(response_text)
-
-                return qa_result
+            # Strip internal housekeeping keys before returning to callers
+            return {k: v for k, v in qa_result.items() if not k.startswith("_")}
 
         except ValueError:
-            # Configuration errors (e.g. empty system prompt) are programming mistakes -- re-raise
-            # so callers get a clear signal rather than a silent degraded verdict.
             raise
         except Exception as e:
             logger.error(f"QA evaluation error for {agent_name}: {e}", exc_info=True)
-            if "generation" in locals() and generation:
-                log_llm_error(generation, e, metadata={"agent_name": agent_name})
-            # Return failure verdict on error
             return {
                 "summary": f"QA evaluation failed: {str(e)}",
                 "issues": [
@@ -237,45 +184,9 @@ Please provide your evaluation in the following JSON format:
                 "verdict": "critical_failure",
             }
 
-    def _parse_qa_response(self, response_text: str) -> dict[str, Any]:
-        """Parse QA response text into structured format."""
-        try:
-            # Try to extract JSON from response
-            # Look for JSON object in the response
-            import re
-
-            json_match = re.search(r"\{.*\}", response_text, re.DOTALL)
-            if json_match:
-                json_str = json_match.group(0)
-                result = json.loads(json_str)
-                # Validate structure
-                if "verdict" in result and "summary" in result:
-                    if "issues" not in result:
-                        result["issues"] = []
-                    return result
-        except Exception as e:
-            logger.warning(f"Failed to parse QA response as JSON: {e}")
-
-        # Fallback: create structured response from text
-        verdict = "needs_revision"
-        if "pass" in response_text.lower() or "✅" in response_text:
-            verdict = "pass"
-        elif "critical" in response_text.lower() or "❌" in response_text:
-            verdict = "critical_failure"
-
-        return {
-            "summary": response_text[:500] if response_text else "QA evaluation completed",
-            "issues": [],
-            "verdict": verdict,
-        }
-
     async def generate_feedback(self, qa_result: dict[str, Any], agent_name: str) -> str:
         """
         Generate feedback message for agent based on QA results.
-
-        Args:
-            qa_result: QA evaluation result
-            agent_name: Name of the agent
 
         Returns:
             Feedback string for agent to use in retry
@@ -286,7 +197,6 @@ Please provide your evaluation in the following JSON format:
         if not issues:
             return f"QA feedback: {summary}. Please review and improve your output."
 
-        # Group issues by type
         compliance_issues = [i for i in issues if i.get("type") == "compliance"]
         factuality_issues = [i for i in issues if i.get("type") == "factuality"]
         formatting_issues = [i for i in issues if i.get("type") == "formatting"]

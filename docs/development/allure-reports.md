@@ -40,12 +40,12 @@ addopts =
 #### 1. Standard Test Execution
 ```bash
 # Run all tests with Allure reports
-python3 run_tests.py --all
+python3 run_tests.py all
 
 # Run specific test categories
-python3 run_tests.py --unit
-python3 run_tests.py --integration
-python3 run_tests.py --ui
+python3 run_tests.py unit
+python3 run_tests.py integration
+python3 run_tests.py ui
 ```
 
 #### 2. Manual Test Execution
@@ -62,7 +62,7 @@ python3 -m pytest tests/test_utils.py -v --alluredir=allure-results
 #### 1. Generate Report Data
 ```bash
 # Run tests to generate Allure results
-python3 run_tests.py --all
+python3 run_tests.py all
 ```
 
 #### 2. Containerized Reports (Recommended)
@@ -202,7 +202,7 @@ Allure reports are automatically integrated into the CI/CD pipeline:
 ```yaml
 - name: Run Tests with Allure
   run: |
-    python3 run_tests.py --all
+    python3 run_tests.py all
     
 - name: Generate Allure Report
   run: |
@@ -326,7 +326,7 @@ ls -la allure-results/
 rm -rf allure-results/ allure-report/
 
 # Regenerate reports
-python3 run_tests.py --all
+python3 run_tests.py all
 allure generate allure-results --clean -o allure-report
 ```
 
@@ -342,20 +342,4 @@ allure generate allure-results --clean -o allure-report
 - Use static reports for artifact storage
 - Consider report caching for large test suites
 
-## Future Enhancements
-
-- **Real-time Reporting**: Live test execution monitoring
-- **Custom Dashboards**: Huntable CTI Studio-specific metrics
-- **Integration with Monitoring**: Connect with external monitoring tools
-- **Advanced Filtering**: Custom test categorization and filtering
-
-## Summary
-
-Allure Reports provide Huntable CTI Studio with:
-- **Enhanced Debugging**: Step-by-step test visualization
-- **ML/AI Focus**: Perfect for AI inference debugging
-- **UI Testing**: Automatic screenshot capture
-- **Threat Intelligence**: Rich context for security testing
-- **Integration**: Seamless CI/CD pipeline integration
-
-The combination of Allure Reports with Duration Insights creates a comprehensive testing ecosystem that provides both performance analysis and detailed debugging capabilities.
+_Last updated: 2026-05-01_

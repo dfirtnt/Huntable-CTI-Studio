@@ -40,7 +40,7 @@ These endpoints control source state and manual collection.
 - `POST /api/sources/{source_id}/reset-healing` — Reset `healing_exhausted` and `healing_attempts`
 - `GET /api/sources/{source_id}/healing-history` — Audit trail of all healing rounds and actions
 
-See [Source Healing Architecture](../internals/source-healing.md) for how the diagnostic pipeline works.
+See `src/services/source_healing_service.py` for the diagnostic pipeline implementation.
 
 ### Articles
 
@@ -132,8 +132,8 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 ### Sigma Queue And Evaluation
 
-- `GET /sigma-queue` — HTML page for the standalone SIGMA queue (same console as Workflow → Queue; uses `/api/sigma-queue/*` for data).
-- `GET /api/sigma-queue/list` — List queued SIGMA rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `GET /sigma-queue` — HTML page for the standalone Sigma queue (same console as Workflow -> Queue; uses `/api/sigma-queue/*` for data).
+- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/evaluation/*`
@@ -172,3 +172,5 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - API behavior changes: run `python3 run_tests.py api`
 - Workflow API changes: run `python3 run_tests.py integration`
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
+
+_Last updated: 2026-05-01_

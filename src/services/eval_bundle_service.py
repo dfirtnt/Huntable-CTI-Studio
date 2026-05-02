@@ -66,6 +66,7 @@ class EvalBundleService:
         attempt: int | None = None,
         inline_large_text: bool = False,
         max_inline_chars: int = 200000,
+        fetch_langfuse: bool = True,
     ) -> dict[str, Any]:
         """
         Generate eval bundle for a specific LLM call within a workflow execution.
@@ -76,6 +77,7 @@ class EvalBundleService:
             attempt: Attempt number (1-indexed)
             inline_large_text: Whether to inline large text fields
             max_inline_chars: Maximum characters to inline before truncation
+            fetch_langfuse: Whether to enrich missing request/response data from Langfuse
 
         Returns:
             Eval bundle dict conforming to eval_bundle_v1 schema
@@ -123,7 +125,7 @@ class EvalBundleService:
 
         # Extract LLM call data from error_log
         llm_request, llm_response, request_warnings, actual_attempt = self._extract_llm_call_data(
-            execution, agent_name, attempt
+            execution, agent_name, attempt, fetch_langfuse=fetch_langfuse
         )
         warnings.extend(request_warnings)
 
@@ -285,7 +287,11 @@ class EvalBundleService:
         return bundle
 
     def _extract_llm_call_data(
-        self, execution: AgenticWorkflowExecutionTable, agent_name: str, attempt: int | None
+        self,
+        execution: AgenticWorkflowExecutionTable,
+        agent_name: str,
+        attempt: int | None,
+        fetch_langfuse: bool = True,
     ) -> tuple[dict[str, Any], dict[str, Any], list[str], int | None]:
         """Extract LLM request/response data from execution error_log."""
         warnings: list[str] = []
@@ -452,7 +458,7 @@ class EvalBundleService:
         langfuse_response = None
         langfuse_usage = None
 
-        langfuse_enabled = is_langfuse_enabled()
+        langfuse_enabled = fetch_langfuse and is_langfuse_enabled()
         logger.info(f"Langfuse enabled check: {langfuse_enabled} for execution {execution.id}, agent {agent_name}")
 
         if langfuse_enabled:

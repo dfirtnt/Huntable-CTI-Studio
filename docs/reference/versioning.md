@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v6.2.0 "Io"** - Current stable release
-**v6.1.1 "Io"** - Previous stable release
-**v6.1.0 "Io"** - Earlier stable release
+**v6.2.1 "Io"** - Current stable release
+**v6.2.0 "Io"** - Previous stable release
+**v6.1.1 "Io"** - Earlier stable release
 **v4.0.0 "Kepler"** - Earlier stable release
 
 ## Planetary Moon Naming System
@@ -38,11 +38,16 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 
 ## Version History
 
-### v6.2.0 "Io" (2026-04-30)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.2.0] section. -->
+### v6.2.1 "Io" (2026-05-02)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.2.1] section. -->
 - **Named After**: <fill>
 - **Significance**: <fill>
 - **Features**: <fill>
+
+### v6.2.0 "Io" (2026-04-30)
+- **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
+- **Significance**: Extraction QA hardening, eval bundle completeness, and CodeQL static analysis cleanup -- 14 alert groups resolved, unified traceability contract across all 6 QA agents, and huntability scorer closure fix
+- **Features**: RegistryQA explicit `corrections.removed[]` schema; eval bundle `corrections_applied`/`pre_filter_count` surfacing; traceability contract tests covering all 6 QA prompts; `exclude_evals` filter on workflow executions; Sigma rule preview execution link; `warnings` key in `assess_novelty()`; null-guard hardening in extraction QA pipeline; zero-similarity matches stripped from similar_rules; eval bundle ZIP filename uniqueness; `HuntQueriesExtract` count contract convergence; N+1 batch-fetch in eval API; `claude-opus-4-7` added to model catalog; orphaned `extract-observables` route removed; orphaned CLI eval pathway deleted; huntability scorer `nonlocal` fix; smart-quote normalization fix; 14 CodeQL alert groups resolved
 
 ### v6.1.1 "Io" (2026-04-28)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
@@ -52,7 +57,7 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 ### v6.1.0 "Io" (2026-04-27)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
 - **Significance**: Agentic workflow hardening and infrastructure reliability -- infra-failure detection, context-length fast-fail, execution tracking overhaul, and three dependency security fixes (PyPDF2, aiohttp, jaraco.context CVE)
-- **Features**: Infra guard circuit breaker (LLM never invoked with empty messages); ContextLengthExceededError fail-fast with per-subagent continuation; workflow executions table sorting and filtering; cmdline attention preprocessor; multi-rule SIGMA generation with phased approach; OS Detection fallback preset fields; Chosen/Rejected article classification removed; Ollama and LangSmith support removed; eval bundle illegal-state detection
+- **Features**: Infra guard circuit breaker (LLM never invoked with empty messages); ContextLengthExceededError fail-fast with per-subagent continuation; workflow executions table sorting and filtering; cmdline attention preprocessor; multi-rule Sigma generation with phased approach; OS Detection fallback preset fields; Chosen/Rejected article classification removed; Ollama and LangSmith support removed; eval bundle illegal-state detection
 
 ### v6.0.0 "Io" (2026-04-23)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
@@ -61,8 +66,8 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 
 ### v5.3.0 "Callisto" (2026-04-14)
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons (codename reused from the 5.0.0/5.1.0 line)
-- **Significance**: New extraction sub-agents and unified traceability schema -- ServicesExtract, RegistryExtract, cross-field SIGMA similarity, Celery fork-safe DB pool, and release automation scripts
-- **Features**: ServicesExtract/ServicesQA sub-agent (Windows services artifacts); unified traceability envelope across all five extract sub-agents (value, source_evidence, extraction_justification, confidence_score); cross-field soft matching for SIGMA similarity (50%-dampened partial credit across process fields); Celery fork-safe DB pool fix; RegistryExtract/RegistryQA sub-agent; source-check distributed Redis lock; dashboard ingestion health scoring; release lock/unlock scripts; real scraper metrics from source_checks; OpenAI model catalog narrowed to allowlist
+- **Significance**: New extraction sub-agents and unified traceability schema -- ServicesExtract, RegistryExtract, cross-field Sigma similarity, Celery fork-safe DB pool, and release automation scripts
+- **Features**: ServicesExtract/ServicesQA sub-agent (Windows services artifacts); unified traceability envelope across all five extract sub-agents (value, source_evidence, extraction_justification, confidence_score); cross-field soft matching for Sigma similarity (50%-dampened partial credit across process fields); Celery fork-safe DB pool fix; RegistryExtract/RegistryQA sub-agent; source-check distributed Redis lock; dashboard ingestion health scoring; release lock/unlock scripts; real scraper metrics from source_checks; OpenAI model catalog narrowed to allowlist
 
 ### v5.2.0 "Ganymede" (2026-03-26)
 - **Named After**: Largest moon in the solar system (Jupiter)
@@ -76,7 +81,7 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 ### v5.0.0 "Callisto" (2026-01-15)
 - **Named After**: Second-largest moon of Jupiter, one of the four Galilean moons
 - **Significance**: Represents stability, maturity, and advanced capabilities
-- **Features**: Stabilized agentic workflow and evaluation datasets, advanced SIGMA rule management with similarity searching, AI-assisted editing and enrichment, GitHub repository integration
+- **Features**: Stabilized agentic workflow and evaluation datasets, advanced Sigma rule management with similarity searching, AI-assisted editing and enrichment, GitHub repository integration
 
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
@@ -86,7 +91,7 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 ### v3.0.0 "Copernicus" (2025-06-15)
 - **Named After**: Nicolaus Copernicus, astronomer who revolutionized our understanding of the solar system
 - **Significance**: Represents revolutionary changes and new paradigms
-- **Features**: SIGMA rule similarity search, weighted hybrid embeddings, enhanced threat intelligence matching
+- **Features**: Sigma rule similarity search, weighted hybrid embeddings, enhanced threat intelligence matching
 
 ### v2.0.0 "Tycho" (2025-01-15)
 - **Named After**: Tycho Brahe, Danish astronomer known for accurate astronomical measurements
@@ -101,8 +106,8 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - Names are chosen for scientific significance, recognizability, and alignment with release goals
 
 ### Minor Versions (X.Y.0)
-- Use military phonetic alphabet suffixes
-- Example: v2.1.0 "Tycho-Alpha", v2.2.0 "Tycho-Bravo"
+- Reuse the major version moon name
+- Example: v6.1.0 "Io", v6.2.0 "Io"
 
 ### Patch Versions (X.Y.Z)
 - Numeric only
@@ -132,6 +137,4 @@ When choosing planetary moon names for major versions:
 - [International Astronomical Union (IAU)](https://www.iau.org/)
 - [USGS Planetary Names](https://planetarynames.wr.usgs.gov/)
 
----
-
-**Note**: This versioning system provides a unique and meaningful way to identify major releases while maintaining the scientific and technical theme of the Huntable CTI Studio platform.
+_Last updated: 2026-05-01_

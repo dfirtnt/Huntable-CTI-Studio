@@ -258,3 +258,5 @@ If only a generic "runs as a service" statement is present, SKIP.
 If the source is malware source code, detection logic, or defensive guidance, SKIP.
 Only the FIRST valid occurrence of each unique service is extracted.
 When in doubt, OMIT.
+
+_Last updated: 2026-05-01_

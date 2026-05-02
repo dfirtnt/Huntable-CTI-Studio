@@ -111,7 +111,7 @@ A zero exit code confirms the stack and core health endpoints are working.
 
 ## 8) MCP server (optional)
 
-For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP server exposes article search, full article fetch, SIGMA search, sources, workflow executions, and the SIGMA review queue. It uses the same database as the web app. Tool listing and parameters: [MCP tools reference](reference/mcp-tools.md).
+For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP server exposes article search, full article fetch, Sigma search, sources, workflow executions, and the Sigma review queue. It uses the same database as the web app. Tool listing and parameters: [MCP tools reference](reference/mcp-tools.md).
 
 ```bash
 python3 run_mcp.py
@@ -122,3 +122,5 @@ Stack shutdown (optional):
 ```bash
 docker-compose down
 ```
+
+_Last updated: 2026-05-01_

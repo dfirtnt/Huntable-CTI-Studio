@@ -6,7 +6,7 @@ count. This reference explains every number, color, and badge in the UI.
 
 ---
 
-## Results Comparison table
+## Results Comparison Table
 
 Each cell in the table represents one article evaluated by one config version.
 
@@ -209,3 +209,5 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 | `failed` with `infra_failed` in detail | Empty LLM message despite `status=completed`; content filter or stream disconnect |
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
+
+_Last updated: 2026-05-01_

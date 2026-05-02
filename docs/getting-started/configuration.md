@@ -111,7 +111,7 @@ To resolve conflicts, either:
 | `LMSTUDIO_MODEL` | Default LM Studio model | `deepseek/deepseek-r1-0528-qwen3-8b` |
 | `LMSTUDIO_MODEL_RANK` | Model for ranking agent | — |
 | `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | — |
-| `LMSTUDIO_MODEL_SIGMA` | Model for SIGMA generation | — |
+| `LMSTUDIO_MODEL_SIGMA` | Model for Sigma generation | — |
 | `LMSTUDIO_EMBEDDING_URL` | Embedding API URL | `http://localhost:1234/v1/embeddings` |
 | `LMSTUDIO_EMBEDDING_MODEL` | Embedding model | `text-embedding-e5-base-v2` |
 | `LMSTUDIO_TEMPERATURE` | LLM temperature | — |
@@ -214,7 +214,7 @@ See [Source Configuration Precedence](../guides/source-config.md) for details.
 
 ## Celery and Scheduled Jobs
 
-Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh), and host backup cron are documented in [Scheduled Jobs](../reports/SCHEDULED_JOBS_REPORT.md). The provider model catalog is also refreshed at **setup** (`./setup.sh`) and **start** (`./start.sh`) so workflow model dropdowns show the current list immediately.
+Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh), and host backup cron are documented in [Scheduled Jobs](../reports/scheduled-jobs-report.md). The provider model catalog is also refreshed at **setup** (`./setup.sh`) and **start** (`./start.sh`) so workflow model dropdowns show the current list immediately.
 
 ## Source Auto-Healing
 
@@ -228,7 +228,7 @@ Sources that accumulate consecutive failures are automatically diagnosed and rep
 
 Eligibility note: the coordinator skips sources with a recent success (`last_success` within 24 hours) to avoid rewriting config for transient failures.
 
-For architecture details, see [Source Healing](../internals/source-healing.md).
+For architecture details, see `src/services/source_healing_service.py`.
 
 ## Health Checks and Diagnostics
 
@@ -282,4 +282,4 @@ After modifying configuration:
 
 ---
 
-_Last verified: April 2026_
+_Last updated: 2026-05-01_

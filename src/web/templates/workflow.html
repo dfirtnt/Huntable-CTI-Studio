@@ -1903,7 +1903,7 @@
                     <!-- Global QA Settings (max retries) -->
                     <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
                       <label for="qaMaxRetries" class="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        QA Max Retries
+                        Extraction Retries (on errors)
                         <button type="button" onclick="showHelp('qaMaxRetries')" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help">
                           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
                         </button>
@@ -4848,7 +4848,7 @@ function normalizeWorkflowConfigControlBindings() {
 
     const directBindings = {
         junkFilterThreshold: { key: 'junk_filter_threshold', label: 'Junk Filter Threshold' },
-        qaMaxRetries: { key: 'qa_max_retries', label: 'QA Max Retries' },
+        qaMaxRetries: { key: 'qa_max_retries', label: 'Extraction Retries (on errors)' },
         rankingThreshold: { key: 'ranking_threshold', label: 'Ranking Threshold' },
         similarityThreshold: { key: 'similarity_threshold', label: 'Similarity Threshold' },
         'rank-agent-enabled': { key: 'rank_agent_enabled', label: 'Rank Agent Enabled' },
@@ -18116,7 +18116,7 @@ function showHelp(fieldName) {
                       <p class="text-sm text-gray-600 dark:text-gray-400"><strong>Rationale:</strong> Detection engineering requires controlled reasoning. Coder models excel at structured YAML output. R1 distills help with logic synthesis (must be tightly gated).</p>`
         },
         'qaMaxRetries': {
-            title: 'QA Max Retries',
+            title: 'Extraction Retries (on errors)',
             content: `<p class="mb-2"><strong>Range:</strong> 1 – 3</p>
                       <p class="mb-2"><strong>Default:</strong> 1</p>
                       <p class="mb-2"><strong>Description:</strong></p>

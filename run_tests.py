@@ -648,8 +648,8 @@ class RunTestRunner:
             RunTestType.AI: ["ai", "ui", "integration"],
             RunTestType.AI_UI: ["ai", "ui"],
             RunTestType.AI_INTEGRATION: ["ai", "integration"],
-            RunTestType.ALL: ["all"],
-            RunTestType.COVERAGE: ["all"],
+            RunTestType.ALL: ["smoke", "unit", "api", "integration", "ui", "e2e"],
+            RunTestType.COVERAGE: ["smoke", "unit", "api", "integration", "ui", "e2e"],
         }
 
         return group_map.get(test_type, ["all"])
@@ -870,6 +870,7 @@ class RunTestRunner:
                 RunTestType.ALL_NO_UI: [
                     "tests/",
                     "--ignore=tests/ui/",
+                    "--ignore=tests/e2e/",
                 ],
                 RunTestType.COVERAGE: ["tests/", "--cov=src"],
             }
@@ -930,7 +931,7 @@ class RunTestRunner:
         # ui-full (tier 4): everything including @slow; only excluded by explicit --exclude-markers
         # all-no-ui: run the full suite, but exclude UI-marked tests and Playwright JS.
         elif self.config.test_type == RunTestType.ALL_NO_UI:
-            default_excludes.extend(["ui", "ui_smoke"])
+            default_excludes.extend(["ui", "ui_smoke", "e2e"])
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:
@@ -1061,10 +1062,20 @@ class RunTestRunner:
         except Exception:
             pass
 
-        # Add JUnit XML report for CI/CD and failure analysis
-        # Note: test-results directory is created before this method is called
-        # Include timestamp to preserve historical results
-        cmd.extend([f"--junit-xml=test-results/junit_{self.timestamp}.xml"])
+        # Add JUnit XML report for CI/CD and failure analysis.
+        # Use absolute paths so pytest-html can write incrementally regardless of cwd.
+        results_dir = project_root / "test-results"
+        cmd.extend([f"--junit-xml={results_dir / f'junit_{self.timestamp}.xml'}"])
+
+        # Add HTML report (pytest-html 4.x always self-contained; no --self-contained-html flag)
+        cmd.append(f"--html={results_dir / f'report_{self.timestamp}.html'}")
+
+        # Add JSONL report log (pytest-reportlog is a required test dependency)
+        cmd.append(f"--report-log={results_dir / f'reportlog_{self.timestamp}.jsonl'}")
+
+        # Redirect pytest-playwright output to a subdirectory so its session-start rmtree()
+        # does not delete test-results/ itself (which would cause pytest-html FileNotFoundError).
+        cmd.append(f"--output={results_dir / 'playwright-output'}")
 
         return cmd
 
@@ -1179,12 +1190,13 @@ class RunTestRunner:
                 print("=" * 80 + "\n")
 
             # CRITICAL: Ensure directories exist BEFORE building command
-            # pytest-html writes during test execution (not just at end), so directory must exist
-            test_results_dir = Path("test-results")
+            # pytest-html writes during test execution (not just at end), so directory must exist.
+            # Use project_root-relative paths because pytest runs with cwd=project_root.
+            test_results_dir = project_root / "test-results"
             test_results_dir.mkdir(parents=True, exist_ok=True)
 
             # Also ensure allure-results exists
-            allure_results_dir = Path("allure-results")
+            allure_results_dir = project_root / "allure-results"
             allure_results_dir.mkdir(parents=True, exist_ok=True)
 
             # Verify directories were created
@@ -1255,8 +1267,14 @@ class RunTestRunner:
                                 try:
                                     path_part = line.split("tests/")[1].split("/")[0]
                                     category_map = {
-                                        "services": "services",
-                                        "utils": "utils",
+                                        "smoke": "smoke",
+                                        "unit": "unit",
+                                        "services": "unit",
+                                        "utils": "unit",
+                                        "core": "unit",
+                                        "config": "unit",
+                                        "cli": "unit",
+                                        "workflows": "unit",
                                         "api": "api",
                                         "integration": "integration",
                                         "ui": "ui",
@@ -1280,7 +1298,7 @@ class RunTestRunner:
                                 except (IndexError, AttributeError):
                                     pass
 
-                        if time.time() - last_progress_update > 3.0 and pytest_groups:
+                        if time.time() - last_progress_update > 3.0 and pytest_groups and sys.stdout.isatty():
                             elapsed = time.time() - pytest_start_time
                             progress_chars = ["=" if c in categories_seen else " " for c in pytest_groups]
                             print(
@@ -1323,11 +1341,12 @@ class RunTestRunner:
                         "counts": pytest_counts,
                     }
 
-                    # Always write a run log so test-results/ always has a record.
-                    self._save_failure_log(stdout_text + stderr_text, pytest_counts)
+                    # Write failure log only when there are failures or errors.
+                    if not pytest_success:
+                        self._save_failure_log(stdout_text + stderr_text, pytest_counts)
 
                     # Clear progress line and show final status
-                    if pytest_groups:
+                    if pytest_groups and sys.stdout.isatty():
                         print("\r" + " " * 100 + "\r", end="")  # Clear progress line
                     print()
                     print("=" * 80)
@@ -1342,9 +1361,9 @@ class RunTestRunner:
                     print(f"   Passed: {passed} | Failed: {failed} | Skipped: {skipped}{err_suffix}")
                     if not pytest_success:
                         print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
-                        print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
-                        print(f"   📈 JUnit XML: test-results/junit_{self.timestamp}.xml")
-                        print("   📈 Allure report: allure serve allure-results")
+                    print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
+                    print(f"   📈 JUnit XML: test-results/junit_{self.timestamp}.xml")
+                    print("   📈 Allure report: allure serve allure-results")
                     print("=" * 80)
 
                 except subprocess.TimeoutExpired:
@@ -1436,7 +1455,7 @@ class RunTestRunner:
                             print(line, end="", flush=True)
                             if any(w in line.lower() for w in ["passed", "failed", "skipped", "✓", "×"]):
                                 pw_test_count += 1
-                            if time.time() - pw_last_update > 3.0 and playwright_groups:
+                            if time.time() - pw_last_update > 3.0 and playwright_groups and sys.stdout.isatty():
                                 elapsed = time.time() - playwright_start_time
                                 est = min(len(playwright_groups), max(1, pw_test_count // 5))
                                 bar = "=" * est + " " * (len(playwright_groups) - est)
@@ -1468,7 +1487,7 @@ class RunTestRunner:
                         }
 
                         # Clear progress line and show final status
-                        if playwright_groups:
+                        if playwright_groups and sys.stdout.isatty():
                             print("\r" + " " * 100 + "\r", end="")  # Clear progress line
                         print()
                         print("=" * 80)
@@ -1480,6 +1499,9 @@ class RunTestRunner:
                             playwright_counts.get("skipped", 0),
                         )
                         print(f"   Passed: {pp} | Failed: {pf} | Skipped: {ps}")
+                        if not playwright_success:
+                            self._save_failure_log(stdout_text + stderr_text, playwright_counts)
+                            print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
                         print("=" * 80)
 
                     except subprocess.TimeoutExpired:
@@ -1600,8 +1622,8 @@ class RunTestRunner:
         """Save failure details to a log file."""
         from datetime import datetime
 
-        # Ensure test-results directory exists
-        test_results_dir = Path("test-results")
+        # Ensure test-results directory exists (project_root-relative, matching pytest cwd)
+        test_results_dir = project_root / "test-results"
         test_results_dir.mkdir(exist_ok=True)
 
         # Include timestamp to preserve historical results
@@ -1913,8 +1935,8 @@ class RunTestRunner:
                 print(f"  📊 Allure Results: {allure_results.absolute()}")
                 print("    💡 Run 'allure serve allure-results' for interactive reports")
 
-            # Report log
-            report_log = test_results_dir / "reportlog.jsonl"
+            # Report log (timestamped, generated by pytest-reportlog)
+            report_log = test_results_dir / f"reportlog_{self.timestamp}.jsonl"
             if report_log.exists():
                 print(f"  📊 Report Log: {report_log.absolute()}")
 

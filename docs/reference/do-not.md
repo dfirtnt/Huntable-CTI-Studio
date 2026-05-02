@@ -106,7 +106,7 @@ git pull
 docker-compose up -d
 
 # ✅ CORRECT - Always backup first
-./create_working_backup.sh
+./run_cli.sh backup create
 docker-compose down
 git pull
 docker-compose up -d
@@ -155,8 +155,9 @@ REDIS_PASSWORD=cti_redis_secure_2024_$(openssl rand -hex 8)
 git push origin main
 
 # ✅ CORRECT
-python run_tests.py --all
-pytest --cov=src --cov-fail-under=80
+python3 run_tests.py smoke
+python3 run_tests.py unit
+python3 run_tests.py api
 ```
 
 ### DO NOT: Use Production Data for Testing
@@ -352,7 +353,7 @@ git pull
 docker-compose up -d
 
 # ✅ CORRECT
-./create_working_backup.sh
+./run_cli.sh backup create
 git pull
 docker-compose up -d
 ```
@@ -373,12 +374,11 @@ Before making any changes:
 
 If you've made a mistake:
 1. **Stop**: `docker-compose down`
-2. **Restore**: `./restore_working_backup.sh`
+2. **Restore**: `./run_cli.sh backup restore`
 3. **Verify**: `docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*) FROM articles;"`
 4. **Restart**: `docker-compose up -d`
 5. **Check**: `curl http://localhost:8001/health`
 
 **When in doubt, don't. Ask for clarification.**
-<!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE4MzE3NTEzOThdfQ==
--->
+
+_Last updated: 2026-05-01_
