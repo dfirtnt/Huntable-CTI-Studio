@@ -2,7 +2,7 @@
 
 Version: 1.0
 Last Updated: 2026-04-18
-Applies To: All QA variants (RankAgentQA, CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, generic QAAgent)
+Applies To: All QA variants (RankAgentQA, CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA, generic QAAgent)
 
 ---
 
@@ -95,7 +95,7 @@ QA behavior is controlled by the `QA` configuration object:
       "ServicesExtract": false,
       "ScheduledTasksExtract": false
     },
-    "MaxRetries": 5
+    "MaxRetries": 1
   }
 }
 ```
@@ -107,7 +107,7 @@ QA behavior is controlled by the `QA` configuration object:
 - False = skip QA for this agent
 - If a base agent is missing from this dict, defaults to False (QA disabled)
 
-**`QA.MaxRetries` (int, default 5)**
+**`QA.MaxRetries` (int, default 1)**
 
 - Maximum number of retries after QA validation failure
 - On final failure: fall back to last valid output or terminate with error

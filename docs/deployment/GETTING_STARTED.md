@@ -27,7 +27,7 @@ Access:
 - worker: Celery worker (queues: collection_immediate, default, source_checks, maintenance, reports, connectivity, collection)
 - workflow_worker: Celery worker (queue: workflows)
 - scheduler: Celery beat
-- cli (profile `tools`): `python -m src.cli.main`
+- cli (profile `tools`): `python3 -m src.cli.main`
 
 ## Required environment
 Run `./setup.sh` before `./start.sh` so `.env` is created and initialized. If you edit `.env` manually after setup, keep these values valid:
@@ -63,7 +63,7 @@ docker-compose logs -f web
 - Port conflicts: adjust host ports in `docker-compose.yml` (`8001`, `8888`)
 - Database auth errors: ensure `POSTGRES_PASSWORD` is set and matches `.env` and compose
 - AI errors: confirm API keys or LM Studio endpoint reachable
-- CLI errors: use `./run_cli.sh --help` to see current commands; arguments are passed directly to `python -m src.cli.main`
+- CLI errors: use `./run_cli.sh --help` to see current commands; arguments are passed directly to `python3 -m src.cli.main`
 
 _Last verified: Feb 2025_
 <!--stackedit_data:

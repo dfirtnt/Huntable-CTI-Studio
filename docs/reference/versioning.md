@@ -39,10 +39,10 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 ## Version History
 
 ### v6.2.0 "Io" (2026-04-30)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.2.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+<!-- TODO: verify: fill Named After, Significance, and Features from docs/CHANGELOG.md [6.2.0] section before release. -->
+- **Named After**: <!-- TODO: verify: fill from CHANGELOG -->
+- **Significance**: <!-- TODO: verify: fill from CHANGELOG -->
+- **Features**: <!-- TODO: verify: fill from CHANGELOG -->
 
 ### v6.1.1 "Io" (2026-04-28)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system

@@ -709,7 +709,7 @@ When Similarity Search finds no matches, the UI shows a **diagnostic** and setup
 #### Import Errors
 All operations should run inside Docker containers:
 ```bash
-docker-compose exec web python -m src.cli.main sigma [command]
+docker-compose exec web python3 -m src.cli.main sigma [command]
 ```
 
 ### Debug Commands
@@ -725,7 +725,7 @@ docker-compose logs -f web | grep "SIGMA"
 docker-compose ps
 
 # Test embedding service
-docker-compose exec web python -c "from src.services.embedding_service import EmbeddingService; print('OK')"
+docker-compose exec web python3 -c "from src.services.embedding_service import EmbeddingService; print('OK')"
 ```
 
 ### Monitoring
