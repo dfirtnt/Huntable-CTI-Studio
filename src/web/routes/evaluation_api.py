@@ -470,10 +470,8 @@ async def get_dataset_items(request: Request, dataset_name: str):
                     logger.info(f"Dataset item {item.id}: input={input_info}, article_id={article_id}")
 
                     # Convert to int if it's a string number
-                    if (
-                        (article_id and isinstance(article_id, str) and article_id.isdigit())
-                        or article_id
-                        and isinstance(article_id, (int, float))
+                    if (article_id and isinstance(article_id, str) and article_id.isdigit()) or (
+                        article_id and isinstance(article_id, (int, float))
                     ):
                         article_id = int(article_id)
                     elif article_id:

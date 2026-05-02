@@ -1,6 +1,7 @@
 """Tests for QAEvaluator -- the shared QA primitive."""
 
 import json
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -221,3 +222,78 @@ async def test_evaluate_qa_text_always_in_result():
     )
     assert "_qa_text" in result
     assert result["_qa_text"] == "Not JSON but meaningful"
+
+
+# ---------------------------------------------------------------------------
+# Langfuse trace-span ordering regression
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_evaluate_logs_completion_inside_trace_span(monkeypatch):
+    """Regression: log_llm_completion must run BEFORE trace_llm_call's context exits.
+
+    trace_llm_call is a contextmanager that closes its Langfuse generation span on
+    __exit__. If log_llm_completion is called after the with-block exits, the span
+    is already closed and the input/output/usage payload is silently dropped.
+    """
+    span_exited = {"flag": False}
+    completion_calls: list[dict] = []
+
+    @contextmanager
+    def fake_trace_llm_call(**kwargs):
+        gen = Mock(name="FakeGeneration")
+        try:
+            yield gen
+        finally:
+            span_exited["flag"] = True
+
+    def fake_log_completion(**kwargs):
+        completion_calls.append({"span_exited_at_call_time": span_exited["flag"]})
+
+    monkeypatch.setattr("src.services.qa_evaluator.trace_llm_call", fake_trace_llm_call)
+    monkeypatch.setattr("src.services.qa_evaluator.log_llm_completion", fake_log_completion)
+
+    llm = _make_llm({"verdict": "pass", "summary": "ok"})
+    ev = QAEvaluator(llm)
+    await ev.evaluate(
+        messages=[{"role": "user", "content": "test"}],
+        agent_name="TestAgent",
+        model_name="model",
+        provider="openai",
+    )
+
+    assert len(completion_calls) == 1, "log_llm_completion must be invoked exactly once"
+    assert completion_calls[0]["span_exited_at_call_time"] is False, (
+        "log_llm_completion was called AFTER trace_llm_call's context manager exited; "
+        "the Langfuse span is already closed and the completion payload is lost"
+    )
+
+
+@pytest.mark.asyncio
+async def test_evaluate_skips_log_completion_when_generation_is_none(monkeypatch):
+    """If trace_llm_call yields None (Langfuse disabled / failed init), log_llm_completion is skipped."""
+    completion_calls: list[dict] = []
+
+    @contextmanager
+    def fake_trace_llm_call(**kwargs):
+        yield None  # Langfuse disabled -- generation is None
+
+    def fake_log_completion(**kwargs):
+        completion_calls.append(kwargs)
+
+    monkeypatch.setattr("src.services.qa_evaluator.trace_llm_call", fake_trace_llm_call)
+    monkeypatch.setattr("src.services.qa_evaluator.log_llm_completion", fake_log_completion)
+
+    llm = _make_llm({"verdict": "pass", "summary": "ok"})
+    ev = QAEvaluator(llm)
+    result = await ev.evaluate(
+        messages=[{"role": "user", "content": "test"}],
+        agent_name="TestAgent",
+        model_name="model",
+        provider="openai",
+    )
+
+    assert completion_calls == [], "log_llm_completion must not be called when generation is None"
+    # evaluate() must still return a normalized result regardless of tracing state
+    assert result["verdict"] == "pass"

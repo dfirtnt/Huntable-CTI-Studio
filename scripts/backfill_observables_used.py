@@ -2,7 +2,7 @@
 """
 Backfill observables_used for pending SigmaQueue rules that are missing it.
 
-Iterates all SigmaQueueTable rows with status='pending' where rule_metadata
+Iterates all SigmaRuleQueueTable rows with status='pending' where rule_metadata
 lacks observables_used, fetches the linked extraction_result, runs the
 inference logic from sigma_generation_service, and updates rule_metadata.
 
@@ -18,8 +18,8 @@ from pathlib import Path
 # Allow running from project root
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from src.database.models import AgenticWorkflowExecutionTable, SigmaQueueTable
-from src.database.db_manager import DatabaseManager
+from src.database.models import AgenticWorkflowExecutionTable, SigmaRuleQueueTable
+from src.database.manager import DatabaseManager
 from src.services.sigma_generation_service import _infer_observables_used
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -31,9 +31,9 @@ def backfill(dry_run: bool = False, limit: int | None = None) -> None:
     session = db.get_session()
     try:
         query = (
-            session.query(SigmaQueueTable)
-            .filter(SigmaQueueTable.status == "pending")
-            .order_by(SigmaQueueTable.id)
+            session.query(SigmaRuleQueueTable)
+            .filter(SigmaRuleQueueTable.status == "pending")
+            .order_by(SigmaRuleQueueTable.id)
         )
         if limit:
             query = query.limit(limit)

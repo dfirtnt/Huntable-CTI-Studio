@@ -99,17 +99,17 @@ class QAEvaluator:
                 failure_context=f"{agent_name} QA attempt {attempt}",
             )
 
-        qa_text = response["choices"][0]["message"].get("content", "")
-        logger.info(f"{agent_name} QA response (first 500 chars): {qa_text[:500]}")
+            qa_text = response["choices"][0]["message"].get("content", "")
+            logger.info(f"{agent_name} QA response (first 500 chars): {qa_text[:500]}")
 
-        if generation:
-            log_llm_completion(
-                generation=generation,
-                input_messages=messages,
-                output=qa_text[:500],
-                usage=response.get("usage", {}),
-                metadata={"agent_name": agent_name, "attempt": attempt, "qa": True},
-            )
+            if generation:
+                log_llm_completion(
+                    generation=generation,
+                    input_messages=messages,
+                    output=qa_text[:500],
+                    usage=response.get("usage", {}),
+                    metadata={"agent_name": agent_name, "attempt": attempt, "qa": True},
+                )
 
         parsed, parsing_failed, parse_error = self._parse_response_text(qa_text, agent_name)
 
