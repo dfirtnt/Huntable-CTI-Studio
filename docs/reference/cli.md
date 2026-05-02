@@ -136,7 +136,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### backup
 
-**When:** Create, list, restore, or verify system backups; prune old backups. For full procedures see [Backup & Restore](../operations/BACKUP_AND_RESTORE.md).
+**When:** Create, list, restore, or verify system backups; prune old backups. For full procedures see [Backup & Restore](../guides/backup-and-restore.md).
 
 **Subcommands:**
 
@@ -177,7 +177,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh backup stats
 ```
 
-**See also:** [Backup & Restore](../operations/BACKUP_AND_RESTORE.md).
+**See also:** [Backup & Restore](../guides/backup-and-restore.md).
 
 ---
 
