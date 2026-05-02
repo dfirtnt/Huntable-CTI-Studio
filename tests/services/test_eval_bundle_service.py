@@ -214,6 +214,46 @@ class TestEvalBundleServiceHelpers:
         assert "MESSAGES_FETCHED_FROM_LANGFUSE" in warnings
         assert "RESPONSE_FETCHED_FROM_LANGFUSE" in warnings
 
+    def test_extract_llm_call_data_can_skip_langfuse_lookup(self):
+        service = EvalBundleService(Mock())
+        execution = Mock()
+        execution.id = 12
+        execution.error_log = {
+            "extract_agent": {
+                "conversation_log": [
+                    {
+                        "agent": "CmdlineExtract",
+                        "messages": [{"role": "user", "content": "stored-message"}],
+                        "llm_response": "stored-response",
+                    }
+                ]
+            }
+        }
+        execution.config_snapshot = {
+            "agent_models": {
+                "CmdlineExtract_provider": "openai",
+                "CmdlineExtract_model": "gpt-4o-mini",
+            }
+        }
+
+        with (
+            patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=True),
+            patch.object(service, "_fetch_langfuse_generation") as fetch_langfuse_generation,
+        ):
+            llm_request, llm_response, warnings, attempt = service._extract_llm_call_data(
+                execution=execution,
+                agent_name="CmdlineExtract",
+                attempt=None,
+                fetch_langfuse=False,
+            )
+
+        fetch_langfuse_generation.assert_not_called()
+        assert attempt == 1
+        assert llm_request["messages"] == [{"role": "user", "content": "stored-message"}]
+        assert llm_response["text_output"] == "stored-response"
+        assert "MESSAGES_FETCHED_FROM_LANGFUSE" not in warnings
+        assert "RESPONSE_FETCHED_FROM_LANGFUSE" not in warnings
+
     def test_fetch_langfuse_generation_uses_v4_observations_api(self):
         """_fetch_langfuse_generation queries observations.get_many via LangfuseAPI (v4), not client.api.generations (v3)."""
         service = EvalBundleService(Mock())

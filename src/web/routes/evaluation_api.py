@@ -1977,6 +1977,7 @@ async def export_bundles_by_config_version(
     request: Request,
     config_version: int = Query(..., description="Workflow config version"),
     subagent: str = Query(..., description="Subagent name (cmdline, process_lineage, hunt_queries)"),
+    include_langfuse: bool = Query(False, description="Fetch Langfuse data for each bundle before export"),
 ):
     """
     Export eval bundles for all articles evaluated under a given config version.
@@ -1988,6 +1989,7 @@ async def export_bundles_by_config_version(
         db_session = db_manager.get_session()
 
         try:
+            include_langfuse_data = include_langfuse is True
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             if canonical_subagent == "hunt_queries":
                 lookup_values = set(lookup_values) if lookup_values else set()
@@ -2017,20 +2019,15 @@ async def export_bundles_by_config_version(
 
             bundle_service = EvalBundleService(db_session)
             buffer = io.BytesIO()
-            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+            with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
                 for record in records:
                     try:
                         bundle = bundle_service.generate_bundle(
                             execution_id=record.workflow_execution_id,
                             agent_name=agent_name,
                             attempt=None,
+                            fetch_langfuse=include_langfuse_data,
                         )
-                        bundle_for_hash = bundle.copy()
-                        bundle_for_hash["integrity"] = {
-                            "bundle_sha256": "",
-                            "warnings": bundle["integrity"]["warnings"],
-                        }
-                        bundle["integrity"]["bundle_sha256"] = compute_sha256_json(bundle_for_hash)
                         filename = f"article_{record.article_id or record.id}_{record.id}.json"
                         zf.writestr(filename, json.dumps(bundle, indent=2, ensure_ascii=False))
                     except (ValueError, AttributeError) as e:
