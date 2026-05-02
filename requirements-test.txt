@@ -27,7 +27,7 @@ faker==28.1.0  # Generate test data
 # Performance and profiling
 psutil>=7.0.0
 memory-profiler==0.61.0
-pytest-benchmark==4.0.0
+pytest-benchmark==5.2.3
 
 # Security testing
 bandit==1.9.4
