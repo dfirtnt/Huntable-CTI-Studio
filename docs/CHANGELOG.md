@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [6.2.1 "Io"] - 2026-05-02
 ### Added
 - **Focused tests for eval bulk bundle export** (2026-05-02): `tests/api/test_evaluation_bulk_export.py` adds two `@pytest.mark.api` tests covering `export_bundles_by_config_version`: (1) Langfuse is skipped by default (`fetch_langfuse=False`); (2) `include_langfuse=True` passes through. Both verify session cleanup via `session.close()`.
 

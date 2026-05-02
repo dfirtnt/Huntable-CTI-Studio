@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v6.2.0 "Io"** - Current stable release
-**v6.1.1 "Io"** - Previous stable release
-**v6.1.0 "Io"** - Earlier stable release
+**v6.2.1 "Io"** - Current stable release
+**v6.2.0 "Io"** - Previous stable release
+**v6.1.1 "Io"** - Earlier stable release
 **v4.0.0 "Kepler"** - Earlier stable release
 
 ## Planetary Moon Naming System
@@ -37,6 +37,12 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 - Historic missions and discoveries
 
 ## Version History
+
+### v6.2.1 "Io" (2026-05-02)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [6.2.1] section. -->
+- **Named After**: <fill>
+- **Significance**: <fill>
+- **Features**: <fill>
 
 ### v6.2.0 "Io" (2026-04-30)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
