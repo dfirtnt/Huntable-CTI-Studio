@@ -103,10 +103,8 @@ test = [
     "responses==0.24.0",
     "requests-mock==1.11.0",
     "testcontainers==3.7.0",
-    "faker==28.1.0",
     "psutil==7.2.2",
     "memory-profiler==0.61.0",
-    "pytest-benchmark==4.0.0",
     "bandit==1.9.4",
     # pip-audit pulls pip-api -> pip. CVE-2026-3219 (GHSA-58qw-9mgm-455v) flags
     # pip<=26.0.1 (medium); no patched pip released yet. Test-only scope, used
@@ -117,7 +115,6 @@ test = [
     "safety==3.7.0",
     "black==26.3.1",
     "isort==5.12.0",
-    "flake8==6.1.0",
     "mypy==1.8.0",
     "sphinx==9.0.4",
     "sphinx-rtd-theme==3.1.0",
