@@ -109,6 +109,32 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
     const containerId = options.containerId || 'configDisplay';
     const configDisplay = document.getElementById(containerId);
     if (!configDisplay || !currentConfig) return;
+
+    const makeStatusBadge = (enabled) => {
+        const badgeClass = enabled
+            ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+            : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
+        const badgeText = enabled ? 'Enabled' : 'Disabled';
+        return `<span class="${badgeClass} ml-1.5">${badgeText}</span>`;
+    };
+
+    const addCmdlineAttentionPreprocessorStatus = (models) => {
+        const cmdlineIndex = models.findIndex(m => m.text && m.text.startsWith('CmdlineExtract:'));
+        if (cmdlineIndex === -1) return models;
+
+        const enabled = currentConfig.cmdline_attention_preprocessor_enabled !== false;
+        const statusRow = {
+            text: 'CmdAttnPreprocessor:',
+            indentLevel: 2,
+            badge: makeStatusBadge(enabled)
+        };
+
+        return [
+            ...models.slice(0, cmdlineIndex + 1),
+            statusRow,
+            ...models.slice(cmdlineIndex + 1)
+        ];
+    };
     
     let selectedModels = [];
     
@@ -117,16 +143,13 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         const orderedModels = orderModelsByWorkflow(options.uiModels);
         selectedModels = orderedModels.map(m => {
             const enabled = m.enabled !== undefined ? m.enabled : true;
-            const badgeClass = enabled 
-                ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-            const badgeText = enabled ? 'Enabled' : 'Disabled';
             return {
                 text: `${m.agent}: ${m.model} (${m.provider})`,
                 indentLevel: m.indentLevel || 0,
-                badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
+                badge: makeStatusBadge(enabled)
             };
         });
+        selectedModels = addCmdlineAttentionPreprocessorStatus(selectedModels);
     } else if (currentConfig.agent_models) {
         // Build from saved config
         const agentModels = currentConfig.agent_models;
@@ -139,15 +162,11 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             if (!model) return;
 
             const provider = agentModels[`${agentId}_provider`] || fallbackProvider || '';
-            const badgeClass = enabled
-                ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-            const badgeText = enabled ? 'Enabled' : 'Disabled';
 
             modelsList.push({
                 text: `${displayName}: ${model} (${provider})`,
                 indentLevel: indentLevel,
-                badge: `<span class="${badgeClass} ml-1.5">${badgeText}</span>`
+                badge: makeStatusBadge(enabled)
             });
         };
 
@@ -223,7 +242,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             addAgent('OSDetectionAgent_fallback', 'OS Fallback', 0, true);
         }
         
-        selectedModels = modelsList;
+        selectedModels = addCmdlineAttentionPreprocessorStatus(modelsList);
     }
     
     const modelsHtml = selectedModels.length > 0 
