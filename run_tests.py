@@ -83,7 +83,11 @@ _path_parts = _current_path.split(os.pathsep)
 for _d in reversed(_EXTRA_PATH_DIRS):
     if _d not in _path_parts:
         os.environ["PATH"] = _d + os.pathsep + os.environ.get("PATH", "")
-del _EXTRA_PATH_DIRS, _current_path, _path_parts, _d
+del _EXTRA_PATH_DIRS, _current_path, _path_parts
+try:
+    del _d
+except NameError:
+    pass
 
 
 # Keys from .env that must not be applied in test (guard: TEST_DATABASE_URL only).
@@ -240,6 +244,7 @@ class RunTestRunner:
         self.results = {}
         self.environment_manager = None
         self.test_groups_executed = []  # Track which test groups were run
+        self.failed_test_names: list[str] = []  # Collect names of failed tests for combined summary
 
         # Virtual environment paths - always use .venv
         self.venv_python = self._ensure_venv()
@@ -545,7 +550,7 @@ class RunTestRunner:
             return False
 
         if not self._run_command(
-            f"{uv_binary} sync --frozen --group test",
+            [uv_binary, "sync", "--frozen", "--group", "test"],
             "Syncing locked dependencies with uv",
             capture_output=True,
         ):
@@ -559,7 +564,7 @@ class RunTestRunner:
             check=False,
         )
         if result.returncode == 0 and not self._run_command(
-            f"{self.venv_python} -m playwright install chromium",
+            [self.venv_python, "-m", "playwright", "install", "chromium"],
             "Installing Playwright browser",
             capture_output=True,
         ):
@@ -656,11 +661,11 @@ class RunTestRunner:
 
     def _get_playwright_test_groups(self) -> list[str]:
         """Determine which Playwright test groups are being executed."""
-        if not self._build_playwright_command():
+        playwright_cmd = self._build_playwright_command()
+        if not playwright_cmd:
             return []
 
         groups = []
-        playwright_cmd = self._build_playwright_command()
         if playwright_cmd:
             for arg in playwright_cmd:
                 if "playwright" in arg:
@@ -729,9 +734,9 @@ class RunTestRunner:
 
         return cmd
 
-    def _run_command(self, cmd: str, description: str, capture_output: bool = True) -> bool:
+    def _run_command(self, cmd: list[str], description: str, capture_output: bool = True) -> bool:
         """Run a command and return success status."""
-        logger.info(f"🔄 {description}")
+        logger.info(f"Running: {description}")
 
         if self.config.debug:
             logger.debug(f"Command: {cmd}")
@@ -739,14 +744,14 @@ class RunTestRunner:
         try:
             result = subprocess.run(
                 cmd,
-                shell=True,
+                shell=False,
                 check=True,
                 capture_output=capture_output,
                 text=True,
                 timeout=self.config.timeout,
             )
 
-            logger.info(f"✅ {description} completed successfully")
+            logger.info(f"Completed: {description}")
 
             if capture_output and result.stdout and self.config.verbose:
                 logger.info(f"Output: {result.stdout}")
@@ -754,7 +759,7 @@ class RunTestRunner:
             return True
 
         except subprocess.CalledProcessError as e:
-            logger.error(f"❌ {description} failed")
+            logger.error(f"Failed: {description}")
             logger.error(f"Error: {e}")
 
             if capture_output:
@@ -766,11 +771,11 @@ class RunTestRunner:
             return False
 
         except subprocess.TimeoutExpired as e:
-            logger.error(f"⏰ {description} timed out after {e.timeout} seconds")
+            logger.error(f"Timed out: {description} after {e.timeout} seconds")
             return False
 
         except Exception as e:
-            logger.error(f"💥 Unexpected error in {description}: {e}")
+            logger.error(f"Unexpected error in {description}: {e}")
             if self.config.debug:
                 logger.exception("Full traceback:")
             return False
@@ -1025,7 +1030,7 @@ class RunTestRunner:
         # Add output format - default to verbose for better visibility
         if self.config.output_format == "progress":
             # Use verbose by default for better visibility, but allow quiet override
-            cmd.append("-v" if self.config.verbose else "-v")  # Always verbose for visibility
+            cmd.append("-v")  # Always verbose for visibility
         elif self.config.output_format == "verbose":
             cmd.append("-vv")  # Extra verbose
         elif self.config.output_format == "quiet":
@@ -1263,6 +1268,20 @@ class RunTestRunner:
                             "PASSED" in line or "FAILED" in line or "SKIPPED" in line or "ERROR" in line
                         ):
                             test_count += 1
+                            if "FAILED" in line or "ERROR" in line:
+                                # Extract test identifier (e.g. "tests/ui/test_foo.py::test_bar")
+                                # Formats: "tests/x.py::test FAILED" or "[gw0] FAILED tests/x.py::test"
+                                stripped = line.strip()
+                                if stripped.startswith("["):
+                                    # xdist: "[gw0] FAILED tests/x.py::test"
+                                    parts = stripped.split(None, 2)
+                                    if len(parts) >= 3:
+                                        self.failed_test_names.append(parts[2].strip())
+                                else:
+                                    # plain: "tests/x.py::test FAILED"
+                                    name = stripped.split(" FAILED")[0].split(" ERROR")[0].strip()
+                                    if name:
+                                        self.failed_test_names.append(name)
                             if "tests/" in line:
                                 try:
                                     path_part = line.split("tests/")[1].split("/")[0]
@@ -1360,10 +1379,18 @@ class RunTestRunner:
                     )
                     print(f"   Passed: {passed} | Failed: {failed} | Skipped: {skipped}{err_suffix}")
                     if not pytest_success:
-                        print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
-                    print(f"   📊 HTML report: test-results/report_{self.timestamp}.html")
-                    print(f"   📈 JUnit XML: test-results/junit_{self.timestamp}.xml")
-                    print("   📈 Allure report: allure serve allure-results")
+                        failure_path = test_results_dir / f"failures_{self.timestamp}.log"
+                        if failure_path.exists():
+                            print(f"   Failure details: test-results/failures_{self.timestamp}.log")
+                    html_path = test_results_dir / f"report_{self.timestamp}.html"
+                    junit_path = test_results_dir / f"junit_{self.timestamp}.xml"
+                    if html_path.exists():
+                        print(f"   HTML report: test-results/report_{self.timestamp}.html")
+                    if junit_path.exists():
+                        print(f"   JUnit XML: test-results/junit_{self.timestamp}.xml")
+                    allure_dir = project_root / "allure-results"
+                    if allure_dir.exists() and any(allure_dir.iterdir()):
+                        print("   Allure report: allure serve allure-results")
                     print("=" * 80)
 
                 except subprocess.TimeoutExpired:
@@ -1453,8 +1480,16 @@ class RunTestRunner:
                                 break
                             pw_output_lines.append(line)
                             print(line, end="", flush=True)
-                            if any(w in line.lower() for w in ["passed", "failed", "skipped", "✓", "×"]):
+                            if any(
+                                w in line.lower() for w in ["passed", "failed", "skipped", "\xe2\x9c\x93", "\xc3\x97"]
+                            ):
                                 pw_test_count += 1
+                                # Capture failed Playwright test names
+                                # List reporter: "  1) [chromium] > test.spec.ts:10:5 > suite > test name"
+                                # or lines containing "failed" with a bracket project prefix
+                                stripped = line.strip()
+                                if "failed" in stripped.lower() and ("[" in stripped or ">>" in stripped):
+                                    self.failed_test_names.append(f"[playwright] {stripped}")
                             if time.time() - pw_last_update > 3.0 and playwright_groups and sys.stdout.isatty():
                                 elapsed = time.time() - playwright_start_time
                                 est = min(len(playwright_groups), max(1, pw_test_count // 5))
@@ -1501,7 +1536,9 @@ class RunTestRunner:
                         print(f"   Passed: {pp} | Failed: {pf} | Skipped: {ps}")
                         if not playwright_success:
                             self._save_failure_log(stdout_text + stderr_text, playwright_counts)
-                            print(f"   📄 Failure details saved to: test-results/failures_{self.timestamp}.log")
+                            pw_failure_path = test_results_dir / f"failures_{self.timestamp}.log"
+                            if pw_failure_path.exists():
+                                print(f"   Failure details: test-results/failures_{self.timestamp}.log")
                         print("=" * 80)
 
                     except subprocess.TimeoutExpired:
@@ -1764,10 +1801,10 @@ class RunTestRunner:
 
     def generate_report(self) -> None:
         """Generate comprehensive test report."""
-        time.time() - self.start_time
+        total_duration = time.time() - self.start_time
 
         print("\n" + "=" * 60)
-        print("📊 Huntable CTI Studio Test Execution Report")
+        print(f"Test Execution Report ({total_duration:.2f}s)")
         print("=" * 60)
 
     def start_debugging(self):
@@ -1992,7 +2029,7 @@ class RunTestRunner:
         print("  • See docs/TESTING_STRATEGY.md for details")
 
 
-def parse_arguments() -> RunTestConfig:
+def parse_arguments() -> list[RunTestConfig]:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="Huntable CTI Studio Unified Test Runner",
@@ -2228,7 +2265,7 @@ async def main():
             # Setup environment
             if not await runner.setup_environment():
                 logger.error(f"Failed to setup test environment for {config.test_type.value}")
-                overall_results.append((config.test_type.value, False, {}))
+                overall_results.append((config.test_type.value, False, {}, []))
                 all_passed = False
                 continue
 
@@ -2240,7 +2277,7 @@ async def main():
                 runner.print_enhanced_summary()
 
                 counts = _extract_counts(runner)
-                overall_results.append((config.test_type.value, success, counts))
+                overall_results.append((config.test_type.value, success, counts, list(runner.failed_test_names)))
                 if not success:
                     all_passed = False
 
@@ -2275,7 +2312,7 @@ def _extract_counts(runner: "RunTestRunner") -> dict[str, int]:
     return {"passed": passed, "failed": failed, "skipped": skipped}
 
 
-def _print_combined_summary(results: list[tuple[str, bool, dict[str, int]]]) -> None:
+def _print_combined_summary(results: list[tuple[str, bool, dict[str, int], list[str]]]) -> None:
     """Print a final combined summary across all test types."""
     GREEN = "\033[32m"
     RED = "\033[31m"
@@ -2283,7 +2320,27 @@ def _print_combined_summary(results: list[tuple[str, bool, dict[str, int]]]) -> 
     DIM = "\033[2m"
     RESET = "\033[0m"
 
-    print("\n")
+    # Collect all failed tests across all types for the failure listing
+    all_failed_names: list[tuple[str, str]] = []  # (test_type, test_name)
+    for test_type, passed, counts, failed_names in results:
+        if not passed:
+            for name in failed_names:
+                all_failed_names.append((test_type, name))
+
+    # Print failed test listing above the table
+    if all_failed_names:
+        print("\n")
+        print("=" * 72)
+        print(f"  {RED}FAILED TESTS{RESET}")
+        print("=" * 72)
+        current_type = None
+        for test_type, name in all_failed_names:
+            if test_type != current_type:
+                current_type = test_type
+                print(f"\n  [{test_type}]")
+            print(f"    {RED}x{RESET} {name}")
+        print()
+
     print("=" * 72)
     print("  COMBINED TEST SUMMARY")
     print("=" * 72)
@@ -2293,7 +2350,7 @@ def _print_combined_summary(results: list[tuple[str, bool, dict[str, int]]]) -> 
     totals = {"passed": 0, "failed": 0, "skipped": 0}
     all_passed = True
 
-    for test_type, passed, counts in results:
+    for test_type, passed, counts, _failed_names in results:
         p = counts.get("passed", 0)
         f = counts.get("failed", 0)
         s = counts.get("skipped", 0)
