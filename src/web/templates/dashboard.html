@@ -616,15 +616,6 @@
                     </span>
                 </div>
             </div>
-            <button id="ai-heal-btn" type="button" class="action-btn" style="--btn-clr: #a78bfa; display:none; margin-top:0.6rem;"
-                    data-healing-enabled="false">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" opacity="0.3"/>
-                    <path d="M9 12l2 2 4-4"/>
-                    <path d="M12 6v1M12 17v1M6 12h1M17 12h1"/>
-                </svg>
-                Trigger AI Self-Healing
-            </button>
         </div>
 
         <!-- 4 ── Intelligence Feed / High-Score Articles (spans 2 cols) -->
@@ -858,13 +849,6 @@
                     nameSpan.className = 'fail-name';
                     nameSpan.textContent = s.name || 'Unknown';
 
-                    if (s.healing_exhausted) {
-                        const badge = document.createElement('span');
-                        badge.className = 'fail-badge-heal';
-                        badge.textContent = 'NEEDS ATTENTION';
-                        nameSpan.appendChild(badge);
-                    }
-
                     const rightSpan = document.createElement('span');
                     rightSpan.style.display = 'flex';
                     rightSpan.style.alignItems = 'center';
@@ -885,22 +869,6 @@
                 });
             }
 
-            // ── AI Heal Button ──
-            const healBtn = document.getElementById('ai-heal-btn');
-            if (healBtn) {
-                const hasFailures = Array.isArray(data.failing_sources) && data.failing_sources.length > 0;
-                healBtn.style.display = hasFailures ? 'flex' : 'none';
-                healBtn.dataset.healingEnabled = data.healing_enabled ? 'true' : 'false';
-                if (!data.healing_enabled) {
-                    healBtn.style.opacity = '0.45';
-                    healBtn.style.cursor = 'not-allowed';
-                    healBtn.title = 'Enable Source Auto-Healing in Settings to use this feature';
-                } else {
-                    healBtn.style.opacity = '';
-                    healBtn.style.cursor = '';
-                    healBtn.title = '';
-                }
-            }
 
             // ── High-Score Articles ──
             const feedEl = document.getElementById('high-score-articles-container');
@@ -967,43 +935,10 @@
         }
     }
 
-    async function triggerAIHealing(btn) {
-        if (btn.dataset.healingEnabled !== 'true') {
-            return; // tooltip handles the messaging
-        }
-        const original = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin 1s linear infinite"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Dispatching…`;
-        try {
-            const res = await fetch('/api/actions/trigger-healing', { method: 'POST' });
-            const data = await res.json();
-            if (res.ok) {
-                btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Healing Dispatched`;
-                btn.style.setProperty('--btn-clr', 'var(--d-green)');
-                setTimeout(() => { btn.innerHTML = original; btn.style.setProperty('--btn-clr', '#a78bfa'); btn.disabled = false; }, 4000);
-            } else {
-                btn.textContent = data.detail ? String(data.detail).substring(0, 80) : 'Error';
-                btn.style.setProperty('--btn-clr', 'var(--d-red)');
-                setTimeout(() => { btn.innerHTML = original; btn.style.setProperty('--btn-clr', '#a78bfa'); btn.disabled = false; }, 4000);
-            }
-        } catch (err) {
-            btn.innerHTML = original;
-            btn.style.setProperty('--btn-clr', '#a78bfa');
-            btn.disabled = false;
-        }
-    }
-
     // Expose for base.html auto-refresh
     window.loadDashboardData = loadDashboardData;
-    window.triggerAIHealing = triggerAIHealing;
 
     document.addEventListener('DOMContentLoaded', function () {
-        const healBtn = document.getElementById('ai-heal-btn');
-        if (healBtn) {
-            healBtn.addEventListener('click', function () {
-                triggerAIHealing(healBtn);
-            });
-        }
 
         if (!window.dashChartsDone) {
             window.dashChartsDone = true;
