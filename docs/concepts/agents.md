@@ -81,7 +81,7 @@ and output formatting rules belong in `instructions`.
 
 ### What the Runtime Adds
 
-[`src/services/llm_service.py`](../../src/services/llm_service.py) assembles
+`src/services/llm_service.py` assembles
 the final prompt from the fields above plus several hardcoded components the
 prompt editor UI does not expose:
 
@@ -141,7 +141,7 @@ Per-article workflow run state, surfaced on the Workflow page and article pages:
 | `failed` | An unrecoverable error occurred in one of the agents |
 
 A `pending` execution older than the stale cutoff is re-triggerable. See
-[`src/services/workflow_trigger_service.py`](../../src/services/workflow_trigger_service.py).
+`src/services/workflow_trigger_service.py`.
 
 ### Agent Evaluation Badges (Agent Evals Page)
 

@@ -52,7 +52,7 @@ nav:
       - Content Filtering: features/content-filtering.md
       - OS Detection: features/os-detection.md
       - Cmdline Preprocessor: features/cmdline-preprocessor.md
-      - RAG Search: features/rag-search.md
+      - RAG Search: features/semantic-search.md
       - Observable Evaluation: features/observable-evaluation.md
       - Agent Evals: features/agent-evals.md
   - LLM & Models:
@@ -69,7 +69,7 @@ nav:
       - API: reference/api.md
       - MCP tools: reference/mcp-tools.md
       - Schemas: reference/schemas.md
-      - Scheduled Jobs: reports/SCHEDULED_JOBS_REPORT.md
+      - Scheduled Jobs: reports/scheduled-jobs-report.md
       - ML Feature Definitions: reference/ml-features.md
       - Versioning: reference/versioning.md
   - Development:

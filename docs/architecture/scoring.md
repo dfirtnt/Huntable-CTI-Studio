@@ -10,7 +10,7 @@ Scores are derived from a keyword model trained on 319 labeled articles
 time; scores are stored in article metadata and exposed via the API.
 
 The scorer also feeds the ML content filter
-([`src/utils/content_filter.py`](../../src/utils/content_filter.py)):
+(`src/utils/content_filter.py`):
 92 perfect-discriminator patterns are shared between systems, and any chunk
 matching a perfect discriminator is excluded from LLM-based classification,
 reducing API calls.
@@ -50,7 +50,7 @@ LOLBAS score bucket. Examples:
 - **Installers**: `msiexec.exe`, `regsvr32.exe`, `rundll32.exe`
 - **File ops**: `forfiles.exe`, `explorer.exe`, `ieexec.exe`
 
-Full list: [`src/utils/content.py`](../../src/utils/content.py) `LOLBAS_EXECUTABLES`
+Full list: `src/utils/content.py` `LOLBAS_EXECUTABLES`
 
 ## Scoring Formula
 
@@ -95,9 +95,9 @@ Educational and marketing content: `what is`, `how to`, `best practices`,
 
 ## Article Metadata
 
-[`src/core/processor.py`](../../src/core/processor.py) calculates scores during
+`src/core/processor.py` calculates scores during
 ingestion and stores them in article metadata.
-[`src/utils/content.py`](../../src/utils/content.py) `ThreatHuntingScorer` exposes:
+`src/utils/content.py` `ThreatHuntingScorer` exposes:
 
 - `score_threat_hunting_content()` -- main scoring entry point
 - `_keyword_matches()` -- regex-based keyword detection, including obfuscation patterns
