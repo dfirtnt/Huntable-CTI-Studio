@@ -437,12 +437,23 @@ async def test_database_session(test_environment_config):
     from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
     from sqlalchemy.orm import sessionmaker
 
+    if test_environment_config is not None and hasattr(test_environment_config, "database_url"):
+        database_url = test_environment_config.database_url
+        pool_size = getattr(test_environment_config, "db_pool_size", 5)
+        max_overflow = getattr(test_environment_config, "db_max_overflow", 10)
+    else:
+        database_url = os.getenv("TEST_DATABASE_URL")
+        if not database_url:
+            pytest.skip("TEST_DATABASE_URL not set; cannot provide test_database_session")
+        if "asyncpg" not in database_url:
+            database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        pool_size = 5
+        max_overflow = 10
+
     engine = create_async_engine(
-        test_environment_config.database_url,
-        pool_size=test_environment_config.db_pool_size if hasattr(test_environment_config, "db_pool_size") else 5,
-        max_overflow=test_environment_config.db_max_overflow
-        if hasattr(test_environment_config, "db_max_overflow")
-        else 10,
+        database_url,
+        pool_size=pool_size,
+        max_overflow=max_overflow,
         pool_pre_ping=True,
         pool_recycle=1800,
     )

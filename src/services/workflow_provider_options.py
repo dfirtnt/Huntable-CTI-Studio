@@ -82,6 +82,10 @@ async def _probe_lmstudio() -> tuple[bool, list[str]]:
         alt = base.replace("localhost", "host.docker.internal").replace("127.0.0.1", "host.docker.internal")
         if alt not in candidates:
             candidates.append(alt)
+    if "host.docker.internal" in base.lower():
+        alt = base.replace("host.docker.internal", "localhost")
+        if alt not in candidates:
+            candidates.append(alt)
 
     try:
         async with httpx.AsyncClient(timeout=LMSTUDIO_PROBE_TIMEOUT) as client:

@@ -870,6 +870,7 @@ class RunTestRunner:
                 RunTestType.ALL_NO_UI: [
                     "tests/",
                     "--ignore=tests/ui/",
+                    "--ignore=tests/e2e/",
                 ],
                 RunTestType.COVERAGE: ["tests/", "--cov=src"],
             }
@@ -930,7 +931,7 @@ class RunTestRunner:
         # ui-full (tier 4): everything including @slow; only excluded by explicit --exclude-markers
         # all-no-ui: run the full suite, but exclude UI-marked tests and Playwright JS.
         elif self.config.test_type == RunTestType.ALL_NO_UI:
-            default_excludes.extend(["ui", "ui_smoke"])
+            default_excludes.extend(["ui", "ui_smoke", "e2e"])
         if self.config.exclude_markers:
             all_excludes = default_excludes + self.config.exclude_markers
         else:

@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from celery import Celery
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from src.database.async_manager import async_db_manager
 from src.models.source import SourceFilter, SourceUpdate
@@ -43,7 +43,7 @@ def _get_collection_method(source) -> str:
 
 
 @router.get("")
-async def api_sources_list(filter_params: SourceFilter):
+async def api_sources_list(filter_params: SourceFilter = Depends()):
     """API endpoint for listing sources."""
     try:
         sources = await async_db_manager.list_sources(filter_params)
