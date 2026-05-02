@@ -12,7 +12,7 @@ pytest-xdist==3.8.0  # Parallel test execution
 # Browser automation testing
 pytest-playwright>=0.4.0
 playwright==1.58.0
-pytest-timeout>=2.3.1  # Per-test timeout guard to prevent hung Playwright tests blocking the serial UI run
+pytest-timeout>=2.4.0  # Per-test timeout guard to prevent hung Playwright tests blocking the serial UI run
 
 # Test utilities
 factory-boy==3.3.3
