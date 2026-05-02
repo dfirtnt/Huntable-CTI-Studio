@@ -148,3 +148,5 @@ The provided API key doesn't match the server's configured key. Verify:
 ### "API key required"
 
 The `X-API-Key` header is missing from the request. Add it to your request headers.
+
+_Last updated: 2026-05-01_

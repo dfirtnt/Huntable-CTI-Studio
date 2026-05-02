@@ -59,4 +59,4 @@ This reflects the current `docker-compose.yml` and `docker-compose.override.yml`
 - **Dockerfile:** Python 3.11-slim; system deps (Postgres client, Playwright/Chromium, Docker CLI); `requirements.txt` + `requirements-test.txt`; non-root user; used by compose for web, worker, workflow_worker, scheduler, cli.
 - **Dockerfile.prod:** Multi-stage build; slimmer runtime (no Playwright/test deps); for production-style images.
 
-_Last verified: Feb 2025_
+_Last updated: 2026-05-01_
