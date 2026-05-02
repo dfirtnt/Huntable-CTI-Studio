@@ -81,7 +81,7 @@ pgvector==0.4.2  # PostgreSQL vector extension support
 
 # Agentic workflow
 langgraph==1.1.8  # LangGraph for agentic workflow orchestration
-langgraph-checkpoint==4.0.2  # LangGraph checkpointing for state persistence
+langgraph-checkpoint==4.0.3  # LangGraph checkpointing for state persistence
 langgraph-checkpoint-postgres==3.0.5  # PostgreSQL checkpoint backend for LangGraph
 langgraph-cli==0.4.23  # LangGraph CLI for HTTP server
 langfuse==4.5.0  # Langfuse for LLM observability and tracing
