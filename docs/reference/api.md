@@ -89,6 +89,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `GET /api/workflow/config/versions` — List config versions with pagination. Query params: `page` (default 1), `limit` (default 20, max 100), `version` (optional, exact integer match). Response: `versions`, `total`, `page`, `total_pages`.
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
+- `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
 Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`).
 

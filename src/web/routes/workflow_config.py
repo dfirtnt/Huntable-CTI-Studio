@@ -127,7 +127,6 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
-    auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
 
 
 class AgentPromptUpdate(BaseModel):
@@ -438,9 +437,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 )
             )
             final_auto_trigger_hunt_score_threshold = (
-                config_update.auto_trigger_hunt_score_threshold
-                if config_update.auto_trigger_hunt_score_threshold is not None
-                else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 if current_config
                 else 60.0
             )
@@ -602,6 +599,47 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
 
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.patch("/config/auto-trigger-threshold")
+async def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
+    """Update the auto-trigger hunt score threshold.
+
+    This setting is intentionally separate from the main workflow config PUT endpoint
+    so it cannot be overwritten by preset imports or agent config saves.
+    Only the Settings UI should call this endpoint.
+    """
+    try:
+        value = body.get("auto_trigger_hunt_score_threshold")
+        if value is None:
+            raise HTTPException(status_code=400, detail="auto_trigger_hunt_score_threshold is required")
+        try:
+            value = float(value)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="auto_trigger_hunt_score_threshold must be a number") from exc
+        if not (0.0 <= value <= 100.0):
+            raise HTTPException(
+                status_code=400, detail=f"auto_trigger_hunt_score_threshold must be 0-100, got {value}"
+            )
+
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            if not current_config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+            current_config.auto_trigger_hunt_score_threshold = value
+            db_session.commit()
+            db_session.refresh(current_config)
+            return {"auto_trigger_hunt_score_threshold": current_config.auto_trigger_hunt_score_threshold}
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating auto-trigger threshold: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 

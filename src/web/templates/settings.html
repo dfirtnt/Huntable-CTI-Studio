@@ -1788,8 +1788,8 @@
             failures.push('auto-trigger threshold (must be 0-100)');
         } else {
             await runSection('auto-trigger threshold', async () => {
-                const response = await fetch('/api/workflow/config', {
-                    method: 'PUT',
+                const response = await fetch('/api/workflow/config/auto-trigger-threshold', {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ auto_trigger_hunt_score_threshold: autoTriggerThreshold })
                 });
