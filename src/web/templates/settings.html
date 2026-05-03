@@ -751,6 +751,38 @@
                           <p id="autoTriggerThresholdStatus" class="text-sm mt-2"></p>
                       </div>
                   </div>
+
+                  <!-- Diagnosis Agent Configuration -->
+                  <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Diagnosis Agent</h3>
+                      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure the LLM provider and model used for AI-powered eval diagnostics (the "Diagnose" button on Agent Evals).</p>
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                              <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
+                              <select id="diagnosisProvider" onchange="onDiagnosisProviderChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                                  <option value="lmstudio">LMStudio (Local)</option>
+                                  <option value="openai">OpenAI (Cloud)</option>
+                                  <option value="anthropic">Anthropic Claude (Cloud)</option>
+                              </select>
+                          </div>
+                          <div>
+                              <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Model</label>
+                              <div id="diagnosis-model-lmstudio" data-agent-prefix="diagnosis" data-provider="lmstudio">
+                                  <select id="diagnosis-model" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs"></select>
+                              </div>
+                              <div id="diagnosis-model-openai" data-agent-prefix="diagnosis" data-provider="openai" class="hidden">
+                                  <input type="text" id="diagnosisModelOpenai" placeholder="gpt-4o" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                              </div>
+                              <div id="diagnosis-model-anthropic" data-agent-prefix="diagnosis" data-provider="anthropic" class="hidden">
+                                  <input type="text" id="diagnosisModelAnthropic" placeholder="claude-sonnet-4-5" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+                              </div>
+                          </div>
+                      </div>
+                      <div class="mt-3">
+                          <button id="saveDiagnosisConfig" class="settings-btn-primary">Save Diagnosis Config</button>
+                          <span id="diagnosisConfigStatus" class="ml-3 text-sm"></span>
+                      </div>
+                  </div>
               </div>
         </div>
 
@@ -1043,12 +1075,26 @@
         // Update workflow API key visibility
         updateWorkflowApiKeyVisibility();
 
+        // Load diagnosis agent config
+        const diagProvider = parseWorkflowStringSetting(workflowAppSettings, 'DIAGNOSIS_PROVIDER', 'openai');
+        const diagModel = parseWorkflowStringSetting(workflowAppSettings, 'DIAGNOSIS_MODEL', 'gpt-4o');
+        document.getElementById('diagnosisProvider').value = diagProvider;
+        onDiagnosisProviderChange();
+        // Set model value in the active input
+        if (diagProvider === 'lmstudio') {
+            await populateDiagnosisLmstudioModels(diagModel);
+        } else if (diagProvider === 'openai') {
+            document.getElementById('diagnosisModelOpenai').value = diagModel;
+        } else if (diagProvider === 'anthropic') {
+            document.getElementById('diagnosisModelAnthropic').value = diagModel;
+        }
+
         // Load auto-trigger hunt score threshold from workflow config API
         await loadAutoTriggerThreshold();
         // Signal that all async settings fetches have completed (used by Playwright tests)
         document.body.dataset.settingsHydrated = 'true';
     }
-    
+
     // Load auto-trigger threshold from workflow config API
     async function loadAutoTriggerThreshold() {
         try {
@@ -1064,6 +1110,97 @@
         }
     }
     
+    // Diagnosis agent -- provider/model toggle (mirrors updateAgentProviderVisibility in workflow.html)
+    function onDiagnosisProviderChange() {
+        const provider = (document.getElementById('diagnosisProvider').value || 'openai').trim().toLowerCase();
+        const groups = document.querySelectorAll('[data-agent-prefix="diagnosis"]');
+        groups.forEach(function(group) {
+            if (!group.dataset.provider) return;
+            const groupProvider = group.dataset.provider.trim().toLowerCase();
+            if (groupProvider === provider) {
+                group.classList.remove('hidden');
+                group.style.display = '';
+            } else {
+                group.classList.add('hidden');
+                group.style.display = 'none';
+            }
+        });
+        if (provider === 'lmstudio') {
+            populateDiagnosisLmstudioModels();
+        }
+    }
+    window.onDiagnosisProviderChange = onDiagnosisProviderChange;
+
+    async function populateDiagnosisLmstudioModels(selectedModel) {
+        const select = document.getElementById('diagnosis-model');
+        select.textContent = '';
+        const loadingOpt = document.createElement('option');
+        loadingOpt.value = '';
+        loadingOpt.textContent = 'Loading...';
+        select.appendChild(loadingOpt);
+        try {
+            const resp = await fetch('/api/lmstudio-models');
+            if (resp.ok) {
+                const data = await resp.json();
+                const models = data.models || [];
+                select.textContent = '';
+                if (models.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = '(no models loaded)';
+                    select.appendChild(opt);
+                } else {
+                    models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.textContent = m;
+                        select.appendChild(opt);
+                    });
+                }
+                if (selectedModel) select.value = selectedModel;
+            } else {
+                select.textContent = '';
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '(LMStudio unavailable)';
+                select.appendChild(opt);
+            }
+        } catch (e) {
+            select.textContent = '';
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '(LMStudio unavailable)';
+            select.appendChild(opt);
+        }
+    }
+
+    function getDiagnosisModel() {
+        const provider = document.getElementById('diagnosisProvider').value;
+        if (provider === 'lmstudio') return document.getElementById('diagnosis-model').value;
+        if (provider === 'openai') return document.getElementById('diagnosisModelOpenai').value.trim() || 'gpt-4o';
+        if (provider === 'anthropic') return document.getElementById('diagnosisModelAnthropic').value.trim() || 'claude-sonnet-4-5';
+        return 'gpt-4o';
+    }
+
+    // Save diagnosis agent config
+    document.getElementById('saveDiagnosisConfig').addEventListener('click', async () => {
+        const provider = document.getElementById('diagnosisProvider').value;
+        const model = getDiagnosisModel();
+        const statusEl = document.getElementById('diagnosisConfigStatus');
+        try {
+            await persistWorkflowAppSettings({
+                DIAGNOSIS_PROVIDER: provider,
+                DIAGNOSIS_MODEL: model
+            });
+            statusEl.textContent = 'Saved';
+            statusEl.style.color = 'var(--action-execute)';
+            setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        } catch (error) {
+            statusEl.textContent = 'Error: ' + error.message;
+            statusEl.style.color = 'var(--action-danger)';
+        }
+    });
+
     // Load Langfuse settings from database (with localStorage fallback)
     async function loadLangfuseSettings() {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');

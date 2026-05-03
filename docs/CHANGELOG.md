@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Slim bundle mode for eval exports** (2026-05-03): `EvalBundleService.generate_bundle()` accepts `slim=True` to strip redundant data (~60% token reduction for AI review). Removes `raw_payload`, `raw_response`, `extraction_context.raw_result`, and replaces long system prompt and article text in `llm_request.messages` with SHA-256 reference pointers to `inputs[]`. Bulk ZIP export (`GET /api/evaluations/evals/export-bundles-by-config-version`) gains a `slim` query parameter; slim ZIPs include a shared `_prompts.json` manifest that deduplicates identical prompts across bundles. UI: left-click on the bundle export button now defaults to slim; right-click exports full bundles. Seven new tests (6 unit in `TestSlimTransform`, 1 API) cover the transform, deduplication logic, short-message preservation, and end-to-end integration.
+
 ## [6.2.1 "Io"] - 2026-05-02
 ### Added
 - **Focused tests for eval bulk bundle export** (2026-05-02): `tests/api/test_evaluation_bulk_export.py` adds two `@pytest.mark.api` tests covering `export_bundles_by_config_version`: (1) Langfuse is skipped by default (`fetch_langfuse=False`); (2) `include_langfuse=True` passes through. Both verify session cleanup via `session.close()`.

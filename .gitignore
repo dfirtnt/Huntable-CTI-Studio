@@ -178,6 +178,7 @@ datasets/
 !package.json
 !package-lock.json
 !browser-extension/manifest.json
+!data/diagnoses/.gitkeep
 *.parquet
 
 

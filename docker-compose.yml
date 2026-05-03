@@ -98,6 +98,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./config:/app/config
+      - ./docs/contracts:/app/docs/contracts
       - ./logs:/app/logs
       - ./tests:/app/tests
       - ./backups:/app/backups

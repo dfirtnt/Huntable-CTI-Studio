@@ -20,6 +20,7 @@ from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
+    AppSettingsTable,
     ArticleTable,
     SubagentEvaluationTable,
 )
@@ -1956,6 +1957,111 @@ async def get_eval_bundle_metadata(
     except Exception as e:
         logger.error(f"Error getting eval bundle metadata for execution {execution_id}: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+class DiagnoseRequest(BaseModel):
+    """Request body for the bundle diagnosis endpoint."""
+
+    agent_name: str = Field(..., description="Agent name (e.g., 'CmdlineExtract')")
+    provider: str = Field("openai", description="LLM provider for diagnosis")
+    model_name: str | None = Field("gpt-4o", description="Model override for diagnosis")
+
+
+@router.post("/evals/{execution_id}/diagnose")
+async def diagnose_eval_bundle(
+    request: Request,
+    execution_id: int,
+    body: DiagnoseRequest,
+):
+    """
+    Run LLM-powered failure diagnosis on an eval bundle.
+
+    Generates a slim bundle, sends it with the extractor contract to a frontier
+    model, and returns a structured diagnosis with root causes, recommendations,
+    and contract violations.
+
+    Provider/model resolution order:
+    1. Explicit request body values (if non-default)
+    2. App settings (DIAGNOSIS_PROVIDER, DIAGNOSIS_MODEL)
+    3. Hardcoded defaults (openai / gpt-4o)
+    """
+    from src.services.eval_diagnosis_service import EvalDiagnosisService
+
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            # Resolve provider/model from app settings if not explicitly overridden
+            provider = body.provider
+            model_name = body.model_name
+            try:
+                from sqlalchemy import select
+
+                settings_result = db_session.execute(
+                    select(AppSettingsTable).where(
+                        AppSettingsTable.key.in_(["DIAGNOSIS_PROVIDER", "DIAGNOSIS_MODEL"])
+                    )
+                )
+                settings_map = {s.key: s.value for s in settings_result.scalars().all()}
+                if settings_map.get("DIAGNOSIS_PROVIDER"):
+                    provider = settings_map["DIAGNOSIS_PROVIDER"]
+                if settings_map.get("DIAGNOSIS_MODEL"):
+                    model_name = settings_map["DIAGNOSIS_MODEL"]
+            except Exception as e:
+                logger.warning(f"Could not load diagnosis settings, using defaults: {e}")
+
+            # Explicit request body overrides settings (when caller passes non-defaults)
+            if body.provider != "openai":
+                provider = body.provider
+            if body.model_name and body.model_name != "gpt-4o":
+                model_name = body.model_name
+
+            # Generate slim bundle
+            bundle_service = EvalBundleService(db_session)
+            try:
+                bundle = bundle_service.generate_bundle(
+                    execution_id=execution_id,
+                    agent_name=body.agent_name,
+                    slim=True,
+                )
+            except AttributeError as e:
+                logger.error(f"AttributeError in bundle generation: {e}", exc_info=True)
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Error accessing data structure: {str(e)}. "
+                    "This may indicate a data format issue in the execution record.",
+                ) from e
+
+            # Run diagnosis
+            llm_service = LLMService(config_models={})
+            diagnosis_service = EvalDiagnosisService(llm_service)
+            diagnosis = await diagnosis_service.diagnose_bundle(
+                bundle=bundle,
+                agent_name=body.agent_name,
+                provider=provider,
+                model_name=model_name,
+            )
+
+            # Persist to disk
+            diagnosis_service.save_diagnosis(diagnosis)
+
+            return diagnosis
+
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Execution not found: {execution_id} - {e}")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        logger.error(
+            f"Error diagnosing eval bundle for execution {execution_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # Map subagent canonical names to agent names used in eval bundles

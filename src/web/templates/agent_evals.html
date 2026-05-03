@@ -574,6 +574,9 @@
                     <button id="exportEvalBundleBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="Export evaluation bundle (JSON)">
                         Export Bundle
                     </button>
+                    <button id="diagnoseEvalBtn" class="hidden eval-btn eval-btn--accent eval-btn--sm" title="AI diagnosis of extraction quality">
+                        Diagnose
+                    </button>
                     <button id="closeCommandlinesModal" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -2746,10 +2749,15 @@ async function showCommandlines(executionId, articleUrl, count) {
             agentName = 'CmdlineExtract';
         }
         
-        // Show export button for all types and store executionId and agentName
+        // Show export and diagnose buttons for all types and store executionId and agentName
         exportBtn.classList.remove('hidden');
         exportBtn.dataset.executionId = executionId;
         exportBtn.dataset.agentName = agentName;
+
+        const diagnoseBtn = document.getElementById('diagnoseEvalBtn');
+        diagnoseBtn.classList.remove('hidden');
+        diagnoseBtn.dataset.executionId = executionId;
+        diagnoseBtn.dataset.agentName = agentName;
         
         if (commandlines.length === 0) {
             if (data.context_length_exceeded) {
@@ -2913,6 +2921,117 @@ async function exportCmdlineEvalBundle(executionId) {
     return exportEvalBundle(executionId, 'CmdlineExtract');
 }
 
+// AI diagnosis of a single eval bundle
+async function diagnoseBundleExecution(executionId, agentName) {
+    const button = document.getElementById('diagnoseEvalBtn');
+    const content = document.getElementById('commandlinesContent');
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Diagnosing...';
+
+    // Remove any previous diagnosis panel
+    const prev = document.getElementById('diagnosisResult');
+    if (prev) prev.remove();
+
+    try {
+        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_name: agentName })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        const diagnosis = await response.json();
+        content.insertAdjacentHTML('beforeend', renderDiagnosisPanel(diagnosis));
+        showNotification('Diagnosis complete', 'success');
+
+    } catch (error) {
+        console.error('Error diagnosing bundle:', error);
+        showNotification('Diagnosis failed: ' + error.message, 'error');
+    } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
+function renderDiagnosisPanel(d) {
+    const categoryColors = {
+        prompt_gap: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        model_limitation: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+        input_noise: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        infrastructure: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        correct_behavior: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+    };
+    const severityColors = {
+        high: 'text-red-600 dark:text-red-400',
+        medium: 'text-yellow-600 dark:text-yellow-400',
+        low: 'text-gray-600 dark:text-gray-400'
+    };
+    const catClass = categoryColors[d.failure_category] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    const confidencePct = Math.round((d.confidence || 0) * 100);
+
+    let rootCausesHtml = '';
+    if (d.root_causes && d.root_causes.length > 0) {
+        rootCausesHtml = d.root_causes.map(rc => {
+            const sevClass = severityColors[rc.severity] || '';
+            return `<li class="mb-2">
+                <span class="font-medium ${sevClass}">[${rc.severity || 'unknown'}]</span>
+                <span class="ml-1" style="color: var(--text-muted-slate);">${escapeHtml(rc.cause)}</span>
+                ${rc.evidence ? `<div class="text-xs mt-0.5 italic" style="color: var(--text-muted);">${escapeHtml(rc.evidence)}</div>` : ''}
+            </li>`;
+        }).join('');
+    }
+
+    let recsHtml = '';
+    if (d.recommendations && d.recommendations.length > 0) {
+        const sorted = [...d.recommendations].sort((a, b) => (a.priority || 99) - (b.priority || 99));
+        recsHtml = sorted.map(r =>
+            `<li class="mb-2">
+                <span class="font-medium" style="color: var(--text-muted-slate);">${escapeHtml(r.action)}</span>
+                ${r.rationale ? `<div class="text-xs mt-0.5" style="color: var(--text-muted);">${escapeHtml(r.rationale)}</div>` : ''}
+            </li>`
+        ).join('');
+    }
+
+    let violationsHtml = '';
+    if (d.contract_violations && d.contract_violations.length > 0) {
+        violationsHtml = `
+            <div class="mt-3">
+                <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Contract Violations</h5>
+                <ul class="text-sm list-disc list-inside space-y-1" style="color: var(--text-muted-slate);">
+                    ${d.contract_violations.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
+                </ul>
+            </div>`;
+    }
+
+    return `
+    <div id="diagnosisResult" class="mt-6 p-4 rounded-lg border" style="background: var(--panel-bg-3); border-color: rgba(139, 92, 246, 0.15); color: var(--text-muted-slate);">
+        <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-semibold" style="color: var(--text-secondary);">AI Diagnosis</h4>
+            <div class="flex items-center gap-2">
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium ${catClass}">${d.failure_category || 'unknown'}</span>
+                <span class="text-xs" style="color: var(--text-muted-slate);">${confidencePct}% confidence</span>
+            </div>
+        </div>
+        <p class="text-sm mb-3" style="color: var(--text-secondary);">${escapeHtml(d.summary || '')}</p>
+        ${rootCausesHtml ? `
+        <div class="mt-3">
+            <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Root Causes</h5>
+            <ul class="text-sm list-none space-y-1">${rootCausesHtml}</ul>
+        </div>` : ''}
+        ${recsHtml ? `
+        <div class="mt-3">
+            <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Recommendations</h5>
+            <ol class="text-sm list-decimal list-inside space-y-1">${recsHtml}</ol>
+        </div>` : ''}
+        ${violationsHtml}
+    </div>`;
+}
+
 // Export bundles for all articles for a config version (ZIP download)
 // slim=true (default) strips redundant data to reduce token consumption for AI review
 async function exportBundlesForConfigVersion(configVersion, slim = true) {
@@ -2971,6 +3090,13 @@ document.getElementById('exportEvalBundleBtn').addEventListener('click', (e) => 
     const agentName = e.target.dataset.agentName || 'CmdlineExtract';
     if (executionId) {
         exportEvalBundle(parseInt(executionId), agentName);
+    }
+});
+document.getElementById('diagnoseEvalBtn').addEventListener('click', (e) => {
+    const executionId = e.target.dataset.executionId;
+    const agentName = e.target.dataset.agentName || 'CmdlineExtract';
+    if (executionId) {
+        diagnoseBundleExecution(parseInt(executionId), agentName);
     }
 });
 document.getElementById('commandlinesModal').addEventListener('click', (e) => {
