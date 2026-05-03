@@ -1260,6 +1260,42 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@router.get("/subagent-eval-version-articles")
+async def get_subagent_eval_version_articles(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name"),
+    config_version: int = Query(..., description="Config version to look up"),
+):
+    """Return the distinct article URLs that were run in a specific config version."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            _, lookup_values = _resolve_subagent_query(subagent)
+            query = db_session.query(SubagentEvaluationTable.article_url).distinct()
+            if lookup_values:
+                query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            query = query.filter(
+                SubagentEvaluationTable.workflow_config_version == config_version,
+                SubagentEvaluationTable.article_url.isnot(None),
+            )
+            if EXCLUDED_EVAL_ARTICLE_IDS:
+                query = query.filter(
+                    SubagentEvaluationTable.article_id.notin_(EXCLUDED_EVAL_ARTICLE_IDS)
+                    | SubagentEvaluationTable.article_id.is_(None)
+                )
+            rows = query.all()
+            urls = [r[0] for r in rows if r[0]]
+            return {"config_version": config_version, "urls": urls, "count": len(urls)}
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching version articles: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @router.get("/subagent-eval-results")
 async def get_subagent_eval_results(
     request: Request,

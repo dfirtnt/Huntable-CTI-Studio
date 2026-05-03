@@ -2390,7 +2390,10 @@ async function loadAggregateScores() {
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}</span>
+                        <button class="eval-btn eval-btn--secondary eval-btn--sm rerun-version-btn" data-config-version="${agg.config_version}" title="Pre-select these articles and re-run with current config">Re-run</button>
+                    </div>
                 </div>
                 ${metricsHtml}
             `;
@@ -3156,6 +3159,63 @@ function closeCommandlinesModal() {
 }
 
 // -- Version Compare ----------------------------------------------------------
+
+// Pre-select articles from a previous config version and scroll to the run panel
+async function rerunFromHistory(configVersion) {
+    const btn = document.querySelector(`.rerun-version-btn[data-config-version="${configVersion}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+
+    try {
+        const subagent = currentSubagent;
+        const resp = await fetch(
+            `/api/evaluations/subagent-eval-version-articles?subagent=${encodeURIComponent(subagent)}&config_version=${configVersion}`
+        );
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const historyUrls = new Set(data.urls || []);
+
+        if (historyUrls.size === 0) {
+            showNotification(`No articles found for v${configVersion}`, 'warning');
+            return;
+        }
+
+        // Load eval articles if not yet loaded
+        if (!evalArticles || evalArticles.length === 0) {
+            await loadEvalArticles();
+        }
+
+        // Uncheck all, then check only those from the historical run
+        selectedArticleUrls.clear();
+        const checkboxes = document.querySelectorAll('#articleList input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            const checked = historyUrls.has(cb.value);
+            cb.checked = checked;
+            if (checked) selectedArticleUrls.add(cb.value);
+        });
+
+        // Scroll to the article selection panel
+        const articlePanel = document.getElementById('articleList');
+        if (articlePanel) articlePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        showNotification(
+            `${historyUrls.size} article${historyUrls.size === 1 ? '' : 's'} pre-selected from v${configVersion} -- review and click Run`,
+            'info'
+        );
+    } catch (err) {
+        console.error('Re-run from history failed:', err);
+        showNotification('Failed to load articles for v' + configVersion + ': ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Re-run'; }
+    }
+}
+
+// Delegate click for dynamically-rendered Re-run buttons
+document.getElementById('aggregateScoresContent').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rerun-version-btn');
+    if (btn && btn.dataset.configVersion) {
+        rerunFromHistory(parseInt(btn.dataset.configVersion));
+    }
+});
 
 function populateCompareVersionSelects(aggregates) {
     const selA = document.getElementById('compareVersionA');
