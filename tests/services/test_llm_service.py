@@ -305,13 +305,6 @@ class TestLLMService:
 
         assert tokens == 100
 
-    def test_get_top_p_for_agent(self, service_with_config):
-        """Test getting top_p for specific agent."""
-        top_p = service_with_config.get_top_p_for_agent("RankAgent")
-
-        assert isinstance(top_p, float)
-        assert 0.0 <= top_p <= 1.0
-
     def test_compute_rank_ground_truth(self, service):
         """Test ground truth rank computation."""
         result = service.compute_rank_ground_truth(hunt_score=85.0, ml_score=90.0)

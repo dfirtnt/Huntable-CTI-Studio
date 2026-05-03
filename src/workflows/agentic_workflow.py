@@ -370,6 +370,154 @@ def _update_single_eval_record(
         pass
 
 
+# CamelCase-keyed map used by the supervisor loop to resolve agent names to subagent aliases.
+# Canonical source: src/utils/subagent_utils.py (lowercase keys).  This copy uses CamelCase
+# because the workflow loop iterates with CamelCase agent names.
+_AGENT_NAME_TO_SUBAGENT: dict[str, str] = {
+    "CmdlineExtract": "cmdline",
+    "ProcTreeExtract": "process_lineage",
+    "HuntQueriesExtract": "hunt_queries",
+    "RegistryExtract": "registry_artifacts",
+    "ServicesExtract": "windows_services",
+    "ScheduledTasksExtract": "scheduled_tasks",
+}
+
+
+def _is_agent_allowed(
+    agent_name: str,
+    execution: Any,
+    subagent_eval: str | None,
+    eval_lookup_values: set | None,
+    execution_id: int | str,
+) -> bool:
+    """Return True if *agent_name* should run, False if it should be blocked.
+
+    Reads ``subagent_eval`` from *execution.config_snapshot* (with fallback to
+    the *subagent_eval* variable), builds a merged lookup set, and checks
+    whether the agent matches.  Consolidates the three previously-separate
+    eval-blocking checks into a single call.
+    """
+    # 1. Re-read subagent_eval from execution config_snapshot (defensive)
+    raw_eval = None
+    if execution and getattr(execution, "config_snapshot", None):
+        raw_eval = execution.config_snapshot.get("subagent_eval")
+
+    # Fallback to the variable
+    if not raw_eval and subagent_eval:
+        raw_eval = subagent_eval
+
+    # 2. Build the lookup set
+    eval_match: set[str] = set()
+    if raw_eval:
+        canonical, lookup_values = build_subagent_lookup_values(raw_eval)
+        for v in (lookup_values or set()):
+            if v is not None and str(v).strip():
+                eval_match.add(str(v).strip().lower())
+        if canonical and canonical not in eval_match:
+            eval_match.add(canonical)
+    # Merge in any pre-computed eval_lookup_values
+    if eval_lookup_values:
+        for v in eval_lookup_values:
+            if v is not None and str(v).strip():
+                eval_match.add(str(v).strip().lower())
+
+    if not eval_match:
+        return True
+
+    # 3. Check whether this agent matches
+    agent_subagent = _AGENT_NAME_TO_SUBAGENT.get(agent_name)
+    normalized_subagent = str(agent_subagent).lower().strip() if agent_subagent else None
+    normalized_name = agent_name.lower().strip()
+
+    matches = (normalized_subagent in eval_match if normalized_subagent else False) or normalized_name in eval_match
+
+    if matches:
+        logger.info(
+            f"[Workflow {execution_id}] Allowing {agent_name} to run -- matches eval_values={sorted(eval_match)}"
+        )
+    else:
+        logger.error(
+            f"[Workflow {execution_id}] BLOCKING {agent_name} (subagent={normalized_subagent}) "
+            f"-- does not match eval_values={sorted(eval_match)}"
+        )
+
+    return matches
+
+
+def _parse_agent_result(
+    agent_name: str, result_key: str, agent_result: dict
+) -> tuple[list, dict]:
+    """Parse an extraction agent's raw result into (items, subresult_entry).
+
+    HuntQueriesExtract has custom normalization; all other agents share a
+    generic path.  Error fields are copied uniformly for both paths.
+    """
+    items: list = []
+    subresult_entry: dict
+
+    if agent_name == "HuntQueriesExtract":
+        # Extract query-envelope items. Sigma rules are represented as type="sigma".
+        edr_queries = agent_result.get("queries", [])
+        # Prefer `count` (current contract); `query_count` is a deprecated alias kept for one release.
+        query_count = agent_result.get("count")
+        if query_count is None:
+            query_count = agent_result.get("query_count", len(edr_queries))
+
+        # Normalize field names for UI compatibility
+        # LLM may return: platform, query_text, source_context
+        # UI expects: type, query, context
+        normalized_edr_queries = []
+        for q in edr_queries:
+            if isinstance(q, dict):
+                normalized_q = {
+                    "query": q.get("query") or q.get("query_text", ""),
+                    "type": q.get("type") or q.get("platform", "unknown"),
+                    "context": q.get("context") or q.get("source_context", ""),
+                    # Preserve traceability fields through normalization
+                    "source_evidence": q.get("source_evidence"),
+                    "extraction_justification": q.get("extraction_justification"),
+                    "confidence_score": q.get("confidence_score"),
+                }
+                normalized_edr_queries.append(normalized_q)
+            else:
+                normalized_edr_queries.append(q)
+
+        items = normalized_edr_queries
+        subresult_entry = {
+            "items": items,
+            "count": len(items),
+            "query_count": query_count,
+            "queries": items,
+            "raw": agent_result,
+        }
+    else:
+        # Standard extraction agents
+        if result_key in agent_result:
+            items = agent_result[result_key]
+        elif agent_name == "CmdlineExtract" and "cmdline_items" in agent_result:
+            items = agent_result["cmdline_items"]
+        elif "items" in agent_result:
+            items = agent_result["items"]
+        else:
+            # Fallback: find first list
+            for v in agent_result.values():
+                if isinstance(v, list):
+                    items = v
+                    break
+
+        subresult_entry = {"items": items, "count": len(items), "raw": agent_result}
+
+    # Copy error fields uniformly
+    if agent_result.get("error"):
+        subresult_entry["error"] = agent_result["error"]
+        if agent_result.get("error_details"):
+            subresult_entry["error_details"] = agent_result["error_details"]
+        if agent_result.get("error_type"):
+            subresult_entry["error_type"] = agent_result["error_type"]
+
+    return items, subresult_entry
+
+
 def create_agentic_workflow(db_session: Session) -> StateGraph:
     """
     Create LangGraph workflow for agentic processing.
@@ -1384,95 +1532,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             )
 
             for agent_name, result_key, qa_name in sub_agents:
-                # CRITICAL SAFETY CHECK: If this is a subagent eval, ensure we only run the evaluated agent
-                logger.info(
-                    f"[Workflow {state['execution_id']}] 🔍 LOOP START for {agent_name} - execution exists: {execution is not None}, "
-                    f"config_snapshot exists: {execution.config_snapshot is not None if execution else False}"
-                )
-
-                # ALWAYS re-read subagent_eval from execution config_snapshot FIRST (defensive - ensure we have latest value)
-                current_subagent_eval = None
-                if execution and execution.config_snapshot:
-                    config_subagent_eval = execution.config_snapshot.get("subagent_eval")
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] 🔍 Reading subagent_eval from execution: raw={config_subagent_eval}, "
-                        f"type={type(config_subagent_eval)}"
+                # Consolidated eval-blocking check (replaces three formerly-separate inline checks)
+                if not _is_agent_allowed(agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]):
+                    subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "blocked_by_eval_filter"}}
+                    conversation_log.append(
+                        {"agent": agent_name, "items_count": 0, "result": {"status": "blocked_by_eval_filter"}}
                     )
-                    if config_subagent_eval:
-                        current_subagent_eval = normalize_subagent_name(config_subagent_eval)
-                        logger.info(
-                            f"[Workflow {state['execution_id']}] 🔍 Normalized subagent_eval: '{current_subagent_eval}'"
-                        )
-                # Fallback to the variable if execution read failed - CRITICAL: preserve existing value
-                if not current_subagent_eval:
-                    if subagent_eval:
-                        current_subagent_eval = str(subagent_eval).lower().strip()
-                        logger.info(
-                            f"[Workflow {state['execution_id']}] 🔍 Using fallback subagent_eval: '{current_subagent_eval}'"
-                        )
-                    else:
-                        logger.warning(
-                            f"[Workflow {state['execution_id']}] ⚠️ No subagent_eval found in execution or variable for {agent_name}"
-                        )
-
-                # Use the re-read value ONLY if we have one, otherwise keep existing
-                if current_subagent_eval:
-                    subagent_eval = current_subagent_eval
-                logger.info(
-                    f"[Workflow {state['execution_id']}] 🔍 Final subagent_eval for {agent_name}: '{subagent_eval}' (will block if not match)"
-                )
-
-                # Map agent names to their subagent names (hardcoded for reliability)
-                agent_to_subagent = {
-                    "CmdlineExtract": "cmdline",
-                    "ProcTreeExtract": "process_lineage",
-                    "HuntQueriesExtract": "hunt_queries",
-                    "RegistryExtract": "registry_artifacts",
-                    "ServicesExtract": "windows_services",
-                    "ScheduledTasksExtract": "scheduled_tasks",
-                }
-
-                agent_subagent_name = agent_to_subagent.get(agent_name)
-
-                # UNCONDITIONAL BLOCKING CHECK: If this is a subagent eval, block any agent that doesn't match
-                eval_match_values = set(eval_lookup_values or set())
-                if subagent_eval:
-                    eval_match_values.add(str(subagent_eval).lower().strip())
-                if eval_match_values:
-                    normalized_agent_subagent = (
-                        str(agent_subagent_name).lower().strip() if agent_subagent_name else None
-                    )
-                    normalized_agent_name = agent_name.lower().strip()
-                    matches = (
-                        normalized_agent_subagent in eval_match_values if normalized_agent_subagent else False
-                    ) or normalized_agent_name in eval_match_values
-
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] 🔍 SAFETY CHECK for {agent_name}: "
-                        f"eval_values={sorted(eval_match_values)}, agent_subagent='{normalized_agent_subagent}', "
-                        f"agent_name='{normalized_agent_name}', match={matches}"
-                    )
-
-                    if not matches:
-                        logger.error(
-                            f"[Workflow {state['execution_id']}] 🚫 BLOCKING {agent_name} - eval_values={sorted(eval_match_values)} "
-                            f"but agent subagent='{normalized_agent_subagent}', agent_name='{normalized_agent_name}'. Skipping this agent!"
-                        )
-                        # Mark as skipped and continue to next agent
-                        subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "blocked_by_eval_filter"}}
-                        conversation_log.append(
-                            {"agent": agent_name, "items_count": 0, "result": {"status": "blocked_by_eval_filter"}}
-                        )
-                        continue
-
-                    # Log that we're allowing this agent to run
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] ✅ Allowing {agent_name} to run - matches eval_values={sorted(eval_match_values)}"
-                    )
-                elif subagent_eval is None or subagent_eval == "":
-                    logger.warning(
-                        f"[Workflow {state['execution_id']}] ⚠️ subagent_eval is None/empty, allowing {agent_name} to run (normal mode)"
-                    )
+                    continue
 
                 try:
                     if agent_name in disabled_agents_cfg:
@@ -1540,11 +1606,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     # QA enabled flag is set above when loading QA config
 
-                    # Get model, provider, temperature, and top_p for this agent
+                    # Get model and provider for this agent
                     model_key = f"{agent_name}_model"
                     provider_key = f"{agent_name}_provider"
-                    temperature_key = f"{agent_name}_temperature"
-                    top_p_key = f"{agent_name}_top_p"
                     agent_model = agent_models.get(model_key) if agent_models else None
                     if not agent_model:
                         agent_model = agent_models.get("ExtractAgent") if agent_models else None
@@ -1568,130 +1632,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             f"[Workflow {state['execution_id']}] ⚠️ {agent_name} provider is None but agent_models exists. "
                             f"provider_key={provider_key} not found in config. Will fallback to ExtractAgent provider."
                         )
-                    agent_temperature = agent_models.get(temperature_key, 0.0) if agent_models else 0.0
-                    agent_top_p = agent_models.get(top_p_key) if agent_models else None
-
-                    # FINAL SAFETY CHECK: ALWAYS re-read subagent_eval from execution and block if doesn't match
-                    # Map agent name to subagent name
-                    agent_to_subagent = {
-                        "CmdlineExtract": "cmdline",
-                        "ProcTreeExtract": "process_lineage",
-                        "HuntQueriesExtract": "hunt_queries",
-                        "RegistryExtract": "registry_artifacts",
-                        "ServicesExtract": "windows_services",
-                        "ScheduledTasksExtract": "scheduled_tasks",
-                    }
-                    agent_subagent = agent_to_subagent.get(agent_name)
-
-                    # ALWAYS check execution config_snapshot for subagent_eval (defensive)
-                    raw_final_eval = None
-                    if execution and execution.config_snapshot:
-                        raw_final_eval = execution.config_snapshot.get("subagent_eval")
-
-                    # Fallback to variable if execution read failed
-                    if not raw_final_eval and subagent_eval:
-                        raw_final_eval = subagent_eval
-
-                    final_subagent_eval_check, final_lookup_values = build_subagent_lookup_values(raw_final_eval)
-                    final_eval_lookup = {
-                        str(value).strip().lower()
-                        for value in (final_lookup_values or set())
-                        if value is not None and str(value).strip()
-                    }
-                    if final_subagent_eval_check and final_subagent_eval_check not in final_eval_lookup:
-                        final_eval_lookup.add(final_subagent_eval_check)
-
-                    # Block if this is a subagent eval and agent doesn't match
-                    if final_eval_lookup:
-                        normalized_agent_subagent = str(agent_subagent).lower().strip() if agent_subagent else None
-                        normalized_agent_name = agent_name.lower().strip()
-
-                        if (
-                            normalized_agent_subagent not in final_eval_lookup
-                            and normalized_agent_name not in final_eval_lookup
-                        ):
-                            logger.error(
-                                f"[Workflow {state['execution_id']}] 🚫 BLOCKING EXECUTION of {agent_name} "
-                                f"(subagent={normalized_agent_subagent}) - does not match eval_values={sorted(final_eval_lookup)}"
-                            )
-                            # Skip this agent completely
-                            subresults[result_key] = {
-                                "items": [],
-                                "count": 0,
-                                "raw": {
-                                    "status": "blocked_for_eval",
-                                    "reason": f"eval_values={sorted(final_eval_lookup)}",
-                                },
-                            }
-                            conversation_log.append(
-                                {
-                                    "agent": agent_name,
-                                    "items_count": 0,
-                                    "result": {
-                                        "status": "blocked_for_eval",
-                                        "reason": f"eval_values={sorted(final_eval_lookup)}",
-                                    },
-                                }
-                            )
-                            continue
-
-                    # ABSOLUTE FINAL BLOCKING CHECK: Re-read subagent_eval directly from execution before LLM call
-                    # This MUST execute - it's the last line of defense before the LLM call
-                    raw_final_blocking_eval = None
-                    if execution and execution.config_snapshot:
-                        raw_final_blocking_eval = execution.config_snapshot.get("subagent_eval")
-
-                    final_blocking_eval, final_block_lookup_values = build_subagent_lookup_values(
-                        raw_final_blocking_eval
-                    )
-                    final_block_lookup = {
-                        str(value).strip().lower()
-                        for value in (final_block_lookup_values or set())
-                        if value is not None and str(value).strip()
-                    }
-                    if final_blocking_eval and final_blocking_eval not in final_block_lookup:
-                        final_block_lookup.add(final_blocking_eval)
-
-                    if final_block_lookup:
-                        agent_to_subagent_final = {
-                            "CmdlineExtract": "cmdline",
-                            "ProcTreeExtract": "process_lineage",
-                            "HuntQueriesExtract": "hunt_queries",
-                            "RegistryExtract": "registry_artifacts",
-                            "ServicesExtract": "windows_services",
-                            "ScheduledTasksExtract": "scheduled_tasks",
-                        }
-                        agent_subagent_final = agent_to_subagent_final.get(agent_name)
-                        normalized_agent_subagent = (
-                            str(agent_subagent_final).lower().strip() if agent_subagent_final else None
-                        )
-                        normalized_agent_name = agent_name.lower().strip()
-                        matches = (
-                            normalized_agent_subagent in final_block_lookup if normalized_agent_subagent else False
-                        ) or normalized_agent_name in final_block_lookup
-                        logger.info(
-                            f"[Workflow {state['execution_id']}] 🔍 FINAL BLOCK CHECK: {agent_name} subagent='{normalized_agent_subagent}' "
-                            f"agent_name='{normalized_agent_name}' vs eval_values={sorted(final_block_lookup)} -> match={matches}"
-                        )
-                        if not matches:
-                            logger.error(
-                                f"[Workflow {state['execution_id']}] 🚫 ABSOLUTE FINAL BLOCK: {agent_name} "
-                                f"subagent='{normalized_agent_subagent}' != eval_values={sorted(final_block_lookup)} - SKIPPING LLM CALL"
-                            )
-                            subresults[result_key] = {
-                                "items": [],
-                                "count": 0,
-                                "raw": {"status": "blocked_absolute_final"},
-                            }
-                            conversation_log.append(
-                                {"agent": agent_name, "items_count": 0, "result": {"status": "blocked_absolute_final"}}
-                            )
-                            continue
-                    else:
-                        logger.info(
-                            f"[Workflow {state['execution_id']}] ℹ️ No final_blocking_eval, allowing {agent_name} (normal mode)"
-                        )
-
                     # Run Agent
                     qa_model_override = agent_models.get(qa_name) if agent_models else None
                     logger.info(
@@ -1710,8 +1650,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         max_extraction_retries=max_qa_retries,
                         execution_id=state["execution_id"],
                         model_name=agent_model,
-                        temperature=float(agent_temperature),
-                        top_p=float(agent_top_p) if agent_top_p is not None else None,
+                        temperature=0.0,
                         qa_model_override=qa_model_override,
                         provider=agent_provider,  # Pass provider from config
                         attention_preprocessor_enabled=state.get("config", {}).get(
@@ -1720,79 +1659,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     )
 
                     # Store Result
-                    items = []
-                    # HuntQueriesExtract extracts EDR/SIEM queries and Sigma rules into one query envelope.
-                    if agent_name == "HuntQueriesExtract":
-                        # Extract query-envelope items. Sigma rules are represented as type="sigma".
-                        edr_queries = agent_result.get("queries", [])
-                        # Prefer `count` (current contract); `query_count` is a deprecated alias kept for one release.
-                        query_count = agent_result.get("count")
-                        if query_count is None:
-                            query_count = agent_result.get("query_count", len(edr_queries))
-
-                        # Normalize field names for UI compatibility
-                        # LLM may return: platform, query_text, source_context
-                        # UI expects: type, query, context
-                        normalized_edr_queries = []
-                        for q in edr_queries:
-                            if isinstance(q, dict):
-                                normalized_q = {
-                                    "query": q.get("query") or q.get("query_text", ""),
-                                    "type": q.get("type") or q.get("platform", "unknown"),
-                                    "context": q.get("context") or q.get("source_context", ""),
-                                    # Preserve traceability fields through normalization
-                                    "source_evidence": q.get("source_evidence"),
-                                    "extraction_justification": q.get("extraction_justification"),
-                                    "confidence_score": q.get("confidence_score"),
-                                }
-                                normalized_edr_queries.append(normalized_q)
-                            else:
-                                normalized_edr_queries.append(q)
-
-                        # Use normalized versions
-                        items = normalized_edr_queries
-
-                        subresult_entry = {
-                            "items": items,
-                            "count": len(items),
-                            "query_count": query_count,
-                            "queries": items,
-                            "raw": agent_result,
-                        }
-                        if agent_result.get("error"):
-                            subresult_entry["error"] = agent_result["error"]
-                            if agent_result.get("error_details"):
-                                subresult_entry["error_details"] = agent_result["error_details"]
-                            if agent_result.get("error_type"):
-                                subresult_entry["error_type"] = agent_result["error_type"]
-                        subresults[result_key] = subresult_entry
-                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {query_count} query/rule items")
-                    else:
-                        # Standard extraction agents
-                        # Try to find the specific list for this agent
-                        if result_key in agent_result:
-                            items = agent_result[result_key]
-                        elif agent_name == "CmdlineExtract" and "cmdline_items" in agent_result:
-                            # CmdlineExtract uses cmdline_items field
-                            items = agent_result["cmdline_items"]
-                        elif "items" in agent_result:
-                            items = agent_result["items"]
-                        else:
-                            # Fallback: find first list
-                            for v in agent_result.values():
-                                if isinstance(v, list):
-                                    items = v
-                                    break
-
-                        subresult_entry = {"items": items, "count": len(items), "raw": agent_result}
-                        if agent_result.get("error"):
-                            subresult_entry["error"] = agent_result["error"]
-                            if agent_result.get("error_details"):
-                                subresult_entry["error_details"] = agent_result["error_details"]
-                            if agent_result.get("error_type"):
-                                subresult_entry["error_type"] = agent_result["error_type"]
-                        subresults[result_key] = subresult_entry
-                        logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
+                    items, subresult_entry = _parse_agent_result(agent_name, result_key, agent_result)
+                    subresults[result_key] = subresult_entry
+                    logger.info(f"[Workflow {state['execution_id']}] {agent_name}: {len(items)} items")
 
                     # Make cmdline items available on state for downstream consumers (e.g., SIGMA)
                     if agent_name == "CmdlineExtract":
@@ -1838,7 +1707,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         execution.error_log["extract_agent"] = {"conversation_log": conversation_log}
                         if _existing_qa:
                             execution.error_log["qa_results"] = _existing_qa
-                        from sqlalchemy.orm.attributes import flag_modified
+
 
                         flag_modified(execution, "error_log")
                         db_session.commit()
@@ -1863,7 +1732,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             if qa_name and qa_name != agent_name:
                                 execution.error_log["qa_results"][qa_name] = qa_result
                             # Mark as modified so SQLAlchemy tracks the change
-                            from sqlalchemy.orm.attributes import flag_modified
+    
 
                             flag_modified(execution, "error_log")
                             db_session.commit()
@@ -2047,7 +1916,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 if existing_qa_results:
                     execution.error_log["qa_results"] = existing_qa_results
                 # Mark as modified so SQLAlchemy tracks the change
-                from sqlalchemy.orm.attributes import flag_modified
+
 
                 flag_modified(execution, "error_log")
                 db_session.commit()
@@ -2075,7 +1944,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     execution.error_log["extract_agent"] = {}
                 execution.error_log["extract_agent"]["completed"] = True
                 execution.error_log["extract_agent"]["completed_at"] = datetime.now().isoformat()
-                from sqlalchemy.orm.attributes import flag_modified
+
 
                 flag_modified(execution, "error_log")
                 db_session.commit()

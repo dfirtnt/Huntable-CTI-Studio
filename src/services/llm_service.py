@@ -589,9 +589,6 @@ class LLMService:
         self.temperature_rank = float(
             config_models.get("RankAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         )
-        self.temperature_extract = float(
-            config_models.get("ExtractAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
-        )
         self.temperature_sigma = float(
             config_models.get("SigmaAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
         )
@@ -605,12 +602,6 @@ class LLMService:
             self.top_p_rank = float(rank_top_p_raw)
         else:
             self.top_p_rank = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
-
-        extract_top_p_raw = config_models.get("ExtractAgent_top_p") if config_models else None
-        if extract_top_p_raw is not None:
-            self.top_p_extract = float(extract_top_p_raw)
-        else:
-            self.top_p_extract = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
 
         sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
         if sigma_top_p_raw is not None:
@@ -629,42 +620,6 @@ class LLMService:
             f"rank={self.provider_rank}, extract={self.provider_extract}, sigma={self.provider_sigma} "
             f"- Models: rank={self.model_rank}, extract={self.model_extract}, sigma={self.model_sigma}"
         )
-
-    def get_top_p_for_agent(self, agent_name: str) -> float:
-        """
-        Get top_p value for a specific agent.
-
-        Args:
-            agent_name: Agent name (e.g., "CmdlineExtract", "RankAgent", "ExtractAgent")
-
-        Returns:
-            top_p value for the agent, or global default if not configured
-        """
-        # Check for agent-specific top_p in config
-        top_p_key = f"{agent_name}_top_p"
-        if self.config_models and top_p_key in self.config_models:
-            return float(self.config_models[top_p_key])
-
-        # Fallback to main agent top_p values
-        if agent_name == "RankAgent":
-            return self.top_p_rank
-        if agent_name == "ExtractAgent":
-            return self.top_p_extract
-        if agent_name == "SigmaAgent":
-            return self.top_p_sigma
-        if agent_name in [
-            "CmdlineExtract",
-            "ProcTreeExtract",
-            "HuntQueriesExtract",
-            "RegistryExtract",
-            "ServicesExtract",
-            "ScheduledTasksExtract",
-        ]:
-            # Sub-agents fall back to ExtractAgent top_p
-            return self.top_p_extract
-
-        # Default to global top_p
-        return self.top_p
 
     def _bool_from_setting(self, value: str | None, default: bool = False) -> bool:
         if value is None:
@@ -2538,8 +2493,9 @@ Every item in the output array MUST be an object (not a plain string)."""
                         f"effective_provider={effective_provider}, "
                         f"self.provider_extract={self.provider_extract}"
                     )
-                    # Use provided top_p or get from agent config
-                    effective_top_p = top_p if top_p is not None else self.get_top_p_for_agent(agent_name)
+                    # Extract subagents always use temperature=0 / top_p=None (deterministic).
+                    # top_p is passed through as-is; callers that want a value provide it.
+                    effective_top_p = top_p
                     logger.info(
                         f"{agent_name} extraction attempt {current_try}: "
                         f"using provider={effective_provider}, model={model_name}, "
