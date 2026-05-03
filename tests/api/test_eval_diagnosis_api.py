@@ -1,8 +1,9 @@
 """
 Tests for the diagnosis API endpoints:
-  GET /evals/{execution_id}/diagnosis   -- load most recent saved diagnosis
-  GET /evals/{execution_id}/diagnoses   -- load all saved diagnoses, newest first
-  GET /subagent-eval-compare            -- per-article side-by-side version compare
+  GET /evals/{execution_id}/diagnosis        -- load most recent saved diagnosis
+  GET /evals/{execution_id}/diagnoses        -- load all saved diagnoses, newest first
+  GET /subagent-eval-compare                 -- per-article side-by-side version compare
+  GET /subagent-eval-version-articles        -- distinct article URLs for a config version
 """
 
 import json
@@ -15,6 +16,7 @@ from fastapi import HTTPException
 from src.web.routes.evaluation_api import (
     get_saved_diagnosis,
     get_subagent_eval_compare,
+    get_subagent_eval_version_articles,
     list_saved_diagnoses,
 )
 
@@ -56,6 +58,9 @@ class _FakeQuery:
         self._records = records
 
     def filter(self, *a, **kw):
+        return self
+
+    def distinct(self):
         return self
 
     def order_by(self, *a, **kw):
@@ -378,3 +383,129 @@ async def test_compare_preset_expected_overrides_record_expected():
     assert article["result_b"]["score"] == 1
     # improvement = |0| - |1| = -1 (regression)
     assert article["improvement"] == -1
+
+
+# ---------------------------------------------------------------------------
+# get_subagent_eval_version_articles
+# ---------------------------------------------------------------------------
+
+
+def _make_url_db(urls):
+    """Mock DB for single-column article_url queries. urls is a list of str|None."""
+    records = [(u,) for u in urls]
+    session = MagicMock()
+    session.query.return_value = _FakeQuery(records)
+    db_manager = MagicMock()
+    db_manager.get_session.return_value = session
+    return db_manager
+
+
+_VERSION_ARTICLES_PATCHES = dict(
+    resolve=("src.web.routes.evaluation_api._resolve_subagent_query", ("cmdline", ["cmdline"])),
+    excluded=("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+)
+
+
+def _va_ctx(db_manager):
+    """Context manager stack for version-articles endpoint."""
+    from contextlib import ExitStack
+
+    stack = ExitStack()
+    stack.enter_context(patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager))
+    stack.enter_context(patch(*_VERSION_ARTICLES_PATCHES["resolve"][0:1], return_value=_VERSION_ARTICLES_PATCHES["resolve"][1]))
+    stack.enter_context(patch(_VERSION_ARTICLES_PATCHES["excluded"][0], new=_VERSION_ARTICLES_PATCHES["excluded"][1]))
+    return stack
+
+
+@pytest.mark.asyncio
+async def test_version_articles_basic_returns_urls():
+    """Returns correct URLs and count for a version with records."""
+    urls = ["https://example.com/a1", "https://example.com/a2"]
+    db_manager = _make_url_db(urls)
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_version_articles(
+            request=MagicMock(), subagent="cmdline", config_version=42
+        )
+
+    assert result["config_version"] == 42
+    assert result["count"] == 2
+    assert set(result["urls"]) == set(urls)
+
+
+@pytest.mark.asyncio
+async def test_version_articles_empty_version_returns_empty():
+    """No records -> empty urls list and count=0."""
+    db_manager = _make_url_db([])
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_version_articles(
+            request=MagicMock(), subagent="cmdline", config_version=99
+        )
+
+    assert result["urls"] == []
+    assert result["count"] == 0
+    assert result["config_version"] == 99
+
+
+@pytest.mark.asyncio
+async def test_version_articles_skips_none_urls():
+    """Rows with a None url are excluded from the returned list."""
+    db_manager = _make_url_db(["https://example.com/real", None, "https://example.com/also-real"])
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_version_articles(
+            request=MagicMock(), subagent="cmdline", config_version=5
+        )
+
+    assert result["count"] == 2
+    assert None not in result["urls"]
+
+
+@pytest.mark.asyncio
+async def test_version_articles_response_has_required_keys():
+    """Response always contains config_version, urls, and count."""
+    db_manager = _make_url_db([])
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_version_articles(
+            request=MagicMock(), subagent="cmdline", config_version=7
+        )
+
+    assert "config_version" in result
+    assert "urls" in result
+    assert "count" in result
+
+
+@pytest.mark.asyncio
+async def test_version_articles_count_matches_urls_length():
+    """count field is always consistent with the length of the urls list."""
+    urls = ["https://example.com/x", "https://example.com/y", "https://example.com/z"]
+    db_manager = _make_url_db(urls)
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_version_articles(
+            request=MagicMock(), subagent="cmdline", config_version=20
+        )
+
+    assert result["count"] == len(result["urls"])

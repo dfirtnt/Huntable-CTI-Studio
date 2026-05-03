@@ -3213,6 +3213,7 @@ async function rerunFromHistory(configVersion) {
             cb.checked = checked;
             if (checked) selectedArticleUrls.add(cb.value);
         });
+        updateRunButton();
 
         // Scroll to the article selection panel
         const articlePanel = document.getElementById('articleList');

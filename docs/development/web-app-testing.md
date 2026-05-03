@@ -2,15 +2,9 @@
 
 <!-- MERGED FROM: development/WEB_APP_TESTING.md, development/WebAppDevtestingGuide.md -->
 
-## 🌐 Web App Testing
+Comprehensive guide for testing the Huntable CTI Studio web interface with Playwright, including UI flows, responsive design, and user experience validation.
 
-Comprehensive guide for testing the Huntable CTI Studio web interface with Playwright.
-
-## 🎯 Overview
-
-This guide covers browser-based testing of the Huntable CTI Studio web application using Playwright, including UI flows, responsive design, and user experience validation.
-
-## 🛠️ Tools and Setup
+## Tools and Setup
 
 ### Required Dependencies
 ```bash
@@ -40,7 +34,7 @@ video = retain-on-failure
 trace = on-first-retry
 ```
 
-## 🎭 Playwright Basics
+## Playwright Basics
 
 ### Browser Setup
 ```python
@@ -111,7 +105,7 @@ def test_basic_navigation(page: Page):
     expect(page.locator("h1")).to_be_visible()
 ```
 
-## 🧪 Test Examples
+## Test Examples
 
 ### Homepage Testing
 ```python
@@ -227,7 +221,7 @@ def test_search_functionality(page: Page):
     expect(page.locator(".highlight")).to_be_visible()
 ```
 
-## 📱 Responsive Design Testing
+## Responsive Design Testing
 
 ### Viewport Testing
 ```python
@@ -277,7 +271,7 @@ def test_mobile_navigation(page: Page):
     expect(page.locator(".mobile-menu")).to_be_hidden()
 ```
 
-## 🎨 Visual Testing
+## Visual Testing
 
 ### Screenshot Testing
 ```python
@@ -316,7 +310,7 @@ def test_element_visibility(page: Page):
     expect(page.locator(".mobile-filters")).to_be_visible()
 ```
 
-## ⚡ Performance Testing
+## Performance Testing
 
 ### Load Time Testing
 ```python
@@ -368,7 +362,7 @@ def test_network_performance(page: Page):
             assert response.timing["responseEnd"] - response.timing["requestStart"] < 2000
 ```
 
-## 🔍 Accessibility Testing
+## Accessibility Testing
 
 ### Basic Accessibility
 ```python
@@ -418,7 +412,7 @@ def test_keyboard_navigation(page: Page):
     expect(page.locator(".button-active")).to_be_visible()
 ```
 
-## 🚨 Error Handling Testing
+## Error Handling Testing
 
 ### Error Page Testing
 ```python
@@ -460,7 +454,7 @@ def test_form_validation(page: Page):
     expect(page.locator("text=Invalid URL format")).to_be_visible()
 ```
 
-## 🎯 Huntable CTI Studio-specific tests
+## Huntable CTI Studio-specific tests
 
 ### Source Management
 ```python
@@ -523,7 +517,7 @@ def test_article_processing_ui(page: Page):
     expect(page.locator(".search-results")).to_be_visible()
 ```
 
-## 🚀 Running UI Tests
+## Running UI Tests
 
 ### Basic Commands
 ```bash
@@ -544,10 +538,11 @@ pytest -m ui -v -s
 
 The project includes TypeScript Playwright tests that are integrated into the pytest suite:
 
-- **`tests/playwright/workflow_tabs.spec.ts`** - Verifies workflow agent config subpages (Configuration, Executions, Sigma Queue) remain visible and functional
-- **`tests/playwright/workflow_save_button.spec.ts`** - Tests workflow configuration save button functionality
-- **`tests/playwright/sigma.spec.ts`** - Sigma generation with LMStudio
-- **`tests/playwright/workflow_executions.spec.ts`** - Workflow execution features
+<!-- AUDIT: Accuracy -- Original spec filenames were stale (renamed during test reorganization). Corrected to match current tests/playwright/ contents. -->
+- **`tests/playwright/agent_config_save_button.spec.ts`** - Tests workflow configuration save button functionality
+- **`tests/playwright/workflow_config_persistence.spec.ts`** - Workflow config persistence across sessions
+- **`tests/playwright/workflow_executions_pagination.spec.ts`** - Workflow execution list and pagination
+- **`tests/playwright/agent_evals_input_persistence.spec.ts`** - Agent evals input persistence
 
 These tests can be run directly via npm:
 ```bash
@@ -555,12 +550,13 @@ These tests can be run directly via npm:
 npm run test:pw
 
 # Run specific test
-npm run test:pw tests/playwright/workflow_tabs.spec.ts
+npm run test:pw tests/playwright/agent_config_save_button.spec.ts
 ```
 
 Or via pytest (which wraps the TypeScript tests):
 ```bash
 # Run workflow tabs test via pytest
+<!-- AUDIT: Accuracy -- test_workflow_tabs_ui.py path: verify this file still exists before running [VERIFY LINK] -->
 pytest tests/ui/test_workflow_tabs_ui.py -v
 ```
 
@@ -617,9 +613,10 @@ The repo defines three OpenCode agents that use the prompts in `.opencode/prompt
 | `playwright-generator`| `playwright-test-generator.md`       | Turn a plan into `.spec.ts` tests |
 | `playwright-healer`   | `playwright-test-healer.md`          | Run tests, debug failures, fix selectors/timing |
 
-They are configured in **`opencode.json`** at the project root (agent `prompt` points at the corresponding file). Ensure the MCP (or plugin) that provides the tools referenced in those prompts (e.g. `planner_setup_page`, `generator_setup_page`, `test_run`, `test_debug`, `browser_*`) is enabled in OpenCode so the agents can run correctly.
+<!-- AUDIT: Accuracy -- opencode.json does not exist at the project root; agent config lives in the .opencode/ directory. -->
+They are configured in the **`.opencode/`** directory. Ensure the MCP (or plugin) that provides the tools referenced in those prompts (e.g. `planner_setup_page`, `generator_setup_page`, `test_run`, `test_debug`, `browser_*`) is enabled in OpenCode so the agents can run correctly.
 
-## 🔧 Debugging UI Tests
+## Debugging UI Tests
 
 ### Common Issues
 1. **Element not found** → Check selector and page state
@@ -648,7 +645,7 @@ PWDEBUG=1 pytest -m ui -s
 page.pause()  # Pause execution for manual inspection
 ```
 
-## 📊 Test Reports
+## Test Reports
 
 ### HTML Reports
 - **Location**: `playwright-report/index.html`
@@ -665,7 +662,7 @@ page.pause()  # Pause execution for manual inspection
 - **Content**: Test execution recordings
 - **Format**: WebM files
 
-## 🎯 Best Practices
+## Best Practices
 
 ### Test Design
 - **Use specific selectors** for reliable element targeting
@@ -685,11 +682,11 @@ page.pause()  # Pause execution for manual inspection
 - **Keep tests independent** and isolated
 - **Document test purposes** clearly
 
-## 📚 Next Steps
+## Next Steps
 
 - **Learn test categories** → See the testing guide in the tests directory
 
-## 🔍 Additional Resources
+## Additional Resources
 
 - [Playwright Documentation](https://playwright.dev/python/)
 - [Playwright Best Practices](https://playwright.dev/docs/best-practices)
@@ -697,15 +694,7 @@ page.pause()  # Pause execution for manual inspection
 - [Visual Testing](https://playwright.dev/docs/test-snapshots)
 
 
----
-
-## This file has been moved
-
-This documentation has been consolidated into the testing guide in the tests directory.
-
-Moved on: January 2025
-Reason: Documentation restructure to eliminate duplication
-
----
+<!-- AUDIT: Usefulness -- "This file has been moved" dead-end note removed; the content is still present in this file and the note was never updated to a useful cross-link. -->
 
 _Last updated: 2026-05-01_
+_Last reviewed: 2026-05-03_

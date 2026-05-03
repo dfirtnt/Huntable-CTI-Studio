@@ -200,6 +200,73 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 
 ---
 
+## AI Diagnosis
+
+The **Diagnose** button (next to Export Bundle in the execution detail modal) sends
+the full eval bundle and the agent's extractor contract to an LLM and returns a
+structured failure analysis.
+
+### What it returns
+
+| Field | Description |
+|---|---|
+| **Summary** | 1-2 sentence plain-English explanation of the failure |
+| **Failure category** | `prompt_gap`, `model_limitation`, `input_noise`, `infrastructure`, or `correct_behavior` |
+| **Confidence** | 0.0-1.0 estimate of how certain the diagnosis is |
+| **Root causes** | List of causes with evidence and severity (high/medium/low) |
+| **Recommendations** | Ordered action items with rationale |
+| **Contract violations** | Specific rules from the extractor contract that were broken |
+
+### Persistence
+
+Diagnosis results are saved to `data/diagnoses/` as JSON and auto-load the next
+time you open the same execution's modal. Running Diagnose again creates a new
+file; the most recent one is shown.
+
+### Configuring the diagnosis model
+
+**Settings -> Diagnosis Agent** lets you choose the provider (Anthropic, OpenAI,
+LMStudio) and model. Click the **?** button in the diagnosis panel header for a
+pointer to where the system prompt and prompt builder live in the codebase.
+
+---
+
+## Version Comparison
+
+The **Compare Versions** panel (below the MAE chart, collapsible) lets you select
+any two config versions and see a per-article side-by-side breakdown.
+
+### Reading the comparison table
+
+| Column | Meaning |
+|---|---|
+| **Article** | URL of the article |
+| **vA score** / **vB score** | `actual - expected` for each version |
+| **Change** | `Improved`, `Regressed`, or `Unchanged` badge |
+| **Improvement** | `abs(score_A) - abs(score_B)`; positive = B moved closer to expected |
+
+The summary bar above the table shows aggregate nMAE for each version, total
+perfect matches, and counts of improved/regressed/unchanged articles.
+
+Articles with the biggest change (either direction) sort to the top. Articles
+that appear in only one version sort to the bottom with no change badge.
+
+---
+
+## Re-run from History
+
+Each card in the **Aggregate Scores** panel has a **Re-run** button. Clicking it:
+
+1. Fetches the distinct article URLs that were used in that config version
+2. Pre-selects exactly those articles in the article list (unchecking any others)
+3. Updates the execution counter hint
+4. Scrolls to the article list and shows a notification
+
+This lets you reproduce a previous run's exact article set against the current
+config version without manually re-selecting articles.
+
+---
+
 ## Common failure patterns
 
 | Symptom | Likely cause |
@@ -210,4 +277,4 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-03_
