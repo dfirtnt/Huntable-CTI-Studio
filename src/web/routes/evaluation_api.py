@@ -1743,6 +1743,228 @@ async def get_subagent_eval_aggregate(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@router.get("/subagent-eval-compare")
+async def get_subagent_eval_compare(
+    request: Request,
+    subagent: str = Query(...),
+    version_a: int = Query(..., description="Baseline config version"),
+    version_b: int = Query(..., description="Candidate config version"),
+):
+    """Side-by-side comparison of two config versions for a subagent."""
+    logger.info(
+        "subagent-eval-compare: subagent=%s version_a=%s version_b=%s",
+        subagent,
+        version_a,
+        version_b,
+    )
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+
+            # For hunt_queries include historical edr records
+            if canonical_subagent == "hunt_queries":
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
+
+            query = db_session.query(SubagentEvaluationTable)
+            if lookup_values:
+                query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            query = query.filter(
+                SubagentEvaluationTable.workflow_config_version.in_([version_a, version_b])
+            )
+            all_records = query.order_by(
+                SubagentEvaluationTable.workflow_config_version.desc(),
+                SubagentEvaluationTable.created_at.desc(),
+            ).all()
+
+            # Batch-fetch article titles
+            article_ids = [
+                r.article_id
+                for r in all_records
+                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
+            ]
+            id_to_title: dict[int, str] = {}
+            if article_ids:
+                title_rows = (
+                    db_session.query(ArticleTable.id, ArticleTable.title)
+                    .filter(ArticleTable.id.in_(article_ids))
+                    .all()
+                )
+                id_to_title = {r[0]: (r[1] or "") for r in title_rows}
+
+            url_to_static = _load_static_eval_articles(canonical_subagent)
+
+            def _title_for(rec: SubagentEvaluationTable) -> str:
+                if rec.article_url and rec.article_url in url_to_static:
+                    t = (url_to_static[rec.article_url].get("title") or "").strip()
+                    if t:
+                        return t
+                if rec.article_id is not None:
+                    return (id_to_title.get(rec.article_id) or "").strip()
+                return ""
+
+            # Batch-fetch executions
+            execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
+            executions_by_id: dict[int, AgenticWorkflowExecutionTable] = {}
+            if execution_ids:
+                exec_rows = (
+                    db_session.query(AgenticWorkflowExecutionTable)
+                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
+                    .all()
+                )
+                executions_by_id = {e.id: e for e in exec_rows}
+
+            preset_expected_by_url = _load_preset_expected_by_url(subagent)
+
+            # Build per-(url, version) latest-record map (most recent by created_at)
+            latest: dict[tuple[str | None, int], SubagentEvaluationTable] = {}
+            for record in all_records:
+                if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
+                    continue
+                key = (record.article_url, record.workflow_config_version)
+                if key not in latest:
+                    latest[key] = record
+                else:
+                    existing = latest[key]
+                    if record.created_at and (
+                        existing.created_at is None or record.created_at > existing.created_at
+                    ):
+                        latest[key] = record
+
+            # Collect all unique URLs seen in either version
+            all_urls: dict[str | None, str] = {}  # url -> title
+            for (url, _ver), rec in latest.items():
+                if url not in all_urls:
+                    all_urls[url] = _title_for(rec)
+                elif not all_urls[url]:
+                    all_urls[url] = _title_for(rec)
+
+            def _make_result(rec: SubagentEvaluationTable | None) -> dict | None:
+                if rec is None:
+                    return None
+                actual = rec.actual_count
+                expected = preset_expected_by_url.get(rec.article_url)
+                if expected is None:
+                    expected = rec.expected_count if rec.expected_count is not None else 0
+                score = (actual - expected) if actual is not None else None
+                return {
+                    "actual_count": actual,
+                    "score": score,
+                    "status": rec.status or "unknown",
+                    "execution_id": rec.workflow_execution_id,
+                }
+
+            def _compute_aggregate(records: list[SubagentEvaluationTable], version: int) -> dict:
+                completed = [
+                    r for r in records if r.status == "completed" and r.actual_count is not None
+                ]
+                if not completed:
+                    return {
+                        "config_version": version,
+                        "total_articles": len(records),
+                        "completed": 0,
+                        "mean_absolute_error": None,
+                        "raw_mae": None,
+                        "perfect_matches": 0,
+                        "perfect_match_percentage": 0.0,
+                    }
+                scores = []
+                expected_counts = []
+                for r in completed:
+                    expected = preset_expected_by_url.get(r.article_url)
+                    if expected is None:
+                        expected = r.expected_count if r.expected_count is not None else 0
+                    expected_counts.append(expected)
+                    scores.append((r.actual_count or 0) - expected)
+                mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
+                mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
+                divisor = max(mean_expected_count, 1.0)
+                nmae_raw = mean_absolute_error / divisor
+                normalized_mae = min(nmae_raw, 1.0)
+                perfect_matches = sum(1 for s in scores if s == 0)
+                perfect_match_pct = (perfect_matches / len(completed)) * 100
+                return {
+                    "config_version": version,
+                    "total_articles": len(records),
+                    "completed": len(completed),
+                    "mean_absolute_error": round(normalized_mae, 4),
+                    "raw_mae": round(mean_absolute_error, 4),
+                    "perfect_matches": perfect_matches,
+                    "perfect_match_percentage": round(perfect_match_pct, 1),
+                }
+
+            # Collect per-version record lists for aggregate computation
+            records_a: list[SubagentEvaluationTable] = []
+            records_b: list[SubagentEvaluationTable] = []
+            for (url, ver), rec in latest.items():
+                if ver == version_a:
+                    records_a.append(rec)
+                elif ver == version_b:
+                    records_b.append(rec)
+
+            aggregate_a = _compute_aggregate(records_a, version_a)
+            aggregate_b = _compute_aggregate(records_b, version_b)
+
+            # Build per-article rows
+            articles = []
+            for url, title in all_urls.items():
+                rec_a = latest.get((url, version_a))
+                rec_b = latest.get((url, version_b))
+                result_a = _make_result(rec_a)
+                result_b = _make_result(rec_b)
+
+                expected_count = preset_expected_by_url.get(url)
+                if expected_count is None:
+                    rec_any = rec_a or rec_b
+                    if rec_any:
+                        expected_count = rec_any.expected_count
+                if expected_count is None:
+                    expected_count = 0
+
+                improvement: int | None = None
+                if (
+                    result_a is not None
+                    and result_b is not None
+                    and result_a.get("score") is not None
+                    and result_b.get("score") is not None
+                ):
+                    improvement = abs(result_a["score"]) - abs(result_b["score"])
+
+                articles.append(
+                    {
+                        "url": url,
+                        "title": title or None,
+                        "expected_count": expected_count,
+                        "result_a": result_a,
+                        "result_b": result_b,
+                        "improvement": improvement,
+                    }
+                )
+
+            # Sort: articles with non-null improvement first, then those missing one version
+            articles.sort(key=lambda a: (a["improvement"] is None, 0))
+
+            return {
+                "subagent": canonical_subagent,
+                "version_a": version_a,
+                "version_b": version_b,
+                "aggregate_a": aggregate_a,
+                "aggregate_b": aggregate_b,
+                "articles": articles,
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error in subagent-eval-compare: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @router.get("/config-versions-models")
 async def get_config_versions_models(
     request: Request,

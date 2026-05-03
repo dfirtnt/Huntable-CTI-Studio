@@ -657,6 +657,37 @@
                 </div>
             </div>
 
+            <!-- Version Compare -->
+            <div id="versionComparePanel" class="mb-6 hidden" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <div
+                    data-collapsible-panel="version-compare-panel"
+                    class="w-full flex items-center justify-between p-4 text-left rounded-t-lg transition-colors cursor-pointer"
+                    style="border-bottom: 1px solid rgba(139, 92, 246, 0.06);"
+                    onmouseover="this.style.background='rgba(139,92,246,0.04)'"
+                    onmouseout="this.style.background=''">
+                    <span class="text-sm font-semibold" style="color: var(--text-primary);">Version Compare</span>
+                    <span id="version-compare-panel-toggle" style="color: var(--text-muted-slate); font-size: 0.75rem; transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
+                </div>
+                <div id="version-compare-panel-content" class="hidden p-4" style="border-top: 1px solid rgba(139, 92, 246, 0.06);">
+                    <div class="flex items-end gap-3 flex-wrap mb-4">
+                        <div>
+                            <label class="block text-[10px] font-medium mb-1" style="color: var(--text-muted-slate);">Baseline</label>
+                            <select id="compareVersionA" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;">
+                                <option value="">-- version --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-medium mb-1" style="color: var(--text-muted-slate);">Candidate</label>
+                            <select id="compareVersionB" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;">
+                                <option value="">-- version --</option>
+                            </select>
+                        </div>
+                        <button id="runCompareBtn" class="eval-btn eval-btn--accent eval-btn--sm" style="align-self: flex-end;">Compare</button>
+                    </div>
+                    <div id="compareResult" class="hidden"></div>
+                </div>
+            </div>
+
             <!-- Results Comparison Legend -->
             <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
                 <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" style="list-style: none; color: var(--text-muted-slate); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
@@ -2208,6 +2239,7 @@ async function loadAggregateScores() {
         if (filteredAggregates.length === 0) {
             aggregateScores.classList.add('hidden');
             document.getElementById('maeChartContainer').classList.add('hidden');
+            document.getElementById('versionComparePanel').classList.add('hidden');
             return;
         }
         
@@ -2271,6 +2303,8 @@ async function loadAggregateScores() {
         
         // Render MAE chart
         renderMAEChart(filteredAggregates, configParamsByVersion, true); // Reset window to show latest
+        populateCompareVersionSelects(filteredAggregates);
+        document.getElementById('versionComparePanel').classList.remove('hidden');
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';
@@ -3121,12 +3155,199 @@ function closeCommandlinesModal() {
     }
 }
 
+// -- Version Compare ----------------------------------------------------------
+
+function populateCompareVersionSelects(aggregates) {
+    const selA = document.getElementById('compareVersionA');
+    const selB = document.getElementById('compareVersionB');
+    if (!selA || !selB) return;
+
+    // Sort descending
+    const versions = aggregates
+        .map(a => a.config_version)
+        .filter(v => v != null)
+        .sort((a, b) => b - a);
+
+    const buildOptions = (selected) => {
+        let html = '<option value="">-- version --</option>';
+        versions.forEach(v => {
+            const sel = v === selected ? ' selected' : '';
+            html += '<option value="' + v + '"' + sel + '>v' + v + '</option>';
+        });
+        return html;
+    };
+
+    // Pre-select: vB = highest, vA = second highest
+    const vB = versions[0] != null ? versions[0] : null;
+    const vA = versions[1] != null ? versions[1] : null;
+
+    selA.innerHTML = buildOptions(vA);
+    selB.innerHTML = buildOptions(vB);
+}
+
+async function runVersionCompare() {
+    const selA = document.getElementById('compareVersionA');
+    const selB = document.getElementById('compareVersionB');
+    const btn = document.getElementById('runCompareBtn');
+    const resultDiv = document.getElementById('compareResult');
+
+    const va = selA ? parseInt(selA.value) : NaN;
+    const vb = selB ? parseInt(selB.value) : NaN;
+
+    if (!selA.value || !selB.value) {
+        showNotification('Select both versions before comparing.', 'error');
+        return;
+    }
+    if (va === vb) {
+        showNotification('Baseline and candidate must be different versions.', 'error');
+        return;
+    }
+
+    const originalText = btn.textContent;
+    btn.textContent = 'Comparing...';
+    btn.disabled = true;
+
+    try {
+        const url = '/api/evaluations/subagent-eval-compare?subagent=' + encodeURIComponent(currentSubagent) + '&version_a=' + va + '&version_b=' + vb;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || 'HTTP ' + resp.status);
+        }
+        const data = await resp.json();
+        resultDiv.innerHTML = renderCompareResult(data);
+        resultDiv.classList.remove('hidden');
+    } catch (error) {
+        showNotification('Compare failed: ' + error.message, 'error');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+function renderCompareResult(data) {
+    const va = data.version_a;
+    const vb = data.version_b;
+    const aggA = data.aggregate_a || {};
+    const aggB = data.aggregate_b || {};
+    const articles = data.articles || [];
+
+    const fmtNmae = v => (v != null ? Number(v).toFixed(4) : '--');
+    const fmtPct = v => (v != null ? Number(v).toFixed(1) + '%' : '--');
+
+    const nmaeA = aggA.mean_absolute_error;
+    const nmaeB = aggB.mean_absolute_error;
+    let nmaeArrow = '';
+    if (nmaeA != null && nmaeB != null) {
+        if (nmaeB < nmaeA) nmaeArrow = ' <span style="color:#34d399;">(down)</span>';
+        else if (nmaeB > nmaeA) nmaeArrow = ' <span style="color:#f87171;">(up)</span>';
+        else nmaeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
+    }
+
+    const improved = articles.filter(a => a.improvement != null && a.improvement > 0).length;
+    const regressed = articles.filter(a => a.improvement != null && a.improvement < 0).length;
+    const unchanged = articles.filter(a => a.improvement != null && a.improvement === 0).length;
+
+    const summaryHtml = [
+        '<div class="flex flex-wrap gap-3 mb-4">',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">nMAE</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + fmtNmae(nmaeA) + ' &rarr; v' + vb + ': ' + fmtNmae(nmaeB) + nmaeArrow + '</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Perfect Matches</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + (aggA.perfect_matches != null ? aggA.perfect_matches : '--') + ' (' + fmtPct(aggA.perfect_match_percentage) + ') &rarr; v' + vb + ': ' + (aggB.perfect_matches != null ? aggB.perfect_matches : '--') + ' (' + fmtPct(aggB.perfect_match_percentage) + ')</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(34,197,94,0.15);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Improved</div>',
+        '    <div class="text-xs font-mono font-semibold" style="color:#34d399;">' + improved + '</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(248,113,113,0.15);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Regressed</div>',
+        '    <div class="text-xs font-mono font-semibold" style="color:#f87171;">' + regressed + '</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Unchanged</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-muted);">' + unchanged + '</div>',
+        '  </div>',
+        '</div>'
+    ].join('\n');
+
+    function cellHtml(result, expectedCount) {
+        if (!result) return '<span style="color:var(--text-muted);">--</span>';
+        const actual = result.actual_count;
+        const score = result.score;
+        const execId = result.execution_id;
+        if (actual == null) {
+            const st = escapeHtml(result.status || '--');
+            return '<span style="color:var(--text-muted); font-size:0.7rem;">' + st + '</span>';
+        }
+        const delta = score != null ? score : 0;
+        let color = '#34d399';
+        if (delta !== 0) {
+            color = Math.abs(delta) <= 2 ? '#fbbf24' : '#f87171';
+        }
+        const deltaStr = delta > 0 ? '+' + delta : String(delta);
+        const execLink = execId
+            ? '<a href="/workflow?exec=' + execId + '#executions" class="hover:underline" style="color:var(--text-muted); font-size:0.65rem;" title="Execution #' + execId + '">#' + execId + '</a>'
+            : '';
+        return '<span class="font-mono font-semibold" style="color:' + color + '; font-size:0.8rem;">' + actual + '</span> <span class="font-mono" style="color:' + color + '; font-size:0.7rem;">(' + deltaStr + ')</span>' + (execLink ? ' ' + execLink : '');
+    }
+
+    function changeBadge(improvement) {
+        if (improvement == null) return '<span style="color:var(--text-muted); font-size:0.7rem;">--</span>';
+        if (improvement > 0) return '<span class="font-mono text-xs font-semibold" style="color:#34d399;">better +' + improvement + '</span>';
+        if (improvement < 0) return '<span class="font-mono text-xs font-semibold" style="color:#f87171;">worse ' + improvement + '</span>';
+        return '<span class="font-mono text-xs" style="color:var(--text-muted);">same</span>';
+    }
+
+    let rowsHtml = '';
+    articles.forEach(function(art) {
+        const rawTitle = art.title
+            ? (art.title.length > 60 ? art.title.substring(0, 57) + '...' : art.title)
+            : (art.url || '').replace(/^https?:\/\/([^/]+).*$/, '$1');
+        const titleOrDomain = escapeHtml(rawTitle);
+        const urlEsc = escapeHtml(art.url || '');
+        const titleCell = '<span title="' + urlEsc + '" style="color:var(--text-secondary); font-size:0.75rem;">' + titleOrDomain + '</span>';
+        const expected = art.expected_count != null ? art.expected_count : '--';
+        rowsHtml += '<tr style="border-top:1px solid rgba(139,92,246,0.06);">'
+            + '<td class="px-2 py-2">' + titleCell + '</td>'
+            + '<td class="px-2 py-2 text-center font-mono text-xs" style="color:var(--text-muted-slate);">' + expected + '</td>'
+            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_a, art.expected_count) + '</td>'
+            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_b, art.expected_count) + '</td>'
+            + '<td class="px-2 py-2 text-center">' + changeBadge(art.improvement) + '</td>'
+            + '</tr>';
+    });
+
+    const tableHtml = [
+        '<div class="overflow-x-auto" style="border-radius:8px; border:1px solid rgba(139,92,246,0.1);">',
+        '  <table class="w-full text-xs" style="border-collapse:collapse;">',
+        '    <thead>',
+        '      <tr style="background:var(--panel-bg-3);">',
+        '        <th class="px-2 py-2 text-left font-semibold" style="color:var(--text-muted-slate);">Article</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">Expected</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">v' + va + '</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">v' + vb + '</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">Change</th>',
+        '      </tr>',
+        '    </thead>',
+        '    <tbody>' + rowsHtml + '</tbody>',
+        '  </table>',
+        '</div>'
+    ].join('\n');
+
+    return summaryHtml + tableHtml;
+}
+
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
+
+// Version compare button
+document.getElementById('runCompareBtn').addEventListener('click', runVersionCompare);
 
 // Event listeners for modal
 document.getElementById('closeCommandlinesModal').addEventListener('click', closeCommandlinesModal);
