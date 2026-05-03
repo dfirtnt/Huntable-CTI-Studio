@@ -94,19 +94,7 @@ class EvalDiagnosisService:
         model_name: str | None = "gpt-4o",
         temperature: float = 0.2,
     ) -> dict[str, Any]:
-        """
-        Analyze a single eval bundle against its extractor contract.
-
-        Args:
-            bundle: Eval bundle dict (slim or full).
-            agent_name: Extractor agent name (e.g., "CmdlineExtract").
-            provider: LLM provider for the diagnosis call.
-            model_name: Model override (defaults to provider default).
-            temperature: Sampling temperature.
-
-        Returns:
-            Structured diagnosis dict with metadata envelope.
-        """
+        """Analyze a single eval bundle against its extractor contract."""
         # Load contract context
         standard_text = self._load_contract_file(STANDARD_CONTRACT_FILE)
         agent_contract_file = AGENT_TO_CONTRACT.get(agent_name)

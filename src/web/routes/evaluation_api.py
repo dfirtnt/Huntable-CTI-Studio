@@ -2019,19 +2019,11 @@ async def diagnose_eval_bundle(
 
             # Generate slim bundle
             bundle_service = EvalBundleService(db_session)
-            try:
-                bundle = bundle_service.generate_bundle(
-                    execution_id=execution_id,
-                    agent_name=body.agent_name,
-                    slim=True,
-                )
-            except AttributeError as e:
-                logger.error(f"AttributeError in bundle generation: {e}", exc_info=True)
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Error accessing data structure: {str(e)}. "
-                    "This may indicate a data format issue in the execution record.",
-                ) from e
+            bundle = bundle_service.generate_bundle(
+                execution_id=execution_id,
+                agent_name=body.agent_name,
+                slim=True,
+            )
 
             # Run diagnosis
             llm_service = LLMService(config_models={})
