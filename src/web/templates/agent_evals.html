@@ -3183,6 +3183,13 @@ function populateCompareVersionSelects(aggregates) {
 
     selA.innerHTML = buildOptions(vA);
     selB.innerHTML = buildOptions(vB);
+
+    // Clear stale comparison results from a previous subagent
+    const resultDiv = document.getElementById('compareResult');
+    if (resultDiv) {
+        resultDiv.innerHTML = '';
+        resultDiv.classList.add('hidden');
+    }
 }
 
 async function runVersionCompare() {

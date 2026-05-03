@@ -99,6 +99,7 @@ services:
       - ./src:/app/src
       - ./config:/app/config
       - ./docs/contracts:/app/docs/contracts
+      - ./data/diagnoses:/app/data/diagnoses
       - ./logs:/app/logs
       - ./tests:/app/tests
       - ./backups:/app/backups
