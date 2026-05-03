@@ -13,6 +13,7 @@ Robust restore implementation using proper PostgreSQL tools with:
 import gzip
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -178,6 +179,15 @@ class DatabaseRestore:
             print("🔧 Filtering backup content...")
             filtered_sql_path = self.temp_dir / f"restore_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql"
 
+            # Tolerate dumps that contain dangling FK references (e.g. sigma_rule_queue
+            # rows pointing at agentic_workflow_executions ids that were already pruned).
+            # Rewrite "ADD CONSTRAINT ... FOREIGN KEY ..." statements so they do not
+            # validate the existing rows. The constraint is still enforced for any
+            # subsequent INSERT/UPDATE; only the historical bad row is grandfathered in.
+            fk_constraint_re = re.compile(
+                r"^(\s*ADD CONSTRAINT\s+\S+\s+FOREIGN KEY\b.*?)(;\s*)$",
+                re.IGNORECASE,
+            )
             with open(temp_sql_path) as f_in, open(filtered_sql_path, "w") as f_out:
                 for line in f_in:
                     # Skip problematic commands
@@ -186,6 +196,9 @@ class DatabaseRestore:
                         for skip_cmd in ["DROP DATABASE", "CREATE DATABASE", "\\connect", "\\c "]
                     ):
                         continue
+                    m = fk_constraint_re.match(line)
+                    if m and "NOT VALID" not in line.upper():
+                        line = f"{m.group(1)} NOT VALID{m.group(2)}"
                     f_out.write(line)
 
             # Use filtered SQL file
