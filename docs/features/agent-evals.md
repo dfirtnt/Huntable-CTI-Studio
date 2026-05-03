@@ -229,6 +229,135 @@ file; the most recent one is shown.
 LMStudio) and model. Click the **?** button in the diagnosis panel header for a
 pointer to where the system prompt and prompt builder live in the codebase.
 
+Provider/model resolution order when running a diagnosis:
+
+1. Explicit override in request body (API callers only)
+2. App settings (`DIAGNOSIS_PROVIDER`, `DIAGNOSIS_MODEL` in Settings)
+3. Hardcoded fallback: OpenAI / gpt-4o
+
+### Model recommendations
+
+| Provider | Model | Tradeoff |
+|---|---|---|
+| OpenAI | `gpt-4o` | Best balance of speed and quality; recommended default |
+| OpenAI | `gpt-4.1` | Slightly better at contract reasoning; slower |
+| Anthropic | `claude-sonnet-4-6` | Strong at structured JSON output; good alternative |
+| LMStudio | (local) | Free/private; quality depends on loaded model size |
+
+For routine diagnosis of extraction failures, `gpt-4o` is sufficient. Switch to
+`gpt-4.1` or Anthropic when investigating subtle contract violations that
+require careful reasoning about extraction rules.
+
+### Understanding contract violations
+
+The `contract_violations` field in a diagnosis result lists specific rules from
+the extractor contract that the agent broke during extraction. Each entry is a
+quoted rule or paraphrase from one of two contract documents:
+
+1. **Extractor Standard** (`docs/contracts/extractor-standard.md`) -- mandatory
+   rules for ALL extractors (e.g., deduplication, field formatting, confidence
+   thresholds)
+2. **Specific Extractor Contract** (e.g., `docs/contracts/cmdline-extract.md`) --
+   rules specific to that agent type (e.g., what counts as a command-line
+   observable, exclusion patterns)
+
+**How to act on violations:**
+
+- If the violation identifies a prompt gap (the contract says X but the prompt
+  doesn't mention X), edit the agent's extractor contract in the workflow config
+- If the violation identifies a model limitation (the model ignores a rule it
+  was told about), consider switching to a stronger model or adding few-shot
+  examples
+- If the violation is `correct_behavior` with no entries, the extraction was
+  correct and the eval expected_count may need updating
+
+### Diagnosis API reference
+
+All endpoints live under the `/api` prefix.
+
+#### POST /api/evals/{execution_id}/diagnose
+
+Run LLM-powered failure diagnosis on an eval bundle.
+
+**Request body (JSON):**
+
+```json
+{
+  "agent_name": "CmdlineExtract",
+  "provider": "openai",
+  "model_name": "gpt-4o"
+}
+```
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `agent_name` | Yes | -- | Agent name (e.g., `CmdlineExtract`, `ProcTreeExtract`) |
+| `provider` | No | `"openai"` | LLM provider (`openai`, `anthropic`, `lmstudio`) |
+| `model_name` | No | `"gpt-4o"` | Model to use for diagnosis |
+
+**Response (200):** Structured diagnosis JSON (see "What it returns" above).
+
+**Errors:** 404 if execution_id not found, 500 on LLM or service failure.
+
+---
+
+#### GET /api/evals/{execution_id}/diagnosis
+
+Return the most recent saved diagnosis for an execution.
+
+**Response (200):** The diagnosis JSON object.
+
+**Errors:** 404 if no diagnosis has been saved for this execution.
+
+---
+
+#### GET /api/evals/{execution_id}/diagnoses
+
+Return all saved diagnoses for an execution, newest first.
+
+**Response (200):** Array of diagnosis JSON objects. Returns `[]` (not 404) when
+none exist.
+
+---
+
+#### GET /api/subagent-eval-compare
+
+Side-by-side comparison of two config versions for a subagent.
+
+**Query parameters:**
+
+| Param | Required | Description |
+|---|---|---|
+| `subagent` | Yes | Subagent name (e.g., `cmdline`) |
+| `version_a` | Yes | Baseline config version (integer) |
+| `version_b` | Yes | Candidate config version (integer) |
+
+**Response (200):** Comparison object with per-article scores, nMAE for each
+version, and improved/regressed/unchanged counts.
+
+---
+
+#### GET /api/subagent-eval-version-articles
+
+Return the distinct article URLs used in a specific config version run.
+
+**Query parameters:**
+
+| Param | Required | Description |
+|---|---|---|
+| `subagent` | Yes | Subagent name |
+| `config_version` | Yes | Config version to look up (integer) |
+
+**Response (200):**
+
+```json
+{
+  "config_version": 42,
+  "urls": ["https://...", "https://..."],
+  "count": 8
+}
+```
+
 ---
 
 ## Version Comparison
@@ -277,4 +406,4 @@ config version without manually re-selecting articles.
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-05-03_
+_Last updated: 2026-05-03 (API reference and diagnosis guidance added)_
