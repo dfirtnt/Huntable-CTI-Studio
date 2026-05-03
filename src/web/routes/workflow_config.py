@@ -57,9 +57,8 @@ def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]
             row.updated_at = datetime.now()
         else:
             db_session.add(AppSettingsTable(key=settings_key, value="true", category="user"))
-    if providers:
-        db_session.commit()
-        logger.info("Auto-enabled providers from preset: %s", sorted(providers))
+    db_session.commit()
+    logger.info("Auto-enabled providers from preset: %s", sorted(providers))
 
 
 def _active_workflow_config_query(db_session):

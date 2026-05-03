@@ -212,7 +212,6 @@ class EvalDiagnosisService:
         if not raw_text:
             return self._empty_diagnosis("Empty response from LLM")
 
-        # Strategy 1: Try direct parse
         text = raw_text.strip()
 
         # Strategy 2: Strip markdown code fences

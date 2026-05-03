@@ -98,7 +98,6 @@ class EvalBundleService:
         if not execution:
             raise ValueError(f"Execution {execution_id} not found")
 
-        # Log available agents for debugging
         # Ensure error_log is a dict (JSONB might be string)
         error_log = _coerce_json_dict(execution.error_log)
 
@@ -268,11 +267,9 @@ class EvalBundleService:
         llm_messages = llm_request.get("messages") if isinstance(llm_request, dict) else []
         exec_status = execution_context.get("status", "") if isinstance(execution_context, dict) else ""
         if (
-            not llm_messages or (isinstance(llm_messages, list) and len(llm_messages) == 0)
+            not llm_messages
         ) and exec_status == "completed":
             warnings.append("ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED")
-            if execution_context is None:
-                execution_context = {}
             execution_context["infra_failed"] = True
             execution_context["infra_failed_reason"] = "messages empty but execution marked completed"
             bundle["execution_context"] = execution_context
@@ -488,7 +485,7 @@ class EvalBundleService:
                                     messages = last_entry.get("messages", [])
 
         # Diagnostic logging for missing messages
-        if not messages or (isinstance(messages, list) and len(messages) == 0):
+        if not messages:
             attempt_keys = list(attempt_entry.keys()) if isinstance(attempt_entry, dict) else "N/A"
             result_obj = attempt_entry.get("result", {}) if isinstance(attempt_entry, dict) else {}
             result_keys = list(result_obj.keys()) if isinstance(result_obj, dict) else "N/A"
@@ -580,7 +577,7 @@ class EvalBundleService:
         if langfuse_messages:
             messages = langfuse_messages
             warnings.append("MESSAGES_FETCHED_FROM_LANGFUSE")
-        elif not messages or (isinstance(messages, list) and len(messages) == 0):
+        elif not messages:
             warnings.append("MESSAGES_MISSING - LLM request messages not found in conversation_log entry or Langfuse")
             messages = []
 
