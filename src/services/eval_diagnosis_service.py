@@ -18,13 +18,9 @@ from src.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
-# Where diagnosis JSON files are persisted.
 DIAGNOSES_DIR = Path(__file__).resolve().parents[2] / "data" / "diagnoses"
-
-# Where extractor contract markdown files live.
 CONTRACTS_DIR = Path(__file__).resolve().parents[2] / "docs" / "contracts"
 
-# Map agent names to their contract filenames.
 AGENT_TO_CONTRACT: dict[str, str] = {
     "CmdlineExtract": "cmdline-extract.md",
     "ProcTreeExtract": "proctree-extract.md",
@@ -34,10 +30,8 @@ AGENT_TO_CONTRACT: dict[str, str] = {
     "ScheduledTasksExtract": "scheduled-tasks-extract.md",
 }
 
-# The foundation standard that applies to ALL extractors.
 STANDARD_CONTRACT_FILE = "extractor-standard.md"
 
-# System prompt for the diagnosis LLM call.
 _DIAGNOSIS_SYSTEM_PROMPT = """\
 You are an expert LLM extraction agent debugger for the Huntable CTI pipeline.
 
@@ -95,7 +89,6 @@ class EvalDiagnosisService:
         temperature: float = 0.2,
     ) -> dict[str, Any]:
         """Analyze a single eval bundle against its extractor contract."""
-        # Load contract context
         standard_text = self._load_contract_file(STANDARD_CONTRACT_FILE)
         agent_contract_file = AGENT_TO_CONTRACT.get(agent_name)
         agent_contract_text = ""
@@ -104,7 +97,6 @@ class EvalDiagnosisService:
         else:
             logger.warning(f"No contract mapping for agent: {agent_name}")
 
-        # Build prompt
         messages = self._build_diagnosis_prompt(
             bundle=bundle,
             agent_name=agent_name,
@@ -112,7 +104,6 @@ class EvalDiagnosisService:
             contract_text=agent_contract_text,
         )
 
-        # Call LLM
         logger.info(
             f"Diagnosing bundle for execution={bundle.get('workflow', {}).get('execution_id')} "
             f"agent={agent_name} via {provider}/{model_name or 'default'}"
@@ -127,16 +118,13 @@ class EvalDiagnosisService:
             failure_context=f"eval_diagnosis:{agent_name}",
         )
 
-        # Extract text from response
         raw_text = ""
         choices = response.get("choices", [])
         if choices:
             raw_text = choices[0].get("message", {}).get("content", "")
 
-        # Parse structured response
         findings = self._parse_diagnosis_response(raw_text)
 
-        # Build envelope
         diagnosis_id = str(uuid.uuid4())
         execution_id = bundle.get("workflow", {}).get("execution_id")
         workflow_meta = bundle.get("workflow", {})
@@ -174,13 +162,11 @@ class EvalDiagnosisService:
         contract_text: str,
     ) -> list[dict[str, str]]:
         """Construct the messages array for the diagnosis LLM call."""
-        # Extract scoring context for the user message
         workflow_meta = bundle.get("workflow", {})
         expected = workflow_meta.get("expected_count", "unknown")
         actual = workflow_meta.get("actual_count", "unknown")
         delta = workflow_meta.get("evaluation_score", "unknown")
 
-        # Serialize bundle (compact) for inclusion
         bundle_json = json.dumps(bundle, indent=None, default=str)
 
         user_content = (
@@ -214,12 +200,10 @@ class EvalDiagnosisService:
 
         text = raw_text.strip()
 
-        # Strategy 2: Strip markdown code fences
         fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?```", text, re.DOTALL)
         if fence_match:
             text = fence_match.group(1).strip()
 
-        # Strategy 3: Find first { to last }
         first_brace = text.find("{")
         last_brace = text.rfind("}")
         if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
@@ -231,12 +215,10 @@ class EvalDiagnosisService:
             logger.warning(f"Failed to parse diagnosis response: {e}")
             return self._empty_diagnosis(f"JSON parse error: {e}")
 
-        # Validate required fields
         required = {"summary", "failure_category", "confidence", "root_causes", "recommendations"}
         missing = required - set(parsed.keys())
         if missing:
             logger.warning(f"Diagnosis response missing fields: {missing}")
-            # Still return what we got, fill defaults
             parsed.setdefault("summary", "Diagnosis incomplete -- missing fields in LLM response")
             parsed.setdefault("failure_category", "model_limitation")
             parsed.setdefault("confidence", 0.0)

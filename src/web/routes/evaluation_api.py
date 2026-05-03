@@ -2278,7 +2278,6 @@ async def diagnose_eval_bundle(
             if body.model_name and body.model_name != "gpt-4o":
                 model_name = body.model_name
 
-            # Generate slim bundle
             bundle_service = EvalBundleService(db_session)
             bundle = bundle_service.generate_bundle(
                 execution_id=execution_id,
@@ -2286,7 +2285,6 @@ async def diagnose_eval_bundle(
                 slim=True,
             )
 
-            # Run diagnosis
             llm_service = LLMService(config_models={})
             diagnosis_service = EvalDiagnosisService(llm_service)
             diagnosis = await diagnosis_service.diagnose_bundle(
@@ -2296,7 +2294,6 @@ async def diagnose_eval_bundle(
                 model_name=model_name,
             )
 
-            # Persist to disk
             diagnosis_service.save_diagnosis(diagnosis)
 
             return diagnosis

@@ -14,7 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Provider/model selector macro consolidation** (2026-05-03): Extracted `components/provider_model_macros.html` with `provider_model_grid()` and `temperature_sliders()` Jinja2 macros. `workflow.html` (-296 lines) and `settings.html` now call the shared macros instead of duplicating provider/model HTML. Element IDs unified to kebab-case (`diagnosis-provider` instead of `diagnosisProvider`). JS functions `onAgentProviderChange()` and `updateAgentProviderVisibility()` shared across both pages. 22 regression tests in `test_diagnosis_provider_macro.py` and 122 in `test_model_selector_layout_consistency.py` verify the rendered macro output.
-- **Deslop pass on eval bundle and workflow config services** (2026-05-03): Removed stale comment, dead `None` guard on `execution_context`, redundant `isinstance(x, list) and len(x) == 0` tautologies (3 occurrences), misleading "Strategy 1" label in diagnosis parser, and unreachable `if providers:` guard after early return.
+- **Deslop pass on eval diagnosis and API code** (2026-05-03): Removed restating module-level constant comments, inline step-by-step comments in `diagnose_bundle`, stale "Strategy 2/3" labels in `_parse_diagnosis_response`, and three obvious action comments in the diagnose endpoint.
+
+### Fixed
+- **Re-run from history: execution counter not refreshed** (2026-05-03): `rerunFromHistory()` pre-selected articles programmatically but did not call `updateRunButton()`, leaving the "= N executions" hint stale. Fixed by calling `updateRunButton()` after the checkbox loop.
+
+### Added
+- **Tests for `get_subagent_eval_version_articles`** (2026-05-03): Five new `@pytest.mark.api` tests in `test_eval_diagnosis_api.py` cover the version-articles endpoint: basic URL return, empty version, None URL filtering, required response keys, and count/urls length consistency. `_FakeQuery` extended with `distinct()` to support single-column queries.
+- **`GET /subagent-eval-version-articles` and `GET /subagent-eval-compare` endpoints** (2026-05-03): `get_subagent_eval_version_articles` returns distinct article URLs for a specific config version (used by re-run from history). `get_subagent_eval_compare` returns per-article side-by-side scores for two config versions with improvement deltas and aggregate nMAE (used by the version comparison panel).
+- **Version comparison and re-run from history UI** (2026-05-03): Agent Evals page gains a collapsible "Compare Versions" panel below the MAE chart with per-article improvement/regression table. Each aggregate card gains a "Re-run" button that pre-selects the historical article set for re-evaluation. `docs/features/agent-evals.md` updated with sections for AI Diagnosis, Version Comparison, and Re-run from History.
 
 ## [6.2.1 "Io"] - 2026-05-02
 ### Added
