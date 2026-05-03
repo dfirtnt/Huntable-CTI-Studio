@@ -1976,6 +1976,7 @@ async def export_bundles_by_config_version(
     config_version: int = Query(..., description="Workflow config version"),
     subagent: str = Query(..., description="Subagent name (cmdline, process_lineage, hunt_queries)"),
     include_langfuse: bool = Query(False, description="Fetch Langfuse data for each bundle before export"),
+    slim: bool = Query(False, description="Strip redundant data to reduce token consumption for AI review"),
 ):
     """
     Export eval bundles for all articles evaluated under a given config version.
@@ -2015,8 +2016,12 @@ async def export_bundles_by_config_version(
                     detail=f"No completed eval records for config version {config_version} and subagent {subagent}",
                 )
 
+            slim_mode = slim is True
             bundle_service = EvalBundleService(db_session)
             buffer = io.BytesIO()
+            # Track shared prompts across bundles for the slim manifest
+            shared_prompts: dict[str, str] = {}  # sha256 -> prompt text
+
             with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
                 for record in records:
                     try:
@@ -2025,7 +2030,22 @@ async def export_bundles_by_config_version(
                             agent_name=agent_name,
                             attempt=None,
                             fetch_langfuse=include_langfuse_data,
+                            slim=slim_mode,
                         )
+                        # Collect shared prompts before they get stripped (for slim manifest)
+                        if slim_mode:
+                            for inp in bundle.get("inputs", []):
+                                if (
+                                    isinstance(inp, dict)
+                                    and inp.get("name") == "system_prompt"
+                                    and inp.get("sha256")
+                                    and inp.get("text")
+                                ):
+                                    shared_prompts[inp["sha256"]] = inp["text"]
+                                    # Replace prompt text with SHA ref in the bundle
+                                    inp["text"] = None
+                                    inp["_slim_ref"] = f"see _prompts.json#{inp['sha256'][:12]}"
+
                         filename = f"article_{record.article_id or record.id}_{record.id}.json"
                         zf.writestr(filename, json.dumps(bundle, indent=2, ensure_ascii=False))
                     except (ValueError, AttributeError) as e:
@@ -2035,13 +2055,24 @@ async def export_bundles_by_config_version(
                             f"Bundle generation failed: {e}",
                         )
 
+                # Write shared prompt manifest for slim ZIPs
+                if slim_mode and shared_prompts:
+                    manifest = {
+                        "description": "Shared prompts extracted from slim bundles. "
+                        "Each bundle references these by SHA256 prefix.",
+                        "prompts": {sha[:12]: {"sha256": sha, "text": text} for sha, text in shared_prompts.items()},
+                    }
+                    zf.writestr("_prompts.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+
             buffer.seek(0)
+            suffix = "_slim" if slim_mode else ""
             return StreamingResponse(
                 buffer,
                 media_type="application/zip",
                 headers={
                     "Content-Disposition": (
-                        f"attachment; filename=eval_bundles_v{config_version}_{canonical_subagent or subagent}.zip"
+                        f"attachment; filename=eval_bundles_v{config_version}"
+                        f"_{canonical_subagent or subagent}{suffix}.zip"
                     )
                 },
             )

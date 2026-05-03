@@ -67,6 +67,7 @@ class EvalBundleService:
         inline_large_text: bool = False,
         max_inline_chars: int = 200000,
         fetch_langfuse: bool = True,
+        slim: bool = False,
     ) -> dict[str, Any]:
         """
         Generate eval bundle for a specific LLM call within a workflow execution.
@@ -78,6 +79,9 @@ class EvalBundleService:
             inline_large_text: Whether to inline large text fields
             max_inline_chars: Maximum characters to inline before truncation
             fetch_langfuse: Whether to enrich missing request/response data from Langfuse
+            slim: Strip redundant/bulky data to reduce token consumption for AI review.
+                  Removes raw_payload, raw_response, raw_result, and deduplicates
+                  article text and system prompt content already present in inputs[].
 
         Returns:
             Eval bundle dict conforming to eval_bundle_v1 schema
@@ -278,11 +282,86 @@ class EvalBundleService:
         if config_snapshot:
             bundle["config_snapshot"] = config_snapshot
 
-        # Compute bundle SHA256 (excluding bundle_sha256 field)
+        # Compute bundle SHA256 over the FULL bundle (before slim strip)
         bundle_for_hash = bundle.copy()
         bundle_for_hash["integrity"] = {"bundle_sha256": "", "warnings": warnings}
         bundle_sha256 = compute_sha256_json(bundle_for_hash)
         bundle["integrity"]["bundle_sha256"] = bundle_sha256
+
+        # Apply slim transform: strip redundant/bulky data to cut token cost
+        if slim:
+            bundle = self._apply_slim_transform(bundle)
+
+        return bundle
+
+    def _apply_slim_transform(self, bundle: dict[str, Any]) -> dict[str, Any]:
+        """Strip redundant/bulky fields from a bundle to reduce token consumption.
+
+        Removes:
+        - llm_request.raw_payload (duplicates messages + parameters)
+        - llm_response.raw_response (duplicates text_output)
+        - extraction_context.raw_result (duplicates parsed_result)
+        - Article text from llm_request.messages (already in inputs[].article_text)
+        - System prompt from llm_request.messages (already in inputs[].system_prompt)
+
+        Adds:
+        - slim_applied: true flag at top level
+        - SLIM_TRANSFORM_APPLIED warning
+        """
+        # Remove raw_payload (reconstructed request blob -- redundant with messages + parameters)
+        llm_request = bundle.get("llm_request")
+        if isinstance(llm_request, dict):
+            llm_request.pop("raw_payload", None)
+            llm_request.pop("payload_sha256", None)
+
+        # Remove raw_response (OpenAI-format choices wrapper -- redundant with text_output)
+        llm_response = bundle.get("llm_response")
+        if isinstance(llm_response, dict):
+            llm_response.pop("raw_response", None)
+            llm_response.pop("response_sha256", None)
+
+        # Remove extraction_context.raw_result (raw LLM parse output -- redundant with parsed_result)
+        extraction_ctx = bundle.get("extraction_context")
+        if isinstance(extraction_ctx, dict):
+            extraction_ctx.pop("raw_result", None)
+
+        # Deduplicate article text and system prompt from messages.
+        # These are already available in inputs[] with SHA256 hashes.
+        # Replace their content in messages with short references.
+        if isinstance(llm_request, dict):
+            messages = llm_request.get("messages")
+            if isinstance(messages, list):
+                # Build SHA lookup from inputs for reference pointers
+                inputs = bundle.get("inputs", [])
+                article_sha = None
+                prompt_sha = None
+                for inp in inputs:
+                    if isinstance(inp, dict):
+                        if inp.get("name") == "article_text" and inp.get("sha256"):
+                            article_sha = inp["sha256"]
+                        elif inp.get("name") == "system_prompt" and inp.get("sha256"):
+                            prompt_sha = inp["sha256"]
+
+                for msg in messages:
+                    if not isinstance(msg, dict):
+                        continue
+                    content = msg.get("content", "")
+                    if not isinstance(content, str) or len(content) < 500:
+                        continue
+
+                    role = msg.get("role", "")
+                    if role == "system" and prompt_sha:
+                        msg["content"] = f"[see inputs.system_prompt sha256:{prompt_sha[:12]}]"
+                        msg["_slim_stripped"] = True
+                    elif role == "user" and article_sha:
+                        msg["content"] = f"[see inputs.article_text sha256:{article_sha[:12]}]"
+                        msg["_slim_stripped"] = True
+
+        # Mark the bundle as slim-transformed
+        bundle["slim_applied"] = True
+        warnings = bundle.get("integrity", {}).get("warnings", [])
+        if "SLIM_TRANSFORM_APPLIED" not in warnings:
+            warnings.append("SLIM_TRANSFORM_APPLIED")
 
         return bundle
 

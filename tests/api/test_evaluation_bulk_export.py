@@ -58,6 +58,7 @@ async def test_bulk_bundle_export_skips_langfuse_by_default():
         agent_name="CmdlineExtract",
         attempt=None,
         fetch_langfuse=False,
+        slim=False,
     )
     session.close.assert_called_once()
 
@@ -98,5 +99,56 @@ async def test_bulk_bundle_export_can_include_langfuse_when_requested():
         agent_name="CmdlineExtract",
         attempt=None,
         fetch_langfuse=True,
+        slim=False,
     )
+    session.close.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_bulk_bundle_export_slim_mode_passes_slim_flag():
+    """slim=true query param propagates to generate_bundle and affects ZIP filename."""
+    record = MagicMock()
+    record.workflow_execution_id = 103
+    record.article_id = 57
+    record.id = 9
+
+    session = MagicMock()
+    session.query.return_value = _QueryResult([record])
+    db_manager = MagicMock()
+    db_manager.get_session.return_value = session
+
+    bundle_service = MagicMock()
+    bundle_service.generate_bundle.return_value = {
+        "schema_version": "eval_bundle_v1",
+        "bundle_id": "bundle-3",
+        "slim_applied": True,
+        "inputs": [
+            {"name": "article_text", "sha256": "abc123", "text": "article content"},
+            {"name": "system_prompt", "sha256": "def456", "text": "prompt content"},
+        ],
+        "integrity": {"bundle_sha256": "already-computed", "warnings": ["SLIM_TRANSFORM_APPLIED"]},
+    }
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api.EvalBundleService", return_value=bundle_service),
+    ):
+        response = await export_bundles_by_config_version(
+            request=MagicMock(),
+            config_version=42,
+            subagent="cmdline",
+            slim=True,
+        )
+
+    assert response.status_code == 200
+    bundle_service.generate_bundle.assert_called_once_with(
+        execution_id=103,
+        agent_name="CmdlineExtract",
+        attempt=None,
+        fetch_langfuse=False,
+        slim=True,
+    )
+    # ZIP filename should include _slim suffix
+    content_disposition = response.headers.get("content-disposition", "")
+    assert "_slim.zip" in content_disposition
     session.close.assert_called_once()
