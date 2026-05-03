@@ -2758,6 +2758,9 @@ async function showCommandlines(executionId, articleUrl, count) {
         diagnoseBtn.classList.remove('hidden');
         diagnoseBtn.dataset.executionId = executionId;
         diagnoseBtn.dataset.agentName = agentName;
+
+        // Auto-load saved diagnosis if one exists for this execution
+        loadSavedDiagnosis(executionId);
         
         if (commandlines.length === 0) {
             if (data.context_length_exceeded) {
@@ -2921,6 +2924,21 @@ async function exportCmdlineEvalBundle(executionId) {
     return exportEvalBundle(executionId, 'CmdlineExtract');
 }
 
+// Load a previously saved diagnosis from disk (called on modal open)
+async function loadSavedDiagnosis(executionId) {
+    try {
+        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnosis`);
+        if (!response.ok) return; // 404 = no saved diagnosis yet, silently skip
+        const diagnosis = await response.json();
+        const content = document.getElementById('commandlinesContent');
+        const prev = document.getElementById('diagnosisResult');
+        if (prev) prev.remove();
+        content.insertAdjacentHTML('beforeend', renderDiagnosisPanel(diagnosis, true));
+    } catch (e) {
+        // Network or parse error -- silently skip, user can run Diagnose manually
+    }
+}
+
 // AI diagnosis of a single eval bundle
 async function diagnoseBundleExecution(executionId, agentName) {
     const button = document.getElementById('diagnoseEvalBtn');
@@ -2958,7 +2976,7 @@ async function diagnoseBundleExecution(executionId, agentName) {
     }
 }
 
-function renderDiagnosisPanel(d) {
+function renderDiagnosisPanel(d, cached = false) {
     const categoryColors = {
         prompt_gap: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
         model_limitation: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
@@ -3015,6 +3033,7 @@ function renderDiagnosisPanel(d) {
             <div class="flex items-center gap-2">
                 <span class="text-xs px-2 py-0.5 rounded-full font-medium ${catClass}">${d.failure_category || 'unknown'}</span>
                 <span class="text-xs" style="color: var(--text-muted-slate);">${confidencePct}% confidence</span>
+                ${cached ? `<span class="text-xs" style="color: var(--text-muted);">saved ${d.created_at ? new Date(d.created_at).toLocaleDateString() : ''}</span>` : ''}
             </div>
         </div>
         <p class="text-sm mb-3" style="color: var(--text-secondary);">${escapeHtml(d.summary || '')}</p>

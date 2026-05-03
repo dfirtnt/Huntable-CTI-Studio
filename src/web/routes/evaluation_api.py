@@ -2056,6 +2056,25 @@ async def diagnose_eval_bundle(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("/evals/{execution_id}/diagnosis")
+async def get_saved_diagnosis(execution_id: int):
+    """
+    Return the most recent saved diagnosis for an execution, or 404 if none exists.
+    """
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
+    import json as _json
+
+    matches = sorted(
+        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not matches:
+        raise HTTPException(status_code=404, detail="No diagnosis found")
+
+    return _json.loads(matches[0].read_text(encoding="utf-8"))
+
+
 # Map subagent canonical names to agent names used in eval bundles
 _SUBAGENT_TO_BUNDLE_AGENT = {
     "cmdline": "CmdlineExtract",
