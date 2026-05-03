@@ -560,3 +560,202 @@ class TestEvalBundleServiceHelpers:
         assert "ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED" not in bundle["integrity"]["warnings"]
         assert bundle.get("infra_failed") is not True
         assert bundle["execution_context"].get("infra_failed") is not True
+
+
+class TestSlimTransform:
+    """Tests for the slim bundle transform that strips redundant data."""
+
+    def test_slim_strips_raw_payload_and_raw_response(self):
+        """Slim transform removes raw_payload and raw_response."""
+        service = EvalBundleService(Mock())
+        bundle = {
+            "llm_request": {
+                "messages": [{"role": "user", "content": "short"}],
+                "raw_payload": {"messages": [{"role": "user", "content": "short"}], "model": "test"},
+                "payload_sha256": "abc123",
+                "parameters": {"temperature": 0.0},
+            },
+            "llm_response": {
+                "text_output": "response text",
+                "raw_response": {"choices": [{"message": {"content": "response text"}}]},
+                "response_sha256": "def456",
+                "finish_reason": "stop",
+            },
+            "inputs": [],
+            "integrity": {"warnings": []},
+        }
+        result = service._apply_slim_transform(bundle)
+        assert "raw_payload" not in result["llm_request"]
+        assert "payload_sha256" not in result["llm_request"]
+        assert "raw_response" not in result["llm_response"]
+        assert "response_sha256" not in result["llm_response"]
+        # Structured fields preserved
+        assert result["llm_request"]["messages"] == [{"role": "user", "content": "short"}]
+        assert result["llm_response"]["text_output"] == "response text"
+
+    def test_slim_strips_extraction_raw_result(self):
+        """Slim transform removes extraction_context.raw_result."""
+        service = EvalBundleService(Mock())
+        bundle = {
+            "llm_request": {"messages": []},
+            "llm_response": {},
+            "extraction_context": {
+                "parsed_result": {"items": ["cmd.exe"], "count": 1},
+                "raw_result": {"_llm_response": "very long raw text..."},
+            },
+            "inputs": [],
+            "integrity": {"warnings": []},
+        }
+        result = service._apply_slim_transform(bundle)
+        assert "raw_result" not in result["extraction_context"]
+        assert result["extraction_context"]["parsed_result"]["count"] == 1
+
+    def test_slim_deduplicates_long_messages(self):
+        """Slim replaces long system/user message content with SHA refs."""
+        service = EvalBundleService(Mock())
+        long_prompt = "You are a security analyst. " * 100  # >500 chars
+        long_article = "The threat actor deployed malware. " * 100
+        bundle = {
+            "llm_request": {
+                "messages": [
+                    {"role": "system", "content": long_prompt},
+                    {"role": "user", "content": long_article},
+                ],
+            },
+            "llm_response": {},
+            "inputs": [
+                {"name": "article_text", "sha256": "aaaa1111bbbb2222", "text": long_article},
+                {"name": "system_prompt", "sha256": "cccc3333dddd4444", "text": long_prompt},
+            ],
+            "integrity": {"warnings": []},
+        }
+        result = service._apply_slim_transform(bundle)
+        msgs = result["llm_request"]["messages"]
+        assert msgs[0]["_slim_stripped"] is True
+        assert "cccc3333dddd" in msgs[0]["content"]
+        assert msgs[1]["_slim_stripped"] is True
+        assert "aaaa1111bbbb" in msgs[1]["content"]
+
+    def test_slim_preserves_short_messages(self):
+        """Slim does NOT strip short messages (< 500 chars)."""
+        service = EvalBundleService(Mock())
+        bundle = {
+            "llm_request": {
+                "messages": [
+                    {"role": "system", "content": "Brief prompt"},
+                    {"role": "user", "content": "Short article"},
+                ],
+            },
+            "llm_response": {},
+            "inputs": [
+                {"name": "article_text", "sha256": "abc", "text": "Short article"},
+                {"name": "system_prompt", "sha256": "def", "text": "Brief prompt"},
+            ],
+            "integrity": {"warnings": []},
+        }
+        result = service._apply_slim_transform(bundle)
+        msgs = result["llm_request"]["messages"]
+        assert msgs[0]["content"] == "Brief prompt"
+        assert msgs[1]["content"] == "Short article"
+        assert "_slim_stripped" not in msgs[0]
+        assert "_slim_stripped" not in msgs[1]
+
+    def test_slim_sets_flag_and_warning(self):
+        """Slim transform sets slim_applied=True and adds warning."""
+        service = EvalBundleService(Mock())
+        bundle = {
+            "llm_request": {"messages": []},
+            "llm_response": {},
+            "inputs": [],
+            "integrity": {"warnings": []},
+        }
+        result = service._apply_slim_transform(bundle)
+        assert result["slim_applied"] is True
+        assert "SLIM_TRANSFORM_APPLIED" in result["integrity"]["warnings"]
+
+    def test_slim_generate_bundle_integration(self):
+        """Full generate_bundle with slim=True produces a slim bundle."""
+        db_session = Mock()
+
+        execution = Mock()
+        execution.id = 1
+        execution.article_id = 1
+        execution.status = "completed"
+        long_prompt = "Extract command lines from the article. " * 50
+        execution.error_log = {
+            "extract_agent": {
+                "conversation_log": [
+                    {
+                        "agent": "CmdlineExtract",
+                        "messages": [
+                            {"role": "system", "content": long_prompt},
+                            {"role": "user", "content": "A" * 1000},
+                        ],
+                        "llm_response": "extracted items",
+                    }
+                ]
+            }
+        }
+        execution.config_snapshot = {
+            "agent_prompts": {
+                "ExtractAgent": {"prompt": long_prompt},
+                "CmdlineExtract": {"prompt": long_prompt},
+            },
+            "agent_models": {"ExtractAgent": {"provider": "openai", "model": "gpt-4o"}},
+        }
+        execution.started_at = datetime(2026, 1, 1)
+        execution.completed_at = datetime(2026, 1, 1, 0, 1)
+        execution.current_step = "extract_agent"
+        execution.retry_count = 0
+        execution.error_message = None
+        execution.extraction_result = {
+            "subresults": {
+                "cmdline": {
+                    "items": ["cmd.exe /c whoami"],
+                    "count": 1,
+                    "raw": {"_llm_response": "very long raw output" * 100},
+                }
+            }
+        }
+
+        article = Mock()
+        article.content = "A" * 1000
+        article.id = 1
+        article.title = "Test"
+        article.canonical_url = None
+        article.published_at = None
+        article.word_count = 200
+        article.discovered_at = None
+        article.article_metadata = {}
+        article.source = None
+
+        def mock_query(model):
+            q = Mock()
+            f = Mock()
+            if model == AgenticWorkflowExecutionTable:
+                f.first.return_value = execution
+            elif model == ArticleTable:
+                f.first.return_value = article
+            else:
+                f.first.return_value = None
+            q.filter.return_value = f
+            return q
+
+        db_session.query = mock_query
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(db_session)
+            bundle = service.generate_bundle(execution_id=1, agent_name="CmdlineExtract", slim=True)
+
+        assert bundle["slim_applied"] is True
+        assert "SLIM_TRANSFORM_APPLIED" in bundle["integrity"]["warnings"]
+        # raw_payload and raw_response stripped
+        assert "raw_payload" not in bundle["llm_request"]
+        assert "raw_response" not in bundle["llm_response"]
+        # extraction raw_result stripped
+        assert "raw_result" not in bundle.get("extraction_context", {})
+        # System message replaced with ref
+        system_msg = bundle["llm_request"]["messages"][0]
+        assert system_msg.get("_slim_stripped") is True
+        # Integrity hash still present (computed before slim)
+        assert bundle["integrity"]["bundle_sha256"]

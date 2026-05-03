@@ -1514,7 +1514,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         html += `<div class="flex flex-col items-center gap-0.5">`;
         html += `<div class="flex items-center gap-1">`;
         html += `<span class="cursor-help">v${version}</span>`;
-        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum})" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export bundles for all articles (v${baseVersion})">📦</button>`;
+        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum}, true)" oncontextmenu="event.preventDefault(); exportBundlesForConfigVersion(${baseVersionNum}, false)" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export slim bundles (v${baseVersion}) -- right-click for full">📦</button>`;
         html += `</div></div></th>`;
     });
     
@@ -2914,10 +2914,15 @@ async function exportCmdlineEvalBundle(executionId) {
 }
 
 // Export bundles for all articles for a config version (ZIP download)
-async function exportBundlesForConfigVersion(configVersion) {
+// slim=true (default) strips redundant data to reduce token consumption for AI review
+async function exportBundlesForConfigVersion(configVersion, slim = true) {
     const subagent = document.getElementById('subagentSelect')?.value || 'cmdline';
-    const url = `/api/evaluations/evals/export-bundles-by-config-version?config_version=${configVersion}&subagent=${encodeURIComponent(subagent)}`;
-    showNotification(`Exporting bundles for v${configVersion}...`, 'info');
+    let url = `/api/evaluations/evals/export-bundles-by-config-version?config_version=${configVersion}&subagent=${encodeURIComponent(subagent)}`;
+    if (slim) {
+        url += '&slim=true';
+    }
+    const label = slim ? 'slim bundles' : 'full bundles';
+    showNotification(`Exporting ${label} for v${configVersion}...`, 'info');
     try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -2927,12 +2932,13 @@ async function exportBundlesForConfigVersion(configVersion) {
         const blob = await response.blob();
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `eval_bundles_v${configVersion}_${subagent}.zip`;
+        const suffix = slim ? '_slim' : '';
+        a.download = `eval_bundles_v${configVersion}_${subagent}${suffix}.zip`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
-        showNotification(`Exported bundles for v${configVersion}`, 'success');
+        showNotification(`Exported ${label} for v${configVersion}`, 'success');
     } catch (error) {
         console.error('Error exporting bundles:', error);
         showNotification('Export failed: ' + error.message, 'error');
