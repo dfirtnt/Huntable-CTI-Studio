@@ -308,6 +308,20 @@ class RunTestRunner:
                 )
                 container_id = (cid_result.stdout or "").strip()
 
+                # Fallback: compose ps may return empty when the project was
+                # started under a different project name (e.g. "app" vs the
+                # directory-derived default).  Resolve by inspecting the
+                # well-known container name directly.
+                if not container_id:
+                    fallback_name = f"cti_{service}"
+                    fb_result = subprocess.run(
+                        ["docker", "inspect", "--format", "{{.Id}}", fallback_name],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    container_id = (fb_result.stdout or "").strip() if fb_result.returncode == 0 else ""
+
                 if not container_id:
                     statuses.append(f"{service}=missing")
                     all_healthy = False
