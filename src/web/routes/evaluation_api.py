@@ -1945,8 +1945,11 @@ async def get_subagent_eval_compare(
                     }
                 )
 
-            # Sort: articles with non-null improvement first, then those missing one version
-            articles.sort(key=lambda a: (a["improvement"] is None, 0))
+            # Sort: biggest changes first (most improved or most regressed), nulls at end
+            articles.sort(key=lambda a: (
+                a["improvement"] is None,
+                -abs(a["improvement"]) if a["improvement"] is not None else 0,
+            ))
 
             return {
                 "subagent": canonical_subagent,
