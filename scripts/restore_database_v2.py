@@ -13,13 +13,16 @@ Robust restore implementation using proper PostgreSQL tools with:
 import gzip
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Allow `python scripts/restore_database_v2.py` to import sibling helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _restore_common import filter_dump_lines  # noqa: E402
 
 
 class DatabaseRestore:
@@ -179,27 +182,16 @@ class DatabaseRestore:
             print("🔧 Filtering backup content...")
             filtered_sql_path = self.temp_dir / f"restore_filtered_{datetime.now().strftime('%Y%m%d_%H%M%S')}.sql"
 
-            # Tolerate dumps that contain dangling FK references (e.g. sigma_rule_queue
-            # rows pointing at agentic_workflow_executions ids that were already pruned).
-            # Rewrite "ADD CONSTRAINT ... FOREIGN KEY ..." statements so they do not
-            # validate the existing rows. The constraint is still enforced for any
-            # subsequent INSERT/UPDATE; only the historical bad row is grandfathered in.
-            fk_constraint_re = re.compile(
-                r"^(\s*ADD CONSTRAINT\s+\S+\s+FOREIGN KEY\b.*?)(;\s*)$",
-                re.IGNORECASE,
-            )
+            # Filter via the shared helper: drops DB-lifecycle commands the harness
+            # handles itself, and rewrites FK constraint additions to NOT VALID so
+            # dangling references in the source dump do not abort the restore.
             with open(temp_sql_path) as f_in, open(filtered_sql_path, "w") as f_out:
-                for line in f_in:
-                    # Skip problematic commands
-                    if any(
-                        skip_cmd in line.upper()
-                        for skip_cmd in ["DROP DATABASE", "CREATE DATABASE", "\\connect", "\\c "]
-                    ):
-                        continue
-                    m = fk_constraint_re.match(line)
-                    if m and "NOT VALID" not in line.upper():
-                        line = f"{m.group(1)} NOT VALID{m.group(2)}"
-                    f_out.write(line)
+                for filtered_line in filter_dump_lines(
+                    f_in,
+                    skip_db_lifecycle=True,
+                    rewrite_fk_constraints=True,
+                ):
+                    f_out.write(filtered_line)
 
             # Use filtered SQL file
             temp_sql_path = filtered_sql_path
