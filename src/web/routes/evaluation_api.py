@@ -2336,6 +2336,23 @@ async def get_saved_diagnosis(execution_id: int):
     return _json.loads(matches[0].read_text(encoding="utf-8"))
 
 
+@router.get("/evals/{execution_id}/diagnoses")
+async def list_saved_diagnoses(execution_id: int):
+    """
+    Return all saved diagnoses for an execution, newest first.
+    Returns an empty list (not 404) when none exist.
+    """
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
+    import json as _json
+
+    matches = sorted(
+        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return [_json.loads(p.read_text(encoding="utf-8")) for p in matches]
+
+
 # Map subagent canonical names to agent names used in eval bundles
 _SUBAGENT_TO_BUNDLE_AGENT = {
     "cmdline": "CmdlineExtract",

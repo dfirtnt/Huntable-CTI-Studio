@@ -1,0 +1,86 @@
+{#
+  Shared Jinja2 macros for provider/model selection UI.
+
+  Usage:
+    {% from "components/provider_model_macros.html" import provider_model_grid, temperature_sliders %}
+
+    {{ provider_model_grid('cmdlineextract', 'CmdlineExtract', 'CmdlineExtract_model',
+                           has_fallback=true, validate=true) }}
+    {{ temperature_sliders('cmdlineextract', 'CmdlineExtract', temp_default='0.0') }}
+#}
+
+
+{# ── Provider + Model 2-column grid ──────────────────────────────
+   prefix         : HTML id prefix, e.g. 'cmdlineextract'
+   provider_key   : form name for provider, e.g. 'CmdlineExtract_provider'
+   model_key      : form name for model,    e.g. 'CmdlineExtract_model' or 'CmdLineQA'
+   has_fallback   : if true, LMStudio select gets a "Use Extract Agents Fallback Model" option
+   validate       : if true, model change calls validateAgentModelOnChange()
+   use_select     : if true, cloud providers use <select> instead of <input> (for diagnosis page)
+   openai_models  : list of dicts [{value, label}] when use_select is true
+   anthropic_models : list of dicts [{value, label}] when use_select is true
+#}
+{% macro provider_model_grid(prefix, provider_key, model_key,
+                             has_fallback=false, validate=true,
+                             use_select=false, openai_models=none, anthropic_models=none) %}
+<div class="grid grid-cols-2 gap-3">
+  <div>
+    <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Provider</label>
+    <select id="{{ prefix }}-provider" name="agent_models[{{ provider_key }}]" onchange="onAgentProviderChange('{{ prefix }}')" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+      <option value="lmstudio">LMStudio (Local)</option>
+      <option value="openai">OpenAI (Cloud)</option>
+      <option value="anthropic">Anthropic Claude (Cloud)</option>
+    </select>
+  </div>
+  <div>
+    <label class="block text-[10px] font-medium text-gray-500 dark:text-gray-400 mb-1">Model</label>
+    <div data-agent-prefix="{{ prefix }}" data-provider="lmstudio">
+      <select id="{{ prefix }}-model" name="agent_models[{{ model_key }}]" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">{% if has_fallback %}<option value="">Use Extract Agents Fallback Model</option>{% endif %}</select>
+    </div>
+    <div data-agent-prefix="{{ prefix }}" data-provider="openai" class="hidden">
+      {% if use_select and openai_models %}
+      <select id="{{ prefix }}-model-openai" name="agent_models[{{ model_key }}]" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+        {% for m in openai_models %}<option value="{{ m.value }}">{{ m.label }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input type="text" id="{{ prefix }}-model-openai" name="agent_models[{{ model_key }}]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="gpt-4o-mini" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" oninput="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()">
+      {% endif %}
+    </div>
+    <div data-agent-prefix="{{ prefix }}" data-provider="anthropic" class="hidden">
+      {% if use_select and anthropic_models %}
+      <select id="{{ prefix }}-model-anthropic" name="agent_models[{{ model_key }}]" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
+        {% for m in anthropic_models %}<option value="{{ m.value }}">{{ m.label }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input type="text" id="{{ prefix }}-model-anthropic" name="agent_models[{{ model_key }}]" class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs" placeholder="claude-sonnet-4-5" onchange="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()" oninput="{% if validate %}validateAgentModelOnChange('{{ prefix }}'); {% endif %}autoSaveModelChange()">
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+
+{# ── Temperature + Top_P sliders ─────────────────────────────────
+   prefix       : HTML id prefix
+   name_key     : form name root, e.g. 'CmdlineExtract' (appends _temperature / _top_p)
+   temp_default : default temperature value as string ('0.0' or '0.1')
+   top_p_default: default top_p value as string (default '0.9')
+   temp_display : display text for the temperature value label ('0' or '0.1')
+#}
+{% macro temperature_sliders(prefix, name_key, temp_default='0.0', top_p_default='0.9', temp_display=none) %}
+{% set td = temp_display if temp_display is not none else ('0' if temp_default == '0.0' else temp_default) %}
+<div class="flex gap-3">
+  <div class="flex-1 threshold-slider">
+    <div class="flex justify-between items-center mb-1"><label for="{{ prefix }}-temperature" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Temperature</label><span id="{{ prefix }}-temperature-value" class="text-purple-400 font-medium text-xs">{{ td }}</span></div>
+    <input type="range" id="{{ prefix }}-temperature" name="agent_models[{{ name_key }}_temperature]" min="0" max="2" step="0.1" value="{{ temp_default }}" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('{{ prefix }}-temperature'); autoSaveModelChange()">
+    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0</span><span>2</span></div>
+  </div>
+  <div class="flex-1 threshold-slider">
+    <div class="flex justify-between items-center mb-1"><label for="{{ prefix }}-top-p" class="block text-xs font-semibold" style="color: var(--text-primary) !important;">Top_P</label><span id="{{ prefix }}-top-p-value" class="text-purple-400 font-medium text-xs">{{ top_p_default }}</span></div>
+    <input type="range" id="{{ prefix }}-top-p" name="agent_models[{{ name_key }}_top_p]" min="0" max="1" step="0.01" value="{{ top_p_default }}" class="threshold-slider-input w-full" oninput="updateThresholdDisplay('{{ prefix }}-top-p'); autoSaveModelChange()">
+    <div class="flex justify-between text-[10px] text-gray-500 mt-1"><span>0.0</span><span>1.0</span></div>
+  </div>
+</div>
+{% endmacro %}

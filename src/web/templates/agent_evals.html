@@ -2980,18 +2980,31 @@ async function exportCmdlineEvalBundle(executionId) {
     return exportEvalBundle(executionId, 'CmdlineExtract');
 }
 
-// Load a previously saved diagnosis from disk (called on modal open)
+// Load all previously saved diagnoses from disk (called on modal open)
 async function loadSavedDiagnosis(executionId) {
     try {
-        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnosis`);
-        if (!response.ok) return; // 404 = no saved diagnosis yet, silently skip
-        const diagnosis = await response.json();
+        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnoses`);
+        if (!response.ok) return;
+        const diagnoses = await response.json();
+        if (!diagnoses.length) return;
         const content = document.getElementById('commandlinesContent');
-        const prev = document.getElementById('diagnosisResult');
-        if (prev) prev.remove();
-        content.insertAdjacentHTML('beforeend', renderDiagnosisPanel(diagnosis, true));
+        ensureDiagnosisContainer(content);
+        const container = document.getElementById('diagnosisHistory');
+        container.replaceChildren();
+        // Newest-first from API; render in order so Run N is at top
+        diagnoses.forEach((d, i) => {
+            container.insertAdjacentHTML('beforeend', renderDiagnosisPanel(d, true, diagnoses.length - i));
+        });
     } catch (e) {
         // Network or parse error -- silently skip, user can run Diagnose manually
+    }
+}
+
+function ensureDiagnosisContainer(content) {
+    if (!document.getElementById('diagnosisHistory')) {
+        content.insertAdjacentHTML('beforeend',
+            `<div id="diagnosisHistory" class="mt-4 flex flex-col gap-4"></div>`
+        );
     }
 }
 
@@ -3002,10 +3015,6 @@ async function diagnoseBundleExecution(executionId, agentName) {
     const originalText = button.textContent;
     button.disabled = true;
     button.textContent = 'Diagnosing...';
-
-    // Remove any previous diagnosis panel
-    const prev = document.getElementById('diagnosisResult');
-    if (prev) prev.remove();
 
     try {
         const response = await fetch(`/api/evaluations/evals/${executionId}/diagnose`, {
@@ -3020,7 +3029,14 @@ async function diagnoseBundleExecution(executionId, agentName) {
         }
 
         const diagnosis = await response.json();
-        content.insertAdjacentHTML('beforeend', renderDiagnosisPanel(diagnosis));
+        ensureDiagnosisContainer(content);
+        const container = document.getElementById('diagnosisHistory');
+        const total = container.querySelectorAll('.diagnosis-panel').length + 1;
+        container.insertAdjacentHTML('afterbegin', renderDiagnosisPanel(diagnosis, false, total));
+        // Re-number older panels now that a new one is at the top
+        container.querySelectorAll('.diagnosis-run-label').forEach((el, idx) => {
+            el.textContent = `Run ${total - idx}`;
+        });
         showNotification('Diagnosis complete', 'success');
 
     } catch (error) {
@@ -3032,7 +3048,7 @@ async function diagnoseBundleExecution(executionId, agentName) {
     }
 }
 
-function renderDiagnosisPanel(d, cached = false) {
+function renderDiagnosisPanel(d, cached = false, runNumber = null) {
     const categoryColors = {
         prompt_gap: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
         model_limitation: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
@@ -3082,11 +3098,15 @@ function renderDiagnosisPanel(d, cached = false) {
             </div>`;
     }
 
+    const runLabel = runNumber !== null ? `Run ${runNumber}` : '';
+    const runTs = d.created_at ? new Date(d.created_at).toLocaleString() : '';
+
     return `
-    <div id="diagnosisResult" class="mt-6 p-4 rounded-lg border" style="background: var(--panel-bg-3); border-color: rgba(139, 92, 246, 0.15); color: var(--text-muted-slate);">
+    <div class="diagnosis-panel p-4 rounded-lg border" style="background: var(--panel-bg-3); border-color: rgba(139, 92, 246, 0.15); color: var(--text-muted-slate);">
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
                 <h4 class="text-sm font-semibold" style="color: var(--text-secondary);">AI Diagnosis</h4>
+                ${runLabel ? `<span class="diagnosis-run-label text-xs font-mono px-1.5 py-0.5 rounded" style="background: rgba(139,92,246,0.12); color: var(--text-muted-slate);">${escapeHtml(runLabel)}</span>` : ''}
                 <button type="button" onclick="showHelp('diagnosisPrompt')" title="How to edit the diagnosis prompt" class="text-gray-400 hover:text-gray-300 focus:outline-none" style="line-height:1;">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -3096,7 +3116,8 @@ function renderDiagnosisPanel(d, cached = false) {
             <div class="flex items-center gap-2">
                 <span class="text-xs px-2 py-0.5 rounded-full font-medium ${catClass}">${d.failure_category || 'unknown'}</span>
                 <span class="text-xs" style="color: var(--text-muted-slate);">${confidencePct}% confidence</span>
-                ${cached ? `<span class="text-xs" style="color: var(--text-muted);">saved ${d.created_at ? new Date(d.created_at).toLocaleDateString() : ''}</span>` : ''}
+                ${(d.model_used && d.model_used !== 'default') ? `<span class="text-xs font-mono" style="color: var(--text-muted);" title="Model used for this diagnosis">${escapeHtml(d.provider_used || '')}${d.provider_used ? ' / ' : ''}${escapeHtml(d.model_used)}</span>` : ''}
+                ${runTs ? `<span class="text-xs" style="color: var(--text-muted);" title="${escapeHtml(runTs)}">${escapeHtml(cached ? runTs : new Date(d.created_at).toLocaleTimeString())}</span>` : ''}
             </div>
         </div>
         <p class="text-sm mb-3" style="color: var(--text-secondary);">${escapeHtml(d.summary || '')}</p>

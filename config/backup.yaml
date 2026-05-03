@@ -2,7 +2,7 @@ backup:
   compress: true
   directory: backups
   type: full
-  verify: true
+  verify: false
 components:
   config: true
   database: true
@@ -67,10 +67,10 @@ performance:
   progress: true
   timeout: 300
 retention:
-  daily: 7
+  daily: 3
   max_size_gb: 50
-  monthly: 3
-  weekly: 4
+  monthly: 1
+  weekly: 2
 schedule:
   backup_time: 02:00
   cleanup_day: 0

@@ -1245,6 +1245,9 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
+                auto_trigger_hunt_score_threshold=getattr(
+                    current_config, "auto_trigger_hunt_score_threshold", 60.0
+                ),
             )
 
             db_session.add(new_config)
@@ -1486,6 +1489,9 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=getattr(
+                    current_config, "auto_trigger_hunt_score_threshold", 60.0
                 ),
             )
 
@@ -1777,6 +1783,9 @@ async def bootstrap_prompts_from_files(request: Request):
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
+                auto_trigger_hunt_score_threshold=getattr(
+                    current_config, "auto_trigger_hunt_score_threshold", 60.0
+                ),
             )
 
             db_session.add(new_config)
@@ -1862,6 +1871,9 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
                 qa_max_retries=getattr(current_config, "qa_max_retries", 5),
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=getattr(
+                    current_config, "auto_trigger_hunt_score_threshold", 60.0
                 ),
             )
 

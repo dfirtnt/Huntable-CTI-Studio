@@ -1,7 +1,8 @@
 """
 Tests for the diagnosis API endpoints:
-  GET /evals/{execution_id}/diagnosis  -- load most recent saved diagnosis
-  GET /subagent-eval-compare           -- per-article side-by-side version compare
+  GET /evals/{execution_id}/diagnosis   -- load most recent saved diagnosis
+  GET /evals/{execution_id}/diagnoses   -- load all saved diagnoses, newest first
+  GET /subagent-eval-compare            -- per-article side-by-side version compare
 """
 
 import json
@@ -11,7 +12,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
-from src.web.routes.evaluation_api import get_saved_diagnosis, get_subagent_eval_compare
+from src.web.routes.evaluation_api import (
+    get_saved_diagnosis,
+    get_subagent_eval_compare,
+    list_saved_diagnoses,
+)
 
 pytestmark = [pytest.mark.api]
 
@@ -110,6 +115,81 @@ async def test_get_saved_diagnosis_ignores_other_executions(tmp_path):
         with pytest.raises(HTTPException) as exc:
             await get_saved_diagnosis(execution_id=42)
     assert exc.value.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# list_saved_diagnoses  (GET /evals/{id}/diagnoses)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_empty_returns_empty_list(tmp_path):
+    """No files -> empty list (not 404)."""
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await list_saved_diagnoses(execution_id=999)
+    assert result == []
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_single_file(tmp_path):
+    """One file -> list with one entry."""
+    diag = {"diagnosis_id": "abc", "summary": "only run"}
+    (tmp_path / "7_CmdlineExtract_abc.json").write_text(json.dumps(diag))
+
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await list_saved_diagnoses(execution_id=7)
+
+    assert len(result) == 1
+    assert result[0]["diagnosis_id"] == "abc"
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_newest_first(tmp_path):
+    """Multiple files -> returned newest-first by mtime."""
+    diag_first = {"diagnosis_id": "run1", "summary": "first run"}
+    diag_second = {"diagnosis_id": "run2", "summary": "second run"}
+    diag_third = {"diagnosis_id": "run3", "summary": "third run"}
+
+    (tmp_path / "42_CmdlineExtract_aaa.json").write_text(json.dumps(diag_first))
+    time.sleep(0.01)
+    (tmp_path / "42_CmdlineExtract_bbb.json").write_text(json.dumps(diag_second))
+    time.sleep(0.01)
+    (tmp_path / "42_CmdlineExtract_ccc.json").write_text(json.dumps(diag_third))
+
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await list_saved_diagnoses(execution_id=42)
+
+    assert len(result) == 3
+    assert result[0]["diagnosis_id"] == "run3"
+    assert result[1]["diagnosis_id"] == "run2"
+    assert result[2]["diagnosis_id"] == "run1"
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_ignores_other_executions(tmp_path):
+    """Files for other execution_ids are excluded."""
+    (tmp_path / "99_CmdlineExtract_zzz.json").write_text(json.dumps({"diagnosis_id": "wrong"}))
+    (tmp_path / "42_CmdlineExtract_aaa.json").write_text(json.dumps({"diagnosis_id": "right"}))
+
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await list_saved_diagnoses(execution_id=42)
+
+    assert len(result) == 1
+    assert result[0]["diagnosis_id"] == "right"
+
+
+@pytest.mark.asyncio
+async def test_list_diagnoses_all_runs_returned(tmp_path):
+    """All N files for the same execution_id come back (not just the most recent)."""
+    for i in range(5):
+        diag = {"diagnosis_id": f"run{i}"}
+        (tmp_path / f"10_Agent_{i:04d}.json").write_text(json.dumps(diag))
+        time.sleep(0.005)
+
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await list_saved_diagnoses(execution_id=10)
+
+    assert len(result) == 5
 
 
 # ---------------------------------------------------------------------------
