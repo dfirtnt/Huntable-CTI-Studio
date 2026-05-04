@@ -531,6 +531,17 @@ WORKFLOW_PROVIDER_APPSETTING_KEYS = {
     "lmstudio_enabled": "WORKFLOW_LMSTUDIO_ENABLED",
 }
 
+LMSTUDIO_APPSETTING_KEYS = (
+    "LMSTUDIO_MODEL",
+    "LMSTUDIO_MODEL_RANK",
+    "LMSTUDIO_MODEL_EXTRACT",
+    "LMSTUDIO_MODEL_SIGMA",
+    "LMSTUDIO_EMBEDDING_MODEL",
+    "LMSTUDIO_TEMPERATURE",
+    "LMSTUDIO_TOP_P",
+    "LMSTUDIO_SEED",
+)
+
 
 class LLMService:
     """Service for LLM API calls using Deepseek-R1 via LMStudio."""
@@ -550,16 +561,19 @@ class LLMService:
         self.assumed_lmstudio_context_tokens = int(os.getenv("WORKFLOW_LMSTUDIO_CONTEXT_TOKENS", "16384"))
         self.assumed_cloud_context_tokens = int(os.getenv("WORKFLOW_CLOUD_CONTEXT_TOKENS", "80000"))
 
-        # Default model (fallback for backward compatibility)
-        default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
-
         # Per-operation model configuration
-        # Priority: config_models > environment variables > default
+        # Priority: config_models > AppSettings DB > environment variables > default
         config_models = config_models or {}
 
-        self.lmstudio_model = default_model  # Keep for backward compatibility
-
         workflow_settings = self._load_workflow_provider_settings()
+        lmstudio_db = self._load_lmstudio_settings()
+
+        # Default model: AppSettings DB > env > hardcoded default
+        default_model = (
+            lmstudio_db.get("LMSTUDIO_MODEL")
+            or os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+        )
+        self.lmstudio_model = default_model  # Keep for backward compatibility
         # Prefer AppSettings, fall back to env; if a key exists, default enable unless explicitly false
         self.openai_api_key = (
             workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"])
@@ -608,14 +622,14 @@ class LLMService:
         self.provider_sigma = self._canonicalize_provider(config_models.get("SigmaAgent_provider") or "")
 
         rank_override = (config_models.get("RankAgent") or "").strip()
-        rank_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+        rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK", "")).strip()
         self.model_rank = self._resolve_agent_model(
             "RankAgent", rank_override, rank_env, self.provider_rank, default_model
         )
         self.model_extract = self._resolve_agent_model(
             "ExtractAgent",
             (config_models.get("ExtractAgent") or "").strip(),
-            os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_EXTRACT") or os.getenv("LMSTUDIO_MODEL_EXTRACT", "")).strip(),
             self.provider_extract,
             default_model,
             require_specific_model=False,
@@ -623,7 +637,7 @@ class LLMService:
         self.model_sigma = self._resolve_agent_model(
             "SigmaAgent",
             (config_models.get("SigmaAgent") or "").strip(),
-            os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA", "")).strip(),
             self.provider_sigma,
             default_model=default_model,
             require_specific_model=False,
@@ -632,38 +646,26 @@ class LLMService:
         # Detect if model requires system message conversion (Mistral models don't support system role)
         self._needs_system_conversion = self._model_needs_system_conversion(default_model)
 
-        # Recommended settings for reasoning models (temperature/top_p work well for structured output)
-        # Temperature 0.0 for deterministic scoring
-        self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        # Temperature: AppSettings DB > env > default 0.0
+        _temp_str = lmstudio_db.get("LMSTUDIO_TEMPERATURE") or os.getenv("LMSTUDIO_TEMPERATURE", "0.0")
+        self.temperature = float(_temp_str)
+        self.temperature_rank = float(config_models.get("RankAgent_temperature") or _temp_str)
+        self.temperature_sigma = float(config_models.get("SigmaAgent_temperature") or _temp_str)
 
-        # Per-agent temperature settings (from config, fallback to global)
-        self.temperature_rank = float(
-            config_models.get("RankAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
-        )
-        self.temperature_sigma = float(
-            config_models.get("SigmaAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
-        )
-
-        self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
-
-        # Per-agent top_p settings (from config, fallback to global)
-        # Handle both string and numeric values from JSONB
+        # Top-P: AppSettings DB > env > default 0.9
+        _top_p_str = lmstudio_db.get("LMSTUDIO_TOP_P") or os.getenv("LMSTUDIO_TOP_P", "0.9")
+        self.top_p = float(_top_p_str)
         rank_top_p_raw = config_models.get("RankAgent_top_p") if config_models else None
-        if rank_top_p_raw is not None:
-            self.top_p_rank = float(rank_top_p_raw)
-        else:
-            self.top_p_rank = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
-
+        self.top_p_rank = float(rank_top_p_raw) if rank_top_p_raw is not None else float(_top_p_str)
         sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
-        if sigma_top_p_raw is not None:
-            self.top_p_sigma = float(sigma_top_p_raw)
-        else:
-            self.top_p_sigma = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        self.top_p_sigma = float(sigma_top_p_raw) if sigma_top_p_raw is not None else float(_top_p_str)
 
         # Store config_models for per-subagent top_p lookup
         self.config_models = config_models if config_models else {}
 
-        self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
+        # Seed: AppSettings DB > env > default None
+        _seed_str = lmstudio_db.get("LMSTUDIO_SEED") or os.getenv("LMSTUDIO_SEED")
+        self.seed = int(_seed_str) if _seed_str else None
 
         model_source = "config" if config_models else "environment"
         logger.info(
@@ -712,6 +714,28 @@ class LLMService:
                 "Workers read keys from DB; ensure Settings are saved.",
                 exc,
             )
+        finally:
+            if db_session:
+                db_session.close()
+        return settings
+
+    def _load_lmstudio_settings(self) -> dict[str, str | None]:
+        """Load LM Studio model/tuning settings from AppSettings DB. Empty strings are excluded."""
+        settings: dict[str, str | None] = {}
+        db_session = None
+        try:
+            from src.database.manager import DatabaseManager
+            from src.database.models import AppSettingsTable
+
+            db_manager = DatabaseManager()
+            db_session = db_manager.get_session()
+            for row in db_session.query(AppSettingsTable).filter(
+                AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)
+            ):
+                if row.value is not None and row.value.strip():
+                    settings[row.key] = row.value.strip()
+        except Exception as exc:
+            logger.warning("Unable to load LM Studio settings from AppSettings: %s", exc)
         finally:
             if db_session:
                 db_session.close()

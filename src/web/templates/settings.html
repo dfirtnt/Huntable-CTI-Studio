@@ -377,7 +377,6 @@
                          </div>
                          <div class="flex flex-wrap gap-3">
                              <button id="refreshBackupCronBtn" class="settings-btn-secondary">Refresh Cron</button>
-                             <button id="saveCronEditorBtn" class="settings-btn-primary">Save Crontab</button>
                              <button id="applyBackupCronBtn" class="settings-btn-primary">Apply Backup Schedule</button>
                              <button id="disableBackupCronBtn" class="settings-btn-danger">Disable Backup Schedule</button>
                          </div>
@@ -461,7 +460,6 @@
                     </div>
                     <div class="flex flex-wrap gap-3">
                         <button id="refreshScheduledJobsBtn" class="settings-btn-secondary">Refresh Scheduled Jobs</button>
-                        <button id="saveScheduledJobsBtn" class="settings-btn-primary">Save Scheduled Jobs</button>
                     </div>
                 </div>
 
@@ -620,15 +618,7 @@
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
                      </div>
-                     <div class="mb-4">
-                         <label for="lmstudioEmbeddingUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio embedding URL</label>
-                         <input type="text"
-                                id="lmstudioEmbeddingUrl"
-                                placeholder="http://localhost:1234/v1/embeddings or http://192.168.1.65:1234/v1/embeddings"
-                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for Sigma rule embeddings (e.g. sigma index). Leave blank for default.</p>
-                     </div>
-                     <div class="flex items-center justify-between">
+                     <div class="flex items-center justify-between mt-4">
                          <p class="text-sm text-gray-500 dark:text-gray-400">Test connection to local LM Studio server</p>
                          <button id="testWorkflowLmstudioApiKey"
                                  class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -753,10 +743,11 @@
                       </div>
                   </div>
 
-                  <!-- Diagnosis Agent Configuration -->
+                  <!-- Evals Diagnosis Agent Configuration -->
                   <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Diagnosis Agent</h3>
+                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Evals Diagnosis Agent</h3>
                       <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure the LLM provider and model used for AI-powered eval diagnostics (the "Diagnose" button on Agent Evals).</p>
+                      <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">To edit the diagnosis prompt, see <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">src/services/eval_diagnosis_service.py</code> &mdash; <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">_DIAGNOSIS_SYSTEM_PROMPT</code>.</p>
                       {{ provider_model_grid('diagnosis', 'diagnosis_provider', 'diagnosis_model',
                            validate=false, use_select=true,
                            openai_models=[
@@ -771,10 +762,6 @@
                              {'value': 'claude-haiku-4-5-20251001', 'label': 'claude-haiku-4-5-20251001'},
                              {'value': 'claude-sonnet-4-5', 'label': 'claude-sonnet-4-5'}
                            ]) }}
-                      <div class="mt-3">
-                          <button id="saveDiagnosisConfig" class="settings-btn-primary">Save Diagnosis Config</button>
-                          <span id="diagnosisConfigStatus" class="ml-3 text-sm"></span>
-                      </div>
                   </div>
               </div>
         </div>
@@ -1050,20 +1037,9 @@
         );
         document.getElementById('workflowAnthropicApiKey').value = workflowAnthropicApiKey;
 
-        const lmstudioApiUrl = parseWorkflowStringSetting(
-            workflowAppSettings,
-            'LMSTUDIO_API_URL',
-            settings.lmstudioApiUrl || ''
-        );
-        const lmstudioEmbeddingUrl = parseWorkflowStringSetting(
-            workflowAppSettings,
-            'LMSTUDIO_EMBEDDING_URL',
-            settings.lmstudioEmbeddingUrl || ''
-        );
+        const lmstudioApiUrl = parseWorkflowStringSetting(workflowAppSettings, 'LMSTUDIO_API_URL', settings.lmstudioApiUrl || '');
         const lmstudioApiUrlEl = document.getElementById('lmstudioApiUrl');
-        const lmstudioEmbeddingUrlEl = document.getElementById('lmstudioEmbeddingUrl');
         if (lmstudioApiUrlEl) lmstudioApiUrlEl.value = lmstudioApiUrl;
-        if (lmstudioEmbeddingUrlEl) lmstudioEmbeddingUrlEl.value = lmstudioEmbeddingUrl;
 
         // Update workflow API key visibility
         updateWorkflowApiKeyVisibility();
@@ -1182,24 +1158,6 @@
         return 'gpt-4o';
     }
 
-    // Save diagnosis agent config
-    document.getElementById('saveDiagnosisConfig').addEventListener('click', async () => {
-        const provider = document.getElementById('diagnosis-provider').value;
-        const model = getDiagnosisModel();
-        const statusEl = document.getElementById('diagnosisConfigStatus');
-        try {
-            await persistWorkflowAppSettings({
-                DIAGNOSIS_PROVIDER: provider,
-                DIAGNOSIS_MODEL: model
-            });
-            statusEl.textContent = 'Saved';
-            statusEl.style.color = 'var(--action-execute)';
-            setTimeout(() => { statusEl.textContent = ''; }, 3000);
-        } catch (error) {
-            statusEl.textContent = 'Error: ' + error.message;
-            statusEl.style.color = 'var(--action-danger)';
-        }
-    });
 
     // Load Langfuse settings from database (with localStorage fallback)
     async function loadLangfuseSettings() {
@@ -1752,7 +1710,6 @@
             workflowOpenaiApiKey: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
             workflowAnthropicApiKey: document.getElementById('workflowAnthropicApiKey').value.trim() || '',
             lmstudioApiUrl: document.getElementById('lmstudioApiUrl')?.value.trim() || '',
-            lmstudioEmbeddingUrl: document.getElementById('lmstudioEmbeddingUrl')?.value.trim() || '',
             backupSettings: backupSettings
         };
 
@@ -1765,8 +1722,7 @@
             [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: settings.workflowOpenaiApiKey,
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: settings.workflowAnthropicApiKey,
-            'LMSTUDIO_API_URL': settings.lmstudioApiUrl || '',
-            'LMSTUDIO_EMBEDDING_URL': settings.lmstudioEmbeddingUrl || ''
+            'LMSTUDIO_API_URL': settings.lmstudioApiUrl || ''
         };
 
         const failures = [];
@@ -1803,6 +1759,12 @@
         await runSection('backup configuration', () => persistBackupSettingsToServer(false));
         await runSection('cron editor', () => saveCronEditor({ silent: true }));
         await runSection('scheduled jobs', () => saveScheduledJobs({ silent: true }));
+        await runSection('diagnosis config', async () => {
+            await persistWorkflowAppSettings({
+                DIAGNOSIS_PROVIDER: document.getElementById('diagnosis-provider').value,
+                DIAGNOSIS_MODEL: getDiagnosisModel()
+            });
+        });
 
         await runSection('GitHub PR config', async () => {
             const githubPRSettings = [
@@ -2390,14 +2352,11 @@
                 showNotification(`Failed to refresh scheduled jobs: ${error.message}`, 'error');
             });
         });
-        safeAddListener('saveScheduledJobsBtn', 'click', saveScheduledJobs);
-
         safeAddListener('refreshBackupCronBtn', 'click', function() {
             loadCronState().catch(function(error) {
                 showNotification(`Failed to refresh cron jobs: ${error.message}`, 'error');
             });
         });
-        safeAddListener('saveCronEditorBtn', 'click', saveCronEditor);
         safeAddListener('applyBackupCronBtn', 'click', applyBackupCronSchedule);
         safeAddListener('disableBackupCronBtn', 'click', disableBackupCronSchedule);
 

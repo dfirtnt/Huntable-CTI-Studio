@@ -37,7 +37,7 @@ You are an expert LLM extraction agent debugger for the Huntable CTI pipeline.
 
 Your job: analyze a single eval bundle (containing the full LLM request, response,
 parsed extraction results, and QA feedback) against the extractor contract and
-produce a structured failure diagnosis.
+produce a structured diagnosis -- even when the run "succeeded" on count alone.
 
 You have two reference documents provided in the user message:
 1. The EXTRACTOR STANDARD -- mandatory rules for ALL extractors.
@@ -47,30 +47,55 @@ Respond ONLY with valid JSON matching this exact schema (no markdown fences,
 no commentary outside the JSON):
 
 {
-  "summary": "1-2 sentence plain-English explanation of what went wrong (or right)",
+  "summary": "1-2 sentence plain-English explanation of what went wrong or right, including any hidden issues",
   "failure_category": "<one of: prompt_gap, model_limitation, input_noise, infrastructure, correct_behavior>",
   "confidence": 0.0-1.0,
+  "run_signals": {
+    "truncation_detected": true|false,
+    "context_pressure": "low|medium|high",
+    "contract_compliance": "full|partial|violated",
+    "finish_reason": "<stop|length|error|unknown>",
+    "token_utilization_pct": <integer 0-100 or null>
+  },
   "root_causes": [
     {"cause": "concise description", "evidence": "quote or reference from bundle", "severity": "high|medium|low"}
   ],
   "recommendations": [
-    {"action": "specific actionable step", "rationale": "why this would help", "priority": 1}
+    {"type": "<prompt_edit|model_tuning|infra_fix>", "action": "specific actionable step", "rationale": "why this would help", "priority": 1}
   ],
   "contract_violations": ["specific contract rule text that was violated, if any"]
 }
 
-Failure category definitions:
+Field definitions:
+
+failure_category:
 - prompt_gap: The prompt/contract does not cover this case or is ambiguous.
 - model_limitation: The model failed despite clear instructions (hallucination, missed context, etc.)
 - input_noise: The source article is ambiguous, malformed, or lacks extractable content.
-- infrastructure: Bundle shows infra issues (empty messages, timeout, context overflow).
+- infrastructure: Bundle shows infra issues (empty messages, timeout, context overflow, rate limit/TPM error).
 - correct_behavior: The extraction was actually correct; the expected_count is wrong or the evaluator miscounted.
 
+run_signals -- populate for EVERY run, including successful ones:
+- truncation_detected: true if finish_reason == "length" OR the response JSON appears cut off mid-value.
+- context_pressure: "high" if prompt_tokens > 80% of model context window; "medium" if 50-80%; "low" otherwise.
+- contract_compliance: "full" = all required fields present and well-formed; "partial" = fields present but some malformed or empty; "violated" = required fields missing or wrong type.
+- finish_reason: read from response choices[0].finish_reason; use "unknown" if absent from bundle.
+- token_utilization_pct: (prompt_tokens / model_context_window) * 100, rounded to nearest integer. Use null if context window size is unknown for this model.
+
+recommendation types:
+- prompt_edit: A concrete change to the system prompt, task instructions, or contract. Quote the clause to change and show the proposed replacement.
+- model_tuning: A parameter or model selection change -- name the specific model (e.g., "For gemma-3-12b, reduce max_tokens from 2000 to 1200"). Never give generic tuning advice.
+- infra_fix: A pipeline fix (retry logic, timeout increase, input preprocessing, chunk splitting, etc.).
+
 Guidelines:
-- Be specific. Quote from the bundle and contract.
-- If the extraction looks correct and the expected count is wrong, say so.
-- Recommendations should be concrete prompt edits, not vague advice.
+- Check run_signals FIRST. Truncation and context pressure are silent failure modes that corrupt output even when count delta is 0.
+- If finish_reason == "length", truncation is always a root cause regardless of extraction score.
+- Check contract compliance independently of count: delta=0 runs can still have malformed fields, wrong types, or missing required keys.
+- Rate limit and TPM errors typically appear as HTTP 429, empty choices, or error fields in the bundle -- flag these as infrastructure with infra_fix recommendations.
+- Context window exceeded: if prompt_tokens approaches or exceeds the model's context window, flag as infrastructure and recommend chunk splitting or prompt compression.
+- Model tuning recommendations should account for which model is being used and its known behaviors. Smaller local models (gemma, mistral, phi) benefit from shorter prompts, explicit JSON examples, and lower temperatures. Larger frontier models tolerate more complex instructions.
 - Priority 1 = highest priority (fix first).
+- If the extraction looks correct and the expected count is wrong, say so in summary and use failure_category=correct_behavior.
 """
 
 
@@ -226,6 +251,13 @@ class EvalDiagnosisService:
             parsed.setdefault("recommendations", [])
 
         parsed.setdefault("contract_violations", [])
+        parsed.setdefault("run_signals", {
+            "truncation_detected": False,
+            "context_pressure": "unknown",
+            "contract_compliance": "unknown",
+            "finish_reason": "unknown",
+            "token_utilization_pct": None,
+        })
         return parsed
 
     def _empty_diagnosis(self, reason: str) -> dict[str, Any]:
@@ -234,6 +266,13 @@ class EvalDiagnosisService:
             "summary": f"Diagnosis failed: {reason}",
             "failure_category": "infrastructure",
             "confidence": 0.0,
+            "run_signals": {
+                "truncation_detected": False,
+                "context_pressure": "unknown",
+                "contract_compliance": "unknown",
+                "finish_reason": "unknown",
+                "token_utilization_pct": None,
+            },
             "root_causes": [{"cause": reason, "evidence": "N/A", "severity": "high"}],
             "recommendations": [],
             "contract_violations": [],
