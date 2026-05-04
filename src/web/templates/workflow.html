@@ -12616,6 +12616,7 @@ async function viewExecution(executionId) {
                     id: 'extraction',
                     shortName: 'Extraction',
                     status: discreteHuntablesCount > 0 ? 'pass' : 'warn',
+                    warnReason: discreteHuntablesCount > 0 ? null : 'nothing extracted',
                     metric: discreteHuntablesCount + ' obs',
                     subSteps: null,
                     name: 'Step 3: Extract Agents',
@@ -13138,6 +13139,7 @@ async function viewExecution(executionId) {
                     id: 'sigma',
                     shortName: 'SIGMA',
                     status: sigmaRulesCount > 0 ? 'pass' : (sigmaErrors ? 'error' : 'warn'),
+                    warnReason: sigmaRulesCount === 0 && !sigmaErrors ? 'agent produced nothing' : null,
                     metric: sigmaRulesCount + (sigmaRulesCount === 1 ? ' rule' : ' rules'),
                     name: 'Step 4: Generate SIGMA',
                     input: `<div class="space-y-1" style="color: var(--text-emphasis) !important;">
@@ -13219,12 +13221,16 @@ async function viewExecution(executionId) {
                     </div>
                 </details>` : '';
                 
+                const simThreshold = exec.config_snapshot?.similarity_threshold ?? 0.5;
+                const simStatus = exec.similarity_results.length > 0
+                    ? (maxSim < simThreshold ? 'pass' : 'warn')
+                    : 'pass';
+                const simWarnReason = simStatus === 'warn' ? 'above duplicate threshold' : null;
                 steps.push({
                     id: 'similarity',
                     shortName: 'Similarity',
-                    status: exec.similarity_results.length > 0
-                        ? (maxSim < (exec.config_snapshot?.similarity_threshold ?? 0.5) ? 'pass' : 'warn')
-                        : 'warn',
+                    status: simStatus,
+                    warnReason: simWarnReason,
                     metric: exec.similarity_results.length > 0 ? (maxSim * 100).toFixed(0) + '% max sim' : 'No matches',
                     name: 'Step 5: Similarity Search',
                     input: `<div class="space-y-1">
@@ -13303,10 +13309,26 @@ async function viewExecution(executionId) {
                 queueMessage = '<div class="text-orange-600 dark:text-orange-400">⚠️ No rules queued (no rules generated)</div>';
             }
             
+            let queueWarnReason = null;
+            if (queuedCount === 0) {
+                if (!exec.sigma_rules || exec.sigma_rules.length === 0) {
+                    queueWarnReason = 'no rules generated';
+                } else if (exec.similarity_results === null || exec.similarity_results === undefined) {
+                    queueWarnReason = 'similarity search did not run';
+                } else {
+                    const qMaxSim = exec.similarity_results.reduce((max, r) => Math.max(max, r.max_similarity || 0), 0);
+                    if (qMaxSim >= (exec.config_snapshot?.similarity_threshold || 0.5)) {
+                        queueWarnReason = 'filtered as duplicate';
+                    } else {
+                        queueWarnReason = 'not queued unexpectedly';
+                    }
+                }
+            }
             steps.push({
                 id: 'queue',
                 shortName: 'Queue',
                 status: queuedCount > 0 ? 'pass' : 'warn',
+                warnReason: queueWarnReason,
                 metric: queuedCount > 0 ? queuedCount + ' queued' : '0 queued',
                 name: 'Step 6: Promote to Queue',
                 input: `<div class="space-y-1">
@@ -13675,6 +13697,7 @@ function renderExecutionTabbed(steps, exec) {
                     <span style="opacity:0.6;font-family:'JetBrains Mono',monospace;font-size:10px">${i + 1}</span>
                     <span>${step.shortName || step.name}</span>
                     ${step.metric ? `<span style="font-family:'JetBrains Mono',monospace;opacity:0.8;margin-left:4px;font-size:10px">${escapeHtml(String(step.metric))}</span>` : ''}
+                    ${step.status === 'warn' && step.warnReason ? `<span style="opacity:0.75;font-size:10px;margin-left:2px">· ${escapeHtml(step.warnReason)}</span>` : ''}
                 </button>`;
     }).join('');
 

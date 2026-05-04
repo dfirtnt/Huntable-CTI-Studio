@@ -188,8 +188,9 @@ def get_available_prompts() -> list[str]:
 def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> tuple[str | None, str | None]:
     """Extract (user_template, system_prompt) from a SigmaAgent DB record.
 
-    SigmaAgent's stored prompt has accumulated three shapes over time:
+    SigmaAgent's stored prompt has accumulated four shapes over time:
       * Locked scaffold JSON: {"role": ..., "user_template": ...}
+      * Extraction-agent JSON: {"role": ..., "task": ..., "json_example": ..., "instructions": ...}
       * Legacy simple JSON:   {"system": ..., "user": ...}
       * Legacy raw text:      the template string verbatim (bootstrap default)
 
@@ -223,6 +224,13 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
             # Legacy {system, user} format
             template = parsed.get("user") or raw_prompt
             system = parsed.get("system") or None
+        elif isinstance(parsed, dict) and ("task" in parsed or "json_example" in parsed):
+            # Extraction-agent save format: UI packages SigmaAgent prompts as
+            # {"role": <system>, "task": "", "json_example": "{}", "instructions": ""}
+            # because SigmaAgent is in LOCKED_EXTRACTOR_AGENTS on the frontend.
+            # User template is code-owned (locked), so template stays None here.
+            # Detect by key presence, not by role value, to handle empty role strings.
+            system = parsed.get("role") or None
         else:
             # Legacy raw-text template (bootstrap default) — or unparseable blob
             template = raw_prompt

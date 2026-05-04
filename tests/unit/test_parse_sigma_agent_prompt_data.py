@@ -1,11 +1,18 @@
 """Tests for src.utils.prompt_loader.parse_sigma_agent_prompt_data.
 
-SigmaAgent's DB prompt has three historical shapes the parser must handle:
-  1. Locked scaffold JSON: {"role": ..., "user_template": ...}
-  2. Legacy simple JSON:   {"system": ..., "user": ...}
-  3. Legacy raw text:      template text with {title}/{content} placeholders
+SigmaAgent's DB prompt has four historical shapes the parser must handle:
+  1. Locked scaffold JSON:    {"role": ..., "user_template": ...}
+  2. Extraction-agent JSON:   {"role": ..., "task": ..., "json_example": ..., "instructions": ...}
+  3. Legacy simple JSON:      {"system": ..., "user": ...}
+  4. Legacy raw text:         template text with {title}/{content} placeholders
 
 Plus the legacy sibling ``system_prompt`` key that pre-dated the locked format.
+
+Shape 2 is the active save format: the UI treats SigmaAgent as a locked extractor
+(LOCKED_EXTRACTOR_AGENTS includes 'SigmaAgent'), so saveAgentPrompt2() packages the
+system persona into "role" and adds empty "task"/"json_example"/"instructions" keys.
+The parser must extract "role" as the system prompt and return template=None so the
+file-based user scaffold (sigma_generate_multi.txt) continues to be used.
 """
 
 import json
@@ -121,3 +128,73 @@ class TestParseSigmaAgentPromptData:
         )
         assert template is None
         assert system == "sibling"
+
+    # ------------------------------------------------------------------
+    # Extraction-agent save format (regression for silent prompt drop)
+    # ------------------------------------------------------------------
+
+    def test_extraction_agent_format_extracts_role_as_system(self):
+        """Regression: UI saves SigmaAgent in extraction-agent envelope.
+
+        saveAgentPrompt2() wraps the system persona as "role" and adds empty
+        "task", "json_example", "instructions" keys.  The parser must return
+        the persona as ``system`` and leave ``template`` as None so the
+        file-based user scaffold (sigma_generate_multi.txt) is used.
+
+        Before the fix this shape fell through to the raw-text branch, causing
+        the entire JSON blob to be passed to str.format(), which raised KeyError
+        on the "{}" in json_example and silently fell back to the file prompt
+        with system=None (hardcoded default system prompt).
+        """
+        persona = "teststring123\n\nGenerate Sigma detection rules strictly from provided structured observables."
+        raw = json.dumps(
+            {
+                "role": persona,
+                "task": "",
+                "json_example": "{}",
+                "instructions": "",
+            }
+        )
+        template, system = parse_sigma_agent_prompt_data({"prompt": raw})
+        assert system == persona
+        assert template is None  # user scaffold is code-owned; file fallback takes over
+
+    def test_extraction_agent_format_empty_role_returns_none_system(self):
+        """An empty "role" string in the extraction-agent envelope returns system=None."""
+        raw = json.dumps({"role": "", "task": "", "json_example": "{}", "instructions": ""})
+        template, system = parse_sigma_agent_prompt_data({"prompt": raw})
+        assert system is None
+        assert template is None
+
+    def test_extraction_agent_format_sibling_system_prompt_ignored_when_role_present(self):
+        """When role is non-empty, sibling system_prompt must NOT override it."""
+        raw = json.dumps({"role": "ROLE_WINS", "task": "", "json_example": "{}", "instructions": ""})
+        _, system = parse_sigma_agent_prompt_data(
+            {
+                "prompt": raw,
+                "system_prompt": "sibling_loses",
+            }
+        )
+        assert system == "ROLE_WINS"
+
+    def test_extraction_agent_format_sibling_honored_when_role_empty(self):
+        """When the envelope role is empty, fall through to sibling system_prompt."""
+        raw = json.dumps({"role": "", "task": "", "json_example": "{}", "instructions": ""})
+        _, system = parse_sigma_agent_prompt_data(
+            {
+                "prompt": raw,
+                "system_prompt": "sibling_active",
+            }
+        )
+        assert system == "sibling_active"
+
+    def test_extraction_agent_format_json_example_braces_do_not_raise(self):
+        """The literal '{}' in json_example must not cause KeyError when template is later formatted.
+
+        This was the immediate trigger of the silent failure: the raw JSON blob was
+        being handed to str.format(title=..., content=...) with an unmatched '{}'
+        in it. The parser must not return this blob as the template.
+        """
+        raw = json.dumps({"role": "my persona", "task": "", "json_example": "{}", "instructions": ""})
+        template, _ = parse_sigma_agent_prompt_data({"prompt": raw})
+        assert template is None  # must NOT be the JSON blob
