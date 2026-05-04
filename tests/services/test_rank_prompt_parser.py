@@ -113,3 +113,80 @@ class TestParseRankPromptDocumentedLimitations:
         # Caller's .format(title=..., content=...) on this string is a no-op
         # because there are no {title}/{content} placeholders -- article is lost.
         assert "{title}" not in template, "Sanity: shape-5 persona has no placeholders"
+
+
+# ---------------------------------------------------------------------------
+# parse_rank_agent_prompt_data: outer-dict-aware helper (canonical + legacy)
+# ---------------------------------------------------------------------------
+
+
+class TestParseRankAgentPromptDataCanonical:
+    """Tests for the outer-dict-aware helper that mirrors parse_sigma_agent_prompt_data."""
+
+    def test_canonical_shape_extracts_system_and_user(self):
+        """Post-migration: {system, user} at outer level read directly."""
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        template, system = parse_rank_agent_prompt_data(
+            {"system": "RANK_PERSONA", "user": "Score: {title}"}
+        )
+        assert template == "Score: {title}"
+        assert system == "RANK_PERSONA"
+
+    def test_canonical_shape_with_user_null(self):
+        """RankAgent canonical record with user=null falls back to file scaffold (template=None)."""
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        template, system = parse_rank_agent_prompt_data(
+            {"system": "RANK_PERSONA", "user": None}
+        )
+        assert template is None
+        assert system == "RANK_PERSONA"
+
+    def test_canonical_only_system_present(self):
+        """Outer dict with just 'system' is canonical."""
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        template, system = parse_rank_agent_prompt_data({"system": "PERSONA_ONLY"})
+        assert template is None
+        assert system == "PERSONA_ONLY"
+
+    def test_legacy_prompt_field_routes_through_parse_rank_prompt(self):
+        """Legacy {prompt: <json>} still works via _parse_rank_prompt."""
+        import json
+
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        raw = {
+            "prompt": json.dumps({"role": "LEGACY_PERSONA", "user_template": "tmpl {title}"}),
+            "instructions": "",
+        }
+        template, system = parse_rank_agent_prompt_data(raw)
+        assert template == "tmpl {title}"
+        assert system == "LEGACY_PERSONA"
+
+    def test_legacy_raw_text_persona_routes_to_system(self):
+        """Legacy raw-text persona without placeholders becomes system."""
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        persona = "You are a strict CTI analyst. Score 1-10."
+        raw = {"prompt": persona, "instructions": "", "model": "qwen/qwen3-8b"}
+        template, system = parse_rank_agent_prompt_data(raw)
+        assert template is None
+        assert system == persona
+
+    def test_legacy_raw_text_template_routes_to_user(self):
+        """Legacy raw text WITH placeholders is treated as the user template."""
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        raw = {"prompt": "Rank: {title} {content}", "instructions": ""}
+        template, system = parse_rank_agent_prompt_data(raw)
+        assert template == "Rank: {title} {content}"
+        assert system is None
+
+    def test_empty_record_returns_none_pair(self):
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        assert parse_rank_agent_prompt_data(None) == (None, None)
+        assert parse_rank_agent_prompt_data({}) == (None, None)
+        assert parse_rank_agent_prompt_data({"prompt": ""}) == (None, None)

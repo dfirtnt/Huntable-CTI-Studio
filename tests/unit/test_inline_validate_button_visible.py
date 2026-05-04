@@ -78,10 +78,21 @@ class TestValidateAgentPromptReadOnlyFallback:
         return match.group(1)
 
     def test_falls_back_to_stored_prompt(self, validate_fn_body: str) -> None:
-        """Function must parse agentPrompts[agentName].prompt when textarea is absent."""
-        assert "agentPrompts[agentName]" in validate_fn_body, (
-            "validateAgentPrompt must reference stored agentPrompts[agentName] for the read-only fallback path"
+        """Function must read stored prompt data for the read-only fallback path.
+
+        Post-canonicalization: validateAgentPrompt now calls
+        getAgentPromptParts(agentName) which detects canonical {system, user}
+        outer-dict shape and falls back to parsePromptParts(stored.prompt) for
+        legacy records. Either accessing agentPrompts directly OR going through
+        the canonical-aware helper satisfies the read-only fallback contract.
+        """
+        uses_canonical_helper = "getAgentPromptParts(agentName)" in validate_fn_body
+        uses_direct_access = (
+            "agentPrompts[agentName]" in validate_fn_body
+            and "parsePromptParts" in validate_fn_body
         )
-        assert "parsePromptParts" in validate_fn_body, (
-            "validateAgentPrompt must call parsePromptParts on the stored prompt"
+        assert uses_canonical_helper or uses_direct_access, (
+            "validateAgentPrompt must either call getAgentPromptParts(agentName) "
+            "(canonical-aware helper) or directly reference agentPrompts[agentName] "
+            "with parsePromptParts for the read-only fallback path"
         )

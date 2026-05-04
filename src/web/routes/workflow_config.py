@@ -130,12 +130,24 @@ class WorkflowConfigUpdate(BaseModel):
 
 
 class AgentPromptUpdate(BaseModel):
-    """Request model for updating agent prompts."""
+    """Request model for updating agent prompts.
+
+    Two storage modes:
+      * Canonical: pass `system` and/or `user` (writes outer dict
+        ``{"system": ..., "user": ...}`` -- the post-migration shape).
+      * Legacy: pass `prompt` (a JSON-encoded string or raw text) -- still
+        accepted for backward compatibility with older clients.
+
+    When ``system`` or ``user`` is provided, the canonical write path runs and
+    any ``prompt`` field is ignored. When neither is set, the legacy path runs.
+    """
 
     agent_name: str
     prompt: str | None = None
     instructions: str | None = None
     change_description: str | None = None
+    system: str | None = None
+    user: str | None = None
 
 
 class RollbackRequest(BaseModel):
@@ -1224,9 +1236,19 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             # Get existing prompts or create new dict
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
 
-            # Get current prompt values for version history
-            old_prompt = agent_prompts.get(prompt_update.agent_name, {}).get("prompt", "")
-            old_instructions = agent_prompts.get(prompt_update.agent_name, {}).get("instructions", "")
+            # Get current prompt values for version history. If the existing record
+            # is canonical {system, user} (post-migration), encode it as JSON so the
+            # text-only `prompt` column captures the full state for rollback.
+            existing = agent_prompts.get(prompt_update.agent_name, {}) or {}
+            if existing.get("prompt"):
+                old_prompt = existing.get("prompt", "")
+            elif "system" in existing or "user" in existing:
+                old_prompt = json.dumps(
+                    {"system": existing.get("system"), "user": existing.get("user")}
+                )
+            else:
+                old_prompt = ""
+            old_instructions = existing.get("instructions", "")
 
             # Deactivate current config
             _deactivate_active_workflow_configs(db_session)
@@ -1236,29 +1258,48 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             if prompt_update.agent_name not in agent_prompts:
                 agent_prompts[prompt_update.agent_name] = {}
 
-            # Validate JSON format for extraction agents
-            if prompt_update.prompt is not None:
-                extraction_agents = [
-                    "CmdlineExtract",
-                    "ProcTreeExtract",
-                    "HuntQueriesExtract",
-                    "RegistryExtract",
-                    "CmdLineQA",
-                    "ProcTreeQA",
-                    "HuntQueriesQA",
-                    "RegistryQA",
-                ]
-                if prompt_update.agent_name in extraction_agents:
-                    try:
-                        json.loads(prompt_update.prompt)
-                    except json.JSONDecodeError as e:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
-                        ) from e
-                agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
-            if prompt_update.instructions is not None:
-                agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
+            # Canonical write path: when system or user is explicitly provided,
+            # replace the agent's record with {system, user[, instructions]}.
+            # This is the post-migration shape produced by SigmaAgent and
+            # RankAgent saves.  Drops legacy 'prompt' and 'model' siblings.
+            canonical_mode = prompt_update.system is not None or prompt_update.user is not None
+            if canonical_mode:
+                canonical_record: dict[str, Any] = {
+                    "system": prompt_update.system if prompt_update.system is not None else "",
+                    "user": prompt_update.user,
+                }
+                instructions_val = (
+                    prompt_update.instructions
+                    if prompt_update.instructions is not None
+                    else agent_prompts[prompt_update.agent_name].get("instructions", "")
+                )
+                if instructions_val:
+                    canonical_record["instructions"] = instructions_val
+                agent_prompts[prompt_update.agent_name] = canonical_record
+            else:
+                # Legacy write path: prompt as JSON-encoded string or raw text.
+                if prompt_update.prompt is not None:
+                    extraction_agents = [
+                        "CmdlineExtract",
+                        "ProcTreeExtract",
+                        "HuntQueriesExtract",
+                        "RegistryExtract",
+                        "CmdLineQA",
+                        "ProcTreeQA",
+                        "HuntQueriesQA",
+                        "RegistryQA",
+                    ]
+                    if prompt_update.agent_name in extraction_agents:
+                        try:
+                            json.loads(prompt_update.prompt)
+                        except json.JSONDecodeError as e:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
+                            ) from e
+                    agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
+                if prompt_update.instructions is not None:
+                    agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
 
             # Create new config version - preserve all fields including agent_models and qa_enabled
             new_config = AgenticWorkflowConfigTable(
@@ -1301,8 +1342,15 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             )
 
             # Always save version history for all agents (same behavior as CmdlineExtract)
-            # Use the new prompt/instructions if provided, otherwise use the old ones
-            version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
+            # Use the new prompt/instructions if provided, otherwise use the old ones.
+            # For canonical writes, encode {system, user} as JSON for the text-only
+            # prompt column so rollback restores via the legacy shim's shape-3 branch.
+            if canonical_mode:
+                version_prompt = json.dumps(
+                    {"system": prompt_update.system, "user": prompt_update.user}
+                )
+            else:
+                version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
             version_instructions = (
                 prompt_update.instructions if prompt_update.instructions is not None else old_instructions
             )
@@ -1502,8 +1550,26 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             # Get existing prompts
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
 
-            # Restore prompt from target version
-            agent_prompts[agent_name] = {"prompt": target_version.prompt, "instructions": target_version.instructions}
+            # Restore prompt from target version. Older versions captured the
+            # legacy {prompt, instructions} shape; newer canonical writes encode
+            # {system, user} as JSON in the prompt column. Detect canonical
+            # encoding here so the restored record uses the canonical shape
+            # directly instead of round-tripping through the parser shim.
+            restored: dict[str, Any] = {}
+            try:
+                decoded = json.loads(target_version.prompt) if target_version.prompt else None
+            except (ValueError, json.JSONDecodeError):
+                decoded = None
+            if isinstance(decoded, dict) and ("system" in decoded and "user" in decoded) and "role" not in decoded:
+                # Canonical-encoded version record -> restore as canonical outer dict.
+                restored["system"] = decoded.get("system")
+                restored["user"] = decoded.get("user")
+                if target_version.instructions:
+                    restored["instructions"] = target_version.instructions
+            else:
+                # Legacy version record -> restore as legacy {prompt, instructions}.
+                restored = {"prompt": target_version.prompt, "instructions": target_version.instructions}
+            agent_prompts[agent_name] = restored
 
             # Create new config version
             new_config = AgenticWorkflowConfigTable(

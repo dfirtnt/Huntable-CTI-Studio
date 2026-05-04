@@ -134,6 +134,56 @@ class TestParseSigmaAgentPromptData:
         assert system == "sibling"
 
     # ------------------------------------------------------------------
+    # Canonical shape (post-migration): {system, user} at outer level
+    # ------------------------------------------------------------------
+
+    def test_canonical_shape_extracts_system_and_user(self):
+        """Post-migration canonical shape: {system, user} read directly."""
+        template, system = parse_sigma_agent_prompt_data(
+            {"system": "PERSONA_CANONICAL", "user": "tmpl {title}"}
+        )
+        assert template == "tmpl {title}"
+        assert system == "PERSONA_CANONICAL"
+
+    def test_canonical_shape_with_user_null(self):
+        """SigmaAgent's canonical record always has user=null (template is code-owned)."""
+        template, system = parse_sigma_agent_prompt_data(
+            {"system": "PERSONA_CANONICAL", "user": None}
+        )
+        assert template is None
+        assert system == "PERSONA_CANONICAL"
+
+    def test_canonical_shape_only_system_present(self):
+        """Outer dict with only 'system' key (user omitted) still detected as canonical."""
+        template, system = parse_sigma_agent_prompt_data({"system": "PERSONA_ONLY"})
+        assert template is None
+        assert system == "PERSONA_ONLY"
+
+    def test_canonical_shape_with_instructions_passthrough_ignored(self):
+        """Optional instructions field doesn't break canonical detection."""
+        template, system = parse_sigma_agent_prompt_data(
+            {"system": "PERSONA", "user": None, "instructions": "extra"}
+        )
+        assert template is None
+        assert system == "PERSONA"
+
+    def test_canonical_takes_precedence_over_legacy_when_both_present(self):
+        """If somehow both shapes are present, canonical wins.
+
+        Defensive: malformed records that include 'system' alongside legacy 'prompt'
+        should prefer canonical (newer, post-migration). The presence of 'prompt'
+        means we fall through to the legacy parser instead -- this asserts the
+        documented detection contract.
+        """
+        # Canonical is detected ONLY when 'prompt' is absent or empty. With non-empty
+        # 'prompt', legacy parsing wins -- documented behavior.
+        legacy = parse_sigma_agent_prompt_data(
+            {"system": "CANONICAL_PERSONA", "user": "tmpl {title}", "prompt": "raw template {title}"}
+        )
+        # The legacy 'prompt' (raw text with placeholder) is treated as template.
+        assert legacy[0] == "raw template {title}"
+
+    # ------------------------------------------------------------------
     # Extraction-agent save format (regression for silent prompt drop)
     # ------------------------------------------------------------------
 

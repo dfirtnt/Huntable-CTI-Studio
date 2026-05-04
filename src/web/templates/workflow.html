@@ -6152,6 +6152,27 @@ function extractJsonStringField(rawPrompt, fieldName) {
     }
 }
 
+// Returns {system, user, isTemplateFormat?, templateData?} for an agent's
+// stored prompt data, handling both the canonical {system, user} outer-dict
+// shape (post-migration) and legacy shapes via parsePromptParts(prompt).
+//
+// Canonical detection: outer dict has 'system' or 'user' keys AND no 'prompt'
+// key. Legacy records always have 'prompt' (a JSON-encoded string or raw text).
+function getAgentPromptParts(agentName) {
+    const data = (typeof agentPrompts !== 'undefined' && agentPrompts && agentPrompts[agentName]) || {};
+    const hasCanonicalKeys = ('system' in data) || ('user' in data);
+    const hasLegacyPrompt = ('prompt' in data) && data.prompt !== '';
+    if (hasCanonicalKeys && !hasLegacyPrompt) {
+        return {
+            system: (typeof data.system === 'string' ? data.system : '') || '',
+            user: (typeof data.user === 'string' ? data.user : '') || '',
+            isTemplateFormat: false,
+            templateData: {}
+        };
+    }
+    return parsePromptParts(data.prompt || '');
+}
+
 function parsePromptParts(rawPrompt) {
         let system = '';
         let user = rawPrompt || '';
@@ -6263,7 +6284,7 @@ function renderAgentPrompts() {
     
     container.innerHTML = Object.keys(agentPrompts).map(agentName => {
         const promptData = agentPrompts[agentName];
-        const promptParts = parsePromptParts(promptData.prompt || '');
+        const promptParts = getAgentPromptParts(agentName);
         const instructions = promptData.instructions || '';
         const model = promptData.model || 'Not configured';
         const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
@@ -6415,8 +6436,7 @@ function validateAgentPrompt(agentName) {
     if (systemTextarea) {
         systemVal = (systemTextarea.value || '').trim();
     } else {
-        const stored = (agentPrompts && agentPrompts[agentName] && agentPrompts[agentName].prompt) || '';
-        const parts = parsePromptParts(stored);
+        const parts = getAgentPromptParts(agentName);
         // Plain-text prompts land in parts.user; structured (JSON) prompts land in parts.system.
         systemVal = (parts.system || parts.user || '').trim();
     }
@@ -6495,15 +6515,25 @@ async function saveAgentPrompt(agentName) {
         combinedPrompt = JSON.stringify(merged);
         instructions = merged.instructions || null;
     } else {
-        combinedPrompt = JSON.stringify({ system: systemVal, user: userVal });
+        // Canonical write path: send {system, user} as separate fields so the
+        // API stores them at the outer dict level (post-migration shape).
+        combinedPrompt = null;
     }
 
-    const promptData = {
-        agent_name: agentName,
-        prompt: combinedPrompt,
-        instructions: instructions,
-        change_description: null
-    };
+    const promptData = combinedPrompt === null
+        ? {
+            agent_name: agentName,
+            system: systemVal,
+            user: userVal,
+            instructions: instructions,
+            change_description: null
+          }
+        : {
+            agent_name: agentName,
+            prompt: combinedPrompt,
+            instructions: instructions,
+            change_description: null
+          };
 
     try {
         const response = await fetch('/api/workflow/config/prompts', {
@@ -9063,9 +9093,11 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const isEditing = editingPrompts[agentName] || false;
     const panelId = `${prefix}-prompt-panel`;
-    
-    // Parse prompt to extract system and user parts
-    const promptParts = parsePromptParts(prompt);
+
+    // Use the canonical-aware helper so {system, user} outer-dict records
+    // (post-migration) hydrate correctly. Legacy records still flow through
+    // parsePromptParts on the inner JSON string.
+    const promptParts = getAgentPromptParts(agentName);
     const isTemplateFormat = promptParts.isTemplateFormat;
     const templateData = promptParts.templateData || {};
 
@@ -9251,9 +9283,9 @@ function renderQAPrompt(agentName, containerId) {
     const isEditing = editingPrompts[agentName] || false;
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const panelId = `${agentId}-qa-prompt-panel`;
-    
-    // Parse prompt to extract system and user parts
-    const promptParts = parsePromptParts(prompt);
+
+    // Use canonical-aware helper for both QA and non-QA agents.
+    const promptParts = getAgentPromptParts(agentName);
     const isLockedScaffoldAgent = isLockedQAPrompt(agentName);
     
     container.innerHTML = `
@@ -10784,15 +10816,24 @@ async function saveAgentPrompt2(agentName, overrides = {}) {
         combinedPrompt = JSON.stringify(merged);
         instructions = merged.instructions || null;
     } else {
-        combinedPrompt = JSON.stringify({ system: systemVal, user: userVal });
+        // Canonical write path: send {system, user} as separate fields.
+        combinedPrompt = null;
     }
 
-    const promptData = {
-        agent_name: agentName,
-        prompt: combinedPrompt,
-        instructions: instructions,
-        change_description: null
-    };
+    const promptData = combinedPrompt === null
+        ? {
+            agent_name: agentName,
+            system: systemVal,
+            user: userVal,
+            instructions: instructions,
+            change_description: null
+          }
+        : {
+            agent_name: agentName,
+            prompt: combinedPrompt,
+            instructions: instructions,
+            change_description: null
+          };
     
     try {
         const response = await fetch('/api/workflow/config/prompts', {
@@ -18043,16 +18084,21 @@ function showHelp(fieldName) {
 
     const help = helpTexts[fieldName];
     if (!help) return;
-    
+
+    const modalId = 'workflowHelpModal';
+    const existing = document.getElementById(modalId);
+    if (existing) existing.remove();
+
     // Create modal
     const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
+    modal.id = modalId;
+    modal.className = 'fixed inset-0 hidden bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
     modal.innerHTML = `
         <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
-                    <button onclick="this.closest('.fixed').remove()" 
+                    <button onclick="window.ModalManager.close('workflowHelpModal')"
                             class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -18063,7 +18109,7 @@ function showHelp(fieldName) {
                     ${help.content}
                 </div>
                 <div class="mt-6 flex justify-end">
-                    <button onclick="this.closest('.fixed').remove()" 
+                    <button onclick="window.ModalManager.close('workflowHelpModal')"
                             class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
                         Close
                     </button>
@@ -18071,24 +18117,10 @@ function showHelp(fieldName) {
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
-    // Close on outside click
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    });
-    
-    // Close on Escape key
-    const handleEscape = (e) => {
-        if (e.key === 'Escape') {
-            modal.remove();
-            document.removeEventListener('keydown', handleEscape);
-        }
-    };
-    document.addEventListener('keydown', handleEscape);
+    window.ModalManager.register(modalId, { isDynamic: true, hasInput: false, forceUpdate: true });
+    window.ModalManager.open(modalId);
 }
 // Show similar rule details in a modal
 function showSimilarRuleDetails(ruleIdx, resultIdx) {
