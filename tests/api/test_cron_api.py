@@ -99,7 +99,11 @@ def test_replace_cron_requires_no_admin_auth():
     If RequireAdminAuth is re-added to this handler the endpoint will
     return 401 for every save, breaking the cron editor save silently.
     """
-    from src.web.auth import RequireAdminAuth
+    try:
+        from src.web.auth import RequireAdminAuth
+    except ImportError:
+        # auth module removed -- RequireAdminAuth cannot be used, check is moot
+        return
 
     sig = inspect.signature(cron_routes.api_replace_cron)
     for param in sig.parameters.values():

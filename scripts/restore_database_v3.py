@@ -13,6 +13,10 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+# Allow `python scripts/restore_database_v3.py` to import sibling helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _restore_common import filter_dump_lines  # noqa: E402
+
 # Database configuration
 DB_CONFIG = {
     "host": os.getenv("POSTGRES_HOST", "postgres"),
@@ -187,16 +191,16 @@ def restore_database(backup_path):
             else:
                 file_opener = lambda: open(backup_path)
 
+            # v3 connects to the `postgres` DB and lets the dump's own DROP/CREATE
+            # DATABASE commands drive the cycle, so we keep db-lifecycle lines.
+            # Strip unsupported SET commands and rewrite FK constraints to NOT VALID.
             with file_opener() as original_file:
-                for line in original_file:
-                    # Filter out problematic SET commands
-                    if "SET transaction_timeout" in line:
-                        logger.info("Filtering out unsupported transaction_timeout setting")
-                        continue
-                    if "SET idle_in_transaction_session_timeout" in line:
-                        logger.info("Filtering out unsupported idle_in_transaction_session_timeout setting")
-                        continue
-                    filtered_file.write(line)
+                for filtered_line in filter_dump_lines(
+                    original_file,
+                    skip_unsupported_sets=True,
+                    rewrite_fk_constraints=True,
+                ):
+                    filtered_file.write(filtered_line)
 
         logger.info(f"Created filtered SQL file: {filtered_path}")
 

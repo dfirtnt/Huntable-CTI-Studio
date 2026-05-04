@@ -126,6 +126,7 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
+    auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
 
 
 class AgentPromptUpdate(BaseModel):
@@ -436,9 +437,9 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 )
             )
             final_auto_trigger_hunt_score_threshold = (
-                getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
-                if current_config
-                else 60.0
+                config_update.auto_trigger_hunt_score_threshold
+                if config_update.auto_trigger_hunt_score_threshold is not None
+                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
             )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)

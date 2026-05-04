@@ -12,7 +12,6 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from src.database.async_manager import async_db_manager
 from src.models.source import SourceFilter, SourceUpdate
-from src.web.auth import RequireAdminAuth
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/sources", tags=["Sources"])
@@ -102,7 +101,7 @@ async def api_get_source(source_id: int):
 
 
 @router.post("/{source_id}/toggle")
-async def api_toggle_source_status(source_id: int, _auth: str = RequireAdminAuth):
+async def api_toggle_source_status(source_id: int):
     """Toggle source active status."""
     try:
         result = await async_db_manager.toggle_source_status(source_id)
@@ -130,7 +129,7 @@ async def api_toggle_source_status(source_id: int, _auth: str = RequireAdminAuth
 
 
 @router.post("/{source_id}/collect")
-async def api_collect_from_source(source_id: int, _auth: str = RequireAdminAuth):
+async def api_collect_from_source(source_id: int):
     """Manually trigger collection from a specific source."""
     try:
         celery_app = Celery("cti_scraper")
@@ -154,7 +153,7 @@ async def api_collect_from_source(source_id: int, _auth: str = RequireAdminAuth)
 
 
 @router.put("/{source_id}/min_content_length")
-async def api_update_source_min_content_length(source_id: int, request: dict, _auth: str = RequireAdminAuth):
+async def api_update_source_min_content_length(source_id: int, request: dict):
     """Update source minimum content length."""
     try:
         min_content_length = request.get("min_content_length")
@@ -181,7 +180,7 @@ async def api_update_source_min_content_length(source_id: int, request: dict, _a
 
 
 @router.put("/{source_id}/lookback")
-async def api_update_source_lookback(source_id: int, request: dict, _auth: str = RequireAdminAuth):
+async def api_update_source_lookback(source_id: int, request: dict):
     """Update source lookback window."""
     try:
         lookback_days = request.get("lookback_days")
@@ -226,7 +225,7 @@ async def api_update_source_lookback(source_id: int, request: dict, _auth: str =
 
 
 @router.put("/{source_id}/check_frequency")
-async def api_update_source_check_frequency(source_id: int, request: dict, _auth: str = RequireAdminAuth):
+async def api_update_source_check_frequency(source_id: int, request: dict):
     """Update source check frequency."""
     try:
         check_frequency = request.get("check_frequency")
