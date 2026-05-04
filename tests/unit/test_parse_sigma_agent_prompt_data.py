@@ -198,3 +198,46 @@ class TestParseSigmaAgentPromptData:
         raw = json.dumps({"role": "my persona", "task": "", "json_example": "{}", "instructions": ""})
         template, _ = parse_sigma_agent_prompt_data({"prompt": raw})
         assert template is None  # must NOT be the JSON blob
+
+    # ------------------------------------------------------------------
+    # Auto-persist shape (shape 5 regression)
+    # ------------------------------------------------------------------
+
+    def test_auto_persist_shape_treats_prompt_as_system(self):
+        """Regression: auto-persist saves {model, prompt='persona text', instructions}.
+
+        When the user edits the SigmaAgent persona and saves the whole config
+        (not via the 'Save Agent Prompt' button), the textarea value is written
+        directly to agent_prompts.SigmaAgent.prompt alongside a sibling 'model'
+        key from the model selector.  The plain text has no {title}/{content}
+        placeholders and is the system persona -- it must be returned as system,
+        not as the user template.
+        """
+        persona = "Generate Sigma detection rules strictly from provided structured observables. Focus on behaviors, not atomic IOCs."
+        data = {"model": "qwen/qwen3-8b", "prompt": persona, "instructions": ""}
+        template, system = parse_sigma_agent_prompt_data(data)
+        assert system == persona
+        assert template is None
+
+    def test_auto_persist_shape_empty_prompt_returns_none_system(self):
+        """Empty prompt in auto-persist shape returns system=None."""
+        data = {"model": "qwen/qwen3-8b", "prompt": "", "instructions": ""}
+        template, system = parse_sigma_agent_prompt_data(data)
+        assert system is None
+        assert template is None
+
+    def test_auto_persist_shape_sibling_system_prompt_overridden_by_prompt(self):
+        """When model key is present and prompt is non-empty, prompt wins over sibling system_prompt."""
+        persona = "My custom SigmaAgent persona"
+        data = {"model": "qwen/qwen3-8b", "prompt": persona, "instructions": "", "system_prompt": "should-lose"}
+        _, system = parse_sigma_agent_prompt_data(data)
+        assert system == persona
+
+    def test_auto_persist_shape_does_not_trigger_when_prompt_is_json(self):
+        """If the prompt field is valid JSON (shapes 1-3), model key must not interfere."""
+        inner = json.dumps({"role": "ROLE", "user_template": "tmpl {title}"})
+        data = {"model": "qwen/qwen3-8b", "prompt": inner, "instructions": ""}
+        template, system = parse_sigma_agent_prompt_data(data)
+        # Should follow locked-scaffold branch, not auto-persist branch
+        assert template == "tmpl {title}"
+        assert system == "ROLE"

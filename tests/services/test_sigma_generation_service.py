@@ -1330,3 +1330,116 @@ class TestSigmaRepairTemplatePassthrough:
         assert "FILE-BASED REPAIR PROMPT" in captured_repair_prompts[0], (
             "File-based fallback was not used when sigma_repair_template=None"
         )
+
+
+class TestSigmaSystemPromptPassthrough:
+    """Regression: custom system prompt must reach _call_provider_for_sigma.
+
+    Before the parse_sigma_agent_prompt_data fix, the extraction-agent save
+    format (produced by the UI's saveAgentPrompt2) was unrecognized, causing
+    the raw JSON blob to be used as the user template.  The {} in json_example
+    then raised KeyError, which was silently caught, and system_prompt fell
+    back to None -> hardcoded default.  These tests verify the fix holds end-
+    to-end at the service boundary.
+    """
+
+    @pytest.fixture()
+    def service(self):
+        mock_llm = Mock()
+        mock_llm.provider_sigma = "lmstudio"
+        mock_llm.model_sigma = "gemma-3-1b"
+        mock_llm.temperature_sigma = 0.3
+        mock_llm.top_p_sigma = 0.9
+        mock_llm.max_tokens_sigma = 4096
+        mock_llm.context_window_sigma = 8192
+        mock_llm._canonicalize_provider = Mock(return_value="lmstudio")
+        with patch("src.services.sigma_generation_service.LLMService", return_value=mock_llm):
+            return SigmaGenerationService()
+
+    @pytest.fixture()
+    def sample_article_data(self):
+        return {
+            "title": "APT29 Uses PowerShell for Persistence",
+            "content": "APT29 has been observed using PowerShell scripts to maintain persistence. The attack involves creating scheduled tasks and registry modifications.",
+            "source_name": "Threat Intelligence Feed",
+            "url": "https://example.com/threat-report-123",
+        }
+
+    @pytest.mark.asyncio
+    async def test_custom_system_prompt_reaches_provider(self, service, sample_article_data):
+        """Regression: sigma_system_prompt must be forwarded to _call_provider_for_sigma."""
+        custom_system = "CUSTOM_SYS_PROMPT_SENTINEL_V1"
+        user_template = "Generate Sigma for {title}: {content}"
+
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_opt:
+            mock_opt.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            with patch.object(service, "_call_provider_for_sigma", new_callable=AsyncMock) as mock_call:
+                mock_call.return_value = "title: Test\nid: test\n"
+                with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                    mock_validate.return_value = ValidationResult(
+                        is_valid=True,
+                        errors=[],
+                        warnings=[],
+                        metadata={"rule": {"title": "Test", "id": "test"}},
+                        content_preview="title: Test\nid: test",
+                    )
+
+                    await service.generate_sigma_rules(
+                        article_title=sample_article_data["title"],
+                        article_content=sample_article_data["content"],
+                        source_name=sample_article_data["source_name"],
+                        url=sample_article_data["url"],
+                        sigma_prompt_template=user_template,
+                        sigma_system_prompt=custom_system,
+                    )
+
+        assert mock_call.called, "_call_provider_for_sigma was never invoked"
+        actual_system = mock_call.call_args.kwargs.get("system_prompt")
+        assert actual_system == custom_system, (
+            f"Expected system_prompt={custom_system!r}, got {actual_system!r}. "
+            "Custom system prompt was dropped before reaching the provider."
+        )
+
+    @pytest.mark.asyncio
+    async def test_none_system_prompt_uses_hardcoded_default(self, service, sample_article_data):
+        """When sigma_system_prompt=None the hardcoded default must be used, not None."""
+        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_opt:
+            mock_opt.return_value = {
+                "success": True,
+                "filtered_content": sample_article_data["content"],
+                "tokens_saved": 0,
+            }
+            with patch.object(service, "_call_provider_for_sigma", new_callable=AsyncMock) as mock_call:
+                mock_call.return_value = "title: Test\nid: test\n"
+                with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
+                    mock_validate.return_value = ValidationResult(
+                        is_valid=True,
+                        errors=[],
+                        warnings=[],
+                        metadata={"rule": {"title": "Test", "id": "test"}},
+                        content_preview="title: Test\nid: test",
+                    )
+                    with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
+                        mock_prompt.return_value = f"Generate rule for: {sample_article_data['title']}"
+
+                        await service.generate_sigma_rules(
+                            article_title=sample_article_data["title"],
+                            article_content=sample_article_data["content"],
+                            source_name=sample_article_data["source_name"],
+                            url=sample_article_data["url"],
+                            sigma_system_prompt=None,
+                        )
+
+        # When no custom prompt is given, the caller passes system_prompt=None to
+        # _call_provider_for_sigma; the hardcoded default is applied *inside* that
+        # function.  We verify the caller doesn't accidentally substitute the default
+        # before the call (which would prevent the custom-prompt path from working).
+        actual_system = mock_call.call_args.kwargs.get("system_prompt")
+        assert actual_system is None, (
+            "With no custom system prompt, caller should pass None to _call_provider_for_sigma "
+            "so the internal default-substitution logic can run."
+        )

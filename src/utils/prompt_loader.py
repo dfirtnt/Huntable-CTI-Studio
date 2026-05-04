@@ -231,6 +231,14 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
             # User template is code-owned (locked), so template stays None here.
             # Detect by key presence, not by role value, to handle empty role strings.
             system = parsed.get("role") or None
+        elif parsed is None and sigma_prompt_data.get("model"):
+            # Auto-persist shape: config was saved without using the explicit
+            # "Save Agent Prompt" button, so the textarea value was written
+            # directly to agent_prompts.SigmaAgent.prompt alongside a sibling
+            # "model" key from the model selector.  The text is the system
+            # persona (no {title}/{content} placeholders); user template is
+            # code-owned, so template stays None.
+            system = raw_prompt or None
         else:
             # Legacy raw-text template (bootstrap default) — or unparseable blob
             template = raw_prompt
