@@ -242,14 +242,14 @@ def test_sigma_agent_task(
         agent_models = config.agent_models if config.agent_models else {}
         agent_prompts = config.agent_prompts or {}
 
-        # Get SigmaAgent prompt and system prompt
         sigma_prompt_template = None
         sigma_system_prompt = None
         if "SigmaAgent" in agent_prompts:
-            sigma_prompt_data = agent_prompts["SigmaAgent"]
-            if isinstance(sigma_prompt_data.get("prompt"), str):
-                sigma_prompt_template = sigma_prompt_data["prompt"]
-            sigma_system_prompt = sigma_prompt_data.get("system") or sigma_prompt_data.get("role")
+            from src.utils.prompt_loader import parse_sigma_agent_prompt_data
+
+            sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
+                agent_prompts["SigmaAgent"]
+            )
 
         # Determine provider
         sigma_provider = agent_models.get("SigmaAgent_provider") if agent_models else None
