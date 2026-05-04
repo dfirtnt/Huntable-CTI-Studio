@@ -5818,6 +5818,11 @@ async function bootstrapPromptsFromFiles() {
 
 let editingPrompts = {}; // Track which prompts are being edited
 
+// SigmaAgent intentionally excluded -- it doesn't use the extraction-agent
+// envelope (task/json_example/instructions); it only needs {system, user},
+// matching what parse_sigma_agent_prompt_data and generate_sigma_rules
+// expect. RankAgent has the same misclassification but is tracked in a
+// separate issue (parallel parent task).
 const LOCKED_EXTRACTOR_AGENTS = [
     'CmdlineExtract',
     'ProcTreeExtract',
@@ -5826,7 +5831,6 @@ const LOCKED_EXTRACTOR_AGENTS = [
     'ServicesExtract',
     'ScheduledTasksExtract',
     'RankAgent',
-    'SigmaAgent',
 ];
 
 const LOCKED_QA_AGENTS = [
