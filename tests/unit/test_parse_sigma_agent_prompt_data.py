@@ -80,11 +80,15 @@ class TestParseSigmaAgentPromptData:
         assert system is None
 
     def test_invalid_json_treated_as_raw_text(self):
-        """Malformed JSON is treated as raw text (not a silent error)."""
-        raw = '{"role": "partial'  # truncated JSON
+        """Malformed JSON with no format placeholders is treated as system persona.
+
+        Truncated/broken JSON cannot be a valid user template (no {identifier}
+        placeholders), so it is routed to system rather than silently dropped.
+        """
+        raw = '{"role": "partial'  # truncated JSON, no {identifier} placeholders
         template, system = parse_sigma_agent_prompt_data({"prompt": raw})
-        assert template == raw
-        assert system is None
+        assert template is None
+        assert system == raw
 
     def test_legacy_sibling_system_prompt_key_honored_when_no_json_system(self):
         """Legacy sibling key ``system_prompt`` is used when the inner JSON has no system.

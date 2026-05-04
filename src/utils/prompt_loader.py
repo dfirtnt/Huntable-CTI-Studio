@@ -6,8 +6,13 @@ making it easier to maintain and update AI prompts without modifying code.
 """
 
 import logging
+import re
 from pathlib import Path
 from typing import Any
+
+# Matches any Python str.format-style placeholder: {identifier} or {identifier!r} etc.
+# Used to distinguish user-message templates (have placeholders) from system personas (don't).
+_TEMPLATE_PLACEHOLDER_RE = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*[^{]*?\}")
 
 logger = logging.getLogger(__name__)
 
@@ -231,16 +236,18 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
             # User template is code-owned (locked), so template stays None here.
             # Detect by key presence, not by role value, to handle empty role strings.
             system = parsed.get("role") or None
-        elif parsed is None and sigma_prompt_data.get("model"):
-            # Auto-persist shape: config was saved without using the explicit
-            # "Save Agent Prompt" button, so the textarea value was written
-            # directly to agent_prompts.SigmaAgent.prompt alongside a sibling
-            # "model" key from the model selector.  The text is the system
-            # persona (no {title}/{content} placeholders); user template is
-            # code-owned, so template stays None.
+        elif parsed is None and (
+            sigma_prompt_data.get("model") or not _TEMPLATE_PLACEHOLDER_RE.search(raw_prompt)
+        ):
+            # Auto-persist shape OR persona-only text: either saved alongside a
+            # sibling "model" key, or the text has zero Python format placeholders
+            # ({identifier}) and therefore cannot function as a user message
+            # template.  In both cases treat as system persona; user template is
+            # code-owned.
             system = raw_prompt or None
         else:
-            # Legacy raw-text template (bootstrap default) — or unparseable blob
+            # Legacy raw-text template (bootstrap default) — has at least one
+            # {identifier} placeholder; treat as user message template verbatim.
             template = raw_prompt
 
     # Legacy sibling key still honored when the locked JSON didn't carry a system.
