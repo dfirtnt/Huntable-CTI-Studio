@@ -1327,7 +1327,15 @@ class RunTestRunner:
                                 try:
                                     path_part = line.split("tests/")[1].split("/")[0]
                                     detected = self._DIR_TO_CATEGORY.get(path_part)
-                                    if detected and detected not in categories_seen:
+                                    # Only announce categories that are in the declared
+                                    # groups so marker-based runs (smoke, regression, etc.)
+                                    # don't overflow the progress bar denominator.
+                                    pytest_groups_set = set(pytest_groups) if pytest_groups else set()
+                                    if (
+                                        detected
+                                        and detected not in categories_seen
+                                        and detected in pytest_groups_set
+                                    ):
                                         categories_seen.add(detected)
                                         elapsed = time.time() - pytest_start_time
                                         if pytest_groups:
