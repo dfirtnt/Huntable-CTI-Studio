@@ -64,16 +64,25 @@ class TestRankArticle:
     """Tests for LLMService.rank_article."""
 
     @pytest.mark.asyncio
-    async def test_rank_article_requires_prompt_template(self, llm_service):
-        """rank_article raises ValueError when no prompt_template is given."""
-        with pytest.raises(ValueError, match="prompt_template must be provided"):
-            await llm_service.rank_article(
+    async def test_rank_article_uses_file_fallback_when_no_template(self, llm_service):
+        """rank_article loads src/prompts/rank_article.txt when prompt_template is None."""
+        llm_response = {
+            "choices": [{"message": {"content": '{"score": 5, "reasoning": "Test"}'}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        }
+        with (
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response),
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            result = await llm_service.rank_article(
                 title="Test",
                 content="x" * 1000,
                 source="Blog",
                 url="https://example.com",
                 prompt_template=None,
             )
+            assert "score" in result
 
     @pytest.mark.asyncio
     async def test_rank_article_parses_score_from_llm_response(self, llm_service):

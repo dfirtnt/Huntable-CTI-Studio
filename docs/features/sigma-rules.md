@@ -65,10 +65,35 @@ Generation uses temperature 0.2 for deterministic output.
 
 ### Iterative Retry
 
-- Up to 3 attempts per rule set
+- Up to 3 attempts per rule set (initial generation)
 - Validation errors from pySigma are fed back into the next prompt
 - All attempt logs (prompts, responses, validation results) are stored for
   post-mortem review
+
+### Repair Pass (SigmaRepair)
+
+After the initial generation attempt, any rules that failed pySigma validation
+are sent through a dedicated per-rule repair loop before the result is finalized.
+
+**How it works:**
+
+1. Invalid rules are collected after the generation/validation phase.
+2. For each invalid rule, the `SigmaRepair` prompt is called with two injected
+   values:
+   - `{validation_errors}` -- the list of pySigma error strings from the failed
+     attempt
+   - `{original_rule}` -- the first 500 characters of the broken YAML
+3. The LLM returns a corrected rule; pySigma re-validates it.
+4. This repeats up to `max_repair_attempts_per_rule` times (default: 3) per rule.
+
+**Implementation:** `src/services/sigma_generation_service.py` --
+`SigmaGenerationService._repair_rules()`
+
+**Prompt source:** `src/prompts/sigma_repair_single.txt` (seed default). The
+live prompt is stored in the database under the `SigmaRepair` key in the
+workflow config's `agent_prompts` and can be edited in **Settings -> Workflow
+Config -> SigmaRepair**. The DB value takes precedence over the seed file at
+runtime.
 
 ### Conversation Log Display
 

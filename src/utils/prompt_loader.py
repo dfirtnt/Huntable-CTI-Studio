@@ -193,16 +193,15 @@ def get_available_prompts() -> list[str]:
 def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> tuple[str | None, str | None]:
     """Extract (user_template, system_prompt) from a SigmaAgent DB record.
 
-    SigmaAgent's stored prompt has accumulated four shapes over time:
-      * Locked scaffold JSON: {"role": ..., "user_template": ...}
-      * Extraction-agent JSON: {"role": ..., "task": ..., "json_example": ..., "instructions": ...}
-      * Legacy simple JSON:   {"system": ..., "user": ...}
-      * Legacy raw text:      the template string verbatim (bootstrap default)
+    Canonical shape (post-migration):
+      {"system": "<persona>", "user": "<template or null>", "instructions"?: ...}
 
-    In every case the backend needs two values: the user-message template (with
-    placeholders like {title}/{content}) and the system persona. This helper
-    handles all three shapes plus the legacy sibling ``system_prompt`` key, and
-    is the single place that knows how to normalize SigmaAgent prompt data.
+    Legacy shapes still tolerated for unmigrated records:
+      * Locked scaffold JSON:   {"prompt": "{\"role\":...,\"user_template\":...}", ...}
+      * Extraction-agent JSON:  {"prompt": "{\"role\":...,\"task\":...,\"json_example\":...,\"instructions\":...}", ...}
+      * Legacy simple JSON:     {"prompt": "{\"system\":...,\"user\":...}", ...}
+      * Legacy raw text:        {"prompt": "<persona or template>", ...}
+      * Sibling system_prompt:  {"prompt": "<template>", "system_prompt": "<persona>"}
 
     Returns a tuple (template, system). Either value may be None if not resolvable.
     """
@@ -210,6 +209,13 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
 
     if not sigma_prompt_data:
         return (None, None)
+
+    # Canonical shape: {system, user} at outer level. Detected by either key present
+    # AND no nested 'prompt' key (legacy records always have 'prompt').
+    if "prompt" not in sigma_prompt_data and ("system" in sigma_prompt_data or "user" in sigma_prompt_data):
+        template = sigma_prompt_data.get("user") or None
+        system = sigma_prompt_data.get("system") or None
+        return (template, system)
 
     raw_prompt = sigma_prompt_data.get("prompt", "")
     template: str | None = None
@@ -253,5 +259,57 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
     # Legacy sibling key still honored when the locked JSON didn't carry a system.
     if not system and isinstance(sigma_prompt_data.get("system_prompt"), str):
         system = sigma_prompt_data["system_prompt"]
+
+    return (template, system)
+
+
+def parse_rank_agent_prompt_data(rank_prompt_data: dict[str, Any] | None) -> tuple[str | None, str | None]:
+    """Extract (user_template, system_prompt) from a RankAgent DB record.
+
+    Mirrors parse_sigma_agent_prompt_data but routes through _parse_rank_prompt
+    for legacy JSON-encoded prompts (which support a different set of keys than
+    SigmaAgent's locked-scaffold format).
+
+    Canonical shape (post-migration):
+      {"system": "<persona>", "user": "<template or null>", "instructions"?: ...}
+
+    Legacy shapes:
+      * Any of {role, user_template} / {system, user} / {prompt} JSON in the
+        outer dict's 'prompt' key (handled by _parse_rank_prompt).
+      * Raw text in 'prompt' (handled by _parse_rank_prompt's fallback).
+
+    Returns a tuple (template, system). Either value may be None if not resolvable.
+    """
+    if not rank_prompt_data:
+        return (None, None)
+
+    # Canonical shape: {system, user} at outer level
+    if "prompt" not in rank_prompt_data and ("system" in rank_prompt_data or "user" in rank_prompt_data):
+        template = rank_prompt_data.get("user") or None
+        system = rank_prompt_data.get("system") or None
+        return (template, system)
+
+    # Legacy: prompt field contains the (possibly JSON-encoded) string
+    raw_prompt = rank_prompt_data.get("prompt", "")
+    if not isinstance(raw_prompt, str) or not raw_prompt:
+        return (None, None)
+
+    # Reuse the existing JSON-shape parser; catches PreprocessInvariantError
+    # only for legitimately malformed JSON-prompts (returns the raw string +
+    # None system in those cases, so the caller can decide).
+    try:
+        from src.services.llm_service import PreprocessInvariantError, _parse_rank_prompt
+
+        template, system = _parse_rank_prompt(raw_prompt)
+    except PreprocessInvariantError:
+        # JSON shape with empty system override -- preserve the prompt as
+        # template, leave system unresolved so caller can fall back.
+        return (raw_prompt, None)
+
+    # If _parse_rank_prompt returned the raw text as both template and system,
+    # disambiguate: text without {identifier} placeholders is a persona, not
+    # a template.
+    if template == raw_prompt and system is None and not _TEMPLATE_PLACEHOLDER_RE.search(raw_prompt):
+        return (None, raw_prompt)
 
     return (template, system)

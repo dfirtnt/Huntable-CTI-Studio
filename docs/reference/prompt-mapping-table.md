@@ -17,6 +17,7 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | `ExtractAgent` | `ExtractAgent` | Parent config for all extract sub-agents (model/provider fallback) |
 | `lmstudio_sigma_ranking.txt` | `RankAgent` | Primary ranking prompt |
 | `sigma_generation.txt` | `SigmaAgent` | Sigma rule generation |
+| `sigma_repair_single.txt` | `SigmaRepair` | Per-rule repair pass after pySigma validation failure; receives `{validation_errors}` and `{original_rule}` |
 | `CmdlineExtract` | `CmdlineExtract` | Command-line artifact extraction |
 | `ProcTreeExtract` | `ProcTreeExtract` | Process lineage extraction |
 | `HuntQueriesExtract` | `HuntQueriesExtract` | Hunt query extraction |
@@ -46,7 +47,7 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | `sigma_generate_multi.txt` | Multi-rule Sigma generation |
 | `sigma_generation_simple.txt` | Simplified Sigma generation |
 | `sigma_enrichment.txt` | Sigma rule enrichment |
-| `sigma_repair_single.txt` | Single-rule Sigma repair |
+| `sigma_repair_single.txt` | Seed default for `SigmaRepair` (see Workflow Agents table above) |
 
 ## Utility Prompts
 

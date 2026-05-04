@@ -767,14 +767,20 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Get agent prompt from config (for both ranking and QA)
             rank_prompt_template = None
+            rank_system_prompt = None
             agent_prompt = "Rank the article from 1-10 for SIGMA huntability based on telemetry observables, behavioral patterns, and detection rule feasibility."
             if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
-                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
-                if isinstance(rank_prompt_data.get("prompt"), str):
-                    rank_prompt_template = rank_prompt_data["prompt"]
-                    agent_prompt = rank_prompt_template[:5000]  # Truncate for QA context
+                from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
+                    config_obj.agent_prompts["RankAgent"]
+                )
+                if rank_prompt_template or rank_system_prompt:
+                    agent_prompt = (rank_system_prompt or rank_prompt_template or "")[:5000]
                     logger.info(
-                        f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)"
+                        f"Using RankAgent prompt from workflow config "
+                        f"(template_len={len(rank_prompt_template or '')} chars, "
+                        f"system_len={len(rank_system_prompt or '')} chars)"
                     )
 
             # Initialize conversation log for rank_article
@@ -789,6 +795,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     source=source_name,
                     url=article.canonical_url or "",
                     prompt_template=rank_prompt_template,
+                    system_override=rank_system_prompt,
                     execution_id=state["execution_id"],
                     article_id=article.id,
                     ground_truth_rank=ground_truth_rank,

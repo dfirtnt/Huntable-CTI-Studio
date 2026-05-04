@@ -1865,6 +1865,7 @@ class LLMService:
         url: str,
         _prompt_template_path: str | None = None,
         prompt_template: str | None = None,
+        system_override: str | None = None,
         execution_id: int | None = None,
         article_id: int | None = None,
         qa_feedback: str | None = None,
@@ -1880,20 +1881,27 @@ class LLMService:
             source: Article source name
             url: Article URL
             _prompt_template_path: Unused; prompt_template from workflow config is required
-            prompt_template: Optional prompt template string (required from workflow config)
+            prompt_template: Optional user-message template; falls back to
+                src/prompts/rank_article.txt if None.
+            system_override: Optional system persona; takes precedence over any
+                system extracted from prompt_template's JSON wrapper.
             ground_truth_rank: Optional 1-10 ground truth rank to log to Langfuse
             ground_truth_details: Optional dict of source scores/rounding used for ground truth
 
         Returns:
             Dict with 'score' (1-10 float) and 'reasoning' (str)
         """
-        # Use provided prompt template only (no file fallback)
-        if not prompt_template:
-            raise ValueError(
-                "RankAgent prompt_template must be provided from workflow config. No file fallback available."
-            )
+        # Resolve template: explicit > file fallback
+        if prompt_template:
+            prompt_template_str, embedded_system = _parse_rank_prompt(prompt_template)
+        else:
+            from src.utils.prompt_loader import load_prompt_async
 
-        prompt_template_str, system_override = _parse_rank_prompt(prompt_template)
+            prompt_template_str = await load_prompt_async("rank_article")
+            embedded_system = None
+
+        # Caller-supplied system override takes precedence over any embedded one.
+        system_override = system_override or embedded_system
 
         logger.info(f"Using RankAgent prompt from workflow config (length: {len(prompt_template_str)} chars)")
 

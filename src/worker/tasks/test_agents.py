@@ -183,12 +183,14 @@ def test_rank_agent_task(
         agent_models = config.agent_models if config.agent_models else {}
         agent_prompts = config.agent_prompts or {}
 
-        # Get RankAgent prompt
         rank_prompt_template = None
+        rank_system_prompt = None
         if "RankAgent" in agent_prompts:
-            rank_prompt_data = agent_prompts["RankAgent"]
-            if isinstance(rank_prompt_data.get("prompt"), str):
-                rank_prompt_template = rank_prompt_data["prompt"]
+            from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+            rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
+                agent_prompts["RankAgent"]
+            )
 
         # Compute ground truth for Langfuse logging
         hunt_score = article.article_metadata.get("threat_hunting_score") if article.article_metadata else None
@@ -208,6 +210,7 @@ def test_rank_agent_task(
                 source=source_name,
                 url=article.canonical_url or "",
                 prompt_template=rank_prompt_template,
+                system_override=rank_system_prompt,
                 execution_id=None,
                 article_id=article.id,
                 ground_truth_rank=ground_truth_rank,

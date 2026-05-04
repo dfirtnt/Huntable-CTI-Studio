@@ -1322,21 +1322,22 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     detail="No active workflow configuration found. Please configure the workflow first.",
                 )
 
-            # Get RankAgent prompt from config
+            # Get RankAgent prompt from config (canonical {system, user} or legacy)
             rank_prompt_template = None
+            rank_system_prompt = None
             if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
-                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
-                if isinstance(rank_prompt_data.get("prompt"), str):
-                    rank_prompt_template = rank_prompt_data["prompt"]
-                    logger.info(
-                        f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)"
-                    )
+                from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-            if not rank_prompt_template:
-                raise HTTPException(
-                    status_code=400,
-                    detail="RankAgent prompt not configured in workflow. Please configure the RankAgent prompt in Workflow settings.",
+                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
+                    config_obj.agent_prompts["RankAgent"]
                 )
+                logger.info(
+                    f"Using RankAgent prompt from workflow config "
+                    f"(template_len={len(rank_prompt_template or '')} chars, "
+                    f"system_len={len(rank_system_prompt or '')} chars)"
+                )
+
+            # Template can be None -- rank_article() falls back to src/prompts/rank_article.txt
 
             # Get agent models from config
             agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
@@ -1397,6 +1398,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 source=source_name,
                 url=article.canonical_url or "",
                 prompt_template=rank_prompt_template,
+                system_override=rank_system_prompt,
                 article_id=article.id,
                 ground_truth_rank=ground_truth_rank,
                 ground_truth_details=ground_truth_details,
