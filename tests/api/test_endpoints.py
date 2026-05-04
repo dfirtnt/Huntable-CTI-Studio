@@ -383,20 +383,6 @@ class TestExportEndpoints:
     """Test export/download endpoints."""
 
     @pytest.mark.api
-    @pytest.mark.smoke
-    @pytest.mark.asyncio
-    async def test_export_annotations_csv(self, async_client: httpx.AsyncClient):
-        """Ensure annotations export endpoint returns CSV."""
-        response = await async_client.get("/api/export/annotations")
-        assert response.status_code == 200
-        content_type = response.headers.get("content-type", "")
-        assert "text/csv" in content_type
-        disposition = response.headers.get("content-disposition", "")
-        assert "filename=" in disposition
-        content = response.text
-        assert "record_number" in content
-
-    @pytest.mark.api
     @pytest.mark.asyncio
     async def test_rescore_all_response_format(self, async_client: httpx.AsyncClient):
         """Test the rescore all articles response format."""

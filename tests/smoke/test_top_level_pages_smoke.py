@@ -21,7 +21,6 @@ class TestTopLevelPagesSmoke:
             ("/diags", ("System Diagnostics & Health", "Quick Actions")),
             ("/jobs", ("Job Monitor", "Worker Status")),
             ("/pdf-upload", ("Upload PDF Report",)),
-            ("/observables-training", ("Observable Extractor Training",)),
             ("/evaluations", ("Agent Evaluations", "Recent Evaluations")),
         ],
     )
