@@ -33,9 +33,11 @@ Test Infrastructure:
   * Postgres:5433, Redis:6380, Web:8002 (isolated from production ports)
   * Ephemeral containers (no named volumes, data destroyed on removal)
 - Failure reports automatically generated (with timestamps to preserve history):
-  * test-results/failures_YYYYMMDD_HHMMSS.log - Text summary of all failures
+  * test-results/failures_pytest_YYYYMMDD_HHMMSS.log - Pytest failure summary
+  * test-results/failures_playwright_YYYYMMDD_HHMMSS.log - Playwright failure summary
   * test-results/junit_YYYYMMDD_HHMMSS.xml - Machine-readable XML format
   * test-results/report_YYYYMMDD_HHMMSS.html - Interactive HTML report (if pytest-html available)
+  * test-results/reportlog_YYYYMMDD_HHMMSS.jsonl - JSONL report log (if pytest-reportlog available)
   * allure-results/ - Allure report data (use 'allure serve allure-results')
 - Progress indicators show category-by-category execution in real-time
 
@@ -621,40 +623,53 @@ class RunTestRunner:
         except Exception:
             return False
 
+    # Map from tests/ subdirectory name to the display category used in progress bars.
+    # Every directory that pytest might collect from must appear here so the progress
+    # tracker and the group list use the same vocabulary.
+    _DIR_TO_CATEGORY = {
+        "smoke": "smoke",
+        "unit": "unit",
+        "services": "unit",
+        "utils": "unit",
+        "core": "unit",
+        "config": "unit",
+        "cli": "unit",
+        "workflows": "unit",
+        "database": "unit",
+        "quality": "unit",
+        "scripts": "unit",
+        "sigma_semantic_similarity": "unit",
+        "templates": "unit",
+        "worker": "unit",
+        "api": "api",
+        "integration": "integration",
+        "ui": "ui",
+        "e2e": "e2e",
+        "docs": "docs",
+    }
+
     def _get_pytest_test_groups(self) -> list[str]:
-        """Determine which pytest test groups are being executed based on test type."""
+        """Determine which pytest test groups are being executed based on test type.
+
+        Returns display-level category names (the same vocabulary used by the
+        progress-bar tracker) so the denominator and numerator always agree.
+        """
         test_type = self.config.test_type
 
         if self.config.test_paths:
-            # Custom paths specified - analyze them
-            groups = []
+            # Custom paths specified - resolve through the shared directory map
+            groups: set[str] = set()
             for path in self.config.test_paths:
-                if "smoke" in path:
-                    groups.append("smoke")
-                elif "api" in path:
-                    groups.append("api")
-                elif "integration" in path:
-                    groups.append("integration")
-                elif "ui" in path:
-                    groups.append("ui")
-                elif "e2e" in path:
-                    groups.append("e2e")
-                elif "cli" in path:
-                    groups.append("cli")
-                elif "workflows" in path:
-                    groups.append("workflows")
-                elif "services" in path:
-                    groups.append("services")
-                elif "core" in path:
-                    groups.append("core")
-                elif "utils" in path:
-                    groups.append("utils")
-            return list(set(groups)) if groups else ["all"]
+                for dirname, category in self._DIR_TO_CATEGORY.items():
+                    if dirname in path:
+                        groups.add(category)
+                        break
+            return sorted(groups) if groups else ["all"]
 
-        # Map test types to groups
+        # Map test types to display categories (deduplicated).
         group_map = {
             RunTestType.SMOKE: ["smoke"],
-            RunTestType.UNIT: ["unit", "core", "services", "utils"],
+            RunTestType.UNIT: ["unit"],
             RunTestType.API: ["api"],
             RunTestType.INTEGRATION: ["integration"],
             RunTestType.UI: ["ui"],
@@ -664,9 +679,9 @@ class RunTestRunner:
             RunTestType.SECURITY: ["security"],
             RunTestType.A11Y: ["a11y"],
             RunTestType.PERFORMANCE: ["performance"],
-            RunTestType.AI: ["ai", "ui", "integration"],
-            RunTestType.AI_UI: ["ai", "ui"],
-            RunTestType.AI_INTEGRATION: ["ai", "integration"],
+            RunTestType.AI: ["ui", "integration"],
+            RunTestType.AI_UI: ["ui"],
+            RunTestType.AI_INTEGRATION: ["integration"],
             RunTestType.ALL: ["smoke", "unit", "api", "integration", "ui", "e2e"],
             RunTestType.COVERAGE: ["smoke", "unit", "api", "integration", "ui", "e2e"],
         }
@@ -1086,11 +1101,23 @@ class RunTestRunner:
         results_dir = project_root / "test-results"
         cmd.extend([f"--junit-xml={results_dir / f'junit_{self.timestamp}.xml'}"])
 
-        # Add HTML report (pytest-html 4.x always self-contained; no --self-contained-html flag)
-        cmd.append(f"--html={results_dir / f'report_{self.timestamp}.html'}")
+        # Add HTML report only if pytest-html is installed (avoids pytest usage error)
+        html_check = subprocess.run(
+            [self.venv_python, "-c", "import pytest_html"],
+            capture_output=True,
+            check=False,
+        )
+        if html_check.returncode == 0:
+            cmd.append(f"--html={results_dir / f'report_{self.timestamp}.html'}")
 
-        # Add JSONL report log (pytest-reportlog is a required test dependency)
-        cmd.append(f"--report-log={results_dir / f'reportlog_{self.timestamp}.jsonl'}")
+        # Add JSONL report log only if pytest-reportlog is installed
+        reportlog_check = subprocess.run(
+            [self.venv_python, "-c", "import pytest_reportlog"],
+            capture_output=True,
+            check=False,
+        )
+        if reportlog_check.returncode == 0:
+            cmd.append(f"--report-log={results_dir / f'reportlog_{self.timestamp}.jsonl'}")
 
         # Redirect pytest-playwright output to a subdirectory so its session-start rmtree()
         # does not delete test-results/ itself (which would cause pytest-html FileNotFoundError).
@@ -1299,22 +1326,7 @@ class RunTestRunner:
                             if "tests/" in line:
                                 try:
                                     path_part = line.split("tests/")[1].split("/")[0]
-                                    category_map = {
-                                        "smoke": "smoke",
-                                        "unit": "unit",
-                                        "services": "unit",
-                                        "utils": "unit",
-                                        "core": "unit",
-                                        "config": "unit",
-                                        "cli": "unit",
-                                        "workflows": "unit",
-                                        "api": "api",
-                                        "integration": "integration",
-                                        "ui": "ui",
-                                        "e2e": "e2e",
-                                        "docs": "docs",
-                                    }
-                                    detected = category_map.get(path_part)
+                                    detected = self._DIR_TO_CATEGORY.get(path_part)
                                     if detected and detected not in categories_seen:
                                         categories_seen.add(detected)
                                         elapsed = time.time() - pytest_start_time
@@ -1376,7 +1388,7 @@ class RunTestRunner:
 
                     # Write failure log only when there are failures or errors.
                     if not pytest_success:
-                        self._save_failure_log(stdout_text + stderr_text, pytest_counts)
+                        self._save_failure_log(stdout_text + stderr_text, pytest_counts, source="pytest")
 
                     # Clear progress line and show final status
                     if pytest_groups and sys.stdout.isatty():
@@ -1393,9 +1405,9 @@ class RunTestRunner:
                     )
                     print(f"   Passed: {passed} | Failed: {failed} | Skipped: {skipped}{err_suffix}")
                     if not pytest_success:
-                        failure_path = test_results_dir / f"failures_{self.timestamp}.log"
+                        failure_path = test_results_dir / f"failures_pytest_{self.timestamp}.log"
                         if failure_path.exists():
-                            print(f"   Failure details: test-results/failures_{self.timestamp}.log")
+                            print(f"   Failure details: test-results/failures_pytest_{self.timestamp}.log")
                     html_path = test_results_dir / f"report_{self.timestamp}.html"
                     junit_path = test_results_dir / f"junit_{self.timestamp}.xml"
                     if html_path.exists():
@@ -1495,7 +1507,7 @@ class RunTestRunner:
                             pw_output_lines.append(line)
                             print(line, end="", flush=True)
                             if any(
-                                w in line.lower() for w in ["passed", "failed", "skipped", "\xe2\x9c\x93", "\xc3\x97"]
+                                w in line.lower() for w in ["passed", "failed", "skipped", "\u2713", "\u2717"]
                             ):
                                 pw_test_count += 1
                                 # Capture failed Playwright test names
@@ -1549,10 +1561,10 @@ class RunTestRunner:
                         )
                         print(f"   Passed: {pp} | Failed: {pf} | Skipped: {ps}")
                         if not playwright_success:
-                            self._save_failure_log(stdout_text + stderr_text, playwright_counts)
-                            pw_failure_path = test_results_dir / f"failures_{self.timestamp}.log"
+                            self._save_failure_log(stdout_text + stderr_text, playwright_counts, source="playwright")
+                            pw_failure_path = test_results_dir / f"failures_playwright_{self.timestamp}.log"
                             if pw_failure_path.exists():
-                                print(f"   Failure details: test-results/failures_{self.timestamp}.log")
+                                print(f"   Failure details: test-results/failures_playwright_{self.timestamp}.log")
                         print("=" * 80)
 
                     except subprocess.TimeoutExpired:
@@ -1669,16 +1681,23 @@ class RunTestRunner:
             return counts
         return None
 
-    def _save_failure_log(self, output: str, counts: dict[str, int]) -> None:
-        """Save failure details to a log file."""
+    def _save_failure_log(self, output: str, counts: dict[str, int], source: str = "pytest") -> None:
+        """Save failure details to a log file.
+
+        Args:
+            output: Combined stdout/stderr from the test runner.
+            counts: Parsed pass/fail/skip counts.
+            source: Runner that produced the output ("pytest" or "playwright").
+                    Used in the filename to avoid overwrites when both fail.
+        """
         from datetime import datetime
 
         # Ensure test-results directory exists (project_root-relative, matching pytest cwd)
         test_results_dir = project_root / "test-results"
         test_results_dir.mkdir(exist_ok=True)
 
-        # Include timestamp to preserve historical results
-        failure_log_path = test_results_dir / f"failures_{self.timestamp}.log"
+        # Include source + timestamp so pytest and playwright never clobber each other
+        failure_log_path = test_results_dir / f"failures_{source}_{self.timestamp}.log"
 
         with open(failure_log_path, "w") as f:
             f.write("=" * 80 + "\n")
@@ -2082,7 +2101,7 @@ Test Infrastructure:
   - Environment guards enforce APP_ENV=test and TEST_DATABASE_URL
   - Cloud LLM API keys blocked by default (set ALLOW_CLOUD_LLM_IN_TESTS=true to allow)
   - Failure reports (timestamped): test-results/failures_*.log, test-results/junit_*.xml,
-    test-results/report_*.html
+    test-results/report_*.html, test-results/reportlog_*.jsonl
   - Progress indicators show category-by-category execution
 
 UI Test Sections (the 'ui' test type has two independent sections):
