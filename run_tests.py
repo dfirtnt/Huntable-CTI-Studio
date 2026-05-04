@@ -1260,11 +1260,16 @@ class RunTestRunner:
                 if pytest_groups:
                     self.test_groups_executed.extend([f"pytest:{group}" for group in pytest_groups])
 
+                # Show progress bar only for multi-category runs (e.g. "all");
+                # single-category runs (smoke, unit, api) just show the banner.
+                show_progress = len(pytest_groups) > 1
+
                 print("\n" + "=" * 80)
                 print("🧪 RUNNING PYTEST TESTS")
                 if pytest_groups:
                     print(f"   Test Categories: {', '.join(pytest_groups)}")
-                    print(f"   Progress: [{' ' * len(pytest_groups)}] 0/{len(pytest_groups)} categories")
+                    if show_progress:
+                        print(f"   Progress: [{' ' * len(pytest_groups)}] 0/{len(pytest_groups)} categories")
                 print("=" * 80)
                 logger.info(f"Executing pytest: {cmd_str}")
                 print()
@@ -1332,26 +1337,26 @@ class RunTestRunner:
                                     # don't overflow the progress bar denominator.
                                     pytest_groups_set = set(pytest_groups) if pytest_groups else set()
                                     if (
-                                        detected
+                                        show_progress
+                                        and detected
                                         and detected not in categories_seen
                                         and detected in pytest_groups_set
                                     ):
                                         categories_seen.add(detected)
                                         elapsed = time.time() - pytest_start_time
-                                        if pytest_groups:
-                                            progress_chars = [
-                                                "=" if c in categories_seen else " " for c in pytest_groups
-                                            ]
-                                            n, total = len(categories_seen), len(pytest_groups)
-                                            print(
-                                                f"\n📊 Category: {detected.upper()} | [{''.join(progress_chars)}] "
-                                                f"{n}/{total} | Tests: {test_count} | {elapsed:.1f}s",
-                                                flush=True,
-                                            )
+                                        progress_chars = [
+                                            "=" if c in categories_seen else " " for c in pytest_groups
+                                        ]
+                                        n, total = len(categories_seen), len(pytest_groups)
+                                        print(
+                                            f"\n📊 Category: {detected.upper()} | [{''.join(progress_chars)}] "
+                                            f"{n}/{total} | Tests: {test_count} | {elapsed:.1f}s",
+                                            flush=True,
+                                        )
                                 except (IndexError, AttributeError):
                                     pass
 
-                        if time.time() - last_progress_update > 3.0 and pytest_groups and sys.stdout.isatty():
+                        if time.time() - last_progress_update > 3.0 and show_progress and sys.stdout.isatty():
                             elapsed = time.time() - pytest_start_time
                             progress_chars = ["=" if c in categories_seen else " " for c in pytest_groups]
                             print(
@@ -1399,7 +1404,7 @@ class RunTestRunner:
                         self._save_failure_log(stdout_text + stderr_text, pytest_counts, source="pytest")
 
                     # Clear progress line and show final status
-                    if pytest_groups and sys.stdout.isatty():
+                    if show_progress and sys.stdout.isatty():
                         print("\r" + " " * 100 + "\r", end="")  # Clear progress line
                     print()
                     print("=" * 80)
