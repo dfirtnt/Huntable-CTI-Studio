@@ -13,9 +13,9 @@ This guide covers installing and running Huntable CTI Studio using Docker Compos
 ```bash
 git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
-./setup.sh --no-backups
+./setup.sh 
 # or non-interactive:
-# ./setup.sh --non-interactive --no-backups
+# ./setup.sh --non-interactive 
 ./start.sh
 ```
 
@@ -212,3 +212,6 @@ The committed eval article directories cover all six extraction sub-agents:
 ---
 
 _Last updated: 2026-05-01_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTU2NDQzMzMxNl19
+-->
