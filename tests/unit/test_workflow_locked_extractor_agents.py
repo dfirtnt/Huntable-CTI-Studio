@@ -64,15 +64,16 @@ class TestLockedExtractorAgents:
         missing = required - names
         assert not missing, f"Missing genuine extraction agents from list: {sorted(missing)}"
 
-    def test_rank_agent_still_listed_pending_separate_issue(self):
-        """RankAgent has the same misclassification but is tracked in a parallel issue.
+    def test_rank_agent_is_excluded(self):
+        """Regression: RankAgent must NOT be in LOCKED_EXTRACTOR_AGENTS.
 
-        This test pins down the current state so the SigmaAgent change doesn't
-        accidentally also flip RankAgent. When the RankAgent parallel issue
-        ships its UI fix, this assertion should be inverted (or this test deleted).
+        Same rationale as SigmaAgent: RankAgent doesn't use extraction-agent
+        fields. Its readers go through `_parse_rank_prompt` which expects
+        {system, user} or raw text with {title}/{content} placeholders.
+        Listing RankAgent here would cause the UI to save with the wrong
+        envelope and silently drop the user's persona.
         """
         names = _names_in_block(LOCKED_EXTRACTOR_BLOCK)
-        assert "RankAgent" in names, (
-            "RankAgent classification is being changed without a corresponding RankAgent issue subtask. "
-            "Coordinate with the RankAgent parent task."
+        assert "RankAgent" not in names, (
+            f"RankAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
         )
