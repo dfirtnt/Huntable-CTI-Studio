@@ -10,10 +10,31 @@ Three capabilities work together:
 
 1. **Rule generation**: LLM produces Sigma YAML from extracted observables;
    pySigma validates the output.
-2. **Rule matching**: Articles are matched to existing SigmaHQ rules using
-   behavioral overlap scoring to determine coverage status.
-3. **Similarity search**: Generated rules are compared against indexed SigmaHQ
-   rules to detect duplication and classify novelty.
+2. **Rule matching**: Articles are matched to the indexed rule corpus (SigmaHQ
+   plus your customer repo, if indexed) using behavioral overlap scoring to
+   determine coverage status.
+3. **Similarity search**: Generated rules are compared against the same indexed
+   corpus to detect duplication and classify novelty.
+
+These last two are distinct pipelines with different inputs and scoring
+mechanisms. Rule matching is **article-centric** — it asks whether an existing
+rule already covers the behaviors described in a CTI article. Similarity search
+is **rule-centric** — it asks whether a newly generated Sigma rule is
+behaviorally novel relative to what is already indexed. Both query the same
+`sigma_rules` table, so customer repo rules participate in both once indexed.
+
+!!! warning "Your rules are not included by default"
+    SigmaHQ rules are indexed automatically during setup. Rules from your own
+    approved repo are **not** — you must index them manually and re-run whenever
+    the repo changes:
+
+    ```bash
+    ./run_cli.sh sigma index-customer-repo
+    ```
+
+    Until you do, coverage classification and similarity search only compare
+    against the SigmaHQ corpus. Run `sigma stats` to confirm how many customer
+    rules are currently indexed.
 
 ### System Flow
 
@@ -113,7 +134,10 @@ Key methods: `clone_or_pull_repository()`, `find_rule_files()`,
 **File**: `src/services/sigma_coverage_service.py`
 
 Extracts behaviors from `chunk_analysis_results`, compares them to rule
-detection patterns, and classifies each match:
+detection patterns, and classifies each match. The underlying query has no
+source filter, so customer repo rules (prefix `cust-`) are candidates alongside
+SigmaHQ rules whenever they have been indexed — see
+[Customer Repo Rules](#customer-repo-rules).
 
 | Status | Condition |
 |---|---|
@@ -483,4 +507,4 @@ docker-compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-04_
