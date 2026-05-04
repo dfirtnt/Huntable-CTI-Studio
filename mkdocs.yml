@@ -39,6 +39,7 @@ nav:
       - Generate Sigma Rules: guides/generate-sigma.md
       - Evaluate Models: guides/evaluate-models.md
       - Backup & Restore: guides/backup-and-restore.md
+      - Authentication: guides/authentication.md
       - Source Configuration: guides/source-config.md
       - Memory Tuning: guides/memory-tuning.md
   - Architecture:

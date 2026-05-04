@@ -2,7 +2,7 @@
 
 Huntable CTI Studio runs as a local single-user app on `127.0.0.1` and **does not require API key authentication** for any endpoint.
 
-The `X-API-Key` / `ADMIN_API_KEY` mechanism that previously gated backup, cron, and source-management endpoints was removed in the 2026-05-03 cleanup -- it added friction to the Settings UI (which never sent the header) without protecting against any in-scope threat. See the `[Unreleased]` section of [`docs/CHANGELOG.md`](CHANGELOG.md) for the full rationale and the list of affected endpoints.
+The `X-API-Key` / `ADMIN_API_KEY` mechanism that previously gated backup, cron, and source-management endpoints was removed in the 2026-05-03 cleanup -- it added friction to the Settings UI (which never sent the header) without protecting against any in-scope threat. See the `[Unreleased]` section of [`docs/CHANGELOG.md`](../CHANGELOG.md) for the full rationale and the list of affected endpoints.
 
 ## If You Need Authentication
 
@@ -13,4 +13,4 @@ The deployment model for this application is single-user, local-only. If you int
 
 ## Backup Endpoints
 
-All backup, cron, and source-management endpoints accept requests without any authentication header. See [`docs/guides/backup-and-restore.md`](guides/backup-and-restore.md) for usage.
+All backup, cron, and source-management endpoints accept requests without any authentication header. See [`docs/guides/backup-and-restore.md`](backup-and-restore.md) for usage.
