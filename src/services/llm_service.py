@@ -392,6 +392,57 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
             )
 
 
+def _parse_rank_prompt(prompt_template: str) -> tuple[str, str | None]:
+    """Resolve RankAgent's user-message template and optional system override.
+
+    The DB stores RankAgent prompts in several historical shapes:
+      * Locked scaffold JSON: {"role": ..., "user_template": ...}
+      * Legacy simple JSON:   {"system": ..., "user": ...}
+      * Generic JSON:         {"prompt": ..., ...}
+      * Raw text:             template string with {title}/{content} placeholders
+
+    Returns (user_template_str, system_override_or_None).  Raises
+    PreprocessInvariantError if the input parses as JSON but yields no
+    usable system override -- a misconfigured prompt that would otherwise
+    silently fall back to empty.
+
+    KNOWN LIMITATION (shape-5 / auto-persist): if prompt_template is a plain
+    persona string with no {title}/{content} placeholders (the auto-persist
+    UI path produces this), it is returned as-is and the caller's .format()
+    becomes a no-op, dropping the article from the user message.  The fix is
+    to stop generating shape-5 at the UI write side; this helper preserves
+    backwards compatibility until that lands.
+    """
+    user_template_str = prompt_template
+    system_override: str | None = None
+    is_json_prompt = False
+    try:
+        parsed_prompt = json.loads(prompt_template)
+        if isinstance(parsed_prompt, dict):
+            is_json_prompt = True
+            user_template = (
+                parsed_prompt.get("user")
+                or parsed_prompt.get("user_template")
+                or parsed_prompt.get("prompt")
+                or ""
+            )
+            system_override = parsed_prompt.get("system") or parsed_prompt.get("role") or None
+            if user_template:
+                user_template_str = user_template
+            elif system_override:
+                user_template_str = system_override
+    except json.JSONDecodeError:
+        pass
+
+    if is_json_prompt and not system_override:
+        raise PreprocessInvariantError(
+            "RankAgent prompt resolved to an empty system message. "
+            "Ensure the prompt config contains a non-empty 'system' or 'role' key."
+        )
+
+    return user_template_str, system_override
+
+
 def _validate_preprocess_invariants(
     messages: list[dict[str, Any]],
     *,
@@ -1818,29 +1869,7 @@ class LLMService:
                 "RankAgent prompt_template must be provided from workflow config. No file fallback available."
             )
 
-        prompt_template_str = prompt_template
-        system_override = None
-        is_json_prompt = False
-        try:
-            parsed_prompt = json.loads(prompt_template_str)
-            if isinstance(parsed_prompt, dict):
-                is_json_prompt = True
-                user_template = (
-                    parsed_prompt.get("user") or parsed_prompt.get("user_template") or parsed_prompt.get("prompt") or ""
-                )
-                system_override = parsed_prompt.get("system") or parsed_prompt.get("role") or None
-                if user_template:
-                    prompt_template_str = user_template
-                elif system_override:
-                    prompt_template_str = system_override
-        except json.JSONDecodeError:
-            pass
-
-        if is_json_prompt and not system_override:
-            raise PreprocessInvariantError(
-                "RankAgent prompt resolved to an empty system message. "
-                "Ensure the prompt config contains a non-empty 'system' or 'role' key."
-            )
+        prompt_template_str, system_override = _parse_rank_prompt(prompt_template)
 
         logger.info(f"Using RankAgent prompt from workflow config (length: {len(prompt_template_str)} chars)")
 
