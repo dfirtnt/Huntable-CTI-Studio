@@ -8558,6 +8558,17 @@ async function performAutoSave() {
             ...(agentPrompts || {})
         };
         const promptsCopy = JSON.parse(JSON.stringify(promptsSource || {}));
+        // Strip the per-agent 'model' sibling -- model selection lives in
+        // agent_models.X and duplicating it inside agent_prompts.X produces
+        // shape-5 records that confuse parse_sigma_agent_prompt_data and
+        // the rank/sigma readers. Skip ExtractAgentSettings (its 'model'
+        // semantic differs -- it's a settings container, not a prompt).
+        for (const key of Object.keys(promptsCopy)) {
+            if (key === 'ExtractAgentSettings') continue;
+            if (promptsCopy[key] && typeof promptsCopy[key] === 'object' && 'model' in promptsCopy[key]) {
+                delete promptsCopy[key].model;
+            }
+        }
         const extractSettings = promptsCopy.ExtractAgentSettings ? { ...promptsCopy.ExtractAgentSettings } : {};
         extractSettings.disabled_agents = disabledFromDOM;
         promptsCopy.ExtractAgentSettings = extractSettings;
