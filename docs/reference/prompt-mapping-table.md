@@ -47,7 +47,7 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | `sigma_generate_multi.txt` | Multi-rule Sigma generation |
 | `sigma_generation_simple.txt` | Simplified Sigma generation |
 | `sigma_enrichment.txt` | Sigma rule enrichment |
-| `sigma_repair_single.txt` | Seed default for `SigmaRepair` (see Workflow Agents table above) |
+| `sigma_repair_single.txt` | Seed default for `ingle-rule SigmaR repair` (see Workflow Agents table above) |
 
 ## Utility Prompts
 
@@ -72,3 +72,6 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 2. **Seed file** (`src/prompts/`) -- fallback on bootstrap or reset
 
 _Last updated: 2026-05-01_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTEzMDQ3ODU5NDFdfQ==
+-->
