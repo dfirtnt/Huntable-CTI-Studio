@@ -12,7 +12,7 @@ With full transparency, each article moves through an explicit LangGraph pipelin
 |------|--------------|
 | **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated and de-duplicated against SigmaHQ |
 | **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
-| **SOC Analysts** | Curated, scored intelligence feed with RAG-powered search |
+| **SOC Analysts** | Curated, scored intelligence feed with RAG-powered search via MCP |
 | **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
 
 ## Highlights
@@ -92,3 +92,6 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
 _Last updated: 2026-05-01_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTYxMzk0MzI2NF19
+-->
