@@ -167,6 +167,31 @@ class TestParseSigmaAgentPromptData:
         assert template is None
         assert system == "PERSONA"
 
+    def test_canonical_shape_user_empty_string_treated_as_null(self):
+        """Locked-scaffold saves send user='' (empty string); that must yield template=None.
+
+        saveAgentPrompt2 sends user='' (not null) when the user scaffold is locked
+        (LOCKED_CANONICAL_AGENTS). The parser must not forward '' as a template or
+        the file-based sigma_generate_multi.txt scaffold would be skipped.
+        """
+        template, system = parse_sigma_agent_prompt_data(
+            {"system": "PERSONA", "user": ""}
+        )
+        assert template is None
+        assert system == "PERSONA"
+
+    def test_canonical_shape_user_non_placeholder_text_passes_through(self):
+        """If someone stores plain text (no placeholders) in the user field, it is
+        returned verbatim as the template.  The UI lock (LOCKED_CANONICAL_AGENTS)
+        prevents this from happening in practice; this test documents the contract
+        so a future bypass is immediately visible in coverage.
+        """
+        template, system = parse_sigma_agent_prompt_data(
+            {"system": "PERSONA", "user": "plain text with no placeholders"}
+        )
+        assert template == "plain text with no placeholders"
+        assert system == "PERSONA"
+
     def test_canonical_takes_precedence_over_legacy_when_both_present(self):
         """If somehow both shapes are present, canonical wins.
 

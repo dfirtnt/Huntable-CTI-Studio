@@ -191,6 +191,31 @@ class TestParseRankAgentPromptDataCanonical:
         assert template == "Rank: {title} {content}"
         assert system is None
 
+    def test_canonical_shape_user_empty_string_treated_as_null(self):
+        """Locked-scaffold saves send user='' (empty string); that must yield template=None.
+
+        saveAgentPrompt2 sends user='' when the user scaffold is locked
+        (LOCKED_CANONICAL_AGENTS). The parser must not forward '' as a template or
+        the file-based rank_article.txt scaffold would be skipped.
+        """
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        template, system = parse_rank_agent_prompt_data({"system": "RANK_PERSONA", "user": ""})
+        assert template is None
+        assert system == "RANK_PERSONA"
+
+    def test_canonical_shape_user_non_placeholder_text_passes_through(self):
+        """Plain text in the user field is returned as template verbatim.
+        The UI lock (LOCKED_CANONICAL_AGENTS) prevents this from happening in practice;
+        this test documents the contract so a future bypass is immediately visible."""
+        from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+        template, system = parse_rank_agent_prompt_data(
+            {"system": "RANK_PERSONA", "user": "plain text no placeholders"}
+        )
+        assert template == "plain text no placeholders"
+        assert system == "RANK_PERSONA"
+
     def test_empty_record_returns_none_pair(self):
         from src.utils.prompt_loader import parse_rank_agent_prompt_data
 

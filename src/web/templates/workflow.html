@@ -9298,8 +9298,8 @@ function renderQAPrompt(agentName, containerId) {
 
     // Use canonical-aware helper for both QA and non-QA agents.
     const promptParts = getAgentPromptParts(agentName);
-    const isLockedScaffoldAgent = isLockedQAPrompt(agentName);
-    
+    const isLockedScaffoldAgent = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName) || isLockedCanonicalPrompt(agentName);
+
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
