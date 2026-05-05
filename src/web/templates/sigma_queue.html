@@ -112,7 +112,11 @@
     <div id="enrichModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-10 mx-auto p-5 border border-gray-700 w-11/12 md:w-4/5 lg:w-3/4 shadow-lg rounded-xl bg-gray-800 max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 sticky top-0 bg-gray-800 pb-2 border-b border-gray-700">
-                <h3 class="text-xl font-bold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg> AI-Assisted Rule Enrichment</h3>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/></svg> AI-Assisted Rule Enrichment
+                    <button type="button" onclick="showEnrichHelp()" class="text-blue-500 hover:text-blue-700 dark:text-blue-400 focus:outline-none" title="Help">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/></svg>
+                    </button>
+                </h3>
                 <div class="flex items-center gap-3">
                     <div id="llmProviderIndicator" class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600">
                         <span id="llmProviderIcon" class="text-lg"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg></span>
@@ -1270,6 +1274,56 @@ function closeEnrichModal() {
     } else {
         document.getElementById('enrichModal').classList.add('hidden');
     }
+}
+
+function showEnrichHelp() {
+    const modalId = 'enrichHelpModal';
+    const existing = document.getElementById(modalId);
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = modalId;
+    modal.className = 'fixed inset-0 hidden bg-black bg-opacity-50 flex items-center justify-center z-[9999]';
+    // Static help content -- no user input, safe to set directly
+    modal.innerHTML = `
+        <div class="bg-gray-800 border border-gray-700 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900 dark:text-white">How AI Rule Enrichment Works</h3>
+                    <button onclick="window.ModalManager.close('enrichHelpModal')"
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
+                    <p class="mb-2"><strong>Enrich Rule</strong> sends your current SIGMA rule to an LLM, which attempts to improve detection logic, add fields, and refine metadata.</p>
+                    <p class="mb-3"><strong>Enrich Further</strong> sends the <em>most recent LLM-generated rule</em> back to the LLM for another pass. It does <strong>not</strong> re-read the original rule you started with.</p>
+                    <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded mb-3">
+                        <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-50">Important: garbage in, garbage out</p>
+                        <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">If the LLM returned a bad or hallucinated rule, clicking "Enrich Further" feeds that bad output to the next LLM call. The model will try to improve whatever it receives -- but it has no memory of your original rule.</p>
+                    </div>
+                    <p class="mb-2"><strong>Best practice:</strong></p>
+                    <ul class="list-disc list-inside mb-2 space-y-1">
+                        <li>Review each enrichment result before clicking "Enrich Further"</li>
+                        <li>If the result is bad, use "Enrich Rule" again to start fresh from your current editor content</li>
+                        <li>Use "Apply Enriched Rule" to accept a good result, then enrich again from that clean baseline</li>
+                    </ul>
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <button onclick="window.ModalManager.close('enrichHelpModal')"
+                            class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+    window.ModalManager.register(modalId, { isDynamic: true, hasInput: false, forceUpdate: true });
+    window.ModalManager.open(modalId);
 }
 
 async function enrichRule() {

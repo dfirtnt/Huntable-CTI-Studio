@@ -121,3 +121,54 @@ def test_extract_agent_sub_agent_list_includes_scheduled_tasks():
     )
     assert extract_section, "Could not isolate extractAgent section"
     assert "ScheduledTasksExtract" in extract_section.group(1)
+
+
+# ---------------------------------------------------------------------------
+# Sigma enrichment help button
+# ---------------------------------------------------------------------------
+
+SIGMA_QUEUE_TEMPLATE = Path("src/web/templates/sigma_queue.html").read_text()
+
+
+def test_sigma_enrich_help_key_present():
+    """sigmaEnrich key exists in helpTexts."""
+    assert "'sigmaEnrich'" in HELP_TEXTS_BLOCK
+
+
+def test_sigma_enrich_help_mentions_enrich_further():
+    """sigmaEnrich help text explains what Enrich Further does."""
+    sigma_section = re.search(
+        r"'sigmaEnrich'\s*:\s*\{(.+?)\}",
+        HELP_TEXTS_BLOCK,
+        re.DOTALL,
+    )
+    assert sigma_section, "Could not isolate sigmaEnrich section"
+    assert "Enrich Further" in sigma_section.group(1)
+
+
+def test_sigma_enrich_help_warns_garbage_in():
+    """sigmaEnrich help text warns about garbage-in-garbage-out."""
+    assert "garbage in, garbage out" in HELP_TEXTS_BLOCK
+
+
+def test_workflow_enrich_modal_has_help_button():
+    """workflow.html enrichModal header has a showHelp('sigmaEnrich') button."""
+    pattern = re.compile(
+        r"AI-Assisted Rule Enrichment.*?showHelp\('sigmaEnrich'\)",
+        re.DOTALL,
+    )
+    assert pattern.search(TEMPLATE), "enrichModal header is missing its showHelp() button"
+
+
+def test_sigma_queue_enrich_modal_has_help_button():
+    """sigma_queue.html enrichModal header has a showEnrichHelp() button."""
+    pattern = re.compile(
+        r"AI-Assisted Rule Enrichment.*?showEnrichHelp\(\)",
+        re.DOTALL,
+    )
+    assert pattern.search(SIGMA_QUEUE_TEMPLATE), "sigma_queue enrichModal header is missing its help button"
+
+
+def test_sigma_queue_has_show_enrich_help_function():
+    """sigma_queue.html contains the showEnrichHelp function definition."""
+    assert "function showEnrichHelp()" in SIGMA_QUEUE_TEMPLATE
