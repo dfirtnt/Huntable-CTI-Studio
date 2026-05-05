@@ -682,6 +682,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "max_similarity": os_result.get("max_similarity"),
                     "probabilities": os_result.get("probabilities"),
                 }
+                flag_modified(execution, "error_log")
 
                 if is_windows:
                     execution.status = "running"
