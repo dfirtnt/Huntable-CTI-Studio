@@ -146,9 +146,9 @@ def test_sigma_enrich_help_mentions_enrich_further():
     assert "Enrich Further" in sigma_section.group(1)
 
 
-def test_sigma_enrich_help_warns_garbage_in():
-    """sigmaEnrich help text warns about garbage-in-garbage-out."""
-    assert "garbage in, garbage out" in HELP_TEXTS_BLOCK
+def test_sigma_enrich_help_explains_chaining_behavior():
+    """sigmaEnrich help text explains that Enrich Further uses latest LLM output."""
+    assert "latest LLM output" in HELP_TEXTS_BLOCK
 
 
 def test_workflow_enrich_modal_has_help_button():

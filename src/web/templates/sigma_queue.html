@@ -1298,17 +1298,17 @@ function showEnrichHelp() {
                     </button>
                 </div>
                 <div class="text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none">
-                    <p class="mb-2"><strong>Enrich Rule</strong> sends your current SIGMA rule to an LLM, which attempts to improve detection logic, add fields, and refine metadata.</p>
-                    <p class="mb-3"><strong>Enrich Further</strong> sends the <em>most recent LLM-generated rule</em> back to the LLM for another pass. It does <strong>not</strong> re-read the original rule you started with.</p>
-                    <div class="p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded mb-3">
-                        <p class="text-sm font-semibold text-yellow-800 dark:text-yellow-50">Important: garbage in, garbage out</p>
-                        <p class="text-sm text-yellow-700 dark:text-yellow-300 mt-1">If the LLM returned a bad or hallucinated rule, clicking "Enrich Further" feeds that bad output to the next LLM call. The model will try to improve whatever it receives -- but it has no memory of your original rule.</p>
+                    <p class="mb-2"><strong>Enrich Rule</strong> sends your current SIGMA rule (from the editor) to an LLM, which attempts to improve detection logic, add fields, and refine metadata.</p>
+                    <p class="mb-3"><strong>Enrich Further</strong> sends the <em>most recent LLM-generated rule</em> back for another refinement pass. This is useful for iterative improvement -- each pass can tighten logic, add edge cases, or polish metadata.</p>
+                    <div class="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded mb-3">
+                        <p class="text-sm font-semibold text-blue-800 dark:text-blue-50">How Enrich Further works</p>
+                        <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">"Enrich Further" feeds the latest LLM output (not your original rule) to the next call. If the last result looked good, this refines it further. If the last result was off, the next pass starts from that weaker output -- so check each result before continuing.</p>
                     </div>
-                    <p class="mb-2"><strong>Best practice:</strong></p>
+                    <p class="mb-2"><strong>Tips:</strong></p>
                     <ul class="list-disc list-inside mb-2 space-y-1">
-                        <li>Review each enrichment result before clicking "Enrich Further"</li>
-                        <li>If the result is bad, use "Enrich Rule" again to start fresh from your current editor content</li>
-                        <li>Use "Apply Enriched Rule" to accept a good result, then enrich again from that clean baseline</li>
+                        <li>Glance at each result before clicking "Enrich Further" to make sure it is heading in the right direction</li>
+                        <li>If a result drifted or hallucinated, click "Enrich Rule" to start fresh from your editor content</li>
+                        <li>You can also "Apply Enriched Rule" first, tweak it manually, then enrich again from that edited baseline</li>
                     </ul>
                 </div>
                 <div class="mt-6 flex justify-end">
