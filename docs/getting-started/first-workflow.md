@@ -4,7 +4,7 @@ Run the full agentic pipeline against a real CTI article: OS detection → conte
 
 **Prerequisites**: Stack running via `./start.sh` (see [Installation](installation.md)).
 
-## 0) Load a baseline preset (recommended for first run)
+## 0) Load a quickstart preset (recommended for first run)
 
 If you haven’t configured the workflow yet, load a preset so all LLM agents have prompts and models set. On the **Workflow** page, use **Import from file** and pick one of:
 
@@ -12,7 +12,7 @@ If you haven’t configured the workflow yet, load a preset so all LLM agents ha
 - **OpenAI / ChatGPT** — `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`
 - **LM Studio (local)** — `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json`
 
-These files are committed to the repo and always present. You can also generate alternate baseline presets by running `python3 scripts/build_baseline_presets.py` — see [Configuration → Workflow baseline presets](configuration.md#workflow-baseline-presets-getting-started) for details.
+These files are committed to the repo and always present. See [Configuration -> Workflow Presets](configuration.md#workflow-presets) for the full list.
 
 ## 1) Ingest a CTI Article
 

@@ -120,11 +120,11 @@ To resolve conflicts, either stop the conflicting service or change the host por
 
 **Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to reach services on the host. You can also set `LMSTUDIO_API_URL` and `LMSTUDIO_EMBEDDING_URL` in **Settings -> Agentic Workflow Configuration** (LM Studio section); those values override `.env`. Context length is configured per-model via `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` in `docker-compose.yml` and can differ between web and worker services. See [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
-## Workflow Baseline Presets
+## Workflow Presets
 
 Pre-built workflow config presets let you run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent, plus default prompt configs (role, task, instructions, schema) for each agent. Seed prompt files live in `src/prompts/` but are only read on first bootstrap or explicit reset; the authoritative prompts at runtime live in the database. See [Prompt Architecture](../concepts/agents.md#prompt-architecture) for details.
 
-Committed quickstart presets (v2 format, always present in repo) are in `config/presets/AgentConfigs/quickstart/`:
+Quickstart presets (v2 format, always committed to the repo) are in `config/presets/AgentConfigs/quickstart/`:
 
 | Preset file | Provider | Model | Use when |
 |-------------|----------|--------|----------|
@@ -140,8 +140,6 @@ Committed quickstart presets (v2 format, always present in repo) are in `config/
 
 All paths are relative to `config/presets/AgentConfigs/quickstart/`.
 
-Alternatively, generate baseline presets (`anthropic-sonnet-4.5.json`, `chatgpt-4o-mini.json`, `lmstudio-qwen2.5-8b.json`) at the top level of `config/presets/AgentConfigs/` by running `python3 scripts/build_baseline_presets.py`. These are not committed to the repo; use the quickstart files above for a fresh install.
-
 **How to load a preset**
 
 1. Open the **Workflow** page in the web UI.
@@ -150,7 +148,7 @@ Alternatively, generate baseline presets (`anthropic-sonnet-4.5.json`, `chatgpt-
 
 **Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import from file** to load from it.
 
-To regenerate the baseline preset files (not the quickstart presets), run from the repo root:
+To normalize key order in quickstart presets after a schema update, run from the repo root:
 
 ```bash
 python3 scripts/build_baseline_presets.py
