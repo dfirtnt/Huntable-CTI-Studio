@@ -463,6 +463,7 @@ def trace_llm_call(
             with propagate_attributes(
                 session_id=resolved_session_id,
                 user_id=f"article_{article_id}" if article_id else None,
+                trace_name=name,
             ):
                 generation = client.start_observation(**generation_kwargs)
         else:

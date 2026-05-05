@@ -53,8 +53,10 @@ class TestTraceLlmCallUsesV4Api:
                 assert call_kwargs["model"] == "gpt-4"
                 # session_id must NOT be in trace_context (TraceContext ignores it)
                 assert "trace_context" not in call_kwargs
-                # session_id must travel via propagate_attributes
-                mock_propagate.assert_called_once_with(session_id="workflow_exec_1", user_id="article_42")
+                # session_id must travel via propagate_attributes; trace_name labels standalone traces
+                mock_propagate.assert_called_once_with(
+                    session_id="workflow_exec_1", user_id="article_42", trace_name="test_gen"
+                )
                 # v3 method should NOT have been called
                 mock_client.start_generation.assert_not_called()
 
@@ -143,8 +145,10 @@ class TestTraceLlmCallUsesV4Api:
                 assert "trace_context" in call_kwargs
                 assert call_kwargs["trace_context"]["trace_id"] == "active-trace-999"
                 assert "session_id" not in call_kwargs["trace_context"]
-                # session must still travel via propagate_attributes
-                mock_propagate.assert_called_once_with(session_id="workflow_exec_7", user_id="article_10")
+                # session must still travel via propagate_attributes; trace_name labels standalone traces
+                mock_propagate.assert_called_once_with(
+                    session_id="workflow_exec_7", user_id="article_10", trace_name="linked_gen"
+                )
 
     def test_no_propagate_attributes_when_no_session(self):
         """When no execution_id and no session_id are provided, propagate_attributes
