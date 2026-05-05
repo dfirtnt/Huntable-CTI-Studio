@@ -313,3 +313,31 @@ def parse_rank_agent_prompt_data(rank_prompt_data: dict[str, Any] | None) -> tup
         return (None, raw_prompt)
 
     return (template, system)
+
+
+def parse_sigma_repair_prompt_data(repair_prompt_data: dict[str, Any] | None) -> str | None:
+    """Extract the repair template string from a SigmaRepair DB record.
+
+    The template must contain both {validation_errors} and {original_rule}
+    placeholders so the caller can inject repair context.  If either is missing
+    the saved value is a bare persona string (not a usable template) and this
+    function returns None so the caller falls back to the file-based default.
+
+    Returns the prompt string if valid, or None.
+    """
+    if not repair_prompt_data:
+        return None
+
+    raw_prompt = repair_prompt_data.get("prompt", "")
+    if not isinstance(raw_prompt, str) or not raw_prompt:
+        return None
+
+    required = ("{validation_errors}", "{original_rule}")
+    if not all(ph in raw_prompt for ph in required):
+        logger.warning(
+            "SigmaRepair prompt from DB is missing required placeholders "
+            "({validation_errors} and/or {original_rule}); ignoring and using file-based default"
+        )
+        return None
+
+    return raw_prompt

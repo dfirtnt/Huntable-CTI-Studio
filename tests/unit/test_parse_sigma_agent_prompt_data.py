@@ -1,4 +1,4 @@
-"""Tests for src.utils.prompt_loader.parse_sigma_agent_prompt_data.
+"""Tests for src.utils.prompt_loader.parse_sigma_agent_prompt_data and parse_sigma_repair_prompt_data.
 
 SigmaAgent's DB prompt has four historical shapes the parser must handle:
   1. Locked scaffold JSON:    {"role": ..., "user_template": ...}
@@ -19,7 +19,7 @@ import json
 
 import pytest
 
-from src.utils.prompt_loader import parse_sigma_agent_prompt_data
+from src.utils.prompt_loader import parse_sigma_agent_prompt_data, parse_sigma_repair_prompt_data
 
 pytestmark = pytest.mark.unit
 
@@ -295,3 +295,54 @@ class TestParseSigmaAgentPromptData:
         # Should follow locked-scaffold branch, not auto-persist branch
         assert template == "tmpl {title}"
         assert system == "ROLE"
+
+
+class TestParseSigmaRepairPromptData:
+    """Tests for parse_sigma_repair_prompt_data placeholder guard."""
+
+    VALID_TEMPLATE = (
+        "Repair the following Sigma rule.\n"
+        "Errors:\n{validation_errors}\n"
+        "Rule:\n{original_rule}\n"
+        "Return only valid YAML."
+    )
+
+    def test_valid_template_returned_as_is(self):
+        """A prompt with both required placeholders is returned unchanged."""
+        data = {"prompt": self.VALID_TEMPLATE, "instructions": ""}
+        result = parse_sigma_repair_prompt_data(data)
+        assert result == self.VALID_TEMPLATE
+
+    def test_missing_both_placeholders_returns_none(self):
+        """A bare persona string (no placeholders) must return None."""
+        data = {"prompt": "You are a Sigma rule repair expert.", "instructions": ""}
+        result = parse_sigma_repair_prompt_data(data)
+        assert result is None
+
+    def test_missing_validation_errors_placeholder_returns_none(self):
+        """Missing {validation_errors} alone must return None."""
+        data = {"prompt": "Fix this rule:\n{original_rule}\nReturn valid YAML.", "instructions": ""}
+        result = parse_sigma_repair_prompt_data(data)
+        assert result is None
+
+    def test_missing_original_rule_placeholder_returns_none(self):
+        """Missing {original_rule} alone must return None."""
+        data = {"prompt": "Errors:\n{validation_errors}\nFix it.", "instructions": ""}
+        result = parse_sigma_repair_prompt_data(data)
+        assert result is None
+
+    def test_none_input_returns_none(self):
+        """None data gracefully returns None."""
+        assert parse_sigma_repair_prompt_data(None) is None
+
+    def test_empty_dict_returns_none(self):
+        """Empty dict returns None."""
+        assert parse_sigma_repair_prompt_data({}) is None
+
+    def test_non_string_prompt_returns_none(self):
+        """Non-string prompt field returns None."""
+        assert parse_sigma_repair_prompt_data({"prompt": 42}) is None
+
+    def test_empty_string_prompt_returns_none(self):
+        """Empty string prompt returns None."""
+        assert parse_sigma_repair_prompt_data({"prompt": ""}) is None

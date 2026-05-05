@@ -2050,9 +2050,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             sigma_system_prompt = None
             sigma_repair_template = None
             if config_obj and config_obj.agent_prompts and "SigmaRepair" in config_obj.agent_prompts:
-                repair_prompt_data = config_obj.agent_prompts["SigmaRepair"]
-                if isinstance(repair_prompt_data.get("prompt"), str):
-                    sigma_repair_template = repair_prompt_data["prompt"]
+                from src.utils.prompt_loader import parse_sigma_repair_prompt_data
+
+                sigma_repair_template = parse_sigma_repair_prompt_data(config_obj.agent_prompts["SigmaRepair"])
+                if sigma_repair_template:
                     logger.info(
                         f"[Workflow {state['execution_id']}] Using database prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
                     )

@@ -100,6 +100,25 @@ class TestSigmaAgentTaskUsesCanonicalParser:
         assert call.kwargs["sigma_system_prompt"] == "PERSONA_V1"
         assert call.kwargs["sigma_prompt_template"] == "Generate for {title}: {content}"
 
+    def test_no_model_no_placeholder_routes_persona_to_system_prompt(self):
+        """Regression: live DB shape with no 'model' key and no placeholders must yield system=persona.
+
+        The existing shape-5 test covers {model, prompt, instructions}.  The DB shape
+        that triggered run-2426 had no 'model' sibling: {prompt: '<persona>', instructions: ''}.
+        Without the model key the parser must still detect the absence of format placeholders
+        and route the text to system, not to template.
+        """
+        persona = "You are a precise Sigma rule author. Focus on behavioral detection."
+        agent_prompts = {
+            "SigmaAgent": {
+                "prompt": persona,
+                "instructions": "",
+            }
+        }
+        call = _run_sigma_task(agent_prompts)
+        assert call.kwargs["sigma_system_prompt"] == persona
+        assert call.kwargs["sigma_prompt_template"] is None
+
     def test_extraction_envelope_shape_2_extracts_role_as_system(self):
         """Shape 2 (extraction-agent envelope): role -> system, template stays None."""
         inner = json.dumps(

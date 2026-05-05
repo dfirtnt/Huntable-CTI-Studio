@@ -2319,9 +2319,10 @@ async def api_generate_sigma(article_id: int, request: Request):
         sigma_system_prompt = None
         sigma_repair_template = None
         if config and config.agent_prompts and "SigmaRepair" in config.agent_prompts:
-            repair_prompt_data = config.agent_prompts["SigmaRepair"]
-            if isinstance(repair_prompt_data.get("prompt"), str):
-                sigma_repair_template = repair_prompt_data["prompt"]
+            from src.utils.prompt_loader import parse_sigma_repair_prompt_data
+
+            sigma_repair_template = parse_sigma_repair_prompt_data(config.agent_prompts["SigmaRepair"])
+            if sigma_repair_template:
                 logger.info(f"Using SigmaRepair prompt from workflow config (len={len(sigma_repair_template)} chars)")
         if config and config.agent_prompts and "SigmaAgent" in config.agent_prompts:
             from src.utils.prompt_loader import parse_sigma_agent_prompt_data
