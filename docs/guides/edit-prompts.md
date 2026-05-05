@@ -117,7 +117,7 @@ Quickstart presets for the three supported providers are in `config/presets/Agen
 
 **To export your own**: Workflow page → **Export config** → saves the current active config as JSON. Put it in `config/presets/private/` (gitignored) to keep it out of version control.
 
-See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for the full preset reference.
+See [Workflow Pbaseline presets](../getting-started/configuration.md#workflow-presets) for the full preset referencebaseline-presets-getting-started) for the full preset reference including how to regenerate baseline files.
 
 ## Common mistakes
 
@@ -133,7 +133,10 @@ See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for
 - [Extract Observables](extract-observables.md) — observable shape and downstream consumers
 - [Evaluate Models](evaluate-models.md) — measuring prompt changes against eval articles
 - [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
-- [Workflow Presets](../getting-started/configuration.md#workflow-presets) — quickstart preset files and how to import/export configs
+- [Workflow Pbaseline presets](../getting-started/configuration.md#workflow-presetsbaseline-presets-getting-started) — quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
 
 _Last updated: 2026-05-01_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTcxNTMzNjM4XX0=
+-->
