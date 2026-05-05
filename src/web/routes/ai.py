@@ -1109,7 +1109,7 @@ async def api_test_langfuse_connection(request: Request):
 
             # Try to initialize Langfuse client and validate keys with actual API call
             try:
-                from langfuse import Langfuse
+                from langfuse import Langfuse, propagate_attributes
                 from langfuse.api import AccessDeniedError, UnauthorizedError
                 from langfuse.api.client import AsyncLangfuseAPI
                 from langfuse.api.core.api_error import ApiError
@@ -1172,31 +1172,38 @@ async def api_test_langfuse_connection(request: Request):
                     flush_interval=1.0,
                 )
 
-                # Send a test trace/generation using Langfuse v4 API
-                test_span = langfuse_client.start_observation(
-                    name="langfuse_connection_test",
-                    metadata={"test": True, "timestamp": datetime.now().isoformat()},
-                )
+                # Send a test trace/generation using Langfuse v4 API.
+                # Wrap in propagate_attributes so test spans get a dedicated
+                # session and tag, keeping them out of production dashboards.
+                with propagate_attributes(
+                    session_id="connection-test",
+                    tags=["connection-test"],
+                    trace_name="langfuse_connection_test",
+                ):
+                    test_span = langfuse_client.start_observation(
+                        name="langfuse_connection_test",
+                        metadata={"test": True, "timestamp": datetime.now().isoformat()},
+                    )
 
-                test_generation = langfuse_client.start_observation(
-                    name="test_generation",
-                    as_type="generation",
-                    model="test",
-                    model_parameters={"temperature": "0.1"},
-                    trace_context=TraceContext(
-                        trace_id=getattr(test_span, "trace_id", None) or getattr(test_span, "id", None),
-                    ),
-                )
+                    test_generation = langfuse_client.start_observation(
+                        name="test_generation",
+                        as_type="generation",
+                        model="test",
+                        model_parameters={"temperature": "0.1"},
+                        trace_context=TraceContext(
+                            trace_id=getattr(test_span, "trace_id", None) or getattr(test_span, "id", None),
+                        ),
+                    )
 
-                # Update generation with output, then end it
-                test_generation.update(output="Connection test successful")
-                test_generation.end()
+                    # Update generation with output, then end it
+                    test_generation.update(output="Connection test successful")
+                    test_generation.end()
 
-                test_span.end()
+                    test_span.end()
 
-                # Flush to ensure it's sent and verify it succeeds
-                # This will raise an exception if keys are invalid
-                langfuse_client.flush()
+                    # Flush to ensure it's sent and verify it succeeds
+                    # This will raise an exception if keys are invalid
+                    langfuse_client.flush()
 
                 return {
                     "valid": True,
