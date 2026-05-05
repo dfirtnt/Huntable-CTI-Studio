@@ -8349,16 +8349,26 @@ window.autoSaveConfig = async function autoSaveConfig() {
 // Actual autosave implementation (separated for debouncing)
 async function performAutoSave() {
     try {
-        // Validate all provider/model combinations before saving
+        // Validate all provider/model combinations before saving.
+        // Only block if a model was NEWLY changed to an invalid value -- a pre-existing
+        // invalid model in the DB (e.g. from a prior session) must not block unrelated
+        // threshold/toggle autosaves.
         let hasValidationErrors = false;
         Object.values(AGENT_CONFIG).forEach(config => {
             const provider = getAgentProvider(config.prefix) || getDefaultProvider();
             const model = getAgentModel(config.prefix, provider);
             if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
-                hasValidationErrors = true;
+                // Check whether this model value differs from what is already stored.
+                // If it matches, the error is pre-existing -- let the save proceed.
+                const storedModel = currentConfig && currentConfig.agent_models
+                    ? currentConfig.agent_models[config.modelKey]
+                    : undefined;
+                if (model !== storedModel) {
+                    hasValidationErrors = true;
+                }
             }
         });
-        
+
         // If validation errors exist, don't save (throttle warn to avoid console spam)
         if (hasValidationErrors) {
             const now = Date.now();
