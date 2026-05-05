@@ -264,7 +264,11 @@ class TestWorkflowTraceUsesV4Api:
             trace = mod._LangfuseWorkflowTrace(execution_id=1, article_id=42)
             trace.__enter__()
 
-            mock_propagate.assert_called_once_with(session_id="workflow_exec_1", user_id="article_42")
+            mock_propagate.assert_called_once_with(
+                session_id="workflow_exec_1",
+                user_id="article_42",
+                trace_name="agentic_workflow_execution_1",
+            )
             mock_attributes_cm.__enter__.assert_called_once()
             mock_client.start_as_current_observation.assert_called_once()
             # trace_context should NOT be passed (no existing trace to link to)
@@ -298,7 +302,11 @@ class TestWorkflowTraceUsesV4Api:
         ):
             trace = mod._LangfuseWorkflowTrace(execution_id=99, article_id=10, session_id="custom-session-abc")
             trace.__enter__()
-            mock_propagate.assert_called_once_with(session_id="custom-session-abc", user_id="article_10")
+            mock_propagate.assert_called_once_with(
+                session_id="custom-session-abc",
+                user_id="article_10",
+                trace_name="agentic_workflow_execution_99",
+            )
             trace.__exit__(None, None, None)
 
     def test_attributes_cm_cleaned_up_on_enter_exception(self):

@@ -180,6 +180,7 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
             self._attributes_cm = propagate_attributes(
                 session_id=session_id,
                 user_id=self.user_id or f"article_{self.article_id}",
+                trace_name=f"agentic_workflow_execution_{self.execution_id}",
             )
             self._attributes_cm.__enter__()
 
