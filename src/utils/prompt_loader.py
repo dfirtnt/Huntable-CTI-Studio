@@ -236,9 +236,10 @@ def parse_sigma_agent_prompt_data(sigma_prompt_data: dict[str, Any] | None) -> t
             template = parsed.get("user") or raw_prompt
             system = parsed.get("system") or None
         elif isinstance(parsed, dict) and ("task" in parsed or "json_example" in parsed):
-            # Extraction-agent save format: UI packages SigmaAgent prompts as
-            # {"role": <system>, "task": "", "json_example": "{}", "instructions": ""}
-            # because SigmaAgent is in LOCKED_EXTRACTOR_AGENTS on the frontend.
+            # Extraction-agent save format: legacy records written when SigmaAgent was
+            # mistakenly included in LOCKED_EXTRACTOR_AGENTS on the frontend and the save
+            # path wrapped prompts as {"role": <system>, "task": "", "json_example": "{}",
+            # "instructions": ""}. The UI no longer generates this shape for SigmaAgent.
             # User template is code-owned (locked), so template stays None here.
             # Detect by key presence, not by role value, to handle empty role strings.
             system = parsed.get("role") or None

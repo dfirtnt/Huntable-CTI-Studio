@@ -2409,7 +2409,8 @@
           // Hide user prompt section when the agent has a locked user scaffold.
           // Use inline style.display to override the parent flex-layout CSS.
           const userLocked = (typeof isLockedExtractorPrompt === 'function' && isLockedExtractorPrompt(agentName))
-                          || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName));
+                          || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName))
+                          || (typeof isLockedCanonicalPrompt === 'function' && isLockedCanonicalPrompt(agentName));
           const userSection = document.getElementById('prompt-exp-user-section');
           const userLockedMsg = document.getElementById('prompt-exp-user-locked');
           if (userSection && userLockedMsg) {
@@ -2507,7 +2508,8 @@
           }
 
           const userLocked = (typeof isLockedExtractorPrompt === 'function' && isLockedExtractorPrompt(agentName))
-                          || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName));
+                          || (typeof isLockedQAPrompt === 'function' && isLockedQAPrompt(agentName))
+                          || (typeof isLockedCanonicalPrompt === 'function' && isLockedCanonicalPrompt(agentName));
           const usrTA = document.getElementById('prompt-exp-user');
           const userOverride = (!userLocked && usrTA) ? usrTA.value : null;
 
@@ -5840,6 +5842,16 @@ const LOCKED_QA_AGENTS = [
     'ScheduledTasksQA',
 ];
 
+// SigmaAgent and RankAgent: user scaffold is code-owned (locked) but the save path is
+// canonical {system, user}, not the extraction-agent envelope. Keeping them separate from
+// LOCKED_EXTRACTOR_AGENTS / LOCKED_QA_AGENTS avoids mis-routing their saves through the
+// JSON-envelope branch in saveAgentPrompt2.
+const LOCKED_CANONICAL_AGENTS = ['SigmaAgent', 'RankAgent'];
+
+function isLockedCanonicalPrompt(agentName) {
+    return LOCKED_CANONICAL_AGENTS.includes(agentName);
+}
+
 const LOCKED_EXTRACTION_USER_TEMPLATE = 'Title: {title}\nURL: {url}\n\nContent:\n{content}\n\n{instructions}';
 const LOCKED_QA_USER_TEMPLATE = 'Task: {objective}\n\nArticle Title: {title}\nArticle URL: {url}\n\nOriginal Extraction Task: {task}\n\nOriginal Extraction Instructions:\n{extraction_instructions}\n\nOriginal Extraction Output Format:\n{extraction_output_format}\n\nSource Text:\n{article_content}\n\nExtracted Data:\n{extracted_commands}\n\nEvaluation Criteria:\n{evaluation_criteria}\n\nInstructions: {instructions}';
 const LOCKED_RANK_USER_TEMPLATE = 'Article Title: {title}\nSource: {source}\nURL: {url}\n\nContent:\n{content}';
@@ -6293,8 +6305,8 @@ function renderAgentPrompts() {
         const panelId = `${agentId}-prompt-panel`;
         const isTemplateFormat = promptParts.isTemplateFormat;
         const templateData = promptParts.templateData || {};
-        const isLockedScaffoldAgent = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
-        
+        const isLockedScaffoldAgent = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName) || isLockedCanonicalPrompt(agentName);
+
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
                 <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
@@ -6455,7 +6467,7 @@ async function saveAgentPrompt(agentName) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
     const promptSystemElement = document.getElementById(`${agentId}-prompt-system`);
     const promptUserElement = document.getElementById(`${agentId}-prompt-user`);
-    const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
+    const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName) || isLockedCanonicalPrompt(agentName);
     if (!promptSystemElement || (!promptUserElement && !lockedScaffold)) {
         showNotification('Prompt elements not found', 'error');
         return;
@@ -9136,7 +9148,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     
     // Check if this is one of the locked extractor prompts
     const isExtractionAgent = isLockedExtractorPrompt(agentName);
-    const isLockedScaffoldAgent = isExtractionAgent || isLockedQAPrompt(agentName);
+    const isLockedScaffoldAgent = isExtractionAgent || isLockedQAPrompt(agentName) || isLockedCanonicalPrompt(agentName);
     
     return `
         <div id="${panelId}-root" class="border border-gray-200 dark:border-gray-700 rounded-lg">
@@ -10730,7 +10742,7 @@ function cancelEditPrompt2(agentName) {
 // and the inline DOM textarea lookup is skipped entirely.
 async function saveAgentPrompt2(agentName, overrides = {}) {
     const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
-    const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName);
+    const lockedScaffold = isLockedExtractorPrompt(agentName) || isLockedQAPrompt(agentName) || isLockedCanonicalPrompt(agentName);
 
     let systemVal, userVal;
     if (overrides.systemOverride !== undefined) {
