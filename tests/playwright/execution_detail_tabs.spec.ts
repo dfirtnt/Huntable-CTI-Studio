@@ -76,8 +76,20 @@ test.describe('Execution Detail - Tabbed UI', () => {
       () => typeof (window as any).viewExecution === 'function',
       { timeout: 5000 }
     );
-    // Open modal programmatically
-    await page.evaluate(() => (window as any).viewExecution(99999));
+    // Re-wait for networkidle: the workflow page sets window.location.hash in its
+    // init code after DOMContentLoaded. That assignment can fire *after* waitForFunction
+    // passes (viewExecution is hoisted), briefly destroying the JS execution context.
+    // A second networkidle wait lets the hash navigation settle before we evaluate.
+    await page.waitForLoadState('networkidle');
+    // Open modal programmatically — retry once on context-destroyed from residual navigation
+    try {
+      await page.evaluate(() => (window as any).viewExecution(99999));
+    } catch (e) {
+      if (!String(e).includes('Execution context was destroyed')) throw e;
+      await page.waitForLoadState('networkidle');
+      await page.waitForFunction(() => typeof (window as any).viewExecution === 'function', { timeout: 5000 });
+      await page.evaluate(() => (window as any).viewExecution(99999));
+    }
     await page.waitForSelector('#executionModal:not(.hidden)', { timeout: 5000 });
   });
 

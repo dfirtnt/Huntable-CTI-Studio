@@ -109,7 +109,10 @@ test.describe('Expanded prompt editor — save regression', () => {
     // Payload must contain our edited text
     const body = JSON.parse(saveRequests[saveRequests.length - 1].postData() || '{}');
     expect(body.agent_name).toBe('RankAgent');
-    const promptStr = typeof body.prompt === 'string' ? body.prompt : JSON.stringify(body.prompt);
+    // saveAgentPrompt2 uses the canonical {system, user} shape for non-extraction agents
+    // (RankAgent). The legacy single-field `prompt` shape is only used for extraction
+    // agents. Check both to be robust against future shape changes.
+    const promptStr = body.system ?? body.prompt ?? '';
     expect(promptStr).toContain('REGRESSION TEST CONTENT');
 
     // Modal should be closed after save

@@ -256,7 +256,15 @@ async def sources_list(request: Request):
                 return hunt_score_lookup[source.id].get("avg_hunt_score", 0)
             return 0
 
-        sources_sorted = sorted(sources, key=get_hunt_score, reverse=True)
+        # Deduplicate by ID — list_sources() can occasionally return the same row
+        # twice due to SQLAlchemy session identity-map edge cases with relationships.
+        _seen: set[int] = set()
+        sources_unique = []
+        for s in sources:
+            if s.id not in _seen:
+                _seen.add(s.id)
+                sources_unique.append(s)
+        sources_sorted = sorted(sources_unique, key=get_hunt_score, reverse=True)
 
         # Add collection method helper to template context
         def get_collection_method(source):
