@@ -97,12 +97,6 @@ class LLMBenchmark:
             return {"available": False, "reason": "OpenAI API key not configured"}
         if provider == "anthropic" and not self.service.anthropic_api_key:
             return {"available": False, "reason": "Anthropic API key not configured"}
-        if provider == "lmstudio" and not self.service._is_lmstudio_available():
-            return {"available": False, "reason": "LM Studio service not available"}
-        if provider == "mlx" and not self.service._is_mlx_available():
-            return {"available": False, "reason": "MLX not available or model not found"}
-        if provider == "llamacpp" and not self.service._is_llamacpp_available():
-            return {"available": False, "reason": "llama.cpp not available or model not found"}
 
         results = []
 

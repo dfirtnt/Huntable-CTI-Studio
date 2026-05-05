@@ -480,15 +480,3 @@ class LLMGenerationService:
         providers.append("lmstudio")  # Always available if LMStudio is running
 
         return providers
-
-
-# Global instance
-_llm_generation_service = None
-
-
-def get_llm_generation_service() -> LLMGenerationService:
-    """Get the global LLM generation service instance."""
-    global _llm_generation_service
-    if _llm_generation_service is None:
-        _llm_generation_service = LLMGenerationService()
-    return _llm_generation_service
