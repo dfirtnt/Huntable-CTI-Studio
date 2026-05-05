@@ -342,7 +342,9 @@ class AsyncDatabaseManager:
 
                 query = query.order_by(SourceTable.name)
                 result = await session.execute(query)
-                db_sources = result.scalars().all()
+                # SQLAlchemy 2.x: scalars().all() can return duplicate ORM objects when
+                # relationships are loaded; unique() deduplicates by primary key.
+                db_sources = result.unique().scalars().all()
 
                 return [self._db_source_to_model(db_source) for db_source in db_sources]
 
