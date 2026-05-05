@@ -158,6 +158,12 @@ test.describe('LOCKED_CANONICAL_AGENTS -- save path sends empty user', () => {
           resolve({ agentName, overrides });
           return Promise.resolve(); // skip real network call
         };
+        // saveExpandedPrompt gates on a non-empty system textarea (validation check).
+        // Ensure there is content so it reaches the saveAgentPrompt2 call.
+        const sysTA = document.getElementById('prompt-exp-system') as HTMLTextAreaElement | null;
+        if (sysTA && !sysTA.value.trim()) {
+          sysTA.value = 'Placeholder persona text for save-path test.';
+        }
         if (typeof (window as any).saveExpandedPrompt === 'function') {
           (window as any).saveExpandedPrompt();
         }
@@ -185,6 +191,10 @@ test.describe('LOCKED_CANONICAL_AGENTS -- save path sends empty user', () => {
           resolve({ agentName, overrides });
           return Promise.resolve();
         };
+        const sysTA = document.getElementById('prompt-exp-system') as HTMLTextAreaElement | null;
+        if (sysTA && !sysTA.value.trim()) {
+          sysTA.value = 'Placeholder persona text for save-path test.';
+        }
         if (typeof (window as any).saveExpandedPrompt === 'function') {
           (window as any).saveExpandedPrompt();
         }

@@ -908,11 +908,13 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
                 normalized = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
                 if normalized == url:
                     continue
-                article = (
-                    db_session.query(ArticleTable).filter(ArticleTable.canonical_url.like(f"{normalized}%")).first()
+                row = (
+                    db_session.query(ArticleTable.id)
+                    .filter(ArticleTable.canonical_url.like(f"{normalized}%"))
+                    .first()
                 )
-                if article:
-                    result[url] = article.id
+                if row:
+                    result[url] = row[0]
 
             return result
         finally:

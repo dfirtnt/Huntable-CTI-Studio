@@ -3793,6 +3793,7 @@ window.switchTab = switchTab;
 // Configuration Functions
 let currentConfig = null;
 let isInitializing = true; // Flag to prevent autosave during page initialization
+window.isInitializing = true; // Mirror for Playwright waitForFunction
 let agentPrompts = {};
 let agentModels = {};
 const extractSubAgents = EXTRACT_SUB_AGENTS;
@@ -6989,6 +6990,7 @@ async function loadConfig(skipPromptReload = false) {
     const wasInitializing = isInitializing;
     if (!skipPromptReload) {
         isInitializing = true;
+        window.isInitializing = true;
     }
     
     try {
@@ -7198,6 +7200,7 @@ async function loadConfig(skipPromptReload = false) {
             // Use setTimeout to ensure all change events from initialization have fired
             setTimeout(() => {
                 isInitializing = false;
+                window.isInitializing = false;
                 console.log('Initialization complete, autosave enabled');
                 // Reset original state after initialization to clear any false "unsaved changes"
                 resetOriginalConfigStateFromCurrent();
@@ -7215,6 +7218,7 @@ async function loadConfig(skipPromptReload = false) {
         } else {
             // If skipping prompt reload, restore previous initialization state
             isInitializing = wasInitializing;
+            window.isInitializing = wasInitializing;
         }
     } catch (error) {
         console.error('Error loading config:', error);
@@ -7234,12 +7238,14 @@ async function loadConfig(skipPromptReload = false) {
             }
             setTimeout(() => {
                 isInitializing = false;
+                window.isInitializing = false;
                 console.log('Initialization complete (with errors), autosave enabled');
                 resetOriginalConfigStateFromCurrent();
                 updateSaveButtonState();
             }, 100);
         } else {
             isInitializing = wasInitializing;
+            window.isInitializing = wasInitializing;
         }
     }
 }

@@ -84,7 +84,7 @@ async def api_articles_list(
         )
 
         return {
-            "articles": [article.dict() for article in articles],
+            "articles": [article.dict(exclude={"embedding"}) for article in articles],
             "total": total_count,
             "sort_by": sort_by,
             "sort_order": sort_order,

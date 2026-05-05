@@ -79,7 +79,7 @@ test.describe('Agent Config Full Coverage (10+ agents)', () => {
     await ensureQATogglesEnabled(page);
   });
 
-  test('Enable/disable toggles are visible (10 agents)', async ({ page }) => {
+  test('Enable/disable toggles are visible (9 agents)', async ({ page }) => {
     const toggles = [
       '#rank-agent-enabled',
       '#toggle-cmdlineextract-enabled',
@@ -90,7 +90,7 @@ test.describe('Agent Config Full Coverage (10+ agents)', () => {
       '#qa-proctreeextract',
       '#qa-huntqueriesextract',
       '#sigma-fallback-enabled',
-      '#osdetectionagent-fallback-enabled'
+      // osdetectionagent-fallback-enabled removed: OS Detection uses embedding similarity, no LLM fallback toggle
     ];
 
     for (const selector of toggles) {
