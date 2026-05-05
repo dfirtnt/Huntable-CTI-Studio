@@ -30,7 +30,6 @@ FIDELITY_JUNK = 0.72
 FIDELITY_QA_RETRIES = 2
 FIDELITY_MIN_HUNT = 88.0
 FIDELITY_OS_EMBEDDING = "test/embedding-model"
-FIDELITY_OS_FALLBACK_ENABLED = True
 FIDELITY_OS_SELECTED = ["Linux", "Darwin"]
 FIDELITY_RANK_THRESHOLD = 7.0
 FIDELITY_RANK_QA_ENABLED = True
@@ -65,15 +64,7 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
         },
         "OSDetection": {
             "Embedding": FIDELITY_OS_EMBEDDING,
-            "FallbackEnabled": FIDELITY_OS_FALLBACK_ENABLED,
-            "Fallback": {
-                "Provider": "anthropic",
-                "Model": "claude-sonnet-4-5",
-                "Temperature": 0.0,
-                "TopP": 0.9,
-            },
             "SelectedOs": list(FIDELITY_OS_SELECTED),
-            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " OS", "instructions": ""},
         },
         "RankAgent": {
             "Enabled": True,
@@ -228,16 +219,12 @@ def test_import_enforces_all_settings():
     assert config.Features.SigmaFallbackEnabled is FIDELITY_SIGMA_FULL_ARTICLE
     assert config.Features.CmdlineAttentionPreprocessorEnabled is FIDELITY_CMDLINE_ATTENTION
 
-    # OS fallback agent
-    assert config.Agents["OSDetectionFallback"].Enabled is FIDELITY_OS_FALLBACK_ENABLED
-
     # Prompts (sentinels)
     def _prompt_text(p: Any) -> str:
         if p is None:
             return ""
         return p.prompt if hasattr(p, "prompt") else (p.get("prompt", "") if isinstance(p, dict) else "")
 
-    assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("OSDetectionFallback"))
     assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("RankAgent"))
     assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("CmdlineExtract"))
     assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("SigmaAgent"))
@@ -264,7 +251,7 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     assert legacy["qa_enabled"].get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
     assert legacy["sigma_fallback_enabled"] is FIDELITY_SIGMA_FULL_ARTICLE
     assert legacy["cmdline_attention_preprocessor_enabled"] is FIDELITY_CMDLINE_ATTENTION
-    assert legacy["osdetection_fallback_enabled"] is FIDELITY_OS_FALLBACK_ENABLED
+    assert legacy["osdetection_fallback_enabled"] is False
     # Note: schema to_legacy_response_dict does not include extract_agent_settings; the API
     # route _v2_to_legacy_preset_dict adds it. Execution.DisabledAgents is asserted in test_import_enforces_all_settings.
 
@@ -298,9 +285,7 @@ def test_export_contains_all_settings():
 
     osd = exported["OSDetection"]
     assert osd["Embedding"] == FIDELITY_OS_EMBEDDING
-    assert osd["FallbackEnabled"] is FIDELITY_OS_FALLBACK_ENABLED
     assert osd["SelectedOs"] == FIDELITY_OS_SELECTED
-    assert FIDELITY_PROMPT_SENTINEL in osd["Prompt"].get("prompt", "")
 
     rank = exported["RankAgent"]
     assert float(rank["RankingThreshold"]) == FIDELITY_RANK_THRESHOLD
@@ -404,7 +389,6 @@ def test_legacy_import_fails_when_qa_max_retries_missing():
         "qa_enabled": {},
         # qa_max_retries omitted intentionally
         "sigma_fallback_enabled": False,
-        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
         "extract_agent_settings": {"disabled_agents": []},

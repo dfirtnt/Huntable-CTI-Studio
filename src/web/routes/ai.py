@@ -1839,7 +1839,6 @@ async def api_detect_os(article_id: int, request: Request):
         # Get request body
         body = await request.json()
         use_classifier = body.get("use_classifier", True)
-        use_fallback = body.get("use_fallback", True)
         use_junk_filter = body.get("use_junk_filter", True)  # Enable junk filter by default
         junk_filter_threshold = body.get("junk_filter_threshold", 0.8)  # Default threshold
 
@@ -1857,7 +1856,6 @@ async def api_detect_os(article_id: int, request: Request):
             config_obj = trigger_service.get_active_config()
             agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
             embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
-            fallback_model = agent_models.get("OSDetectionAgent_fallback")
 
             # Get junk filter threshold from config if not provided in request
             if config_obj and not body.get("junk_filter_threshold"):
@@ -1899,12 +1897,9 @@ async def api_detect_os(article_id: int, request: Request):
         # Initialize service with configured embedding model
         service = OSDetectionService(model_name=embedding_model)
 
-        # Detect OS with configured fallback model using filtered content
         result = await service.detect_os(
             content=content_to_analyze,
             use_classifier=use_classifier,
-            use_fallback=use_fallback,
-            fallback_model=fallback_model,
         )
 
         # Update article metadata with OS detection result

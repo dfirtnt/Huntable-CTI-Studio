@@ -223,14 +223,9 @@ async function validateConfig() {
 function showValidationResults(result) {
     const issues = result.issues || [];
 
-    const modalId = 'workflowConfigValidationModal';
-    const existing = document.getElementById(modalId);
-    if (existing) existing.remove();
-
     // Create modal container
     const modal = document.createElement('div');
-    modal.id = modalId;
-    modal.className = 'fixed inset-0 hidden bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
 
     // Create modal card
     const card = document.createElement('div');
@@ -251,7 +246,7 @@ function showValidationResults(result) {
 
     const closeBtn = document.createElement('button');
     closeBtn.className = 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none';
-    closeBtn.onclick = () => window.ModalManager.close(modalId);
+    closeBtn.onclick = () => modal.remove();
     closeBtn.innerHTML = '<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
     header.appendChild(closeBtn);
     content.appendChild(header);
@@ -320,15 +315,29 @@ function showValidationResults(result) {
     const footerBtn = document.createElement('button');
     footerBtn.className = 'px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors';
     footerBtn.textContent = 'Close';
-    footerBtn.onclick = () => window.ModalManager.close(modalId);
+    footerBtn.onclick = () => modal.remove();
     footer.appendChild(footerBtn);
     content.appendChild(footer);
 
     card.appendChild(content);
     modal.appendChild(card);
     document.body.appendChild(modal);
-    window.ModalManager.register(modalId, { isDynamic: true, hasInput: false, forceUpdate: true });
-    window.ModalManager.open(modalId);
+
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+
+    // Close on Escape key
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
 }
 
 // Help modal function
@@ -385,21 +394,16 @@ function showHelp(fieldName) {
     
     const help = helpTexts[fieldName];
     if (!help) return;
-
-    const modalId = 'workflowConfigHelpModal';
-    const existing = document.getElementById(modalId);
-    if (existing) existing.remove();
-
+    
     // Create modal
     const modal = document.createElement('div');
-    modal.id = modalId;
-    modal.className = 'fixed inset-0 hidden bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
     modal.innerHTML = `
         <div class="card-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <div class="p-6">
                 <div class="flex justify-between items-start mb-4">
                     <h3 class="text-xl font-semibold text-gray-900 dark:text-white">${help.title}</h3>
-                    <button onclick="window.ModalManager.close('workflowConfigHelpModal')"
+                    <button onclick="this.closest('.fixed').remove()" 
                             class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
@@ -410,7 +414,7 @@ function showHelp(fieldName) {
                     ${help.content}
                 </div>
                 <div class="mt-6 flex justify-end">
-                    <button onclick="window.ModalManager.close('workflowConfigHelpModal')"
+                    <button onclick="this.closest('.fixed').remove()" 
                             class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors">
                         Close
                     </button>
@@ -418,10 +422,24 @@ function showHelp(fieldName) {
             </div>
         </div>
     `;
-
+    
     document.body.appendChild(modal);
-    window.ModalManager.register(modalId, { isDynamic: true, hasInput: false, forceUpdate: true });
-    window.ModalManager.open(modalId);
+    
+    // Close on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    
+    // Close on Escape key
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            modal.remove();
+            document.removeEventListener('keydown', handleEscape);
+        }
+    };
+    document.addEventListener('keydown', handleEscape);
 }
 </script>
 {% endblock %}

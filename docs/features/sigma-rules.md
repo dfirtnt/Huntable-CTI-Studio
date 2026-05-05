@@ -311,7 +311,7 @@ entry for display in the Sigma Queue UI.
 | Precompute | `sigma_semantic_precompute.py` | Materializes canonical atom sets and logsource keys at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
-| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based fallback when deterministic atoms are unavailable |
+| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based similarity scoring (cosine similarity via local sentence-transformers) |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine; used when installed |
 

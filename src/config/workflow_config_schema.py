@@ -125,7 +125,7 @@ AGENT_NAMES_QA = [
     "ServicesQA",
     "ScheduledTasksQA",
 ]
-AGENT_NAMES_SPECIAL = ["OSDetectionFallback"]
+AGENT_NAMES_SPECIAL: list[str] = []
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
 
 # Prompts section may only contain these keys (no ExtractAgentSettings; that lives under Execution).
@@ -138,7 +138,6 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "QAAgent": "QA Agent (legacy)",
     "SigmaAgent": "SIGMA Agent",
     "OSDetectionAgent": "OS Detection",
-    "OSDetectionFallback": "OS Detection Fallback",
     "CmdlineExtract": "Command Line Extraction",
     "ProcTreeExtract": "Process Lineage Extraction",
     "HuntQueriesExtract": "Hunt Queries Extraction",
@@ -223,7 +222,7 @@ class WorkflowConfigV2(BaseModel):
                 raise ValueError(f"Agent '{name}' is Enabled but missing Provider or Model.")
         # Part 1: every enabled base agent (with Provider+Model) in mapping must have its QA agent
         for name, cfg in agents.items():
-            if name.endswith("QA") or name == "OSDetectionFallback":
+            if name.endswith("QA"):
                 continue
             if not (cfg.Enabled and cfg.Provider and cfg.Model):
                 continue
@@ -238,12 +237,9 @@ class WorkflowConfigV2(BaseModel):
             if base not in agents:
                 raise ValueError(f"Orphan QA agent {name}: base agent {base} must exist in Agents")
         # Part 3: every agent with Provider+Model must have a prompt block
-        # (except OSDetectionFallback when disabled/no model, and ExtractAgent which
-        # no longer carries a Prompt after the supervisor removal)
-        _PROMPT_FREE = {"OSDetectionFallback", "ExtractAgent"}
+        # (ExtractAgent is excluded: no longer carries a Prompt after the supervisor removal)
+        _PROMPT_FREE = {"ExtractAgent"}
         for name, cfg in agents.items():
-            if name == "OSDetectionFallback" and not cfg.Enabled and not cfg.Model:
-                continue
             if name in _PROMPT_FREE:
                 continue
             if cfg.Provider and cfg.Model and name not in prompts:
@@ -280,12 +276,8 @@ class WorkflowConfigV2(BaseModel):
             if not isinstance(agent, AgentConfig):
                 continue
             prefix = legacy_flat_prefix.get(agent_name, agent_name)
-            if agent_name == "OSDetectionFallback":
-                prefix = "OSDetectionAgent_fallback"
             out[f"{prefix}_provider"] = agent.Provider
-            if agent_name == "OSDetectionFallback":
-                model_key = "OSDetectionAgent_fallback"
-            elif agent_name in main_model_keys:
+            if agent_name in main_model_keys:
                 model_key = agent_name
             elif agent_name in sub_agents:
                 model_key = f"{prefix}_model"
@@ -323,7 +315,6 @@ class WorkflowConfigV2(BaseModel):
             "disabled_agents": list(self.Execution.ExtractAgentSettings.DisabledAgents),
         }
         rank_agent = self.Agents.get("RankAgent")
-        os_fallback = self.Agents.get("OSDetectionFallback")
         return {
             "id": id,
             "min_hunt_score": self.Thresholds.MinHuntScore,
@@ -337,7 +328,7 @@ class WorkflowConfigV2(BaseModel):
             "agent_models": self.flatten_for_llm_service(),
             "qa_enabled": self.QA.Enabled,
             "sigma_fallback_enabled": self.Features.SigmaFallbackEnabled,
-            "osdetection_fallback_enabled": os_fallback.Enabled if isinstance(os_fallback, AgentConfig) else False,
+            "osdetection_fallback_enabled": False,
             "qa_max_retries": self.QA.MaxRetries,
             "rank_agent_enabled": rank_agent.Enabled if isinstance(rank_agent, AgentConfig) else True,
             "cmdline_attention_preprocessor_enabled": self.Features.CmdlineAttentionPreprocessorEnabled,

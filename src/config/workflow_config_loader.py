@@ -30,13 +30,12 @@ EXTRACT_AGENTS = [
     "ScheduledTasksExtract",
 ]
 QA_AGENTS = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"]
-UTILITY_AGENTS = ["OSDetectionFallback"]
+UTILITY_AGENTS: list[str] = []
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
 # So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract + QA
 # → ProcTree + QA → HuntQueries + QA → Sigma.
 AGENTS_ORDER_UI = [
-    "OSDetectionFallback",
     "RankAgent",
     "RankAgentQA",
     "ExtractAgent",
@@ -105,7 +104,6 @@ _LEGACY_REQUIRED_KEYS = [
     "qa_enabled",
     "qa_max_retries",
     "sigma_fallback_enabled",
-    "osdetection_fallback_enabled",
     "rank_agent_enabled",
     "cmdline_attention_preprocessor_enabled",
     "extract_agent_settings",
@@ -118,7 +116,7 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("JunkFilter", ["JunkFilterThreshold"]),
     ("QASettings", ["MaxRetries"]),
     ("Thresholds", ["MinHuntScore"]),
-    ("OSDetection", ["Embedding", "FallbackEnabled", "Fallback", "SelectedOs", "Prompt"]),
+    ("OSDetection", ["Embedding", "SelectedOs"]),
     (
         "RankAgent",
         [
@@ -227,18 +225,9 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "MinHuntScore": float(th.get("MinHuntScore", 97.0)),
     }
 
-    os_fb = _agent_cfg(agents, "OSDetectionFallback")
     out["OSDetection"] = {
         "Embedding": emb.get("OsDetection", "ibm-research/CTI-BERT"),
-        "FallbackEnabled": os_fb["Enabled"],
-        "Fallback": {
-            "Provider": os_fb["Provider"],
-            "Model": os_fb["Model"],
-            "Temperature": os_fb["Temperature"],
-            "TopP": os_fb["TopP"],
-        },
         "SelectedOs": exe.get("OsDetectionSelectedOs") or ["Windows"],
-        "Prompt": _prompt_cfg(prompts, "OSDetectionFallback"),
     }
 
     rank = _agent_cfg(agents, "RankAgent")
@@ -498,16 +487,6 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
             if qa_prompt is not None:
                 prompts[qa_name] = qa_prompt
 
-    fallback = osd.get("Fallback") or {}
-    agents["OSDetectionFallback"] = {
-        "Provider": fallback.get("Provider", ""),
-        "Model": fallback.get("Model", ""),
-        "Temperature": float(fallback.get("Temperature", 0.0)),
-        "TopP": float(fallback.get("TopP", 0.9)),
-        "Enabled": bool(osd.get("FallbackEnabled", False)),
-    }
-    prompts["OSDetectionFallback"] = osd.get("Prompt") or {"prompt": "", "instructions": ""}
-
     add_agent("RankAgent", rank, rank.get("Prompt"), "RankAgentQA", rank.get("QA"), rank.get("QAPrompt"))
     qa_enabled["RankAgent"] = bool(rank.get("QAEnabled", False))
 
@@ -660,7 +639,6 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "qa_enabled": getattr(row, "qa_enabled", None) or {},
         "qa_max_retries": getattr(row, "qa_max_retries", 5),
         "sigma_fallback_enabled": getattr(row, "sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": getattr(row, "osdetection_fallback_enabled", False),
         "rank_agent_enabled": getattr(row, "rank_agent_enabled", True),
         "cmdline_attention_preprocessor_enabled": getattr(row, "cmdline_attention_preprocessor_enabled", True),
         "extract_agent_settings": _extract_agent_settings_from_row(row),
@@ -682,7 +660,6 @@ def _empty_v1() -> dict[str, Any]:
         "qa_enabled": {},
         "qa_max_retries": 5,
         "sigma_fallback_enabled": False,
-        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
         "extract_agent_settings": {"disabled_agents": []},

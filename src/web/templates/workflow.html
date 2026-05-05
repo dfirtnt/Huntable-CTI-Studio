@@ -2700,7 +2700,7 @@
               issues.push({ level: 'warn', msg: "Missing 'objective' key. Will fall back to generic 'Verify extraction.' string." });
             }
           }
-          // Non-extraction, non-QA agents (RankAgent, SigmaAgent, ExtractAgent, OSDetectionFallback):
+          // Non-extraction, non-QA agents (RankAgent, SigmaAgent, ExtractAgent):
           // If the prompt is JSON with a role/system key, validate it is non-empty.
           // RankAgent hard-fails at runtime if JSON prompt has no system/role (PreprocessInvariantError).
           // SigmaAgent falls back to a default but should still be flagged.
@@ -3641,7 +3641,6 @@ const AGENT_DISPLAY_NAMES = {
     'ExtractAgent':       'Extract Agent',
     'SigmaAgent':         'SIGMA Agent',
     'OSDetectionAgent':   'OS Detection',
-    'OSDetectionFallback':'OS Detection Fallback',
     'CmdlineExtract':     'Command Line Extraction',
     'ProcTreeExtract':    'Process Lineage Extraction',
     'HuntQueriesExtract': 'Hunt Queries Extraction',
@@ -4357,17 +4356,6 @@ const AGENT_CONFIG = {
         isQA: false,
         hasFallback: false
     },
-    'osdetectionagent-fallback': {
-        prefix: 'osdetectionagent-fallback',
-        providerKey: 'OSDetectionAgent_fallback_provider',
-        modelKey: 'OSDetectionAgent_fallback',
-        temperatureKey: 'OSDetectionAgent_fallback_temperature',
-        topPKey: 'OSDetectionAgent_fallback_top_p',
-        name: 'OSDetectionAgent_fallback',
-        isSubAgent: false,
-        isQA: false,
-        hasFallback: false
-    },
     // Extract sub-agents
     cmdlineextract: {
         prefix: 'cmdlineextract',
@@ -4544,7 +4532,6 @@ const AGENT_UI_DISPLAY_LABELS = {
     rankagent: 'Rank Agent',
     extractagent: 'Extract Agents',
     sigmaagent: 'SIGMA Generator Agent',
-    'osdetectionagent-fallback': 'OS Detection Fallback LLM',
     cmdlineextract: 'CmdlineExtract',
     proctreeextract: 'ProcTreeExtract',
     huntqueriesextract: 'HuntQueriesExtract',
@@ -4643,7 +4630,6 @@ function normalizeWorkflowConfigControlBindings() {
         similarityThreshold: { key: 'similarity_threshold', label: 'Similarity Threshold' },
         'rank-agent-enabled': { key: 'rank_agent_enabled', label: 'Rank Agent Enabled' },
         'sigma-fallback-enabled': { key: 'sigma_fallback_enabled', label: 'Use Full Article Content (Minus Junk)' },
-        'osdetectionagent-fallback-enabled': { key: 'osdetection_fallback_enabled', label: 'Enable OS Detection Fallback LLM', name: 'osdetection_fallback_enabled' },
         'cmdline-attention-preprocessor-enabled': { key: 'cmdline_attention_preprocessor_enabled', label: 'Attention Preprocessor' },
         'qa-rankagent': { key: 'qa_enabled[RankAgent]', label: 'Rank QA Agent' },
         'qa-cmdlineextract': { key: 'qa_enabled[CmdlineExtract]', label: 'CmdlineExtract QA Agent' },
@@ -5190,7 +5176,6 @@ function renderAgentModels() {
         // Special handling for OSDetectionAgent
         if (agentName === 'OSDetectionAgent') {
             const currentEmbeddingModel = (agentModels && agentModels['OSDetectionAgent_embedding']) || 'ibm-research/CTI-BERT';
-            const currentFallbackModel = (agentModels && agentModels['OSDetectionAgent_fallback']) || '';
             const currentSelectedOS = (agentModels && agentModels['OSDetectionAgent_selected_os']) || ['Windows'];
             const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
             
@@ -5408,36 +5393,9 @@ async function loadLMStudioModels() {
             agents.forEach(agentName => {
                 const agentId = agentName.toLowerCase().replace(/\s+/g, '-');
                 
-                // Handle OSDetectionAgent fallback model separately
+                // Skip OSDetectionAgent (embedding-based, no LLM model select)
                 if (agentName === 'OSDetectionAgent') {
-                    const fallbackSelect = document.getElementById(`${agentId}-fallback-model`);
-                    if (fallbackSelect) {
-                        const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
-                        fallbackSelect.innerHTML = '<option value="">-- Select model --</option>';
-                        
-                        // Sort models alphabetically
-                        const sortedModels = [...data.models].sort();
-                        
-                        sortedModels.forEach(model => {
-                            const option = document.createElement('option');
-                            option.value = model;
-                            option.textContent = model;
-                            if (model === currentFallbackModel) {
-                                option.selected = true;
-                            }
-                            fallbackSelect.appendChild(option);
-                        });
-                        
-                        if (currentFallbackModel && !data.models.includes(currentFallbackModel)) {
-                            const option = document.createElement('option');
-                            option.value = currentFallbackModel;
-                            option.textContent = `${currentFallbackModel} (not available)`;
-                            option.selected = true;
-                            option.style.color = 'orange';
-                            fallbackSelect.appendChild(option);
-                        }
-                    }
-                    return; // Skip regular model select for OSDetectionAgent
+                    return;
                 }
                 
                 // Check for both -model-2 (current) and -model (legacy) variants
@@ -6967,32 +6925,6 @@ window.updateQABadge = function(agentPrefix) {
 // Also make it available as a non-window function for event listeners
 const updateQABadge = window.updateQABadge;
 
-// Toggle fallback model enable/disable
-window.toggleFallbackModel = function() {
-    const toggle = document.getElementById('osdetectionagent-fallback-enabled');
-    const container = document.getElementById('osdetectionagent-fallback-container');
-    
-    if (!toggle || !container) {
-        console.error('toggleFallbackModel: Toggle or container element not found');
-        return;
-    }
-    
-    if (toggle.checked) {
-        // Show the fallback model selection container
-        container.classList.remove('hidden');
-        container.style.display = 'block';
-    } else {
-        // Hide the fallback model selection (preserve form values so they restore when re-enabled)
-        container.classList.add('hidden');
-        container.style.display = 'none';
-        // Auto-save so backend gets OSDetectionAgent_fallback: null while toggle is off
-        if (typeof autoSaveModelChange === 'function') {
-            autoSaveModelChange();
-        }
-    }
-    if (typeof updateSaveButtonState === 'function') updateSaveButtonState();
-};
-
 function toggleCollapsible(panelId) {
     const content = document.getElementById(`${panelId}-content`);
     const toggle = document.getElementById(`${panelId}-toggle`);
@@ -7136,16 +7068,6 @@ async function loadConfig(skipPromptReload = false) {
         if (sigmaFallbackCheckbox && currentConfig.sigma_fallback_enabled !== undefined) {
             sigmaFallbackCheckbox.checked = currentConfig.sigma_fallback_enabled;
         }
-        const osFallbackCheckbox = document.getElementById('osdetectionagent-fallback-enabled');
-        if (osFallbackCheckbox && currentConfig.osdetection_fallback_enabled !== undefined) {
-            osFallbackCheckbox.checked = currentConfig.osdetection_fallback_enabled;
-            const osFallbackContainer = document.getElementById('osdetectionagent-fallback-container');
-            if (osFallbackContainer) {
-                osFallbackContainer.classList.toggle('hidden', !currentConfig.osdetection_fallback_enabled);
-                osFallbackContainer.style.display = currentConfig.osdetection_fallback_enabled ? 'block' : 'none';
-            }
-        }
-        
         const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
         if (rankAgentEnabledCheckbox && currentConfig.rank_agent_enabled !== undefined) {
             rankAgentEnabledCheckbox.checked = currentConfig.rank_agent_enabled;
@@ -7572,8 +7494,6 @@ function renderAgentModels(lmstudioModels) {
     const osContainer = getContainer('os-detection-model-container');
     if (osContainer) {
         const currentEmbeddingModel = agentModels['OSDetectionAgent_embedding'] || 'ibm-research/CTI-BERT';
-        const currentFallbackModel = agentModels['OSDetectionAgent_fallback'] || '';
-        const currentFallbackProvider = agentModels['OSDetectionAgent_fallback_provider'] || getDefaultProvider();
         const currentSelectedOS = agentModels['OSDetectionAgent_selected_os'] || ['Windows'];
         const selectedOSArray = Array.isArray(currentSelectedOS) ? currentSelectedOS : (currentSelectedOS ? [currentSelectedOS] : ['Windows']);
         
@@ -7584,12 +7504,6 @@ function renderAgentModels(lmstudioModels) {
         const isOtherChecked = selectedOSArray.includes('Other') || selectedOSArray.includes('All');
         const isAllChecked = selectedOSArray.includes('All');
         
-        // Only use currentFallbackModel for LMStudio dropdown if provider is lmstudio
-        const lmstudioFallbackModel = currentFallbackProvider === 'lmstudio' ? currentFallbackModel : '';
-        const currentFallbackTemp = agentModels['OSDetectionAgent_fallback_temperature'] !== undefined && agentModels['OSDetectionAgent_fallback_temperature'] !== ''
-            ? parseFloat(agentModels['OSDetectionAgent_fallback_temperature']) : 0.0;
-        const currentFallbackTopP = agentModels['OSDetectionAgent_fallback_top_p'] !== undefined && agentModels['OSDetectionAgent_fallback_top_p'] !== ''
-            ? parseFloat(agentModels['OSDetectionAgent_fallback_top_p']) : 0.9;
         
         osContainer.innerHTML = `
             <div class="bg-gray-50 rounded-lg p-4 border border-gray-200 dark:border-gray-700" style="background: var(--panel-bg-5) !important;">
@@ -7613,47 +7527,6 @@ function renderAgentModels(lmstudioModels) {
                         <option value="ibm-research/CTI-BERT" ${currentEmbeddingModel === 'ibm-research/CTI-BERT' ? 'selected' : ''}>CTI-BERT</option>
                         <option value="nlpaueb/sec-bert-base" ${currentEmbeddingModel === 'nlpaueb/sec-bert-base' ? 'selected' : ''}>SEC-BERT</option>
                     </select>
-                </div>
-                <!-- UNRELEASED / FUTURE FEATURE: LLM fallback for OS detection.
-                     Hidden until multi-OS support is implemented.
-                     To re-enable: remove the "hidden" class from this div and
-                     re-enable _detect_with_llm_fallback in os_detection_service.py. -->
-                <div class="mb-3 hidden">
-                    <div class="flex items-center justify-between mb-1">
-                        <label class="block text-xs font-medium text-gray-600 dark:text-gray-400">Fallback LLM (Optional)</label>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" 
-                                   id="osdetectionagent-fallback-enabled" 
-                                   name="osdetection_fallback_enabled"
-                                   aria-label="Enable OS Detection Fallback LLM"
-                                   class="sr-only peer" 
-                                   onchange="toggleFallbackModel()"
-                                   ${currentFallbackModel ? 'checked' : ''}>
-                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-purple-600"></div>
-                        </label>
-                    </div>
-                    <div id="osdetectionagent-fallback-container" class="${currentFallbackModel ? '' : 'hidden'}" style="display: ${currentFallbackModel ? 'block' : 'none'};">
-                        ${buildProviderSelect('osdetectionagent-fallback', currentFallbackProvider)}
-                        <p class="text-[10px] text-gray-500 dark:text-gray-400 mt-1 mb-2">LLM fallback when embedding confidence is low</p>
-                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="lmstudio">
-                            <select id="osdetectionagent-fallback-model-2"
-                                    name="agent_models[OSDetectionAgent_fallback]"
-                                    onchange="autoSaveModelChange()"
-                                    class="w-full px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-700 dark:text-white font-mono text-xs">
-                                <option value="">Use default</option>
-                                ${sortedModelIds.map(modelId => `<option value="${escapeHtml(modelId)}" ${lmstudioFallbackModel === modelId ? 'selected' : ''}>${escapeHtml(modelId)}</option>`).join('')}
-                            </select>
-                        </div>
-                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="openai" class="hidden">
-                            ${buildCommercialProviderInput('osdetectionagent-fallback', 'openai', currentFallbackProvider, currentFallbackModel)}
-                        </div>
-                        <div data-agent-prefix="osdetectionagent-fallback" data-provider="anthropic" class="hidden">
-                            ${buildCommercialProviderInput('osdetectionagent-fallback', 'anthropic', currentFallbackProvider, currentFallbackModel)}
-                        </div>
-                        <div class="mt-3 flex gap-3">
-                            ${buildTempTopPSliderRow('osdetectionagent-fallback', currentFallbackTemp, currentFallbackTopP, 'OSDetectionAgent_fallback_temperature', 'OSDetectionAgent_fallback_top_p', 1)}
-                        </div>
-                    </div>
                 </div>
                 <div>
                     <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1.5">Target Operating Systems</label>
@@ -7687,7 +7560,6 @@ function renderAgentModels(lmstudioModels) {
                 </div>
             </div>
         `;
-        ['osdetectionagent-fallback-temperature', 'osdetectionagent-fallback-top-p'].forEach(updateThresholdDisplay);
     }
     
     // Render Extract Agents Fallback Model
@@ -8472,24 +8344,6 @@ async function performAutoSave() {
         // Special handling for OS Detection embedding (not in AGENT_CONFIG)
         const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
         
-        // Special handling for OS Detection fallback (conditional)
-        const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-        const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
-        if (!osFallbackEnabled) {
-            // Explicitly remove fallback when toggle is disabled
-            collectedAgentConfigs.OSDetectionAgent_fallback = null;
-            collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
-        } else {
-            // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
-            const provider = getAgentProvider('osdetectionagent-fallback') || getDefaultProvider();
-            const model = getAgentModel('osdetectionagent-fallback', provider);
-            collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
-            // Only set model if a value is selected (not empty string)
-            if (model) {
-                collectedAgentConfigs.OSDetectionAgent_fallback = model;
-            }
-        }
-        
         const agentModelsData = {
             ...collectedAgentConfigs,
             OSDetectionAgent_embedding: osEmbedding,
@@ -8498,9 +8352,7 @@ async function performAutoSave() {
         
         // Remove null/empty string values (but keep 0.0 for temperature)
         // CRITICAL: RankAgent must be included if it has a value (even if empty string, to override env var)
-        // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
         const cleanedAgentModels = {};
-        const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
         // Get RankAgent value from collected configs, with fallback to direct form read
         let rankModelValue = collectedAgentConfigs.RankAgent;
         if (rankModelValue === undefined || rankModelValue === null) {
@@ -8525,17 +8377,11 @@ async function performAutoSave() {
                     // This prevents accidentally clearing the model when form hasn't loaded yet
                     cleanedAgentModels[key] = currentConfig.agent_models.RankAgent;
                 }
-            } else if (keysToPreserveNull.includes(key)) {
-                // Preserve null values for keys that need explicit removal
-                // Also include non-empty values (when toggle is enabled with a model selected)
-                if (value === null || value !== '') {
-                    cleanedAgentModels[key] = value;
-                }
             } else if (value !== null && value !== '') {
                 cleanedAgentModels[key] = value;
             }
         }
-        
+
         // Collect thresholds (only if valid)
         const junkFilterInput = document.getElementById('junkFilterThreshold');
         const rankingInput = document.getElementById('rankingThreshold');
@@ -8582,7 +8428,6 @@ async function performAutoSave() {
         
         // Collect other toggles
         const sigmaFallbackEnabled = document.getElementById('sigma-fallback-enabled')?.checked || false;
-        const osdetectionFallbackEnabled = document.getElementById('osdetectionagent-fallback-enabled')?.checked || false;
         const cmdlineAttentionPreprocessorEnabled = document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false;
         
         // Only save QA max retries if valid
@@ -8623,7 +8468,6 @@ async function performAutoSave() {
             agent_models: (Object.keys(cleanedAgentModels).length > 0 || cleanedAgentModels.RankAgent !== undefined) ? cleanedAgentModels : null,
             qa_enabled: qaEnabled,
             sigma_fallback_enabled: sigmaFallbackEnabled,
-            osdetection_fallback_enabled: osdetectionFallbackEnabled,
             rank_agent_enabled: rankAgentEnabled,
             cmdline_attention_preprocessor_enabled: cmdlineAttentionPreprocessorEnabled,
             qa_max_retries: qaMaxRetries,
@@ -8825,14 +8669,6 @@ window.autoSaveModelChange = function() {
                     hasErrors = true;
                 }
             });
-            const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-            if (osFallbackToggle && osFallbackToggle.checked) {
-                const provider = getAgentProvider('osdetectionagent-fallback') || getDefaultProvider();
-                const model = getAgentModel('osdetectionagent-fallback', provider);
-                if (model && !validateProviderModelCombination('osdetectionagent-fallback', provider, model)) {
-                    hasErrors = true;
-                }
-            }
             if (!hasErrors) {
                 window.autoSaveConfig().then(resolve).catch(() => resolve());
             } else {
@@ -9905,10 +9741,6 @@ function getFullPresetState(scope = null) {
     const sigmaFallbackCheckbox = document.getElementById('sigma-fallback-enabled');
     const sigma_fallback_enabled = sigmaFallbackCheckbox ? sigmaFallbackCheckbox.checked : false;
     
-    // OS Detection fallback toggle (captured so preset restores it)
-    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-    const osdetection_fallback_enabled = osFallbackToggle ? osFallbackToggle.checked : false;
-    
     // Get rank agent enabled setting
     const rankAgentEnabledCheckbox = document.getElementById('rank-agent-enabled');
     const rank_agent_enabled = rankAgentEnabledCheckbox ? rankAgentEnabledCheckbox.checked !== false : true;
@@ -9936,7 +9768,6 @@ function getFullPresetState(scope = null) {
         agent_models: formState.agent_models,
         qa_enabled: formState.qa_enabled,
         sigma_fallback_enabled: sigma_fallback_enabled,
-        osdetection_fallback_enabled: osdetection_fallback_enabled,
         rank_agent_enabled: rank_agent_enabled,
         cmdline_attention_preprocessor_enabled: document.getElementById('cmdline-attention-preprocessor-enabled')?.checked !== false,
         qa_max_retries: qa_max_retries,
@@ -10573,18 +10404,6 @@ async function applyPreset(preset) {
             }
         }
         
-        // Apply OS Detection fallback toggle (so feature runs when preset has fallback model)
-        const osFallbackToggleEl = document.getElementById('osdetectionagent-fallback-enabled');
-        const osFallbackContainer = document.getElementById('osdetectionagent-fallback-container');
-        if (osFallbackToggleEl && osFallbackContainer) {
-            const enabled = preset.osdetection_fallback_enabled !== undefined
-                ? preset.osdetection_fallback_enabled
-                : !!(preset.agent_models && (preset.agent_models.OSDetectionAgent_fallback || preset.agent_models['OSDetectionAgent_fallback']));
-            osFallbackToggleEl.checked = enabled;
-            osFallbackContainer.classList.toggle('hidden', !enabled);
-            osFallbackContainer.style.display = enabled ? 'block' : 'none';
-        }
-        
         // Apply cmdline attention preprocessor
         if (preset.cmdline_attention_preprocessor_enabled !== undefined) {
             const cmdlineAttentionPreprocessorCheckbox = document.getElementById('cmdline-attention-preprocessor-enabled');
@@ -10979,9 +10798,6 @@ function resetOriginalConfigStateFromCurrent() {
         disabled_extract_agents: getDisabledExtractAgentsFromConfig(currentConfig),
         qa_max_retries: currentConfig.qa_max_retries || 5,
         sigma_fallback_enabled: currentConfig.sigma_fallback_enabled || false,
-        osdetection_fallback_enabled: currentConfig.osdetection_fallback_enabled !== undefined
-            ? currentConfig.osdetection_fallback_enabled
-            : !!(currentConfig.agent_models && (currentConfig.agent_models.OSDetectionAgent_fallback || currentConfig.agent_models['OSDetectionAgent_fallback'])),
         rank_agent_enabled: currentConfig.rank_agent_enabled !== undefined ? currentConfig.rank_agent_enabled : true,
         agent_prompts: promptsSource
     };
@@ -11029,10 +10845,6 @@ function getAllSelectedModels() {
             }
         }
     });
-    
-    // OS Detection fallback model (exclude embedding model)
-    const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
-    if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
     
     // QA agent models
     const qaAgents = [
@@ -11169,15 +10981,6 @@ function getAllSelectedModelsWithProviders() {
         }
     });
     
-    // OS Detection fallback
-    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-    if (osFallbackToggle && osFallbackToggle.checked) {
-        const osFallbackProvider = document.getElementById('osdetectionagent-fallback-provider')?.value || getDefaultProvider();
-        const osFallback = getActiveAgentModelValue('osdetectionagent-fallback', osFallbackProvider);
-        if (osFallback && !isEmbeddingModel(osFallback)) {
-            selectedModels.push({ agent: 'OS Fallback', model: osFallback, provider: osFallbackProvider, enabled: true });
-        }
-    }
     
     return selectedModels;
 }
@@ -11393,16 +11196,6 @@ function getLMStudioModelsOnly() {
         }
     });
     
-    // OS Detection fallback model (only if provider is LMStudio)
-    const osFallbackProviderSelect = document.getElementById('osdetectionagent-fallback-provider');
-    if (osFallbackProviderSelect) {
-        const osFallbackProvider = (osFallbackProviderSelect.value || '').trim().toLowerCase();
-        if (osFallbackProvider === 'lmstudio') {
-            const osFallback = document.getElementById('osdetectionagent-fallback-model-2')?.value.trim();
-            if (osFallback && !isEmbeddingModel(osFallback)) models.add(osFallback);
-        }
-    }
-    
     // QA agent models (only if provider is LMStudio, agent is enabled, and QA is enabled)
     const qaAgents = [
         { name: 'RankAgentQA', prefix: 'rankqa', providerId: 'rankqa-provider', subAgent: null },
@@ -11515,7 +11308,6 @@ function getCurrentFormState() {
         disabled_extract_agents: disabled_agents,
         qa_max_retries: Math.min(Math.max(1, parseInt(document.getElementById('qaMaxRetries')?.value) || 5), 3),
         sigma_fallback_enabled: document.getElementById('sigma-fallback-enabled')?.checked || false,
-        osdetection_fallback_enabled: document.getElementById('osdetectionagent-fallback-enabled')?.checked || false,
         rank_agent_enabled: document.getElementById('rank-agent-enabled')?.checked ?? true,
         agent_prompts: promptsSource
     };
@@ -11581,9 +11373,6 @@ function checkForUnsavedChanges() {
     
     // Compare sigma_fallback_enabled
     if (currentState.sigma_fallback_enabled !== originalState.sigma_fallback_enabled) return true;
-    
-    // Compare OS Detection fallback toggle
-    if (currentState.osdetection_fallback_enabled !== originalState.osdetection_fallback_enabled) return true;
     
     // Compare rank_agent_enabled
     if (currentState.rank_agent_enabled !== originalState.rank_agent_enabled) return true;
@@ -11831,27 +11620,6 @@ if (workflowConfigForm) {
     // Special handling for OS Detection embedding (not in AGENT_CONFIG)
     const osEmbedding = document.getElementById('osdetectionagent-embedding-model-2')?.value.trim() || 'ibm-research/CTI-BERT';
     
-    // Special handling for OS Detection fallback (conditional)
-    const osFallbackToggle = document.getElementById('osdetectionagent-fallback-enabled');
-    const osFallbackEnabled = osFallbackToggle && osFallbackToggle.checked;
-    if (!osFallbackEnabled) {
-        // Explicitly remove fallback when toggle is disabled
-        collectedAgentConfigs.OSDetectionAgent_fallback = null;
-        collectedAgentConfigs.OSDetectionAgent_fallback_provider = null;
-    } else {
-        // Explicitly collect fallback when toggle is enabled (override collectAllAgentConfigs result)
-        const provider = getAgentProvider('osdetectionagent-fallback') || getDefaultProvider();
-        const model = getAgentModel('osdetectionagent-fallback', provider);
-        collectedAgentConfigs.OSDetectionAgent_fallback_provider = provider;
-        // Only set model if a value is selected (not empty string)
-        if (model) {
-            collectedAgentConfigs.OSDetectionAgent_fallback = model;
-        } else {
-            // If no model selected but toggle is enabled, keep existing value (don't set to null)
-            // This allows the toggle to be enabled without requiring immediate model selection
-        }
-    }
-    
     const formData = {
         min_hunt_score: currentConfig?.min_hunt_score || 97.0,
         junk_filter_threshold: parseFloat(document.getElementById('junkFilterThreshold').value),
@@ -11912,18 +11680,10 @@ if (workflowConfigForm) {
         return;
     }
     
-    // Remove null values from agent_models
-    // CRITICAL: Preserve null values for keys that need explicit removal (e.g., OSDetectionAgent_fallback)
-    const keysToPreserveNull = ['OSDetectionAgent_fallback', 'OSDetectionAgent_fallback_provider'];
+    // Remove null/empty values from agent_models
     const cleanedAgentModels = {};
     for (const [key, value] of Object.entries(formData.agent_models)) {
-        if (keysToPreserveNull.includes(key)) {
-            // Preserve null values for keys that need explicit removal
-            // Also include non-empty values (when toggle is enabled with a model selected)
-            if (value === null || value !== '') {
-                cleanedAgentModels[key] = value;
-            }
-        } else if (value !== null && value !== '') {
+        if (value !== null && value !== '') {
             cleanedAgentModels[key] = value;
         }
     }
@@ -12462,10 +12222,6 @@ async function viewExecution(executionId) {
                 const embeddingModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_embedding'] || 
                                       activeConfig?.agent_models?.['OSDetectionAgent_embedding'] || 
                                       'ibm-research/CTI-BERT';
-                const fallbackModel = exec.config_snapshot?.agent_models?.['OSDetectionAgent_fallback'] || 
-                                     activeConfig?.agent_models?.['OSDetectionAgent_fallback'] || 
-                                     'mistralai/mistral-7b-instruct-v0.3';
-                
                 // OS detection runs first and receives original article content (not junk-filtered)
                 const osInputContentLength = exec.article_content?.length || exec.junk_filter_result?.original_length || 0;
                 const osInputDetails = exec.article_content ? `<details class="mt-2 w-full">
@@ -12508,7 +12264,6 @@ async function viewExecution(executionId) {
                     input: `<div class="space-y-1">
                         <div>• Original article content (${osInputContentLength} chars)</div>
                         <div>• Embedding Model: <span class="font-mono text-xs">${embeddingModel}</span></div>
-                        ${fallbackModel ? `<div>• Fallback LLM Model: <span class="font-mono text-xs">${fallbackModel}</span></div>` : ''}
                     </div>`,
                     inputDetails: osInputDetails,
                     output: osOutput,

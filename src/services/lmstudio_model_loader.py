@@ -150,13 +150,6 @@ def extract_lmstudio_models(
             if provider and provider.lower().strip() == "lmstudio":
                 models_to_load.add(model.strip())
 
-    # OS Detection fallback
-    fallback_model = agent_models.get("OSDetectionAgent_fallback")
-    if fallback_model and isinstance(fallback_model, str) and fallback_model.strip():
-        provider = agent_models.get("OSDetectionAgent_fallback_provider", "lmstudio")
-        if provider and provider.lower().strip() == "lmstudio":
-            models_to_load.add(fallback_model.strip())
-
     return models_to_load
 
 

@@ -395,13 +395,12 @@ def test_valid_config_passes():
         "CmdLineQA": agent_cfg,
         "ProcTreeQA": agent_cfg,
         "HuntQueriesQA": agent_cfg,
-        "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": False},
     }
-    prompts = {name: {"prompt": "", "instructions": ""} for name in agents if name != "OSDetectionFallback"}
+    prompts = {name: {"prompt": "", "instructions": ""} for name in agents}
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Version == "2.0"
-    assert len(config.Agents) == 11
+    assert len(config.Agents) == 10
     assert len(config.Prompts) == 10
 
 
@@ -440,39 +439,6 @@ def test_disabled_agent_allows_empty_model():
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Agents["RankAgent"].Enabled is False
     assert config.Agents["RankAgent"].Model == ""
-
-
-def test_os_detection_fallback_disabled_allows_empty_model():
-    """OSDetectionFallback disabled with empty Model passes validation."""
-    agent_cfg = {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
-    agents = {
-        "RankAgent": agent_cfg,
-        "RankAgentQA": agent_cfg,
-        "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": False},
-    }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    config = WorkflowConfigV2.model_validate(raw)
-    assert config.Agents["OSDetectionFallback"].Enabled is False
-    assert config.Agents["OSDetectionFallback"].Model == ""
-
-
-def test_os_detection_fallback_enabled_requires_model():
-    """OSDetectionFallback enabled with empty Model raises ValidationError."""
-    agent_cfg = {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
-    agents = {
-        "RankAgent": agent_cfg,
-        "RankAgentQA": agent_cfg,
-        "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {
-        "RankAgent": {"prompt": "", "instructions": ""},
-        "RankAgentQA": {"prompt": "", "instructions": ""},
-        "OSDetectionFallback": {"prompt": "", "instructions": ""},
-    }
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Agent 'OSDetectionFallback' is Enabled but missing Provider or Model"):
-        WorkflowConfigV2.model_validate(raw)
 
 
 # ── Regression: preset import model-key and qa_max_retries contract ───────────

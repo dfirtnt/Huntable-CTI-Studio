@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 # Minimal agent_models so v1→v2 migration produces all enabled agents with non-empty Model (schema invariant).
-# OSDetectionFallback is disabled by default and may have empty Model; others need a model when Enabled.
+# All non-disabled agents need a model; sub-agents and QA agents listed explicitly.
 _MINIMAL_AGENT_MODELS = {
     "RankAgent_provider": "openai",
     "RankAgent": "gpt-4",
@@ -92,7 +92,9 @@ def test_no_legacy_keys_present():
     assert "RankAgent" in out
     assert "Enabled" in out["RankAgent"]
     assert "OSDetection" in out
-    assert "FallbackEnabled" in out["OSDetection"]
+    assert "Embedding" in out["OSDetection"]
+    assert "SelectedOs" in out["OSDetection"]
+    assert "FallbackEnabled" not in out["OSDetection"]
 
 
 def test_no_stray_prompt_keys():
@@ -130,8 +132,8 @@ def test_qa_enabled_keys_match_agents():
     """Exported UI-ordered preset loads; config has QA.Enabled keys in Agents."""
     raw = {
         **_FULL_LEGACY_V1,
-        "agent_models": {**_MINIMAL_AGENT_MODELS, "OSDetectionAgent_fallback": "gpt-4"},
-        "qa_enabled": {"OSDetectionAgent": True},
+        "agent_models": dict(_MINIMAL_AGENT_MODELS),
+        "qa_enabled": {},
     }
     out = export_preset_as_canonical_v2(raw)
     config = load_workflow_config(out)
@@ -256,10 +258,7 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
         "Thresholds": {"MinHuntScore": 85.0},
         "OSDetection": {
             "Embedding": "bert",
-            "FallbackEnabled": False,
-            "Fallback": {},
             "SelectedOs": ["Windows"],
-            "Prompt": {},
         },
         "RankAgent": {
             "Enabled": True,
@@ -442,10 +441,7 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
         "Thresholds": {"MinHuntScore": 85.0},
         "OSDetection": {
             "Embedding": "bert",
-            "FallbackEnabled": False,
-            "Fallback": {},
             "SelectedOs": ["Windows"],
-            "Prompt": {},
         },
         "RankAgent": {
             "Enabled": True,

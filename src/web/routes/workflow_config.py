@@ -101,7 +101,7 @@ class WorkflowConfigResponse(BaseModel):
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow None values
     qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool = False
-    osdetection_fallback_enabled: bool = False
+    osdetection_fallback_enabled: bool = False  # deprecated, always False
     qa_max_retries: int = 5
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
@@ -122,7 +122,6 @@ class WorkflowConfigUpdate(BaseModel):
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool | None = None
-    osdetection_fallback_enabled: bool | None = None
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
@@ -362,11 +361,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     else False
                 )
             )
-            osdetection_fallback = (
-                config_update.osdetection_fallback_enabled
-                if config_update.osdetection_fallback_enabled is not None
-                else (getattr(current_config, "osdetection_fallback_enabled", False) if current_config else False)
-            )
+            osdetection_fallback = False
             qa_max_retries = (
                 config_update.qa_max_retries
                 if config_update.qa_max_retries is not None
@@ -488,7 +483,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     and abs(current_config.similarity_threshold - similarity_threshold) < 0.0001
                     and abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001
                     and current_config.sigma_fallback_enabled == sigma_fallback
-                    and getattr(current_config, "osdetection_fallback_enabled", False) == osdetection_fallback
                     and current_config.qa_max_retries == qa_max_retries
                     and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
                     and getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
@@ -542,7 +536,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         agent_models=current_config.agent_models,
                         qa_enabled=current_config.qa_enabled,
                         sigma_fallback_enabled=current_config.sigma_fallback_enabled,
-                        osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                        osdetection_fallback_enabled=False,
                         qa_max_retries=current_config.qa_max_retries,
                         rank_agent_enabled=current_config.rank_agent_enabled
                         if hasattr(current_config, "rank_agent_enabled")
@@ -596,7 +590,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_models=new_config.agent_models,
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
-                osdetection_fallback_enabled=getattr(new_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 qa_max_retries=new_config.qa_max_retries,
                 rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
                 cmdline_attention_preprocessor_enabled=getattr(
@@ -684,7 +678,6 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             prompt_str = str(prompt_str)
 
         if not prompt_str.strip():
-            # Special agents (e.g. OSDetectionFallback) are embedding-based and don't use LLM prompts.
             if agent_name not in AGENT_NAMES_SPECIAL:
                 warnings.append(f"{label}: system prompt is empty")
             continue
@@ -811,8 +804,6 @@ async def export_config_as_v2(preset: dict[str, Any]):
 def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
     """Convert WorkflowConfigV2 to applyPreset()-ready legacy preset shape."""
     qa_enabled = dict(config.QA.Enabled)
-    if "OSDetectionFallback" in qa_enabled and "OSDetectionAgent" not in qa_enabled:
-        qa_enabled["OSDetectionAgent"] = qa_enabled["OSDetectionFallback"]
     return {
         "version": "1.0",
         "min_hunt_score": config.Thresholds.MinHuntScore,
@@ -824,9 +815,7 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
         "agent_models": config.flatten_for_llm_service(),
         "qa_enabled": qa_enabled,
         "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
-        "osdetection_fallback_enabled": config.Agents.get("OSDetectionFallback").Enabled
-        if config.Agents.get("OSDetectionFallback")
-        else False,
+        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True,
         "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
@@ -981,7 +970,7 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         "agent_models": config.agent_models if config.agent_models is not None else {},
         "qa_enabled": config.qa_enabled if config.qa_enabled is not None else {},
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False) or False,
-        "osdetection_fallback_enabled": getattr(config, "osdetection_fallback_enabled", False) or False,
+        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": getattr(config, "rank_agent_enabled", True)
         if getattr(config, "rank_agent_enabled", None) is not None
         else True,
@@ -1316,7 +1305,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
@@ -1586,7 +1575,7 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
@@ -1879,7 +1868,7 @@ async def bootstrap_prompts_from_files(request: Request):
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
@@ -1970,7 +1959,7 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=getattr(current_config, "sigma_fallback_enabled", False),
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=getattr(current_config, "rank_agent_enabled", True),
                 qa_max_retries=getattr(current_config, "qa_max_retries", 5),
                 cmdline_attention_preprocessor_enabled=getattr(
