@@ -3157,7 +3157,18 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Workflow didn't complete or trace error happened during workflow execution
                 logger.error(f"Trace error during workflow execution {execution.id}: {trace_error}")
                 if final_state is None:
-                    # Workflow never started or failed early - re-raise the exception
+                    # Workflow crashed before ainvoke completed. Emit an explicit child
+                    # span so the Langfuse trace timeline shows a distinguishable
+                    # "crashed on startup" signal rather than a silent root-only trace.
+                    if trace:
+                        with contextlib.suppress(Exception):
+                            log_workflow_step(
+                                trace,
+                                "workflow_crashed",
+                                step_result={"success": False},
+                                error=trace_error,
+                                metadata={"crashed_before": "ainvoke"},
+                            )
                     raise
                 # Suppress so status update can proceed
 
