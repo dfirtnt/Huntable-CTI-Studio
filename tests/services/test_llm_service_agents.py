@@ -159,6 +159,42 @@ class TestRankArticle:
         assert len(user_msg.get("content", "")) < len(long_content)
 
     @pytest.mark.asyncio
+    async def test_rank_article_sends_canonical_system_message_as_fallback(self, llm_service):
+        """rank_article sends the canonical fallback system message when system_override is None.
+
+        Regression: agentic_workflow.py and llm_service.py must use the same fallback
+        so the QA agent evaluates against what the LLM actually received.
+        """
+        llm_response = {
+            "choices": [{"message": {"content": '{"score": 5, "reasoning": "ok"}'}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        }
+        with (
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response) as mock_req,
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            await llm_service.rank_article(
+                title="Test",
+                content="x" * 1000,
+                source="Blog",
+                url="https://example.com",
+                # Plain user-template with no embedded system field so the
+                # hardcoded fallback in rank_article() is actually triggered.
+                prompt_template="Title: {title}\nSource: {source}\nURL: {url}\nContent:\n{content}",
+                system_override=None,
+            )
+
+        messages = mock_req.call_args.kwargs.get("messages") or mock_req.call_args[1].get("messages", [])
+        system_msgs = [m for m in messages if m.get("role") == "system"]
+        assert len(system_msgs) == 1
+        content = system_msgs[0]["content"]
+        assert "cybersecurity detection engineer" in content
+        assert "1-10" in content
+        assert "SIGMA huntability" in content
+        assert "score and brief reasoning" in content
+
+    @pytest.mark.asyncio
     async def test_rank_article_raises_when_json_prompt_has_empty_system(self, llm_service):
         """JSON-format prompt with empty system/role keys must hard-fail (not silently use default).
 

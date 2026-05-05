@@ -163,10 +163,6 @@ class WorkflowState(TypedDict):
     ranking_reasoning: str | None
     should_continue: bool
 
-    # Step 1.5: OS Detection
-    os_detection_result: dict[str, Any] | None
-    detected_os: str | None
-
     # Step 2: Extract Agent
     extraction_result: dict[str, Any] | None
     discrete_huntables_count: int | None
@@ -1012,201 +1008,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "error": str(e),
                 "should_continue": False,
                 "current_step": "rank_article",
-                "status": "failed",
-                "termination_reason": state.get("termination_reason"),
-                "termination_details": state.get("termination_details"),
-            }
-
-    async def os_detection_node(state: WorkflowState) -> WorkflowState:
-        """Step 0: Detect operating system from article content."""
-        try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 0: OS Detection")
-
-            # Load article from DB instead of state
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
-            if not article:
-                raise ValueError(f"Article {state['article_id']} not found in database")
-            # OS detection runs first, so use original content
-            content = article.content if article else ""
-
-            # Update execution record
-            execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
-                .first()
-            )
-
-            if execution:
-                execution.current_step = "os_detection"
-                db_session.commit()
-
-            # Check if OS detection should be skipped (for eval runs)
-            config = state.get("config")
-            config_snapshot = execution.config_snapshot if execution else {}
-            # Handle JSONB - it might be a dict or need parsing
-            if isinstance(config_snapshot, str):
-                try:
-                    config_snapshot = json.loads(config_snapshot)
-                except (json.JSONDecodeError, ValueError):
-                    config_snapshot = {}
-            if not isinstance(config_snapshot, dict):
-                config_snapshot = {}
-
-            # Handle both boolean and string "true"/"false" values from JSON
-            skip_os_detection_flag = config_snapshot.get("skip_os_detection", False) if config_snapshot else False
-            if isinstance(skip_os_detection_flag, str):
-                skip_os_detection_flag = skip_os_detection_flag.lower() == "true"
-            eval_run_flag = config_snapshot.get("eval_run", False) if config_snapshot else False
-            if isinstance(eval_run_flag, str):
-                eval_run_flag = eval_run_flag.lower() == "true"
-            state_skip_flag = state.get("skip_os_detection", False)
-            if isinstance(state_skip_flag, str):
-                state_skip_flag = state_skip_flag.lower() == "true"
-
-            skip_os_detection = skip_os_detection_flag or eval_run_flag or state_skip_flag
-
-            if skip_os_detection:
-                logger.info(f"[Workflow {state['execution_id']}] Skipping OS Detection (eval run)")
-                # For eval runs, force Windows detection to allow workflow to continue
-                detected_os = "Windows"
-                os_result = {
-                    "operating_system": "Windows",
-                    "method": "eval_skip",
-                    "confidence": 1.0,
-                    "similarities": {"Windows": 1.0},
-                }
-            else:
-                # Import OS detection service
-                from src.services.os_detection_service import OSDetectionService
-
-                # Get OS detection config from workflow config (None when key exists with null)
-                agent_models = (config.get("agent_models") or {}) if config and isinstance(config, dict) else {}
-                embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
-                fallback_model = agent_models.get("OSDetectionAgent_fallback")
-                fallback_provider = agent_models.get("OSDetectionAgent_fallback_provider")
-
-                # Initialize service with configured embedding model
-                service = OSDetectionService(model_name=embedding_model)
-
-                # LLM fallback only when LMStudio (or another provider) is enabled
-                _lmstudio_enabled = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
-                use_os_fallback = _lmstudio_enabled and (fallback_model or fallback_provider)
-                llm_service_for_os = LLMService(config_models=agent_models) if use_os_fallback else None
-
-                # Detect OS; no LLM fallback when LMStudio disabled (embedding-only)
-                os_result = await service.detect_os(
-                    content=content,
-                    use_classifier=True,
-                    use_fallback=use_os_fallback,
-                    fallback_model=fallback_model if use_os_fallback else None,
-                    provider=fallback_provider if use_os_fallback else None,
-                    llm_service=llm_service_for_os,
-                )
-
-                detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"
-
-            # Check if Windows is detected or has the highest similarity
-            # This handles cases where Windows has highest similarity but confidence is low
-            similarities = os_result.get("similarities", {}) if os_result else {}
-            windows_similarity = similarities.get("Windows", 0.0) if isinstance(similarities, dict) else 0.0
-
-            # If Windows has the highest similarity but detected_os is "Unknown", override it
-            if detected_os == "Unknown" and similarities:
-                max_similarity_os = max(similarities, key=similarities.get)
-                if max_similarity_os == "Windows" and windows_similarity > 0.0:
-                    detected_os = "Windows"
-                    # Update the os_result to reflect this
-                    os_result["operating_system"] = "Windows"
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Overriding detected_os from 'Unknown' to 'Windows' (highest similarity: {windows_similarity:.1%})"
-                    )
-
-            # Continue if:
-            # 1. detected_os is 'Windows', OR
-            # 2. detected_os is 'multiple' and Windows is included, OR
-            # 3. Windows has the highest similarity (even if confidence is low)
-            is_windows = (
-                detected_os == "Windows"
-                or (detected_os == "multiple" and windows_similarity > 0.0)
-                or (
-                    windows_similarity > 0.0 and windows_similarity == max(similarities.values())
-                    if similarities
-                    else False
-                )
-            )
-
-            termination_reason = state.get("termination_reason")
-            termination_details = state.get("termination_details")
-
-            # Update execution record
-            if execution:
-                execution.current_step = "os_detection"
-
-                # Store OS detection result in error_log for retrieval
-                # (We'll add a dedicated os_detection_result column later via migration)
-                if execution.error_log is None:
-                    execution.error_log = {}
-                execution.error_log["os_detection_result"] = {
-                    "detected_os": detected_os,
-                    "detection_method": os_result.get("method"),
-                    "confidence": os_result.get("confidence"),
-                    "similarities": os_result.get("similarities"),
-                    "max_similarity": os_result.get("max_similarity"),
-                    "probabilities": os_result.get("probabilities"),
-                }
-
-                if is_windows:
-                    execution.status = "running"
-                    db_session.commit()
-                else:
-                    termination_details = {
-                        "detected_os": detected_os,
-                        "detection_method": os_result.get("method"),
-                        "confidence": os_result.get("confidence"),
-                        "similarities": os_result.get("similarities"),
-                        "max_similarity": os_result.get("max_similarity"),
-                    }
-                    mark_execution_completed(
-                        execution,
-                        "os_detection",
-                        db_session=db_session,
-                        reason=TERMINATION_REASON_NON_WINDOWS_OS,
-                        details=termination_details,
-                        commit=False,
-                    )
-                    db_session.commit()
-                    termination_reason = TERMINATION_REASON_NON_WINDOWS_OS
-
-            logger.info(f"[Workflow {state['execution_id']}] OS Detection: {detected_os}, continue: {is_windows}")
-
-            return {
-                **state,
-                "os_detection_result": os_result,
-                "detected_os": detected_os,
-                "should_continue": is_windows,
-                "current_step": "os_detection",
-                "status": "completed" if not is_windows else "running",
-                "termination_reason": termination_reason,
-                "termination_details": termination_details,
-            }
-
-        except Exception as e:
-            logger.error(f"[Workflow {state['execution_id']}] OS detection error: {e}")
-            execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
-                .first()
-            )
-            if execution:
-                execution.status = "failed"
-                execution.error_message = str(e)
-                db_session.commit()
-
-            return {
-                **state,
-                "error": str(e),
-                "should_continue": False,
-                "current_step": "os_detection",
                 "status": "failed",
                 "termination_reason": state.get("termination_reason"),
                 "termination_details": state.get("termination_details"),
@@ -2622,27 +2423,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "termination_details": state.get("termination_details"),
             }
 
-    def check_should_continue_after_os_detection(state: WorkflowState) -> str:
-        """Check if workflow should continue after OS detection (only if Windows)."""
-        should_continue = state.get("should_continue", False)
-        detected_os = state.get("detected_os")
-        os_result = state.get("os_detection_result", {})
-
-        # Check if Windows is detected or has highest similarity
-        if should_continue:
-            # Already determined to continue (Windows detected)
-            return "junk_filter"
-        if detected_os == "Windows":
-            return "junk_filter"
-        # Check if Windows has highest similarity even if detected_os is Unknown
-        similarities = os_result.get("similarities", {}) if isinstance(os_result, dict) else {}
-        if isinstance(similarities, dict) and similarities:
-            windows_sim = similarities.get("Windows", 0.0)
-            if windows_sim > 0.0 and windows_sim == max(similarities.values()):
-                return "junk_filter"
-
-        return "end"
-
     def check_rank_agent_enabled(state: WorkflowState) -> str:
         """Check if rank agent is enabled and route accordingly.
 
@@ -2744,17 +2524,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
     workflow.add_node("rank_agent_bypass", rank_agent_bypass_node)
-    workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("extract_agent", extract_agent_node)
     workflow.add_node("generate_sigma", generate_sigma_node)
     workflow.add_node("similarity_search", similarity_search_node)
     workflow.add_node("promote_to_queue", promote_to_queue_node)
 
     # Define edges
-    workflow.set_entry_point("os_detection")
-    workflow.add_conditional_edges(
-        "os_detection", check_should_continue_after_os_detection, {"junk_filter": "junk_filter", "end": END}
-    )
+    workflow.set_entry_point("junk_filter")
     workflow.add_conditional_edges(
         "junk_filter",
         check_rank_agent_enabled,
@@ -2979,7 +2755,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         # Initialize state
         execution.status = "running"
         execution.started_at = datetime.now()
-        execution.current_step = "os_detection"
+        execution.current_step = "junk_filter"
         db_session.commit()
 
         initial_state: WorkflowState = {
@@ -2994,8 +2770,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "ranking_score": None,
             "ranking_reasoning": None,
             "should_continue": True,
-            "os_detection_result": None,
-            "detected_os": None,
             "extraction_result": None,
             "discrete_huntables_count": None,
             "sigma_rules": None,
@@ -3003,7 +2777,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "max_similarity": None,
             "queued_rules": None,
             "error": None,
-            "current_step": "os_detection",
+            "current_step": "junk_filter",
             "status": "running",
             "termination_reason": None,
             "termination_details": None,

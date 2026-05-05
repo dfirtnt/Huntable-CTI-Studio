@@ -279,70 +279,87 @@ class TestRankAgentBypassNode:
 
 
 # ---------------------------------------------------------------------------
-# OS Detection Node
+# Rank Article Node
 # ---------------------------------------------------------------------------
 
+_MOCK_RANK_RESULT = {
+    "score": 7.0,
+    "reasoning": "High huntability",
+    "raw_response": "raw",
+}
 
-class TestOSDetectionNode:
-    """Tests for the os_detection_node step."""
 
-    @pytest.mark.asyncio
-    async def test_os_detection_skip_for_assessment(self, article, execution, config_obj):
-        """Assessment runs skip OS detection and force Windows."""
-        execution.config_snapshot = {"skip_os_detection": True}
-        db_session = _make_db_session(article, execution)
-        nodes = _capture_nodes(db_session)
-
-        state = _default_state(
-            skip_os_detection=True,
-            filtered_content=article.content,
-        )
-        result = await nodes["os_detection"](state)
-        assert result["detected_os"] == "Windows"
-        assert result["should_continue"] is True
+class TestRankArticleNode:
+    """Tests for the rank_article_node step -- conversation log correctness."""
 
     @pytest.mark.asyncio
-    async def test_os_detection_non_windows_terminates(self, article, execution, config_obj):
-        """Non-Windows detection should set should_continue=False."""
-        execution.config_snapshot = {}
-        db_session = _make_db_session(article, execution)
-        nodes = _capture_nodes(db_session)
+    async def test_conversation_log_records_configured_agent_prompt(self, article, execution, config_obj):
+        """When RankAgent has a DB-configured system prompt, conversation_log records it.
 
-        os_result = {
-            "operating_system": "Linux",
-            "method": "embedding",
-            "confidence": 0.95,
-            "similarities": {"Linux": 0.95, "Windows": 0.05},
-            "max_similarity": 0.95,
+        Regression: previously the log always wrote a hard-coded string, so a custom
+        prompt configured in the UI was never reflected in the conversation log.
+        """
+        config_obj.agent_prompts = {
+            "RankAgent": {"system": "Custom detection engineer persona for testing"},
         }
+        config_obj.qa_enabled = {"RankAgent": False}
+        config_obj.qa_max_retries = 1
+        execution.error_log = None
 
-        state = _default_state(
-            filtered_content=article.content,
-            ranking_score=8.0,
-        )
+        db_session = _make_db_session(article, execution)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
 
-        with (
-            patch("src.services.os_detection_service.OSDetectionService") as mock_os,
-            patch("src.workflows.agentic_workflow.mark_execution_completed"),
-        ):
-            mock_os.return_value.detect_os = AsyncMock(return_value=os_result)
-            result = await nodes["os_detection"](state)
-            assert result["detected_os"] == "Linux"
-            assert result["should_continue"] is False
+        with patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls:
+            mock_llm_cls.compute_rank_ground_truth.return_value = {"ground_truth_rank": None}
+            mock_instance = Mock()
+            mock_instance.rank_article = AsyncMock(return_value=_MOCK_RANK_RESULT)
+            mock_llm_cls.return_value = mock_instance
+
+            await nodes["rank_article"](
+                _default_state(filtered_content="threat intel content", current_step="junk_filter")
+            )
+
+        assert execution.error_log is not None
+        conv_log = execution.error_log["rank_article"]["conversation_log"]
+        assert len(conv_log) >= 1
+        system_content = conv_log[0]["messages"][0]["content"]
+        assert system_content == "Custom detection engineer persona for testing"
 
     @pytest.mark.asyncio
-    async def test_os_detection_error_marks_failed(self, article, execution, config_obj):
-        """OS detection exception -> status=failed."""
-        execution.config_snapshot = {}
+    async def test_conversation_log_uses_canonical_fallback_when_no_rank_agent_config(
+        self, article, execution, config_obj
+    ):
+        """When no RankAgent config exists, conversation_log records the canonical fallback string.
+
+        The fallback must match llm_service.py's system_message default so the QA agent
+        evaluates against what the LLM actually received.
+        """
+        config_obj.agent_prompts = {}
+        config_obj.qa_enabled = {"RankAgent": False}
+        config_obj.qa_max_retries = 1
+        execution.error_log = None
+
         db_session = _make_db_session(article, execution)
-        nodes = _capture_nodes(db_session)
+        nodes = _capture_nodes(db_session, trigger_service_config=config_obj)
 
-        state = _default_state(filtered_content=article.content)
+        with patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls:
+            mock_llm_cls.compute_rank_ground_truth.return_value = {"ground_truth_rank": None}
+            mock_instance = Mock()
+            mock_instance.rank_article = AsyncMock(return_value=_MOCK_RANK_RESULT)
+            mock_llm_cls.return_value = mock_instance
 
-        with patch("src.services.os_detection_service.OSDetectionService") as mock_os:
-            mock_os.return_value.detect_os = AsyncMock(side_effect=RuntimeError("Embedding model not found"))
-            result = await nodes["os_detection"](state)
-            assert result["status"] == "failed"
+            await nodes["rank_article"](
+                _default_state(filtered_content="threat intel content", current_step="junk_filter")
+            )
+
+        assert execution.error_log is not None
+        conv_log = execution.error_log["rank_article"]["conversation_log"]
+        assert len(conv_log) >= 1
+        system_content = conv_log[0]["messages"][0]["content"]
+        assert "cybersecurity detection engineer" in system_content
+        assert "1-10" in system_content
+        assert "SIGMA huntability" in system_content
+        assert "score and brief reasoning" in system_content
 
 
 # ---------------------------------------------------------------------------
