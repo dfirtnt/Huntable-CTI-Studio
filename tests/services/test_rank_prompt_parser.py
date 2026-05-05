@@ -91,27 +91,34 @@ class TestParseRankPromptEdgeCases:
 
 
 class TestParseRankPromptDocumentedLimitations:
-    """These tests document KNOWN BROKEN behavior for shape-5 (auto-persist).
+    """Documents the behavior of the inner _parse_rank_prompt for shape-5 (auto-persist).
 
-    Shape 5 produces plain persona text with no placeholders, stored at
-    agent_prompts.RankAgent.prompt with a sibling "model" key.  The reader
-    at ai.py:1330 takes prompt as a string and passes it here.  We have no
-    way at this layer to know whether the text is intended as persona or
-    template, so we return it as the template -- and downstream .format()
-    becomes a no-op, silently dropping the article.
+    Shape 5 produced plain persona text with no placeholders, stored at
+    agent_prompts.RankAgent.prompt with a sibling "model" key.  At the
+    _parse_rank_prompt layer there is no way to distinguish persona from
+    template, so the text is returned as the template -- and downstream
+    .format() becomes a no-op, silently dropping the article.
 
-    Fix: stop generating shape-5 at the UI (parent issue subtasks 1+2).
+    Status (2026-05-04):
+    - UI fix landed (LOCKED_CANONICAL_AGENTS): RankAgent user scaffold is
+      now locked; new saves always use the canonical {system, user} shape.
+    - parse_rank_agent_prompt_data (the public API) already handles shape-5
+      correctly via a disambiguation check (no-placeholder text -> system).
+      See TestParseRankAgentPromptDataCanonical.test_legacy_raw_text_persona_routes_to_system.
+    - _parse_rank_prompt (this class) retains the documented behavior because
+      it is an internal helper; all callers go through parse_rank_agent_prompt_data.
+    - DB migration of existing shape-5 records: deferred (separate task).
     """
 
     def test_shape5_persona_text_misroutes_as_template(self):
-        """Documents the known shape-5 hole: persona text becomes the user template."""
+        """Inner _parse_rank_prompt: persona text without placeholders becomes template.
+        The outer parse_rank_agent_prompt_data wrapper disambiguates this correctly."""
         persona = "You are a strict CTI analyst. Score 1-10 for huntability."
         template, system = _parse_rank_prompt(persona)
-        # CURRENT (broken) behavior: persona is the template, no system override
+        # _parse_rank_prompt behavior: persona is the template, no system override.
+        # parse_rank_agent_prompt_data adds a disambiguation step that corrects this.
         assert template == persona
         assert system is None
-        # Caller's .format(title=..., content=...) on this string is a no-op
-        # because there are no {title}/{content} placeholders -- article is lost.
         assert "{title}" not in template, "Sanity: shape-5 persona has no placeholders"
 
 
