@@ -102,6 +102,48 @@ def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
     return True
 
 
+def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str | None]:
+    """Return (True, reason) if every executed subagent returned an error, (False, None) otherwise.
+
+    Broader than _extraction_is_infra_failure: catches any error type, not just known
+    infra patterns.  Used to set success=False on the workflow_completed Langfuse span
+    when LangGraph reaches END without raising (the graph swallows subagent errors so
+    final_state carries no top-level 'error' key even when nothing was extracted).
+    """
+    if not isinstance(extraction_result, dict):
+        return False, None
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict) or not subresults:
+        return False, None
+
+    executed = []
+    for sr in subresults.values():
+        if not isinstance(sr, dict):
+            continue
+        raw = sr.get("raw", {})
+        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+            continue
+        executed.append(sr)
+
+    if not executed:
+        return False, None
+
+    errors = []
+    for sr in executed:
+        raw = sr.get("raw", {}) if isinstance(sr.get("raw"), dict) else {}
+        err = sr.get("error") or raw.get("error") or ""
+        if not (isinstance(err, str) and err):
+            return False, None  # at least one subagent succeeded
+        errors.append(err)
+
+    # Every executed subagent errored -- build a compact reason string
+    unique_errors = list(dict.fromkeys(errors))  # deduplicate, preserve order
+    reason = f"All {len(executed)} extractor(s) failed: {'; '.join(unique_errors[:2])}"
+    if len(unique_errors) > 2:
+        reason += f" (and {len(unique_errors) - 2} more)"
+    return True, reason
+
+
 class WorkflowState(TypedDict):
     """State for the agentic workflow."""
 
@@ -3059,16 +3101,29 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Log workflow completion (non-critical - wrap in try/except)
                 if trace:
                     try:
+                        # Detect total-extractor-failure: LangGraph reaches END without
+                        # raising even when all subagents error, so final_state carries
+                        # no top-level "error" key despite zero extraction.
+                        _all_failed, _extractor_failure_reason = _all_extractors_errored(
+                            final_state.get("extraction_result")
+                        )
+                        _top_level_error = final_state.get("error")
+                        _success = _top_level_error is None and not _all_failed
+                        _completion_result: dict = {
+                            "success": _success,
+                            "ranking_score": final_state.get("ranking_score"),
+                            "sigma_rules_count": len(final_state.get("sigma_rules", [])),
+                            "queued_rules_count": len(final_state.get("queued_rules", [])),
+                        }
+                        if not _success:
+                            _completion_result["failure_reason"] = (
+                                _extractor_failure_reason or str(_top_level_error)
+                            )
                         log_workflow_step(
                             trace,
                             "workflow_completed",
-                            step_result={
-                                "success": final_state.get("error") is None,
-                                "ranking_score": final_state.get("ranking_score"),
-                                "sigma_rules_count": len(final_state.get("sigma_rules", [])),
-                                "queued_rules_count": len(final_state.get("queued_rules", [])),
-                            },
-                            error=None if final_state.get("error") is None else Exception(final_state.get("error")),
+                            step_result=_completion_result,
+                            error=None if _success else Exception(_completion_result["failure_reason"]),
                             metadata={"final_step": final_state.get("current_step")},
                         )
                     except Exception as log_error:

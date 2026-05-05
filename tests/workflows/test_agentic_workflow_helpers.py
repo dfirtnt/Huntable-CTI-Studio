@@ -2,7 +2,13 @@
 
 import pytest
 
-from src.workflows.agentic_workflow import _bool_from_value, _extract_actual_count, _is_agent_allowed, _parse_agent_result
+from src.workflows.agentic_workflow import (
+    _all_extractors_errored,
+    _bool_from_value,
+    _extract_actual_count,
+    _is_agent_allowed,
+    _parse_agent_result,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -288,3 +294,85 @@ class TestIsAgentAllowed:
         """Empty string subagent_eval is treated as no filter."""
         exec_ = _FakeExecution(config_snapshot={"subagent_eval": ""})
         assert _is_agent_allowed("ProcTreeExtract", exec_, "", None, 1) is True
+
+
+class TestAllExtractorsErrored:
+    """Tests for _all_extractors_errored -- the workflow_completed success gate."""
+
+    def _sr(self, error: str | None = None, status: str | None = None) -> dict:
+        raw = {}
+        if status:
+            raw["status"] = status
+        if error:
+            raw["error"] = error
+        return {"error": error, "raw": raw} if error else {"raw": raw}
+
+    def test_all_errored_returns_true_with_reason(self):
+        """When every subagent has an error, returns (True, reason)."""
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="LMStudio is not ready"),
+                "AgentB": self._sr(error="LMStudio is not ready"),
+            }
+        }
+        all_failed, reason = _all_extractors_errored(extraction)
+        assert all_failed is True
+        assert reason is not None
+        assert "2 extractor(s) failed" in reason
+
+    def test_one_success_returns_false(self):
+        """If any subagent succeeded (no error), returns (False, None)."""
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="LMStudio is not ready"),
+                "AgentB": {"raw": {}, "error": None},  # success
+            }
+        }
+        all_failed, reason = _all_extractors_errored(extraction)
+        assert all_failed is False
+        assert reason is None
+
+    def test_skipped_for_eval_not_counted(self):
+        """Subagents skipped for eval are excluded; remaining non-skipped must all error."""
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error="some error"),
+                "AgentB": self._sr(status="skipped_for_eval"),
+            }
+        }
+        all_failed, reason = _all_extractors_errored(extraction)
+        assert all_failed is True
+
+    def test_only_skipped_returns_false(self):
+        """If all subagents were skipped, no executed agents means returns (False, None)."""
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(status="skipped_for_eval"),
+            }
+        }
+        all_failed, reason = _all_extractors_errored(extraction)
+        assert all_failed is False
+
+    def test_none_input_returns_false(self):
+        all_failed, reason = _all_extractors_errored(None)
+        assert all_failed is False
+        assert reason is None
+
+    def test_empty_subresults_returns_false(self):
+        all_failed, reason = _all_extractors_errored({"subresults": {}})
+        assert all_failed is False
+
+    def test_reason_deduplicates_identical_errors(self):
+        """Identical error messages across agents are deduplicated in the reason string."""
+        msg = "LMStudio is not ready"
+        extraction = {
+            "subresults": {
+                "AgentA": self._sr(error=msg),
+                "AgentB": self._sr(error=msg),
+                "AgentC": self._sr(error=msg),
+            }
+        }
+        all_failed, reason = _all_extractors_errored(extraction)
+        assert all_failed is True
+        # deduplicated: only one copy of the error message
+        assert reason.count(msg) == 1
