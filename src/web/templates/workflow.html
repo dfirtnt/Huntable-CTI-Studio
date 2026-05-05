@@ -931,6 +931,42 @@
   border-spacing: 0;
 }
 
+#tab-content-executions .q-table {
+  table-layout: fixed;
+}
+
+#tab-content-executions .q-table .q-col-status-indicator {
+  width: 3px;
+}
+
+#tab-content-executions .q-table .q-col-id {
+  width: 4.75rem;
+}
+
+#tab-content-executions .q-table .q-col-article {
+  width: auto;
+}
+
+#tab-content-executions .q-table .q-col-status {
+  width: 12rem;
+}
+
+#tab-content-executions .q-table .q-col-step {
+  width: 9rem;
+}
+
+#tab-content-executions .q-table .q-col-score {
+  width: 6rem;
+}
+
+#tab-content-executions .q-table .q-col-created {
+  width: 10rem;
+}
+
+#tab-content-executions .q-table .q-col-actions {
+  width: 12rem;
+}
+
 .q-sortable {
   cursor: pointer;
   user-select: none;
@@ -1042,7 +1078,12 @@
 }
 
 .q-table .q-cell-article {
-  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.q-table .q-cell-article a {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3021,14 +3062,14 @@
             <table class="q-table">
                 <thead>
                     <tr id="executionsHeaderRow">
-                        <th class="q-status-indicator-header" aria-hidden="true"></th>
-                        <th style="padding-left:24px">ID</th>
-                        <th>Article</th>
-                        <th>Status</th>
-                        <th>Step</th>
-                        <th>Score</th>
-                        <th>Created</th>
-                        <th>Actions</th>
+                        <th class="q-status-indicator-header q-col-status-indicator" aria-hidden="true"></th>
+                        <th class="q-col-id" style="padding-left:24px">ID</th>
+                        <th class="q-col-article">Article</th>
+                        <th class="q-col-status">Status</th>
+                        <th class="q-col-step">Step</th>
+                        <th class="q-col-score">Score</th>
+                        <th class="q-col-created">Created</th>
+                        <th class="q-col-actions">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="executionsTableBody">
@@ -11953,30 +11994,30 @@ function renderExecutionHeader() {
     
     const sortableClass = 'cursor-pointer select-none';
     const sortableColumns = [
-        { key: 'id', label: 'ID' },
-        { key: 'article_id', label: 'Article' },
-        { key: 'status', label: 'Status' },
-        { key: 'current_step', label: 'Current Step' },
-        { key: 'ranking_score', label: 'Ranking Score' }
+        { key: 'id', label: 'ID', className: 'q-col-id' },
+        { key: 'article_id', label: 'Article', className: 'q-col-article' },
+        { key: 'status', label: 'Status', className: 'q-col-status' },
+        { key: 'current_step', label: 'Step', className: 'q-col-step' },
+        { key: 'ranking_score', label: 'Score', className: 'q-col-score' }
     ];
 
     // Helper used by observable-count columns and post-loop headers below
-    const sortTh = (key, label, _widthCls) =>
-        `<th class="${sortableClass}" onclick="setExecutionSort('${key}')" title="Click to sort">${label}${getSortIndicator(key)}</th>`;
-    const plainTh = (label, _widthCls, _align) =>
-        `<th>${label}</th>`;
+    const sortTh = (key, label, className = '') =>
+        `<th class="${[sortableClass, className].filter(Boolean).join(' ')}" onclick="setExecutionSort('${key}')" title="Click to sort">${label}${getSortIndicator(key)}</th>`;
+    const plainTh = (label, className = '') =>
+        `<th class="${className}">${label}</th>`;
 
     let html =
-        '<th class="q-status-indicator-header" aria-hidden="true"></th>' +
+        '<th class="q-status-indicator-header q-col-status-indicator" aria-hidden="true"></th>' +
         sortableColumns.map((col, i) =>
-            `<th class="${sortableClass}" onclick="setExecutionSort('${col.key}')" title="Click to sort"${i === 0 ? ' style="padding-left:24px"' : ''}>${col.label}${getSortIndicator(col.key)}</th>`
+            `<th class="${sortableClass} ${col.className}" onclick="setExecutionSort('${col.key}')" title="Click to sort"${i === 0 ? ' style="padding-left:24px"' : ''}>${col.label}${getSortIndicator(col.key)}</th>`
         ).join('');
 
     if (showObservableCounts) {
-        html += observableCountColumns.map(col => plainTh(col.label, 'w-12 px-2', 'text-center')).join('');
+        html += observableCountColumns.map(col => plainTh(col.label, 'q-col-observable-count')).join('');
     }
-    html += sortTh('created_at', 'Created', 'w-[7.25rem] whitespace-nowrap');
-    html += '<th>Actions</th>';
+    html += sortTh('created_at', 'Created', 'q-col-created');
+    html += '<th class="q-col-actions">Actions</th>';
     
     headerRow.innerHTML = html;
 }
@@ -12077,25 +12118,25 @@ function renderExecutions() {
     /* NOTE: Pre-existing innerHTML pattern — all values from own DB, not user input. */
     tbody.innerHTML = executions.map(exec => `
         <tr data-status="${exec.status || ''}">
-            <td class="q-status-indicator-cell" aria-hidden="true"></td>
-            <td class="q-cell-id" style="padding-left:24px">${exec.id}</td>
-            <td class="q-cell-article">
+            <td class="q-status-indicator-cell q-col-status-indicator" aria-hidden="true"></td>
+            <td class="q-cell-id q-col-id" style="padding-left:24px">${exec.id}</td>
+            <td class="q-cell-article q-col-article">
                 <a href="/articles/${exec.article_id}">
                     ${exec.article_title || 'Article ' + exec.article_id}
                 </a>
             </td>
-            <td>
+            <td class="q-col-status">
                 <div style="display:flex;align-items:center">${getStatusBadge(exec.status)}${getTerminationBadge(exec.termination_reason)}</div>
             </td>
-            <td class="q-step-badge">${getStepBadge(exec.current_step)}</td>
-            <td class="q-cell-sim">${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}</td>
+            <td class="q-step-badge q-col-step">${getStepBadge(exec.current_step)}</td>
+            <td class="q-cell-sim q-col-score">${exec.ranking_score ? exec.ranking_score.toFixed(1) : '-'}</td>
             ${showObservableCounts ? observableCountColumns.map(col => `
-                <td class="q-cell-sim" style="text-align:center">${formatObservableCount(exec, col.key)}</td>
+                <td class="q-cell-sim q-col-observable-count" style="text-align:center">${formatObservableCount(exec, col.key)}</td>
             `).join('') : ''}
-            <td class="q-cell-date">
+            <td class="q-cell-date q-col-created">
                 ${formatLocalDateTime(exec.created_at)}
             </td>
-            <td><div class="q-actions-cell">
+            <td class="q-col-actions"><div class="q-actions-cell">
                 <button onclick="viewExecution(${exec.id})" class="q-action preview">View</button>${(exec.status === 'running' || exec.status === 'pending') ? `<button onclick="openLiveExecutionView(${exec.id})" class="q-action preview" title="Live streaming view">Live</button>` : ''}<button onclick="debugInAgentChat(${exec.id})" class="q-action approve" title="Open Langfuse session">Trace</button>${exec.status === 'failed' ? `<button onclick="retryExecution(${exec.id}, false)" class="q-action approve" title="Retry in background">Retry</button>` : ''}
             </div></td>
         </tr>
@@ -12199,8 +12240,8 @@ async function viewExecution(executionId) {
                     : undefined;
                 // Determine if Windows was detected:
                 // 1. detectedOS is 'Windows', OR
-                // 2. Workflow continued (which means Windows was detected or had highest similarity)
-                const workflowContinued = exec.extraction_result !== null && exec.extraction_result !== undefined;
+                // 2. Workflow continued past OS detection (junk_filter or extraction result exists)
+                const workflowContinued = (exec.extraction_result != null) || (exec.junk_filter_result != null);
                 const isWindows = detectedOS === 'Windows' || (workflowContinued && detectedOS !== 'Linux' && detectedOS !== 'MacOS');
                 
                 // Build similarities display
@@ -12250,7 +12291,7 @@ async function viewExecution(executionId) {
                     osOutput = `<div class="space-y-1 text-gray-700 dark:text-gray-300">
                         <div><strong>Detected OS:</strong> ${workflowContinued ? 'Windows (inferred - workflow continued)' : 'Unknown (no data stored)'}</div>
                         <div><strong>Decision:</strong> ${workflowContinued ? '✅ Continue' : '❓ Unknown'}</div>
-                        <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: OS detection data not stored for this execution. ${workflowContinued ? 'Workflow continued, so Windows was likely detected.' : 'Check logs for OS detection errors.'}</div>
+                        ${!workflowContinued ? `<div class="mt-2 text-xs text-gray-500 dark:text-gray-400">Note: OS detection data not stored for this execution. Check logs for OS detection errors.</div>` : ''}
                     </div>`;
                 }
                 
