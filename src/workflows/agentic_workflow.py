@@ -810,7 +810,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # Get agent prompt from config (for both ranking and QA)
             rank_prompt_template = None
             rank_system_prompt = None
-            agent_prompt = "Rank the article from 1-10 for SIGMA huntability based on telemetry observables, behavioral patterns, and detection rule feasibility."
+            agent_prompt = (
+                "You are a cybersecurity detection engineer. "
+                "Score threat intelligence articles 1-10 for SIGMA huntability. "
+                "Output only a score and brief reasoning."
+            )
             if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
                 from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
@@ -852,7 +856,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a cybersecurity detection engineer. Score threat intelligence articles 1-10 for SIGMA huntability.",
+                                "content": agent_prompt,
                             },
                             {
                                 "role": "user",
