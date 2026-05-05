@@ -53,23 +53,12 @@ class LLMBenchmark:
         start_time = time.time()
 
         try:
-            # Build minimal context for testing
-            context = "Sample threat intelligence content about malware execution and persistence mechanisms."
-
-            # Generate response
-            response = await self.service.generate_rag_response(
-                query=prompt,
-                retrieved_chunks=[
-                    {
-                        "title": "Test Article",
-                        "source_name": "Test Source",
-                        "content": context,
-                        "canonical_url": "https://example.com",
-                        "similarity": 0.95,
-                    }
-                ],
-                conversation_history=None,
-                provider=provider,
+            self.service._refresh_api_keys()
+            selected_provider = self.service._select_provider(provider)
+            response_text = await self.service._call_llm(
+                system_prompt="You are a cybersecurity threat intelligence analyst.",
+                user_prompt=prompt,
+                provider=selected_provider,
             )
 
             end_time = time.time()
@@ -78,12 +67,10 @@ class LLMBenchmark:
             return {
                 "success": True,
                 "response_time": response_time,
-                "response_length": len(response.get("response", "")),
+                "response_length": len(response_text),
                 "provider": provider,
                 "model_name": model_name,
-                "response": response.get("response", "")[:100] + "..."
-                if len(response.get("response", "")) > 100
-                else response.get("response", ""),
+                "response": response_text[:100] + "..." if len(response_text) > 100 else response_text,
                 "error": None,
             }
 
