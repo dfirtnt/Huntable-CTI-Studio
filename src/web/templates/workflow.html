@@ -8724,15 +8724,23 @@ window.autoSaveModelChange = function() {
                 resolve();
                 return;
             }
-            // Validate all agent models before saving
+            // Validate agent models before saving.
+            // Only block if a model was NEWLY changed to an invalid value -- a pre-existing
+            // invalid model in the DB must not block unrelated parameter autosaves.
+            // When currentConfig is not yet loaded, skip validation (no baseline to compare).
             let hasErrors = false;
-            Object.values(AGENT_CONFIG).forEach(config => {
-                const provider = getAgentProvider(config.prefix) || getDefaultProvider();
-                const model = getAgentModel(config.prefix, provider);
-                if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
-                    hasErrors = true;
-                }
-            });
+            if (currentConfig && currentConfig.agent_models) {
+                Object.values(AGENT_CONFIG).forEach(config => {
+                    const provider = getAgentProvider(config.prefix) || getDefaultProvider();
+                    const model = getAgentModel(config.prefix, provider);
+                    if (model && !validateProviderModelCombination(config.prefix, provider, model)) {
+                        const storedModel = currentConfig.agent_models[config.modelKey];
+                        if (model !== storedModel) {
+                            hasErrors = true;
+                        }
+                    }
+                });
+            }
             if (!hasErrors) {
                 window.autoSaveConfig().then(resolve).catch(() => resolve());
             } else {
