@@ -208,6 +208,26 @@ class EvalBundleService:
                 evaluation_score = subagent_eval.score
                 evaluation_status = subagent_eval.status
 
+                # Item-level fields (populated only when expected_items was set)
+                if subagent_eval.expected_items:
+                    workflow_meta["expected_items"] = subagent_eval.expected_items
+                if subagent_eval.actual_items:
+                    workflow_meta["actual_items"] = subagent_eval.actual_items
+                if subagent_eval.matched_count is not None:
+                    workflow_meta["matched_count"] = subagent_eval.matched_count
+                if subagent_eval.missed_count is not None:
+                    workflow_meta["missed_count"] = subagent_eval.missed_count
+                    workflow_meta["missed_items"] = [
+                        i for i in (subagent_eval.expected_items or [])
+                        if i not in (subagent_eval.actual_items or [])
+                    ]
+                if subagent_eval.extra_count is not None:
+                    workflow_meta["extra_count"] = subagent_eval.extra_count
+                    workflow_meta["extra_items"] = [
+                        i for i in (subagent_eval.actual_items or [])
+                        if i not in (subagent_eval.expected_items or [])
+                    ]
+
         if expected_count is not None:
             workflow_meta["expected_count"] = expected_count
         if actual_count is not None:

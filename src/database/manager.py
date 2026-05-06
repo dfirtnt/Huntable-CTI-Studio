@@ -90,8 +90,19 @@ class DatabaseManager:
 
     def create_tables(self) -> None:
         """Create all database tables."""
+        from sqlalchemy import text
+
         try:
             Base.metadata.create_all(bind=self.engine)
+            with self.engine.begin() as conn:
+                for col_ddl in [
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                ]:
+                    conn.execute(text(col_ddl))
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")

@@ -252,6 +252,27 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
+def _extract_actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list[str] | None:
+    """Extract the items list from a run_extraction_agent result for item-level scoring."""
+    if subagent_name == "cmdline":
+        items = agent_result.get("cmdline_items") or agent_result.get("items", [])
+    else:
+        items = agent_result.get("items", [])
+    if not isinstance(items, list):
+        return None
+    flat: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            flat.append(item)
+        elif isinstance(item, dict):
+            for field in ("cmdline", "command", "commandline", "value", "name"):
+                v = item.get(field)
+                if isinstance(v, str) and v.strip():
+                    flat.append(v.strip())
+                    break
+    return flat or None
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -301,6 +322,7 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     "content": entry.get("content", ""),
                     "filtered_content": entry.get("filtered_content") or entry.get("content", ""),
                     "expected_count": entry.get("expected_count", 0),
+                    "expected_items": entry.get("expected_items"),  # optional list[str]
                 }
     except Exception as e:
         logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
@@ -1025,6 +1047,10 @@ async def get_subagent_eval_articles(
             from_static = url in url_to_static
             found = article_id is not None or from_static
             expected_count = article_def.get("expected_count", 0)
+            expected_items = article_def.get("expected_items")
+            # Also pull expected_items from static snapshot when present
+            if not expected_items and from_static and url in url_to_static:
+                expected_items = url_to_static[url].get("expected_items")
             title = ""
             if from_static and url in url_to_static:
                 title = (url_to_static[url].get("title") or "").strip()
@@ -1035,6 +1061,7 @@ async def get_subagent_eval_articles(
                     "url": url,
                     "title": title or None,
                     "expected_count": expected_count,
+                    "expected_items": expected_items,
                     "article_id": article_id,
                     "found": found,
                     "from_static": from_static,
@@ -1114,6 +1141,14 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                             expected_counts[url] = expected_count if expected_count is not None else 0
 
             url_to_static = _load_static_eval_articles(canonical_subagent_name)
+
+            # Build expected_items map from static snapshots (optional, item-level scoring)
+            url_to_expected_items: dict[str, list[str] | None] = {}
+            for _url, _entry in url_to_static.items():
+                items = _entry.get("expected_items")
+                if isinstance(items, list):
+                    url_to_expected_items[_url] = items
+
             eval_records = []
             executions = []
 
@@ -1183,6 +1218,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 article_url=url,
                                 article_id=None,
                                 expected_count=expected_count,
+                                expected_items=url_to_expected_items.get(url),
                                 actual_count=actual_count,
                                 score=score,
                                 workflow_config_id=active_config.id,
@@ -1257,6 +1293,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     article_url=url,
                     article_id=article_id,
                     expected_count=expected_count,
+                    expected_items=url_to_expected_items.get(url),
                     workflow_execution_id=execution.id,
                     workflow_config_id=active_config.id,
                     workflow_config_version=active_config.version,
@@ -1480,6 +1517,12 @@ async def get_subagent_eval_results(
                         "context_length_exceeded": context_length_exceeded,
                         "infra_not_ready": infra_not_ready,
                         "quota_exceeded": quota_exceeded,
+                        # Item-level fields (present when expected_items was set)
+                        "expected_items": record.expected_items,
+                        "actual_items": record.actual_items,
+                        "matched_count": record.matched_count,
+                        "missed_count": record.missed_count,
+                        "extra_count": record.extra_count,
                     }
                 )
 

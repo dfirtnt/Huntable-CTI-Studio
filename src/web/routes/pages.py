@@ -158,6 +158,20 @@ async def agent_evals_page(request: Request):
         )
 
 
+@router.get("/mlops/agent-evals2", response_class=HTMLResponse)
+async def agent_evals2_page(request: Request):
+    """Agent evaluation page with item-level precision/recall scoring."""
+    try:
+        return templates.TemplateResponse("agent_evals2.html", {"request": request})
+    except Exception as exc:
+        logger.error("Agent evals2 page error: %s", exc)
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": "An unexpected error occurred"},
+            status_code=500,
+        )
+
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Settings page."""

@@ -165,6 +165,12 @@ class EvalDiagnosisService:
                 "expected_count": workflow_meta.get("expected_count"),
                 "actual_count": workflow_meta.get("actual_count"),
                 "delta": workflow_meta.get("evaluation_score"),
+                # Item-level context (present only when expected_items was set)
+                "matched_count": workflow_meta.get("matched_count"),
+                "missed_count": workflow_meta.get("missed_count"),
+                "extra_count": workflow_meta.get("extra_count"),
+                "missed_items": workflow_meta.get("missed_items"),
+                "extra_items": workflow_meta.get("extra_items"),
             },
             **findings,
         }
@@ -194,6 +200,22 @@ class EvalDiagnosisService:
 
         bundle_json = json.dumps(bundle, indent=None, default=str)
 
+        # Build item-level context block when available
+        missed_items = workflow_meta.get("missed_items")
+        extra_items = workflow_meta.get("extra_items")
+        matched_count = workflow_meta.get("matched_count")
+        item_context = ""
+        if matched_count is not None or missed_items or extra_items:
+            item_context = (
+                f"\n- Matched items (correct): {matched_count}\n"
+                f"- Missed items (in expected but not extracted): {len(missed_items) if missed_items else 0}\n"
+            )
+            if missed_items:
+                item_context += "  Missed:\n" + "".join(f"    - {i}\n" for i in missed_items[:20])
+            if extra_items:
+                item_context += f"- Extra items (extracted but not in expected): {len(extra_items)}\n"
+                item_context += "  Extra:\n" + "".join(f"    - {i}\n" for i in extra_items[:20])
+
         user_content = (
             f"## Extractor Standard (mandatory for all extractors)\n\n"
             f"{standard_text}\n\n"
@@ -208,7 +230,8 @@ class EvalDiagnosisService:
             f"- Expected count: {expected}\n"
             f"- Actual count: {actual}\n"
             f"- Delta (actual - expected): {delta}\n"
-            f"- Delta of 0 = perfect extraction\n\n"
+            f"- Delta of 0 = perfect extraction\n"
+            f"{item_context}\n"
             f"Analyze this extraction result. Identify root causes of any discrepancy "
             f"and provide actionable recommendations."
         )

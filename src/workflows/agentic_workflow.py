@@ -42,6 +42,7 @@ from src.utils.langfuse_client import (
     log_workflow_step,
     trace_workflow_execution,
 )
+from src.services.eval_item_scorer import score_items
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.workflows.status_utils import (
     TERMINATION_REASON_NO_SIGMA_RULES,
@@ -353,6 +354,38 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
     return actual_count
 
 
+def _extract_actual_items(subagent_name: str, subresults: dict) -> list[str] | None:
+    """Extract the items list from subresults for item-level scoring.
+
+    Returns a list of strings or None if the subagent type doesn't support item lists.
+    """
+    if subagent_name in ("hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"):
+        # Hunt queries produce query text objects, not simple string items
+        return None
+
+    subagent_result = subresults.get(subagent_name, {})
+    if not isinstance(subagent_result, dict):
+        return None
+
+    items = subagent_result.get("items")
+    if not isinstance(items, list):
+        return None
+
+    # Flatten: each item may be a string, or a dict with a "cmdline" / "command" / "value" field
+    flat: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            flat.append(item)
+        elif isinstance(item, dict):
+            # Try common string payload fields in priority order
+            for field in ("cmdline", "command", "commandline", "value", "name"):
+                v = item.get(field)
+                if isinstance(v, str) and v.strip():
+                    flat.append(v.strip())
+                    break
+    return flat if flat else None
+
+
 def _update_single_eval_record(
     eval_record: SubagentEvaluationTable,
     execution: AgenticWorkflowExecutionTable,
@@ -391,6 +424,16 @@ def _update_single_eval_record(
 
         # Calculate score
         score = actual_count - eval_record.expected_count
+
+        # Item-level scoring (only when expected_items ground truth is available)
+        if eval_record.expected_items and isinstance(eval_record.expected_items, list):
+            actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
+            if actual_items is not None:
+                result = score_items(eval_record.expected_items, actual_items)
+                eval_record.actual_items = actual_items
+                eval_record.matched_count = result.matched_count
+                eval_record.missed_count = result.missed_count
+                eval_record.extra_count = result.extra_count
 
         # Update eval record
         eval_record.actual_count = actual_count
