@@ -72,7 +72,6 @@ nav:
       - Schemas: reference/schemas.md
       - Scheduled Jobs: reports/scheduled-jobs-report.md
       - ML Feature Definitions: reference/ml-features.md
-      - Versioning: reference/versioning.md
   - Development:
       - Agent Orientation: development/agent-orientation.md
       - Setup: development/setup.md
