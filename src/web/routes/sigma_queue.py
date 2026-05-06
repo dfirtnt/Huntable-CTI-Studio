@@ -862,9 +862,13 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 status_code=401,
                                 detail="OpenAI API key is invalid or expired. Please check your API key.",
                             ) from e
-                        if "429" in err or "rate limit" in err.lower():
+                        if ("429" in err or "rate limit" in err.lower()) and "insufficient_quota" not in err.lower():
                             raise HTTPException(
                                 status_code=429, detail="OpenAI API rate limit exceeded. Please wait and try again."
+                            ) from e
+                        if "insufficient_quota" in err.lower():
+                            raise HTTPException(
+                                status_code=402, detail="OpenAI quota exceeded. Please check your plan and billing details."
                             ) from e
                         raise HTTPException(status_code=502, detail=err) from e
                 elif provider == "anthropic":

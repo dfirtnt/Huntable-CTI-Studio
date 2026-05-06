@@ -43,6 +43,18 @@ _THROTTLE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Billing-quota exhaustion -- 429 but NOT a retriable rate limit.
+# Must be checked before _THROTTLE_PATTERNS so "insufficient_quota" errors
+# are not misclassified as TPM throttles.
+_QUOTA_ERROR_PATTERNS = re.compile(r"insufficient_quota", re.IGNORECASE)
+
+
+def _is_throttle_string(text: str) -> bool:
+    """Return True only if text signals a retriable rate limit (not a billing cap)."""
+    if _QUOTA_ERROR_PATTERNS.search(text):
+        return False
+    return bool(_THROTTLE_PATTERNS.search(text))
+
 # Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
 _CONTEXT_OVERFLOW_PATTERNS = re.compile(
     r"context.{0,15}(size|length|window).{0,15}exceeded|context_length_exceeded",
@@ -63,7 +75,7 @@ def _execution_is_throttled(
     # Checks both error_message (terminal 429) and error_log conversation entries
     # because a throttled extractor stamps the error inside error_log while the
     # workflow still reports status='completed' and actual_count=0.
-    if error_message and _THROTTLE_PATTERNS.search(error_message):
+    if error_message and _is_throttle_string(error_message):
         return True
 
     if not isinstance(error_log, dict):
@@ -85,7 +97,7 @@ def _execution_is_throttled(
             continue
         for field in ("error", "error_type", "error_details"):
             value = result.get(field)
-            if isinstance(value, str) and _THROTTLE_PATTERNS.search(value):
+            if isinstance(value, str) and _is_throttle_string(value):
                 return True
     return False
 
