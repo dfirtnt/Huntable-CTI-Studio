@@ -19,7 +19,7 @@ def runner():
     config = RunTestConfig(
         test_type=RunTestType.UI,
         context=ExecutionContext.LOCALHOST,
-        validate_env=False,
+        run_teardown=False,
     )
     return RunTestRunner(config)
 
@@ -71,7 +71,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=["agent_config_mutation"],
         )
         runner = RunTestRunner(config)
@@ -83,7 +83,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=None,
             include_agent_config_tests=False,
         )
@@ -95,7 +95,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=None,
             include_agent_config_tests=True,
         )
@@ -107,7 +107,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=["slow", "integration"],
             include_agent_config_tests=False,
         )
@@ -238,7 +238,7 @@ class TestUITestOptimizations:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
         )
         runner = RunTestRunner(config)
         cmd = runner._build_pytest_command()

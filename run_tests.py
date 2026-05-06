@@ -216,7 +216,7 @@ class RunTestConfig:
     playwright_project: str | None = None  # --area: pin Playwright to one feature project
     coverage: bool = False
     install_deps: bool = False
-    validate_env: bool = True
+    run_teardown: bool = True
     skip_real_api: bool = False
     test_paths: list[str] | None = None
     markers: list[str] | None = None
@@ -231,6 +231,11 @@ class RunTestConfig:
     fail_fast: bool = False
     retry_count: int = 0
     timeout: int | None = None
+
+
+def _in_ci() -> bool:
+    """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
+    return os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
 
 
 class RunTestRunner:
@@ -444,8 +449,7 @@ class RunTestRunner:
         needs_test_containers = self.config.test_type in stateful_test_types
 
         if needs_test_containers:
-            in_ci = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
-            if not in_ci:
+            if not _in_ci():
                 logger.info("Stateful tests detected - checking for test containers...")
                 if not self._ensure_test_containers():
                     return False
@@ -476,8 +480,7 @@ class RunTestRunner:
 
         # Use test Redis port when using local test containers (docker-compose.test maps Redis to 6380)
         # In CI, GitHub Actions services use 6379 - do not override
-        in_ci = os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
-        if needs_test_containers and not in_ci and "REDIS_PORT" not in os.environ:
+        if needs_test_containers and not _in_ci() and "REDIS_PORT" not in os.environ:
             redis_port = os.getenv("REDIS_TEST_PORT", "6380")
             os.environ["REDIS_PORT"] = redis_port
             if "REDIS_URL" not in os.environ:
@@ -540,8 +543,8 @@ class RunTestRunner:
         # This allows faster subsequent test runs
 
         # Skip teardown if validation was skipped (no test DB configured)
-        if not self.config.validate_env:
-            logger.debug("Skipping teardown (validation disabled)")
+        if not self.config.run_teardown:
+            logger.debug("Skipping teardown (teardown disabled)")
             return
 
         if self.environment_manager:
@@ -1274,6 +1277,7 @@ class RunTestRunner:
                 logger.info(f"Executing pytest: {cmd_str}")
                 print()
 
+                process: subprocess.Popen | None = None
                 try:
                     # Reader drains pipe into queue (avoids BlockingIOError); main thread prints + parses
                     process = subprocess.Popen(
@@ -1368,7 +1372,7 @@ class RunTestRunner:
                             last_progress_update = time.time()
 
                     returncode = process.wait(
-                        timeout=self.config.timeout - (time.time() - pytest_start_time) if self.config.timeout else None
+                        timeout=self._remaining_timeout(pytest_start_time)
                     )
                     reader.join(timeout=5.0)
 
@@ -1433,7 +1437,8 @@ class RunTestRunner:
                     print("=" * 80)
 
                 except subprocess.TimeoutExpired:
-                    process.kill()
+                    if process is not None:
+                        process.kill()
                     logger.error(f"Pytest execution timed out after {self.config.timeout} seconds")
                     pytest_success = False
                 except KeyboardInterrupt:
@@ -1485,6 +1490,7 @@ class RunTestRunner:
                     logger.info(f"Executing Playwright: {cmd_str}")
                     print()
 
+                    process = None
                     try:
                         # Queue-based drain for real-time output (same as pytest)
                         pw_cwd = project_root / "tests" if self.config.playwright_last_failed else project_root
@@ -1519,9 +1525,7 @@ class RunTestRunner:
                                 break
                             pw_output_lines.append(line)
                             print(line, end="", flush=True)
-                            if any(
-                                w in line.lower() for w in ["passed", "failed", "skipped", "\u2713", "\u2717"]
-                            ):
+                            if any(w in line.lower() for w in ["passed", "failed", "skipped"]):
                                 pw_test_count += 1
                                 # Capture failed Playwright test names
                                 # List reporter: "  1) [chromium] > test.spec.ts:10:5 > suite > test name"
@@ -1538,9 +1542,7 @@ class RunTestRunner:
                                 pw_last_update = time.time()
 
                         returncode = process.wait(
-                            timeout=self.config.timeout - (time.time() - playwright_start_time)
-                            if self.config.timeout
-                            else None
+                            timeout=self._remaining_timeout(playwright_start_time)
                         )
                         pw_reader.join(timeout=5.0)
 
@@ -1581,7 +1583,8 @@ class RunTestRunner:
                         print("=" * 80)
 
                     except subprocess.TimeoutExpired:
-                        process.kill()
+                        if process is not None:
+                            process.kill()
                         logger.error(f"Playwright execution timed out after {self.config.timeout} seconds")
                         playwright_success = False
                     except KeyboardInterrupt:
@@ -1693,6 +1696,12 @@ class RunTestRunner:
             counts["total"] = counts["passed"] + counts["failed"] + counts["skipped"]
             return counts
         return None
+
+    def _remaining_timeout(self, started_at: float) -> float | None:
+        """Return seconds left before config.timeout expires, clamped to at least 0.1s."""
+        if not self.config.timeout:
+            return None
+        return max(0.1, self.config.timeout - (time.time() - started_at))
 
     def _save_failure_log(self, output: str, counts: dict[str, int], source: str = "pytest") -> None:
         """Save failure details to a log file.
@@ -2187,7 +2196,7 @@ Manual Container Management:
     )
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--install", action="store_true", help="Install test dependencies")
-    parser.add_argument("--no-validate", action="store_true", help="Skip environment validation")
+    parser.add_argument("--no-teardown", action="store_true", help="Skip environment teardown after tests")
 
     # Test filtering
     parser.add_argument("--paths", nargs="+", help="Specific test paths to run")
@@ -2272,7 +2281,7 @@ Manual Container Management:
                 playwright_project=args.area,
                 coverage=args.coverage,
                 install_deps=args.install,
-                validate_env=not args.no_validate,
+                run_teardown=not args.no_teardown,
                 skip_real_api=args.skip_real_api,
                 test_paths=args.paths,
                 markers=args.markers,
