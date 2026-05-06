@@ -315,11 +315,14 @@ def get_workflow_config(request: Request):
                 updated_at=config.updated_at.isoformat(),
             )
             settings_threshold = _get_threshold_from_settings(db_session)
-            legacy_dict["auto_trigger_hunt_score_threshold"] = (
-                settings_threshold
-                if settings_threshold is not None
-                else getattr(config, "auto_trigger_hunt_score_threshold", 60.0)
-            )
+            if settings_threshold is None:
+                # Lazy migration: seed AppSettingsTable from config row so subsequent
+                # PUT autosaves never fall back to the column default of 60.0.
+                config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 60.0)
+                _save_threshold_to_settings(db_session, config_threshold)
+                db_session.commit()
+                settings_threshold = config_threshold
+            legacy_dict["auto_trigger_hunt_score_threshold"] = settings_threshold
             return WorkflowConfigResponse(**legacy_dict)
         finally:
             db_session.close()
