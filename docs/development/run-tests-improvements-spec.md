@@ -31,7 +31,7 @@ This spec organizes those findings into independently shippable items, each with
 
 **Goal.** Remove dead code that pretends to detect Playwright's check/cross glyphs but does not.
 
-**Problem.** `run_tests.py:1498` reads:
+**Problem.** `[run_tests.py:1498`](../../run_tests.py) reads:
 ```
 if any(w in line.lower() for w in ["passed", "failed", "skipped", "\xe2\x9c\x93", "\xc3\x97"]):
 ```
@@ -54,7 +54,7 @@ The two `\x..\x..\x..` strings are 3-character Python `str` values (each byte be
 
 **Goal.** Preserve both failure logs in a mixed-failure run.
 
-**Problem.** Both call sites (`run_tests.py:1379`, `run_tests.py:1552`) call `_save_failure_log`, which opens `failures_{timestamp}.log` in `"w"` mode at `run_tests.py:1683`. When pytest *and* Playwright both fail in one run, the second write silently wipes the first.
+**Problem.** Both call sites (`[run_tests.py:1379`](../../run_tests.py), `[run_tests.py:1552`](../../run_tests.py)) call `_save_failure_log`, which opens `failures_{timestamp}.log` in `"w"` mode at `[run_tests.py:1683`](../../run_tests.py). When pytest *and* Playwright both fail in one run, the second write silently wipes the first.
 
 **Design.**
 1. Add a `section: str` parameter to `_save_failure_log(self, output, counts, section)`.
@@ -78,7 +78,7 @@ The two `\x..\x..\x..` strings are 3-character Python `str` values (each byte be
 
 **Goal.** Single source of truth for "are we in CI."
 
-**Problem.** Identical expression at `run_tests.py:445` and `run_tests.py:477`: `os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"`. Future CI environments (e.g. adding GitLab or Buildkite) require touching both spots.
+**Problem.** Identical expression at `[run_tests.py:445`](../../run_tests.py) and `[run_tests.py:477`](../../run_tests.py): `os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"`. Future CI environments (e.g. adding GitLab or Buildkite) require touching both spots.
 
 **Design.** Add a module-level helper:
 ```python
@@ -99,7 +99,7 @@ Replace both call sites.
 
 **Goal.** Make the flag's behavior match its name.
 
-**Problem.** `run_tests.py:2158` registers `--no-validate` with help text "Skip environment validation." But the only consumer is `teardown_environment` at `run_tests.py:541`, which short-circuits *teardown*, not validation. The actual environment guard at `run_tests.py:486-497` runs unconditionally. The flag silently lies.
+**Problem.** `[run_tests.py:2158`](../../run_tests.py) registers `--no-validate` with help text "Skip environment validation." But the only consumer is `teardown_environment` at `[run_tests.py:541`](../../run_tests.py), which short-circuits *teardown*, not validation. The actual environment guard at `[run_tests.py:486-497`](../../run_tests.py) runs unconditionally. The flag silently lies.
 
 **Design.** Two options:
 
@@ -124,7 +124,7 @@ Choose Option A. Document the rename in a one-line entry under `## Changed` in C
 
 **Goal.** Make latent foot-gun explicit instead of latent.
 
-**Problem.** `run_tests.py:1346` and `run_tests.py:1515` compute `self.config.timeout - elapsed` for `Popen.wait(timeout=...)`. If elapsed exceeds timeout, the value goes negative. In practice this is rarely fatal because the child has already closed stdout (drained queue saw `None`) and `wait()` returns the cached returncode immediately. But it's an unclamped operation on a value that will appear in stack traces if anything else changes.
+**Problem.** `[run_tests.py:1346`](../../run_tests.py) and `[run_tests.py:1515`](../../run_tests.py) compute `self.config.timeout - elapsed` for `Popen.wait(timeout=...)`. If elapsed exceeds timeout, the value goes negative. In practice this is rarely fatal because the child has already closed stdout (drained queue saw `None`) and `wait()` returns the cached returncode immediately. But it's an unclamped operation on a value that will appear in stack traces if anything else changes.
 
 **Design.** Extract to a helper:
 ```python
@@ -147,7 +147,7 @@ Use at both call sites.
 
 **Goal.** Avoid `NameError` masking a real subprocess failure.
 
-**Problem.** At `run_tests.py:1411` and `run_tests.py:1559`, the `except subprocess.TimeoutExpired:` handler calls `process.kill()`. If `subprocess.Popen(...)` itself raised before assigning `process` (e.g. ENOENT on the python binary), the handler raises `NameError` and the original error is lost.
+**Problem.** At `[run_tests.py:1411`](../../run_tests.py) and `[run_tests.py:1559`](../../run_tests.py), the `except subprocess.TimeoutExpired:` handler calls `process.kill()`. If `subprocess.Popen(...)` itself raised before assigning `process` (e.g. ENOENT on the python binary), the handler raises `NameError` and the original error is lost.
 
 **Design.** Initialize `process: subprocess.Popen | None = None` before the `try`, then guard `if process is not None: process.kill()`.
 
@@ -243,7 +243,7 @@ Mechanical replacement at every site. Realign banner widths if needed (keep 80-c
 
 **Goal.** Stop flooding CI logs by default.
 
-**Problem.** `run_tests.py:1047` appends `-v` to pytest unconditionally when `output_format == "progress"`. On a 3,000-test run, every collected nodeid prints. CI artifacts balloon and the in-terminal scroll is unusable for spotting failures.
+**Problem.** `[run_tests.py:1047`](../../run_tests.py) appends `-v` to pytest unconditionally when `output_format == "progress"`. On a 3,000-test run, every collected nodeid prints. CI artifacts balloon and the in-terminal scroll is unusable for spotting failures.
 
 **Design.**
 - `progress` (default): no `-v`. Pytest's default short summary is sufficient.
@@ -258,7 +258,7 @@ Update help text. Document in CHANGELOG under `## Changed`.
 - `./run_tests.py -v smoke` matches pre-change behavior.
 - HTML / JUnit / Allure outputs unchanged (they don't depend on `-v`).
 
-**Risk.** Medium for anyone parsing stdout for `PASSED` lines. The TUI's category-detection at `run_tests.py:1281` depends on "::" + status keywords, which appear at `-v` and above. Audit before merging.
+**Risk.** Medium for anyone parsing stdout for `PASSED` lines. The TUI's category-detection at `[run_tests.py:1281`](../../run_tests.py) depends on "::" + status keywords, which appear at `-v` and above. Audit before merging.
 
 **Mitigation.** Either keep the in-process parser working at default verbosity (pytest default still prints `tests/foo.py .` style), or use the JSONL report log (`reportlog_*.jsonl`, already produced) as the parse source instead of stdout.
 
@@ -284,7 +284,7 @@ T2.3 is gated on T2.2 because `--dry-run` is the easiest way to verify T2.3 didn
 
 **Goal.** Replace the scrolling-text + carriage-return progress with a stable footer + scrollable log.
 
-**Problem.** Today the runner streams every pytest line *and* periodically writes `\r[...]` (carriage-return + progress bar) over the same line (`run_tests.py:1334`, `run_tests.py:1507`). The carriage return only clears the current line, but pytest is producing new lines constantly, so the "progress" indicator ends up sprinkled into the log instead of being a stable status. Cleanup at `run_tests.py:1383` almost never lands on the right line.
+**Problem.** Today the runner streams every pytest line *and* periodically writes `\r[...]` (carriage-return + progress bar) over the same line (`[run_tests.py:1334`](../../run_tests.py), `[run_tests.py:1507`](../../run_tests.py)). The carriage return only clears the current line, but pytest is producing new lines constantly, so the "progress" indicator ends up sprinkled into the log instead of being a stable status. Cleanup at `[run_tests.py:1383`](../../run_tests.py) almost never lands on the right line.
 
 **Design.** Use `rich.live.Live` (already a transitive dependency via pytest-html in many setups; verify and add to `pyproject.toml`'s `test` group if needed).
 
@@ -393,7 +393,7 @@ Migration plan (one commit per module to keep diffs reviewable):
 
 **Goal.** Cut polling overhead from N subprocesses per cycle to 1.
 
-**Problem.** `_wait_for_test_containers` (`run_tests.py:292`) runs 2 `docker inspect` calls per service per loop iteration, polling every 2 seconds for up to 90 seconds. Worst case: ~180 process spawns.
+**Problem.** `_wait_for_test_containers` (`[run_tests.py:292`](../../run_tests.py)) runs 2 `docker inspect` calls per service per loop iteration, polling every 2 seconds for up to 90 seconds. Worst case: ~180 process spawns.
 
 **Design.** Replace the per-service inspect loop with one call:
 ```python
@@ -419,11 +419,11 @@ Modern docker-compose (v2.x) outputs JSON-per-line. Fall back to old per-service
 
 These are items from the review that don't merit their own section:
 
-- **Argparse `mutually_exclusive_group` for `--playwright-only` / `--skip-playwright-js`.** Today the conflict is detected at runtime (`run_tests.py:1121`). Move to argparse so the CLI rejects it before any work starts. ~3 lines.
-- **Replace substring path matching in `_get_pytest_test_groups`.** `run_tests.py:632-651` uses `"smoke" in path`, which can mis-classify paths like `tests/api/test_smoke_endpoints.py`. Use `Path(path).parts` and exact set membership. ~10 lines.
-- **Cache plugin-availability checks.** `_build_pytest_command` re-imports `allure`, `pytest_timeout`, `xdist` in subprocesses (`run_tests.py:980`, `run_tests.py:1026`, `run_tests.py:1074`). Cache results on the `RunTestRunner` instance. ~15 lines.
-- **`output_lines` memory.** `run_tests.py:1268` accumulates the entire pytest stdout in memory then `"".join(...)` into a second string (`run_tests.py:1350`). For UI suites this is ~50 MB twice. Stream to a temp file, then read once for parsing. ~20 lines.
-- **Always-log-stderr-on-failure in `_run_command`.** `run_tests.py:751` only logs stderr when `--verbose`. Always log on non-zero exit. ~3 lines.
+- **Argparse `mutually_exclusive_group` for `--playwright-only` / `--skip-playwright-js`.** Today the conflict is detected at runtime (`[run_tests.py:1121`](../../run_tests.py)). Move to argparse so the CLI rejects it before any work starts. ~3 lines.
+- **Replace substring path matching in `_get_pytest_test_groups`.** `[run_tests.py:632-651`](../../run_tests.py) uses `"smoke" in path`, which can mis-classify paths like `tests/api/test_smoke_endpoints.py`. Use `Path(path).parts` and exact set membership. ~10 lines.
+- **Cache plugin-availability checks.** `_build_pytest_command` re-imports `allure`, `pytest_timeout`, `xdist` in subprocesses (`[run_tests.py:980`](../../run_tests.py), `[run_tests.py:1026`](../../run_tests.py), `[run_tests.py:1074`](../../run_tests.py)). Cache results on the `RunTestRunner` instance. ~15 lines.
+- **`output_lines` memory.** `[run_tests.py:1268`](../../run_tests.py) accumulates the entire pytest stdout in memory then `"".join(...)` into a second string (`[run_tests.py:1350`](../../run_tests.py)). For UI suites this is ~50 MB twice. Stream to a temp file, then read once for parsing. ~20 lines.
+- **Always-log-stderr-on-failure in `_run_command`.** `[run_tests.py:751`](../../run_tests.py) only logs stderr when `--verbose`. Always log on non-zero exit. ~3 lines.
 
 ---
 
@@ -449,7 +449,7 @@ These are items from the review that don't merit their own section:
 
 1. **Target coverage threshold for T3.3.** What is the current baseline? Suggest measuring before this spec is approved and setting `CTI_COVERAGE_FAIL_UNDER` to baseline-minus-2.
 2. **Drop `output_format=progress` semantics in T2.3.** Does any CI parser depend on the current `-v` output? Audit `.github/workflows/` before merging T2.3.
-3. **Python version floor.** The re-exec shim at the top of `run_tests.py` (`run_tests.py:1-11`) handles 3.9. Will the split (T3.2) hold the same shim? Recommend: keep the shim in `run_tests.py`, all package modules require 3.10+.
+3. **Python version floor.** The re-exec shim at the top of `run_tests.py` (`[run_tests.py:1-11`](../../run_tests.py)) handles 3.9. Will the split (T3.2) hold the same shim? Recommend: keep the shim in `run_tests.py`, all package modules require 3.10+.
 4. **`rich` as a runtime dependency.** Verify it's already present in the test extras group; otherwise T3.1 needs a `pyproject.toml` change.
 
 ## Acceptance criteria for the spec as a whole
@@ -468,3 +468,6 @@ All references in this spec point to `run_tests.py` at the commit in which it wa
 ```
 grep -n "_save_failure_log\|in_ci = \|--no-validate\|\\\\xe2\\\\x9c\\\\x93\|self.config.timeout - " run_tests.py
 ```
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbMTk2NzE3MTM0OF19
+-->
