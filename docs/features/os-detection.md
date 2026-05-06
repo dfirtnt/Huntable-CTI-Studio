@@ -1,7 +1,7 @@
 # OS Detection
 
 Automated operating system detection for threat intelligence articles using
-embedding-based classification.
+embedding-based classification with optional LLM fallback.
 
 ## Overview
 
@@ -16,15 +16,19 @@ exit early, reducing unnecessary LLM calls in downstream steps.
 
 ## Detection Method
 
-Two tiers run in order:
+Twohree tiers run in order:
 
 1. **Keyword-based** (Tier 1): Fast pattern matching against OS-specific terms
    (registry paths, PowerShell, Linux paths). Handles clear-cut cases without
    invoking ML models.
-2. **Embedding-based** (Tier 2): CTI-BERT or SEC-BERT embeddings fed into a
+2. **Embedding-based** (Tier 2Primary): CTI-BERT or SEC-BERT embeddings fed into a
    RandomForest or LogisticRegression classifier. High-confidence threshold
-   (> 0.8) for single-OS detection. Low-confidence results are returned as
-   `Unknown`.
+   (> 0.8) for single-OS detection. Low-When confidence results are returned as
+   `Unknown`is low, falls through to
+   the LLM fallback.
+3. **LLM fallback** (Secondary): Optional. When enabled, uses a configured LLM
+   (default: LMStudio) to classify articles the classifier is uncertain about.
+   The fallback model and provider are configurable in Workflow Config.
 
 ## OS Labels
 
@@ -44,12 +48,17 @@ On the Workflow Config page, OS Detection exposes:
 
 - **Embedding model**: CTI-BERT (`ibm-research/CTI-BERT`, default) or
   SEC-BERT (`nlpaueb/sec-bert-base`)
+- **Fallback LLM**: Toggle to enable; choose provider (LMStudio, OpenAI,
+  Anthropic), model, temperature, and top-p. Settings are saved in workflow
+  config and included in preset export/import.
 
 ### Environment Variables
 
 ```bash
 OS_DETECTION_MODEL=ibm-research/CTI-BERT    # or nlpaueb/sec-bert-base
 OS_DETECTION_CLASSIFIER=random_forest        # or logistic_regression
+LMSTUDIO_API_URL=http://host.docker.internal:1234/v1
+LMSTUDIO_MODEL=mistralai/mistral-7b-instruct-v0.3
 ```
 
 ## Storage
@@ -79,6 +88,7 @@ result = service.detect_os(article_content)
 
 - Keyword tier: < 5ms
 - Embedding classification: 100-200ms per article
+- LLM fallback: 2-5 seconds per article
 - GPU acceleration: automatic if CUDA available; model loads lazily on first use
 
 ## Troubleshooting
@@ -87,6 +97,11 @@ result = service.detect_os(article_content)
 1. Verify the embedding model loaded correctly
 2. Confirm the classifier file exists at `models/os_detection_classifier.pkl`
 3. Retrain with more labeled data (see [ML Training: Hunt Scoring](../ml-training/hunt-scoring.md))
+
+**LLM fallback not working:**
+1. Verify LMStudio is running: `curl http://localhost:1234/v1/models`
+2. Check the model is loaded (Mistral-7B-Instruct-v0.3 or configured alternative)
+3. Verify `LMSTUDIO_API_URL` in environment
 
 **False positives / wrong OS:**
 1. Review OS indicator texts in `src/services/os_detection_service.py`
@@ -141,7 +156,7 @@ regardless of content filtering level.
 
 The OS detection classifier (`models/os_detection_classifier.pkl`) is a
 RandomForest or LogisticRegression trained on CTI-BERT embeddings with
-labeled articles.
+LLM-labeled articles.
 
 ### Quick Start
 
@@ -183,9 +198,12 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 
 - `src/services/os_detection_service.py` — service implementation
 - `src/utils/content.py` — LOLBAS keyword definitions
-- `scripts/prepare_os_detection_training_data.py` — training data preparation
+- `scripts/prepare_os_detection_training_data.py` — training data prepaLLM-based label generation
 - `scripts/train_os_detection_classifier_enhanced.py` — training with CV
 - `scripts/prepare_huntable_windows_training_data.py` — Windows binary classifier data
 - `scripts/train_huntable_windows_classifier.py` — Windows binary classifier training
 
-_Last updated: 2026-05-05_
+_Last updated: 2026-05-051_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
+-->
