@@ -169,6 +169,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 
+class Glyph:
+    """ASCII-only display constants for status indicators (repo policy: ASCII-only in code)."""
+
+    PASS = "[PASS]"
+    FAIL = "[FAIL]"
+    WARN = "[WARN]"
+    INFO = "[INFO]"
+    TIP = "Tip:"
+    BAR_FILL = "="
+    BAR_EMPTY = " "
+
+
 class RunTestType(Enum):
     """Test execution types."""
 
@@ -1268,7 +1280,7 @@ class RunTestRunner:
                 show_progress = len(pytest_groups) > 1
 
                 print("\n" + "=" * 80)
-                print("🧪 RUNNING PYTEST TESTS")
+                print("RUNNING PYTEST TESTS")
                 if pytest_groups:
                     print(f"   Test Categories: {', '.join(pytest_groups)}")
                     if show_progress:
@@ -1353,7 +1365,7 @@ class RunTestRunner:
                                         ]
                                         n, total = len(categories_seen), len(pytest_groups)
                                         print(
-                                            f"\n📊 Category: {detected.upper()} | [{''.join(progress_chars)}] "
+                                            f"\nCategory: {detected.upper()} | [{''.join(progress_chars)}] "
                                             f"{n}/{total} | Tests: {test_count} | {elapsed:.1f}s",
                                             flush=True,
                                         )
@@ -1364,7 +1376,7 @@ class RunTestRunner:
                             elapsed = time.time() - pytest_start_time
                             progress_chars = ["=" if c in categories_seen else " " for c in pytest_groups]
                             print(
-                                f"\r⏳ [{''.join(progress_chars)}] {len(categories_seen)}/{len(pytest_groups)} "
+                                f"\r[{''.join(progress_chars)}] {len(categories_seen)}/{len(pytest_groups)} "
                                 f"| {test_count} tests | {elapsed:.1f}s",
                                 end="",
                                 flush=True,
@@ -1412,7 +1424,7 @@ class RunTestRunner:
                         print("\r" + " " * 100 + "\r", end="")  # Clear progress line
                     print()
                     print("=" * 80)
-                    status = "✅ PASSED" if pytest_success else "❌ FAILED"
+                    status = f"{Glyph.PASS} PASSED" if pytest_success else f"{Glyph.FAIL} FAILED"
                     print(f"PYTEST TESTS: {status} ({pytest_duration:.2f}s)")
                     passed = pytest_counts.get("passed", 0)
                     failed = pytest_counts.get("failed", 0)
@@ -1461,7 +1473,7 @@ class RunTestRunner:
                     last_run = project_root / "tests" / "test-results" / ".last-run.json"
                     if not last_run.is_file():
                         print("\n" + "=" * 80)
-                        print("⚠️  --playwright-last-failed requires a previous Playwright run with failures.")
+                        print(f"{Glyph.WARN}  --playwright-last-failed requires a previous Playwright run with failures.")
                         print(
                             "   Run './run_tests.py ui' first (let Playwright complete), "
                             "then rerun with --playwright-last-failed."
@@ -1482,7 +1494,7 @@ class RunTestRunner:
                         self.test_groups_executed.extend([f"playwright:{group}" for group in playwright_groups])
 
                     print("\n" + "=" * 80)
-                    print("🎭 RUNNING PLAYWRIGHT TESTS")
+                    print("RUNNING PLAYWRIGHT TESTS")
                     if playwright_groups:
                         print(f"   Test Groups: {', '.join(playwright_groups)}")
                         print(f"   Progress: [{' ' * len(playwright_groups)}] 0/{len(playwright_groups)} groups")
@@ -1537,7 +1549,7 @@ class RunTestRunner:
                                 elapsed = time.time() - playwright_start_time
                                 est = min(len(playwright_groups), max(1, pw_test_count // 5))
                                 bar = "=" * est + " " * (len(playwright_groups) - est)
-                                msg = f"\r⏳ [{bar}] {est}/{len(playwright_groups)} | {pw_test_count} | {elapsed:.1f}s"
+                                msg = f"\r[{bar}] {est}/{len(playwright_groups)} | {pw_test_count} | {elapsed:.1f}s"
                                 print(msg, end="", flush=True)
                                 pw_last_update = time.time()
 
@@ -1567,7 +1579,7 @@ class RunTestRunner:
                             print("\r" + " " * 100 + "\r", end="")  # Clear progress line
                         print()
                         print("=" * 80)
-                        status = "✅ PASSED" if playwright_success else "❌ FAILED"
+                        status = f"{Glyph.PASS} PASSED" if playwright_success else f"{Glyph.FAIL} FAILED"
                         print(f"PLAYWRIGHT TESTS: {status} ({playwright_duration:.2f}s)")
                         pp, pf, ps = (
                             playwright_counts.get("passed", 0),
@@ -1899,8 +1911,8 @@ class RunTestRunner:
             if "playwright" in self.results and "duration" in self.results["playwright"]:
                 test_only_duration += self.results["playwright"]["duration"]
             if test_only_duration > 0:
-                print(f"\n⏱️  Test execution only: {test_only_duration:.2f}s")
-            print(f"⏱️  Total (including setup): {total_duration:.2f}s")
+                print(f"\nTest execution only: {test_only_duration:.2f}s")
+            print(f"Total (including setup): {total_duration:.2f}s")
             return
 
         # Aggregate test counts from pytest and playwright
@@ -1939,18 +1951,18 @@ class RunTestRunner:
             performance_report = self.performance_profiler.generate_performance_report()
             if performance_report.get("status") == "success":
                 self.output_formatter.print_performance_info(performance_report)
-        print(f"🎯 Test Type: {self.config.test_type.value}")
-        print(f"🌍 Context: {self.config.context.value}")
-        print(f"🔧 Debug Mode: {'Yes' if self.config.debug else 'No'}")
-        print(f"📈 Coverage: {'Yes' if self.config.coverage else 'No'}")
+        print(f"Test Type: {self.config.test_type.value}")
+        print(f"Context: {self.config.context.value}")
+        print(f"Debug Mode: {'Yes' if self.config.debug else 'No'}")
+        print(f"Coverage: {'Yes' if self.config.coverage else 'No'}")
 
         # Test Groups Summary
         print("\n" + "=" * 80)
-        print("📊 TEST EXECUTION SUMMARY")
+        print("TEST EXECUTION SUMMARY")
         print("=" * 80)
 
         if self.test_groups_executed:
-            print("\n✅ Test Groups Executed:")
+            print(f"\n{Glyph.PASS} Test Groups Executed:")
             # Group by framework
             pytest_groups = [g.replace("pytest:", "") for g in self.test_groups_executed if g.startswith("pytest:")]
             playwright_groups = [
@@ -1958,34 +1970,34 @@ class RunTestRunner:
             ]
 
             if pytest_groups:
-                print("  🐍 Pytest:")
+                print("  Pytest:")
                 for group in sorted(set(pytest_groups)):
-                    print(f"     • {group}")
+                    print(f"     - {group}")
 
             if playwright_groups:
-                print("  🎭 Playwright:")
+                print("  Playwright:")
                 for group in sorted(set(playwright_groups)):
-                    print(f"     • {group}")
+                    print(f"     - {group}")
         else:
-            print("\n⚠️  No test groups tracked")
+            print(f"\n{Glyph.WARN}  No test groups tracked")
 
         # Results summary
         if self.results:
-            print("\n📋 Test Results:")
+            print("\nTest Results:")
             for test_type, result in self.results.items():
                 if isinstance(result, dict) and "success" in result:
-                    status = "✅ PASS" if result["success"] else "❌ FAIL"
+                    status = f"{Glyph.PASS} PASS" if result["success"] else f"{Glyph.FAIL} FAIL"
                     duration = result.get("duration", 0)
                     print(f"  {test_type}: {status} ({duration:.2f}s)")
 
                     # Show pytest/playwright breakdown if available
                     if "pytest" in result or "playwright" in result:
                         if "pytest" in result and result["pytest"] is not None:
-                            pytest_status = "✅" if result["pytest"] else "❌"
+                            pytest_status = Glyph.PASS if result["pytest"] else Glyph.FAIL
                             pytest_duration = self.results.get("pytest", {}).get("duration", 0)
                             print(f"    - pytest: {pytest_status} ({pytest_duration:.2f}s)")
                         if "playwright" in result and result["playwright"] is not None:
-                            pw_status = "✅" if result["playwright"] else "❌"
+                            pw_status = Glyph.PASS if result["playwright"] else Glyph.FAIL
                             pw_duration = self.results.get("playwright", {}).get("duration", 0)
                             print(f"    - playwright: {pw_status} ({pw_duration:.2f}s)")
 
@@ -1997,8 +2009,8 @@ class RunTestRunner:
         if "playwright" in self.results and "duration" in self.results["playwright"]:
             test_only_duration += self.results["playwright"]["duration"]
         if test_only_duration > 0:
-            print(f"\n⏱️  Test execution only: {test_only_duration:.2f}s")
-        print(f"⏱️  Total (including setup): {total_duration:.2f}s")
+            print(f"\nTest execution only: {test_only_duration:.2f}s")
+        print(f"Total (including setup): {total_duration:.2f}s")
 
         # Success summary
         overall_success = (
@@ -2011,36 +2023,37 @@ class RunTestRunner:
             else False
         )
 
-        print(f"🎯 Overall Status: {'✅ ALL TESTS PASSED' if overall_success else '❌ SOME TESTS FAILED'}")
+        overall_label = f"{Glyph.PASS} ALL TESTS PASSED" if overall_success else f"{Glyph.FAIL} SOME TESTS FAILED"
+        print(f"Overall Status: {overall_label}")
 
         # Report locations
-        print("\n📁 Generated Reports:")
+        print("\nGenerated Reports:")
 
         # Test results
         test_results_dir = Path("test-results")
         if test_results_dir.exists():
-            print(f"  📊 Test Results: {test_results_dir.absolute()}")
+            print(f"  Test Results: {test_results_dir.absolute()}")
 
             # Allure results
             allure_results = Path("allure-results")
             if allure_results.exists():
-                print(f"  📊 Allure Results: {allure_results.absolute()}")
-                print("    💡 Run 'allure serve allure-results' for interactive reports")
+                print(f"  Allure Results: {allure_results.absolute()}")
+                print("    Tip: Run 'allure serve allure-results' for interactive reports")
 
             # Report log (timestamped, generated by pytest-reportlog)
             report_log = test_results_dir / f"reportlog_{self.timestamp}.jsonl"
             if report_log.exists():
-                print(f"  📊 Report Log: {report_log.absolute()}")
+                print(f"  Report Log: {report_log.absolute()}")
 
         # Coverage report
         coverage_dir = Path("htmlcov")
         if coverage_dir.exists():
             index_file = coverage_dir / "index.html"
             if index_file.exists():
-                print(f"  📊 Coverage Report: {index_file.absolute()}")
+                print(f"  Coverage Report: {index_file.absolute()}")
 
         # Available test categories
-        print("\n🎯 Available Test Categories:")
+        print("\nAvailable Test Categories:")
         categories = [
             ("smoke", "Quick health check (~30s)"),
             ("unit", "Unit tests only (~1m)"),
@@ -2061,10 +2074,10 @@ class RunTestRunner:
         ]
 
         for category, description in categories:
-            print(f"  • {category:<15} {description}")
+            print(f"  - {category:<15} {description}")
 
         # Usage examples
-        print("\n💡 Usage Examples:")
+        print("\nUsage Examples:")
         examples = [
             "python run_tests.py smoke",
             "python run_tests.py all --coverage",
@@ -2077,11 +2090,11 @@ class RunTestRunner:
             print(f"  $ {example}")
 
         # New test infrastructure notes
-        print("\n🔧 New Test Infrastructure:")
-        print("  • Test containers: make test-up / make test-down")
-        print("  • Test environment guards prevent production DB access")
-        print("  • Stateful tests require test containers (auto-started if needed)")
-        print("  • See docs/TESTING_STRATEGY.md for details")
+        print("\nNew Test Infrastructure:")
+        print("  - Test containers: make test-up / make test-down")
+        print("  - Test environment guards prevent production DB access")
+        print("  - Stateful tests require test containers (auto-started if needed)")
+        print("  - See docs/TESTING_STRATEGY.md for details")
 
 
 def parse_arguments() -> list[RunTestConfig]:
@@ -2155,7 +2168,7 @@ Manual Container Management:
         """,
     )
 
-    # Test type (positional argument — accepts one or more types)
+    # Test type (positional argument -- accepts one or more types)
     valid_types = [t.value for t in RunTestType]
     parser.add_argument(
         "test_types",
