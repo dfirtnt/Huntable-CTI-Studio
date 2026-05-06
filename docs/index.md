@@ -6,7 +6,7 @@ Huntable CTI Studio is an AI-assisted workbench for detection engineers and thre
 
 With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
 
-## Who Is This For?
+## Who Is This For??
 
 | Role | What you get |
 |------|--------------|
@@ -93,5 +93,5 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 
 _Last updated: 2026-05-01_
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTYxMzk0MzI2NF19
+eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
 -->
