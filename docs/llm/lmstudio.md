@@ -118,7 +118,7 @@ Quantization (Q4_K_M, Q6_K, Q8_0) must be set in LMStudio UI when loading the mo
   - 3B models: ~2600 tokens of content (~10400 chars)  
   - 8B+ models: ~6700 tokens of content (~26800 chars)
 
-**Chat/RAG Queries:**
+**MCP / Semantic Queries:**
 - Varies by conversation length
 - Typically requires 4096-8192 tokens for standard queries
 

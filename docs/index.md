@@ -12,7 +12,7 @@ With full transparency, each article moves through an explicit LangGraph pipelin
 |------|--------------|
 | **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated and de-duplicated against SigmaHQ |
 | **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
-| **SOC Analysts** | Curated, scored intelligence feed with RAG-powered search via MCP |
+| **SOC Analysts** | Curated, scored intelligence feed with semantic search via MCP |
 | **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
 
 ## Highlights
@@ -63,9 +63,9 @@ ML-based classification to filter low-quality content. See [Content Filtering](f
 
 Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection](features/os-detection.md).
 
-### RAG Search
+### MCP Semantic Search
 
-Semantic search across your CTI corpus using embeddings. See [Semantic Search](features/semantic-search.md).
+Semantic search across your CTI corpus using embeddings, accessed via MCP tools. See [Semantic Search](features/semantic-search.md).
 
 ### Source Auto-Healing
 

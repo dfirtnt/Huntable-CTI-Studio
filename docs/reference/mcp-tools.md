@@ -8,7 +8,7 @@ The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for 
 
 | # | Tool | Summary |
 |---|------|---------|
-| 1 | `get_stats` | Database health overview: articles (total + embedding coverage %), **SigmaHQ corpus** (`sigma_rules`: total + RAG vector count/coverage — not the AI review queue), active vs total sources. Same Sigma block is on **`GET /api/embeddings/stats`** as `sigma_corpus`. CLI hints when corpus or vectors are missing. |
+| 1 | `get_stats` | Database health overview: articles (total + embedding coverage %), **SigmaHQ corpus** (`sigma_rules`: total + vector count/coverage -- not the AI review queue), active vs total sources. Same Sigma block is on **`GET /api/embeddings/stats`** as `sigma_corpus`. CLI hints when corpus or vectors are missing. |
 | 2 | `get_article` | Full article body, summary, metadata, and source — by **`articles.id`** (from **Article ID** in search output, not list rank). |
 | 3 | `get_sigma_rule` | Full YAML + metadata for a single Sigma rule — by **SigmaHQ UUID** (`rule_id`, from **Rule ID** in search output). Returns title, status, level, author, date, tags, references, false positives, description, and the raw YAML block. Errors: `{"error": "Invalid rule_id format"}` for malformed UUIDs; `{"error": "No rule found with ID …"}` for unknown IDs. Raw YAML requires `sigma index` (or `index-metadata`) to have been run; if missing, re-run with `--force`. |
 | 4 | `search_articles` | Semantic (embedding) search over articles; chunk-level retrieval with previews. Params: `query`, `top_k`, `threshold`, optional `min_hunt_score`, optional `source_name` (substring match on source name). |

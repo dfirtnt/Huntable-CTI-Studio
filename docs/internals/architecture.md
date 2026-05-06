@@ -15,7 +15,7 @@ ASCII diagrams of the main workflows in Huntable CTI Studio. Use these to orient
 │ • RSS Feeds     │───▶│ • FastAPI App   │    │ • Celery Worker │    │ • PostgreSQL    │
 │ • Web Scraping  │    │ • Dashboard     │    │ • Scheduler     │    │ • Redis Cache   │
 │ • Sources   │    │ • Search/Filter │    │ • Collection    │    │ • pgvector      │
-│ • Browser Ext.  │    │ • RAG Search    │    │ • AI Analysis   │    │ • Async Manager │
+│ • Browser Ext.  │    │ • MCP Retrieval │    │ • AI Analysis   │    │ • Async Manager │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
          ▼                       ▼                       ▼                       ▼

@@ -59,9 +59,9 @@ These are the main article browsing and maintenance endpoints.
 
 These power the semantic search workflow. For conversational retrieval, use the Huntable MCP server (see [MCP tools reference](mcp-tools.md)).
 
-### Embeddings And RAG Coverage
+### Embeddings And Vector Coverage
 
-- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with RAG embeddings), distinct from the AI **sigma_rule_queue**. Used by `/search`, CLI `embed stats`, and MCP `get_stats`.
+- `GET /api/embeddings/stats` -- Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with embeddings), distinct from the AI **sigma_rule_queue**. Used by CLI `embed stats` and MCP `get_stats`.
 
 ### Workflow Execution
 
