@@ -138,6 +138,39 @@ def _execution_has_context_overflow(
     return False
 
 
+def _execution_has_quota_error(
+    error_message: str | None,
+    error_log: dict | list | str | None,
+) -> bool:
+    """Return True when the execution failed due to billing quota exhaustion (not a retriable rate limit)."""
+    if error_message and _QUOTA_ERROR_PATTERNS.search(error_message):
+        return True
+
+    if not isinstance(error_log, dict):
+        return False
+
+    extract_agent = error_log.get("extract_agent")
+    if not isinstance(extract_agent, dict):
+        return False
+
+    conversation_log = extract_agent.get("conversation_log")
+    if not isinstance(conversation_log, list):
+        return False
+
+    for entry in conversation_log:
+        if not isinstance(entry, dict):
+            continue
+        result = entry.get("result")
+        if not isinstance(result, dict):
+            continue
+        for field in ("error", "error_type", "error_details"):
+            value = result.get(field)
+            if isinstance(value, str) and _QUOTA_ERROR_PATTERNS.search(value):
+                return True
+
+    return False
+
+
 def _execution_infra_not_ready(
     error_message: str | None,
     error_log: dict | list | str | None,
@@ -1386,6 +1419,7 @@ async def get_subagent_eval_results(
                 throttled = False
                 context_length_exceeded = False
                 infra_not_ready = False
+                quota_exceeded = False
 
                 if record.workflow_execution_id:
                     execution = executions_by_id.get(record.workflow_execution_id)
@@ -1401,7 +1435,9 @@ async def get_subagent_eval_results(
                                 warnings.extend(extraction_warnings)
                         if execution.error_message:
                             execution_error_message = execution.error_message
-                        if _execution_is_throttled(execution.error_message, execution.error_log):
+                        if _execution_has_quota_error(execution.error_message, execution.error_log):
+                            quota_exceeded = True
+                        elif _execution_is_throttled(execution.error_message, execution.error_log):
                             throttled = True
                         if _execution_has_context_overflow(
                             execution.error_message,
@@ -1443,6 +1479,7 @@ async def get_subagent_eval_results(
                         "throttled": throttled,
                         "context_length_exceeded": context_length_exceeded,
                         "infra_not_ready": infra_not_ready,
+                        "quota_exceeded": quota_exceeded,
                     }
                 )
 
@@ -1670,9 +1707,10 @@ async def get_subagent_eval_aggregate(
                 SubagentEvaluationTable.created_at.desc(),
             ).all()
 
-            # Batch-fetch execution rows to avoid N+1 queries when counting throttled runs.
+            # Batch-fetch execution rows to avoid N+1 queries when counting throttled/quota runs.
             execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
             throttled_execution_ids: set[int] = set()
+            quota_exceeded_execution_ids: set[int] = set()
             if execution_ids:
                 execution_rows = (
                     db_session.query(
@@ -1684,7 +1722,9 @@ async def get_subagent_eval_aggregate(
                     .all()
                 )
                 for exec_id, err_msg, err_log in execution_rows:
-                    if _execution_is_throttled(err_msg, err_log):
+                    if _execution_has_quota_error(err_msg, err_log):
+                        quota_exceeded_execution_ids.add(exec_id)
+                    elif _execution_is_throttled(err_msg, err_log):
                         throttled_execution_ids.add(exec_id)
 
             # Predetermined expected_count by article_url from eval_articles.yaml
@@ -1707,6 +1747,7 @@ async def get_subagent_eval_aggregate(
                 failed_records = [r for r in records if r.status == "failed"]
                 pending_records = [r for r in records if r.status == "pending"]
                 throttled_count = sum(1 for r in records if r.workflow_execution_id in throttled_execution_ids)
+                quota_exceeded_count = sum(1 for r in records if r.workflow_execution_id in quota_exceeded_execution_ids)
 
                 if not completed_records:
                     aggregates.append(
@@ -1717,6 +1758,7 @@ async def get_subagent_eval_aggregate(
                             "failed": len(failed_records),
                             "pending": len(pending_records),
                             "throttled": throttled_count,
+                            "quota_exceeded": quota_exceeded_count,
                             "mean_score": None,
                             "mean_absolute_error": None,
                             "raw_mae": None,
@@ -1764,6 +1806,7 @@ async def get_subagent_eval_aggregate(
                         "failed": len(failed_records),
                         "pending": len(pending_records),
                         "throttled": throttled_count,
+                        "quota_exceeded": quota_exceeded_count,
                         "mean_score": round(mean_score, 2),
                         "mean_absolute_error": round(normalized_mean_absolute_error, 4)
                         if normalized_mean_absolute_error is not None

@@ -1667,6 +1667,9 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
+                if (result.quota_exceeded) {
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">no quota</span>`;
+                }
                 if (result.throttled) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1;" title="TPM RATE LIMIT">&#9888;</span>`;
                 }
@@ -1795,6 +1798,9 @@ function renderSubagentResults(results) {
         html += `</div></td>`;
         html += `<td class="px-4 py-3 text-sm">`;
         html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
+        if (result.quota_exceeded) {
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">QUOTA EXCEEDED</span>`;
+        }
         if (result.throttled) {
             html += ` <span class="status-badge status-mismatch" title="Provider throttled this call. Raise the Concurrency Throttle and re-run.">TPM RATE LIMIT</span>`;
         }
@@ -2384,6 +2390,9 @@ async function loadAggregateScores() {
                 metricsHtml = `<p class="text-sm text-gray-500 dark:text-gray-400">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>${paramsHtml}`;
             }
             
+            const quotaChip = (agg.quota_exceeded && agg.quota_exceeded > 0)
+                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- ${agg.quota_exceeded} article${agg.quota_exceeded === 1 ? '' : 's'} failed due to billing cap. Add credits to your OpenAI account.">${agg.quota_exceeded} quota exceeded</span>`
+                : '';
             const throttledChip = (agg.throttled && agg.throttled > 0)
                 ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem;" title="TPM RATE LIMIT - ${agg.throttled} article${agg.throttled === 1 ? '' : 's'} were throttled in this run. Raise Concurrency Throttle and re-run.">&#9888; ${agg.throttled} throttled</span>`
                 : '';
@@ -2391,7 +2400,7 @@ async function loadAggregateScores() {
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}${quotaChip}</span>
                         <button class="eval-btn eval-btn--secondary eval-btn--sm rerun-version-btn" data-config-version="${agg.config_version}" title="Pre-select these articles and re-run with current config">Re-run</button>
                     </div>
                 </div>
