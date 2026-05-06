@@ -61,6 +61,39 @@ def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]
     logger.info("Auto-enabled providers from preset: %s", sorted(providers))
 
 
+_AUTO_TRIGGER_THRESHOLD_KEY = "AUTO_TRIGGER_HUNT_SCORE_THRESHOLD"
+
+
+def _get_threshold_from_settings(db_session) -> float | None:
+    """Read auto-trigger threshold from AppSettingsTable. Returns None if not set."""
+    row = db_session.query(AppSettingsTable).filter(
+        AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY
+    ).first()
+    if row and row.value is not None:
+        try:
+            return float(row.value)
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+def _save_threshold_to_settings(db_session, value: float) -> None:
+    """Write auto-trigger threshold to AppSettingsTable (upsert)."""
+    from datetime import datetime
+    row = db_session.query(AppSettingsTable).filter(
+        AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY
+    ).first()
+    if row:
+        row.value = str(value)
+        row.updated_at = datetime.now()
+    else:
+        db_session.add(AppSettingsTable(
+            key=_AUTO_TRIGGER_THRESHOLD_KEY,
+            value=str(value),
+            category="workflow",
+        ))
+
+
 def _active_workflow_config_query(db_session):
     return (
         db_session.query(AgenticWorkflowConfigTable)
@@ -281,8 +314,11 @@ def get_workflow_config(request: Request):
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat(),
             )
-            legacy_dict["auto_trigger_hunt_score_threshold"] = getattr(
-                config, "auto_trigger_hunt_score_threshold", 60.0
+            settings_threshold = _get_threshold_from_settings(db_session)
+            legacy_dict["auto_trigger_hunt_score_threshold"] = (
+                settings_threshold
+                if settings_threshold is not None
+                else getattr(config, "auto_trigger_hunt_score_threshold", 60.0)
             )
             return WorkflowConfigResponse(**legacy_dict)
         finally:
@@ -443,10 +479,15 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     getattr(current_config, "cmdline_attention_preprocessor_enabled", True) if current_config else True
                 )
             )
+            _settings_threshold = _get_threshold_from_settings(db_session)
             final_auto_trigger_hunt_score_threshold = (
                 config_update.auto_trigger_hunt_score_threshold
                 if config_update.auto_trigger_hunt_score_threshold is not None
-                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
+                else (
+                    _settings_threshold
+                    if _settings_threshold is not None
+                    else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
+                )
             )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
@@ -544,8 +585,10 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                         cmdline_attention_preprocessor_enabled=getattr(
                             current_config, "cmdline_attention_preprocessor_enabled", True
                         ),
-                        auto_trigger_hunt_score_threshold=getattr(
-                            current_config, "auto_trigger_hunt_score_threshold", 60.0
+                        auto_trigger_hunt_score_threshold=(
+                            _settings_threshold
+                            if _settings_threshold is not None
+                            else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                         ),
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat(),
@@ -632,13 +675,14 @@ def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
         try:
+            # Write to AppSettingsTable first (race-condition-safe source of truth)
+            _save_threshold_to_settings(db_session, value)
+            # Also update the active config row for backward compat
             current_config = _active_workflow_config_query(db_session).with_for_update().first()
-            if not current_config:
-                raise HTTPException(status_code=404, detail="No active workflow configuration found")
-            current_config.auto_trigger_hunt_score_threshold = value
+            if current_config:
+                current_config.auto_trigger_hunt_score_threshold = value
             db_session.commit()
-            db_session.refresh(current_config)
-            return {"auto_trigger_hunt_score_threshold": current_config.auto_trigger_hunt_score_threshold}
+            return {"auto_trigger_hunt_score_threshold": value}
         finally:
             db_session.close()
 
@@ -1291,6 +1335,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                     agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
 
             # Create new config version - preserve all fields including agent_models and qa_enabled
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1313,8 +1358,9 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
-                auto_trigger_hunt_score_threshold=getattr(
-                    current_config, "auto_trigger_hunt_score_threshold", 60.0
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1561,6 +1607,7 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
             agent_prompts[agent_name] = restored
 
             # Create new config version
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1583,8 +1630,9 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
-                auto_trigger_hunt_score_threshold=getattr(
-                    current_config, "auto_trigger_hunt_score_threshold", 60.0
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1854,6 +1902,7 @@ def bootstrap_prompts_from_files(request: Request):
             new_version = _next_workflow_config_version(db_session)
 
             # Create new config with bootstrapped prompts
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1876,8 +1925,9 @@ def bootstrap_prompts_from_files(request: Request):
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
-                auto_trigger_hunt_score_threshold=getattr(
-                    current_config, "auto_trigger_hunt_score_threshold", 60.0
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1947,6 +1997,7 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
             _deactivate_active_workflow_configs(db_session)
             new_version = _next_workflow_config_version(db_session)
 
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1965,8 +2016,9 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
-                auto_trigger_hunt_score_threshold=getattr(
-                    current_config, "auto_trigger_hunt_score_threshold", 60.0
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
