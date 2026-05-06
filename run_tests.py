@@ -228,6 +228,7 @@ class RunTestConfig:
     serial: bool = False
     playwright_project: str | None = None  # --area: pin Playwright to one feature project
     coverage: bool = False
+    cov_append: bool = False  # True for 2nd+ coverage run in a multi-type invocation
     install_deps: bool = False
     run_teardown: bool = True
     skip_real_api: bool = False
@@ -266,6 +267,7 @@ class RunTestRunner:
         self.environment_manager = None
         self.test_groups_executed = []  # Track which test groups were run
         self.failed_test_names: list[str] = []  # Collect names of failed tests for combined summary
+        self._plugin_cache: dict[str, bool] = {}  # Cache for venv plugin availability checks
 
         # Virtual environment paths - always use .venv
         self.venv_python = self._ensure_venv()
@@ -310,70 +312,147 @@ class RunTestRunner:
         logger.info(f"Using virtual environment: {venv_python}")
         return venv_python
 
+    def _check_plugin(self, name: str) -> bool:
+        """Return True if the named Python package is importable in the venv.
+
+        Results are cached on this instance so multiple calls within the same
+        test run do not spawn extra subprocesses.
+        """
+        if name not in self._plugin_cache:
+            result = subprocess.run(
+                [self.venv_python, "-c", f"import {name}"],
+                capture_output=True,
+                check=False,
+            )
+            self._plugin_cache[name] = result.returncode == 0
+        return self._plugin_cache[name]
+
     def _wait_for_test_containers(self, timeout_seconds: int = 90) -> bool:
-        """Wait until required local test containers report healthy status."""
+        """Wait until required local test containers report healthy status.
+
+        Uses a single ``docker compose ps --format json`` call per cycle (one
+        subprocess instead of 2*N).  Falls back to the legacy per-service
+        ``docker inspect`` path when the JSON format is unavailable (older
+        Docker installs) or cannot be parsed.
+        """
         compose_base = ["docker", "compose", "-f", str(project_root / "docker-compose.test.yml")]
         required_services = ("postgres_test", "redis_test")
         deadline = time.time() + timeout_seconds
 
         while time.time() < deadline:
-            statuses: list[str] = []
-            all_healthy = True
-
-            for service in required_services:
-                cid_result = subprocess.run(
-                    [*compose_base, "ps", "-q", service],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                container_id = (cid_result.stdout or "").strip()
-
-                # Fallback: compose ps may return empty when the project was
-                # started under a different project name (e.g. "app" vs the
-                # directory-derived default).  Resolve by inspecting the
-                # well-known container name directly.
-                if not container_id:
-                    fallback_name = f"cti_{service}"
-                    fb_result = subprocess.run(
-                        ["docker", "inspect", "--format", "{{.Id}}", fallback_name],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    container_id = (fb_result.stdout or "").strip() if fb_result.returncode == 0 else ""
-
-                if not container_id:
-                    statuses.append(f"{service}=missing")
-                    all_healthy = False
-                    continue
-
-                health_result = subprocess.run(
-                    [
-                        "docker",
-                        "inspect",
-                        "--format",
-                        "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
-                        container_id,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-                status = (health_result.stdout or "").strip() if health_result.returncode == 0 else "unknown"
-                statuses.append(f"{service}={status or 'unknown'}")
-                if status != "healthy":
-                    all_healthy = False
-
+            statuses, all_healthy = self._poll_container_health_batch(compose_base, required_services)
             if all_healthy:
                 logger.info("Test containers ready: %s", ", ".join(statuses))
                 return True
-
             logger.debug("Waiting for test containers: %s", ", ".join(statuses))
             time.sleep(2)
 
         logger.error("Timed out waiting for test containers to become healthy")
         return False
+
+    def _poll_container_health_batch(
+        self,
+        compose_base: list[str],
+        required_services: tuple[str, ...],
+    ) -> tuple[list[str], bool]:
+        """Return (statuses, all_healthy) using one docker compose ps call.
+
+        Falls back to per-service docker inspect when the JSON format is
+        unavailable or unparseable (older Docker / Compose versions).
+        """
+        import json as _json
+
+        try:
+            result = subprocess.run(
+                [*compose_base, "ps", "--format", "json", *required_services],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                raise ValueError("docker compose ps --format json failed")
+
+            # Docker Compose v2 emits one JSON object per line.
+            health_by_service: dict[str, str] = {}
+            for raw_line in result.stdout.splitlines():
+                raw_line = raw_line.strip()
+                if not raw_line:
+                    continue
+                obj = _json.loads(raw_line)
+                svc = obj.get("Service") or obj.get("Name", "")
+                # Health is nested under State in some versions, top-level in others.
+                health = (
+                    obj.get("Health")
+                    or (obj.get("State") or {}).get("Health", {}).get("Status", "")
+                    or obj.get("Status", "unknown")
+                )
+                if svc:
+                    health_by_service[svc] = health
+
+            statuses: list[str] = []
+            all_healthy = True
+            for service in required_services:
+                status = health_by_service.get(service, "missing")
+                statuses.append(f"{service}={status}")
+                if status != "healthy":
+                    all_healthy = False
+            return statuses, all_healthy
+
+        except Exception:
+            # Fall back to legacy per-service inspect path.
+            return self._poll_container_health_legacy(compose_base, required_services)
+
+    def _poll_container_health_legacy(
+        self,
+        compose_base: list[str],
+        required_services: tuple[str, ...],
+    ) -> tuple[list[str], bool]:
+        """Legacy per-service docker inspect fallback for older Docker versions."""
+        statuses: list[str] = []
+        all_healthy = True
+
+        for service in required_services:
+            cid_result = subprocess.run(
+                [*compose_base, "ps", "-q", service],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            container_id = (cid_result.stdout or "").strip()
+
+            if not container_id:
+                fallback_name = f"cti_{service}"
+                fb_result = subprocess.run(
+                    ["docker", "inspect", "--format", "{{.Id}}", fallback_name],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                container_id = (fb_result.stdout or "").strip() if fb_result.returncode == 0 else ""
+
+            if not container_id:
+                statuses.append(f"{service}=missing")
+                all_healthy = False
+                continue
+
+            health_result = subprocess.run(
+                [
+                    "docker",
+                    "inspect",
+                    "--format",
+                    "{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}",
+                    container_id,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            status = (health_result.stdout or "").strip() if health_result.returncode == 0 else "unknown"
+            statuses.append(f"{service}={status or 'unknown'}")
+            if status != "healthy":
+                all_healthy = False
+
+        return statuses, all_healthy
 
     def _test_containers_running(self) -> tuple[bool, list[str]]:
         """Return whether the required named test containers are running."""
@@ -674,11 +753,14 @@ class RunTestRunner:
         test_type = self.config.test_type
 
         if self.config.test_paths:
-            # Custom paths specified - resolve through the shared directory map
+            # Resolve each path to a display category by exact directory-part
+            # match.  String substring matching mis-classifies paths such as
+            # tests/api/test_smoke_endpoints.py (contains "smoke" as substring).
             groups: set[str] = set()
             for path in self.config.test_paths:
+                parts = set(Path(path).parts)
                 for dirname, category in self._DIR_TO_CATEGORY.items():
-                    if dirname in path:
+                    if dirname in parts:
                         groups.add(category)
                         break
             return sorted(groups) if groups else ["all"]
@@ -1009,12 +1091,8 @@ class RunTestRunner:
             RunTestType.ALL,
             RunTestType.COVERAGE,
         ):
-            try:
-                import pytest_timeout  # noqa: F401
-
+            if self._check_plugin("pytest_timeout"):
                 cmd.extend(["--timeout=60", "--timeout-method=thread"])
-            except ImportError:
-                pass  # pytest-timeout not installed; timeout guard disabled
 
         # Add execution context specific options
         effective_context = self._get_effective_context(self.config.test_type)
@@ -1054,9 +1132,7 @@ class RunTestRunner:
             in (RunTestType.UI, RunTestType.UI_SMOKE, RunTestType.UI_FAST, RunTestType.UI_FULL, RunTestType.E2E)
             and not self.config.fail_fast
         ):
-            # Check xdist in the venv (where pytest actually runs), not the driver process
-            xdist_check = subprocess.run([self.venv_python, "-c", "import xdist"], capture_output=True, check=False)
-            if xdist_check.returncode == 0:
+            if self._check_plugin("xdist"):
                 # ui-smoke is fast pytest-only; cap at 2 since smoke tests are already short
                 # and worker startup overhead dominates
                 workers = "2" if self.config.test_type == RunTestType.UI_SMOKE else "4"
@@ -1064,14 +1140,21 @@ class RunTestRunner:
 
         # Add coverage
         if self.config.coverage:
-            cmd.extend(
-                [
-                    "--cov=src",
-                    "--cov-report=html:htmlcov",
-                    "--cov-report=xml:coverage.xml",
-                    "--cov-report=term-missing",
-                ]
-            )
+            ts = time.strftime("%Y%m%d_%H%M%S")
+            cov_args = [
+                "--cov=src",
+                "--cov-branch",
+                "--cov-report=html:htmlcov",
+                "--cov-report=xml:coverage.xml",
+                "--cov-report=term-missing",
+                f"--cov-report=json:test-results/coverage_{ts}.json",
+            ]
+            if self.config.cov_append:
+                cov_args.append("--cov-append")
+            fail_under = os.getenv("CTI_COVERAGE_FAIL_UNDER")
+            if fail_under:
+                cov_args.append(f"--cov-fail-under={fail_under}")
+            cmd.extend(cov_args)
 
         # Add output format.
         # progress (default): no -v; --verbose flag adds -v; verbose format adds -vv; quiet adds -q.
@@ -1100,16 +1183,8 @@ class RunTestRunner:
         # pytest-timeout flag unless plugin is guaranteed available.
 
         # Add reporting (only if allure is available in venv)
-        try:
-            result = subprocess.run(
-                [self.venv_python, "-c", "import allure"],
-                capture_output=True,
-                check=False,
-            )
-            if result.returncode == 0:
-                cmd.extend(["--alluredir=allure-results"])
-        except Exception:
-            pass
+        if self._check_plugin("allure"):
+            cmd.extend(["--alluredir=allure-results"])
 
         # Add JUnit XML report for CI/CD and failure analysis.
         # Use absolute paths so pytest-html can write incrementally regardless of cwd.
@@ -1159,12 +1234,6 @@ class RunTestRunner:
                 return False
 
             # Determine if we should run Playwright tests
-            # --playwright-only forces the JS section on even if --skip-playwright-js was also passed
-            if self.config.playwright_only and self.config.skip_playwright_js:
-                print(
-                    "WARNING: --playwright-only and --skip-playwright-js are mutually exclusive. --playwright-only wins."
-                )
-                self.config.skip_playwright_js = False
             playwright_cmd = self._build_playwright_command()
             run_playwright = playwright_cmd is not None and not self.config.skip_playwright_js
             if self.config.skip_playwright_js and playwright_cmd is not None:
@@ -2274,13 +2343,14 @@ Manual Container Management:
         action="store_true",
         help="Rerun only Playwright tests that failed in the last run (skips pytest; use after 'ui' run with failures)",
     )
-    parser.add_argument(
+    pw_scope = parser.add_mutually_exclusive_group()
+    pw_scope.add_argument(
         "--skip-playwright-js",
         action="store_true",
         help="For 'ui' (and e2e/ai-ui/all/coverage): run pytest tests/ui only; "
         "skip npx Playwright tests/playwright (saves most UI wall time)",
     )
-    parser.add_argument(
+    pw_scope.add_argument(
         "--playwright-only",
         action="store_true",
         help="Run only the Node.js Playwright section (tests/playwright/*.spec.ts); skip pytest entirely",
@@ -2367,6 +2437,12 @@ async def main():
     try:
         # Parse configuration (one config per requested test type)
         configs = parse_arguments()
+
+        # For multi-type runs with --coverage, all but the first coverage config
+        # should append rather than reset, so the final report is combined.
+        coverage_configs = [c for c in configs if c.coverage]
+        for c in coverage_configs[1:]:
+            c.cov_append = True
 
         overall_results: list[tuple[str, bool, dict[str, int]]] = []
         all_passed = True

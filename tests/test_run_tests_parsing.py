@@ -436,3 +436,148 @@ class TestVerbosityFlags:
         cmd = self._make_runner(output_format="verbose", verbose=True)._build_pytest_command()
         assert "-vv" in cmd
         assert "-v" not in [p for p in cmd if p == "-v"]
+
+
+class TestCoverageFlags:
+    """T3.3: --cov-branch, --cov-fail-under, --cov-append, JSON snapshot."""
+
+    def _make_runner(self, coverage: bool = True, cov_append: bool = False) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=RunTestType.UNIT,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            coverage=coverage,
+            cov_append=cov_append,
+        )
+        return RunTestRunner(config)
+
+    def test_coverage_includes_cov_branch(self):
+        cmd = self._make_runner()._build_pytest_command()
+        assert "--cov-branch" in cmd
+
+    def test_coverage_includes_json_snapshot(self):
+        cmd = self._make_runner()._build_pytest_command()
+        assert any(p.startswith("--cov-report=json:test-results/coverage_") for p in cmd)
+
+    def test_cov_append_flag(self):
+        cmd = self._make_runner(cov_append=True)._build_pytest_command()
+        assert "--cov-append" in cmd
+
+    def test_no_cov_append_by_default(self):
+        cmd = self._make_runner(cov_append=False)._build_pytest_command()
+        assert "--cov-append" not in cmd
+
+    def test_cov_fail_under_from_env(self, monkeypatch):
+        monkeypatch.setenv("CTI_COVERAGE_FAIL_UNDER", "75")
+        cmd = self._make_runner()._build_pytest_command()
+        assert "--cov-fail-under=75" in cmd
+
+    def test_no_cov_fail_under_when_env_unset(self, monkeypatch):
+        monkeypatch.delenv("CTI_COVERAGE_FAIL_UNDER", raising=False)
+        cmd = self._make_runner()._build_pytest_command()
+        assert not any(p.startswith("--cov-fail-under") for p in cmd)
+
+    def test_no_coverage_flags_when_disabled(self):
+        cmd = self._make_runner(coverage=False)._build_pytest_command()
+        assert "--cov-branch" not in cmd
+        assert not any(p.startswith("--cov") for p in cmd)
+
+
+class TestPathGroupResolution:
+    """T3.5(b): _get_pytest_test_groups uses Path.parts for exact dir match."""
+
+    def _make_runner(self, paths: list[str]) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=RunTestType.SMOKE,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            test_paths=paths,
+        )
+        return RunTestRunner(config)
+
+    def test_smoke_path_resolves_to_smoke(self):
+        groups = self._make_runner(["tests/smoke/test_foo.py"])._get_pytest_test_groups()
+        assert groups == ["smoke"]
+
+    def test_api_path_with_smoke_in_name_resolves_to_api(self):
+        """tests/api/test_smoke_endpoints.py must not be misclassified as smoke."""
+        groups = self._make_runner(["tests/api/test_smoke_endpoints.py"])._get_pytest_test_groups()
+        assert "smoke" not in groups
+        assert "api" in groups
+
+    def test_unrecognised_path_returns_all(self):
+        groups = self._make_runner(["tests/unknown/test_foo.py"])._get_pytest_test_groups()
+        assert groups == ["all"]
+
+
+class TestContainerHealthBatch:
+    """T3.4: _poll_container_health_batch parses docker compose ps JSON output."""
+
+    def _make_runner(self) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=RunTestType.SMOKE,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+        )
+        return RunTestRunner(config)
+
+    def test_both_healthy(self, monkeypatch):
+        import json
+        from types import SimpleNamespace
+
+        lines = [
+            json.dumps({"Service": "postgres_test", "Health": "healthy"}),
+            json.dumps({"Service": "redis_test", "Health": "healthy"}),
+        ]
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: SimpleNamespace(returncode=0, stdout="\n".join(lines), stderr=""),
+        )
+        runner = self._make_runner()
+        statuses, all_healthy = runner._poll_container_health_batch(
+            ["docker", "compose", "-f", "docker-compose.test.yml"],
+            ("postgres_test", "redis_test"),
+        )
+        assert all_healthy
+        assert statuses == ["postgres_test=healthy", "redis_test=healthy"]
+
+    def test_one_missing_falls_through(self, monkeypatch):
+        import json
+        from types import SimpleNamespace
+
+        lines = [json.dumps({"Service": "postgres_test", "Health": "healthy"})]
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: SimpleNamespace(returncode=0, stdout="\n".join(lines), stderr=""),
+        )
+        runner = self._make_runner()
+        statuses, all_healthy = runner._poll_container_health_batch(
+            ["docker", "compose", "-f", "docker-compose.test.yml"],
+            ("postgres_test", "redis_test"),
+        )
+        assert not all_healthy
+        assert "redis_test=missing" in statuses
+
+    def test_json_parse_error_falls_back_to_legacy(self, monkeypatch):
+        from types import SimpleNamespace
+
+        calls: list[str] = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd[0])
+            return SimpleNamespace(returncode=0, stdout="not-json\n", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        monkeypatch.setattr(
+            self._make_runner().__class__,
+            "_poll_container_health_legacy",
+            lambda self, base, services: (["postgres_test=healthy", "redis_test=healthy"], True),
+        )
+        runner = self._make_runner()
+        statuses, all_healthy = runner._poll_container_health_batch(
+            ["docker", "compose", "-f", "docker-compose.test.yml"],
+            ("postgres_test", "redis_test"),
+        )
+        assert all_healthy
