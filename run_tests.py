@@ -62,6 +62,7 @@ import asyncio
 import logging
 import os
 import queue
+import shlex
 import shutil
 import subprocess
 import sys
@@ -243,6 +244,7 @@ class RunTestConfig:
     fail_fast: bool = False
     retry_count: int = 0
     timeout: int | None = None
+    dry_run: bool = False
 
 
 def _in_ci() -> bool:
@@ -1709,6 +1711,41 @@ class RunTestRunner:
             return counts
         return None
 
+    def _build_dry_run_env(self) -> dict[str, str]:
+        """Return the env vars this runner would inject, without mutating os.environ.
+
+        Mirrors the env-setup logic in run_tests() so --dry-run output reflects
+        the exact vars the live run would set.
+        """
+        env: dict[str, str] = {}
+        env["APP_ENV"] = "test"
+
+        td = os.environ.get("TEST_DATABASE_URL") or build_test_database_url(asyncpg=True)
+        if td:
+            env["TEST_DATABASE_URL"] = td
+
+        _api_collecting_runs = (
+            RunTestType.API,
+            RunTestType.SECURITY,
+            RunTestType.REGRESSION,
+            RunTestType.ALL,
+            RunTestType.ALL_NO_UI,
+            RunTestType.COVERAGE,
+        )
+        if self.config.test_type in _api_collecting_runs:
+            env["USE_ASGI_CLIENT"] = "1"
+            env["REDIS_URL"] = "redis://localhost:6379/0"
+        else:
+            redis_port = os.getenv("REDIS_TEST_PORT", "6380")
+            env["REDIS_URL"] = os.environ.get("REDIS_URL", f"redis://localhost:{redis_port}/0")
+
+        env.update(self._get_agent_config_exclude_env())
+
+        if self.config.test_type == RunTestType.UI_FULL:
+            env["CTI_INCLUDE_QUARANTINE"] = "1"
+
+        return env
+
     def _remaining_timeout(self, started_at: float) -> float | None:
         """Return seconds left before config.timeout expires, clamped to at least 0.1s."""
         if not self.config.timeout:
@@ -2210,6 +2247,11 @@ Manual Container Management:
     parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
     parser.add_argument("--install", action="store_true", help="Install test dependencies")
     parser.add_argument("--no-teardown", action="store_true", help="Skip environment teardown after tests")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print resolved pytest/Playwright commands and env vars without starting containers or running tests",
+    )
 
     # Test filtering
     parser.add_argument("--paths", nargs="+", help="Specific test paths to run")
@@ -2309,6 +2351,7 @@ Manual Container Management:
                 fail_fast=args.fail_fast,
                 retry_count=args.retry,
                 timeout=args.timeout,
+                dry_run=args.dry_run,
             )
         )
 
@@ -2329,6 +2372,22 @@ async def main():
         for config in configs:
             # Create test runner
             runner = RunTestRunner(config)
+
+            # Dry-run: print resolved commands + env vars, skip setup/run/teardown
+            if config.dry_run:
+                print(f"\n--- dry-run: {config.test_type.value} ({config.context.value}) ---")
+                pytest_cmd = runner._build_pytest_command()
+                print(f"pytest:     {shlex.join(pytest_cmd)}")
+                playwright_cmd = runner._build_playwright_command()
+                if playwright_cmd is None:
+                    print("playwright: (no Playwright section)")
+                else:
+                    print(f"playwright: {shlex.join(playwright_cmd)}")
+                dry_env = runner._build_dry_run_env()
+                print("env:")
+                for k, v in dry_env.items():
+                    print(f"  {k}={v}")
+                continue
 
             # Setup environment
             if not await runner.setup_environment():
@@ -2353,8 +2412,8 @@ async def main():
                 # Teardown environment
                 await runner.teardown_environment()
 
-        # Print combined summary when multiple types were requested
-        if len(configs) > 1:
+        # Print combined summary when multiple types were requested (skip if all were dry-runs)
+        if len(configs) > 1 and overall_results:
             _print_combined_summary(overall_results)
 
         return 0 if all_passed else 1

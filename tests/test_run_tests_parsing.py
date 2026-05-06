@@ -338,3 +338,56 @@ class TestTestContainerStartup:
                 "redis_test",
             ]
         ]
+
+
+class TestDryRun:
+    """--dry-run flag: command resolution and env-var computation."""
+
+    def _make_runner(self, test_type: RunTestType) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=test_type,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            dry_run=True,
+        )
+        return RunTestRunner(config)
+
+    def test_smoke_has_no_playwright(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        assert runner._build_playwright_command() is None
+
+    def test_ui_has_playwright_command(self):
+        runner = self._make_runner(RunTestType.UI)
+        cmd = runner._build_playwright_command()
+        assert cmd is not None
+        assert "playwright" in cmd
+
+    def test_pytest_command_contains_pytest(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        cmd = runner._build_pytest_command()
+        assert any("pytest" in part for part in cmd)
+
+    def test_dry_run_env_always_has_app_env_test(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        env = runner._build_dry_run_env()
+        assert env["APP_ENV"] == "test"
+
+    def test_dry_run_env_api_type_sets_asgi_client(self):
+        runner = self._make_runner(RunTestType.API)
+        env = runner._build_dry_run_env()
+        assert env.get("USE_ASGI_CLIENT") == "1"
+
+    def test_dry_run_env_smoke_does_not_set_asgi_client(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        env = runner._build_dry_run_env()
+        assert "USE_ASGI_CLIENT" not in env
+
+    def test_dry_run_env_ui_full_sets_quarantine(self):
+        runner = self._make_runner(RunTestType.UI_FULL)
+        env = runner._build_dry_run_env()
+        assert env.get("CTI_INCLUDE_QUARANTINE") == "1"
+
+    def test_dry_run_env_smoke_no_quarantine(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        env = runner._build_dry_run_env()
+        assert "CTI_INCLUDE_QUARANTINE" not in env
