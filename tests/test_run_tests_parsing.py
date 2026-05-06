@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from run_tests import ExecutionContext, RunTestConfig, RunTestRunner, RunTestType
+from run_tests import ExecutionContext, RunTestConfig, RunTestRunner, RunTestType, _RunnerTUI
 
 pytestmark = pytest.mark.unit
 
@@ -581,3 +581,64 @@ class TestContainerHealthBatch:
             ("postgres_test", "redis_test"),
         )
         assert all_healthy
+
+
+class TestRunnerTUI:
+    """T3.1: _RunnerTUI activation logic and plain-mode no-op behaviour."""
+
+    def test_plain_mode_never_activates(self):
+        tui = _RunnerTUI(mode="plain")
+        assert not tui._active
+
+    def test_non_tty_does_not_activate(self, monkeypatch):
+        """auto mode on a non-TTY (CI) must not activate rich."""
+        monkeypatch.setattr("sys.stdout.isatty", lambda: False)
+        tui = _RunnerTUI(mode="auto")
+        assert not tui._active
+
+    def test_no_color_disables_tui(self, monkeypatch):
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+        tui = _RunnerTUI(mode="auto")
+        assert not tui._active
+
+    def test_is_active_false_before_start(self):
+        """is_active is False until start() is called (even if _active=True)."""
+        tui = _RunnerTUI.__new__(_RunnerTUI)
+        tui._live = None
+        tui._active = True
+        assert not tui.is_active
+
+    def test_finish_is_noop_when_not_active(self):
+        """finish() on a plain-mode TUI must not raise."""
+        tui = _RunnerTUI(mode="plain")
+        tui.finish()  # must not raise
+
+    def test_on_line_buffers_stripped_lines(self):
+        tui = _RunnerTUI(mode="plain")
+        tui.on_line("hello\n")
+        tui.on_line("world\n")
+        assert tui._log_lines == ["hello", "world"]
+
+    def test_log_buffer_capped_at_max(self):
+        tui = _RunnerTUI(mode="plain")
+        for i in range(_RunnerTUI.MAX_LOG_LINES + 5):
+            tui.on_line(f"line {i}\n")
+        assert len(tui._log_lines) == _RunnerTUI.MAX_LOG_LINES
+
+    def test_on_category_updates_seen_list(self):
+        tui = _RunnerTUI(mode="plain")
+        tui._all_categories = ["smoke", "unit", "api"]
+        tui.on_category({"smoke", "unit"}, test_count=12)
+        assert set(tui._categories_seen) == {"smoke", "unit"}
+        assert tui._test_count == 12
+
+    def test_rich_mode_flag_in_config(self):
+        """RunTestConfig accepts tui='rich' without error."""
+        config = RunTestConfig(
+            test_type=RunTestType.SMOKE,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            tui="rich",
+        )
+        assert config.tui == "rich"
