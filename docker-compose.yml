@@ -127,6 +127,7 @@ services:
           memory: ${WEB_MEMORY_RESERVATION:-256M}
     command: >-
       uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001
+      --workers 2
       --reload
       --reload-include '*.py'
       --reload-exclude 'models/*'

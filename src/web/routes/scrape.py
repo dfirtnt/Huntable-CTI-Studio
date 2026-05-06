@@ -35,6 +35,9 @@ async def api_vision_extract(request: dict):
         raise HTTPException(status_code=400, detail=f"Unknown provider: {provider}")
 
     # Resolve API key from DB settings with env fallback
+    import asyncio
+    import os
+
     from src.database.manager import DatabaseManager
     from src.database.models import AppSettingsTable
 
@@ -42,16 +45,17 @@ async def api_vision_extract(request: dict):
         "openai": ("WORKFLOW_OPENAI_API_KEY", "OPENAI_API_KEY"),
         "anthropic": ("WORKFLOW_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"),
     }
-    import os
 
-    api_key = None
-    db_manager = DatabaseManager()
-    with db_manager.get_session() as session:
-        for env_key in _KEY_MAP[provider]:
-            row = session.query(AppSettingsTable).filter(AppSettingsTable.key == env_key).first()
-            if row and row.value:
-                api_key = row.value
-                break
+    def _resolve_api_key():
+        db_manager = DatabaseManager()
+        with db_manager.get_session() as session:
+            for env_key in _KEY_MAP[provider]:
+                row = session.query(AppSettingsTable).filter(AppSettingsTable.key == env_key).first()
+                if row and row.value:
+                    return row.value
+        return None
+
+    api_key = await asyncio.to_thread(_resolve_api_key)
     if not api_key:
         for env_key in _KEY_MAP[provider]:
             api_key = os.getenv(env_key)

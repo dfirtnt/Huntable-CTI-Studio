@@ -415,90 +415,85 @@ async def api_model_evaluate():
 async def api_get_classification_timeline():
     """Get classification breakdown data across model versions for time series chart."""
     try:
+        import asyncio
+
         from src.database.manager import DatabaseManager
         from src.services.chunk_analysis_service import ChunkAnalysisService
+        from src.utils.model_versioning import MLModelVersionManager
 
-        db_manager = DatabaseManager()
-        sync_db = db_manager.get_session()
-        try:
-            service = ChunkAnalysisService(sync_db)
+        # Get async model versions first (non-blocking)
+        version_manager = MLModelVersionManager(async_db_manager)
+        model_versions = await version_manager.get_all_versions()
 
-            # Get all model versions with their classification data
-            timeline_data = []
+        def _build_timeline():
+            db_manager = DatabaseManager()
+            sync_db = db_manager.get_session()
+            try:
+                service = ChunkAnalysisService(sync_db)
+                timeline_data = []
 
-            # Get all model versions from database
-            from src.utils.model_versioning import MLModelVersionManager
+                available_model_versions = service.get_available_model_versions()
 
-            version_manager = MLModelVersionManager(async_db_manager)
-            model_versions = await version_manager.get_all_versions()
+                for model_version_str in available_model_versions:
+                    db_version = None
+                    for version in model_versions:
+                        if f"v{version.version_number}" == model_version_str or (
+                            version.trained_at and model_version_str.endswith(version.trained_at.strftime("%Y%m%d"))
+                        ):
+                            db_version = version
+                            break
 
-            # Get all available model versions from chunk analysis data
-            available_model_versions = service.get_available_model_versions()
-
-            for model_version_str in available_model_versions:
-                # Find corresponding database version (if any)
-                db_version = None
-                for version in model_versions:
-                    # Try to match by version number or date
-                    if f"v{version.version_number}" == model_version_str or (
-                        version.trained_at and model_version_str.endswith(version.trained_at.strftime("%Y%m%d"))
-                    ):
-                        db_version = version
-                        break
-
-                # Get classification stats for this model version
-                stats = service.get_chunk_analysis_results(
-                    model_version=model_version_str,
-                    limit=50000,  # High limit to get all data for this version
-                )
-
-                if stats:
-                    # Calculate breakdown for this version
-                    total_chunks = len(stats)
-                    agreement = sum(
-                        1 for s in stats if s.get("ml_prediction", False) and s.get("hunt_prediction", False)
-                    )
-                    ml_only = sum(
-                        1 for s in stats if s.get("ml_prediction", False) and not s.get("hunt_prediction", False)
-                    )
-                    hunt_only = sum(
-                        1 for s in stats if s.get("hunt_prediction", False) and not s.get("ml_prediction", False)
-                    )
-                    neither = total_chunks - agreement - ml_only - hunt_only
-
-                    # Convert to percentages for better trend analysis
-                    agreement_pct = (agreement / total_chunks * 100) if total_chunks > 0 else 0
-                    ml_only_pct = (ml_only / total_chunks * 100) if total_chunks > 0 else 0
-                    hunt_only_pct = (hunt_only / total_chunks * 100) if total_chunks > 0 else 0
-                    neither_pct = (neither / total_chunks * 100) if total_chunks > 0 else 0
-
-                    timeline_data.append(
-                        {
-                            "model_version": model_version_str,
-                            "version_number": db_version.version_number if db_version else 0,
-                            "trained_at": db_version.trained_at.isoformat()
-                            if db_version and db_version.trained_at
-                            else None,
-                            "total_chunks": total_chunks,
-                            "agreement": agreement_pct,
-                            "ml_only": ml_only_pct,
-                            "hunt_only": hunt_only_pct,
-                            "neither": neither_pct,
-                            "accuracy": db_version.accuracy if db_version and db_version.accuracy else 0,
-                        }
+                    stats = service.get_chunk_analysis_results(
+                        model_version=model_version_str,
+                        limit=50000,
                     )
 
-            # Sort by version number
-            timeline_data.sort(key=lambda x: x["version_number"])
+                    if stats:
+                        total_chunks = len(stats)
+                        agreement = sum(
+                            1 for s in stats if s.get("ml_prediction", False) and s.get("hunt_prediction", False)
+                        )
+                        ml_only = sum(
+                            1 for s in stats if s.get("ml_prediction", False) and not s.get("hunt_prediction", False)
+                        )
+                        hunt_only = sum(
+                            1 for s in stats if s.get("hunt_prediction", False) and not s.get("ml_prediction", False)
+                        )
+                        neither = total_chunks - agreement - ml_only - hunt_only
 
-            return {
-                "success": True,
-                "timeline": timeline_data,
-                "message": f"Retrieved classification timeline for {len(timeline_data)} model versions",
-            }
+                        agreement_pct = (agreement / total_chunks * 100) if total_chunks > 0 else 0
+                        ml_only_pct = (ml_only / total_chunks * 100) if total_chunks > 0 else 0
+                        hunt_only_pct = (hunt_only / total_chunks * 100) if total_chunks > 0 else 0
+                        neither_pct = (neither / total_chunks * 100) if total_chunks > 0 else 0
 
-        finally:
-            sync_db.close()
+                        timeline_data.append(
+                            {
+                                "model_version": model_version_str,
+                                "version_number": db_version.version_number if db_version else 0,
+                                "trained_at": db_version.trained_at.isoformat()
+                                if db_version and db_version.trained_at
+                                else None,
+                                "total_chunks": total_chunks,
+                                "agreement": agreement_pct,
+                                "ml_only": ml_only_pct,
+                                "hunt_only": hunt_only_pct,
+                                "neither": neither_pct,
+                                "accuracy": db_version.accuracy if db_version and db_version.accuracy else 0,
+                            }
+                        )
+
+                timeline_data.sort(key=lambda x: x["version_number"])
+                return timeline_data
+            finally:
+                sync_db.close()
+
+        timeline_data = await asyncio.to_thread(_build_timeline)
+
+        return {
+            "success": True,
+            "timeline": timeline_data,
+            "message": f"Retrieved classification timeline for {len(timeline_data)} model versions",
+        }
 
     except Exception as e:
         logger.error(f"Error getting classification timeline: {e}")

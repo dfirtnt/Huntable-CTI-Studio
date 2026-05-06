@@ -227,7 +227,7 @@ class SaveConfigPresetRequest(BaseModel):
 
 
 @router.get("/config", response_model=WorkflowConfigResponse)
-async def get_workflow_config(request: Request):
+def get_workflow_config(request: Request):
     """Get active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -297,7 +297,7 @@ async def get_workflow_config(request: Request):
 
 
 @router.put("/config", response_model=WorkflowConfigResponse)
-async def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate):
+def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate):
     """Update workflow configuration (creates new version)."""
     try:
         db_manager = DatabaseManager()
@@ -609,7 +609,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
 
 
 @router.patch("/config/auto-trigger-threshold")
-async def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
+def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
     """Update the auto-trigger hunt score threshold.
 
     This setting is intentionally separate from the main workflow config PUT endpoint
@@ -740,7 +740,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
 
 
 @router.post("/config/preset/save")
-async def save_config_preset(save_request: SaveConfigPresetRequest):
+def save_config_preset(save_request: SaveConfigPresetRequest):
     """Save or update a workflow config preset (upsert by name)."""
     try:
         db_manager = DatabaseManager()
@@ -786,7 +786,7 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
 
 
 @router.post("/config/preset/export")
-async def export_config_as_v2(preset: dict[str, Any]):
+def export_config_as_v2(preset: dict[str, Any]):
     """
     Export preset as canonical WorkflowConfigV2 only (strict schema).
     Populates metadata if empty, re-validates; returns Version 2.0 with no legacy keys.
@@ -831,7 +831,7 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
 
 
 @router.post("/config/preset/to-legacy")
-async def preset_to_legacy(preset: dict[str, Any]):
+def preset_to_legacy(preset: dict[str, Any]):
     """
     Accept a preset (v1 or v2), validate and normalize via load_workflow_config,
     return legacy shape for applyPreset() (version, thresholds, agent_models, qa_enabled, etc.).
@@ -852,7 +852,7 @@ async def preset_to_legacy(preset: dict[str, Any]):
 
 
 @router.post("/config/preset/validate")
-async def validate_preset_prompts(preset: dict[str, Any]):
+def validate_preset_prompts(preset: dict[str, Any]):
     """Scan a legacy-shaped preset for prompt issues without applying it.
 
     Returns {warnings: [...]} where each entry is a human-readable description
@@ -867,7 +867,7 @@ async def validate_preset_prompts(preset: dict[str, Any]):
 
 
 @router.get("/config/preset/list")
-async def list_config_presets(request: Request, scope: str | None = None):
+def list_config_presets(request: Request, scope: str | None = None):
     """List workflow config presets (id, name, description, scope, created_at, updated_at; no config_json).
     Optional scope filter: 'full', 'cmdline', 'proctree', 'huntqueries'. Presets without scope treated as full."""
     try:
@@ -903,7 +903,7 @@ async def list_config_presets(request: Request, scope: str | None = None):
 
 
 @router.get("/config/preset/{preset_id}")
-async def get_config_preset(request: Request, preset_id: int):
+def get_config_preset(request: Request, preset_id: int):
     """Get a workflow config preset by id; merge config_json into response for applyPreset."""
     try:
         db_manager = DatabaseManager()
@@ -932,7 +932,7 @@ async def get_config_preset(request: Request, preset_id: int):
 
 
 @router.delete("/config/preset/{preset_id}")
-async def delete_config_preset(request: Request, preset_id: int):
+def delete_config_preset(request: Request, preset_id: int):
     """Delete a workflow config preset by id."""
     try:
         db_manager = DatabaseManager()
@@ -982,7 +982,7 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
 
 
 @router.get("/config/versions")
-async def list_config_versions(
+def list_config_versions(
     request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -1035,7 +1035,7 @@ async def list_config_versions(
 
 
 @router.get("/config/version/{version_number}")
-async def get_config_by_version(request: Request, version_number: int):
+def get_config_by_version(request: Request, version_number: int):
     """Get full workflow config by version number; returns preset-shaped payload for applyPreset."""
     try:
         db_manager = DatabaseManager()
@@ -1060,7 +1060,7 @@ async def get_config_by_version(request: Request, version_number: int):
 
 
 @router.get("/config/prompts")
-async def get_agent_prompts(request: Request):
+def get_agent_prompts(request: Request):
     """Get agent prompts from active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -1153,7 +1153,7 @@ async def get_agent_prompts(request: Request):
 
 
 @router.get("/config/prompts/{agent_name}")
-async def get_agent_prompt(request: Request, agent_name: str):
+def get_agent_prompt(request: Request, agent_name: str):
     """Get prompt for a specific agent from active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -1205,7 +1205,7 @@ async def get_agent_prompt(request: Request, agent_name: str):
 
 
 @router.put("/config/prompts")
-async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
+def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
     """Update agent prompt in active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -1381,7 +1381,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
 
 
 @router.get("/config/prompts/{agent_name}/versions")
-async def get_agent_prompt_versions(request: Request, agent_name: str):
+def get_agent_prompt_versions(request: Request, agent_name: str):
     """Get version history for an agent prompt."""
     try:
         db_manager = DatabaseManager()
@@ -1419,7 +1419,7 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
 
 
 @router.get("/config/prompts/{agent_name}/by-config-version/{config_version}")
-async def get_prompt_by_config_version(request: Request, agent_name: str, config_version: int):
+def get_prompt_by_config_version(request: Request, agent_name: str, config_version: int):
     """Get prompt for a specific agent and workflow config version."""
     try:
         db_manager = DatabaseManager()
@@ -1503,7 +1503,7 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
 
 
 @router.post("/config/prompts/{agent_name}/rollback")
-async def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: RollbackRequest):
+def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: RollbackRequest):
     """Rollback an agent prompt to a previous version."""
     try:
         db_manager = DatabaseManager()
@@ -1659,7 +1659,7 @@ class TestSigmaAgentRequest(BaseModel):
 
 
 @router.post("/config/test-subagent")
-async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
+def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
     """Test a sub-agent extraction on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_sub_agent_task
@@ -1766,7 +1766,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
 
 
 @router.post("/config/prompts/bootstrap")
-async def bootstrap_prompts_from_files(request: Request):
+def bootstrap_prompts_from_files(request: Request):
     """Bootstrap agent prompts from flat files into database (one-time initialization)."""
     try:
         db_manager = DatabaseManager()
@@ -1904,7 +1904,7 @@ async def bootstrap_prompts_from_files(request: Request):
 
 
 @router.post("/config/prompts/reset-to-defaults")
-async def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDefaultsRequest):
+def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDefaultsRequest):
     """Selectively reset agent prompts to on-disk defaults.
 
     Unlike ``/config/prompts/bootstrap`` (which wholesale replaces every prompt),
@@ -2015,7 +2015,7 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
 
 
 @router.get("/config/test-status/{task_id}")
-async def get_test_status(request: Request, task_id: str):
+def get_test_status(request: Request, task_id: str):
     """Get the status and result of a test task."""
     try:
         from celery.result import AsyncResult
@@ -2039,7 +2039,7 @@ async def get_test_status(request: Request, task_id: str):
 
 
 @router.post("/config/test-sigmaagent")
-async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
+def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
     """Test SIGMA generation agent on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_sigma_agent_task
@@ -2088,7 +2088,7 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
 
 
 @router.post("/config/test-rankagent")
-async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
+def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
     """Test Rank Agent on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_rank_agent_task
@@ -2194,7 +2194,7 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
 
 
 @router.get("/config/validate")
-async def validate_workflow_config():
+def validate_workflow_config():
     """Dry-run the full Pydantic validator against the active config. Returns structured issues list."""
     issues = []
 
