@@ -1073,16 +1073,14 @@ class RunTestRunner:
                 ]
             )
 
-        # Add output format - default to verbose for better visibility
-        if self.config.output_format == "progress":
-            # Use verbose by default for better visibility, but allow quiet override
-            cmd.append("-v")  # Always verbose for visibility
-        elif self.config.output_format == "verbose":
-            cmd.append("-vv")  # Extra verbose
+        # Add output format.
+        # progress (default): no -v; --verbose flag adds -v; verbose format adds -vv; quiet adds -q.
+        if self.config.output_format == "verbose":
+            cmd.append("-vv")
         elif self.config.output_format == "quiet":
             cmd.append("-q")
-        else:
-            cmd.append("-v")  # Default to verbose
+        elif self.config.verbose:
+            cmd.append("-v")
 
         # Add debugging options
         if self.config.debug:
@@ -1327,7 +1325,8 @@ class RunTestRunner:
                         output_lines.append(line)
                         print(line, end="", flush=True)
 
-                        # Parse test execution lines for progress
+                        # Count individual test results (visible at -v and above).
+                        # Also captures failed test names for the summary.
                         if "::" in line and (
                             "PASSED" in line or "FAILED" in line or "SKIPPED" in line or "ERROR" in line
                         ):
@@ -1346,33 +1345,36 @@ class RunTestRunner:
                                     name = stripped.split(" FAILED")[0].split(" ERROR")[0].strip()
                                     if name:
                                         self.failed_test_names.append(name)
-                            if "tests/" in line:
-                                try:
-                                    path_part = line.split("tests/")[1].split("/")[0]
-                                    detected = self._DIR_TO_CATEGORY.get(path_part)
-                                    # Only announce categories that are in the declared
-                                    # groups so marker-based runs (smoke, regression, etc.)
-                                    # don't overflow the progress bar denominator.
-                                    pytest_groups_set = set(pytest_groups) if pytest_groups else set()
-                                    if (
-                                        show_progress
-                                        and detected
-                                        and detected not in categories_seen
-                                        and detected in pytest_groups_set
-                                    ):
-                                        categories_seen.add(detected)
-                                        elapsed = time.time() - pytest_start_time
-                                        progress_chars = [
-                                            "=" if c in categories_seen else " " for c in pytest_groups
-                                        ]
-                                        n, total = len(categories_seen), len(pytest_groups)
-                                        print(
-                                            f"\nCategory: {detected.upper()} | [{''.join(progress_chars)}] "
-                                            f"{n}/{total} | Tests: {test_count} | {elapsed:.1f}s",
-                                            flush=True,
-                                        )
-                                except (IndexError, AttributeError):
-                                    pass
+
+                        # Category detection: works at any verbosity level.
+                        # -v:      "tests/smoke/test_foo.py::test PASSED"
+                        # default: "tests/smoke/test_foo.py .....       [ 10%]"
+                        # Only fires for multi-category runs (show_progress=True).
+                        if show_progress and "tests/" in line:
+                            try:
+                                path_part = line.split("tests/")[1].split("/")[0]
+                                detected = self._DIR_TO_CATEGORY.get(path_part)
+                                # Only announce categories in the declared groups so
+                                # marker-based runs don't overflow the progress bar denominator.
+                                pytest_groups_set = set(pytest_groups) if pytest_groups else set()
+                                if (
+                                    detected
+                                    and detected not in categories_seen
+                                    and detected in pytest_groups_set
+                                ):
+                                    categories_seen.add(detected)
+                                    elapsed = time.time() - pytest_start_time
+                                    progress_chars = [
+                                        "=" if c in categories_seen else " " for c in pytest_groups
+                                    ]
+                                    n, total = len(categories_seen), len(pytest_groups)
+                                    print(
+                                        f"\nCategory: {detected.upper()} | [{''.join(progress_chars)}] "
+                                        f"{n}/{total} | Tests: {test_count} | {elapsed:.1f}s",
+                                        flush=True,
+                                    )
+                            except (IndexError, AttributeError):
+                                pass
 
                         if time.time() - last_progress_update > 3.0 and show_progress and sys.stdout.isatty():
                             elapsed = time.time() - pytest_start_time

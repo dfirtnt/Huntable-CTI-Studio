@@ -391,3 +391,48 @@ class TestDryRun:
         runner = self._make_runner(RunTestType.SMOKE)
         env = runner._build_dry_run_env()
         assert "CTI_INCLUDE_QUARANTINE" not in env
+
+
+class TestVerbosityFlags:
+    """_build_pytest_command verbosity flag behaviour (T2.3)."""
+
+    def _make_runner(
+        self,
+        output_format: str = "progress",
+        verbose: bool = False,
+        test_type: RunTestType = RunTestType.SMOKE,
+    ) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=test_type,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            output_format=output_format,
+            verbose=verbose,
+        )
+        return RunTestRunner(config)
+
+    def test_default_progress_format_no_v_flag(self):
+        """progress format without --verbose must NOT add -v."""
+        cmd = self._make_runner(output_format="progress", verbose=False)._build_pytest_command()
+        assert "-v" not in cmd and "-vv" not in cmd and "-q" not in cmd
+
+    def test_verbose_flag_adds_v(self):
+        """--verbose adds -v regardless of output_format."""
+        cmd = self._make_runner(output_format="progress", verbose=True)._build_pytest_command()
+        assert "-v" in cmd
+
+    def test_verbose_format_adds_vv(self):
+        """output_format='verbose' adds -vv."""
+        cmd = self._make_runner(output_format="verbose")._build_pytest_command()
+        assert "-vv" in cmd
+
+    def test_quiet_format_adds_q(self):
+        """output_format='quiet' adds -q."""
+        cmd = self._make_runner(output_format="quiet")._build_pytest_command()
+        assert "-q" in cmd
+
+    def test_verbose_format_takes_precedence_over_verbose_flag(self):
+        """output_format='verbose' uses -vv even when --verbose is also set."""
+        cmd = self._make_runner(output_format="verbose", verbose=True)._build_pytest_command()
+        assert "-vv" in cmd
+        assert "-v" not in [p for p in cmd if p == "-v"]
