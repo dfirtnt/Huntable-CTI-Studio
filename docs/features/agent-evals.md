@@ -200,6 +200,46 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 
 ---
 
+## Eval Bundles
+
+An **eval bundle** is a self-contained JSON snapshot of one extraction attempt.
+It captures everything the agent received and produced so that failures can be
+investigated offline or fed to the AI Diagnosis feature.
+
+### What a bundle contains
+
+| Field | Description |
+|---|---|
+| `bundle_id` | Unique identifier for this bundle (UUID) |
+| `article_id` | Source article being extracted |
+| `article_text` | Full text of the article |
+| `agent_name` | Extractor subagent that ran (e.g. `CmdlineExtract`) |
+| `system_prompt` | System prompt the agent received |
+| `llm_request` | Full request payload sent to the LLM |
+| `llm_response` | Raw LLM response |
+| `extraction_results` | Parsed extraction output |
+| `expected_count` | Expected number of extractions from the eval config |
+| `actual_count` | How many the agent actually returned |
+| `eval_score` | Score (pass/fail/partial) assigned by QA |
+| `integrity` | SHA256 + any warnings flagged at export time |
+
+### Exporting bundles
+
+- **Single bundle**: Open an execution detail modal and click **Export Bundle**.
+  Downloads `eval_bundle_exec{id}_{agent}_{uuid}.json`.
+- **All bundles for a config version**: Click the bundle icon (shown on eval cards
+  that have at least one diagnosis run) to export a slim or full bundle set.
+  Right-click the icon to get the full version with all fields.
+
+### Using exported bundles
+
+Exported bundles can be:
+- Shared with colleagues for offline analysis
+- Fed back to the Diagnose endpoint via the API (see API reference below)
+- Used to reproduce a failure locally against a different model or prompt
+
+---
+
 ## AI Diagnosis
 
 The **Diagnose** button (next to Export Bundle in the execution detail modal) sends
@@ -406,4 +446,4 @@ config version without manually re-selecting articles.
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-05-03 (API reference and diagnosis guidance added)_
+_Last updated: 2026-05-06 (added Eval Bundles section; help button for diagnosis prompt location confirmed)_
