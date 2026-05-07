@@ -91,53 +91,14 @@ except NameError:
     pass
 
 
-# Keys from .env that must not be applied in test (guard: TEST_DATABASE_URL only).
-# Cloud LLM keys are skipped so they are not loaded from .env into the test process.
-_DOTENV_SKIP_IN_TEST = frozenset(
-    {
-        "DATABASE_URL",
-        "REDIS_URL",
-        "OPENAI_API_KEY",
-        "ANTHROPIC_API_KEY",
-        "CHATGPT_API_KEY",
-    }
-)
+from tests_runner.env import in_ci as _in_ci_fn, load_dotenv as _load_dotenv_fn, strip_cloud_llm_keys as _strip_cloud_llm_keys_fn  # noqa: E402
 
-_CLOUD_LLM_KEYS = ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "CHATGPT_API_KEY")
-
-
+# Backward-compatible local aliases used throughout this file
 def _strip_cloud_llm_keys() -> None:
-    """Remove cloud LLM keys from this process so tests never hit commercial APIs.
-    Skipped if ALLOW_CLOUD_LLM_IN_TESTS=true."""
-    if os.getenv("ALLOW_CLOUD_LLM_IN_TESTS", "").lower() in ("true", "1", "yes"):
-        return
-    for key in _CLOUD_LLM_KEYS:
-        os.environ.pop(key, None)
-
+    _strip_cloud_llm_keys_fn()
 
 def _load_dotenv() -> None:
-    """Load .env from project root so POSTGRES_PASSWORD etc. match running Postgres. Does not override existing env.
-    Skips DATABASE_URL so test guard (TEST_DATABASE_URL only) passes."""
-    env_file = project_root / ".env"
-    if not env_file.is_file():
-        return
-    try:
-        with open(env_file, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" not in line:
-                    continue
-                key, _, value = line.partition("=")
-                key = key.strip()
-                if key in _DOTENV_SKIP_IN_TEST:
-                    continue
-                value = value.strip().strip("'\"").strip()
-                if key and key not in os.environ:
-                    os.environ[key] = value
-    except OSError:
-        pass
+    _load_dotenv_fn(project_root)
 
 
 # Import test environment utilities
@@ -304,7 +265,7 @@ from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType  # 
 
 def _in_ci() -> bool:
     """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
-    return os.getenv("GITHUB_ACTIONS") == "true" or os.getenv("CI") == "true"
+    return _in_ci_fn()
 
 
 class RunTestRunner:
