@@ -365,7 +365,7 @@ test.describe('Agent Config Presets', () => {
     // Fall back to current config values so the assertion passes for unoverridden thresholds.
     const presetContent = fs.readFileSync(presetPath, 'utf-8');
     const preset = JSON.parse(presetContent);
-    const expectedSimilarity = preset.thresholds?.similarity_threshold ?? originalSimilarityThreshold;
+    const expectedSimilarity = preset.Thresholds?.SimilarityThreshold ?? originalSimilarityThreshold;
     const expectedRanking = preset.thresholds?.ranking_threshold ?? originalRankingThreshold;
 
     // Set up dialog handler to accept the import

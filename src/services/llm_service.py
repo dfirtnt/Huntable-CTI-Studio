@@ -1747,6 +1747,22 @@ class LLMService:
                     last_error_detail = f"Status {response.status_code}: {error_message}"
                     logger.error(f"LMStudio at {lmstudio_url} returned {response.status_code}: {error_message}")
 
+                    # 5xx: surface Channel Error and similar inference failures immediately
+                    if response.status_code >= 500:
+                        error_lower_5xx = error_message.lower()
+                        if "channel error" in error_lower_5xx:
+                            with contextlib.suppress(Exception):
+                                await client.aclose()
+                            raise RuntimeError(
+                                f"{failure_context}: LMStudio inference failed with Channel Error for model "
+                                f"'{model_name}'. This usually means the model crashed mid-inference, ran out "
+                                f"of VRAM, or the configured context window was too small. "
+                                f"Check the LMStudio Developer console and try reducing input size or "
+                                f"increasing the context window."
+                            )
+                        if idx < len(lmstudio_urls) - 1:
+                            continue
+
                     # For 400 errors, check if it's a model name issue and retry with different format
                     if response.status_code == 400:
                         error_lower = error_message.lower()
@@ -1788,19 +1804,23 @@ class LLMService:
                         with contextlib.suppress(Exception):
                             await client.aclose()
 
-                        # Check for common errors that indicate LMStudio isn't ready
-                        if (
-                            "context length" in error_lower
-                            or (
-                                "model" in error_lower
-                                and "not loaded" in error_lower
-                                and "invalid model identifier" not in error_lower
-                            )
-                            or "no model" in error_lower
-                        ):
+                        # Context window exceeded -- model is ready but request is too large
+                        if "context length" in error_lower or "context window" in error_lower:
                             raise RuntimeError(
-                                f"{failure_context}: LMStudio is not ready. "
-                                f"Please ensure LMStudio is running and a model is loaded."
+                                f"{failure_context}: Context window exceeded for model '{model_name}'. "
+                                f"The request is too large for the configured context length. "
+                                f"Increase the context window in LMStudio or reduce input size."
+                            )
+
+                        # Model not loaded
+                        if (
+                            "model" in error_lower
+                            and "not loaded" in error_lower
+                            and "invalid model identifier" not in error_lower
+                        ) or "no model" in error_lower:
+                            raise RuntimeError(
+                                f"{failure_context}: LMStudio model '{model_name}' is not loaded. "
+                                f"Please ensure the model is loaded in LMStudio."
                             )
 
                         raise RuntimeError(

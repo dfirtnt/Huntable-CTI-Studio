@@ -283,7 +283,7 @@ class TestDiagnoseBundle:
         assert call_kwargs["provider"] == "openai"
         assert call_kwargs["model_name"] == "gpt-4o"
         assert call_kwargs["temperature"] == 0.1
-        assert call_kwargs["max_tokens"] == 2000
+        assert call_kwargs["max_tokens"] == 3500
         assert "eval_diagnosis" in call_kwargs["failure_context"]
 
 

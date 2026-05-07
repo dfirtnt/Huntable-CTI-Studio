@@ -137,18 +137,20 @@ class EvalDiagnosisService:
             provider=provider,
             model_name=model_name,
             messages=messages,
-            max_tokens=2000,
+            max_tokens=3500,
             temperature=temperature,
             timeout=120.0,
             failure_context=f"eval_diagnosis:{agent_name}",
         )
 
         raw_text = ""
+        finish_reason = "unknown"
         choices = response.get("choices", [])
         if choices:
             raw_text = choices[0].get("message", {}).get("content", "")
+            finish_reason = choices[0].get("finish_reason", "unknown") or "unknown"
 
-        findings = self._parse_diagnosis_response(raw_text)
+        findings = self._parse_diagnosis_response(raw_text, finish_reason=finish_reason)
 
         diagnosis_id = str(uuid.uuid4())
         execution_id = bundle.get("workflow", {}).get("execution_id")
@@ -241,10 +243,14 @@ class EvalDiagnosisService:
             {"role": "user", "content": user_content},
         ]
 
-    def _parse_diagnosis_response(self, raw_text: str) -> dict[str, Any]:
+    def _parse_diagnosis_response(
+        self, raw_text: str, finish_reason: str = "unknown"
+    ) -> dict[str, Any]:
         """Parse the LLM JSON response with fallback strategies."""
+        truncated = finish_reason == "length"
+
         if not raw_text:
-            return self._empty_diagnosis("Empty response from LLM")
+            return self._empty_diagnosis("Empty response from LLM", truncated=truncated)
 
         text = raw_text.strip()
 
@@ -261,7 +267,8 @@ class EvalDiagnosisService:
             parsed = json.loads(text)
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse diagnosis response: {e}")
-            return self._empty_diagnosis(f"JSON parse error: {e}")
+            reason = "Response truncated by token limit -- JSON incomplete" if truncated else f"JSON parse error: {e}"
+            return self._empty_diagnosis(reason, truncated=truncated)
 
         required = {"summary", "failure_category", "confidence", "root_causes", "recommendations"}
         missing = required - set(parsed.keys())
@@ -274,26 +281,25 @@ class EvalDiagnosisService:
             parsed.setdefault("recommendations", [])
 
         parsed.setdefault("contract_violations", [])
-        parsed.setdefault("run_signals", {
-            "truncation_detected": False,
-            "context_pressure": "unknown",
-            "contract_compliance": "unknown",
-            "finish_reason": "unknown",
-            "token_utilization_pct": None,
-        })
+        run_signals = parsed.setdefault("run_signals", {})
+        run_signals.setdefault("truncation_detected", truncated)
+        run_signals.setdefault("context_pressure", "unknown")
+        run_signals.setdefault("contract_compliance", "unknown")
+        run_signals.setdefault("finish_reason", finish_reason)
+        run_signals.setdefault("token_utilization_pct", None)
         return parsed
 
-    def _empty_diagnosis(self, reason: str) -> dict[str, Any]:
+    def _empty_diagnosis(self, reason: str, truncated: bool = False) -> dict[str, Any]:
         """Return a minimal diagnosis when parsing fails."""
         return {
             "summary": f"Diagnosis failed: {reason}",
             "failure_category": "infrastructure",
             "confidence": 0.0,
             "run_signals": {
-                "truncation_detected": False,
+                "truncation_detected": truncated,
                 "context_pressure": "unknown",
                 "contract_compliance": "unknown",
-                "finish_reason": "unknown",
+                "finish_reason": "length" if truncated else "unknown",
                 "token_utilization_pct": None,
             },
             "root_causes": [{"cause": reason, "evidence": "N/A", "severity": "high"}],
