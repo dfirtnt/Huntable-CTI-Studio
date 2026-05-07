@@ -3204,18 +3204,30 @@
 
         <!-- Queue Table -->
         <div class="q-table-wrap">
-            <table class="q-table">
+            <table class="q-table" id="sigmaQueueTable">
+                <colgroup>
+                    <col id="scol-indicator">
+                    <col id="scol-id">
+                    <col id="scol-article">
+                    <col id="scol-rule-title">
+                    <col id="scol-obs-used">
+                    <col id="scol-job-id">
+                    <col id="scol-similarity">
+                    <col id="scol-status">
+                    <col id="scol-created">
+                    <col id="scol-actions">
+                </colgroup>
                 <thead>
                     <tr>
                         <th class="q-status-indicator-header" aria-hidden="true"></th>
-                        <th style="padding-left:24px" class="q-sortable" data-sort-key="id">ID <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="article_title">Article <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="rule_title">Rule Title <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="obs_used">Obs Used <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="workflow_execution_id">Job ID <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="max_similarity">Similarity <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="status">Status <span class="q-sort-ind"></span></th>
-                        <th class="q-sortable" data-sort-key="created_at">Created <span class="q-sort-ind"></span></th>
+                        <th style="padding-left:24px;position:relative" class="q-sortable sq-resizable" data-sort-key="id" data-scol="scol-id">ID <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="article_title" data-scol="scol-article">Article <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="rule_title" data-scol="scol-rule-title">Rule Title <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="obs_used" data-scol="scol-obs-used">Obs Used <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="workflow_execution_id" data-scol="scol-job-id">Job ID <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="max_similarity" data-scol="scol-similarity">Similarity <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="status" data-scol="scol-status">Status <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
+                        <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="created_at" data-scol="scol-created">Created <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -18646,6 +18658,17 @@ if (document.readyState === 'loading') {
 .exec-resize-handle:hover,
 .exec-resize-handle.dragging { border-right-color: #6366f1; }
 #executionsTable td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+#sigmaQueueTable { table-layout: fixed; }
+#sigmaQueueTable td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sq-resize-handle {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize; z-index: 2;
+    border-right: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+.sq-resize-handle:hover,
+.sq-resize-handle.dragging { border-right-color: #6366f1; }
 </style>
 
 <script>
@@ -18730,6 +18753,94 @@ if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initResize);
     } else {
         initResize();
+    }
+})();
+
+(function() {
+    const STORAGE_KEY = 'sigma-queue-col-widths-v1';
+    const COL_IDS = ['scol-id','scol-article','scol-rule-title','scol-obs-used','scol-job-id','scol-similarity','scol-status','scol-created'];
+    const DEFAULT_W = { 'scol-id':60, 'scol-article':220, 'scol-rule-title':220, 'scol-obs-used':90, 'scol-job-id':90, 'scol-similarity':100, 'scol-status':110, 'scol-created':150 };
+    const MIN_W = 48;
+
+    function lockWidths() {
+        document.querySelectorAll('#sigmaQueueTable th.sq-resizable').forEach(th => {
+            const col = document.getElementById(th.dataset.scol);
+            if (col && !col.style.width) col.style.width = (th.offsetWidth || DEFAULT_W[th.dataset.scol] || 120) + 'px';
+        });
+    }
+
+    function saveWidths() {
+        const w = {};
+        COL_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.style.width) w[id] = el.style.width;
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(w));
+    }
+
+    function restoreWidths() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            COL_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.width = (saved[id] || DEFAULT_W[id] || 120) + (saved[id] ? '' : 'px');
+            });
+        } catch (_) {
+            COL_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.width = (DEFAULT_W[id] || 120) + 'px';
+            });
+        }
+    }
+
+    function initSigmaResize() {
+        restoreWidths();
+        const table = document.getElementById('sigmaQueueTable');
+        if (!table) return;
+        table.addEventListener('mousedown', e => {
+            const handle = e.target.closest('.sq-resize-handle');
+            if (!handle) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const th = handle.closest('th');
+            const col = document.getElementById(th.dataset.scol);
+            if (!col) return;
+            if (!col.style.width) col.style.width = (th.offsetWidth || DEFAULT_W[th.dataset.scol] || 120) + 'px';
+            const startX = e.clientX;
+            const startW = parseInt(col.style.width);
+            handle.classList.add('dragging');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            function onMove(e) {
+                col.style.width = Math.max(MIN_W, startW + e.clientX - startX) + 'px';
+            }
+            function onUp() {
+                handle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                saveWidths();
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    const origLoadQueue = window.loadQueue;
+    if (typeof origLoadQueue === 'function') {
+        window.loadQueue = function() {
+            const r = origLoadQueue.apply(this, arguments);
+            setTimeout(lockWidths, 300);
+            return r;
+        };
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initSigmaResize);
+    } else {
+        initSigmaResize();
     }
 })();
 </script>
