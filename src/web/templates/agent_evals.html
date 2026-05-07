@@ -1088,6 +1088,31 @@ function updateRunButton() {
     }
 }
 
+// Diagnosis count badges: fetch saved diagnosis counts once per table render and
+// stamp [dx N] badges onto cells that have at least one saved diagnosis.
+let _diagnosisCountsCache = null;
+
+async function applyDiagnosisCounts() {
+    try {
+        if (_diagnosisCountsCache === null) {
+            const resp = await fetch('/api/evals/diagnosis-counts');
+            if (!resp.ok) return;
+            _diagnosisCountsCache = await resp.json(); // {execution_id: count}
+        }
+        const counts = _diagnosisCountsCache;
+        document.querySelectorAll('td[data-exec-id]').forEach(td => {
+            const execId = parseInt(td.getAttribute('data-exec-id'), 10);
+            const count = counts[execId];
+            if (!count) return;
+            const badge = td.querySelector('.dx-badge');
+            if (!badge) return;
+            badge.textContent = `[dx ${count}]`;
+            badge.title = `${count} saved diagnosis${count === 1 ? '' : 'es'} -- click cell to open`;
+            badge.style.cssText = 'display:inline-block;font-size:0.6rem;font-family:monospace;padding:0 0.3rem;line-height:1.3;border-radius:3px;background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.3);cursor:default;';
+        });
+    } catch (_) { /* non-critical -- badge is optional */ }
+}
+
 // Help modal function
 function showHelp(fieldName) {
     const helpTexts = {
@@ -1648,7 +1673,8 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
                 const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
                 
-                html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" style="min-width: 96px;" ${onClickAttr}>`;
+                const execIdAttr = result.execution_id ? `data-exec-id="${result.execution_id}"` : '';
+                html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" style="min-width: 96px;" ${onClickAttr} ${execIdAttr}>`;
                 html += `<div class="flex flex-col items-center gap-1.5">`;
                 if (actualCount !== '-') {
                     // Main count: larger, prominent
@@ -1679,6 +1705,10 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 if (result.infra_not_ready) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
                 }
+                // Placeholder span filled by applyDiagnosisCounts() after table renders
+                if (result.execution_id) {
+                    html += `<span class="dx-badge" style="display:none;"></span>`;
+                }
                 html += `</div></td>`;
             }
         });
@@ -1689,7 +1719,8 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
-    
+    applyDiagnosisCounts(); // add [dx N] badges to cells that have saved diagnoses
+
     if (currentWindowVersions && currentWindowVersions.length > 0) {
         updateTableWindow(currentWindowVersions);
     }
@@ -3047,6 +3078,9 @@ async function diagnoseBundleExecution(executionId, agentName) {
             el.textContent = `Run ${total - idx}`;
         });
         showNotification('Diagnosis complete', 'success');
+        // Invalidate cache so the [dx N] badge refreshes on next table render
+        _diagnosisCountsCache = null;
+        applyDiagnosisCounts();
 
     } catch (error) {
         console.error('Error diagnosing bundle:', error);

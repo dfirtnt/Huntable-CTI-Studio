@@ -299,7 +299,9 @@ _EVAL_ARTICLES_DATA_DIR = _ROOT / "config" / "eval_articles_data"
 def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     """Load static eval article snapshots for a subagent.
 
-    Returns dict url -> {url, title, content, filtered_content?, expected_count}.
+    Returns dict url -> {url, title, content, filtered_content?, expected_count,
+    expected_items?}.  expected_items comes from the separate ground_truth.json
+    file (if present) and is never stored in articles.json.
     """
     out: dict[str, dict] = {}
     data_dir = (
@@ -322,10 +324,28 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     "content": entry.get("content", ""),
                     "filtered_content": entry.get("filtered_content") or entry.get("content", ""),
                     "expected_count": entry.get("expected_count", 0),
-                    "expected_items": entry.get("expected_items"),  # optional list[str]
+                    "expected_items": None,
                 }
     except Exception as e:
         logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
+        return out
+
+    # Merge expected_items from ground_truth.json (item-level eval ground truth).
+    # This file is separate so article snapshot refreshes never clobber annotations.
+    gt_path = data_dir / "ground_truth.json"  # codeql[py/path-injection] false positive: see above
+    if gt_path.exists():  # codeql[py/path-injection] false positive: see above
+        try:
+            with open(gt_path) as f:  # codeql[py/path-injection] false positive: see above
+                gt_entries = json.load(f)
+            if isinstance(gt_entries, list):
+                for gt in gt_entries:
+                    url = gt.get("url")
+                    items = gt.get("expected_items")
+                    if url and url in out and isinstance(items, list):
+                        out[url]["expected_items"] = items
+        except Exception as e:
+            logger.warning("Failed to load ground_truth.json for %s: %s", subagent_key, e)
+
     return out
 
 
@@ -2431,6 +2451,26 @@ async def get_saved_diagnosis(execution_id: int):
         raise HTTPException(status_code=404, detail="No diagnosis found")
 
     return _json.loads(matches[0].read_text(encoding="utf-8"))
+
+
+@router.get("/evals/diagnosis-counts")
+async def get_diagnosis_counts():
+    """
+    Return a dict of {execution_id: count} for every execution that has at least
+    one saved diagnosis.  Uses a single directory scan (no file reads) so it is
+    cheap to call on every page load.
+    """
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
+    from collections import defaultdict
+
+    counts: dict[int, int] = defaultdict(int)
+    if DIAGNOSES_DIR.exists():
+        for p in DIAGNOSES_DIR.glob("*.json"):
+            # filename format: {exec_id}_{agent}_{short_id}.json
+            parts = p.stem.split("_", 1)
+            if parts and parts[0].isdigit():
+                counts[int(parts[0])] += 1
+    return dict(counts)
 
 
 @router.get("/evals/{execution_id}/diagnoses")
