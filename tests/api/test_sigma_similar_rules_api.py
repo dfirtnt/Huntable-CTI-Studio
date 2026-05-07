@@ -102,7 +102,7 @@ class TestSigmaSimilarRulesAPI:
                 "logsource_key": "windows|process_creation",
             }
 
-            response = await get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
+            response = get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
 
         assert response["success"] is True
         assert response["matches"] == []
@@ -206,7 +206,7 @@ class TestSigmaSimilarRulesAPI:
                 "engine_used": "legacy",
             }
 
-            response = await get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
+            response = get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
 
         assert response["success"] is True
         assert response["matches"] == []

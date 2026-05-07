@@ -618,6 +618,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             )
 
             db_session.add(new_config)
+            _save_threshold_to_settings(db_session, final_auto_trigger_hunt_score_threshold)
             db_session.commit()
             db_session.refresh(new_config)
 

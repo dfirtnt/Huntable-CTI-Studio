@@ -54,7 +54,7 @@ class TestSigmaQueueStatusCounts:
         )
         with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            response = await list_queued_rules(
+            response = list_queued_rules(
                 request=MagicMock(spec=Request),
                 status=None,
                 limit=50,
@@ -77,7 +77,7 @@ class TestSigmaQueueStatusCounts:
         )
         with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            response = await list_queued_rules(
+            response = list_queued_rules(
                 request=MagicMock(spec=Request),
                 status=None,
                 limit=50,
@@ -100,7 +100,7 @@ class TestSigmaQueueStatusCounts:
         )
         with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            response = await list_queued_rules(
+            response = list_queued_rules(
                 request=MagicMock(spec=Request),
                 status="pending",
                 limit=50,
@@ -122,7 +122,7 @@ class TestSigmaQueueStatusCounts:
         session = _make_session_mock(counts_rows=[], total=0)
         with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            response = await list_queued_rules(
+            response = list_queued_rules(
                 request=MagicMock(spec=Request),
                 status=None,
                 limit=50,
@@ -146,7 +146,7 @@ class TestSigmaQueueStatusCounts:
         )
         with patch("src.web.routes.sigma_queue.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value = session
-            response = await list_queued_rules(
+            response = list_queued_rules(
                 request=MagicMock(spec=Request),
                 status=None,
                 limit=50,

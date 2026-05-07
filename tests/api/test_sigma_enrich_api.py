@@ -56,7 +56,7 @@ class TestSigmaEnrichAPI:
         """Test that enrich endpoint validates rule ID."""
         from starlette.requests import Request
 
-        from src.web.routes.sigma_queue import enrich_rule
+        from src.web.routes.sigma_queue import EnrichRuleRequest, enrich_rule
 
         # Create mock request with API key
         mock_request = MagicMock(spec=Request)
@@ -72,11 +72,13 @@ class TestSigmaEnrichAPI:
             # Mock rule lookup returns None
             mock_session.query.return_value.filter.return_value.first.return_value = None
 
-            # Call enrich endpoint
+            # Call enrich endpoint with a proper request object so provider validation passes
             from fastapi import HTTPException
 
             with pytest.raises(HTTPException) as exc_info:
-                await enrich_rule(mock_request, queue_id=999999, enrich_request=MagicMock())
+                await enrich_rule(
+                    mock_request, queue_id=999999, enrich_request=EnrichRuleRequest(instruction="test")
+                )
 
             # Should return 404 if rule doesn't exist
             assert exc_info.value.status_code == 404
