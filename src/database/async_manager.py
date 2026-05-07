@@ -154,6 +154,46 @@ class AsyncDatabaseManager:
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
                 ]:
                     await conn.execute(text(col_ddl))
+                # Add primary keys to tables that pre-date PK enforcement.
+                # Each statement is a no-op if the constraint already exists.
+                # Will raise if duplicate IDs are still present -- that requires
+                # a data cleanup before the next startup.
+                for pk_ddl in [
+                    """
+                    DO $$ BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'sources' AND constraint_type = 'PRIMARY KEY'
+                        AND table_schema = 'public'
+                      ) THEN
+                        ALTER TABLE sources ADD PRIMARY KEY (id);
+                      END IF;
+                    END $$
+                    """,
+                    """
+                    DO $$ BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'subagent_evaluations' AND constraint_type = 'PRIMARY KEY'
+                        AND table_schema = 'public'
+                      ) THEN
+                        ALTER TABLE subagent_evaluations ADD PRIMARY KEY (id);
+                      END IF;
+                    END $$
+                    """,
+                    """
+                    DO $$ BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'content_hashes' AND constraint_type = 'PRIMARY KEY'
+                        AND table_schema = 'public'
+                      ) THEN
+                        ALTER TABLE content_hashes ADD PRIMARY KEY (id);
+                      END IF;
+                    END $$
+                    """,
+                ]:
+                    await conn.execute(text(pk_ddl))
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
@@ -431,7 +471,7 @@ class AsyncDatabaseManager:
         """Get a specific source by ID."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
 
                 if db_source:
@@ -447,7 +487,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Get the source
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -485,7 +525,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Get the source
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -560,7 +600,7 @@ class AsyncDatabaseManager:
         try:
             async with self.get_session() as session:
                 # Get the source
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:
@@ -594,7 +634,7 @@ class AsyncDatabaseManager:
         """Update source health metrics."""
         try:
             async with self.get_session() as session:
-                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id))
+                result = await session.execute(select(SourceTable).where(SourceTable.id == source_id).limit(1))
                 db_source = result.scalar_one_or_none()
 
                 if not db_source:

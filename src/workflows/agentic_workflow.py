@@ -1729,7 +1729,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # causes the conversation_log JSONB to grow too large, which prevents the
                     # last agents' message data from being transferred correctly.
                     _MAX_MSG_CHARS = 3000
-                    _MAX_RESP_CHARS = 2000
+                    _MAX_RESP_CHARS = 20000
                     log_entry: dict = {"agent": agent_name, "items_count": len(items), "result": agent_result}
                     if isinstance(agent_result, dict):
                         if "_llm_messages" in agent_result:

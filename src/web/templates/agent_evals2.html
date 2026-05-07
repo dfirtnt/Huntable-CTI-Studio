@@ -1003,6 +1003,7 @@ function renderItemLevelTable(rows) {
         { text: 'Actual', cls: 'center', style: 'min-width: 60px;' },
         { text: 'Precision', cls: 'center', style: 'min-width: 80px;' },
         { text: 'Recall', cls: 'center', style: 'min-width: 80px;' },
+        { text: 'F1', cls: 'center', style: 'min-width: 70px;', title: 'Harmonic mean of Precision and Recall' },
         { text: 'Matched', cls: 'center', style: 'min-width: 60px;', title: 'Items in both expected and extracted' },
         { text: 'Missed', cls: 'center', style: 'min-width: 60px;', title: 'Expected but not extracted' },
         { text: 'Extra', cls: 'center', style: 'min-width: 60px;', title: 'Extracted but not expected' },
@@ -1029,8 +1030,10 @@ function renderItemLevelTable(rows) {
 
         let precision = null;
         let recall = null;
+        let f1 = null;
         if (hasItemScoring && actual != null && actual > 0) precision = r.matched_count / actual;
         if (hasItemScoring && expected != null && expected > 0) recall = r.matched_count / expected;
+        if (precision != null && recall != null && (precision + recall) > 0) f1 = 2 * precision * recall / (precision + recall);
 
         const tr = document.createElement('tr');
         if (isCompleted && r.execution_id != null) {
@@ -1103,6 +1106,22 @@ function renderItemLevelTable(rows) {
         }
         tr.appendChild(tdRec);
 
+        // F1 cell
+        const tdF1 = document.createElement('td');
+        tdF1.className = 'metric-cell';
+        if (hasItemScoring) {
+            const span = document.createElement('span');
+            span.className = 'metric-value ' + metricColorClass(f1);
+            span.textContent = f1 != null ? (f1 * 100).toFixed(0) + '%' : 'n/a';
+            tdF1.appendChild(span);
+        } else {
+            const span = document.createElement('span');
+            span.className = 'metric-value metric-value--na';
+            span.textContent = 'n/a';
+            tdF1.appendChild(span);
+        }
+        tr.appendChild(tdF1);
+
         tr.appendChild(mkCountCell(hasItemScoring ? r.matched_count : null, 'count-matched'));
         tr.appendChild(mkCountCell(hasItemScoring ? r.missed_count : null, 'count-missed'));
         tr.appendChild(mkCountCell(hasItemScoring ? r.extra_count : null, 'count-extra'));
@@ -1113,7 +1132,7 @@ function renderItemLevelTable(rows) {
         badge.className = 'status-badge';
         if (r.status === 'completed') {
             if (hasItemScoring) {
-                const rc = recall != null ? recall : 0;
+                const rc = f1 != null ? f1 : (recall != null ? recall : 0);
                 badge.className += rc >= 0.9 ? ' status-exact' : rc >= 0.7 ? ' status-warning' : ' status-mismatch';
             } else {
                 badge.className += ' status-dim';
@@ -1247,10 +1266,11 @@ function showItemDetail(row) {
     const extra = row.extra_count || 0;
     const precision = actual > 0 ? matched / actual : 1;
     const recall = expected > 0 ? matched / expected : 1;
+    const f1 = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
 
     // Score summary bar
     const summaryGrid = document.createElement('div');
-    summaryGrid.className = 'grid grid-cols-3 gap-3 mb-5 p-3 rounded-lg';
+    summaryGrid.className = 'grid grid-cols-4 gap-3 mb-5 p-3 rounded-lg';
     summaryGrid.style.cssText = 'background: var(--panel-bg-4); border: 1px solid rgba(139,92,246,0.08);';
 
     function mkScoreCell(label, value, sub) {
@@ -1275,6 +1295,7 @@ function showItemDetail(row) {
 
     summaryGrid.appendChild(mkScoreCell('Precision', precision, matched + '/' + actual));
     summaryGrid.appendChild(mkScoreCell('Recall', recall, matched + '/' + expected));
+    summaryGrid.appendChild(mkScoreCell('F1', f1, '2*P*R/(P+R)'));
 
     const execDiv = document.createElement('div');
     execDiv.className = 'text-center';
