@@ -55,16 +55,25 @@
     </div>
 
     <!-- Executions Table -->
-    <div class="card-elevated overflow-hidden">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+    <div class="card-elevated overflow-x-auto">
+        <table id="executionsTable" class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="table-layout:fixed;">
+            <colgroup>
+                <col id="col-id" style="width:70px">
+                <col id="col-article" style="width:220px">
+                <col id="col-status" style="width:140px">
+                <col id="col-step" style="width:180px">
+                <col id="col-score" style="width:120px">
+                <col id="col-created" style="width:160px">
+                <col id="col-actions" style="width:120px">
+            </colgroup>
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Article</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Current Step</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ranking Score</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Created</th>
+                    <th class="resizable-col px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-col="col-id">ID<div class="col-resize-handle"></div></th>
+                    <th class="resizable-col px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-col="col-article">Article<div class="col-resize-handle"></div></th>
+                    <th class="resizable-col px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-col="col-status">Status<div class="col-resize-handle"></div></th>
+                    <th class="resizable-col px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-col="col-step">Current Step<div class="col-resize-handle"></div></th>
+                    <th class="resizable-col px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-col="col-score">Ranking Score<div class="col-resize-handle"></div></th>
+                    <th class="resizable-col px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider" data-col="col-created">Created<div class="col-resize-handle"></div></th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Actions</th>
                 </tr>
             </thead>
@@ -2316,5 +2325,85 @@ function closeRuleModal() {
         </div>
     </div>
 </div>
+
+<style>
+.resizable-col { position: relative; overflow: visible; }
+.col-resize-handle {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize; z-index: 1;
+    background: transparent;
+    border-right: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+.col-resize-handle:hover,
+.col-resize-handle.dragging { border-right-color: #6366f1; }
+#executionsTable td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<script>
+(function() {
+    const STORAGE_KEY = 'executions-col-widths';
+    const COL_IDS = ['col-id','col-article','col-status','col-step','col-score','col-created'];
+    const MIN_W = 50;
+
+    function saveWidths() {
+        const widths = {};
+        COL_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) widths[id] = el.style.width;
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(widths));
+    }
+
+    function restoreWidths() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            Object.entries(saved).forEach(([id, w]) => {
+                const el = document.getElementById(id);
+                if (el && w) el.style.width = w;
+            });
+        } catch (_) {}
+    }
+
+    function initResize() {
+        restoreWidths();
+        document.querySelectorAll('.col-resize-handle').forEach(handle => {
+            let startX, startW, col;
+            handle.addEventListener('mousedown', e => {
+                e.preventDefault();
+                startX = e.clientX;
+                const th = handle.closest('th');
+                const colId = th.dataset.col;
+                col = document.getElementById(colId);
+                startW = col.offsetWidth;
+                handle.classList.add('dragging');
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+
+                function onMove(e) {
+                    const newW = Math.max(MIN_W, startW + e.clientX - startX);
+                    col.style.width = newW + 'px';
+                }
+                function onUp() {
+                    handle.classList.remove('dragging');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                    saveWidths();
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                }
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initResize);
+    } else {
+        initResize();
+    }
+})();
+</script>
 
 {% endblock %}

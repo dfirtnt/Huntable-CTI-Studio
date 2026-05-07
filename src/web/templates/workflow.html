@@ -3059,16 +3059,26 @@
 
         <!-- Executions Table -->
         <div class="q-table-wrap">
-            <table class="q-table">
+            <table class="q-table" id="executionsTable">
+                <colgroup>
+                    <col id="ecol-indicator">
+                    <col id="ecol-id">
+                    <col id="ecol-article">
+                    <col id="ecol-status">
+                    <col id="ecol-step">
+                    <col id="ecol-score">
+                    <col id="ecol-created">
+                    <col id="ecol-actions">
+                </colgroup>
                 <thead>
                     <tr id="executionsHeaderRow">
                         <th class="q-status-indicator-header q-col-status-indicator" aria-hidden="true"></th>
-                        <th class="q-col-id" style="padding-left:24px">ID</th>
-                        <th class="q-col-article">Article</th>
-                        <th class="q-col-status">Status</th>
-                        <th class="q-col-step">Step</th>
-                        <th class="q-col-score">Score</th>
-                        <th class="q-col-created">Created</th>
+                        <th class="q-col-id exec-resizable" style="padding-left:24px;position:relative" data-ecol="ecol-id">ID<div class="exec-resize-handle"></div></th>
+                        <th class="q-col-article exec-resizable" style="position:relative" data-ecol="ecol-article">Article<div class="exec-resize-handle"></div></th>
+                        <th class="q-col-status exec-resizable" style="position:relative" data-ecol="ecol-status">Status<div class="exec-resize-handle"></div></th>
+                        <th class="q-col-step exec-resizable" style="position:relative" data-ecol="ecol-step">Step<div class="exec-resize-handle"></div></th>
+                        <th class="q-col-score exec-resizable" style="position:relative" data-ecol="ecol-score">Score<div class="exec-resize-handle"></div></th>
+                        <th class="q-col-created exec-resizable" style="position:relative" data-ecol="ecol-created">Created<div class="exec-resize-handle"></div></th>
                         <th class="q-col-actions">Actions</th>
                     </tr>
                 </thead>
@@ -12026,29 +12036,30 @@ function renderExecutionHeader() {
     
     const sortableClass = 'cursor-pointer select-none';
     const sortableColumns = [
-        { key: 'id', label: 'ID', className: 'q-col-id' },
-        { key: 'article_id', label: 'Article', className: 'q-col-article' },
-        { key: 'status', label: 'Status', className: 'q-col-status' },
-        { key: 'current_step', label: 'Step', className: 'q-col-step' },
-        { key: 'ranking_score', label: 'Score', className: 'q-col-score' }
+        { key: 'id', label: 'ID', className: 'q-col-id', ecol: 'ecol-id' },
+        { key: 'article_id', label: 'Article', className: 'q-col-article', ecol: 'ecol-article' },
+        { key: 'status', label: 'Status', className: 'q-col-status', ecol: 'ecol-status' },
+        { key: 'current_step', label: 'Step', className: 'q-col-step', ecol: 'ecol-step' },
+        { key: 'ranking_score', label: 'Score', className: 'q-col-score', ecol: 'ecol-score' }
     ];
 
+    const handle = '<div class="exec-resize-handle"></div>';
     // Helper used by observable-count columns and post-loop headers below
-    const sortTh = (key, label, className = '') =>
-        `<th class="${[sortableClass, className].filter(Boolean).join(' ')}" onclick="setExecutionSort('${key}')" title="Click to sort">${label}${getSortIndicator(key)}</th>`;
+    const sortTh = (key, label, className = '', ecol = '') =>
+        `<th class="${[sortableClass, className, ecol ? 'exec-resizable' : ''].filter(Boolean).join(' ')}" onclick="setExecutionSort('${key}')" title="Click to sort"${ecol ? ` data-ecol="${ecol}" style="position:relative"` : ''}>${label}${getSortIndicator(key)}${ecol ? handle : ''}</th>`;
     const plainTh = (label, className = '') =>
         `<th class="${className}">${label}</th>`;
 
     let html =
         '<th class="q-status-indicator-header q-col-status-indicator" aria-hidden="true"></th>' +
         sortableColumns.map((col, i) =>
-            `<th class="${sortableClass} ${col.className}" onclick="setExecutionSort('${col.key}')" title="Click to sort"${i === 0 ? ' style="padding-left:24px"' : ''}>${col.label}${getSortIndicator(col.key)}</th>`
+            `<th class="${sortableClass} ${col.className} exec-resizable" onclick="setExecutionSort('${col.key}')" title="Click to sort" data-ecol="${col.ecol}" style="${i === 0 ? 'padding-left:24px;' : ''}position:relative">${col.label}${getSortIndicator(col.key)}${handle}</th>`
         ).join('');
 
     if (showObservableCounts) {
         html += observableCountColumns.map(col => plainTh(col.label, 'q-col-observable-count')).join('');
     }
-    html += sortTh('created_at', 'Created', 'q-col-created');
+    html += sortTh('created_at', 'Created', 'q-col-created', 'ecol-created');
     html += '<th class="q-col-actions">Actions</th>';
     
     headerRow.innerHTML = html;
@@ -18624,4 +18635,103 @@ if (document.readyState === 'loading') {
     })();
 }
 </script>
+
+<style>
+.exec-resize-handle {
+    position: absolute; right: 0; top: 0; bottom: 0;
+    width: 6px; cursor: col-resize; z-index: 2;
+    border-right: 2px solid transparent;
+    transition: border-color 0.15s;
+}
+.exec-resize-handle:hover,
+.exec-resize-handle.dragging { border-right-color: #6366f1; }
+#executionsTable td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+
+<script>
+(function() {
+    const STORAGE_KEY = 'exec-col-widths-v1';
+    const COL_IDS = ['ecol-id','ecol-article','ecol-status','ecol-step','ecol-score','ecol-created'];
+    const MIN_W = 48;
+
+    function lockWidths() {
+        document.querySelectorAll('#executionsHeaderRow .exec-resizable').forEach(th => {
+            const col = document.getElementById(th.dataset.ecol);
+            if (col && !col.style.width) col.style.width = th.offsetWidth + 'px';
+        });
+    }
+
+    function saveWidths() {
+        const w = {};
+        COL_IDS.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.style.width) w[id] = el.style.width;
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(w));
+    }
+
+    function restoreWidths() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+            Object.entries(saved).forEach(([id, w]) => {
+                const el = document.getElementById(id);
+                if (el) el.style.width = w;
+            });
+        } catch (_) {}
+    }
+
+    function initResize() {
+        restoreWidths();
+        // Delegate to thead so listeners survive renderExecutionHeader() rebuilds
+        const table = document.getElementById('executionsTable');
+        if (!table) return;
+        table.addEventListener('mousedown', e => {
+            const handle = e.target.closest('.exec-resize-handle');
+            if (!handle) return;
+            e.preventDefault();
+            e.stopPropagation(); // prevent sort onclick on th
+            const th = handle.closest('th');
+            const col = document.getElementById(th.dataset.ecol);
+            if (!col) return;
+            if (!col.style.width) col.style.width = th.offsetWidth + 'px';
+            const startX = e.clientX;
+            const startW = parseInt(col.style.width);
+            handle.classList.add('dragging');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            function onMove(e) {
+                col.style.width = Math.max(MIN_W, startW + e.clientX - startX) + 'px';
+            }
+            function onUp() {
+                handle.classList.remove('dragging');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+                saveWidths();
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+            }
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    // Lock widths after first data load so auto-width columns get pinned
+    const origLoad = window.loadExecutions;
+    if (typeof origLoad === 'function') {
+        window.loadExecutions = function() {
+            const r = origLoad.apply(this, arguments);
+            setTimeout(lockWidths, 300);
+            return r;
+        };
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initResize);
+    } else {
+        initResize();
+    }
+})();
+</script>
+
 {% endblock %}
