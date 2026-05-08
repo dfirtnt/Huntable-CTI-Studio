@@ -2366,6 +2366,17 @@ class LLMService:
                             f"{agent_name} could not determine LMStudio context length for {model_name}: {e}"
                         )
 
+                # Estimate actual static prompt overhead from the live prompt_config.
+                # PROMPT_OVERHEAD_TOKENS (500) underestimates prompts with long instructions
+                # (e.g. CmdlineExtract ~1500 tokens static overhead). Computing from the
+                # actual config fields prevents context overflow on small LM Studio models.
+                _static_prompt_overhead = (
+                    self._estimate_tokens(prompt_config.get("system") or prompt_config.get("role", ""))
+                    + self._estimate_tokens(prompt_config.get("instructions", ""))
+                    + self._estimate_tokens(str(prompt_config.get("json_example") or ""))
+                    + 200  # scaffold buffer: title, url, task line, format labels, traceability footer
+                )
+
                 # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
                 snippet_count: int | None = None
                 if agent_name == "CmdlineExtract" and attention_preprocessor_enabled:
@@ -2416,9 +2427,9 @@ class LLMService:
                     full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
                     combined_prefix = snippets_header + snippets_section + full_header
 
-                    # Reserve: snippets + 256 token overhead + template + output
+                    # Reserve: snippets + static prompt overhead + output + buffer
                     snippet_tokens = self._estimate_tokens(combined_prefix)
-                    overhead_tokens = 256 + PROMPT_OVERHEAD_TOKENS + 1000
+                    overhead_tokens = _static_prompt_overhead + 1000 + 256  # 1000 output, 256 extra buffer
                     available_for_article = max(0, context_limit_tokens - snippet_tokens - overhead_tokens)
                     available_for_article = int(available_for_article * 0.9)  # safety margin
 
@@ -2435,7 +2446,9 @@ class LLMService:
 
                     truncated_content = combined_prefix + truncated_article
                 else:
-                    truncated_content = self._truncate_content(content, context_limit_tokens, 1000)
+                    truncated_content = self._truncate_content(
+                        content, context_limit_tokens, 1000, prompt_overhead=_static_prompt_overhead
+                    )
 
                 logger.info(
                     f"{agent_name} prompt construction: content_length={len(content)}, "
@@ -2446,7 +2459,8 @@ class LLMService:
                 # Legacy format - build prompt from individual fields.
                 # The extractor/QA scaffold is fixed in runtime; UI edits only affect
                 # the editable prompt fields (role/objective, instructions, examples).
-                task = prompt_config.get("objective", "Extract information.")
+                # Check "objective" first (legacy key), then "task" (new envelope key).
+                task = prompt_config.get("objective") or prompt_config.get("task", "Extract information.")
                 instructions = prompt_config.get("instructions", "Output valid JSON.")
                 output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
                 json_example = prompt_config.get("json_example")

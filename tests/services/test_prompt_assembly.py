@@ -579,3 +579,79 @@ class TestActualCountFallback:
         subresults = {}
         result = _extract_actual_count("cmdline", subresults, execution_id=1)
         assert result == 0
+
+
+# ---------------------------------------------------------------------------
+# task key used when objective is absent (eval 3802 fix)
+# ---------------------------------------------------------------------------
+
+
+class TestTaskKeyFallback:
+    """Pin that prompt_config 'task' key is used when 'objective' is absent.
+
+    Extractor prompts using the new envelope format (role/task/json_example/instructions)
+    previously had their task description silently ignored -- the code looked for 'objective'
+    only and fell back to the generic 'Extract information.' string. Fixed in eval 3802.
+    """
+
+    @pytest.mark.asyncio
+    async def test_task_key_appears_in_user_message(self, llm_service):
+        """When prompt_config has 'task' but no 'objective', task text appears in user message."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "role": "You are a test extractor.",
+                    "task": "Extract only Windows command-line literals for EDR use.",
+                    "instructions": "Output valid JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+            )
+
+            call_args = mock_chat.call_args
+            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+            user_msg = next(m["content"] for m in messages if m["role"] == "user")
+            assert "Extract only Windows command-line literals for EDR use." in user_msg, (
+                "The 'task' field must appear in the user message when 'objective' is absent. "
+                "Before the eval 3802 fix, task was silently ignored and the generic "
+                "'Extract information.' fallback was used instead."
+            )
+
+    @pytest.mark.asyncio
+    async def test_objective_takes_precedence_over_task(self, llm_service):
+        """When both 'objective' and 'task' are present, 'objective' wins (backward compat)."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "role": "You are a test extractor.",
+                    "objective": "Objective text (should win).",
+                    "task": "Task text (should lose).",
+                    "instructions": "Output valid JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+            )
+
+            call_args = mock_chat.call_args
+            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+            user_msg = next(m["content"] for m in messages if m["role"] == "user")
+            assert "Objective text (should win)." in user_msg
+            assert "Task text (should lose)." not in user_msg
