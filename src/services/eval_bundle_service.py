@@ -211,7 +211,7 @@ class EvalBundleService:
                 # Item-level fields (populated only when expected_items was set)
                 if subagent_eval.expected_items:
                     workflow_meta["expected_items"] = subagent_eval.expected_items
-                if subagent_eval.actual_items:
+                if subagent_eval.actual_items is not None:
                     workflow_meta["actual_items"] = subagent_eval.actual_items
                 if subagent_eval.matched_count is not None:
                     workflow_meta["matched_count"] = subagent_eval.matched_count

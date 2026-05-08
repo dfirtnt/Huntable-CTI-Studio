@@ -759,3 +759,114 @@ class TestSlimTransform:
         assert system_msg.get("_slim_stripped") is True
         # Integrity hash still present (computed before slim)
         assert bundle["integrity"]["bundle_sha256"]
+
+
+class TestBundleActualItemsTruthiness:
+    """actual_items=[] (zero extraction) must appear in bundle, unlike None (field absent)."""
+
+    def _make_scoring_row(self, actual_items):
+        """Return a mock SubagentEvaluationTable row with the given actual_items."""
+        row = Mock()
+        row.expected_count = 3
+        row.actual_count = 0
+        row.score = 0.0
+        row.status = "scored"
+        row.expected_items = ["cmd-a", "cmd-b", "cmd-c"]
+        row.actual_items = actual_items
+        row.matched_count = 0
+        row.missed_count = 3
+        row.extra_count = 0
+        return row
+
+    def _make_execution(self):
+        execution = Mock()
+        execution.id = 1
+        execution.article_id = 1
+        execution.status = "completed"
+        execution.error_log = {
+            "extract_agent": {
+                "conversation_log": [
+                    {
+                        "agent": "CmdlineExtract",
+                        "messages": [{"role": "user", "content": "test"}],
+                        "result": {"cmdline_items": [], "count": 0},
+                    }
+                ]
+            }
+        }
+        execution.config_snapshot = {}
+        execution.started_at = None
+        execution.completed_at = None
+        execution.current_step = None
+        execution.retry_count = 0
+        execution.error_message = None
+        execution.extraction_result = {}
+        return execution
+
+    def _build_query_fn(self, execution, article, scoring_row):
+        from src.database.models import AgenticWorkflowExecutionTable, ArticleTable
+
+        def mock_query(model):
+            if model is AgenticWorkflowExecutionTable:
+                q = Mock()
+                q.filter.return_value.first.return_value = execution
+                return q
+            if model is ArticleTable:
+                q = Mock()
+                q.filter.return_value.first.return_value = article
+                return q
+            q = Mock()
+            q.filter.return_value.first.return_value = scoring_row
+            return q
+
+        return mock_query
+
+    def _make_article(self):
+        article = Mock()
+        article.content = "Test article content"
+        article.id = 1
+        article.title = "Test"
+        article.canonical_url = None
+        article.published_at = None
+        article.word_count = 100
+        article.discovered_at = None
+        article.article_metadata = {}
+        article.source = None
+        return article
+
+    def test_empty_actual_items_included_in_bundle(self):
+        """actual_items=[] must be present -- zero extraction is semantically meaningful."""
+        execution = self._make_execution()
+        scoring_row = self._make_scoring_row(actual_items=[])
+        article = self._make_article()
+        db_session = Mock()
+        db_session.query = self._build_query_fn(execution, article, scoring_row)
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(db_session)
+            bundle = service.generate_bundle(execution_id=1, agent_name="CmdlineExtract")
+
+        workflow_meta = bundle.get("workflow", {})
+        assert "actual_items" in workflow_meta, (
+            "actual_items=[] must be serialised into the bundle so consumers "
+            "can distinguish 'model returned nothing' from 'field not set'"
+        )
+        assert workflow_meta["actual_items"] == []
+
+    def test_none_actual_items_absent_from_bundle(self):
+        """actual_items=None (field never set) must be omitted from the bundle."""
+        execution = self._make_execution()
+        scoring_row = self._make_scoring_row(actual_items=None)
+        scoring_row.matched_count = None
+        scoring_row.missed_count = None
+        scoring_row.extra_count = None
+        article = self._make_article()
+        db_session = Mock()
+        db_session.query = self._build_query_fn(execution, article, scoring_row)
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(db_session)
+            bundle = service.generate_bundle(execution_id=1, agent_name="CmdlineExtract")
+
+        workflow_meta = bundle.get("workflow", {})
+        assert "actual_items" not in workflow_meta
