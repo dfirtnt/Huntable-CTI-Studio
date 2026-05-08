@@ -597,6 +597,12 @@
                 <div class="eval-section-label">SYS.03</div>
                 <h2 class="eval-section-title eval-body-font">Results Comparison</h2>
             </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <label class="eval-section-label" for="modelFilter">MODEL</label>
+                <select id="modelFilter" class="eval-select" style="min-width: 18rem;">
+                    <option value="">-- all models --</option>
+                </select>
+            </div>
             <div class="flex gap-2 flex-wrap">
                 <button id="backfillEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm">Update Pending</button>
                 <button id="clearPendingBtn" class="eval-btn eval-btn--danger eval-btn--sm">Clear Pending</button>
@@ -2338,9 +2344,18 @@ async function loadAggregateScores() {
             }
         }
         
+        // Apply model filter to aggregates (for chart and version compare)
+        const chartModelFilter = (document.getElementById('modelFilter') || {}).value || '';
+        const chartAggregates = chartModelFilter
+            ? filteredAggregates.filter(agg => {
+                const params = configParamsByVersion[agg.config_version];
+                return params && params.agentModel === chartModelFilter;
+            })
+            : filteredAggregates;
+
         // Render MAE chart
-        renderMAEChart(filteredAggregates, configParamsByVersion, true); // Reset window to show latest
-        populateCompareVersionSelects(filteredAggregates);
+        renderMAEChart(chartAggregates, configParamsByVersion, true); // Reset window to show latest
+        populateCompareVersionSelects(chartAggregates);
         document.getElementById('versionComparePanel').classList.remove('hidden');
         
         aggregateScores.classList.remove('hidden');
@@ -2481,11 +2496,13 @@ async function loadPreviousResults() {
         // Predetermined expected_count from preset (eval_articles.yaml), not derived from results
         let presetByArticleId = {};
         let presetByUrl = {};
+        let presetArticles = [];
         try {
             const presetResp = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${apiSubagent}`);
             if (presetResp.ok) {
                 const presetData = await presetResp.json();
-                (presetData.articles || []).forEach(a => {
+                presetArticles = presetData.articles || [];
+                presetArticles.forEach(a => {
                     if (a.article_id != null) presetByArticleId[a.article_id] = a.expected_count != null ? a.expected_count : 0;
                     if (a.url) presetByUrl[a.url] = a.expected_count != null ? a.expected_count : 0;
                 });
@@ -2493,7 +2510,7 @@ async function loadPreviousResults() {
         } catch (e) {
             console.warn('Could not load preset expected counts:', e);
         }
-        
+
         // Group by canonical URL so the same article never appears twice (DB and static eval for same URL → one row)
         // Support multiple runs per (article, config_version): store arrays, then assign run letters (v40a, v40b, ...)
         const byArticleKey = {};
@@ -2519,6 +2536,21 @@ async function loadPreviousResults() {
             if ((result.title && result.title.trim()) && !(row.title && row.title.trim()))
                 row.title = result.title;
             if (articleId != null && row.article_id == null) row.article_id = articleId;
+        });
+
+        // Ensure every article defined in the eval YAML has a row, even if never run
+        presetArticles.forEach(a => {
+            if (!a.url) return;
+            const key = `url:${a.url.trim()}`;
+            if (!byArticleKey[key]) {
+                byArticleKey[key] = {
+                    url: a.url,
+                    title: a.title || null,
+                    expected_count: a.expected_count != null ? a.expected_count : 0,
+                    article_id: a.article_id || null,
+                    versions: {}
+                };
+            }
         });
 
         // Assign run letters per (article, config_version): sort by created_at asc, then 40a, 40b, ...
@@ -2578,6 +2610,25 @@ async function loadPreviousResults() {
             }
         }
         
+        // Apply model filter: restrict columns to versions that used the selected model.
+        // baseVersions entries are numbers; allVersions entries are strings like "3802a".
+        // Normalize everything to strings so Set.has() (strict equality) works correctly.
+        const selectedModel = (document.getElementById('modelFilter') || {}).value || '';
+        let filteredVersions = allVersions;
+        if (selectedModel) {
+            const agentName = SUBAGENT_MAP[apiSubagent] || apiSubagent;
+            const modelKey = `${agentName}_model`;
+            const matchingBaseVersions = new Set(
+                baseVersions
+                    .filter(v => {
+                        const vData = modelsByVersion[v];
+                        return vData && vData.agent_models && vData.agent_models[modelKey] === selectedModel;
+                    })
+                    .map(v => String(v))
+            );
+            filteredVersions = allVersions.filter(v => matchingBaseVersions.has(v.replace(/[a-z]+$/, '')));
+        }
+
         // Sort: numeric article_id first (asc), then rows with null article_id (by url)
         const articleRows = Object.values(byArticleKey).sort((a, b) => {
             const aidA = a.article_id;
@@ -2587,8 +2638,8 @@ async function loadPreviousResults() {
             if (aidB != null) return 1;
             return (a.url || '').localeCompare(b.url || '');
         });
-        
-        renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
+
+        renderSubagentResultsPivot(articleRows, filteredVersions, modelsByVersion);
         
     } catch (error) {
         console.error('Error loading previous results:', error);
@@ -2691,6 +2742,44 @@ async function clearPendingRecords() {
     }
 }
 
+// ─── Model filter dropdown ────────────────────────────────────────────────────
+
+function setModelFilterPlaceholder(text) {
+    const modelSelect = document.getElementById('modelFilter');
+    if (!modelSelect) return;
+    while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = text;
+    modelSelect.appendChild(opt);
+}
+
+async function loadModelFilter() {
+    const modelSelect = document.getElementById('modelFilter');
+    if (!modelSelect) return;
+    setModelFilterPlaceholder('-- loading --');
+    try {
+        const resp = await fetch(`/api/evaluations/subagent-eval-models?subagent=${encodeURIComponent(currentSubagent)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const models = Array.isArray(data.models) ? data.models : [];
+        while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+        const allOpt = document.createElement('option');
+        allOpt.value = '';
+        allOpt.textContent = '-- all models --';
+        modelSelect.appendChild(allOpt);
+        for (const m of models) {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.config_count} config${m.config_count === 1 ? '' : 's'})`;
+            modelSelect.appendChild(opt);
+        }
+    } catch (err) {
+        console.error('Failed to load model filter:', err);
+        setModelFilterPlaceholder('-- all models --');
+    }
+}
+
 // Event listeners
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
@@ -2701,6 +2790,7 @@ document.getElementById('evalMultiplier').addEventListener('input', () => {
 });
 hydrateThrottleValue();
 document.getElementById('evalConcurrencyThrottle').addEventListener('change', readThrottleValue);
+document.getElementById('modelFilter').addEventListener('change', loadPreviousResults);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
 document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
@@ -2743,9 +2833,12 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
         aggregateScores.classList.add('hidden');
     }
     
+    // Reset model filter for the new subagent
+    setModelFilterPlaceholder('-- all models --');
+
     // Reload config to show agent-specific parameters
     loadActiveConfig().then(() => {
-        // Auto-load previous results after config is loaded
+        loadModelFilter();
         loadPreviousResults();
     });
 });
@@ -2777,6 +2870,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Auto-load previous results on page load after config is loaded
     loadActiveConfig().then(() => {
+        loadModelFilter();
         loadPreviousResults();
     });
 });
