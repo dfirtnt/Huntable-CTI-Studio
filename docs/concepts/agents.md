@@ -15,7 +15,7 @@ that schedules and distributes the work. Each agent writes results to
    ranking and extraction.
 2. **LLM ranking**: Scores article quality (1-10) and gates the rest of the
    workflow.
-3. **Extract Agent**: Runs sub-agents in parallel and merges their observables
+3. **Extract Agent**: Runs sub-agents sequentially and merges their observables
    into `extraction_result`.
 4. **Sigma generator**: Builds Sigma rules from extracted observables and
    validates with pySigma.
