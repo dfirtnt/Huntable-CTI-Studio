@@ -643,7 +643,7 @@
         async function loadInitialData() {
             try {
                 // Load summary
-                const summaryResponse = await fetch('/api/ml-hunt-comparison/summary');
+                const summaryResponse = await fetch('/api/ml-model-performance/summary');
                 const summaryData = await summaryResponse.json();
                 if (summaryData.success) {
                     currentData.summary = summaryData.summary;
@@ -651,7 +651,7 @@
                 }
 
                 // Load stats
-                const statsResponse = await fetch('/api/ml-hunt-comparison/stats');
+                const statsResponse = await fetch('/api/ml-model-performance/stats');
                 const statsData = await statsResponse.json();
                 if (statsData.success) {
                     currentData.stats = statsData.stats;
@@ -1010,7 +1010,7 @@
             try {
                 countElement.textContent = 'Checking...';
                 
-                const response = await fetch('/api/ml-hunt-comparison/eligible-count');
+                const response = await fetch('/api/ml-model-performance/eligible-count');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -1146,7 +1146,7 @@
                 // Start polling for real logs
                 startProcessingLogPolling();
                 
-                const response = await fetch('/api/ml-hunt-comparison/backfill', {
+                const response = await fetch('/api/ml-model-performance/backfill', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1202,7 +1202,7 @@
                     const timestamp = new Date().getTime();
                     console.log('Polling logs at:', new Date().toISOString());
                     
-                    const response = await fetch(`/api/ml-hunt-comparison/logs?t=${timestamp}`);
+                    const response = await fetch(`/api/ml-model-performance/logs?t=${timestamp}`);
                     console.log('Fetch response status:', response.status, response.statusText);
                     
                     if (!response.ok) {

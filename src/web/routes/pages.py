@@ -599,9 +599,9 @@ async def jobs_page(request: Request):
     return templates.TemplateResponse("jobs.html", {"request": request, "environment": ENVIRONMENT})
 
 
-@router.get("/ml-hunt-comparison", response_class=HTMLResponse)
+@router.get("/ml-model-performance", response_class=HTMLResponse)
 async def ml_hunt_comparison_page(request: Request):
-    """ML vs Hunt scoring comparison page."""
+    """ML model performance page."""
     return templates.TemplateResponse("ml_hunt_comparison.html", {"request": request, "environment": ENVIRONMENT})
 
 

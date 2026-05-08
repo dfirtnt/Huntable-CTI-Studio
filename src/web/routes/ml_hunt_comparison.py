@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException
 
 from src.web.dependencies import logger
 
-router = APIRouter(prefix="/api/ml-hunt-comparison", tags=["ML Hunt Comparison"])
+router = APIRouter(prefix="/api/ml-model-performance", tags=["ML Model Performance"])
 
 
 @router.get("/stats")
