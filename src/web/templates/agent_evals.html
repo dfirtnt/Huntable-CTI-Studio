@@ -637,16 +637,16 @@
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
                         <div>
                             <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
-                            <p class="eval-mono mt-1" style="color: var(--text-muted-slate); font-size: 0.68rem;">
-                                <span style="color: #34d399;">&#9679;</span> nMAE &le;0.20 Excellent &nbsp;
-                                <span style="color: #fbbf24;">&#9679;</span> 0.21&ndash;0.50 Good &nbsp;
-                                <span style="color: #f87171;">&#9679;</span> &gt;0.50 Needs Improvement &nbsp;&mdash;&nbsp;
+                            <p class="eval-mono mt-1 text-[10px]" style="color: var(--text-muted-slate);">
+                                <span style="color: var(--action-execute);">&#9679;</span> nMAE &le;0.20 Excellent &nbsp;
+                                <span style="color: var(--action-warning);">&#9679;</span> 0.21&ndash;0.50 Good &nbsp;
+                                <span style="color: var(--action-danger);">&#9679;</span> &gt;0.50 Needs Improvement &nbsp;&mdash;&nbsp;
                                 nMAE = avg(|actual&minus;expected| / expected); MAE = avg absolute delta in observable units
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button id="chartPrevBtn" class="eval-chart-nav" disabled>&larr; Prev</button>
-                            <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.625rem; padding: 0 0.25rem;"></span>
+                            <span id="chartRangeDisplay" class="eval-mono text-[10px]" style="color: var(--text-muted-slate); padding: 0 0.25rem;"></span>
                             <button id="chartNextBtn" class="eval-chart-nav" disabled>Next &rarr;</button>
                         </div>
                     </div>
@@ -672,7 +672,7 @@
                     onmouseover="this.style.background='rgba(139,92,246,0.04)'"
                     onmouseout="this.style.background=''">
                     <span class="text-sm font-semibold" style="color: var(--text-primary);">Version Compare</span>
-                    <span id="version-compare-panel-toggle" style="color: var(--text-muted-slate); font-size: 0.75rem; transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
+                    <span id="version-compare-panel-toggle" class="text-xs" style="color: var(--text-muted-slate); transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
                 </div>
                 <div id="version-compare-panel-content" class="hidden p-4" style="border-top: 1px solid rgba(139, 92, 246, 0.06);">
                     <div class="flex items-end gap-3 flex-wrap mb-4">
@@ -696,11 +696,11 @@
 
             <!-- Results Comparison Legend -->
             <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
-                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" style="list-style: none; color: var(--text-muted-slate); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
                     <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
-                    <span style="font-size: 0.65rem; opacity: 0.6;">click to expand</span>
+                    <span class="text-[10px]" style="opacity: 0.6;">click to expand</span>
                 </summary>
-                <div class="px-4 pb-4 pt-2" style="font-size: 0.78rem; color: var(--text-muted-slate);">
+                <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate);">
                     <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
                         <div>
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Cell layout</p>
@@ -713,14 +713,14 @@
                         <div>
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Badge colors</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
-                                <li><span class="status-badge status-exact" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#10003;</span> <strong>Exact</strong> &mdash; delta = 0</li>
-                                <li><span class="status-badge status-warning" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;1</span> <strong>Close</strong> &mdash; |delta| &le; 2</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;3+</span> <strong>Miss</strong> &mdash; |delta| &gt; 2</li>
-                                <li><span class="status-badge status-pending" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem; background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);">ctx&#8599;</span> &mdash; Context window exceeded; article too long for model</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);">no mdl</span> &mdash; LMStudio not ready when run; re-run to get a real result</li>
+                                <li><span class="status-badge status-exact text-[10px]" style="padding: 0.1rem 0.5rem;">&#10003;</span> <strong>Exact</strong> &mdash; delta = 0</li>
+                                <li><span class="status-badge status-warning text-[10px]" style="padding: 0.1rem 0.5rem;">&#177;1</span> <strong>Close</strong> &mdash; |delta| &le; 2</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.5rem;">&#177;3+</span> <strong>Miss</strong> &mdash; |delta| &gt; 2</li>
+                                <li><span class="status-badge status-pending text-[10px]" style="padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.45rem; background: rgba(234,88,12,0.12); color: var(--keyword-intelligence-border); border-color: rgba(234,88,12,0.35);">ctx&#8599;</span> &mdash; Context window exceeded; article too long for model</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.45rem; background: rgba(99,102,241,0.12); color: var(--purple-light); border-color: rgba(99,102,241,0.35);">no mdl</span> &mdash; LMStudio not ready when run; re-run to get a real result</li>
                             </ul>
                         </div>
                         <div>
@@ -728,9 +728,9 @@
                             <ul class="space-y-1" style="line-height: 1.6;">
                                 <li><strong>nMAE</strong> (Normalized MAE) &mdash; avg(|actual&minus;expected| / expected) across articles; scale 0&ndash;1</li>
                                 <li><strong>MAE</strong> (raw) &mdash; avg absolute delta in observable units (not normalized)</li>
-                                <li><span style="color: #34d399;">&#9679;</span> nMAE &le; 0.20 &mdash; Excellent</li>
-                                <li><span style="color: #fbbf24;">&#9679;</span> nMAE 0.21&ndash;0.50 &mdash; Good</li>
-                                <li><span style="color: #f87171;">&#9679;</span> nMAE &gt; 0.50 &mdash; Needs Improvement</li>
+                                <li><span style="color: var(--action-execute);">&#9679;</span> nMAE &le; 0.20 &mdash; Excellent</li>
+                                <li><span style="color: var(--action-warning);">&#9679;</span> nMAE 0.21&ndash;0.50 &mdash; Good</li>
+                                <li><span style="color: var(--action-danger);">&#9679;</span> nMAE &gt; 0.50 &mdash; Needs Improvement</li>
                             </ul>
                         </div>
                     </div>
@@ -738,7 +738,7 @@
             </details>
 
             <div id="resultsTable" class="comparison-table">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+                <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
             </div>
         </div>
     </div>
@@ -1114,7 +1114,7 @@ async function applyDiagnosisCounts() {
             if (!badge) return;
             badge.textContent = `[dx ${count}]`;
             badge.title = `${count} saved diagnosis${count === 1 ? '' : 'es'} -- click cell to open`;
-            badge.style.cssText = 'display:inline-block;font-size:0.6rem;font-family:monospace;padding:0 0.3rem;line-height:1.3;border-radius:3px;background:rgba(139,92,246,0.12);color:#a78bfa;border:1px solid rgba(139,92,246,0.3);cursor:default;';
+            badge.style.cssText = 'display:inline-block;font-size:0.6rem;font-family:monospace;padding:0 0.3rem;line-height:1.3;border-radius:3px;background:rgba(139,92,246,0.12);color:var(--purple-light);border:1px solid rgba(139,92,246,0.3);cursor:default;';
         });
     } catch (_) { /* non-critical -- badge is optional */ }
 }
@@ -1598,7 +1598,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         html += `<div class="flex flex-col items-center gap-0.5">`;
         html += `<div class="flex items-center gap-1">`;
         html += `<span class="cursor-help">v${version}</span>`;
-        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum}, true)" oncontextmenu="event.preventDefault(); exportBundlesForConfigVersion(${baseVersionNum}, false)" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export slim bundles (v${baseVersion}) -- right-click for full">📦</button>`;
+        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum}, true)" oncontextmenu="event.preventDefault(); exportBundlesForConfigVersion(${baseVersionNum}, false)" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export slim bundles (v${baseVersion}) -- right-click for full"><svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg></button>`;
         html += `</div></div></th>`;
     });
     
@@ -1836,16 +1836,16 @@ function renderSubagentResults(results) {
         html += `<td class="px-4 py-3 text-sm">`;
         html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
         if (result.quota_exceeded) {
-            html += ` <span class="status-badge status-mismatch" style="background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">QUOTA EXCEEDED</span>`;
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(220,38,38,0.12); color: var(--action-danger); border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">QUOTA EXCEEDED</span>`;
         }
         if (result.throttled) {
             html += ` <span class="status-badge status-mismatch" title="Provider throttled this call. Raise the Concurrency Throttle and re-run.">TPM RATE LIMIT</span>`;
         }
         if (result.context_length_exceeded) {
-            html += ` <span class="status-badge status-mismatch" style="background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(234,88,12,0.12); color: var(--keyword-intelligence-border); border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
         }
         if (result.infra_not_ready) {
-            html += ` <span class="status-badge status-mismatch" style="background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(99,102,241,0.12); color: var(--purple-light); border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
         }
         html += `</td>`;
         html += '</tr>';
@@ -3509,9 +3509,9 @@ function renderCompareResult(data) {
             return '<span style="color:var(--text-muted); font-size:0.7rem;">' + st + '</span>';
         }
         const delta = score != null ? score : 0;
-        let color = '#34d399';
+        let color = 'var(--action-execute)';
         if (delta !== 0) {
-            color = Math.abs(delta) <= 2 ? '#fbbf24' : '#f87171';
+            color = Math.abs(delta) <= 2 ? 'var(--action-warning)' : 'var(--action-danger)';
         }
         const deltaStr = delta > 0 ? '+' + delta : String(delta);
         const execLink = execId
@@ -3522,8 +3522,8 @@ function renderCompareResult(data) {
 
     function changeBadge(improvement) {
         if (improvement == null) return '<span style="color:var(--text-muted); font-size:0.7rem;">--</span>';
-        if (improvement > 0) return '<span class="font-mono text-xs font-semibold" style="color:#34d399;">better +' + improvement + '</span>';
-        if (improvement < 0) return '<span class="font-mono text-xs font-semibold" style="color:#f87171;">worse ' + improvement + '</span>';
+        if (improvement > 0) return '<span class="font-mono text-xs font-semibold" style="color:var(--action-execute);">better +' + improvement + '</span>';
+        if (improvement < 0) return '<span class="font-mono text-xs font-semibold" style="color:var(--action-danger);">worse ' + improvement + '</span>';
         return '<span class="font-mono text-xs" style="color:var(--text-muted);">same</span>';
     }
 

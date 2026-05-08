@@ -218,6 +218,12 @@
     border-color: var(--border-subtle) !important;
     box-shadow: 0 24px 80px rgba(0,0,0,0.5);
 }
+.rollback-btn {
+    background: var(--chart-orange);
+}
+.rollback-btn:hover {
+    background: var(--color-warning-hover, #c2410c);
+}
 
 /* ── Button refinement ───────────────────────────────────── */
 .mlops-btn-primary {
@@ -472,7 +478,7 @@
             </div>
             <div class="flex justify-end gap-2 px-5 py-3" style="border-top: 1px solid var(--border-muted);">
                 <button onclick="closeRollbackConfirm()" class="px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg">Cancel</button>
-                <button id="rollbackConfirmBtn" onclick="executeRollback()" class="px-3 py-1.5 text-xs text-white rounded-md transition-colors font-semibold" style="background: var(--chart-orange);" onmouseover="this.style.background='#ea580c'" onmouseout="this.style.background='var(--chart-orange)'">Rollback</button>
+                <button id="rollbackConfirmBtn" onclick="executeRollback()" class="px-3 py-1.5 text-xs text-white rounded-md transition-colors font-semibold rollback-btn">Rollback</button>
             </div>
         </div>
     </div>
@@ -1909,13 +1915,22 @@
             _pendingRollbackVersionNumber = versionNumber;
             document.getElementById('rollbackConfirmText').textContent =
                 'Roll back to model v' + versionNumber + '? The current active model will be replaced and all chunk classifications will be re-scored.';
-            document.getElementById('rollbackConfirmModal').classList.remove('hidden');
+            if (window.ModalManager) {
+                ModalManager.register('rollbackConfirmModal', { submitButton: '#rollbackConfirmBtn' });
+                ModalManager.open('rollbackConfirmModal');
+            } else {
+                document.getElementById('rollbackConfirmModal').classList.remove('hidden');
+            }
         }
 
         function closeRollbackConfirm() {
             _pendingRollbackVersionId     = null;
             _pendingRollbackVersionNumber = null;
-            document.getElementById('rollbackConfirmModal').classList.add('hidden');
+            if (window.ModalManager) {
+                ModalManager.close('rollbackConfirmModal');
+            } else {
+                document.getElementById('rollbackConfirmModal').classList.add('hidden');
+            }
         }
 
         async function executeRollback() {

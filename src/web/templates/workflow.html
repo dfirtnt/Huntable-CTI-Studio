@@ -2363,7 +2363,7 @@
                 <!-- Validate All: hidden until notification rendering is verified for long output -->
                 <button type="button" id="validate-all-btn" onclick="validateAllConfig()"
                   class="px-3 py-1.5 text-xs rounded"
-                  style="display: none; background: #ca8a04; color: white; cursor: pointer;">
+                  style="display: none; background: var(--action-warning); color: white; cursor: pointer;">
                   Validate All
                 </button>
                 <button type="submit" id="save-config-button" class="px-5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md transition-colors font-medium text-xs disabled:opacity-50 disabled:cursor-not-allowed" disabled>
@@ -2846,7 +2846,7 @@
 
         <!-- Config Preset List Modal -->
         <div id="configPresetListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
+            <div class="card relative top-20 mx-auto p-5 w-11/12 max-w-4xl shadow-lg">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/></svg> Configuration Presets</h3>
@@ -2869,7 +2869,7 @@
 
         <!-- Config Version List Modal (Restore by version #) -->
         <div id="configVersionListModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-[70]">
-            <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-gray-800 border border-gray-700">
+            <div class="card relative top-20 mx-auto p-5 w-11/12 max-w-4xl shadow-lg">
                 <div class="mt-3">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-xl font-bold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182M2.985 19.644l3.181-3.182"/></svg> Restore configuration by version</h3>
@@ -2942,7 +2942,7 @@
           </div>
           <div class="flex items-center gap-2">
             <button type="button" onclick="closeExpandedPromptEditor()" class="px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded focus:outline-none">Cancel</button>
-            <button type="button" id="prompt-exp-validate-btn" onclick="validateExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: #ca8a04; color: white; cursor: pointer;">Validate</button>
+            <button type="button" id="prompt-exp-validate-btn" onclick="validateExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--action-warning); color: white; cursor: pointer;">Validate</button>
             <button type="button" id="prompt-exp-save-btn" onclick="saveExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer;">Save Prompt</button>
           </div>
         </div>
@@ -2974,7 +2974,7 @@
             <span id="enrich-exp-charcount" class="text-[10px]" style="color: var(--text-muted);"></span>
             <div class="flex items-center gap-2">
               <button type="button" onclick="closeEnrichExpanded()" class="px-3 py-1.5 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded focus:outline-none">Cancel</button>
-              <button type="button" onclick="validateEnrichExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: #ca8a04; color: white; cursor: pointer;">Validate</button>
+              <button type="button" onclick="validateEnrichExpandedPrompt()" class="px-3 py-1.5 text-xs rounded" style="background: var(--action-warning); color: white; cursor: pointer;">Validate</button>
               <button type="button" id="enrich-exp-save-btn" onclick="saveEnrichExpanded()" class="px-3 py-1.5 text-xs rounded" style="background: var(--purple-primary); color: white; cursor: pointer; display:none;">Save Prompt</button>
             </div>
           </div>
@@ -6334,7 +6334,7 @@ function renderAgentPrompts() {
 
         return `
             <div class="border border-gray-200 dark:border-gray-700 rounded-lg mb-4">
-                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
+                <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header);">
                     <div class="flex items-center gap-3">
                         <h4 class="text-md font-semibold text-gray-900 dark:text-white">Prompt</h4>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -6652,10 +6652,10 @@ async function showPromptHistoryModal(agentName, versions) {
     modal.id = 'promptHistoryModal';
     modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50';
     modal.innerHTML = `
-        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-2/3 shadow-lg rounded-md bg-gray-800 border border-gray-700 max-h-[90vh]">
+        <div class="card relative top-20 mx-auto p-5 w-11/12 md:w-3/4 lg:w-2/3 shadow-lg max-h-[90vh]">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-900 dark:text-white"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/></svg> Version History: ${agentName}</h3>
-                <button onclick="closePromptHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">✕</button>
+                <button onclick="closePromptHistoryModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">&#x2715;</button>
             </div>
             <div class="space-y-4 max-h-[70vh] overflow-y-auto">
                 ${versions.length === 0 ? 
@@ -9082,7 +9082,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     
     return `
         <div id="${panelId}-root" class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header);">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">${escapeHtml(agentName)} Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -9232,7 +9232,7 @@ function renderQAPrompt(agentName, containerId) {
 
     container.innerHTML = `
         <div class="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" role="button" tabindex="0" aria-expanded="${isEditing ? 'true' : 'false'}" aria-controls="${panelId}-content" style="background-color: var(--panel-header);">
+            <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header);">
                 <div class="flex items-center gap-3">
                     <h4 class="text-sm font-semibold" style="color: var(--text-primary) !important;">${escapeHtml(agentName)} QA Prompt</h4>
                     <span class="text-xs text-gray-500 dark:text-gray-400">Model: <span class="font-mono">${escapeHtml(model)}</span></span>
@@ -9254,7 +9254,7 @@ function renderQAPrompt(agentName, containerId) {
                             </button>
                             <button type="button" onclick="validateAgentPrompt('${agentName}')"
                                     class="px-3 py-1 text-sm rounded-md transition-colors"
-                                    style="background: #ca8a04; color: white; cursor: pointer;"
+                                    style="background: var(--action-warning); color: white; cursor: pointer;"
                                     title="Validate prompt structure against runtime requirements">
                                 Validate
                             </button>
@@ -12635,7 +12635,7 @@ async function viewExecution(executionId) {
                             <summary class="bg-cyan-50 dark:bg-cyan-900/30 px-4 py-3 cursor-pointer font-medium text-gray-400 dark:text-gray-300 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-sm ${isProcessLineage ? 'process-lineage-extraction' : ''}" ${subAgentStyle}>
                                 ${subAgent.icon} ${subAgent.display} <span class="text-white dark:text-white">${count > 0 ? `(${count} items)` : '(0 items)'}</span>${qaVerdict ? ` ${qaVerdict === 'pass' ? '✅' : qaVerdict === 'fail' ? '❌' : '⚠️'}` : ''}
                             </summary>
-                            <div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
+                            <div class="card p-4 space-y-3">
                                 <div>
                                     <strong class="text-gray-600 dark:text-gray-300 text-sm">Inputs:</strong>
                                     <div class="mt-1 text-xs text-gray-600 dark:text-gray-300">
@@ -12680,7 +12680,7 @@ async function viewExecution(executionId) {
                     }
                     
                     // ExtractionSupervisorAgent: Aggregation
-                    const supervisorDetails = `<div class="p-4 space-y-3 bg-gray-800 border border-gray-700">
+                    const supervisorDetails = `<div class="card p-4 space-y-3">
                         <div>
                             <strong class="text-gray-900 dark:text-white text-sm">Inputs:</strong>
                             <div class="mt-1 text-xs" style="color: var(--text-emphasis) !important;">

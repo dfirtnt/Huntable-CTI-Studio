@@ -355,7 +355,7 @@
         <div>
             <h1>Agent Evals &mdash; Item-Level Scoring</h1>
             <p class="eval-hero-desc">
-                Structured ground-truth evaluation: compares extracted items against annotated <code>expected_items</code> lists.
+                Structured ground-truth evaluation: compares extracted items against human-validated ground truth <code>expected_items</code> lists.
                 Scores <strong>precision</strong> and <strong>recall</strong> using set-based normalized matching.
                 Articles without <code>expected_items</code> fall back to count-only display.
             </p>
@@ -371,7 +371,7 @@
             </div>
             <div class="flex items-center gap-2">
                 <span class="eval-status-dot eval-status-dot--live"></span>
-                <span class="eval-mono" style="color: var(--action-execute); font-size: 0.75rem;">ACTIVE</span>
+                <span class="eval-mono text-xs" style="color: var(--action-execute);">ACTIVE</span>
             </div>
         </div>
         <div class="eval-panel-body">
@@ -413,7 +413,7 @@
         </div>
         <div class="eval-panel-body">
             <div id="articleList" class="eval-article-list space-y-2">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Load a dataset to see articles.</p>
+                <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Load a dataset to see articles.</p>
             </div>
         </div>
     </div>
@@ -422,13 +422,13 @@
     <div class="eval-panel mb-5 eval-animate-in">
         <div class="eval-panel-body" style="padding: 1.25rem 1.5rem;">
             <div class="flex items-center gap-3 mb-3" style="flex-wrap: wrap;">
-                <label for="evalMultiplier" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Runs per article</label>
-                <input id="evalMultiplier" type="number" min="1" max="50" value="1" class="eval-mono"
-                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;" />
-                <span id="evalMultiplierHint" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.7rem;"></span>
-                <label for="evalConcurrencyThrottle" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Concurrency Throttle (s)</label>
-                <input id="evalConcurrencyThrottle" type="number" min="0" max="60" step="0.5" value="5" class="eval-mono"
-                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary); font-size: 0.85rem;" />
+                <label for="evalMultiplier" class="eval-mono text-xs" style="color: var(--text-muted-slate);">Runs per article</label>
+                <input id="evalMultiplier" type="number" min="1" max="50" value="1" class="eval-mono text-sm"
+                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary);" />
+                <span id="evalMultiplierHint" class="eval-mono text-xs" style="color: var(--text-muted-slate);"></span>
+                <label for="evalConcurrencyThrottle" class="eval-mono text-xs" style="color: var(--text-muted-slate);">Concurrency Throttle (s)</label>
+                <input id="evalConcurrencyThrottle" type="number" min="0" max="60" step="0.5" value="5" class="eval-mono text-sm"
+                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary);" />
             </div>
             <button id="runEvalBtn" class="eval-run-btn" disabled>RUN ITEM-LEVEL EVALUATION</button>
             <div id="evalStatus" class="mt-4 hidden">
@@ -475,11 +475,11 @@
 
             <!-- Legend -->
             <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
-                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" style="list-style: none; color: var(--text-muted-slate); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
                     <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
-                    <span style="font-size: 0.65rem; opacity: 0.6;">click to expand</span>
+                    <span class="text-[10px]" style="opacity: 0.6;">click to expand</span>
                 </summary>
-                <div class="px-4 pb-4 pt-2" style="font-size: 0.78rem; color: var(--text-muted-slate);">
+                <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate);">
                     <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
                         <div>
                             <p class="font-semibold mb-2" style="color: var(--text-emphasis);">Metrics</p>
@@ -497,7 +497,7 @@
                                 <li><span class="metric-value metric-value--good">90%+</span> &mdash; Excellent</li>
                                 <li><span class="metric-value metric-value--ok">70&ndash;89%</span> &mdash; Good</li>
                                 <li><span class="metric-value metric-value--bad">&lt;70%</span> &mdash; Needs work</li>
-                                <li><span class="metric-value metric-value--na">n/a</span> &mdash; Not annotated or pending</li>
+                                <li><span class="metric-value metric-value--na">n/a</span> &mdash; No human-validated ground truth or pending</li>
                             </ul>
                         </div>
                         <div>
@@ -506,7 +506,7 @@
                                 <li>Click any completed row to see missed and extra item lists.</li>
                                 <li>Only the most recent completed run per article is shown.</li>
                                 <li>Matching normalizes to lowercase, defangs <code>[.]</code>&rarr;<code>.</code>, collapses whitespace.</li>
-                                <li><span class="status-dim status-badge" style="font-size: 0.65rem;">count only</span> &mdash; article has no <code>expected_items</code> annotation yet.</li>
+                                <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> annotation yet.</li>
                             </ul>
                         </div>
                     </div>
@@ -536,7 +536,38 @@
             </div>
 
             <div id="resultsTable">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+                <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYS.04 Evaluation Metrics Over Time -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-header">
+            <div>
+                <div class="eval-section-label">SYS.04</div>
+                <h2 class="eval-section-title eval-body-font">Evaluation Metrics Over Time</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="eval-section-label" for="trendModelSelect">MODEL</label>
+                <select id="trendModelSelect" class="eval-select" style="min-width: 18rem;">
+                    <option value="">-- select a model --</option>
+                </select>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <p class="eval-mono mb-3 text-xs" style="color: var(--text-muted-slate);">
+                Macro-averaged Precision, Recall, and F1 across articles with human-validated ground truth, plotted per <strong>config_version</strong>.
+                Only versions where this subagent used the selected model are shown. Articles without <code>expected_items</code> are excluded.
+            </p>
+            <div id="trendChartEmpty" class="eval-mono text-center py-8 text-xs" style="color: var(--text-muted-slate);">
+                Select a model above to plot its precision/recall/F1 trajectory across config versions.
+            </div>
+            <div id="trendChartContainer" class="hidden">
+                <div style="position: relative; height: 380px; width: 100%;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+                <div id="trendChartMeta" class="eval-mono text-center mt-2 text-xs" style="color: var(--text-muted-slate);"></div>
             </div>
         </div>
     </div>
@@ -1166,7 +1197,7 @@ function renderItemLevelTable(rows) {
             const ctag = document.createElement('span');
             ctag.className = 'status-badge status-dim';
             ctag.style.cssText = 'font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0.25rem;';
-            ctag.title = 'No expected_items annotated for this article';
+            ctag.title = 'No human-validated ground truth for this article';
             ctag.textContent = 'count only';
             tdStatus.appendChild(ctag);
         }
@@ -1254,7 +1285,7 @@ function showItemDetail(row) {
         const hasAnnotation = row.expected_items && row.expected_items.length > 0;
         p.textContent = hasAnnotation
             ? 'This run predates item-level scoring. Re-run this article to see precision and recall.'
-            : 'This article has no expected_items annotation. Item-level detail is only available for annotated articles.';
+            : 'This article has no human-validated ground truth. Item-level detail is only available for articles with expected_items set.';
         content.appendChild(p);
         return;
     }
@@ -1513,6 +1544,207 @@ document.getElementById('subagentSelect').addEventListener('change', function() 
     resultsEl.appendChild(p);
     document.getElementById('aggregateSummary').classList.add('hidden');
     loadActiveConfig().then(loadPreviousResults);
+    // Refresh model dropdown for the new subagent and reset chart.
+    loadTrendModels();
+});
+
+// ---------------------------------------------------------------------------
+// SYS.04 Evaluation Metrics Over Time
+// ---------------------------------------------------------------------------
+// One chart instance lives for the page; we destroy and recreate on each render
+// so Chart.js can rebuild scales/tooltips cleanly without merge issues.
+let trendChartInstance = null;
+
+async function loadTrendModels() {
+    const modelSelect = document.getElementById('trendModelSelect');
+    if (!modelSelect) return;
+    // Reset to placeholder while we fetch.
+    modelSelect.innerHTML = '<option value="">-- loading --</option>';
+    try {
+        const resp = await fetch(`/api/evaluations/subagent-eval-models?subagent=${encodeURIComponent(currentSubagent)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const models = Array.isArray(data.models) ? data.models : [];
+        modelSelect.innerHTML = '';
+        if (models.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '-- no models with eval data --';
+            modelSelect.appendChild(opt);
+            renderTrendChart(null, []);
+            return;
+        }
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- select a model --';
+        modelSelect.appendChild(placeholder);
+        for (const m of models) {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.config_count} config${m.config_count === 1 ? '' : 's'})`;
+            modelSelect.appendChild(opt);
+        }
+        // Clear chart until user picks a model.
+        renderTrendChart(null, []);
+    } catch (err) {
+        console.error('Failed to load trend models:', err);
+        modelSelect.innerHTML = '<option value="">-- error loading --</option>';
+    }
+}
+
+async function loadTrendData(model) {
+    if (!model) {
+        renderTrendChart(null, []);
+        return;
+    }
+    try {
+        const url = `/api/evaluations/subagent-eval-aggregate`
+            + `?subagent=${encodeURIComponent(currentSubagent)}`
+            + `&model=${encodeURIComponent(model)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const aggs = Array.isArray(data.aggregates) ? data.aggregates : [];
+        // Keep only versions that have item-level scoring (at least one annotated article).
+        const scored = aggs.filter(a =>
+            a.mean_precision != null && a.mean_recall != null && a.mean_f1 != null,
+        );
+        // Sort ascending by config_version so the line moves left-to-right in time order.
+        scored.sort((a, b) => Number(a.config_version) - Number(b.config_version));
+        renderTrendChart(model, scored);
+    } catch (err) {
+        console.error('Failed to load trend data:', err);
+        renderTrendChart(model, []);
+    }
+}
+
+function renderTrendChart(model, aggregates) {
+    const empty = document.getElementById('trendChartEmpty');
+    const container = document.getElementById('trendChartContainer');
+    const meta = document.getElementById('trendChartMeta');
+    if (!empty || !container) return;
+
+    if (!model) {
+        container.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = 'Select a model above to plot its precision/recall/F1 trajectory across config versions.';
+        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        if (meta) meta.textContent = '';
+        return;
+    }
+    if (!aggregates || aggregates.length === 0) {
+        container.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = `No scored eval runs found for "${model}" on subagent "${currentSubagent}".`;
+        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        if (meta) meta.textContent = '';
+        return;
+    }
+
+    empty.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    const labels = aggregates.map(a => `v${a.config_version}`);
+    // Convert 0-1 ratios to 0-100 for the y-axis.
+    const precisionData = aggregates.map(a => +(a.mean_precision * 100).toFixed(2));
+    const recallData = aggregates.map(a => +(a.mean_recall * 100).toFixed(2));
+    const f1Data = aggregates.map(a => +(a.mean_f1 * 100).toFixed(2));
+
+    // Theme-aware palette: align with --chart-* variables defined in theme-variables.css.
+    const colorPrecision = getThemeColor('--chart-pink') || '#ff6384';
+    const colorRecall = getThemeColor('--chart-blue-light') || '#36a2eb';
+    const colorF1 = getThemeColor('--chart-orange') || '#f97316';
+    const gridColor = getThemeColor('--chart-grid') || 'rgba(113, 113, 122, 0.1)';
+    const tickColor = getThemeColor('--text-muted') || '#9ca3af';
+
+    if (trendChartInstance) trendChartInstance.destroy();
+    const canvas = document.getElementById('trendChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Precision',
+                    data: precisionData,
+                    borderColor: colorPrecision,
+                    backgroundColor: colorPrecision,
+                    borderDash: [6, 4],
+                    tension: 0.25,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                },
+                {
+                    label: 'Recall',
+                    data: recallData,
+                    borderColor: colorRecall,
+                    backgroundColor: colorRecall,
+                    tension: 0.25,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                },
+                {
+                    label: 'F1 Score',
+                    data: f1Data,
+                    borderColor: colorF1,
+                    backgroundColor: colorF1,
+                    tension: 0.25,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { color: tickColor, usePointStyle: true, pointStyle: 'circle' },
+                },
+                tooltip: {
+                    callbacks: {
+                        afterBody: (items) => {
+                            if (!items || items.length === 0) return '';
+                            const idx = items[0].dataIndex;
+                            const agg = aggregates[idx];
+                            if (!agg) return '';
+                            return [
+                                `Annotated articles: ${agg.scored_articles}`,
+                                `Total articles: ${agg.total_articles}`,
+                            ];
+                        },
+                    },
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: gridColor },
+                    ticks: { color: tickColor, callback: (v) => `${v}%` },
+                },
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: tickColor },
+                },
+            },
+        },
+    });
+
+    if (meta) {
+        const total = aggregates.reduce((sum, a) => sum + (a.scored_articles || 0), 0);
+        const plural = aggregates.length === 1 ? '' : 's';
+        meta.textContent = `${aggregates.length} config version${plural} plotted (${total} article-runs with human-validated ground truth)`;
+    }
+}
+
+document.getElementById('trendModelSelect').addEventListener('change', function() {
+    loadTrendData(this.value);
 });
 
 hydrateMultiplierValue();
@@ -1525,6 +1757,8 @@ document.addEventListener('DOMContentLoaded', function() {
         window.ModalManager.register('itemDetailModal', { isDynamic: false, hasInput: false });
     }
     loadActiveConfig().then(loadPreviousResults);
+    // Load the trend model dropdown for the initial subagent.
+    loadTrendModels();
 });
 </script>
 {% endblock %}

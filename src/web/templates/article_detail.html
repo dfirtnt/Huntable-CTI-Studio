@@ -2774,7 +2774,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }.bind(this));
 
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-lg w-full mx-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">Save Observable</h3>
                         <div class="char-counter ${lengthStatus}">
@@ -2962,7 +2962,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">Classify Selected Text</h3>
                         <div class="char-counter ${lengthStatus}">
@@ -3321,7 +3321,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">Classify Selected Text</h3>
                         <div class="char-counter ${lengthStatus}">
@@ -3640,7 +3640,7 @@ Please provide a detailed analysis based on the article content and the user's s
             document.addEventListener('keydown', handleEsc);
             
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <h3 class="text-lg font-semibold text-gray-50 mb-4">Remove Annotation</h3>
                     <p class="text-sm text-gray-300 mb-2">
                         <strong>Type:</strong> ${this.getAnnotationLabel(annotationType)}
@@ -4943,7 +4943,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-50 mb-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> AL/ML Assistant</h3>
                     <p class="text-sm text-gray-400 mb-4">One shot LLM demos for this article's content. Uses LLM chosen in Settings Page</p>
@@ -5223,7 +5223,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50';
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">${modelDisplayName} Content Filter</h3>
                     </div>
@@ -5356,7 +5356,7 @@ Please provide a detailed analysis based on the article content and the user's s
         `).join('');
         
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="card shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg> Removed Content Chunks</h3>
                     <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
@@ -5436,7 +5436,7 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEsc);
         
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4">
+            <div class="card shadow-2xl p-6 max-w-2xl w-full mx-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg> Custom AI Prompt</h3>
                     <div class="flex items-center space-x-2">
