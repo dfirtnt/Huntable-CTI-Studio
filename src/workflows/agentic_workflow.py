@@ -33,7 +33,6 @@ from src.database.models import (
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.qa_agent_service import QAAgentService
-from src.services.rag_service import RAGService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -630,8 +629,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
     # Initialize services
     content_filter = ContentFilter()
-    # LLMService will be initialized per-node with config models
-    RAGService()
     trigger_service = WorkflowTriggerService(db_session)
 
     # Define workflow nodes
@@ -668,8 +665,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             skip_os_detection_flag = _bool_from_value(config_snapshot.get("skip_os_detection", False))
             eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
-            state_skip_flag = _bool_from_value(state.get("skip_os_detection", False))
-            skip_os_detection = skip_os_detection_flag or eval_run_flag or state_skip_flag
+            skip_os_detection = skip_os_detection_flag or eval_run_flag
 
             if skip_os_detection:
                 logger.info(f"[Workflow {state['execution_id']}] Skipping OS Detection (eval run)")
@@ -889,7 +885,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         # Determine bypass reason
         config_snapshot = execution.config_snapshot if execution else {}
         eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
-        _bool_from_value(config_snapshot.get("skip_rank_agent", False))
         state_eval_run = _bool_from_value(state.get("eval_run", False))
         is_eval_run = state_eval_run or eval_run_flag
         bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
@@ -1328,15 +1323,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Ensure it's still normalized (defensive check)
                     subagent_eval = str(subagent_eval).lower().strip() if subagent_eval else None
                 if subagent_eval:
-                    # Map subagent names to agent names
-                    subagent_to_agent = {
-                        "cmdline": "CmdlineExtract",
-                        "process_lineage": "ProcTreeExtract",
-                        "hunt_queries": "HuntQueriesExtract",
-                        "registry_artifacts": "RegistryExtract",
-                        "windows_services": "ServicesExtract",
-                        "scheduled_tasks": "ScheduledTasksExtract",
-                    }
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
                         # Keep only models for this agent and its QA, plus ExtractAgent (fallback)
@@ -2086,11 +2072,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 config_obj.junk_filter_threshold if config_obj and hasattr(config_obj, "junk_filter_threshold") else 0.8
             )
 
-            # Check if QA is enabled for Sigma Agent
-            qa_flags.get("SigmaAgent", False)
-
-            # Get QA max retries from config
-            config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
             qa_feedback = None
             generation_result = None
 
@@ -2436,10 +2417,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             return {
                 **state,
-                "similarity_results": novelty_results,  # Keep key for backward compatibility
-                "novelty_results": novelty_results,  # New key
-                "max_similarity": 1.0 - max_novelty_score,  # Backward compatibility
-                "novelty_score": max_novelty_score,  # New key
+                "similarity_results": novelty_results,
+                "max_similarity": 1.0 - max_novelty_score,
                 "current_step": "similarity_search",
                 "status": state.get("status", "running"),
                 "termination_reason": state.get("termination_reason"),

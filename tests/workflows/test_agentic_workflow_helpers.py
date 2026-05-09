@@ -376,3 +376,50 @@ class TestAllExtractorsErrored:
         assert all_failed is True
         # deduplicated: only one copy of the error message
         assert reason.count(msg) == 1
+
+
+class TestDeadCodeRemoval:
+    """Regression tests verifying dead code was removed and stays removed."""
+
+    def _get_source(self):
+        import inspect
+        import src.workflows.agentic_workflow as wf
+        return inspect.getsource(wf)
+
+    def test_rag_service_not_imported(self):
+        """RAGService was a bare instantiation with discarded result; import must be gone."""
+        import src.workflows.agentic_workflow as wf
+        assert not hasattr(wf, "RAGService"), "RAGService should not be imported into the module namespace"
+
+    def test_bare_rag_service_call_absent(self):
+        """The bare RAGService() expression must not exist in the source."""
+        src = self._get_source()
+        # Allow the class name in comments or strings, but not as a bare call
+        import re
+        assert not re.search(r"^\s*RAGService\(\)", src, re.MULTILINE), \
+            "Bare RAGService() call still present"
+
+    def test_state_skip_flag_removed(self):
+        """state_skip_flag was always-False (skip_os_detection not in WorkflowState); must be gone."""
+        src = self._get_source()
+        assert "state_skip_flag" not in src, "state_skip_flag should have been removed"
+
+    def test_sigma_qa_bare_expressions_absent(self):
+        """Bare qa_flags.get('SigmaAgent') and qa_max_retries expressions in sigma node must be gone."""
+        src = self._get_source()
+        # The bare expression pattern: line that is just the expression with no assignment
+        import re
+        assert not re.search(r"^\s*qa_flags\.get\(['\"]SigmaAgent", src, re.MULTILINE), \
+            "Bare qa_flags.get('SigmaAgent') expression still present"
+
+    def test_novelty_score_not_in_state_return(self):
+        """novelty_score was written to state but absent from WorkflowState TypedDict; must be removed."""
+        src = self._get_source()
+        # novelty_score is still used as a local variable in data dicts -- we only care
+        # that it's not being set as a top-level state return key.
+        # Check the similarity_search return block doesn't contain '"novelty_score":' as a state key.
+        import re
+        assert not re.search(r'"novelty_score"\s*:\s*max_novelty_score', src), \
+            '"novelty_score" state return key still present'
+        assert not re.search(r'"novelty_results"\s*:\s*novelty_results.*New key', src), \
+            '"novelty_results" duplicate state key still present'
