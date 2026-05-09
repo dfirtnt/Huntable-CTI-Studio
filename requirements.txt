@@ -46,7 +46,7 @@ joblib==1.5.3
 spacy==3.8.14  # Sentence splitting (sentencizer component only, ~2MB)
 
 # Utilities
-click==8.3.1
+click==8.3.3
 rich==14.3.3
 pydantic==2.12.5
 pydantic-settings==2.13.1
