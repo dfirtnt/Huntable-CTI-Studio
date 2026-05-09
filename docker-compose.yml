@@ -122,19 +122,12 @@ services:
     deploy:
       resources:
         limits:
-          memory: ${WEB_MEMORY_LIMIT:-1G}
+          memory: ${WEB_MEMORY_LIMIT:-3G}
         reservations:
-          memory: ${WEB_MEMORY_RESERVATION:-256M}
+          memory: ${WEB_MEMORY_RESERVATION:-512M}
     command: >-
       uvicorn src.web.modern_main:app --host 0.0.0.0 --port 8001
       --workers 2
-      --reload
-      --reload-include '*.py'
-      --reload-exclude 'models/*'
-      --reload-exclude 'tests/*'
-      --reload-exclude 'scripts/*'
-      --reload-exclude 'test-results/*'
-      --reload-exclude '*.pkl'
 
   # Celery Worker for Background Tasks
   worker:

@@ -209,7 +209,7 @@ class EvalBundleService:
                 evaluation_status = subagent_eval.status
 
                 # Item-level fields (populated only when expected_items was set)
-                if subagent_eval.expected_items:
+                if subagent_eval.expected_items is not None:
                     workflow_meta["expected_items"] = subagent_eval.expected_items
                 if subagent_eval.actual_items is not None:
                     workflow_meta["actual_items"] = subagent_eval.actual_items

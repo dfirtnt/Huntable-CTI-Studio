@@ -16,6 +16,7 @@ Supported query platforms (platform enum):
 
 - kql                    Microsoft Defender Advanced Hunting / Sentinel (Kusto)
 - falcon                 CrowdStrike Falcon Event Search / FQL
+- logscale               CrowdStrike Falcon NG-SIEM / LogScale CQL
 - sentinelone_dv         SentinelOne Deep Visibility
 - sentinelone_pq         SentinelOne PowerQuery
 - splunk                 Splunk SPL / CIM / tstats
@@ -68,6 +69,10 @@ ProcessCommandLine, InitiatingProcessCommandLine
 
 **CrowdStrike Falcon (FQL):**
 ProcessRollup2, ScriptControlScanTelemetry, CommandHistory, DnsRequest, NetworkConnect
+
+**CrowdStrike Falcon NG-SIEM / LogScale (CQL):**
+#event_simpleName=, #Vendor=, #repo=, #event.module=, #event.dataset=
+(hash-prefix tag fields are unique to LogScale CQL; one verbatim occurrence is sufficient)
 
 **SentinelOne Deep Visibility:**
 EventType = Process, EventType = Registry, EventType = PowerShell, EventType = ScheduledTask
@@ -161,7 +166,7 @@ If structurally present but incomplete / fragmentary / not executable as shown, 
 - Multiple matching platforms: If indicators from more than one platform appear in the same block,
   determine platform by the STRONGEST indicator present. Strength order (high to low):
     1. Index/dataset patterns: logs-endpoint.events.*, dataset = xdr_data, Endpoint.Processes/Registry/Filesystem
-    2. Full schema table names: DeviceProcessEvents, ProcessRollup2, EventType = Process, src.process.*, tgt.process.*
+    2. Full schema table names / platform-unique field prefixes: DeviceProcessEvents, ProcessRollup2, EventType = Process, src.process.*, tgt.process.*, #event_simpleName=, #Vendor=, #repo=
     3. Fully-qualified field names: process.command_line:, action_process_command_line, process_cmdline:
     4. Generic operator-style matches: index=, sourcetype=, event.category:
   Pick the platform whose strongest indicator outranks all others. If two platforms tie at the same
@@ -238,7 +243,7 @@ Traceability fields (REQUIRED on every item in `queries`):
 Domain fields (queries array):
 
 - query: REQUIRED. Verbatim extracted EDR/SIEM query or Sigma YAML.
-- type: REQUIRED. One of: kql, falcon, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, sigma, unknown, other.
+- type: REQUIRED. One of: kql, falcon, logscale, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, sigma, unknown, other.
 - context: Optional short source or detection context. Omit when not useful.
 - query_count: REQUIRED envelope field. Integer equal to len(queries), counting both EDR/SIEM queries and Sigma rules.
 
@@ -261,4 +266,4 @@ If the query is presented as "you could detect..." or "defenders should...", SKI
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-08_

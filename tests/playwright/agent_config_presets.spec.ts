@@ -361,12 +361,19 @@ test.describe('Agent Config Presets', () => {
     }
 
     // Read the preset to verify key values.
-    // Quickstart presets are v2 format (Thresholds.MinHuntScore only); v1 thresholds may be absent.
+    // v2 presets use SigmaAgent.SimilarityThreshold; v1 used Thresholds.SimilarityThreshold.
     // Fall back to current config values so the assertion passes for unoverridden thresholds.
     const presetContent = fs.readFileSync(presetPath, 'utf-8');
     const preset = JSON.parse(presetContent);
-    const expectedSimilarity = preset.Thresholds?.SimilarityThreshold ?? originalSimilarityThreshold;
-    const expectedRanking = preset.thresholds?.ranking_threshold ?? originalRankingThreshold;
+    const expectedSimilarity =
+      preset.SigmaAgent?.SimilarityThreshold ??
+      preset.Thresholds?.SimilarityThreshold ??
+      originalSimilarityThreshold;
+    // v2 presets use RankAgent.RankingThreshold; v1 used thresholds.ranking_threshold.
+    const expectedRanking =
+      preset.RankAgent?.RankingThreshold ??
+      preset.thresholds?.ranking_threshold ??
+      originalRankingThreshold;
 
     // Set up dialog handler to accept the import
     page.on('dialog', async dialog => {
@@ -423,7 +430,7 @@ test.describe('Agent Config Presets', () => {
     await page.waitForTimeout(2000);
 
     // Expand panels to see restored values
-    await expandPanelIfNeeded(page, 'sigma-agent-panel');
+    await expandPanelIfNeeded(page, 'other-thresholds-panel');
     await page.waitForTimeout(500);
 
     // Verify the values were restored in the UI

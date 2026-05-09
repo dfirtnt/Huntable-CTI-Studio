@@ -252,27 +252,6 @@ def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> i
     return len(items) if isinstance(items, list) else 0
 
 
-def _extract_actual_items_from_agent_result(subagent_name: str, agent_result: dict) -> list[str] | None:
-    """Extract the items list from a run_extraction_agent result for item-level scoring."""
-    if subagent_name == "cmdline":
-        items = agent_result.get("cmdline_items") or agent_result.get("items", [])
-    else:
-        items = agent_result.get("items", [])
-    if not isinstance(items, list):
-        return None
-    flat: list[str] = []
-    for item in items:
-        if isinstance(item, str):
-            flat.append(item)
-        elif isinstance(item, dict):
-            for field in ("cmdline", "command", "commandline", "value", "name"):
-                v = item.get(field)
-                if isinstance(v, str) and v.strip():
-                    flat.append(v.strip())
-                    break
-    return flat or None
-
-
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/evaluations", tags=["evaluations"])
@@ -1743,8 +1722,17 @@ async def get_subagent_eval_aggregate(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
     config_version: int | None = Query(None, description="Optional: filter by config version"),
+    model: str | None = Query(
+        None,
+        description="Optional: filter to config versions where this subagent used the given model",
+    ),
 ):
-    """Get aggregate scores per config version for a subagent."""
+    """Get aggregate scores per config version for a subagent.
+
+    When ``model`` is provided, restricts results to config versions where the
+    subagent's configured model matches. This is used by the Evaluation Metrics
+    Over Time chart to plot a single model's trajectory across config snapshots.
+    """
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -1764,6 +1752,26 @@ async def get_subagent_eval_aggregate(
 
             if config_version:
                 query = query.filter(SubagentEvaluationTable.workflow_config_version == config_version)
+
+            # If a model filter is supplied, narrow to config versions where the subagent
+            # used that model. We do this by joining on the workflow config table and
+            # inspecting agent_models[<AgentName>_model].
+            agent_name_for_model = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent)
+            if model and agent_name_for_model:
+                model_key = f"{agent_name_for_model}_model"
+                matching_versions = (
+                    db_session.query(AgenticWorkflowConfigTable.version)
+                    .filter(AgenticWorkflowConfigTable.agent_models[model_key].astext == model)
+                    .all()
+                )
+                version_set = {v for (v,) in matching_versions}
+                if not version_set:
+                    return {
+                        "subagent": subagent,
+                        "aggregates": [],
+                        "total_config_versions": 0,
+                    }
+                query = query.filter(SubagentEvaluationTable.workflow_config_version.in_(version_set))
 
             all_records = query.order_by(
                 SubagentEvaluationTable.workflow_config_version.desc(),
@@ -1834,6 +1842,12 @@ async def get_subagent_eval_aggregate(
                                 "within_2": 0,
                                 "over_2": 0,
                             },
+                            # Item-level metrics: macro-averaged precision/recall and
+                            # derived F1 across articles annotated with expected_items.
+                            "mean_precision": None,
+                            "mean_recall": None,
+                            "mean_f1": None,
+                            "scored_articles": 0,
                         }
                     )
                     continue
@@ -1861,6 +1875,34 @@ async def get_subagent_eval_aggregate(
                 within_2 = sum(1 for s in scores if abs(s) <= 2 and s != 0)
                 over_2 = sum(1 for s in scores if abs(s) > 2)
 
+                # Item-level macro precision/recall (only over articles that have item-level
+                # scoring -- i.e. expected_items was set and matched_count was populated).
+                scored_records = [
+                    r for r in completed_records
+                    if r.matched_count is not None
+                    and r.missed_count is not None
+                    and r.extra_count is not None
+                ]
+                if scored_records:
+                    per_article_precision = []
+                    per_article_recall = []
+                    for r in scored_records:
+                        m = r.matched_count or 0
+                        miss = r.missed_count or 0
+                        ex = r.extra_count or 0
+                        precision_denom = m + ex
+                        recall_denom = m + miss
+                        per_article_precision.append(m / precision_denom if precision_denom > 0 else 0.0)
+                        per_article_recall.append(m / recall_denom if recall_denom > 0 else 0.0)
+                    mean_precision = sum(per_article_precision) / len(per_article_precision)
+                    mean_recall = sum(per_article_recall) / len(per_article_recall)
+                    pr_sum = mean_precision + mean_recall
+                    mean_f1 = (2 * mean_precision * mean_recall / pr_sum) if pr_sum > 0 else 0.0
+                else:
+                    mean_precision = None
+                    mean_recall = None
+                    mean_f1 = None
+
                 aggregates.append(
                     {
                         "config_version": version,
@@ -1884,6 +1926,11 @@ async def get_subagent_eval_aggregate(
                             "within_2": within_2,
                             "over_2": over_2,
                         },
+                        # Item-level metrics (null when no annotated articles in this version).
+                        "mean_precision": round(mean_precision, 4) if mean_precision is not None else None,
+                        "mean_recall": round(mean_recall, 4) if mean_recall is not None else None,
+                        "mean_f1": round(mean_f1, 4) if mean_f1 is not None else None,
+                        "scored_articles": len(scored_records),
                     }
                 )
 
@@ -1896,6 +1943,78 @@ async def get_subagent_eval_aggregate(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting aggregate eval scores: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/subagent-eval-models")
+async def get_subagent_eval_models(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name"),
+):
+    """List models that have been used for the given subagent across configs with eval data.
+
+    Powers the model dropdown on the Evaluation Metrics Over Time chart. We only
+    surface models that are *both* configured for this subagent in some config
+    version *and* have at least one eval record under that version -- otherwise
+    the chart would be empty for that selection.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+            if canonical_subagent == "hunt_queries":
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
+
+            agent_name = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent)
+            if not agent_name:
+                return {"subagent": subagent, "models": []}
+
+            # Versions that actually have eval rows for this subagent.
+            eval_query = db_session.query(SubagentEvaluationTable.workflow_config_version).distinct()
+            if lookup_values:
+                eval_query = eval_query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            versions_with_evals = {v for (v,) in eval_query.all() if v is not None}
+            if not versions_with_evals:
+                return {"subagent": subagent, "models": []}
+
+            # Pull the configured model per version, intersect with versions_with_evals.
+            model_key = f"{agent_name}_model"
+            configs = (
+                db_session.query(
+                    AgenticWorkflowConfigTable.version,
+                    AgenticWorkflowConfigTable.agent_models,
+                )
+                .filter(AgenticWorkflowConfigTable.version.in_(versions_with_evals))
+                .all()
+            )
+            models_seen: dict[str, int] = {}
+            for version, agent_models in configs:
+                if not isinstance(agent_models, dict):
+                    continue
+                model_name = agent_models.get(model_key)
+                if not model_name:
+                    continue
+                models_seen[model_name] = models_seen.get(model_name, 0) + 1
+
+            # Sort: most-used first, then alphabetical for stability.
+            sorted_models = sorted(
+                models_seen.items(),
+                key=lambda kv: (-kv[1], kv[0]),
+            )
+            return {
+                "subagent": subagent,
+                "models": [
+                    {"name": name, "config_count": count}
+                    for name, count in sorted_models
+                ],
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error("Error listing eval models for subagent: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 

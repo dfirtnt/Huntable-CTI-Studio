@@ -425,15 +425,20 @@ def _update_single_eval_record(
         # Calculate score
         score = actual_count - eval_record.expected_count
 
-        # Item-level scoring (only when expected_items ground truth is available)
+        # Item-level scoring (only when expected_items ground truth is available).
+        # When the model returns zero items, _extract_actual_items returns None to signal
+        # "no items field present at all". For scoring purposes that's identical to an
+        # empty list -- the run completed and produced nothing -- so we coerce here so
+        # the zero-extraction case still scores (matched=0, missed=len(expected), extra=0).
         if eval_record.expected_items and isinstance(eval_record.expected_items, list):
             actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
-            if actual_items is not None:
-                result = score_items(eval_record.expected_items, actual_items)
-                eval_record.actual_items = actual_items
-                eval_record.matched_count = result.matched_count
-                eval_record.missed_count = result.missed_count
-                eval_record.extra_count = result.extra_count
+            if actual_items is None:
+                actual_items = []
+            result = score_items(eval_record.expected_items, actual_items)
+            eval_record.actual_items = actual_items
+            eval_record.matched_count = result.matched_count
+            eval_record.missed_count = result.missed_count
+            eval_record.extra_count = result.extra_count
 
         # Update eval record
         eval_record.actual_count = actual_count

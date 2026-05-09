@@ -67,10 +67,16 @@ class TestCTIScraperWebInterface:
     @pytest.fixture(autouse=True)
     def setup(self, page):
         """Setup for each test"""
-        # Skip if Playwright browsers aren't installed (error will be caught by pytest-playwright)
+        # Cap every action and navigation at 20 s.  Without this, page.goto() and
+        # page.click() can block indefinitely when the app has persistent SSE/polling
+        # connections that prevent the browser from settling.
+        page.set_default_timeout(20000)
+        page.set_default_navigation_timeout(20000)
         try:
             page.goto("http://localhost:8001")
-            page.wait_for_load_state("networkidle")
+            # Use "load" instead of "networkidle" -- the app has background polling/SSE
+            # connections that prevent networkidle from ever firing.
+            page.wait_for_load_state("load")
         except Exception as e:
             if "Executable doesn't exist" in str(e) or "playwright install" in str(e).lower():
                 pytest.skip(f"Playwright browsers not installed: {e}")
@@ -97,7 +103,7 @@ class TestCTIScraperWebInterface:
     def test_sources_page(self, page):
         """Test sources page functionality"""
         page.goto("http://localhost:8001/sources")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Check sources table is visible (may use different structure)
         # Look for table or source list elements
@@ -119,7 +125,7 @@ class TestCTIScraperWebInterface:
     def test_articles_page(self, page):
         """Test articles page functionality"""
         page.goto("http://localhost:8001/articles")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Check articles table (may use different structure)
         # Look for table or article list elements
@@ -154,7 +160,7 @@ class TestCTIScraperWebInterface:
         if search_input.count() > 0:
             search_input.first.fill("threat")
             page.keyboard.press("Enter")
-            page.wait_for_load_state("networkidle")
+            page.wait_for_load_state("load")
 
             # Check results
             expect(page.locator(".search-results")).to_be_visible()
@@ -186,7 +192,7 @@ class TestCTIScraperWebInterface:
         """Test page load performance"""
         start_time = time.time()
         page.goto("http://localhost:8001")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
         load_time = time.time() - start_time
 
         # Page should load within 5 seconds
@@ -195,7 +201,7 @@ class TestCTIScraperWebInterface:
     def test_accessibility(self, page: Page):
         """Test basic accessibility features"""
         page.goto("http://localhost:8001")
-        page.wait_for_load_state("networkidle")
+        page.wait_for_load_state("load")
 
         # Check for alt text on images (skip decorative images)
         images = page.locator("img")

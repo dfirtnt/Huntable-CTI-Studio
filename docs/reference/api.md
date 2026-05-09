@@ -144,14 +144,15 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, **ScheduledTasksExtract**):
 
-- `GET /api/evaluation/subagent-eval-articles` — List seeded eval articles for a given subagent.
-- `POST /api/evaluation/run-subagent-eval` — Trigger a subagent eval run.
-- `GET /api/evaluation/subagent-eval-results` — Get results for completed subagent eval runs.
-- `GET /api/evaluation/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
-- `DELETE /api/evaluation/subagent-eval-clear-pending` — Clear pending/stuck eval records.
-- `POST /api/evaluation/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
-- `GET /api/evaluation/subagent-eval-aggregate` — Aggregated metrics across all subagent eval runs.
-- `GET /api/evaluation/config-versions-models` — List config versions with model info for each agent.
+- `GET /api/evaluations/subagent-eval-articles` — List seeded eval articles for a given subagent.
+- `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run.
+- `GET /api/evaluations/subagent-eval-results` — Get results for completed subagent eval runs (includes `expected_items`, `actual_items`, `matched_count`, `missed_count`, `extra_count` when item-level ground truth is set).
+- `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
+- `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.
+- `POST /api/evaluations/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
+- `GET /api/evaluations/subagent-eval-aggregate` — Aggregated metrics per `config_version`. Includes count-based fields (`mean_score`, `mean_absolute_error`, `raw_mae`, `score_distribution`) and item-level fields (`mean_precision`, `mean_recall`, `mean_f1`, `scored_articles`). Optional `?model=` query param filters to versions where the subagent used the given model (powers the SYS.04 trend chart).
+- `GET /api/evaluations/subagent-eval-models?subagent=...` — List models that have eval data for the given subagent, sorted by usage frequency. Powers the model dropdown on the `/mlops/agent-evals2` SYS.04 chart.
+- `GET /api/evaluations/config-versions-models` — List config versions with model info for each agent.
 
 Route module: `src/web/routes/evaluation_api.py`.
 

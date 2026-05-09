@@ -170,14 +170,13 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             });
         };
 
-        // 1. Rank Agent
+        // 1. Rank Agent + QA sub-agent
         if (agentModels.RankAgent) {
             addAgent('RankAgent', 'Rank', 0, currentConfig.rank_agent_enabled !== false);
-        }
-        
-        // 2. RankAgentQA
-        if (agentModels.RankAgentQA) {
-            addAgent('RankAgentQA', 'RankAgentQA', 1, qaEnabled['RankAgent'] || false);
+            // RankAgentQA falls back to RankAgent model when not explicitly configured
+            const rankModel = agentModels.RankAgent;
+            const rankProvider = agentModels.RankAgent_provider || null;
+            addAgent('RankAgentQA', 'RankAgentQA', 1, qaEnabled['RankAgent'] || false, rankModel, rankProvider);
         }
         
         // 3. Extract Agent (supervisor)
