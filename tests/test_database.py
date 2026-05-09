@@ -124,6 +124,52 @@ class TestDatabaseManager:
         assert article.url == "https://example.com/article"
         assert article.canonical_url == "https://example.com/article"
 
+    def test_get_source_applies_limit_one(self):
+        """get_source() must call .limit(1) before .first() to prevent non-deterministic row selection."""
+        with patch.object(DatabaseManager, "create_tables"):
+            manager = DatabaseManager(database_url="sqlite:///:memory:")
+
+        mock_session = Mock()
+        mock_session.__enter__ = Mock(return_value=mock_session)
+        mock_session.__exit__ = Mock(return_value=False)
+
+        # Build the query chain mock so we can assert .limit(1) was called
+        mock_chain = mock_session.query.return_value
+        mock_chain.filter.return_value = mock_chain
+        mock_chain.limit.return_value = mock_chain
+        mock_chain.first.return_value = None
+
+        with patch.object(manager, "get_session", return_value=mock_session):
+            result = manager.get_source(42)
+
+        mock_chain.limit.assert_called_once_with(1)
+        assert result is None
+
+    def test_create_tables_executes_pk_ddl_for_three_tables(self):
+        """create_tables() must execute idempotent ADD PRIMARY KEY DDL for sources, subagent_evaluations, content_hashes."""
+        mock_conn = Mock()
+        mock_conn.__enter__ = Mock(return_value=mock_conn)
+        mock_conn.__exit__ = Mock(return_value=False)
+
+        mock_engine = Mock()
+        mock_engine.begin.return_value = mock_conn
+        mock_engine.url = Mock()
+        mock_engine.url.drivername = "postgresql"
+
+        with (
+            patch("src.database.manager.create_engine", return_value=mock_engine),
+            patch("src.database.manager.Base.metadata.create_all"),
+        ):
+            manager = DatabaseManager(database_url="postgresql://u:p@h/db")
+
+        # Collect all SQL text strings passed to conn.execute
+        executed_sql = " ".join(str(call.args[0]) for call in mock_conn.execute.call_args_list)
+
+        assert "sources" in executed_sql
+        assert "subagent_evaluations" in executed_sql
+        assert "content_hashes" in executed_sql
+        assert "ADD PRIMARY KEY" in executed_sql
+
 
 class TestAsyncDatabaseManager:
     """Test the AsyncDatabaseManager class."""
