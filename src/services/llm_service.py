@@ -2275,6 +2275,7 @@ class LLMService:
         qa_model_override: str | None = None,
         provider: str | None = None,
         attention_preprocessor_enabled: bool = True,
+        proc_tree_attention_preprocessor_enabled: bool = True,
     ) -> dict[str, Any]:
         """
         Run a generic extraction agent with optional QA loop.
@@ -2445,6 +2446,74 @@ class LLMService:
                         truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
 
                     truncated_content = combined_prefix + truncated_article
+
+                # ProcTreeExtract: optional attention preprocessor (process lineage snippets)
+                elif agent_name == "ProcTreeExtract" and proc_tree_attention_preprocessor_enabled:
+                    from src.services.proc_tree_attention_preprocessor import (
+                        process as preprocess_proc_tree_attention,
+                    )
+
+                    preprocess_result = preprocess_proc_tree_attention(content, agent_name=agent_name)
+                    snippets = preprocess_result.get("high_likelihood_snippets", [])
+                    snippet_count = len(snippets)
+                    full_article = preprocess_result.get("full_article", content)
+                    logger.debug(
+                        f"ProcTree attention preprocessor enabled: True. Snippets found: {snippet_count}"
+                    )
+
+                    # Cheap mechanical invariant: byte-preserving preprocessor must not alter newline count
+                    orig_nl = content.count("\n")
+                    prep_nl = full_article.count("\n")
+                    if abs(prep_nl - orig_nl) > 1:
+                        raise PreprocessInvariantError(
+                            f"{agent_name}: newline count mismatch (preprocessed={prep_nl}, original={orig_nl})",
+                            debug_artifacts={
+                                "agent_name": agent_name,
+                                "content_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                                "attention_preprocessor_enabled": True,
+                                "execution_id": execution_id,
+                                "orig_newline_count": orig_nl,
+                                "prep_newline_count": prep_nl,
+                            },
+                        )
+
+                    # Cap snippets to 25% of context budget (tokens) before joining.
+                    if snippets:
+                        max_snippet_tokens = int(context_limit_tokens * 0.25)
+                        kept: list[str] = []
+                        budget = max_snippet_tokens
+                        for s in snippets:
+                            cost = self._estimate_tokens(s) + 2  # +2 for separator
+                            if cost > budget:
+                                break
+                            kept.append(s)
+                            budget -= cost
+                        snippets = kept or snippets[:1]  # always keep at least one
+                        snippet_count = len(snippets)
+
+                    snippets_section = "\n\n".join(snippets) if snippets else ""
+                    snippets_header = "=== HIGH-LIKELIHOOD PROCESS LINEAGE SNIPPETS ===\n"
+                    full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
+                    combined_prefix = snippets_header + snippets_section + full_header
+
+                    # Reserve: snippets + static prompt overhead + output + buffer
+                    snippet_tokens = self._estimate_tokens(combined_prefix)
+                    overhead_tokens = _static_prompt_overhead + 1000 + 256  # 1000 output, 256 extra buffer
+                    available_for_article = max(0, context_limit_tokens - snippet_tokens - overhead_tokens)
+                    available_for_article = int(available_for_article * 0.9)  # safety margin
+
+                    article_tokens = self._estimate_tokens(full_article)
+                    if article_tokens <= available_for_article:
+                        truncated_article = full_article
+                    else:
+                        max_chars = available_for_article * 4
+                        truncated_article = full_article[:max_chars]
+                        last_boundary = max(truncated_article.rfind("."), truncated_article.rfind("\n"))
+                        if last_boundary > max_chars * 0.8:
+                            truncated_article = truncated_article[: last_boundary + 1]
+                        truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
+
+                    truncated_content = combined_prefix + truncated_article
                 else:
                     truncated_content = self._truncate_content(
                         content, context_limit_tokens, 1000, prompt_overhead=_static_prompt_overhead
@@ -2573,6 +2642,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                 }
                 if agent_name == "CmdlineExtract":
                     trace_metadata["attention_preprocessor_enabled"] = attention_preprocessor_enabled
+                    if snippet_count is not None:
+                        trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
+                if agent_name == "ProcTreeExtract":
+                    trace_metadata["attention_preprocessor_enabled"] = proc_tree_attention_preprocessor_enabled
                     if snippet_count is not None:
                         trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
 
@@ -2956,10 +3029,15 @@ Every item in the output array MUST be an object (not a plain string)."""
                     last_result["_llm_messages"] = messages
                     last_result["_llm_response"] = response_text
                     last_result["_llm_attempt"] = current_try
-                    # CmdlineExtract: surface preprocessor info for trace UI / Langfuse
+                    # CmdlineExtract / ProcTreeExtract: surface preprocessor info for trace UI / Langfuse
                     if agent_name == "CmdlineExtract":
                         last_result["_attention_preprocessor"] = {
                             "enabled": attention_preprocessor_enabled,
+                            "snippet_count": snippet_count if snippet_count is not None else 0,
+                        }
+                    if agent_name == "ProcTreeExtract":
+                        last_result["_attention_preprocessor"] = {
+                            "enabled": proc_tree_attention_preprocessor_enabled,
                             "snippet_count": snippet_count if snippet_count is not None else 0,
                         }
 

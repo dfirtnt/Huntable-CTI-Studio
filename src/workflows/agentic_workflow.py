@@ -1701,6 +1701,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         attention_preprocessor_enabled=state.get("config", {}).get(
                             "cmdline_attention_preprocessor_enabled", True
                         ),
+                        proc_tree_attention_preprocessor_enabled=state.get("config", {}).get(
+                            "proc_tree_attention_preprocessor_enabled", True
+                        ),
                     )
 
                     # Store Result
@@ -2821,6 +2824,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     )
                     if config_obj
                     else True,
+                    "proc_tree_attention_preprocessor_enabled": getattr(
+                        config_obj, "proc_tree_attention_preprocessor_enabled", True
+                    )
+                    if config_obj
+                    else True,
                     "config_id": config_obj.id if config_obj else None,
                     "config_version": config_obj.version if config_obj else None,
                 }
@@ -2858,6 +2866,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 )
                 if config_obj
                 else True,
+                "proc_tree_attention_preprocessor_enabled": getattr(
+                    config_obj, "proc_tree_attention_preprocessor_enabled", True
+                )
+                if config_obj
+                else True,
             }
             if config_obj
             else {
@@ -2869,6 +2882,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "agent_models": {},
                 "rank_agent_enabled": True,
                 "cmdline_attention_preprocessor_enabled": True,
+                "proc_tree_attention_preprocessor_enabled": True,
             }
         )
 

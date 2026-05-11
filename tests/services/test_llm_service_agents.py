@@ -602,6 +602,64 @@ class TestRunExtractionAgentExecution:
             "Article content was crowded out by snippet runaway -- cap is not working"
         )
 
+    @pytest.mark.asyncio
+    async def test_proc_tree_preprocessor_invoked_when_enabled(self, llm_service):
+        """ProcTreeExtract preprocessor is invoked when proc_tree_attention_preprocessor_enabled=True."""
+        mock_snippets = ["winword.exe -> powershell.exe"]
+        article_text = "Some article content with winword.exe -> powershell.exe"
+
+        with (
+            patch(
+                "src.services.proc_tree_attention_preprocessor.process",
+                return_value={"high_likelihood_snippets": mock_snippets, "full_article": article_text},
+            ) as mock_process,
+            patch.object(llm_service, "_get_context_limit", return_value=8000),
+            patch.object(
+                llm_service,
+                "request_chat",
+                new_callable=AsyncMock,
+                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
+            ),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content=article_text,
+                title="Test",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_extraction_retries=1,
+                proc_tree_attention_preprocessor_enabled=True,
+            )
+            mock_process.assert_called_once_with(article_text, agent_name="ProcTreeExtract")
+
+    @pytest.mark.asyncio
+    async def test_proc_tree_preprocessor_skipped_when_disabled(self, llm_service):
+        """ProcTreeExtract preprocessor is NOT invoked when proc_tree_attention_preprocessor_enabled=False."""
+        article_text = "Some article content with winword.exe -> powershell.exe"
+
+        with (
+            patch(
+                "src.services.proc_tree_attention_preprocessor.process",
+            ) as mock_process,
+            patch.object(llm_service, "_get_context_limit", return_value=8000),
+            patch.object(
+                llm_service,
+                "request_chat",
+                new_callable=AsyncMock,
+                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
+            ),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content=article_text,
+                title="Test",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_extraction_retries=1,
+                proc_tree_attention_preprocessor_enabled=False,
+            )
+            mock_process.assert_not_called()
+
 
 # ---------------------------------------------------------------------------
 # Provider HTTP call methods -- _call_openai_chat, _call_anthropic_chat
