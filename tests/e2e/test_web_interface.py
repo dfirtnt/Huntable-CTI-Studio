@@ -1,4 +1,5 @@
 import re
+import sys
 import time
 
 import pytest
@@ -39,6 +40,10 @@ pytestmark = [
     pytest.mark.e2e,
     pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not available"),
     pytest.mark.skipif(not WEB_SERVER_AVAILABLE, reason="Web server not accessible on localhost:8001"),
+    pytest.mark.skipif(
+        sys.version_info >= (3, 14),
+        reason="playwright sync API incompatible with Python 3.14+ asyncio ThreadedChildWatcher",
+    ),
 ]
 
 

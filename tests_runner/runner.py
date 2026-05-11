@@ -894,7 +894,7 @@ class RunTestRunner:
             RunTestType.COVERAGE,
         ):
             if self._check_plugin("pytest_timeout"):
-                cmd.extend(["--timeout=60", "--timeout-method=thread"])
+                cmd.extend(["--timeout=60", "--timeout-method=signal"])
 
         # Add execution context specific options
         effective_context = self._get_effective_context(self.config.test_type)

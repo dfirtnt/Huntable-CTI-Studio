@@ -320,8 +320,8 @@ test.describe('Sigma Queue UI', () => {
     ).catch(() => {});
     await page.waitForTimeout(500);
 
-    // The rule's ID should appear somewhere in the table row
-    const row = page.locator(`#queueTableBody tr`).filter({ hasText: `${TEST_MARKER}-ui-visible` });
+    // Filter by queueId to avoid matching orphaned rows from previous runs
+    const row = page.locator(`#queueTableBody tr`).filter({ hasText: String(queueId) });
     await expect(row).toBeVisible({ timeout: 10000 });
   });
 
@@ -347,10 +347,10 @@ test.describe('Sigma Queue UI', () => {
       10,
     );
 
-    // Click the Approve button in the row for our specific rule
+    // Filter by queueId to avoid matching orphaned rows from previous runs
     const approveBtn = page
       .locator(`#queueTableBody tr`)
-      .filter({ hasText: `${TEST_MARKER}-ui-approve` })
+      .filter({ hasText: String(queueId) })
       .locator('.q-action.approve');
 
     if (!(await approveBtn.isVisible())) {
@@ -358,6 +358,9 @@ test.describe('Sigma Queue UI', () => {
       await page.selectOption('#queueStatusFilter', '');
       await page.waitForTimeout(500);
     }
+
+    // approveRule() calls confirm() -- accept it so the fetch fires
+    page.once('dialog', dialog => dialog.accept());
 
     // Intercept the approve API call to confirm it fires
     const approveResponsePromise = page.waitForResponse(
@@ -412,9 +415,10 @@ test.describe('Sigma Queue UI', () => {
       10,
     );
 
+    // Filter by queueId to avoid matching orphaned rows from previous runs
     const rejectBtn = page
       .locator(`#queueTableBody tr`)
-      .filter({ hasText: `${TEST_MARKER}-ui-reject` })
+      .filter({ hasText: String(queueId) })
       .locator('.q-action.reject');
 
     const rejectResponsePromise = page.waitForResponse(
@@ -467,7 +471,8 @@ test.describe('Sigma Queue UI', () => {
     await page.selectOption('#queueStatusFilter', 'approved');
     await page.waitForTimeout(800);
 
-    const row = page.locator('#queueTableBody tr').filter({ hasText: `${TEST_MARKER}-no-pending-btns` });
+    // Filter by queueId to avoid matching orphaned rows from previous runs
+    const row = page.locator('#queueTableBody tr').filter({ hasText: String(queueId) });
     await expect(row).toBeVisible({ timeout: 10000 });
 
     // Approved rows should NOT have Approve/Reject buttons (only Preview)
