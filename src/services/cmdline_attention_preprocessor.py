@@ -42,7 +42,6 @@ STRING_ANCHORS = [
     "bitsadmin",
     "schtasks",
     "netsh",
-    "sc",
     "mshta",
     "cscript",
     "wscript",
@@ -54,7 +53,6 @@ STRING_ANCHORS = [
     "systeminfo",
     "diskshadow",
     "makecab",
-    "expand",
     "esentutl",
     "msbuild",
     "msdt",
@@ -101,10 +99,14 @@ STRING_ANCHORS = [
 REGEX_ANCHOR_PATTERNS = [
     r"\b(hklm|hkcu|hkey_local_machine|hkey_current_user)\b",
     r"\breg(\.exe)?\s+(add|delete|query|save|load)\b",
-    r"(^|\s)(/c|/k|/\?)\b",
+    r"(^|\s)(/c|/k|/\?)(?=\s|$)",
     r"-(encodedcommand|enc)\b",
     r"\brundll32(\.exe)?\s+[^,\s]+,\S+",
     r"\.(lnk|iso|img|vhd|vhdx)\b",
+    # "sc" promoted from STRING_ANCHORS: plain substring match fires on "Microsoft", "scan", etc.
+    r"\bsc(\.exe)?\s+(start|stop|create|delete|config|query|description)\b",
+    # "expand" promoted from STRING_ANCHORS: fires on prose ("expand the surface area")
+    r"\bexpand(\.exe)?\b",
 ]
 
 # Pre-compiled regexes (case-insensitive)
@@ -119,6 +121,13 @@ CMD_BOUNDARY_REGEX = re.compile(r"\bcmd(\.exe)?\b", re.IGNORECASE)
 #   Use (?!\w) to avoid splitting "tool.exe and whoami" or "foo.dll,Export"
 # - Comma: NOT used — comma+space can break commands ("echo hello, world")
 # FORBIDDEN for CmdlineExtract (byte-preserving): use NEWLINE_ONLY instead.
+#
+# FOOTGUN: the two alternatives are NOT symmetric.
+#   (?<=[\n])          -- zero-width lookbehind; m.end() points to the char AFTER \n
+#   (?<=\.)(?!\w)\s+   -- non-zero-width; m.end() points past the consumed whitespace
+# In _expand_to_boundary, boundary_after is set to end_off + m.end(), so the two cases
+# land at different relative positions. Behavior is correct for current callers but
+# would break silently if the function were extended to use m.start()/m.end() directly.
 SENTENCE_SPLIT = re.compile(r"(?<=[\n])|(?<=\.)(?!\w)\s+")
 NEWLINE_ONLY = re.compile(r"\n")
 
@@ -198,7 +207,7 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
     for p in REGEX_ANCHORS:
         add_matches(p)
     for m in RE_EXE_PLUS_ARG.finditer(line):
-        if _token_after_exe_match(line, m.end() - 1) not in NARRATIVE_VERBS:
+        if _token_starting_at(line, m.end() - 1) not in NARRATIVE_VERBS:
             positions.append((m.start(), m.end()))
     add_matches(RE_QUOTED_EXE_NONPUNCT)
     for m in RE_EXE_BARE_VERB.finditer(line):
@@ -254,9 +263,13 @@ def _line_matches_anchor(line: str, line_lower: str) -> bool:
     return any(pattern.search(line) for pattern in REGEX_ANCHORS)
 
 
-def _token_after_exe_match(line: str, match_end: int) -> str:
-    """Extract the token immediately after .exe match (for narrative exclusion)."""
-    rest = line[match_end:].lstrip()
+def _token_starting_at(line: str, pos: int) -> str:
+    """
+    Extract the first token starting at or after pos (for narrative exclusion).
+    Callers pass m.end() - 1, i.e. the index of the first non-space char captured
+    by RE_EXE_PLUS_ARG, so lstrip() normalises any off-by-one from match shape.
+    """
+    rest = line[pos:].lstrip()
     if not rest:
         return ""
     token = rest.split()[0]
@@ -277,7 +290,7 @@ def _line_matches_structural_rules(line: str) -> bool:
         return False
     # Rule 1: .exe path + argument (exclude narrative verbs)
     m = RE_EXE_PLUS_ARG.search(line)
-    if m and _token_after_exe_match(line, m.end() - 1) not in NARRATIVE_VERBS:
+    if m and _token_starting_at(line, m.end() - 1) not in NARRATIVE_VERBS:
         return True
     # Rule 2: quoted .exe + non-punctuation
     if RE_QUOTED_EXE_NONPUNCT.search(line):
@@ -291,14 +304,31 @@ def _line_matches_structural_rules(line: str) -> bool:
     return len(paths) >= 2
 
 
-def _is_narrative_exe_only(line: str) -> bool:
+def _is_narrative_exe_only(line: str, line_lower: str) -> bool:
     """
-    True when line has .exe + narrative verb but no invocation context (/, -, etc.).
-    E.g. 'MSBuild.exe process reached out' matches via 'msbuild' anchor but is narrative.
+    True when the ONLY reason the line matched is an exe+narrative-verb shape
+    with no invocation context (/, -, etc.). Lines that also carry an independent
+    LOLBAS anchor (e.g. 'powershell' in a line about 'MSBuild.exe process ...')
+    are NOT suppressed -- the independent signal is real.
     """
-    if ".exe" not in line.lower() or any(c in line for c in ARG_INDICATORS):
+    if ".exe" not in line_lower or any(c in line for c in ARG_INDICATORS):
         return False
-    return any(m.group(1).lower() in NARRATIVE_VERBS for m in re.finditer(r"\.exe\s+(\w+)", line, re.IGNORECASE))
+    # Must have at least one exe + narrative verb to be a candidate for suppression
+    if not any(m.group(1).lower() in NARRATIVE_VERBS for m in re.finditer(r"\.exe\s+(\w+)", line, re.IGNORECASE)):
+        return False
+    # Do not suppress if cmd boundary or any regex anchor fires independently
+    if CMD_BOUNDARY_REGEX.search(line):
+        return False
+    if any(p.search(line) for p in REGEX_ANCHORS):
+        return False
+    # Do not suppress if a string anchor matches something other than the exe names
+    # already present in the line (e.g. "powershell" in "MSBuild.exe process ... powershell")
+    exe_names = {m.group(1).lower() for m in re.finditer(r"(\w+)\.exe\b", line, re.IGNORECASE)}
+    for anchor in STRING_ANCHORS:
+        a_lower = anchor.lower()
+        if a_lower in line_lower and a_lower not in exe_names:
+            return False
+    return True
 
 
 def _line_has_exe_arg_indicators(line: str) -> bool:
@@ -365,26 +395,43 @@ def _extract_windowed_snippets(
     """
     For long lines (>LONG_LINE_THRESHOLD): extract match-window snippets instead of full line.
     byte_preserving: use newline-only boundaries (no sentence/period split).
+
+    Context policy: prev/next surrounding lines are attached to snippets[0] only.
+    Attaching them to every window would duplicate the same neighboring lines once
+    per anchor hit on the same long line. Short-line path (_extract_snippet) always
+    attaches prev/next -- intentional asymmetry, documented here.
+
+    Overlapping windows are merged before extraction to avoid emitting overlapping
+    byte ranges as separate snippets (the exact-string dedup in process() only
+    catches identical strings, not overlapping-but-different ones).
     """
     positions = _find_match_positions(line, line_lower)
     if not positions:
         return []
 
+    # Compute raw windows, merge overlapping ranges (sort by start, linear merge pass)
+    raw: list[tuple[int, int]] = sorted(
+        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS))
+        for start, end in positions
+    )
+    merged: list[tuple[int, int]] = []
+    for ws, we in raw:
+        if merged and ws <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], we))
+        else:
+            merged.append((ws, we))
+
     snippets: list[str] = []
-    for start, end in positions:
-        # Window around match: ±MATCH_WINDOW_CHARS
-        win_start = max(0, start - MATCH_WINDOW_CHARS)
-        win_end = min(len(line), end + MATCH_WINDOW_CHARS)
+    for win_start, win_end in merged:
         window = _expand_to_boundary(line, win_start, win_end, newline_only=byte_preserving)
         if not window.strip():
             continue
         snippets.append(window)
 
-    # Prepend previous line, append next line for cross-line context (once per set)
+    # Prepend previous line, append next line for cross-line context (first snippet only)
     prev_line = lines[line_idx - 1] if line_idx > 0 else ""
     next_line = lines[line_idx + 1] if line_idx + 1 < len(lines) else ""
     if (prev_line or next_line) and snippets:
-        # Add context to first snippet only (avoid duplicating for each window)
         parts = [p for p in [prev_line, snippets[0], next_line] if p]
         snippets[0] = "\n".join(parts).strip()
     return snippets
@@ -411,6 +458,16 @@ def process(
             "full_article": "<original article text>"
         }
     Snippets preserve original article order. Deduplicated by exact string.
+
+    Note on byte-preservation: the HARD CONTRACT applies to full_article only.
+    Snippets are derived/normalized (stripped, context-joined) and are not
+    byte-identical to the source. Callers that validate newline count must use
+    full_article, not snippets.
+
+    Note on max_snippets: excess entries are dropped from the END, preserving
+    the earliest (highest-signal) matches. This is intentional -- IOC-dense
+    sections typically appear near the top of LOLBAS-style articles. Changing
+    the drop strategy (e.g. sample-evenly) would break the article_2068 fix.
     """
     if not article_text or not article_text.strip():
         return {"high_likelihood_snippets": [], "full_article": article_text or ""}
@@ -426,7 +483,7 @@ def process(
         line_lower = line.lower()
         if not _line_matches_anchor(line, line_lower) and not _line_matches_structural_rules(line):
             continue
-        if _is_narrative_exe_only(line):
+        if _is_narrative_exe_only(line, line_lower):
             continue
 
         # Long line: match-window capture (eval fix A)

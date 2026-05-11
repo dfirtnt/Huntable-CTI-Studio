@@ -407,8 +407,12 @@ test.describe('Agent Config Presets', () => {
     expect(actualRanking).toBeCloseTo(expectedRanking, 1);
 
     // Step 5: Restore the original config (cleanup)
-    // We need to update the config back to original values via API
-    await page.request.put(`${BASE}/api/workflow/config`, {
+    // Wait for any pending auto-saves from the import to flush before sending the restore PUT.
+    // applyPreset triggers autoSaveModelChange for each agent via setAgentProvider->onAgentProviderChange,
+    // resetting the debounce each time. Without this wait the restore PUT can race against a late auto-save.
+    await page.waitForTimeout(2000);
+
+    const restoreRes = await page.request.put(`${BASE}/api/workflow/config`, {
       data: {
         similarity_threshold: originalSimilarityThreshold,
         ranking_threshold: originalRankingThreshold,
@@ -416,6 +420,7 @@ test.describe('Agent Config Presets', () => {
         description: 'Restored after Playwright preset import test'
       }
     });
+    expect(restoreRes.ok()).toBeTruthy();
 
     // Wait for restore to complete
     await page.waitForTimeout(2000);
@@ -423,6 +428,7 @@ test.describe('Agent Config Presets', () => {
     // Step 6: Verify restoration worked
     const restoredConfigRes = await page.request.get(`${BASE}/api/workflow/config`);
     const restoredConfig = await restoredConfigRes.json();
+    expect(restoredConfig.similarity_threshold).toBeCloseTo(originalSimilarityThreshold, 2);
     
     // Reload the page to reflect restored values
     await page.reload();
