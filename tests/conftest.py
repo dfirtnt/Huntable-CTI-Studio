@@ -310,6 +310,7 @@ def _ensure_workflow_config_columns() -> None:
                 ("rank_agent_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
                 ("qa_max_retries", "INTEGER NOT NULL DEFAULT 5"),
                 ("cmdline_attention_preprocessor_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
+                ("proc_tree_attention_preprocessor_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
             ):
                 r = conn.execute(
                     text(

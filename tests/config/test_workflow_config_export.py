@@ -51,6 +51,7 @@ _FULL_LEGACY_V1 = {
     "osdetection_fallback_enabled": False,
     "rank_agent_enabled": True,
     "cmdline_attention_preprocessor_enabled": True,
+    "proc_tree_attention_preprocessor_enabled": True,
     "extract_agent_settings": {"disabled_agents": []},
     "description": "",
     "created_at": "",
@@ -370,6 +371,7 @@ def test_config_row_to_preset_dict_includes_disabled_agents_from_agent_prompts()
         rank_agent_enabled=True,
         qa_max_retries=5,
         cmdline_attention_preprocessor_enabled=True,
+        proc_tree_attention_preprocessor_enabled=True,
         agent_prompts={
             "ExtractAgentSettings": {"disabled_agents": ["CmdlineExtract"]},
             "RankAgent": {"prompt": "", "instructions": ""},
@@ -397,6 +399,7 @@ def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompt
         osdetection_fallback_enabled=False,
         rank_agent_enabled=True,
         cmdline_attention_preprocessor_enabled=True,
+        proc_tree_attention_preprocessor_enabled=True,
         description="",
         created_at="",
     )

@@ -254,9 +254,13 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         deprecated_used.append("sigma_fallback_enabled")
     if cmdline_pre is not None:
         deprecated_used.append("cmdline_attention_preprocessor_enabled")
+    proc_tree_pre = raw.get("proc_tree_attention_preprocessor_enabled")
+    if proc_tree_pre is not None:
+        deprecated_used.append("proc_tree_attention_preprocessor_enabled")
     Features = {
         "SigmaFallbackEnabled": _bool_val(sigma_fb, False),
         "CmdlineAttentionPreprocessorEnabled": _bool_val(cmdline_pre, True),
+        "ProcTreeAttentionPreprocessorEnabled": _bool_val(proc_tree_pre, True),
     }
 
     # Prompts: only canonical agent names (no ExtractAgentSettings; that lives under Execution)

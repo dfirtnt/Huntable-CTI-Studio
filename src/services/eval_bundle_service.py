@@ -1369,6 +1369,10 @@ class EvalBundleService:
             filtered_config["cmdline_attention_preprocessor_enabled"] = config_snapshot[
                 "cmdline_attention_preprocessor_enabled"
             ]
+        if "proc_tree_attention_preprocessor_enabled" in config_snapshot:
+            filtered_config["proc_tree_attention_preprocessor_enabled"] = config_snapshot[
+                "proc_tree_attention_preprocessor_enabled"
+            ]
 
         # Include only the relevant agent's model config
         agent_models = config_snapshot.get("agent_models", {})

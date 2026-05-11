@@ -65,6 +65,7 @@ class FeatureFlags(BaseModel):
 
     SigmaFallbackEnabled: bool = False
     CmdlineAttentionPreprocessorEnabled: bool = True
+    ProcTreeAttentionPreprocessorEnabled: bool = True
 
 
 class PromptConfig(BaseModel):
@@ -332,6 +333,7 @@ class WorkflowConfigV2(BaseModel):
             "qa_max_retries": self.QA.MaxRetries,
             "rank_agent_enabled": rank_agent.Enabled if isinstance(rank_agent, AgentConfig) else True,
             "cmdline_attention_preprocessor_enabled": self.Features.CmdlineAttentionPreprocessorEnabled,
+            "proc_tree_attention_preprocessor_enabled": self.Features.ProcTreeAttentionPreprocessorEnabled,
             "created_at": created_at,
             "updated_at": updated_at,
         }

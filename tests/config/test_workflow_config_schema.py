@@ -230,6 +230,7 @@ _LEGACY_RESPONSE_DICT_KEYS = frozenset(
         "qa_max_retries",
         "rank_agent_enabled",
         "cmdline_attention_preprocessor_enabled",
+        "proc_tree_attention_preprocessor_enabled",
         "created_at",
         "updated_at",
     }

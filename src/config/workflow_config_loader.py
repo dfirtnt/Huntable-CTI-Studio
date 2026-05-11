@@ -106,6 +106,7 @@ _LEGACY_REQUIRED_KEYS = [
     "sigma_fallback_enabled",
     "rank_agent_enabled",
     "cmdline_attention_preprocessor_enabled",
+    "proc_tree_attention_preprocessor_enabled",
     "extract_agent_settings",
     "description",
     "created_at",
@@ -150,7 +151,18 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ),
     (
         "ProcTreeExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        [
+            "Enabled",
+            "Provider",
+            "Model",
+            "Temperature",
+            "TopP",
+            "Prompt",
+            "QAEnabled",
+            "QA",
+            "QAPrompt",
+            "AttentionPreprocessor",
+        ],
     ),
     (
         "HuntQueriesExtract",
@@ -287,6 +299,8 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         }
         if base == "CmdlineExtract":
             block_dict["AttentionPreprocessor"] = features.get("CmdlineAttentionPreprocessorEnabled", True)
+        if base == "ProcTreeExtract":
+            block_dict["AttentionPreprocessor"] = features.get("ProcTreeAttentionPreprocessorEnabled", True)
         out[base] = block_dict
 
     sigma = _agent_cfg(agents, "SigmaAgent")
@@ -436,11 +450,16 @@ def _backfill_ui_ordered_sub_agents(ui: dict[str, Any]) -> dict[str, Any]:
     can still be imported without error.  The agent is added as disabled (Enabled=False)
     so it has no effect on existing workflows.
     """
-    ui = dict(ui)  # shallow copy – don't mutate caller's dict
+    ui = dict(ui)  # shallow copy -- don't mutate caller's dict
     for section, default_block in _OPTIONAL_SUB_AGENT_SECTIONS:
         if section not in ui:
             logger.debug("Backfilling missing sub-agent section '%s' with defaults", section)
             ui[section] = default_block
+    # Backfill AttentionPreprocessor key for sections that gained it after initial release
+    for section in ("CmdlineExtract", "ProcTreeExtract"):
+        block = ui.get(section)
+        if isinstance(block, dict) and "AttentionPreprocessor" not in block:
+            block["AttentionPreprocessor"] = True
     return ui
 
 
@@ -543,6 +562,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "Features": {
             "SigmaFallbackEnabled": sigma.get("UseFullArticleContent", False),
             "CmdlineAttentionPreprocessorEnabled": (ui.get("CmdlineExtract") or {}).get("AttentionPreprocessor", True),
+            "ProcTreeAttentionPreprocessorEnabled": (ui.get("ProcTreeExtract") or {}).get("AttentionPreprocessor", True),
         },
         "Prompts": prompts,
     }
@@ -641,6 +661,7 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "sigma_fallback_enabled": getattr(row, "sigma_fallback_enabled", False),
         "rank_agent_enabled": getattr(row, "rank_agent_enabled", True),
         "cmdline_attention_preprocessor_enabled": getattr(row, "cmdline_attention_preprocessor_enabled", True),
+        "proc_tree_attention_preprocessor_enabled": getattr(row, "proc_tree_attention_preprocessor_enabled", True),
         "extract_agent_settings": _extract_agent_settings_from_row(row),
         "description": getattr(row, "description", None) or "",
         "created_at": str(getattr(row, "created_at", "")) if getattr(row, "created_at", None) else "",
@@ -662,6 +683,7 @@ def _empty_v1() -> dict[str, Any]:
         "sigma_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
+        "proc_tree_attention_preprocessor_enabled": True,
         "extract_agent_settings": {"disabled_agents": []},
         "description": "",
         "created_at": "",

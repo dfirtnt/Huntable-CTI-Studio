@@ -391,6 +391,7 @@ def test_legacy_import_fails_when_qa_max_retries_missing():
         "sigma_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
+        "proc_tree_attention_preprocessor_enabled": True,
         "extract_agent_settings": {"disabled_agents": []},
         "description": "",
         "created_at": "",

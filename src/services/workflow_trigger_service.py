@@ -220,6 +220,9 @@ class WorkflowTriggerService:
                     "cmdline_attention_preprocessor_enabled": getattr(
                         config, "cmdline_attention_preprocessor_enabled", True
                     ),
+                    "proc_tree_attention_preprocessor_enabled": getattr(
+                        config, "proc_tree_attention_preprocessor_enabled", True
+                    ),
                     "config_id": config.id,
                     "config_version": config.version,
                 }
