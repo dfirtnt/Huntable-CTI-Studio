@@ -68,6 +68,7 @@ const featureProjects = [
     name: 'intelligence',
     use: browser,
     testMatch: [
+      /playwright\/sigma_queue_lifecycle\.spec\.ts$/,
       /playwright\/sigma_enrich\.spec\.ts$/,
       /playwright\/agent_evals_hunt_query\.spec\.ts$/,
       /playwright\/agent_evals_input_persistence\.spec\.ts$/,
