@@ -138,6 +138,7 @@ class WorkflowConfigResponse(BaseModel):
     qa_max_retries: int = 5
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
+    proc_tree_attention_preprocessor_enabled: bool = True
     auto_trigger_hunt_score_threshold: float = 60.0
     created_at: str
     updated_at: str
@@ -158,6 +159,7 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
+    proc_tree_attention_preprocessor_enabled: bool | None = None
     auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
 
 
@@ -482,6 +484,15 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     getattr(current_config, "cmdline_attention_preprocessor_enabled", True) if current_config else True
                 )
             )
+            final_proc_tree_attention_preprocessor_enabled = (
+                config_update.proc_tree_attention_preprocessor_enabled
+                if config_update.proc_tree_attention_preprocessor_enabled is not None
+                else (
+                    getattr(current_config, "proc_tree_attention_preprocessor_enabled", True)
+                    if current_config
+                    else True
+                )
+            )
             _settings_threshold = _get_threshold_from_settings(db_session)
             final_auto_trigger_hunt_score_threshold = (
                 config_update.auto_trigger_hunt_score_threshold
@@ -531,6 +542,8 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
                     and getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
                     == final_cmdline_attention_preprocessor_enabled
+                    and getattr(current_config, "proc_tree_attention_preprocessor_enabled", True)
+                    == final_proc_tree_attention_preprocessor_enabled
                     and abs(
                         getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                         - final_auto_trigger_hunt_score_threshold
@@ -588,6 +601,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                         cmdline_attention_preprocessor_enabled=getattr(
                             current_config, "cmdline_attention_preprocessor_enabled", True
                         ),
+                        proc_tree_attention_preprocessor_enabled=getattr(
+                            current_config, "proc_tree_attention_preprocessor_enabled", True
+                        ),
                         auto_trigger_hunt_score_threshold=(
                             _settings_threshold
                             if _settings_threshold is not None
@@ -614,6 +630,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 qa_max_retries=qa_max_retries,
                 rank_agent_enabled=final_rank_agent_enabled,
                 cmdline_attention_preprocessor_enabled=final_cmdline_attention_preprocessor_enabled,
+                proc_tree_attention_preprocessor_enabled=final_proc_tree_attention_preprocessor_enabled,
                 auto_trigger_hunt_score_threshold=final_auto_trigger_hunt_score_threshold,
             )
 
@@ -642,6 +659,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
                 cmdline_attention_preprocessor_enabled=getattr(
                     new_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    new_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 60.0),
                 created_at=new_config.created_at.isoformat(),
@@ -867,6 +887,7 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
         "rank_agent_enabled": config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True,
         "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
+        "proc_tree_attention_preprocessor_enabled": config.Features.ProcTreeAttentionPreprocessorEnabled,
         "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
         "agent_prompts": {
             name: {
@@ -1024,6 +1045,7 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         else True,
         "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
+        "proc_tree_attention_preprocessor_enabled": getattr(config, "proc_tree_attention_preprocessor_enabled", True),
         "extract_agent_settings": {"disabled_agents": disabled_agents},
         "agent_prompts": agent_prompts,
     }
@@ -1362,6 +1384,9 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
                 auto_trigger_hunt_score_threshold=(
                     _thr if _thr is not None
                     else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
@@ -1633,6 +1658,9 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
                     _thr if _thr is not None
@@ -1929,6 +1957,9 @@ def bootstrap_prompts_from_files(request: Request):
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
                 auto_trigger_hunt_score_threshold=(
                     _thr if _thr is not None
                     else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
@@ -2019,6 +2050,9 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                 qa_max_retries=getattr(current_config, "qa_max_retries", 5),
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
                     _thr if _thr is not None

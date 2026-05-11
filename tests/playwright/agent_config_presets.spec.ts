@@ -407,10 +407,12 @@ test.describe('Agent Config Presets', () => {
     expect(actualRanking).toBeCloseTo(expectedRanking, 1);
 
     // Step 5: Restore the original config (cleanup)
-    // Wait for any pending auto-saves from the import to flush before sending the restore PUT.
-    // applyPreset triggers autoSaveModelChange for each agent via setAgentProvider->onAgentProviderChange,
-    // resetting the debounce each time. Without this wait the restore PUT can race against a late auto-save.
-    await page.waitForTimeout(2000);
+    // Wait for all pending auto-saves from the import to flush before sending
+    // the restore PUT. applyPreset sets many fields via setAgentProvider which
+    // calls autoSaveModelChange (debounce resets each call). Use networkidle to
+    // wait until the browser's in-flight PUT queue drains rather than a fixed
+    // sleep, which may be shorter than the total debounce chain.
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {});
 
     const restoreRes = await page.request.put(`${BASE}/api/workflow/config`, {
       data: {
@@ -422,18 +424,19 @@ test.describe('Agent Config Presets', () => {
     });
     expect(restoreRes.ok()).toBeTruthy();
 
-    // Wait for restore to complete
-    await page.waitForTimeout(2000);
+    // Wait for network to fully idle again before reloading so any debounced
+    // saves that lagged behind the restore PUT do not overwrite it after reload.
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {});
 
     // Step 6: Verify restoration worked
     const restoredConfigRes = await page.request.get(`${BASE}/api/workflow/config`);
     const restoredConfig = await restoredConfigRes.json();
     expect(restoredConfig.similarity_threshold).toBeCloseTo(originalSimilarityThreshold, 2);
-    
+
     // Reload the page to reflect restored values
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1000);
 
     // Expand panels to see restored values
     await expandPanelIfNeeded(page, 'other-thresholds-panel');

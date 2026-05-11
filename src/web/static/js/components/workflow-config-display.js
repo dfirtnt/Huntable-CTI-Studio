@@ -135,6 +135,24 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             ...models.slice(cmdlineIndex + 1)
         ];
     };
+
+    const addProcTreeAttentionPreprocessorStatus = (models) => {
+        const procTreeIndex = models.findIndex(m => m.text && m.text.startsWith('ProcTreeExtract:'));
+        if (procTreeIndex === -1) return models;
+
+        const enabled = currentConfig.proc_tree_attention_preprocessor_enabled !== false;
+        const statusRow = {
+            text: 'ProcTreeAttnPreprocessor:',
+            indentLevel: 2,
+            badge: makeStatusBadge(enabled)
+        };
+
+        return [
+            ...models.slice(0, procTreeIndex + 1),
+            statusRow,
+            ...models.slice(procTreeIndex + 1)
+        ];
+    };
     
     let selectedModels = [];
     
@@ -150,6 +168,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             };
         });
         selectedModels = addCmdlineAttentionPreprocessorStatus(selectedModels);
+        selectedModels = addProcTreeAttentionPreprocessorStatus(selectedModels);
     } else if (currentConfig.agent_models) {
         // Build from saved config
         const agentModels = currentConfig.agent_models;
@@ -170,13 +189,20 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             });
         };
 
-        // 1. Rank Agent + QA sub-agent
-        if (agentModels.RankAgent) {
-            addAgent('RankAgent', 'Rank', 0, currentConfig.rank_agent_enabled !== false);
-            // RankAgentQA falls back to RankAgent model when not explicitly configured
-            const rankModel = agentModels.RankAgent;
-            const rankProvider = agentModels.RankAgent_provider || null;
-            addAgent('RankAgentQA', 'RankAgentQA', 1, qaEnabled['RankAgent'] || false, rankModel, rankProvider);
+        // 1. Rank Agent + QA sub-agent (always shown; model may be unconfigured)
+        {
+            const rankModel = agentModels.RankAgent || agentModels.RankAgent_model || 'N/A';
+            const rankProvider = agentModels.RankAgent_provider || '';
+            modelsList.push({
+                text: `Rank: ${rankModel} (${rankProvider})`,
+                indentLevel: 0,
+                badge: makeStatusBadge(currentConfig.rank_agent_enabled !== false)
+            });
+            modelsList.push({
+                text: `RankAgentQA: ${rankModel} (${rankProvider})`,
+                indentLevel: 1,
+                badge: makeStatusBadge(qaEnabled['RankAgent'] || false)
+            });
         }
         
         // 3. Extract Agent (supervisor)
@@ -229,6 +255,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         }
         
         selectedModels = addCmdlineAttentionPreprocessorStatus(modelsList);
+        selectedModels = addProcTreeAttentionPreprocessorStatus(selectedModels);
     }
     
     const modelsHtml = selectedModels.length > 0 
