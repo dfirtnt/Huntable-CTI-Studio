@@ -1239,22 +1239,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent (Supervisor Mode with Sub-Agents)")
 
             config_obj = trigger_service.get_active_config()
-            qa_flags = (
-                config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled
-                else (state.get("config", {}).get("qa_enabled", {}) or {})
-            )
             if not config_obj:
                 raise ValueError("No active workflow configuration found")
 
-            # Check if this is a subagent eval run - if so, filter qa_flags to only the evaluated agent
+            # Check if this is a subagent eval run
             config_snapshot = execution.config_snapshot if execution else {}
             state_config = state.get("config", {})
             subagent_eval = normalize_subagent_name(
                 config_snapshot.get("subagent_eval") or state_config.get("subagent_eval")
             )
             if subagent_eval:
-                # Map subagent names to agent names
                 subagent_to_agent = {
                     "cmdline": "CmdlineExtract",
                     "process_lineage": "ProcTreeExtract",
@@ -1263,16 +1257,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "windows_services": "ServicesExtract",
                     "scheduled_tasks": "ScheduledTasksExtract",
                 }
-                agent_name = subagent_to_agent.get(subagent_eval)
-                if agent_name:
-                    # Only keep QA flag for the evaluated agent
-                    original_qa_flags = qa_flags.copy() if isinstance(qa_flags, dict) else {}
-                    qa_flags = {agent_name: qa_flags.get(agent_name, False)} if isinstance(qa_flags, dict) else {}
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Subagent eval ({subagent_eval}): Filtering QA flags to only {agent_name}. "
-                        f"Original: {original_qa_flags}, Filtered: {qa_flags}"
-                    )
-                else:
+                if subagent_eval not in subagent_to_agent:
                     logger.warning(
                         f"[Workflow {state['execution_id']}] Unknown subagent_eval value: {subagent_eval}. "
                         f"Available: {list(subagent_to_agent.keys())}"
@@ -1292,7 +1277,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # For eval runs, exclude SigmaAgent to avoid loading the SIGMA model unnecessarily
             # For subagent evals, only include models for the agent being evaluated
             agent_models = config_obj.agent_models if config_obj else None
-            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
+            max_extraction_retries = 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
                 config_snapshot = execution.config_snapshot if execution else {}
@@ -1325,26 +1310,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 if subagent_eval:
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
-                        # Keep only models for this agent and its QA, plus ExtractAgent (fallback)
-                        # Also keep RankAgent if needed (though it should be skipped in eval)
+                        # Keep only models for this agent plus ExtractAgent (fallback) and RankAgent
                         prefixes_to_keep = [
                             f"{agent_name}_",  # Agent model, temperature, provider
                             "ExtractAgent",  # Fallback model
                             "RankAgent",  # May be needed for initialization
                         ]
-                        # Also include QA model prefix if present
-                        qa_names = {
-                            "CmdlineExtract": "CmdLineQA",
-                            "ProcTreeExtract": "ProcTreeQA",
-                            "HuntQueriesExtract": "HuntQueriesQA",
-                            "RegistryExtract": "RegistryQA",
-                            "ServicesExtract": "ServicesQA",
-                            "ScheduledTasksExtract": "ScheduledTasksQA",
-                        }
-                        qa_name = qa_names.get(agent_name)
-                        if qa_name:
-                            prefixes_to_keep.append(qa_name)
-
                         original_count = len(agent_models)
                         agent_models = {
                             k: v
@@ -1361,12 +1332,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # --- Sub-Agents (including CmdlineExtract) ---
             sub_agents = [
-                ("CmdlineExtract", "cmdline", "CmdLineQA"),
-                ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
-                ("HuntQueriesExtract", "hunt_queries", "HuntQueriesQA"),
-                ("RegistryExtract", "registry_artifacts", "RegistryQA"),
-                ("ServicesExtract", "windows_services", "ServicesQA"),
-                ("ScheduledTasksExtract", "scheduled_tasks", "ScheduledTasksQA"),
+                ("CmdlineExtract", "cmdline"),
+                ("ProcTreeExtract", "process_lineage"),
+                ("HuntQueriesExtract", "hunt_queries"),
+                ("RegistryExtract", "registry_artifacts"),
+                ("ServicesExtract", "windows_services"),
+                ("ScheduledTasksExtract", "scheduled_tasks"),
             ]
 
             # Initialize conversation log for extract_agent
@@ -1495,7 +1466,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 logger.info(
                     f"[Workflow {state['execution_id']}] 🔍 BEFORE FILTERING - subagent_eval='{subagent_eval}' "
                     f"(lookup_values={sorted(eval_lookup_values)}), sub_agents list: "
-                    f"{[(name, subagent, f'match={subagent.lower() in eval_lookup_values or name.lower() in eval_lookup_values}') for name, subagent, _ in original_sub_agents]}"
+                    f"{[(name, subagent, f'match={subagent.lower() in eval_lookup_values or name.lower() in eval_lookup_values}') for name, subagent in original_sub_agents]}"
                 )
 
                 # Filter with explicit comparison logging
@@ -1516,22 +1487,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 logger.info(
                     f"[Workflow {state['execution_id']}] AFTER FILTERING - looking for subagent='{subagent_eval}'. "
                     f"Original count: {len(original_sub_agents)}, Filtered count: {len(sub_agents)}. "
-                    f"Original agents: {[(name, subagent) for name, subagent, _ in original_sub_agents]}. "
-                    f"Filtered agents: {[(name, subagent) for name, subagent, _ in sub_agents]}"
+                    f"Original agents: {[(name, subagent) for name, subagent in original_sub_agents]}. "
+                    f"Filtered agents: {[(name, subagent) for name, subagent in sub_agents]}"
                 )
 
                 # CRITICAL: Verify filtering worked
                 if len(sub_agents) != 1:
                     logger.error(
                         f"[Workflow {state['execution_id']}] 🚫 CRITICAL FILTERING ERROR: Expected 1 agent, got {len(sub_agents)}. "
-                        f"Filtered agents: {[(name, subagent) for name, subagent, _ in sub_agents]}. "
+                        f"Filtered agents: {[(name, subagent) for name, subagent in sub_agents]}. "
                         f"This will cause incorrect agent execution!"
                     )
 
                 if not sub_agents:
                     logger.error(
                         f"[Workflow {state['execution_id']}] ⚠️ subagent_eval='{subagent_eval}' not found in sub_agents list. "
-                        f"Available subagents: {[subagent for _, subagent, _ in original_sub_agents]}. "
+                        f"Available subagents: {[subagent for _, subagent in original_sub_agents]}. "
                         f"CRITICAL: This should not happen - filtering failed!"
                     )
                     # DO NOT reset to original - this is a critical error
@@ -1542,12 +1513,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 else:
                     logger.info(
                         f"[Workflow {state['execution_id']}] 🔬 Eval mode: Only running {subagent_eval}. "
-                        f"Filtered sub_agents: {[name for name, _, _ in sub_agents]}. "
+                        f"Filtered sub_agents: {[name for name, _ in sub_agents]}. "
                         f"Other agents will be skipped."
                     )
                     # Mark all non-evaluated agents as skipped
                     evaluated_agent_names = {agent[0] for agent in sub_agents}
-                    for agent_name, result_key, _ in original_sub_agents:
+                    for agent_name, result_key in original_sub_agents:
                         if agent_name not in evaluated_agent_names and agent_name not in disabled_agents_cfg:
                             subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "skipped_for_eval"}}
                             conversation_log.append(
@@ -1558,7 +1529,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             )
 
             logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 FINAL CHECK - Sub-agents to process: {[name for name, _, _ in sub_agents]}, "
+                f"[Workflow {state['execution_id']}] 🔍 FINAL CHECK - Sub-agents to process: {[name for name, _ in sub_agents]}, "
                 f"subagent_eval='{subagent_eval}', count={len(sub_agents)}"
             )
 
@@ -1573,10 +1544,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             logger.info(
                 f"[Workflow {state['execution_id']}] 🔍 ABOUT TO LOOP - sub_agents count: {len(sub_agents)}, "
-                f"agents: {[(name, subagent) for name, subagent, _ in sub_agents]}, subagent_eval='{subagent_eval}'"
+                f"agents: {[(name, subagent) for name, subagent in sub_agents]}, subagent_eval='{subagent_eval}'"
             )
 
-            for agent_name, result_key, qa_name in sub_agents:
+            for agent_name, result_key in sub_agents:
                 # Consolidated eval-blocking check (replaces three formerly-separate inline checks)
                 if not _is_agent_allowed(agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]):
                     subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "blocked_by_eval_filter"}}
@@ -1601,7 +1572,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     # Load Prompts from config only (no file fallback)
                     prompt_config = None
-                    qa_config = None
 
                     # Get prompt from config
                     if not config_obj or not config_obj.agent_prompts or agent_name not in config_obj.agent_prompts:
@@ -1621,35 +1591,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse {agent_name} prompt from config as JSON: {e}, skipping")
                         continue
-
-                    # Get QA prompt from config (optional - only if QA is enabled)
-                    qa_enabled = qa_flags.get(agent_name, False)
-                    if qa_enabled:
-                        if qa_name not in config_obj.agent_prompts:
-                            logger.warning(
-                                f"{qa_name} prompt not found in config but QA is enabled for {agent_name}, disabling QA"
-                            )
-                            qa_enabled = False
-                        else:
-                            qa_prompt_data = config_obj.agent_prompts[qa_name]
-                            if isinstance(qa_prompt_data.get("prompt"), str):
-                                try:
-                                    qa_config = json.loads(qa_prompt_data["prompt"])
-                                    logger.info(
-                                        f"Using {qa_name} prompt from workflow config (length: {len(qa_prompt_data['prompt'])} chars)"
-                                    )
-                                except json.JSONDecodeError as e:
-                                    logger.warning(
-                                        f"Failed to parse {qa_name} prompt from config as JSON: {e}, disabling QA"
-                                    )
-                                    qa_enabled = False
-                                    qa_config = None
-                            else:
-                                logger.warning(f"{qa_name} prompt in config is not a string, disabling QA")
-                                qa_enabled = False
-                                qa_config = None
-
-                    # QA enabled flag is set above when loading QA config
 
                     # Get model and provider for this agent
                     model_key = f"{agent_name}_model"
@@ -1678,7 +1619,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             f"provider_key={provider_key} not found in config. Will fallback to ExtractAgent provider."
                         )
                     # Run Agent
-                    qa_model_override = agent_models.get(qa_name) if agent_models else None
                     logger.info(
                         f"[Workflow {state['execution_id']}] 🚀 About to call LLM for {agent_name} (provider={agent_provider}, model={agent_model})"
                     )
@@ -1688,16 +1628,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         title=article.title,
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
-                        qa_prompt_config=qa_config if qa_enabled else None,
-                        # max_extraction_retries governs extraction-exception retries only (QA is single-shot post-v1).
-                        # The previous `if qa_enabled else 1` conditional reflected pre-v1 semantics where
-                        # max_retries doubled as the QA retry budget; that distinction no longer exists.
-                        max_extraction_retries=max_qa_retries,
+                        max_extraction_retries=max_extraction_retries,
                         execution_id=state["execution_id"],
                         model_name=agent_model,
                         temperature=0.0,
-                        qa_model_override=qa_model_override,
-                        provider=agent_provider,  # Pass provider from config
+                        provider=agent_provider,
                         attention_preprocessor_enabled=state.get("config", {}).get(
                             "cmdline_attention_preprocessor_enabled", True
                         ),
@@ -1751,46 +1686,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if execution:
                         if execution.error_log is None or not isinstance(execution.error_log, dict):
                             execution.error_log = {}
-                        _existing_qa = execution.error_log.get("qa_results", {})
                         execution.error_log["extract_agent"] = {"conversation_log": conversation_log}
-                        if _existing_qa:
-                            execution.error_log["qa_results"] = _existing_qa
-
-
                         flag_modified(execution, "error_log")
                         db_session.commit()
                         logger.debug(
                             f"[Workflow {state['execution_id']}] Incremental commit after {agent_name} "
                             f"({len(conversation_log)} conversation_log entries)"
                         )
-
-                    # Store QA result if available
-                    if qa_enabled and "_qa_result" in agent_result:
-                        # Use the execution object we already have, don't refresh (avoids transaction isolation issues)
-                        if execution:
-                            qa_result = agent_result.get("_qa_result")
-                            if execution.error_log is None:
-                                execution.error_log = {}
-                            if "qa_results" not in execution.error_log:
-                                execution.error_log["qa_results"] = {}
-                            # Store using agent_name as primary key; qa_name is only for backward compatibility
-                            # The streaming endpoint maps both to the same workflow agent, so storing once is sufficient
-                            execution.error_log["qa_results"][agent_name] = qa_result
-                            # Only store qa_name if it's different from agent_name to avoid duplicates
-                            if qa_name and qa_name != agent_name:
-                                execution.error_log["qa_results"][qa_name] = qa_result
-                            # Mark as modified so SQLAlchemy tracks the change
-    
-
-                            flag_modified(execution, "error_log")
-                            db_session.commit()
-                            logger.info(
-                                f"[Workflow {state['execution_id']}] Stored QA result for {agent_name}: {qa_result.get('verdict', 'unknown')}, error_log keys: {list(execution.error_log.keys())}"
-                            )
-                        else:
-                            logger.warning(
-                                f"[Workflow {state['execution_id']}] Execution not found when storing QA result for {agent_name}"
-                            )
 
                 except Exception as e:
                     from src.services.llm_service import ContextLengthExceededError, PreprocessInvariantError
@@ -1952,24 +1854,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Ensure error_log is a dict
                 if execution.error_log is None or not isinstance(execution.error_log, dict):
                     execution.error_log = {}
-                # Preserve all existing keys (especially qa_results we stored earlier in the loop)
-                existing_qa_results = execution.error_log.get("qa_results", {})
-                # Merge extract_agent data, preserving existing qa_results and all other keys
                 execution.error_log["extract_agent"] = {
                     "conversation_log": conversation_log,
                     "sub_agents_run": sub_agents_run,
                     "sub_agents_disabled": disabled_sub_agents,
                 }
-                # Ensure qa_results is preserved (it should already be there from earlier commits in the loop)
-                if existing_qa_results:
-                    execution.error_log["qa_results"] = existing_qa_results
-                # Mark as modified so SQLAlchemy tracks the change
-
-
                 flag_modified(execution, "error_log")
                 db_session.commit()
                 logger.info(
-                    f"[Workflow {state['execution_id']}] Stored extract_agent log, preserved {len(existing_qa_results)} QA results, error_log keys: {list(execution.error_log.keys())}"
+                    f"[Workflow {state['execution_id']}] Stored extract_agent log, error_log keys: {list(execution.error_log.keys())}"
                 )
 
             discrete_count = total_count
@@ -2055,11 +1948,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Get config models for SigmaGenerationService
             config_obj = trigger_service.get_active_config()
-            qa_flags = (
-                config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled
-                else (state.get("config", {}).get("qa_enabled", {}) or {})
-            )
             agent_models = config_obj.agent_models if config_obj else None
 
             # Get SIGMA fallback setting from config
@@ -3093,6 +2981,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                                 "queued_rules_count": len(final_state.get("queued_rules", [])),
                                 "final_step": final_state.get("current_step"),
                                 "error": final_state.get("error"),
+                                "sigma_rules": final_state.get("sigma_rules", []),
                             }
                         )
                     except Exception as update_error:

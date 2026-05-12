@@ -1262,15 +1262,8 @@ class EvalBundleService:
         if not isinstance(qa_results_all, dict):
             return None
 
-        # Map agent names to QA agent names. All extractor + RankAgent QA pairs must be listed
-        # here -- agents missing from this map have their QA results silently dropped from the bundle.
+        # Map agent names to QA agent names. Only RankAgent QA is still active.
         qa_agent_map = {
-            "CmdlineExtract": "CmdLineQA",
-            "ProcTreeExtract": "ProcTreeQA",
-            "HuntQueriesExtract": "HuntQueriesQA",
-            "RegistryExtract": "RegistryQA",
-            "ServicesExtract": "ServicesQA",
-            "ScheduledTasksExtract": "ScheduledTasksQA",
             "rank_article": "RankAgentQA",
         }
 

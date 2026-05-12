@@ -104,35 +104,12 @@ def test_sub_agent_task(
             prompt_config = _raw_prompt
         agent_models = config.agent_models if config.agent_models else {}
 
-        # Determine QA config
-        qa_flags = config.qa_enabled if config.qa_enabled else {}
-        qa_prompt_config = None
-        if qa_flags.get(agent_name, False):
-            qa_prompt_key = f"{agent_name}_QA"
-            qa_prompt_config = agent_prompts.get(qa_prompt_key, {})
-            if isinstance(qa_prompt_config.get("prompt"), str):
-                try:
-                    import json as _json
-
-                    qa_prompt_config = _json.loads(qa_prompt_config["prompt"])
-                except _json.JSONDecodeError as e:
-                    logger.warning("Failed to parse %s QA prompt JSON: %s — disabling QA", qa_prompt_key, e)
-                    qa_prompt_config = None
-
-        max_qa_retries = config.qa_max_retries if hasattr(config, "qa_max_retries") else 5
-
         # Resolve per-agent provider, model, temperature, top_p from config
         agent_provider = agent_models.get(f"{agent_name}_provider", "")
         agent_model = agent_models.get(f"{agent_name}_model", "")
         agent_temperature = float(agent_models.get(f"{agent_name}_temperature", 0.0))
         agent_top_p = agent_models.get(f"{agent_name}_top_p")
         agent_top_p = float(agent_top_p) if agent_top_p is not None else None
-
-        # QA model override
-        from src.config.workflow_config_schema import BASE_AGENT_TO_QA
-
-        qa_name = BASE_AGENT_TO_QA.get(agent_name, "")
-        qa_model_override = agent_models.get(qa_name) if qa_name else None
 
         from src.services.llm_service import LLMService
 
@@ -145,13 +122,10 @@ def test_sub_agent_task(
                 title=article.title,
                 url=article.canonical_url or "",
                 prompt_config=prompt_config,
-                qa_prompt_config=qa_prompt_config,
-                max_extraction_retries=max_qa_retries,
                 execution_id=None,
                 model_name=agent_model or None,
                 temperature=agent_temperature,
                 top_p=agent_top_p,
-                qa_model_override=qa_model_override,
                 provider=agent_provider or None,
             )
 

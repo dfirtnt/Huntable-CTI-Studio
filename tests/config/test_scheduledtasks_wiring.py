@@ -49,19 +49,13 @@ _MINIMAL_AGENT_MODELS = {
     "ServicesExtract_model": "gpt-4",
     "ScheduledTasksExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
-    "CmdLineQA": "gpt-4",
-    "ProcTreeQA": "gpt-4",
-    "HuntQueriesQA": "gpt-4",
-    "RegistryQA": "gpt-4",
-    "ServicesQA": "gpt-4",
-    "ScheduledTasksQA": "gpt-4",
 }
 
 _MINIMAL_AGENT_PROMPTS = {name: {"prompt": "", "instructions": ""} for name in ALL_AGENT_NAMES}
 
 
 def _make_v2_with_scheduled_tasks(**overrides):
-    """Build a minimal valid v2 config dict with ScheduledTasksExtract + ScheduledTasksQA."""
+    """Build a minimal valid v2 config dict with ScheduledTasksExtract."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
@@ -69,13 +63,6 @@ def _make_v2_with_scheduled_tasks(**overrides):
             "Provider": "openai",
             "Model": "gpt-4",
             "Temperature": 0.0,
-            "TopP": 0.9,
-            "Enabled": True,
-        },
-        "ScheduledTasksQA": {
-            "Provider": "openai",
-            "Model": "gpt-4",
-            "Temperature": 0.1,
             "TopP": 0.9,
             "Enabled": True,
         },
@@ -107,21 +94,23 @@ def _make_v2_with_scheduled_tasks(**overrides):
 
 
 class TestSchemaConstants:
-    """ScheduledTasksExtract/ScheduledTasksQA appear in all schema-level constant lists."""
+    """ScheduledTasksExtract appears in all schema-level constant lists."""
 
     def test_scheduled_tasks_in_agent_names_sub(self):
         assert "ScheduledTasksExtract" in AGENT_NAMES_SUB
 
+    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed")
     def test_scheduled_tasks_qa_in_agent_names_qa(self):
         assert "ScheduledTasksQA" in AGENT_NAMES_QA
 
     def test_scheduled_tasks_in_all_agent_names(self):
         assert "ScheduledTasksExtract" in ALL_AGENT_NAMES
-        assert "ScheduledTasksQA" in ALL_AGENT_NAMES
 
+    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; no BASE_AGENT_TO_QA mapping")
     def test_base_to_qa_mapping(self):
         assert BASE_AGENT_TO_QA["ScheduledTasksExtract"] == "ScheduledTasksQA"
 
+    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; no QA_AGENT_TO_BASE mapping")
     def test_qa_to_base_mapping(self):
         assert QA_AGENT_TO_BASE["ScheduledTasksQA"] == "ScheduledTasksExtract"
 
@@ -137,8 +126,8 @@ class TestSchemaValidation:
     def test_valid_v2_with_scheduled_tasks(self):
         config = WorkflowConfigV2.model_validate(_make_v2_with_scheduled_tasks())
         assert "ScheduledTasksExtract" in config.Agents
-        assert "ScheduledTasksQA" in config.Agents
 
+    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; orphan check no longer applies")
     def test_orphan_scheduled_tasks_qa_rejected(self):
         """ScheduledTasksQA without ScheduledTasksExtract is rejected."""
         raw = _make_v2_with_scheduled_tasks()
@@ -161,8 +150,6 @@ class TestSchemaValidation:
         assert flat["ScheduledTasksExtract_provider"] == "openai"
         assert flat["ScheduledTasksExtract_temperature"] == 0.0
         assert flat["ScheduledTasksExtract_top_p"] == 0.9
-        assert flat["ScheduledTasksQA"] == "gpt-4"
-        assert flat["ScheduledTasksQA_provider"] == "openai"
 
     def test_disabled_scheduled_tasks_in_extract_agent_settings(self):
         raw = _make_v2_with_scheduled_tasks()
@@ -183,12 +170,12 @@ class TestLoaderConstants:
     def test_in_extract_agents(self):
         assert "ScheduledTasksExtract" in EXTRACT_AGENTS
 
+    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed")
     def test_in_qa_agents(self):
         assert "ScheduledTasksQA" in QA_AGENTS
 
     def test_in_agents_order_ui(self):
         assert "ScheduledTasksExtract" in AGENTS_ORDER_UI
-        assert "ScheduledTasksQA" in AGENTS_ORDER_UI
 
 
 # ===========================================================================
@@ -219,6 +206,7 @@ class TestMigration:
         assert config.Agents["ScheduledTasksExtract"].Temperature == 0.2
         assert config.Agents["ScheduledTasksExtract"].TopP == 0.95
 
+    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; stripped on migration")
     def test_v1_scheduled_tasks_qa_migrates(self):
         raw = {
             "version": "1.0",
@@ -345,7 +333,6 @@ class TestUIOrderedRoundTrip:
         preset = self._make_ui_ordered_preset()
         config = load_workflow_config(preset)
         assert "ScheduledTasksExtract" in config.Agents
-        assert "ScheduledTasksQA" in config.Agents
 
     def test_scheduled_tasks_round_trip_through_export(self):
         from src.config.workflow_config_loader import v2_to_ui_ordered_export
@@ -367,7 +354,7 @@ class TestUIOrderedRoundTrip:
 class TestPromptFiles:
     """ScheduledTasksExtract and ScheduledTasksQA prompt files exist and are valid JSON configs."""
 
-    @pytest.mark.parametrize("prompt_name", ["ScheduledTasksExtract", "ScheduledTasksQA"])
+    @pytest.mark.parametrize("prompt_name", ["ScheduledTasksExtract"])
     def test_prompt_file_exists_and_is_valid_json(self, prompt_name):
         prompt_path = Path(__file__).resolve().parent.parent.parent / "src" / "prompts" / prompt_name
         assert prompt_path.exists(), f"Prompt file missing: {prompt_path}"
@@ -411,11 +398,6 @@ class TestPresetFiles:
             assert prompt_val, (
                 f"ScheduledTasksExtract.Prompt.prompt is empty in {preset_file.name} -- "
                 "quickstart presets must carry the full prompt text"
-            )
-            qa_prompt_val = section.get("QAPrompt", {}).get("prompt", "")
-            assert qa_prompt_val, (
-                f"ScheduledTasksExtract.QAPrompt.prompt is empty in {preset_file.name} -- "
-                "quickstart presets must carry the full QA prompt text"
             )
 
     @pytest.mark.regression
@@ -600,7 +582,6 @@ class TestDefaultAgentPrompts:
         from src.utils.default_agent_prompts import AGENT_PROMPT_FILES
 
         assert "ScheduledTasksExtract" in AGENT_PROMPT_FILES
-        assert "ScheduledTasksQA" in AGENT_PROMPT_FILES
 
 
 # ===========================================================================

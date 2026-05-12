@@ -29,28 +29,22 @@ EXTRACT_AGENTS = [
     "ServicesExtract",
     "ScheduledTasksExtract",
 ]
-QA_AGENTS = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"]
+QA_AGENTS = ["RankAgentQA"]
 UTILITY_AGENTS: list[str] = []
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
-# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract + QA
-# → ProcTree + QA → HuntQueries + QA → Sigma.
+# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract
+# → ProcTree → HuntQueries → Sigma.
 AGENTS_ORDER_UI = [
     "RankAgent",
     "RankAgentQA",
     "ExtractAgent",
     "CmdlineExtract",
-    "CmdLineQA",
     "ProcTreeExtract",
-    "ProcTreeQA",
     "HuntQueriesExtract",
-    "HuntQueriesQA",
     "RegistryExtract",
-    "RegistryQA",
     "ServicesExtract",
-    "ServicesQA",
     "ScheduledTasksExtract",
-    "ScheduledTasksQA",
     "SigmaAgent",
 ]
 
@@ -136,49 +130,27 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("ExtractAgent", ["Provider", "Model", "Temperature", "TopP"]),
     (
         "CmdlineExtract",
-        [
-            "Enabled",
-            "Provider",
-            "Model",
-            "Temperature",
-            "TopP",
-            "Prompt",
-            "QAEnabled",
-            "QA",
-            "QAPrompt",
-            "AttentionPreprocessor",
-        ],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "AttentionPreprocessor"],
     ),
     (
         "ProcTreeExtract",
-        [
-            "Enabled",
-            "Provider",
-            "Model",
-            "Temperature",
-            "TopP",
-            "Prompt",
-            "QAEnabled",
-            "QA",
-            "QAPrompt",
-            "AttentionPreprocessor",
-        ],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "AttentionPreprocessor"],
     ),
     (
         "HuntQueriesExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "RegistryExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "ServicesExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "ScheduledTasksExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "SigmaAgent",
@@ -270,16 +242,15 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "TopP": extract["TopP"],
     }
 
-    for base, qa_name in [
-        ("CmdlineExtract", "CmdLineQA"),
-        ("ProcTreeExtract", "ProcTreeQA"),
-        ("HuntQueriesExtract", "HuntQueriesQA"),
-        ("RegistryExtract", "RegistryQA"),
-        ("ServicesExtract", "ServicesQA"),
-        ("ScheduledTasksExtract", "ScheduledTasksQA"),
+    for base in [
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
     ]:
         cfg = _agent_cfg(agents, base)
-        qa_cfg = _agent_cfg(agents, qa_name)
         enabled = base not in disabled
         block_dict: dict[str, Any] = {
             "Enabled": enabled,
@@ -288,14 +259,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
             "Temperature": cfg["Temperature"],
             "TopP": cfg["TopP"],
             "Prompt": _prompt_cfg(prompts, base),
-            "QAEnabled": qa_enabled.get(base, False),
-            "QA": {
-                "Provider": qa_cfg["Provider"],
-                "Model": qa_cfg["Model"],
-                "Temperature": qa_cfg["Temperature"],
-                "TopP": qa_cfg["TopP"],
-            },
-            "QAPrompt": _prompt_cfg(prompts, qa_name),
         }
         if base == "CmdlineExtract":
             block_dict["AttentionPreprocessor"] = features.get("CmdlineAttentionPreprocessorEnabled", True)
@@ -407,9 +370,6 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": "", "instructions": ""},
-            "QAEnabled": False,
-            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
     (
@@ -421,9 +381,6 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": "", "instructions": ""},
-            "QAEnabled": False,
-            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
     (
@@ -435,9 +392,6 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": "", "instructions": ""},
-            "QAEnabled": False,
-            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
 ]
@@ -511,27 +465,23 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
 
     add_agent("ExtractAgent", extract, None)
 
-    for base, qa_name in [
-        ("CmdlineExtract", "CmdLineQA"),
-        ("ProcTreeExtract", "ProcTreeQA"),
-        ("HuntQueriesExtract", "HuntQueriesQA"),
-        ("RegistryExtract", "RegistryQA"),
-        ("ServicesExtract", "ServicesQA"),
-        ("ScheduledTasksExtract", "ScheduledTasksQA"),
+    for base in [
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
     ]:
         block = ui.get(base) or {}
         if not block:
             agents[base] = _default_agent(enabled=False)
-            agents[qa_name] = _default_agent(enabled=True)
             prompts[base] = {"prompt": "", "instructions": ""}
-            prompts[qa_name] = {"prompt": "", "instructions": ""}
-            qa_enabled[base] = False
             continue
         enabled = block.get("Enabled", True)
         if not enabled:
             disabled_agents.append(base)
-        add_agent(base, block, block.get("Prompt"), qa_name, block.get("QA"), block.get("QAPrompt"))
-        qa_enabled[base] = bool(block.get("QAEnabled", False))
+        add_agent(base, block, block.get("Prompt"))
 
     add_agent("SigmaAgent", sigma, sigma.get("Prompt") or {"prompt": "", "instructions": ""})
 

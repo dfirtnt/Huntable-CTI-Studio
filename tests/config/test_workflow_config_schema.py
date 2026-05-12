@@ -134,7 +134,6 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
                 "TopP": 0.9,
                 "Enabled": True,
             },
-            "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -143,7 +142,6 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
             "RankAgent": {"prompt": "", "instructions": ""},
             "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
-            "CmdLineQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {
             "ExtractAgentSettings": {"DisabledAgents": ["CmdlineExtract", "ProcTreeExtract"]},
@@ -177,7 +175,6 @@ def test_flatten_for_llm_service_keys():
                 "TopP": 0.9,
                 "Enabled": True,
             },
-            "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -186,7 +183,6 @@ def test_flatten_for_llm_service_keys():
             "RankAgent": {"prompt": "", "instructions": ""},
             "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
-            "CmdLineQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
     }
@@ -347,17 +343,6 @@ def test_missing_rankagentqa_prompt_raises():
         WorkflowConfigV2.model_validate(raw)
 
 
-def test_missing_cmdlineqa_prompt_raises():
-    """Missing prompt block for CmdLineQA raises ValidationError."""
-    agents = {
-        "CmdlineExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {"CmdlineExtract": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Missing prompt block for agent CmdLineQA"):
-        WorkflowConfigV2.model_validate(raw)
-
 
 def test_missing_required_qa_agent_raises():
     """Missing required QA agent for RankAgent raises ValidationError."""
@@ -393,16 +378,13 @@ def test_valid_config_passes():
         "ProcTreeExtract": agent_cfg,
         "HuntQueriesExtract": agent_cfg,
         "RankAgentQA": agent_cfg,
-        "CmdLineQA": agent_cfg,
-        "ProcTreeQA": agent_cfg,
-        "HuntQueriesQA": agent_cfg,
     }
     prompts = {name: {"prompt": "", "instructions": ""} for name in agents}
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Version == "2.0"
-    assert len(config.Agents) == 10
-    assert len(config.Prompts) == 10
+    assert len(config.Agents) == 7
+    assert len(config.Prompts) == 7
 
 
 def test_enabled_agent_missing_model_raises():

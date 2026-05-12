@@ -3273,14 +3273,7 @@
                             <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Reject
                         </button>
                         <div class="flex items-center gap-2">
-                            <select id="validateProviderSelect" class="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                                <option value="openai">OpenAI</option>
-                                <option value="anthropic">Anthropic</option>
-                                <option value="lmstudio">LMStudio</option>
-                            </select>
-                            <select id="validateModelSelect" class="px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white min-w-[150px]">
-                                <option value="gpt-4o-mini">gpt-4o-mini</option>
-                            </select>
+                            <span id="validateAgentLabel" class="text-xs font-mono text-gray-400 px-2 py-1.5 bg-gray-700/60 border border-gray-600 rounded-md whitespace-nowrap" title="Reads SigmaAgent provider and model from Workflow Config">Sigma Agent config</span>
                             <button onclick="validateRule()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-md" title="Validate using the Sigma agent from the active workflow config (same LLM and API keys as in Workflow).">
                                 <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/></svg> Validate
                             </button>
@@ -14192,10 +14185,9 @@ async function previewRule(ruleId) {
     renderRulePreview(rule, cachedObservablesForRulePreview);
 }
 
-async function seedValidateDropdownsFromWorkflowConfig() {
-    const validateProviderSelect = document.getElementById('validateProviderSelect');
-    const validateModelSelect = document.getElementById('validateModelSelect');
-    if (!validateProviderSelect || !validateModelSelect) return;
+async function seedValidateAgentLabel() {
+    const label = document.getElementById('validateAgentLabel');
+    if (!label) return;
     let agentModels = (typeof currentConfig !== 'undefined' && currentConfig?.agent_models) ? currentConfig.agent_models : null;
     if (!agentModels) {
         try {
@@ -14210,96 +14202,9 @@ async function seedValidateDropdownsFromWorkflowConfig() {
     }
     const provider = (agentModels['SigmaAgent_provider'] || getDefaultProvider()).toLowerCase();
     const model = (agentModels['SigmaAgent'] || '').trim();
-    if (provider && validateProviderSelect.value !== provider) {
-        validateProviderSelect.value = provider;
-        validateProviderSelect.dispatchEvent(new Event('change'));
-    }
-    setTimeout(() => {
-        if (model && validateModelSelect.querySelector(`option[value="${model}"]`)) {
-            validateModelSelect.value = model;
-        } else if (model) {
-            validateModelSelect.value = model;
-        }
-    }, 100);
-}
-
-function initializeValidateDropdowns() {
-    const validateProviderSelect = document.getElementById('validateProviderSelect');
-    const validateModelSelect = document.getElementById('validateModelSelect');
-    
-    if (!validateProviderSelect || !validateModelSelect) return;
-    
-    // Remove existing listeners to avoid duplicates
-    const newProviderSelect = validateProviderSelect.cloneNode(true);
-    validateProviderSelect.parentNode.replaceChild(newProviderSelect, validateProviderSelect);
-    
-    newProviderSelect.addEventListener('change', async function() {
-        const provider = this.value;
-        const modelSelect = document.getElementById('validateModelSelect');
-        if (!modelSelect) return;
-        
-        modelSelect.innerHTML = '<option value="">Loading...</option>';
-        
-        if (provider === 'lmstudio') {
-            try {
-                const response = await fetch('/api/lmstudio-models');
-                if (response.ok) {
-                    const data = await response.json();
-                    modelSelect.innerHTML = '';
-                    if (data.success && data.models && data.models.length > 0) {
-                        data.models.forEach(model => {
-                            const option = document.createElement('option');
-                            option.value = model;
-                            option.textContent = model;
-                            modelSelect.appendChild(option);
-                        });
-                        modelSelect.value = data.models[0];
-                    } else {
-                        const option = document.createElement('option');
-                        option.value = '';
-                        option.textContent = 'No models available';
-                        option.disabled = true;
-                        modelSelect.appendChild(option);
-                    }
-                }
-            } catch (error) {
-                console.error('Error loading LMStudio models:', error);
-            }
-        } else if (enrichProviderCatalog && enrichProviderCatalog[provider]) {
-            modelSelect.innerHTML = '';
-            enrichProviderCatalog[provider].forEach(model => {
-                const option = document.createElement('option');
-                option.value = model;
-                option.textContent = model;
-                modelSelect.appendChild(option);
-            });
-            if (enrichProviderCatalog[provider].length > 0) {
-                modelSelect.value = enrichProviderCatalog[provider][0];
-            }
-        } else {
-            // Default models for each provider
-            modelSelect.innerHTML = '';
-            const defaultModels = {
-                'openai': ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-                'anthropic': ['claude-sonnet-4-20250514', 'claude-3-5-sonnet-20241022', 'claude-3-opus-20240229']
-            };
-            
-            if (defaultModels[provider]) {
-                defaultModels[provider].forEach(model => {
-                    const option = document.createElement('option');
-                    option.value = model;
-                    option.textContent = model;
-                    modelSelect.appendChild(option);
-                });
-                modelSelect.value = defaultModels[provider][0];
-            }
-        }
-    });
-    
-    // Trigger initial population
-    if (newProviderSelect.value) {
-        newProviderSelect.dispatchEvent(new Event('change'));
-    }
+    const display = model ? `${provider} / ${model}` : provider;
+    label.textContent = display;
+    label.title = `SigmaAgent provider: ${provider}, model: ${model || '(default)'}`;
 }
 
 function filterObservablesForRule(rule, observablesData) {
@@ -14378,11 +14283,8 @@ function renderRulePreview(rule, observablesData) {
     const metadata = rule.rule_metadata || {};
     const similarityScores = rule.similarity_scores || [];
     
-    // Initialize validate dropdowns when rule preview is rendered; seed with workflow Sigma agent (display-only, Validate uses workflow LLM)
-    setTimeout(() => {
-        initializeValidateDropdowns();
-        setTimeout(() => seedValidateDropdownsFromWorkflowConfig(), 150);
-    }, 100);
+    // Populate the Sigma agent label from workflow config (Validate always uses the workflow Sigma agent LLM)
+    setTimeout(() => seedValidateAgentLabel(), 100);
     
     let similarRulesHtml = '';
     if (similarityScores.length > 0) {

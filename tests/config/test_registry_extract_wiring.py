@@ -48,22 +48,17 @@ _MINIMAL_AGENT_MODELS = {
     "HuntQueriesExtract_model": "gpt-4",
     "RegistryExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
-    "CmdLineQA": "gpt-4",
-    "ProcTreeQA": "gpt-4",
-    "HuntQueriesQA": "gpt-4",
-    "RegistryQA": "gpt-4",
 }
 
 _MINIMAL_AGENT_PROMPTS = {name: {"prompt": "", "instructions": ""} for name in ALL_AGENT_NAMES}
 
 
 def _make_v2_with_registry(**overrides):
-    """Build a minimal valid v2 config dict with RegistryExtract + RegistryQA."""
+    """Build a minimal valid v2 config dict with RegistryExtract."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "RegistryExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RegistryQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.1, "TopP": 0.9, "Enabled": True},
     }
     prompts = {k: {"prompt": "", "instructions": ""} for k in agents}
     raw = {
@@ -92,21 +87,23 @@ def _make_v2_with_registry(**overrides):
 
 
 class TestSchemaConstants:
-    """RegistryExtract/RegistryQA appear in all schema-level constant lists."""
+    """RegistryExtract appears in all schema-level constant lists."""
 
     def test_registry_in_agent_names_sub(self):
         assert "RegistryExtract" in AGENT_NAMES_SUB
 
+    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed")
     def test_registry_qa_in_agent_names_qa(self):
         assert "RegistryQA" in AGENT_NAMES_QA
 
     def test_registry_in_all_agent_names(self):
         assert "RegistryExtract" in ALL_AGENT_NAMES
-        assert "RegistryQA" in ALL_AGENT_NAMES
 
+    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; no BASE_AGENT_TO_QA mapping")
     def test_base_to_qa_mapping(self):
         assert BASE_AGENT_TO_QA["RegistryExtract"] == "RegistryQA"
 
+    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; no QA_AGENT_TO_BASE mapping")
     def test_qa_to_base_mapping(self):
         assert QA_AGENT_TO_BASE["RegistryQA"] == "RegistryExtract"
 
@@ -122,8 +119,8 @@ class TestSchemaValidation:
     def test_valid_v2_with_registry(self):
         config = WorkflowConfigV2.model_validate(_make_v2_with_registry())
         assert "RegistryExtract" in config.Agents
-        assert "RegistryQA" in config.Agents
 
+    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; orphan check no longer applies")
     def test_orphan_registry_qa_rejected(self):
         """RegistryQA without RegistryExtract is rejected."""
         raw = _make_v2_with_registry()
@@ -146,8 +143,6 @@ class TestSchemaValidation:
         assert flat["RegistryExtract_provider"] == "openai"
         assert flat["RegistryExtract_temperature"] == 0.0
         assert flat["RegistryExtract_top_p"] == 0.9
-        assert flat["RegistryQA"] == "gpt-4"
-        assert flat["RegistryQA_provider"] == "openai"
 
     def test_disabled_registry_in_extract_agent_settings(self):
         raw = _make_v2_with_registry()
@@ -168,12 +163,12 @@ class TestLoaderConstants:
     def test_in_extract_agents(self):
         assert "RegistryExtract" in EXTRACT_AGENTS
 
+    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed")
     def test_in_qa_agents(self):
         assert "RegistryQA" in QA_AGENTS
 
     def test_in_agents_order_ui(self):
         assert "RegistryExtract" in AGENTS_ORDER_UI
-        assert "RegistryQA" in AGENTS_ORDER_UI
 
 
 # ===========================================================================
@@ -204,6 +199,7 @@ class TestMigration:
         assert config.Agents["RegistryExtract"].Temperature == 0.2
         assert config.Agents["RegistryExtract"].TopP == 0.95
 
+    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; stripped on migration")
     def test_v1_registry_qa_migrates(self):
         raw = {
             "version": "1.0",
@@ -331,7 +327,6 @@ class TestUIOrderedRoundTrip:
         preset = self._make_ui_ordered_preset()
         config = load_workflow_config(preset)
         assert "RegistryExtract" in config.Agents
-        assert "RegistryQA" in config.Agents
 
     def test_registry_round_trip_through_export(self):
         from src.config.workflow_config_loader import v2_to_ui_ordered_export
@@ -354,7 +349,7 @@ class TestUIOrderedRoundTrip:
 class TestPromptFiles:
     """RegistryExtract and RegistryQA prompt files exist and are valid JSON configs."""
 
-    @pytest.mark.parametrize("prompt_name", ["RegistryExtract", "RegistryQA"])
+    @pytest.mark.parametrize("prompt_name", ["RegistryExtract"])
     def test_prompt_file_exists_and_is_valid_json(self, prompt_name):
         prompt_path = Path(__file__).resolve().parent.parent.parent / "src" / "prompts" / prompt_name
         assert prompt_path.exists(), f"Prompt file missing: {prompt_path}"
@@ -529,7 +524,6 @@ class TestDefaultAgentPrompts:
         from src.utils.default_agent_prompts import AGENT_PROMPT_FILES
 
         assert "RegistryExtract" in AGENT_PROMPT_FILES
-        assert "RegistryQA" in AGENT_PROMPT_FILES
 
 
 # ===========================================================================

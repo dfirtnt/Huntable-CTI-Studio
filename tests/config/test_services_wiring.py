@@ -49,23 +49,17 @@ _MINIMAL_AGENT_MODELS = {
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
-    "CmdLineQA": "gpt-4",
-    "ProcTreeQA": "gpt-4",
-    "HuntQueriesQA": "gpt-4",
-    "RegistryQA": "gpt-4",
-    "ServicesQA": "gpt-4",
 }
 
 _MINIMAL_AGENT_PROMPTS = {name: {"prompt": "", "instructions": ""} for name in ALL_AGENT_NAMES}
 
 
 def _make_v2_with_services(**overrides):
-    """Build a minimal valid v2 config dict with ServicesExtract + ServicesQA."""
+    """Build a minimal valid v2 config dict with ServicesExtract."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "ServicesExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "ServicesQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.1, "TopP": 0.9, "Enabled": True},
     }
     prompts = {k: {"prompt": "", "instructions": ""} for k in agents}
     raw = {
@@ -94,21 +88,23 @@ def _make_v2_with_services(**overrides):
 
 
 class TestSchemaConstants:
-    """ServicesExtract/ServicesQA appear in all schema-level constant lists."""
+    """ServicesExtract appears in all schema-level constant lists."""
 
     def test_services_in_agent_names_sub(self):
         assert "ServicesExtract" in AGENT_NAMES_SUB
 
+    @pytest.mark.skip(reason="ServicesQA extractor QA agent removed")
     def test_services_qa_in_agent_names_qa(self):
         assert "ServicesQA" in AGENT_NAMES_QA
 
     def test_services_in_all_agent_names(self):
         assert "ServicesExtract" in ALL_AGENT_NAMES
-        assert "ServicesQA" in ALL_AGENT_NAMES
 
+    @pytest.mark.skip(reason="ServicesQA extractor QA agent removed; no BASE_AGENT_TO_QA mapping")
     def test_base_to_qa_mapping(self):
         assert BASE_AGENT_TO_QA["ServicesExtract"] == "ServicesQA"
 
+    @pytest.mark.skip(reason="ServicesQA extractor QA agent removed; no QA_AGENT_TO_BASE mapping")
     def test_qa_to_base_mapping(self):
         assert QA_AGENT_TO_BASE["ServicesQA"] == "ServicesExtract"
 
@@ -124,8 +120,8 @@ class TestSchemaValidation:
     def test_valid_v2_with_services(self):
         config = WorkflowConfigV2.model_validate(_make_v2_with_services())
         assert "ServicesExtract" in config.Agents
-        assert "ServicesQA" in config.Agents
 
+    @pytest.mark.skip(reason="ServicesQA extractor QA agent removed; orphan check no longer applies")
     def test_orphan_services_qa_rejected(self):
         """ServicesQA without ServicesExtract is rejected."""
         raw = _make_v2_with_services()
@@ -148,8 +144,6 @@ class TestSchemaValidation:
         assert flat["ServicesExtract_provider"] == "openai"
         assert flat["ServicesExtract_temperature"] == 0.0
         assert flat["ServicesExtract_top_p"] == 0.9
-        assert flat["ServicesQA"] == "gpt-4"
-        assert flat["ServicesQA_provider"] == "openai"
 
     def test_disabled_services_in_extract_agent_settings(self):
         raw = _make_v2_with_services()
@@ -170,12 +164,12 @@ class TestLoaderConstants:
     def test_in_extract_agents(self):
         assert "ServicesExtract" in EXTRACT_AGENTS
 
+    @pytest.mark.skip(reason="ServicesQA extractor QA agent removed")
     def test_in_qa_agents(self):
         assert "ServicesQA" in QA_AGENTS
 
     def test_in_agents_order_ui(self):
         assert "ServicesExtract" in AGENTS_ORDER_UI
-        assert "ServicesQA" in AGENTS_ORDER_UI
 
 
 # ===========================================================================
@@ -206,6 +200,7 @@ class TestMigration:
         assert config.Agents["ServicesExtract"].Temperature == 0.2
         assert config.Agents["ServicesExtract"].TopP == 0.95
 
+    @pytest.mark.skip(reason="ServicesQA extractor QA agent removed; stripped on migration")
     def test_v1_services_qa_migrates(self):
         raw = {
             "version": "1.0",
@@ -331,7 +326,6 @@ class TestUIOrderedRoundTrip:
         preset = self._make_ui_ordered_preset()
         config = load_workflow_config(preset)
         assert "ServicesExtract" in config.Agents
-        assert "ServicesQA" in config.Agents
 
     def test_services_round_trip_through_export(self):
         from src.config.workflow_config_loader import v2_to_ui_ordered_export
@@ -409,7 +403,7 @@ class TestOldPresetBackwardCompat:
 class TestPromptFiles:
     """ServicesExtract and ServicesQA prompt files exist and are valid JSON configs."""
 
-    @pytest.mark.parametrize("prompt_name", ["ServicesExtract", "ServicesQA"])
+    @pytest.mark.parametrize("prompt_name", ["ServicesExtract"])
     def test_prompt_file_exists_and_is_valid_json(self, prompt_name):
         prompt_path = Path(__file__).resolve().parent.parent.parent / "src" / "prompts" / prompt_name
         assert prompt_path.exists(), f"Prompt file missing: {prompt_path}"
@@ -567,7 +561,6 @@ class TestDefaultAgentPrompts:
         from src.utils.default_agent_prompts import AGENT_PROMPT_FILES
 
         assert "ServicesExtract" in AGENT_PROMPT_FILES
-        assert "ServicesQA" in AGENT_PROMPT_FILES
 
 
 # ===========================================================================

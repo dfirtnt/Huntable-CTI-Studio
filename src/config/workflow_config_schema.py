@@ -119,12 +119,6 @@ AGENT_NAMES_SUB = [
 ]
 AGENT_NAMES_QA = [
     "RankAgentQA",
-    "CmdLineQA",
-    "ProcTreeQA",
-    "HuntQueriesQA",
-    "RegistryQA",
-    "ServicesQA",
-    "ScheduledTasksQA",
 ]
 AGENT_NAMES_SPECIAL: list[str] = []
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
@@ -146,23 +140,11 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "ServicesExtract": "Windows Services Extraction",
     "ScheduledTasksExtract": "Scheduled Tasks Extraction",
     "RankAgentQA": "Rank Agent QA",
-    "CmdLineQA": "CmdLine QA",
-    "ProcTreeQA": "ProcTree QA",
-    "HuntQueriesQA": "HuntQueries QA",
-    "RegistryQA": "Registry QA",
-    "ServicesQA": "Services QA",
-    "ScheduledTasksQA": "Scheduled Tasks QA",
 }
 
 # LLM agent symmetry: base agents that require a QA agent (explicit mapping matches codebase naming).
 BASE_AGENT_TO_QA: dict[str, str] = {
     "RankAgent": "RankAgentQA",
-    "CmdlineExtract": "CmdLineQA",
-    "ProcTreeExtract": "ProcTreeQA",
-    "HuntQueriesExtract": "HuntQueriesQA",
-    "RegistryExtract": "RegistryQA",
-    "ServicesExtract": "ServicesQA",
-    "ScheduledTasksExtract": "ScheduledTasksQA",
 }
 QA_AGENT_TO_BASE: dict[str, str] = {qa: base for base, qa in BASE_AGENT_TO_QA.items()}
 
@@ -257,12 +239,6 @@ class WorkflowConfigV2(BaseModel):
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
         qa_agents = {
             "RankAgentQA",
-            "CmdLineQA",
-            "ProcTreeQA",
-            "HuntQueriesQA",
-            "RegistryQA",
-            "ServicesQA",
-            "ScheduledTasksQA",
         }
         sub_agents = {
             "CmdlineExtract",

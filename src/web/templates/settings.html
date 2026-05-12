@@ -749,19 +749,7 @@
                       <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure the LLM provider and model used for AI-powered eval diagnostics (the "Diagnose" button on Agent Evals).</p>
                       <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">To edit the diagnosis prompt, see <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">src/services/eval_diagnosis_service.py</code> &mdash; <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">_DIAGNOSIS_SYSTEM_PROMPT</code>.</p>
                       {{ provider_model_grid('diagnosis', 'diagnosis_provider', 'diagnosis_model',
-                           validate=false, use_select=true,
-                           openai_models=[
-                             {'value': 'gpt-4o', 'label': 'gpt-4o'},
-                             {'value': 'gpt-4o-mini', 'label': 'gpt-4o-mini'},
-                             {'value': 'gpt-4-turbo', 'label': 'gpt-4-turbo'},
-                             {'value': 'gpt-4', 'label': 'gpt-4'}
-                           ],
-                           anthropic_models=[
-                             {'value': 'claude-opus-4-6', 'label': 'claude-opus-4-6'},
-                             {'value': 'claude-sonnet-4-6', 'label': 'claude-sonnet-4-6'},
-                             {'value': 'claude-haiku-4-5-20251001', 'label': 'claude-haiku-4-5-20251001'},
-                             {'value': 'claude-sonnet-4-5', 'label': 'claude-sonnet-4-5'}
-                           ]) }}
+                           validate=false, use_select=true) }}
                   </div>
               </div>
         </div>
@@ -1049,7 +1037,8 @@
         const diagModel = parseWorkflowStringSetting(workflowAppSettings, 'DIAGNOSIS_MODEL', 'gpt-4o');
         document.getElementById('diagnosis-provider').value = diagProvider;
         onAgentProviderChange('diagnosis');
-        // Set model value in the active input
+        // Populate cloud model selects from catalog, then restore saved value
+        await populateDiagnosisCloudModelSelects(diagModel);
         if (diagProvider === 'lmstudio') {
             await populateDiagnosisLmstudioModels(diagModel);
         } else if (diagProvider === 'openai') {
@@ -1106,6 +1095,34 @@
         }
     }
     window.onAgentProviderChange = onAgentProviderChange;
+
+    async function populateDiagnosisCloudModelSelects(savedModel) {
+        try {
+            const resp = await fetch('/api/provider-model-catalog');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const catalog = data.catalog || {};
+            ['openai', 'anthropic'].forEach(function(provider) {
+                const models = catalog[provider] || [];
+                const sel = document.querySelector(
+                    '[data-catalog-provider="' + provider + '"][id^="diagnosis-model-"]'
+                );
+                if (!sel || models.length === 0) return;
+                const current = sel.value;
+                sel.textContent = '';
+                models.forEach(function(m) {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    sel.appendChild(opt);
+                });
+                if (savedModel && sel.id.endsWith('-' + provider)) sel.value = savedModel;
+                else if (current) sel.value = current;
+            });
+        } catch (e) {
+            console.warn('Could not load provider catalog for diagnosis selects', e);
+        }
+    }
 
     async function populateDiagnosisLmstudioModels(selectedModel) {
         const select = document.getElementById('diagnosis-model');

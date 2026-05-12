@@ -33,15 +33,9 @@ _AGENT_FLAT_PREFIXES = [
     ("ProcTreeExtract", "ProcTreeExtract", "ProcTreeExtract_model"),
     ("HuntQueriesExtract", "HuntQueriesExtract", "HuntQueriesExtract_model"),
     ("RankAgentQA", "RankAgentQA", "RankAgentQA"),
-    ("CmdLineQA", "CmdLineQA", "CmdLineQA"),
-    ("ProcTreeQA", "ProcTreeQA", "ProcTreeQA"),
-    ("HuntQueriesQA", "HuntQueriesQA", "HuntQueriesQA"),
     ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
-    ("RegistryQA", "RegistryQA", "RegistryQA"),
     ("ServicesExtract", "ServicesExtract", "ServicesExtract_model"),
-    ("ServicesQA", "ServicesQA", "ServicesQA"),
     ("ScheduledTasksExtract", "ScheduledTasksExtract", "ScheduledTasksExtract_model"),
-    ("ScheduledTasksQA", "ScheduledTasksQA", "ScheduledTasksQA"),
 ]
 
 
@@ -84,11 +78,10 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     out["Features"] = features
 
     agents = dict(out.get("Agents") or {})
-    # Normalize legacy CmdlineQA -> CmdLineQA
-    if "CmdlineQA" in agents and "CmdLineQA" not in agents:
-        agents["CmdLineQA"] = agents.pop("CmdlineQA")
-    elif "CmdlineQA" in agents:
-        agents.pop("CmdlineQA")
+    # Remove deprecated extractor QA agents
+    _EXTRACTOR_QA_AGENTS = {"CmdLineQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"}
+    for _qa in _EXTRACTOR_QA_AGENTS:
+        agents.pop(_qa, None)
     if "RankAgent" in agents and rank_en is not None:
         agents["RankAgent"] = dict(agents["RankAgent"])
         agents["RankAgent"]["Enabled"] = _bool_val(rank_en, True)
@@ -100,24 +93,18 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
             cfg["Enabled"] = False
     out["Agents"] = agents
 
-    # QA.Enabled: remove stale OSDetectionAgent/OSDetectionFallback key, CmdlineQA -> CmdLineQA
+    # QA.Enabled: remove stale keys (OSDetection removed; extractor QA agents deprecated)
+    _STALE_QA_KEYS = {"OSDetectionAgent", "OSDetectionFallback", "CmdlineExtract", "ProcTreeExtract",
+                      "HuntQueriesExtract", "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"}
     qa = dict(out.get("QA") or {})
     enabled = dict(qa.get("Enabled") or {})
-    enabled.pop("OSDetectionAgent", None)
-    enabled.pop("OSDetectionFallback", None)
-    if "CmdlineQA" in enabled and "CmdLineQA" not in enabled:
-        enabled["CmdLineQA"] = enabled.pop("CmdlineQA")
-    elif "CmdlineQA" in enabled:
-        enabled.pop("CmdlineQA")
+    for _k in _STALE_QA_KEYS:
+        enabled.pop(_k, None)
     qa["Enabled"] = enabled
     out["QA"] = qa
 
-    # Prompts: normalize legacy CmdlineQA -> CmdLineQA, then drop non-canonical keys
+    # Prompts: drop non-canonical keys (extractor QA prompts are no longer canonical)
     prompts = dict(out.get("Prompts") or {})
-    if "CmdlineQA" in prompts and "CmdLineQA" not in prompts:
-        prompts["CmdLineQA"] = prompts.pop("CmdlineQA")
-    elif "CmdlineQA" in prompts:
-        prompts.pop("CmdlineQA")
     prompts_clean = {
         k: {
             "prompt": (v.get("prompt", "") if isinstance(v, dict) else ""),
@@ -221,9 +208,11 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     qa_max = raw.get("qa_max_retries")
     if qa_max is not None:
         deprecated_used.append("qa_max_retries")
+    _STALE_QA_ENABLED_KEYS = {"OSDetectionAgent", "OSDetectionFallback", "CmdlineExtract", "ProcTreeExtract",
+                               "HuntQueriesExtract", "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"}
     qa_enabled_normalized: dict[str, bool] = {}
     for k, v in qa_enabled.items():
-        if k in ("OSDetectionAgent", "OSDetectionFallback"):
+        if k in _STALE_QA_ENABLED_KEYS:
             continue
         qa_enabled_normalized[k] = _bool_val(v)
     QA = {

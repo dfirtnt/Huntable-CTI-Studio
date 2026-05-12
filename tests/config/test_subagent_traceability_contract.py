@@ -71,16 +71,10 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
 ]
 
 # QA prompts that must stay synced between src/prompts/<QAName> and the embedded
-# copies in config/presets/AgentConfigs/quickstart/*.json. All six are checked --
-# leaving any out lets that prompt drift silently between source and presets.
-MIGRATED_QA_AGENTS: list[str] = [
-    "CmdLineQA",
-    "HuntQueriesQA",
-    "ProcTreeQA",
-    "RegistryQA",
-    "ServicesQA",
-    "ScheduledTasksQA",
-]
+# copies in config/presets/AgentConfigs/quickstart/*.json.
+# Extractor QA agents (CmdLineQA, HuntQueriesQA, ProcTreeQA, RegistryQA,
+# ServicesQA, ScheduledTasksQA) have been removed. List is now empty.
+MIGRATED_QA_AGENTS: list[str] = []
 
 REQUIRED_TRACEABILITY_FIELDS = (
     "source_evidence",
@@ -200,6 +194,7 @@ class TestMigratedExtractPromptEnvelope:
 # ===========================================================================
 
 
+@pytest.mark.skip(reason="Extractor QA agents (CmdLineQA etc.) removed; MIGRATED_QA_AGENTS is empty")
 class TestQAPromptFields:
     """Migrated QA prompts validate against the new traceability field names."""
 
@@ -269,17 +264,11 @@ class TestPresetsSyncedWithPrompts:
                 f"Re-run preset regeneration."
             )
 
+    @pytest.mark.skip(reason="Extractor QA agents removed; no QA prompt files to sync")
     @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
     def test_preset_qa_prompt_synced(self, qa_name, preset_paths):
         """QA prompts embed as <BaseAgent>.QAPrompt.prompt."""
-        base_for_qa = {
-            "CmdLineQA": "CmdlineExtract",
-            "HuntQueriesQA": "HuntQueriesExtract",
-            "ProcTreeQA": "ProcTreeExtract",
-            "RegistryQA": "RegistryExtract",
-            "ServicesQA": "ServicesExtract",
-            "ScheduledTasksQA": "ScheduledTasksExtract",
-        }
+        base_for_qa: dict[str, str] = {}
         base_agent = base_for_qa[qa_name]
         source = _load_prompt(qa_name)
         for preset_path in preset_paths:

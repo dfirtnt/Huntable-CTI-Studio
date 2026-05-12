@@ -34,18 +34,12 @@ FIDELITY_OS_SELECTED = ["Linux", "Darwin"]
 FIDELITY_RANK_THRESHOLD = 7.0
 FIDELITY_RANK_QA_ENABLED = True
 FIDELITY_CMDLINE_ENABLED = True
-FIDELITY_CMDLINE_QA_ENABLED = True
 FIDELITY_CMDLINE_ATTENTION = False
 FIDELITY_PROCTREE_ENABLED = True
-FIDELITY_PROCTREE_QA_ENABLED = True
 FIDELITY_HUNTQUERIES_ENABLED = True
-FIDELITY_HUNTQUERIES_QA_ENABLED = True
 FIDELITY_REGISTRY_ENABLED = True
-FIDELITY_REGISTRY_QA_ENABLED = True
 FIDELITY_SERVICES_ENABLED = True
-FIDELITY_SERVICES_QA_ENABLED = True
 FIDELITY_SCHEDULEDTASKS_ENABLED = True
-FIDELITY_SCHEDULEDTASKS_QA_ENABLED = True
 FIDELITY_SIGMA_THRESHOLD = 0.42
 FIDELITY_SIGMA_FULL_ARTICLE = True
 FIDELITY_DISABLED_AGENTS: list[str] = []  # all enabled
@@ -92,9 +86,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "TopP": 0.9,
             "AttentionPreprocessor": FIDELITY_CMDLINE_ATTENTION,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Cmdline", "instructions": ""},
-            "QAEnabled": FIDELITY_CMDLINE_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " CmdLineQA", "instructions": ""},
         },
         "ProcTreeExtract": {
             "Enabled": FIDELITY_PROCTREE_ENABLED,
@@ -103,9 +94,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ProcTree", "instructions": ""},
-            "QAEnabled": FIDELITY_PROCTREE_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ProcTreeQA", "instructions": ""},
         },
         "HuntQueriesExtract": {
             "Enabled": FIDELITY_HUNTQUERIES_ENABLED,
@@ -114,9 +102,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " HuntQueries", "instructions": ""},
-            "QAEnabled": FIDELITY_HUNTQUERIES_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " HuntQueriesQA", "instructions": ""},
         },
         "RegistryExtract": {
             "Enabled": FIDELITY_REGISTRY_ENABLED,
@@ -125,9 +110,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Registry", "instructions": ""},
-            "QAEnabled": FIDELITY_REGISTRY_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " RegistryQA", "instructions": ""},
         },
         "ServicesExtract": {
             "Enabled": FIDELITY_SERVICES_ENABLED,
@@ -136,9 +118,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Services", "instructions": ""},
-            "QAEnabled": FIDELITY_SERVICES_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ServicesQA", "instructions": ""},
         },
         "ScheduledTasksExtract": {
             "Enabled": FIDELITY_SCHEDULEDTASKS_ENABLED,
@@ -147,9 +126,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasks", "instructions": ""},
-            "QAEnabled": FIDELITY_SCHEDULEDTASKS_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasksQA", "instructions": ""},
         },
         "SigmaAgent": {
             "Provider": "anthropic",
@@ -203,10 +179,6 @@ def test_import_enforces_all_settings():
     # QA
     assert config.QA.MaxRetries == FIDELITY_QA_RETRIES
     assert config.QA.Enabled.get("RankAgent") is FIDELITY_RANK_QA_ENABLED
-    assert config.QA.Enabled.get("CmdlineExtract") is FIDELITY_CMDLINE_QA_ENABLED
-    assert config.QA.Enabled.get("ProcTreeExtract") is FIDELITY_PROCTREE_QA_ENABLED
-    assert config.QA.Enabled.get("HuntQueriesExtract") is FIDELITY_HUNTQUERIES_QA_ENABLED
-    assert config.QA.Enabled.get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
 
     # Execution
     assert config.Execution.OsDetectionSelectedOs == FIDELITY_OS_SELECTED
@@ -245,10 +217,6 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     assert legacy["similarity_threshold"] == FIDELITY_SIGMA_THRESHOLD
     assert legacy["qa_max_retries"] == FIDELITY_QA_RETRIES
     assert legacy["qa_enabled"].get("RankAgent") is FIDELITY_RANK_QA_ENABLED
-    assert legacy["qa_enabled"].get("CmdlineExtract") is FIDELITY_CMDLINE_QA_ENABLED
-    assert legacy["qa_enabled"].get("ProcTreeExtract") is FIDELITY_PROCTREE_QA_ENABLED
-    assert legacy["qa_enabled"].get("HuntQueriesExtract") is FIDELITY_HUNTQUERIES_QA_ENABLED
-    assert legacy["qa_enabled"].get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
     assert legacy["sigma_fallback_enabled"] is FIDELITY_SIGMA_FULL_ARTICLE
     assert legacy["cmdline_attention_preprocessor_enabled"] is FIDELITY_CMDLINE_ATTENTION
     assert legacy["osdetection_fallback_enabled"] is False
@@ -295,17 +263,13 @@ def test_export_contains_all_settings():
 
     cmd = exported["CmdlineExtract"]
     assert cmd["Enabled"] is FIDELITY_CMDLINE_ENABLED
-    assert cmd["QAEnabled"] is FIDELITY_CMDLINE_QA_ENABLED
     assert cmd["AttentionPreprocessor"] is FIDELITY_CMDLINE_ATTENTION
     assert FIDELITY_PROMPT_SENTINEL in cmd["Prompt"].get("prompt", "")
 
     assert exported["ProcTreeExtract"]["Enabled"] is FIDELITY_PROCTREE_ENABLED
-    assert exported["ProcTreeExtract"]["QAEnabled"] is FIDELITY_PROCTREE_QA_ENABLED
     assert exported["HuntQueriesExtract"]["Enabled"] is FIDELITY_HUNTQUERIES_ENABLED
-    assert exported["HuntQueriesExtract"]["QAEnabled"] is FIDELITY_HUNTQUERIES_QA_ENABLED
 
     assert exported["RegistryExtract"]["Enabled"] is FIDELITY_REGISTRY_ENABLED
-    assert exported["RegistryExtract"]["QAEnabled"] is FIDELITY_REGISTRY_QA_ENABLED
     assert FIDELITY_PROMPT_SENTINEL in exported["RegistryExtract"]["Prompt"].get("prompt", "")
 
     sigma = exported["SigmaAgent"]

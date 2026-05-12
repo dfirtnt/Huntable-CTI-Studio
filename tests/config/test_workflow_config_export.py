@@ -15,17 +15,11 @@ _MINIMAL_AGENT_MODELS = {
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
-    "CmdLineQA": "gpt-4",
-    "ProcTreeQA": "gpt-4",
-    "HuntQueriesQA": "gpt-4",
-    "RegistryQA": "gpt-4",
-    "ServicesQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
     CORE_AGENTS,
     EXTRACT_AGENTS,
-    QA_AGENTS,
     UI_ORDERED_TOP_LEVEL_ORDER,
     UTILITY_AGENTS,
     export_preset_as_canonical_v2,
@@ -36,7 +30,7 @@ from src.config.workflow_config_loader import (
 
 # Minimal agent_prompts so migrated config satisfies prompt symmetry (every agent with Model has a prompt block).
 _MINIMAL_AGENT_PROMPTS = {
-    name: {"prompt": "", "instructions": ""} for name in (CORE_AGENTS + EXTRACT_AGENTS + QA_AGENTS + UTILITY_AGENTS)
+    name: {"prompt": "", "instructions": ""} for name in (CORE_AGENTS + EXTRACT_AGENTS + UTILITY_AGENTS)
 }
 
 # Full legacy v1 preset (all required keys) so strict import validation passes.
@@ -281,9 +275,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
             "AttentionPreprocessor": True,
         },
         "ProcTreeExtract": {
@@ -293,9 +284,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "HuntQueriesExtract": {
             "Enabled": True,
@@ -304,9 +292,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "RegistryExtract": {
             "Enabled": True,
@@ -315,9 +300,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ServicesExtract": {
             "Enabled": True,
@@ -326,9 +308,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ScheduledTasksExtract": {
             "Enabled": True,
@@ -337,9 +316,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "SigmaAgent": {
             "Provider": "openai",
@@ -467,9 +443,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
             "AttentionPreprocessor": True,
         },
         "ProcTreeExtract": {
@@ -479,9 +452,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "HuntQueriesExtract": {
             "Enabled": True,
@@ -490,9 +460,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "RegistryExtract": {
             "Enabled": True,
@@ -501,9 +468,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ServicesExtract": {
             "Enabled": True,
@@ -512,9 +476,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ScheduledTasksExtract": {
             "Enabled": True,
@@ -523,9 +484,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "SigmaAgent": {
             "Enabled": True,

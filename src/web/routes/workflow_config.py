@@ -511,10 +511,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
-                    "CmdLineQA",
-                    "ProcTreeQA",
-                    "HuntQueriesQA",
-                    "RegistryQA",
                 ]
                 for agent_name, prompt_data in final_agent_prompts.items():
                     if agent_name in extraction_agents and isinstance(prompt_data, dict):
@@ -2306,7 +2302,6 @@ def validate_workflow_config():
         from src.services.llm_service import (
             PromptConfigValidationError,
             _validate_extraction_prompt_config,
-            _validate_qa_prompt_config,
         )
 
         _EXTRACTION_AGENTS = {
@@ -2317,10 +2312,6 @@ def validate_workflow_config():
             "ServicesExtract",
             "ScheduledTasksExtract",
         }
-        from src.config.workflow_config_loader import QA_AGENTS
-
-        _QA_AGENTS = set(QA_AGENTS)
-
         agent_prompts = current_config.agent_prompts or {}
         for agent_name, prompt_data in agent_prompts.items():
             if agent_name == "ExtractAgentSettings":
@@ -2340,12 +2331,6 @@ def validate_workflow_config():
             if agent_name in _EXTRACTION_AGENTS:
                 try:
                     _validate_extraction_prompt_config(agent_name, parsed)
-                except PromptConfigValidationError as e:
-                    issues.append({"level": "error", "msg": str(e)})
-
-            if agent_name in _QA_AGENTS:
-                try:
-                    _validate_qa_prompt_config(agent_name, parsed)
                 except PromptConfigValidationError as e:
                     issues.append({"level": "error", "msg": str(e)})
 

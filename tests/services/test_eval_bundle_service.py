@@ -461,7 +461,7 @@ class TestEvalBundleServiceHelpers:
         qa = service._extract_qa_results(
             error_log={
                 "qa_results": {
-                    "CmdLineQA": {
+                    "RankAgentQA": {
                         "verdict": "pass",
                         "summary": "All good",
                         "issues": [],
@@ -469,7 +469,7 @@ class TestEvalBundleServiceHelpers:
                     }
                 }
             },
-            agent_name="CmdlineExtract",
+            agent_name="rank_article",
             warnings=warnings,
         )
         assert qa["verdict"] == "pass"

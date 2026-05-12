@@ -82,6 +82,7 @@ def _is_ascii_only(text: str) -> bool:
 # ===========================================================================
 
 
+@pytest.mark.skip(reason="QAAgentCMD prompt file removed in extractor QA deprecation")
 class TestQAAgentCMDSeed:
     """Lock in the QAAgentCMD seed (loaded as QAAgent) structural requirements."""
 
@@ -278,6 +279,7 @@ class TestQuickstartPresetCompliance:
 # ===========================================================================
 
 
+@pytest.mark.skip(reason="Extractor QA agents deprecated; QAPrompt fields no longer required in presets")
 class TestQwen3QAPromptCompliance:
     """Qwen3 preset QA prompts that were filled this session must have valid evaluation_criteria."""
 
