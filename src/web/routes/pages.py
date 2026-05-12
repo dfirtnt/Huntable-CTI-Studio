@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
 from src.database.async_manager import async_db_manager
+from src.services.provider_model_catalog import load_catalog
 from src.utils.keyword_resolution import build_keyword_resolution_context
 from src.utils.search_parser import parse_boolean_search
 from src.web.dependencies import ENVIRONMENT, logger, templates
@@ -176,7 +177,16 @@ async def agent_evals2_page(request: Request):
 async def settings_page(request: Request):
     """Settings page."""
     try:
-        return templates.TemplateResponse("settings.html", {"request": request})
+        catalog = load_catalog()
+        to_opts = lambda ids: [{"value": m, "label": m} for m in ids]
+        return templates.TemplateResponse(
+            "settings.html",
+            {
+                "request": request,
+                "diagnosis_openai_models": to_opts(catalog.get("openai", [])),
+                "diagnosis_anthropic_models": to_opts(catalog.get("anthropic", [])),
+            },
+        )
     except Exception as exc:
         logger.error("Settings page error: %s", exc)
         return templates.TemplateResponse(

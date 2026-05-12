@@ -12592,7 +12592,8 @@ async function viewExecution(executionId) {
                         { key: 'process_lineage', name: 'ProcTreeExtract', qaName: 'ProcTreeQA', display: 'Process Lineage Extraction', icon: '🌳', order: 2 },
                         { key: 'hunt_queries', name: 'HuntQueriesExtract', qaName: 'HuntQueriesQA', display: 'Hunt Queries Extraction', icon: '🔍', order: 3 },
                         { key: 'registry_artifacts', name: 'RegistryExtract', qaName: 'RegistryQA', display: 'Registry Artifacts Extraction', icon: '🗝️', order: 4 },
-                        { key: 'windows_services', name: 'ServicesExtract', qaName: 'ServicesQA', display: 'Windows Services Extraction', icon: '⚙️', order: 5 }
+                        { key: 'windows_services', name: 'ServicesExtract', qaName: 'ServicesQA', display: 'Windows Services Extraction', icon: '⚙️', order: 5 },
+                        { key: 'scheduled_tasks', name: 'ScheduledTasksExtract', qaName: 'ScheduledTasksQA', display: 'Scheduled Tasks Extraction', icon: '\u{1F4C5}', order: 6 }
                     ];
 
                     const conversationLog = exec.error_log?.extract_agent?.conversation_log || [];
