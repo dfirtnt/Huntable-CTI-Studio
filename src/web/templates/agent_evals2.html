@@ -506,7 +506,7 @@
                                 <li>Click any completed row to see missed and extra item lists.</li>
                                 <li>Only the most recent completed run per article is shown.</li>
                                 <li>Matching normalizes to lowercase, defangs <code>[.]</code>&rarr;<code>.</code>, collapses whitespace.</li>
-                                <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> annotation yet.</li>
+                                <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> ground truth established yet.</li>
                             </ul>
                         </div>
                     </div>
@@ -1192,7 +1192,7 @@ function renderItemLevelTable(rows) {
         if (r.context_length_exceeded) addChip('Context window exceeded', 'ctx↗', 'background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);');
         if (r.infra_not_ready) addChip('LMStudio not ready', 'no mdl', 'background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);');
 
-        // count-only badge for unannotated articles
+        // count-only badge for articles without ground truth
         if (isCompleted && !hasItemScoring && !r.quota_exceeded && !r.context_length_exceeded && !r.infra_not_ready) {
             const ctag = document.createElement('span');
             ctag.className = 'status-badge status-dim';
@@ -1605,7 +1605,7 @@ async function loadTrendData(model) {
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
         const aggs = Array.isArray(data.aggregates) ? data.aggregates : [];
-        // Keep only versions that have item-level scoring (at least one annotated article).
+        // Keep only versions that have item-level scoring (at least one article with ground truth).
         const scored = aggs.filter(a =>
             a.mean_precision != null && a.mean_recall != null && a.mean_f1 != null,
         );
@@ -1714,7 +1714,7 @@ function renderTrendChart(model, aggregates) {
                             const agg = aggregates[idx];
                             if (!agg) return '';
                             return [
-                                `Annotated articles: ${agg.scored_articles}`,
+                                `Ground-truth articles: ${agg.scored_articles}`,
                                 `Total articles: ${agg.total_articles}`,
                             ];
                         },
