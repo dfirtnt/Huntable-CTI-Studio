@@ -1,22 +1,24 @@
 # QA Agent Contract
 
-Version: 1.0
-Last Updated: 2026-04-18
-Applies To: All QA variants (RankAgentQA, CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA, generic QAAgent)
+Version: 1.1
+Last Updated: 2026-05-12
+Applies To: RankAgentQA only
+
+> **Note (2026-05-12):** Per-extractor QA agents (CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA) were removed from the pipeline. Only `RankAgentQA` remains active. The contract structure below applies exclusively to RankAgentQA.
 
 ---
 
 ## Purpose
 
-This document defines the mandatory structure, configuration, and runtime behavior for all QA (Quality Assurance) agents in the Huntable CTI pipeline.
+This document defines the mandatory structure, configuration, and runtime behavior for the QA agent in the Huntable CTI pipeline.
 
-QA agents validate the outputs of base agents (Rank, Extract sub-agents) for compliance, factuality, and completeness. Every QA prompt and configuration MUST comply with this standard.
+RankAgentQA validates RankAgent scoring outputs for compliance, factuality, and completeness. Its prompt and configuration MUST comply with this standard.
 
 ---
 
 ## Code-level requirements
 
-The Huntable pipeline code (`qa_agent_service.py`) enforces specific prompt structure and configuration at runtime. Prompts that don't meet these requirements will either hard-fail or produce schema conflicts. All QA prompts MUST comply.
+The Huntable pipeline (`src/services/llm_service.py`, `QAAgentService`) enforces specific prompt structure and configuration at runtime. Prompts that don't meet these requirements will either hard-fail or produce schema conflicts.
 
 ### 1. Prompt structure keys are mandatory
 
@@ -42,10 +44,8 @@ QA prompts are stored under `agent_prompts` in the workflow config with key name
   - Fallback prompt when no agent-specific QA prompt exists
   - Must be a JSON string (can be nested JSON-in-JSON)
 
-- **Agent-specific QA prompts**: stored as `agent_prompts["{AgentName}QA"]`
-  - Example: `agent_prompts["RankAgentQA"]` for Rank Agent QA
-  - Example: `agent_prompts["CmdLineQA"]` for CmdLine Extract QA
-  - Not currently implemented; reserved for future per-agent customization
+- **RankAgentQA prompt**: stored as `agent_prompts["RankAgentQA"]`
+  - The only active agent-specific QA prompt
 
 ### 3. Evaluation output format is mandatory
 
@@ -87,13 +87,7 @@ QA behavior is controlled by the `QA` configuration object:
 {
   "QA": {
     "Enabled": {
-      "RankAgent": true,
-      "CmdlineExtract": false,
-      "ProcTreeExtract": false,
-      "HuntQueriesExtract": false,
-      "RegistryExtract": false,
-      "ServicesExtract": false,
-      "ScheduledTasksExtract": false
+      "RankAgent": true
     },
     "MaxRetries": 1
   }
@@ -102,10 +96,10 @@ QA behavior is controlled by the `QA` configuration object:
 
 **`QA.Enabled` (dict[str, bool])**
 
-- Keys must match base agent names exactly (e.g., "RankAgent", "CmdlineExtract")
+- Only `"RankAgent"` is a valid key. Extractor sub-agents no longer support QA.
 - True = run QA validation + retry loop on failure
-- False = skip QA for this agent
-- If a base agent is missing from this dict, defaults to False (QA disabled)
+- False = skip QA
+- If missing from the dict, defaults to False (QA disabled)
 
 **`QA.MaxRetries` (int, default 1)**
 
@@ -113,27 +107,21 @@ QA behavior is controlled by the `QA` configuration object:
 - On final failure: fall back to last valid output or terminate with error
 - Applies per-agent based on agent-specific QA enablement
 
-### 5. Per-agent LLM configuration (optional override)
-
-Each QA agent can override its provider, model, temperature, and top_p:
+### 5. LLM configuration (optional override for RankAgentQA)
 
 Configuration keys in `agent_models`:
 
-- **Provider override**: `{AgentName}QA_provider` (e.g., `RankAgentQA_provider`)
-  - Default: ExtractAgent provider (from `ExtractAgent_provider`)
-  - Fallback: llm_service.provider_extract
+- **Provider override**: `RankAgentQA_provider`
+  - Default: falls back to `RankAgent_provider`
 
-- **Model override**: `{AgentName}QA` (e.g., `RankAgentQA`)
-  - Default: ExtractAgent model (from llm_service.model_extract)
-  - Special case: RankAgent QA can use `RankAgent_provider` if `RankAgentQA_provider` is absent
+- **Model override**: `RankAgentQA`
+  - Default: falls back to RankAgent model
 
-- **Temperature override**: `{AgentName}QA_temperature` (e.g., `RankAgentQA_temperature`)
-  - Default: 0.1 (low temperature for deterministic evaluation)
-  - Recommended: 0.0 - 0.3 (QA should be conservative)
+- **Temperature override**: `RankAgentQA_temperature`
+  - Default: 0.1; recommended 0.0–0.3 (QA should be conservative)
 
-- **TopP override**: `{AgentName}QA_top_p` (e.g., `RankAgentQA_top_p`)
+- **TopP override**: `RankAgentQA_top_p`
   - Default: 0.9
-  - Recommended: 0.9 - 1.0
 
 ---
 
@@ -320,7 +308,7 @@ This section maps the prompt standard to the Huntable pipeline's prompt config k
 ```json
 {
   "agent_prompts": {
-    "QAAgent": {
+    "RankAgentQA": {
       "role": "You are the Quality Assurance validator for the Rank Agent. You verify that extracted relevance scores are justified and compliant with the scoring rubric.",
       "objective": "Validate that Rank Agent outputs follow the 1-10 scoring scale, are grounded in article content, and include clear reasoning.",
       "evaluation_criteria": [
@@ -346,8 +334,8 @@ This section maps the prompt standard to the Huntable pipeline's prompt config k
 
 ### QA Evaluation Loop
 
-1. Base agent (e.g., RankAgent) produces output
-2. QA service (`qa_agent_service.py`) calls QAAgent with:
+1. RankAgent produces a scoring output
+2. `QAAgentService` calls RankAgentQA with:
    - Article content (truncated to 10k chars)
    - Original agent prompt (truncated to 5k chars)
    - Agent output (JSON stringified)
@@ -379,7 +367,7 @@ QA agents are verified via:
 - Integration tests: end-to-end evaluation loop with mock articles and agent outputs
 - Manual tests: test each QA agent with a real article and known base agent output
 
-Test location: `tests/services/test_qa_agent_service.py`
+Test location: `tests/services/test_qa_coverage_gaps.py`, `tests/config/test_extractor_qa_removal.py`
 
 ---
 
@@ -391,11 +379,11 @@ A: Yes. Override the model in agent_models via `{AgentName}QA` key. Provider can
 **Q: What if the evaluation_criteria list is empty?**
 A: The user message will show "Evaluation Criteria: " with no bullet points. This is allowed but not recommended; the model will default to common sense evaluation.
 
-**Q: Can I disable QA for a specific agent?**
-A: Yes. Set `QA.Enabled["{AgentName}"] = false` to skip QA and bypass retries.
+**Q: Can I disable QA for RankAgent?**
+A: Yes. Set `QA.Enabled["RankAgent"] = false` to skip QA and bypass retries.
 
-**Q: What if a base agent isn't in QA.Enabled?**
-A: Default is false; QA is skipped for that agent.
+**Q: Can I enable QA for extraction sub-agents?**
+A: No. Per-extractor QA was removed. Only RankAgent supports QA.
 
 **Q: What happens if the QA model's verdict is malformed JSON?**
 A: The pipeline will attempt to parse it. If parsing fails, the evaluation is treated as critical_failure.
@@ -406,4 +394,4 @@ A: The pipeline will attempt to parse it. If parsing fails, the evaluation is tr
 
 QA agents are the final safeguard before outputs enter downstream systems. Invest time in clear, specific evaluation criteria and evidence-based reasoning. A well-designed QA prompt prevents hallucinations and schema violations from propagating through the pipeline.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-12_

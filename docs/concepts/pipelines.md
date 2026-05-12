@@ -49,17 +49,11 @@ Sigma generation and similarity matching.
     |  -----------------------------  |
     |  CmdlineExtract                 |
     |    Attention Preprocessor (opt) |
-    |    -> CmdLineQA                 |
     |  HuntQueriesExtract             |
-    |    -> HuntQueriesQA             |
     |  ProcTreeExtract                |
-    |    -> ProcTreeQA                |
     |  RegistryExtract                |
-    |    -> RegistryQA                |
     |  ServicesExtract                |
-    |    -> ServicesQA                |
     |  ScheduledTasksExtract          |
-    |    -> ScheduledTasksQA          |
     |  Aggregate -> extraction_result |
     +--------+------------------------+
              |
@@ -122,4 +116,4 @@ Sigma generation and similarity matching.
 See [Workflow Data Flow](../architecture/workflow-data-flow.md) for state and
 persistence details, and [Agents](agents.md) for per-agent responsibilities.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-12_
