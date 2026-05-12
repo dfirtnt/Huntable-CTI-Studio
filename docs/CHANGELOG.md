@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **ExtractAgent seed prompt** (2026-05-12): Created `src/prompts/ExtractAgent` with the standard 4-key envelope (role/task/json_example/instructions). Documents the orchestration layer and sub-agent scope map. Required by `TestNewlyRewrittenSeedEnvelopes` test contract.
+
+### Fixed
+- **CmdlineExtract json_example hallucination triggers** (2026-05-12): `json_example` contained `powershell.exe -NoP -W Hidden` which eval 3802 showed leaked into real extraction output. Replaced with a clearly synthetic certutil placeholder command. `TestHallucinationMitigation` now passes.
+- **HuntQueriesExtract count semantics assertions** (2026-05-12): `task` field now includes "count must be the combined total across both categories"; `instructions` envelope fields updated to include both "count MUST equal len(queries)" and "EDR/SIEM hunt queries plus Sigma rules". All 9 quickstart presets re-synced.
+
 ### Changed
 - **Extractor agents upgraded to v2 contract standard** (2026-05-12): All 6 extractor seed prompts (CmdlineExtract, ProcTreeExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract, HuntQueriesExtract) rewritten to the v2 16-section role/instructions split. Key behavioral changes: ARCHITECTURE CONTEXT boundary rules per agent; fail-closed confidence gating (below 0.5 = omit); traceability fields (`value`, `source_evidence`, `extraction_justification`, `confidence_score`) required on every item. All 9 quickstart presets and QA prompts regenerated.
 - **RegistryExtract schema: split-hive fields replaced by single `key` field** (2026-05-12): `registry_hive` + `registry_key_path` + `registry_value_name` replaced by `key` (full hive-rooted path verbatim, e.g. `HKLM\SOFTWARE\...`) and `value_name`. Hive abbreviations (HKLM, HKCU, etc.) are now preserved as-is rather than expanded. RegistryQA corrections schema updated to use `key`/`value_name`. `_QA_AGENT_SPECS["RegistryExtract"]` composite matcher updated accordingly; `_REGISTRY_HIVE_ALIASES` expansion removed from `_norm_field`.
