@@ -2973,15 +2973,27 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Update trace with final output (non-critical - wrap in try/except)
                 if trace:
                     try:
+                        _sigma_rules = final_state.get("sigma_rules", []) or []
+                        import json as _json
+                        _rules_serialized = _json.dumps(_sigma_rules)
+                        # OTel attribute values have a practical size ceiling; if the full
+                        # rules payload would exceed ~32KB, store only titles+ids to avoid
+                        # silent truncation of the trace output attribute.
+                        if len(_rules_serialized) > 32768:
+                            _sigma_rules_out = [
+                                {"title": r.get("title"), "id": r.get("id")} for r in _sigma_rules
+                            ]
+                        else:
+                            _sigma_rules_out = _sigma_rules
                         trace.update(
                             output={
                                 "status": "completed" if final_state.get("error") is None else "failed",
                                 "ranking_score": final_state.get("ranking_score"),
-                                "sigma_rules_count": len(final_state.get("sigma_rules", [])),
+                                "sigma_rules_count": len(_sigma_rules),
                                 "queued_rules_count": len(final_state.get("queued_rules", [])),
                                 "final_step": final_state.get("current_step"),
                                 "error": final_state.get("error"),
-                                "sigma_rules": final_state.get("sigma_rules", []),
+                                "sigma_rules": _sigma_rules_out,
                             }
                         )
                     except Exception as update_error:
