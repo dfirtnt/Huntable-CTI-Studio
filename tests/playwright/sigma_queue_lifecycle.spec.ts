@@ -277,26 +277,35 @@ test.describe('Sigma Queue API lifecycle', () => {
 test.describe('Sigma Queue UI', () => {
   // Navigate to the queue tab and wait for it to fully render
   async function openQueueTab(page: any): Promise<void> {
+    // Subscribe to the first list response before navigating to avoid missing it
+    const initialLoadPromise = page.waitForResponse(
+      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
+      { timeout: 15000 },
+    );
+
     await page.goto(`${BASE}/workflow#queue`);
     await page.waitForLoadState('domcontentloaded');
 
-    // Activate the queue tab via JS (mirrors how other workflow specs work)
-    await page.evaluate(() => {
-      if (typeof (window as any).switchTab === 'function') {
-        (window as any).switchTab('queue');
-      }
+    // The page's DOMContentLoaded handler calls switchTab('queue') when the hash is #queue,
+    // which fires loadQueue(). Only call switchTab again if the queue tab isn't already active
+    // to avoid a second in-flight loadQueue() that would leak into subsequent waitForResponse calls.
+    const tabAlreadyActive = await page.evaluate(() => {
+      const el = document.getElementById('tab-content-queue');
+      return el ? !el.classList.contains('hidden') : false;
     });
+    if (!tabAlreadyActive) {
+      await page.evaluate(() => {
+        if (typeof (window as any).switchTab === 'function') {
+          (window as any).switchTab('queue');
+        }
+      });
+    }
 
     // Wait for the queue table container to be present
     await page.waitForSelector('#queueTableBody', { timeout: 15000 });
 
-    // Wait for the async loadQueue() call to finish by waiting for the API response
-    await page.waitForResponse(
-      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
-      { timeout: 15000 },
-    ).catch(() => {
-      // loadQueue may have already completed before we started listening; continue
-    });
+    // Wait for the single loadQueue() call to finish
+    await initialLoadPromise.catch(() => {});
   }
 
   test('queue tab loads and renders stats panel', async ({ page }) => {
@@ -352,9 +361,15 @@ test.describe('Sigma Queue UI', () => {
 
     await openQueueTab(page);
 
-    // Show all statuses so pending rules are visible
+    // Show all statuses so pending rules are visible.
+    // Subscribe BEFORE selecting so we can explicitly consume the filter-change
+    // list response — this prevents it from being caught by the approve listener.
+    const filterRefreshPromise = page.waitForResponse(
+      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
+      { timeout: 10000 },
+    );
     await page.selectOption('#queueStatusFilter', '');
-    await page.waitForTimeout(800);
+    await filterRefreshPromise.catch(() => {});
 
     // Read the current approved count before clicking
     const approvedBefore = parseInt(
@@ -369,9 +384,13 @@ test.describe('Sigma Queue UI', () => {
       .locator('.q-action.approve');
 
     if (!(await approveBtn.isVisible())) {
-      // Rule row may not be visible with current filter - reset to all
+      // Rule row may not be visible with current filter - consume the extra refresh too
+      const fallbackRefreshPromise = page.waitForResponse(
+        (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
+        { timeout: 10000 },
+      );
       await page.selectOption('#queueStatusFilter', '');
-      await page.waitForTimeout(500);
+      await fallbackRefreshPromise.catch(() => {});
     }
 
     // approveRule() calls confirm() -- accept it so the fetch fires
@@ -386,6 +405,8 @@ test.describe('Sigma Queue UI', () => {
 
     // Register the post-approve queue-refresh listener BEFORE clicking so the
     // continuation fetch inside approveRule() cannot fire before we subscribe.
+    // All prior filter-change list responses have been explicitly consumed above,
+    // so this listener will only see the response from approveRule's loadQueue().
     const listRefreshPromise = page.waitForResponse(
       (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
       { timeout: 10000 },
