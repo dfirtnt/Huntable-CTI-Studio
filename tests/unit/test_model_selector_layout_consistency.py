@@ -37,6 +37,8 @@ AGENT_PREFIXES = [
     "registryqa",
     "servicesextract",
     "servicesqa",
+    "scheduledtasksextract",
+    "scheduledtasksqa",
 ]
 
 # Macro call parameters for each agent, matching the actual workflow.html invocations.
@@ -52,6 +54,8 @@ AGENT_MACRO_PARAMS = {
     "registryqa": ("registryqa", "RegistryQA_provider", "RegistryQA", False, False),
     "servicesextract": ("servicesextract", "ServicesExtract_provider", "ServicesExtract_model", True, True),
     "servicesqa": ("servicesqa", "ServicesQA_provider", "ServicesQA", False, False),
+    "scheduledtasksextract": ("scheduledtasksextract", "ScheduledTasksExtract_provider", "ScheduledTasksExtract_model", True, True),
+    "scheduledtasksqa": ("scheduledtasksqa", "ScheduledTasksQA_provider", "ScheduledTasksQA", False, False),
 }
 
 # Canonical dark-gray select class that every provider/model input must carry.
@@ -192,11 +196,11 @@ class TestExtractAgentFallbackOption:
 
     EXTRACT_PREFIXES = [
         "cmdlineextract", "proctreeextract", "huntqueriesextract",
-        "registryextract", "servicesextract",
+        "registryextract", "servicesextract", "scheduledtasksextract",
     ]
     QA_PREFIXES = [
         "rankqa", "cmdlineqa", "proctreeqa", "huntqueriesqa",
-        "registryqa", "servicesqa",
+        "registryqa", "servicesqa", "scheduledtasksqa",
     ]
 
     @pytest.mark.parametrize("prefix", EXTRACT_PREFIXES)
