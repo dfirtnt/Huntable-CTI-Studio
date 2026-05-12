@@ -1195,15 +1195,13 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 title=static_entry.get("title", ""),
                                 url=url,
                                 prompt_config=prompt_config,
-                                qa_prompt_config=None,
-                                max_retries=1,
+                                max_extraction_retries=1,
                                 execution_id=None,
                                 model_name=agent_models.get(f"{agent_name}_model") or agent_models.get("ExtractAgent"),
                                 temperature=float(agent_models.get(f"{agent_name}_temperature", 0) or 0),
                                 top_p=float(agent_models.get(f"{agent_name}_top_p"))
                                 if agent_models.get(f"{agent_name}_top_p") is not None
                                 else None,
-                                qa_model_override=None,
                                 provider=agent_models.get(f"{agent_name}_provider")
                                 or agent_models.get("ExtractAgent_provider"),
                                 attention_preprocessor_enabled=True,
@@ -1837,7 +1835,6 @@ async def get_subagent_eval_aggregate(
                             "throttled": throttled_count,
                             "quota_exceeded": quota_exceeded_count,
                             "mean_score": None,
-                            "mean_absolute_error": None,
                             "raw_mae": None,
                             "mean_expected_count": None,
                             "mean_squared_error": None,
@@ -1871,9 +1868,6 @@ async def get_subagent_eval_aggregate(
                 mean_score = sum(scores) / len(scores)
                 mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
                 mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
-                divisor = max(mean_expected_count, 1.0)
-                nmae_raw = mean_absolute_error / divisor if divisor > 0 else None
-                normalized_mean_absolute_error = min(nmae_raw, 1.0) if nmae_raw is not None else None
                 mean_squared_error = sum(s * s for s in scores) / len(scores)
                 perfect_matches = sum(1 for s in scores if s == 0)
                 perfect_match_percentage = (perfect_matches / len(completed_records)) * 100
@@ -1919,9 +1913,6 @@ async def get_subagent_eval_aggregate(
                         "throttled": throttled_count,
                         "quota_exceeded": quota_exceeded_count,
                         "mean_score": round(mean_score, 2),
-                        "mean_absolute_error": round(normalized_mean_absolute_error, 4)
-                        if normalized_mean_absolute_error is not None
-                        else None,
                         "raw_mae": round(mean_absolute_error, 4),
                         "mean_expected_count": round(mean_expected_count, 4),
                         "mean_squared_error": round(mean_squared_error, 2),
@@ -2148,7 +2139,6 @@ async def get_subagent_eval_compare(
                         "config_version": version,
                         "total_articles": len(records),
                         "completed": 0,
-                        "mean_absolute_error": None,
                         "raw_mae": None,
                         "perfect_matches": 0,
                         "perfect_match_percentage": 0.0,
@@ -2162,17 +2152,12 @@ async def get_subagent_eval_compare(
                     expected_counts.append(expected)
                     scores.append((r.actual_count or 0) - expected)
                 mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
-                mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
-                divisor = max(mean_expected_count, 1.0)
-                nmae_raw = mean_absolute_error / divisor
-                normalized_mae = min(nmae_raw, 1.0)
                 perfect_matches = sum(1 for s in scores if s == 0)
                 perfect_match_pct = (perfect_matches / len(completed)) * 100
                 return {
                     "config_version": version,
                     "total_articles": len(records),
                     "completed": len(completed),
-                    "mean_absolute_error": round(normalized_mae, 4),
                     "raw_mae": round(mean_absolute_error, 4),
                     "perfect_matches": perfect_matches,
                     "perfect_match_percentage": round(perfect_match_pct, 1),

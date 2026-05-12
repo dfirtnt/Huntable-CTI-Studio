@@ -35,31 +35,17 @@ items, process lineage) so you can inspect what the agent actually returned.
 
 ## MAE chart metrics
 
-The **MAE Metrics by Config Version** chart tracks two signals over time:
+The **MAE by Config Version** chart tracks extraction accuracy over time.
 
-### nMAE — Normalized Mean Absolute Error
-
-```
-nMAE = mean( |actual - expected| / expected )  across all articles in the run
-```
-
-Scale: 0 to 1. Lower is better. Normalized by expected count so articles with
-large expected counts don't dominate the score.
-
-| Point color | nMAE range | Label |
-|---|---|---|
-| Green | &le; 0.20 | Excellent |
-| Yellow | 0.21 – 0.50 | Good |
-| Red | > 0.50 | Needs Improvement |
-
-### MAE — Mean Absolute Error (raw)
+### MAE — Mean Absolute Error
 
 ```
 MAE = mean( |actual - expected| )  in observable units
 ```
 
-Not normalized. Useful for understanding absolute extraction volume difference
-(e.g. "on average, off by 3 observables per article").
+Lower is better. Represents the average absolute difference between extracted
+count and expected count per article (e.g. "on average, off by 3 observables
+per article").
 
 ---
 
@@ -372,7 +358,7 @@ Side-by-side comparison of two config versions for a subagent.
 | `version_a` | Yes | Baseline config version (integer) |
 | `version_b` | Yes | Candidate config version (integer) |
 
-**Response (200):** Comparison object with per-article scores, nMAE for each
+**Response (200):** Comparison object with per-article scores, MAE for each
 version, and improved/regressed/unchanged counts.
 
 ---
@@ -414,7 +400,7 @@ any two config versions and see a per-article side-by-side breakdown.
 | **Change** | `Improved`, `Regressed`, or `Unchanged` badge |
 | **Improvement** | `abs(score_A) - abs(score_B)`; positive = B moved closer to expected |
 
-The summary bar above the table shows aggregate nMAE for each version, total
+The summary bar above the table shows aggregate MAE for each version, total
 perfect matches, and counts of improved/regressed/unchanged articles.
 
 Articles with the biggest change (either direction) sort to the top. Articles

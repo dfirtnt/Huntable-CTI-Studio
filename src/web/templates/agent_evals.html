@@ -633,12 +633,9 @@
                 <div style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
                         <div>
-                            <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
+                            <h3 class="eval-section-title" style="font-size: 1rem;">MAE by Config Version</h3>
                             <p class="eval-mono mt-1 text-[10px]" style="color: var(--text-muted-slate);">
-                                <span style="color: var(--action-execute);">&#9679;</span> nMAE &le;0.20 Excellent &nbsp;
-                                <span style="color: var(--action-warning);">&#9679;</span> 0.21&ndash;0.50 Good &nbsp;
-                                <span style="color: var(--action-danger);">&#9679;</span> &gt;0.50 Needs Improvement &nbsp;&mdash;&nbsp;
-                                nMAE = avg(|actual&minus;expected| / expected); MAE = avg absolute delta in observable units
+                                MAE = avg(|actual&minus;expected|) in observable units
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
@@ -650,7 +647,7 @@
                     <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
                         <div class="chart-scroll-wrapper">
                             <div class="y-axis-label-sticky" aria-hidden="true">
-                                <span>Normalized MAE (nMAE)</span>
+                                <span>Mean Absolute Error (MAE)</span>
                             </div>
                             <div class="h-64" style="min-width: fit-content;">
                                 <canvas id="maeChart"></canvas>
@@ -723,11 +720,7 @@
                         <div>
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
-                                <li><strong>nMAE</strong> (Normalized MAE) &mdash; avg(|actual&minus;expected| / expected) across articles; scale 0&ndash;1</li>
-                                <li><strong>MAE</strong> (raw) &mdash; avg absolute delta in observable units (not normalized)</li>
-                                <li><span style="color: var(--action-execute);">&#9679;</span> nMAE &le; 0.20 &mdash; Excellent</li>
-                                <li><span style="color: var(--action-warning);">&#9679;</span> nMAE 0.21&ndash;0.50 &mdash; Good</li>
-                                <li><span style="color: var(--action-danger);">&#9679;</span> nMAE &gt; 0.50 &mdash; Needs Improvement</li>
+                                <li><strong>MAE</strong> &mdash; avg(|actual&minus;expected|) in observable units; lower is better</li>
                             </ul>
                         </div>
                     </div>
@@ -1871,15 +1864,13 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         return;
     }
     
-    // Filter aggregates that have MAE data (either normalized or raw) and exclude specified versions
+    // Filter aggregates that have MAE data and exclude specified versions
     const validAggregates = aggregates.filter(agg => {
-        const hasNMAE = agg.mean_absolute_error != null && !isNaN(agg.mean_absolute_error);
         const hasRawMAE = agg.raw_mae != null && !isNaN(agg.raw_mae);
-        const hasMAEData = hasNMAE || hasRawMAE;
         const hasConfigVersion = agg.config_version != null;
         const notExcluded = !excludedVersions.includes(parseInt(agg.config_version));
-        
-        return hasMAEData && hasConfigVersion && notExcluded;
+
+        return hasRawMAE && hasConfigVersion && notExcluded;
     });
     
     if (validAggregates.length === 0) {
@@ -1894,13 +1885,11 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     
     // Coerce to numbers so Chart.js always gets numerics (handles API string values; fixes cmdline MAE line not showing)
     const toNum = (v) => { if (v == null) return null; const n = Number(v); return (n !== n) ? null : n; };
-    const nmaeNums = validAggregates.map(agg => toNum(agg.mean_absolute_error));
     const maeNums = validAggregates.map(agg => toNum(agg.raw_mae));
     allChartData = {
         aggregates: validAggregates,
         modelsByVersion: modelsByVersion,
         labels: validAggregates.map(agg => `v${agg.config_version}`),
-        nmaeData: nmaeNums,
         maeData: maeNums,
         versions: validAggregates.map(agg => agg.config_version)
     };
@@ -1916,7 +1905,6 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     // Get window slice
     const windowEnd = Math.min(chartWindowStart + CHART_WINDOW_SIZE, allChartData.labels.length);
     const windowLabels = allChartData.labels.slice(chartWindowStart, windowEnd);
-    const windowNmaeData = allChartData.nmaeData.slice(chartWindowStart, windowEnd);
     const windowMaeData = allChartData.maeData.slice(chartWindowStart, windowEnd);
     const windowVersions = allChartData.versions.slice(chartWindowStart, windowEnd);
     currentWindowVersions = windowVersions;
@@ -1942,40 +1930,16 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         maeChart.destroy();
     }
     
-    // Determine color based on nMAE values (theme vars)
     const themeMuted = getThemeColor('--text-muted') || '#9ca3af';
     const themeSuccess = getThemeColor('--action-execute') || '#10b981';
-    const themeWarning = getThemeColor('--action-warning') || '#f59e0b';
-    const themeDanger = getThemeColor('--action-danger') || '#ef4444';
-    const themeInfo = getThemeColor('--action-info') || '#3b82f6';
-    const themeInfoFill = getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)';
     const themeSuccessFill = getThemeColor('--action-execute-fill') || 'rgba(16, 185, 129, 0.1)';
     const themeChartMuted = getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)';
-    const nmaeColors = windowNmaeData.map(nmae => {
-        if (nmae == null || isNaN(nmae)) return themeMuted;
-        if (nmae <= 0.2) return themeSuccess;
-        if (nmae <= 0.5) return themeWarning;
-        return themeDanger;
-    });
-    
+
     maeChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: windowLabels,
             datasets: [{
-                label: 'Normalized Mean Absolute Error (nMAE)',
-                data: windowNmaeData,
-                borderColor: themeInfo,
-                backgroundColor: themeInfoFill,
-                borderWidth: 2,
-                pointRadius: 5,
-                pointBackgroundColor: nmaeColors,
-                pointBorderColor: nmaeColors,
-                pointHoverRadius: 7,
-                tension: 0.1,
-                fill: true,
-                yAxisID: 'y'
-            }, {
                 label: 'Mean Absolute Error (MAE)',
                 data: windowMaeData,
                 borderColor: themeSuccess,
@@ -1986,9 +1950,9 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 pointBorderColor: themeSuccess,
                 pointHoverRadius: 7,
                 tension: 0.1,
-                fill: false,
+                fill: true,
                 spanGaps: true,
-                yAxisID: 'y1'
+                yAxisID: 'y'
             }]
         },
         options: {
@@ -2018,18 +1982,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                             return `v${version}${modelText}`;
                         },
                         label: function(context) {
-                            const datasetLabel = context.dataset.label;
                             const value = context.parsed.y;
-                            
-                            if (datasetLabel === 'Normalized Mean Absolute Error (nMAE)') {
-                                let quality = '';
-                                if (value <= 0.2) quality = ' (Excellent)';
-                                else if (value <= 0.5) quality = ' (Good)';
-                                else quality = ' (Needs Improvement)';
-                                return `nMAE: ${value.toFixed(4)}${quality}`;
-                            } else {
-                                return `MAE: ${value !== null ? value.toFixed(4) : 'N/A'}`;
-                            }
+                            return `MAE: ${value !== null ? value.toFixed(4) : 'N/A'}`;
                         }
                     }
                 }
@@ -2039,23 +1993,6 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                     type: 'linear',
                     display: true,
                     position: 'left',
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Normalized MAE (nMAE)',
-                        color: themeInfo
-                    },
-                    ticks: {
-                        color: themeMuted
-                    },
-                    grid: {
-                        color: themeChartMuted
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
                     beginAtZero: true,
                     suggestedMin: 0,
                     suggestedMax: (() => {
@@ -2072,7 +2009,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                         color: themeMuted
                     },
                     grid: {
-                        drawOnChartArea: false
+                        color: themeChartMuted
                     }
                 },
                 x: {
@@ -2369,13 +2306,6 @@ async function loadAggregateScores() {
         }
         
         filteredAggregates.forEach(agg => {
-            // Debug: log aggregate data to verify fields are present
-            console.log('Aggregate data for version', agg.config_version, ':', {
-                raw_mae: agg.raw_mae,
-                mean_expected_count: agg.mean_expected_count,
-                mean_absolute_error: agg.mean_absolute_error
-            });
-            
             const card = document.createElement('div');
             card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700';
             
@@ -2395,19 +2325,6 @@ async function loadAggregateScores() {
             
             let metricsHtml = '';
             if (agg.mean_score !== null) {
-                const nmaeClass = agg.mean_absolute_error <= 0.2 ? 'text-green-600 dark:text-green-400' : 
-                                 agg.mean_absolute_error <= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 
-                                 'text-red-600 dark:text-red-400';
-                
-                // Build diagnostic info for nMAE - always show if available
-                let diagnosticHtml = '';
-                if (typeof agg.raw_mae === 'number' || agg.raw_mae != null) {
-                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Raw MAE: ${Number(agg.raw_mae).toFixed(4)}</div>`;
-                }
-                if (typeof agg.mean_expected_count === 'number' || agg.mean_expected_count != null) {
-                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500">Mean Expected: ${Number(agg.mean_expected_count).toFixed(4)}</div>`;
-                }
-                
                 metricsHtml = `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
@@ -2415,9 +2332,8 @@ async function loadAggregateScores() {
                             <div class="font-semibold text-gray-900 dark:text-white">${agg.mean_score}</div>
                         </div>
                         <div>
-                            <div class="text-gray-500 dark:text-gray-400">Normalized MAE (nMAE)</div>
-                            <div class="font-semibold ${nmaeClass}">${agg.mean_absolute_error !== null ? agg.mean_absolute_error.toFixed(4) : 'N/A'}</div>
-                            ${diagnosticHtml}
+                            <div class="text-gray-500 dark:text-gray-400">MAE</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.raw_mae != null ? Number(agg.raw_mae).toFixed(4) : 'N/A'}</div>
                         </div>
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
@@ -2426,8 +2342,8 @@ async function loadAggregateScores() {
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Score Distribution</div>
                             <div class="font-semibold text-gray-900 dark:text-white text-xs">
-                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>, 
-                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>, 
+                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>,
+                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>,
                                 <span class="text-red-600 dark:text-red-400">${agg.score_distribution.over_2} ±3+</span>
                             </div>
                         </div>
@@ -3460,16 +3376,16 @@ function renderCompareResult(data) {
     const aggB = data.aggregate_b || {};
     const articles = data.articles || [];
 
-    const fmtNmae = v => (v != null ? Number(v).toFixed(4) : '--');
+    const fmtMae = v => (v != null ? Number(v).toFixed(4) : '--');
     const fmtPct = v => (v != null ? Number(v).toFixed(1) + '%' : '--');
 
-    const nmaeA = aggA.mean_absolute_error;
-    const nmaeB = aggB.mean_absolute_error;
-    let nmaeArrow = '';
-    if (nmaeA != null && nmaeB != null) {
-        if (nmaeB < nmaeA) nmaeArrow = ' <span style="color:#34d399;">(down)</span>';
-        else if (nmaeB > nmaeA) nmaeArrow = ' <span style="color:#f87171;">(up)</span>';
-        else nmaeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
+    const maeA = aggA.raw_mae;
+    const maeB = aggB.raw_mae;
+    let maeArrow = '';
+    if (maeA != null && maeB != null) {
+        if (maeB < maeA) maeArrow = ' <span style="color:#34d399;">(down)</span>';
+        else if (maeB > maeA) maeArrow = ' <span style="color:#f87171;">(up)</span>';
+        else maeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
     }
 
     const improved = articles.filter(a => a.improvement != null && a.improvement > 0).length;
@@ -3479,8 +3395,8 @@ function renderCompareResult(data) {
     const summaryHtml = [
         '<div class="flex flex-wrap gap-3 mb-4">',
         '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
-        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">nMAE</div>',
-        '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + fmtNmae(nmaeA) + ' &rarr; v' + vb + ': ' + fmtNmae(nmaeB) + nmaeArrow + '</div>',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">MAE</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + fmtMae(maeA) + ' &rarr; v' + vb + ': ' + fmtMae(maeB) + maeArrow + '</div>',
         '  </div>',
         '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
         '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Perfect Matches</div>',
