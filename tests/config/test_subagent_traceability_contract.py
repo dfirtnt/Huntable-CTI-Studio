@@ -70,12 +70,6 @@ MIGRATED_EXTRACT_AGENTS: list[str] = [
     "HuntQueriesExtract",
 ]
 
-# QA prompts that must stay synced between src/prompts/<QAName> and the embedded
-# copies in config/presets/AgentConfigs/quickstart/*.json.
-# Extractor QA agents (CmdLineQA, HuntQueriesQA, ProcTreeQA, RegistryQA,
-# ServicesQA, ScheduledTasksQA) have been removed. List is now empty.
-MIGRATED_QA_AGENTS: list[str] = []
-
 REQUIRED_TRACEABILITY_FIELDS = (
     "source_evidence",
     "extraction_justification",
@@ -105,7 +99,7 @@ def _prompt_text(agent_name: str) -> str:
 class TestPromptJsonValidity:
     """Every subject prompt file parses as valid JSON."""
 
-    @pytest.mark.parametrize("agent_name", ALL_EXTRACT_NAMES + MIGRATED_QA_AGENTS)
+    @pytest.mark.parametrize("agent_name", ALL_EXTRACT_NAMES)
     def test_prompt_file_is_valid_json(self, agent_name):
         path = PROMPT_DIR / agent_name
         assert path.exists(), f"Prompt file missing: {path}"
@@ -121,7 +115,7 @@ class TestPromptJsonValidity:
 class TestNoDeprecatedFields:
     """Legacy field names must not appear in any extract or migrated QA prompt."""
 
-    @pytest.mark.parametrize("agent_name", ALL_EXTRACT_NAMES + MIGRATED_QA_AGENTS)
+    @pytest.mark.parametrize("agent_name", ALL_EXTRACT_NAMES)
     @pytest.mark.parametrize("field", DEPRECATED_FIELDS)
     def test_no_deprecated_field(self, agent_name, field):
         text = _prompt_text(agent_name)
@@ -190,36 +184,6 @@ class TestMigratedExtractPromptEnvelope:
 
 
 # ===========================================================================
-# QA prompt field references
-# ===========================================================================
-
-
-@pytest.mark.skip(reason="Extractor QA agents (CmdLineQA etc.) removed; MIGRATED_QA_AGENTS is empty")
-class TestQAPromptFields:
-    """Migrated QA prompts validate against the new traceability field names."""
-
-    @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
-    def test_qa_validation_references_source_evidence(self, qa_name):
-        data = _load_prompt(qa_name)
-        criteria_blob = json.dumps(data.get("evaluation_criteria", []))
-        assert "source_evidence" in criteria_blob, f"{qa_name} evaluation_criteria must reference source_evidence"
-
-    @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
-    def test_qa_validation_references_extraction_justification(self, qa_name):
-        data = _load_prompt(qa_name)
-        criteria_blob = json.dumps(data.get("evaluation_criteria", []))
-        assert "extraction_justification" in criteria_blob, (
-            f"{qa_name} evaluation_criteria must reference extraction_justification"
-        )
-
-    @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
-    def test_qa_has_no_deprecated_fields(self, qa_name):
-        text = _prompt_text(qa_name)
-        for field in DEPRECATED_FIELDS:
-            assert field not in text, f"Deprecated field '{field}' reintroduced in {qa_name}."
-
-
-# ===========================================================================
 # Preset / prompt-file sync -- only for agents regenerated in this migration
 # ===========================================================================
 
@@ -264,22 +228,6 @@ class TestPresetsSyncedWithPrompts:
                 f"Re-run preset regeneration."
             )
 
-    @pytest.mark.skip(reason="Extractor QA agents removed; no QA prompt files to sync")
-    @pytest.mark.parametrize("qa_name", MIGRATED_QA_AGENTS)
-    def test_preset_qa_prompt_synced(self, qa_name, preset_paths):
-        """QA prompts embed as <BaseAgent>.QAPrompt.prompt."""
-        base_for_qa: dict[str, str] = {}
-        base_agent = base_for_qa[qa_name]
-        source = _load_prompt(qa_name)
-        for preset_path in preset_paths:
-            preset = json.loads(preset_path.read_text(encoding="utf-8"))
-            qa_entry = preset.get(base_agent, {}).get("QAPrompt", {})
-            prompt_str = qa_entry.get("prompt", "")
-            assert prompt_str, f"{base_agent}.QAPrompt.prompt missing in {preset_path.name}"
-            embedded = json.loads(prompt_str)
-            assert embedded == source, (
-                f"{preset_path.name} -> {base_agent}.QAPrompt.prompt drifted from src/prompts/{qa_name}."
-            )
 
 
 # ===========================================================================

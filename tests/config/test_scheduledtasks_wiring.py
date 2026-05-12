@@ -14,16 +14,12 @@ from pydantic import ValidationError
 from src.config.workflow_config_loader import (
     AGENTS_ORDER_UI,
     EXTRACT_AGENTS,
-    QA_AGENTS,
     load_workflow_config,
 )
 from src.config.workflow_config_migrate import migrate_v1_to_v2
 from src.config.workflow_config_schema import (
-    AGENT_NAMES_QA,
     AGENT_NAMES_SUB,
     ALL_AGENT_NAMES,
-    BASE_AGENT_TO_QA,
-    QA_AGENT_TO_BASE,
     WorkflowConfigV2,
 )
 from src.utils.subagent_utils import (
@@ -99,20 +95,8 @@ class TestSchemaConstants:
     def test_scheduled_tasks_in_agent_names_sub(self):
         assert "ScheduledTasksExtract" in AGENT_NAMES_SUB
 
-    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed")
-    def test_scheduled_tasks_qa_in_agent_names_qa(self):
-        assert "ScheduledTasksQA" in AGENT_NAMES_QA
-
     def test_scheduled_tasks_in_all_agent_names(self):
         assert "ScheduledTasksExtract" in ALL_AGENT_NAMES
-
-    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; no BASE_AGENT_TO_QA mapping")
-    def test_base_to_qa_mapping(self):
-        assert BASE_AGENT_TO_QA["ScheduledTasksExtract"] == "ScheduledTasksQA"
-
-    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; no QA_AGENT_TO_BASE mapping")
-    def test_qa_to_base_mapping(self):
-        assert QA_AGENT_TO_BASE["ScheduledTasksQA"] == "ScheduledTasksExtract"
 
 
 # ===========================================================================
@@ -126,15 +110,6 @@ class TestSchemaValidation:
     def test_valid_v2_with_scheduled_tasks(self):
         config = WorkflowConfigV2.model_validate(_make_v2_with_scheduled_tasks())
         assert "ScheduledTasksExtract" in config.Agents
-
-    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; orphan check no longer applies")
-    def test_orphan_scheduled_tasks_qa_rejected(self):
-        """ScheduledTasksQA without ScheduledTasksExtract is rejected."""
-        raw = _make_v2_with_scheduled_tasks()
-        del raw["Agents"]["ScheduledTasksExtract"]
-        del raw["Prompts"]["ScheduledTasksExtract"]
-        with pytest.raises(ValidationError, match="Orphan QA agent ScheduledTasksQA"):
-            WorkflowConfigV2.model_validate(raw)
 
     def test_scheduled_tasks_missing_prompt_rejected(self):
         """ScheduledTasksExtract with Provider+Model but no prompt is rejected."""
@@ -170,10 +145,6 @@ class TestLoaderConstants:
     def test_in_extract_agents(self):
         assert "ScheduledTasksExtract" in EXTRACT_AGENTS
 
-    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed")
-    def test_in_qa_agents(self):
-        assert "ScheduledTasksQA" in QA_AGENTS
-
     def test_in_agents_order_ui(self):
         assert "ScheduledTasksExtract" in AGENTS_ORDER_UI
 
@@ -205,24 +176,6 @@ class TestMigration:
         assert config.Agents["ScheduledTasksExtract"].Provider == "anthropic"
         assert config.Agents["ScheduledTasksExtract"].Temperature == 0.2
         assert config.Agents["ScheduledTasksExtract"].TopP == 0.95
-
-    @pytest.mark.skip(reason="ScheduledTasksQA extractor QA agent removed; stripped on migration")
-    def test_v1_scheduled_tasks_qa_migrates(self):
-        raw = {
-            "version": "1.0",
-            "agent_models": {
-                **_MINIMAL_AGENT_MODELS,
-                "ScheduledTasksQA_provider": "openai",
-                "ScheduledTasksQA": "gpt-4o",
-                "ScheduledTasksQA_temperature": 0.1,
-            },
-            "qa_enabled": {},
-            "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
-        }
-        migrated = migrate_v1_to_v2(raw)
-        config = WorkflowConfigV2.model_validate(migrated)
-        assert config.Agents["ScheduledTasksQA"].Model == "gpt-4o"
-        assert config.Agents["ScheduledTasksQA"].Provider == "openai"
 
     def test_migration_roundtrip_flatten_preserves_scheduled_tasks(self):
         raw = {

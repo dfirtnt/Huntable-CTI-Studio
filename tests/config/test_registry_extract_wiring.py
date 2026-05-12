@@ -15,16 +15,12 @@ from pydantic import ValidationError
 from src.config.workflow_config_loader import (
     AGENTS_ORDER_UI,
     EXTRACT_AGENTS,
-    QA_AGENTS,
     load_workflow_config,
 )
 from src.config.workflow_config_migrate import migrate_v1_to_v2
 from src.config.workflow_config_schema import (
-    AGENT_NAMES_QA,
     AGENT_NAMES_SUB,
     ALL_AGENT_NAMES,
-    BASE_AGENT_TO_QA,
-    QA_AGENT_TO_BASE,
     WorkflowConfigV2,
 )
 from src.utils.subagent_utils import (
@@ -92,20 +88,8 @@ class TestSchemaConstants:
     def test_registry_in_agent_names_sub(self):
         assert "RegistryExtract" in AGENT_NAMES_SUB
 
-    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed")
-    def test_registry_qa_in_agent_names_qa(self):
-        assert "RegistryQA" in AGENT_NAMES_QA
-
     def test_registry_in_all_agent_names(self):
         assert "RegistryExtract" in ALL_AGENT_NAMES
-
-    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; no BASE_AGENT_TO_QA mapping")
-    def test_base_to_qa_mapping(self):
-        assert BASE_AGENT_TO_QA["RegistryExtract"] == "RegistryQA"
-
-    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; no QA_AGENT_TO_BASE mapping")
-    def test_qa_to_base_mapping(self):
-        assert QA_AGENT_TO_BASE["RegistryQA"] == "RegistryExtract"
 
 
 # ===========================================================================
@@ -119,15 +103,6 @@ class TestSchemaValidation:
     def test_valid_v2_with_registry(self):
         config = WorkflowConfigV2.model_validate(_make_v2_with_registry())
         assert "RegistryExtract" in config.Agents
-
-    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; orphan check no longer applies")
-    def test_orphan_registry_qa_rejected(self):
-        """RegistryQA without RegistryExtract is rejected."""
-        raw = _make_v2_with_registry()
-        del raw["Agents"]["RegistryExtract"]
-        del raw["Prompts"]["RegistryExtract"]
-        with pytest.raises(ValidationError, match="Orphan QA agent RegistryQA"):
-            WorkflowConfigV2.model_validate(raw)
 
     def test_registry_missing_prompt_rejected(self):
         """RegistryExtract with Provider+Model but no prompt is rejected."""
@@ -163,10 +138,6 @@ class TestLoaderConstants:
     def test_in_extract_agents(self):
         assert "RegistryExtract" in EXTRACT_AGENTS
 
-    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed")
-    def test_in_qa_agents(self):
-        assert "RegistryQA" in QA_AGENTS
-
     def test_in_agents_order_ui(self):
         assert "RegistryExtract" in AGENTS_ORDER_UI
 
@@ -198,24 +169,6 @@ class TestMigration:
         assert config.Agents["RegistryExtract"].Provider == "anthropic"
         assert config.Agents["RegistryExtract"].Temperature == 0.2
         assert config.Agents["RegistryExtract"].TopP == 0.95
-
-    @pytest.mark.skip(reason="RegistryQA extractor QA agent removed; stripped on migration")
-    def test_v1_registry_qa_migrates(self):
-        raw = {
-            "version": "1.0",
-            "agent_models": {
-                **_MINIMAL_AGENT_MODELS,
-                "RegistryQA_provider": "openai",
-                "RegistryQA": "gpt-4o",
-                "RegistryQA_temperature": 0.1,
-            },
-            "qa_enabled": {},
-            "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
-        }
-        migrated = migrate_v1_to_v2(raw)
-        config = WorkflowConfigV2.model_validate(migrated)
-        assert config.Agents["RegistryQA"].Model == "gpt-4o"
-        assert config.Agents["RegistryQA"].Provider == "openai"
 
     def test_migration_roundtrip_flatten_preserves_registry(self):
         raw = {
