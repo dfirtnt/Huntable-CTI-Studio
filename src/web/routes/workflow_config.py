@@ -1166,13 +1166,9 @@ def get_agent_prompts(request: Request):
             # Sub-agents list for model assignment
             sub_agents = [
                 "CmdlineExtract",
-                "CmdLineQA",
                 "ProcTreeExtract",
-                "ProcTreeQA",
                 "HuntQueriesExtract",
-                "HuntQueriesQA",
                 "RegistryExtract",
-                "RegistryQA",
             ]
 
             # Deleted subagents that should be filtered out
@@ -1339,10 +1335,6 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                         "ProcTreeExtract",
                         "HuntQueriesExtract",
                         "RegistryExtract",
-                        "CmdLineQA",
-                        "ProcTreeQA",
-                        "HuntQueriesQA",
-                        "RegistryQA",
                     ]
                     if prompt_update.agent_name in extraction_agents:
                         try:
@@ -1903,24 +1895,17 @@ def bootstrap_prompts_from_files(request: Request):
 
             # Sub-Agents
             sub_agents = [
-                ("CmdlineExtract", "CmdLineQA"),
-                ("ProcTreeExtract", "ProcTreeQA"),
-                ("HuntQueriesExtract", "HuntQueriesQA"),
-                ("RegistryExtract", "RegistryQA"),
+                "CmdlineExtract",
+                "ProcTreeExtract",
+                "HuntQueriesExtract",
+                "RegistryExtract",
             ]
 
-            for agent_name, qa_name in sub_agents:
-                # Load Extraction Agent
+            for agent_name in sub_agents:
                 agent_path = prompts_dir / agent_name
                 if agent_path.exists():
                     with open(agent_path) as f:
                         loaded_prompts[agent_name] = {"prompt": f.read(), "instructions": ""}
-
-                # Load QA Agent
-                qa_path = prompts_dir / qa_name
-                if qa_path.exists():
-                    with open(qa_path) as f:
-                        loaded_prompts[qa_name] = {"prompt": f.read(), "instructions": ""}
 
             if not loaded_prompts:
                 raise HTTPException(status_code=404, detail="No prompt files found to bootstrap from")

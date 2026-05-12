@@ -26,27 +26,21 @@ function parseUTCDate(timestamp) {
  * @returns {Array} Ordered and annotated models
  */
 function orderModelsByWorkflow(models) {
-    // Define workflow execution order with QA agents immediately after their corresponding agents
+    // Define workflow execution order
     const workflowOrder = [
         'Rank',
         'RankAgentQA',
         'Extract',
         'CmdlineExtract',
-        'CmdLineQA',
         'ProcTreeExtract',
-        'ProcTreeQA',
         'HuntQueriesExtract',
-        'HuntQueriesQA',
         'RegistryExtract',
-        'RegistryQA',
         'ServicesExtract',
-        'ServicesQA',
         'ScheduledTasksExtract',
-        'ScheduledTasksQA',
         'SIGMA',
         'OS Fallback'
     ];
-    
+
     // Define first-level sub-agents (indent level 1)
     const firstLevelSubAgents = new Set([
         'CmdlineExtract',
@@ -58,15 +52,8 @@ function orderModelsByWorkflow(models) {
         'RankAgentQA'
     ]);
 
-    // Define second-level sub-agents (indent level 2) - QA agents under Extract
-    const secondLevelSubAgents = new Set([
-        'CmdLineQA',
-        'ProcTreeQA',
-        'HuntQueriesQA',
-        'RegistryQA',
-        'ServicesQA',
-        'ScheduledTasksQA'
-    ]);
+    // No second-level sub-agents remain (extractor QA agents removed)
+    const secondLevelSubAgents = new Set([]);
     
     // Create a map for quick lookup
     const orderMap = new Map();
@@ -212,36 +199,25 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         
         // 4. Extract Sub-agents
         const subAgentOrder = [
-            { id: 'CmdlineExtract', name: 'CmdlineExtract', qa: 'CmdLineQA' },
-            { id: 'ProcTreeExtract', name: 'ProcTreeExtract', qa: 'ProcTreeQA' },
-            { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' },
-            { id: 'RegistryExtract', name: 'RegistryExtract', qa: 'RegistryQA' },
-            { id: 'ServicesExtract', name: 'ServicesExtract', qa: 'ServicesQA' },
-            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract', qa: 'ScheduledTasksQA' }
+            { id: 'CmdlineExtract', name: 'CmdlineExtract' },
+            { id: 'ProcTreeExtract', name: 'ProcTreeExtract' },
+            { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract' },
+            { id: 'RegistryExtract', name: 'RegistryExtract' },
+            { id: 'ServicesExtract', name: 'ServicesExtract' },
+            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract' }
         ];
-        
+
         // Disabled state from config only so Workflow and Agent-evals show the same status
         const fromConfig = currentConfig?.agent_prompts?.ExtractAgentSettings?.disabled_agents;
         const disabled = Array.isArray(fromConfig) ? new Set(fromConfig) : new Set();
-        
+
         // Sub-agents fall back to ExtractAgent model/provider when not explicitly configured
         const extractModel = agentModels.ExtractAgent || null;
         const extractProvider = agentModels.ExtractAgent_provider || null;
 
-        // QA agents fall back to a peer QA agent's model/provider
-        const qaNames = subAgentOrder.map(a => a.qa);
-        const qaFallbackModel = qaNames.reduce((f, qa) => f || agentModels[qa], '') || null;
-        const qaFallbackProvider = qaNames.reduce((f, qa) => f || agentModels[`${qa}_provider`], '') || null;
-
         subAgentOrder.forEach(agent => {
             const isEnabled = !disabled.has(agent.id);
             addAgent(agent.id, agent.name, 1, isEnabled, extractModel, extractProvider);
-
-            // Add QA for this sub-agent (fall back to peer QA model if not explicitly set)
-            const qaModel = agentModels[agent.qa] || qaFallbackModel;
-            if (qaModel) {
-                addAgent(agent.qa, agent.qa, 2, qaEnabled[agent.id] || false, qaFallbackModel, qaFallbackProvider);
-            }
         });
         
         // 5. SIGMA Agent

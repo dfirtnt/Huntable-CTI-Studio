@@ -2086,6 +2086,7 @@ class LLMService:
         provider: str | None = None,
         attention_preprocessor_enabled: bool = True,
         proc_tree_attention_preprocessor_enabled: bool = True,
+        langfuse_session_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Run a generic extraction agent.
@@ -2122,7 +2123,6 @@ class LLMService:
         logger.debug(f"{agent_name} prompt_config keys: {list(prompt_config.keys())}")
 
         current_try = 0
-        feedback = ""
         last_result = {"items": [], "count": 0}
 
         # Determine model to use
@@ -2411,8 +2411,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                     )
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
-                if feedback:
-                    user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
                 # Minimal user prefix when preset uses "user" (bulk in system, minimal in user)
                 user_prefix = (prompt_config.get("user") or "").strip()
                 if user_prefix:
@@ -2465,6 +2463,7 @@ Every item in the output array MUST be an object (not a plain string)."""
                     model=model_name,
                     execution_id=execution_id,
                     article_id=article_id,
+                    session_id=langfuse_session_id,
                     metadata=trace_metadata,
                 ) as generation:
                     logger.info(
@@ -2879,8 +2878,10 @@ Every item in the output array MUST be an object (not a plain string)."""
                         },
                         "connection_error": "connection" in str(e).lower() or "cannot connect" in str(e).lower(),
                     }
-                feedback = f"Previous attempt failed with error: {str(e)}"
-                # Continue loop
+                # Continue loop with a fresh attempt; we deliberately do not inject the
+                # raw exception text into the next prompt -- transport errors (timeouts,
+                # 5xx, connection drops) are not signal the LLM can act on, and seeding
+                # them as "PREVIOUS FEEDBACK" misleads extraction on the retry.
 
         logger.warning(f"{agent_name} failed all {max_extraction_retries} attempts. Returning last result.")
         return last_result

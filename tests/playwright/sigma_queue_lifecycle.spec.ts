@@ -384,15 +384,19 @@ test.describe('Sigma Queue UI', () => {
       { timeout: 10000 },
     );
 
+    // Register the post-approve queue-refresh listener BEFORE clicking so the
+    // continuation fetch inside approveRule() cannot fire before we subscribe.
+    const listRefreshPromise = page.waitForResponse(
+      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
+      { timeout: 10000 },
+    );
+
     await approveBtn.click();
     const approveResp = await approveResponsePromise;
     expect(approveResp.status()).toBe(200);
 
     // After approve, the UI reloads the queue. Wait for that refresh.
-    await page.waitForResponse(
-      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
-      { timeout: 10000 },
-    ).catch(() => {});
+    await listRefreshPromise.catch(() => {});
     await page.waitForTimeout(500);
 
     // Approved count should have incremented by 1
@@ -442,14 +446,18 @@ test.describe('Sigma Queue UI', () => {
       { timeout: 10000 },
     );
 
+    // Register the post-reject queue-refresh listener BEFORE clicking so the
+    // continuation fetch inside rejectRule() cannot fire before we subscribe.
+    const listRefreshPromise = page.waitForResponse(
+      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
+      { timeout: 10000 },
+    );
+
     await rejectBtn.click();
     const rejectResp = await rejectResponsePromise;
     expect(rejectResp.status()).toBe(200);
 
-    await page.waitForResponse(
-      (resp: any) => resp.url().includes('/api/sigma-queue/list') && resp.status() === 200,
-      { timeout: 10000 },
-    ).catch(() => {});
+    await listRefreshPromise.catch(() => {});
     await page.waitForTimeout(500);
 
     const rejectedAfter = parseInt(

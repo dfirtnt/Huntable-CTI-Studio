@@ -134,9 +134,6 @@ def extract_lmstudio_models(
 
     # QA agents (model key = agent name, no _model suffix)
     qa_agents = [
-        ("CmdLineQA", "CmdlineExtract"),
-        ("ProcTreeQA", "ProcTreeExtract"),
-        ("HuntQueriesQA", "HuntQueriesExtract"),
         ("RankAgentQA", "RankAgent"),
     ]
     for agent_name, base_agent in qa_agents:

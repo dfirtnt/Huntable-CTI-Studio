@@ -121,13 +121,13 @@ def cmdline_extraction_task(
         title=article_title,
         url=article_url,
         prompt_config=prompt_config,
-        qa_prompt_config=None,  # No QA for evaluation
-        max_retries=3,
+        max_extraction_retries=3,
         execution_id=None,
         model_name=model,
         temperature=0.0,
         provider=provider,  # Pass provider from config or inferred
         attention_preprocessor_enabled=True,
+        langfuse_session_id="eval_cmdline_count",
     )
 
     # Run async code - handle event loop gracefully

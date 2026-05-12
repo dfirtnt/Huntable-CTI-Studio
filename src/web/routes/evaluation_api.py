@@ -1205,6 +1205,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 provider=agent_models.get(f"{agent_name}_provider")
                                 or agent_models.get("ExtractAgent_provider"),
                                 attention_preprocessor_enabled=True,
+                                langfuse_session_id=f"eval_subagent_{canonical_subagent_name}",
                             )
                             actual_count = _actual_count_from_agent_result(canonical_subagent_name, agent_result or {})
                             if actual_count is None:

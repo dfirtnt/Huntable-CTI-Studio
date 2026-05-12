@@ -32,7 +32,6 @@ from src.database.models import (
 )
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
-from src.services.qa_agent_service import QAAgentService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -1630,6 +1629,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         prompt_config=prompt_config,
                         max_extraction_retries=max_extraction_retries,
                         execution_id=state["execution_id"],
+                        article_id=state["article_id"],
                         model_name=agent_model,
                         temperature=0.0,
                         provider=agent_provider,

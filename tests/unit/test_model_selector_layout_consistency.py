@@ -28,34 +28,22 @@ WORKFLOW_TEMPLATE = TEMPLATE_DIR / "workflow.html"
 AGENT_PREFIXES = [
     "rankqa",
     "cmdlineextract",
-    "cmdlineqa",
     "proctreeextract",
-    "proctreeqa",
     "huntqueriesextract",
-    "huntqueriesqa",
     "registryextract",
-    "registryqa",
     "servicesextract",
-    "servicesqa",
     "scheduledtasksextract",
-    "scheduledtasksqa",
 ]
 
 # Macro call parameters for each agent, matching the actual workflow.html invocations.
 AGENT_MACRO_PARAMS = {
     "rankqa": ("rankqa", "RankAgentQA_provider", "RankAgentQA", False, True),
     "cmdlineextract": ("cmdlineextract", "CmdlineExtract_provider", "CmdlineExtract_model", True, True),
-    "cmdlineqa": ("cmdlineqa", "CmdLineQA_provider", "CmdLineQA", False, False),
     "proctreeextract": ("proctreeextract", "ProcTreeExtract_provider", "ProcTreeExtract_model", True, True),
-    "proctreeqa": ("proctreeqa", "ProcTreeQA_provider", "ProcTreeQA", False, False),
     "huntqueriesextract": ("huntqueriesextract", "HuntQueriesExtract_provider", "HuntQueriesExtract_model", True, True),
-    "huntqueriesqa": ("huntqueriesqa", "HuntQueriesQA_provider", "HuntQueriesQA", False, False),
     "registryextract": ("registryextract", "RegistryExtract_provider", "RegistryExtract_model", True, True),
-    "registryqa": ("registryqa", "RegistryQA_provider", "RegistryQA", False, False),
     "servicesextract": ("servicesextract", "ServicesExtract_provider", "ServicesExtract_model", True, True),
-    "servicesqa": ("servicesqa", "ServicesQA_provider", "ServicesQA", False, False),
     "scheduledtasksextract": ("scheduledtasksextract", "ScheduledTasksExtract_provider", "ScheduledTasksExtract_model", True, True),
-    "scheduledtasksqa": ("scheduledtasksqa", "ScheduledTasksQA_provider", "ScheduledTasksQA", False, False),
 }
 
 # Canonical dark-gray select class that every provider/model input must carry.
@@ -199,8 +187,7 @@ class TestExtractAgentFallbackOption:
         "registryextract", "servicesextract", "scheduledtasksextract",
     ]
     QA_PREFIXES = [
-        "rankqa", "cmdlineqa", "proctreeqa", "huntqueriesqa",
-        "registryqa", "servicesqa", "scheduledtasksqa",
+        "rankqa",
     ]
 
     @pytest.mark.parametrize("prefix", EXTRACT_PREFIXES)
