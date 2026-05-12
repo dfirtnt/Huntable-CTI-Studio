@@ -50,20 +50,35 @@ async function fetchFirstArticleId(request: APIRequestContext): Promise<number |
   return items[0].id ?? null;
 }
 
-// Add a rule to the queue and return its queue_id. Throws if add fails.
+// Add a rule to the queue and return its queue_id.
+// Retries up to 3 times with 1-second backoff because the /add endpoint runs
+// an embedding similarity scan that can drop connections under parallel load.
 async function addRuleToQueue(
   request: APIRequestContext,
   articleId: number,
   suffix: string,
 ): Promise<number> {
-  const response = await request.post(`${BASE}/api/sigma-queue/add`, {
-    data: { article_id: articleId, rule_yaml: buildTestYaml(suffix) },
-  });
-  expect(response.status(), `add rule ${suffix} should succeed`).toBe(200);
-  const body = await response.json();
-  expect(body.success).toBe(true);
-  expect(typeof body.queue_id).toBe('number');
-  return body.queue_id as number;
+  const maxAttempts = 3;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await request.post(`${BASE}/api/sigma-queue/add`, {
+        data: { article_id: articleId, rule_yaml: buildTestYaml(suffix) },
+        timeout: 30000,
+      });
+      expect(response.status(), `add rule ${suffix} should succeed`).toBe(200);
+      const body = await response.json();
+      expect(body.success).toBe(true);
+      expect(typeof body.queue_id).toBe('number');
+      return body.queue_id as number;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+  }
+  throw lastError;
 }
 
 // Reject a queue entry (used for cleanup and as a test action).

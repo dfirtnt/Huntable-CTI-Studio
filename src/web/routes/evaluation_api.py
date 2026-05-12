@@ -1281,6 +1281,12 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "skip_rank_agent": True,  # Bypass rank agent for evals
                         "skip_sigma_generation": True,  # Skip SIGMA generation for evals
                         "subagent_eval": canonical_subagent_name,
+                        "cmdline_attention_preprocessor_enabled": getattr(
+                            active_config, "cmdline_attention_preprocessor_enabled", True
+                        ),
+                        "proc_tree_attention_preprocessor_enabled": getattr(
+                            active_config, "proc_tree_attention_preprocessor_enabled", True
+                        ),
                     },
                 )
                 db_session.add(execution)

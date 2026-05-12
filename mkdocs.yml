@@ -53,6 +53,7 @@ nav:
       - Content Filtering: features/content-filtering.md
       - OS Detection: features/os-detection.md
       - Cmdline Preprocessor: features/cmdline-preprocessor.md
+      - ProcTree Preprocessor: features/proctree-preprocessor.md
       - RAG Search: features/semantic-search.md
       - Observable Evaluation: features/observable-evaluation.md
       - Agent Evals: features/agent-evals.md
