@@ -1445,15 +1445,20 @@ async function pollSubagentResults(executions) {
                 }
             }
             
-            // Count completed vs pending
+            // Count completed vs pending -- restrict to the current run's executions only.
+            // The API returns all historical records; filter so the status bar reflects
+            // only what was just launched (executionResults keys = current run's execution IDs).
+            const currentExecIds = new Set(Object.keys(executionResults).map(Number));
+            const currentRunResults = results.filter(r => currentExecIds.has(r.execution_id));
+
             // For hunt_queries, count only the most recent execution per article
             // (each article can have multiple runs, each run has 2 eval records but 1 execution)
             let completed, pending, failed, total;
             if (subagent === 'hunt_queries') {
                 // Group by article_id, then find the most recent execution_id for each article
                 const articlesToExecutions = new Map(); // article_id -> array of {execution_id, created_at, status}
-                
-                results.forEach(r => {
+
+                currentRunResults.forEach(r => {
                     const articleId = r.article_id;
                     if (!articleId) return; // Skip records without article_id
                     
@@ -1495,7 +1500,7 @@ async function pollSubagentResults(executions) {
                     });
                     
                     // Get all eval records for this execution to determine combined status
-                    const execRecords = results.filter(r => 
+                    const execRecords = currentRunResults.filter(r =>
                         r.article_id === articleId && r.execution_id === latest.execution_id
                     );
                     
@@ -1516,10 +1521,10 @@ async function pollSubagentResults(executions) {
                 failed = Array.from(latestExecutionStatus.values()).filter(item => !item.hasCompleted && !item.hasPending && item.hasFailed).length;
                 total = latestExecutionStatus.size;
             } else {
-                completed = results.filter(r => r.status === 'completed').length;
-                pending = results.filter(r => r.status === 'pending').length;
-                failed = results.filter(r => r.status === 'failed').length;
-                total = results.length;
+                completed = currentRunResults.filter(r => r.status === 'completed').length;
+                pending = currentRunResults.filter(r => r.status === 'pending').length;
+                failed = currentRunResults.filter(r => r.status === 'failed').length;
+                total = currentRunResults.length;
             }
             
             statusText.textContent = `⏳ Completed: ${completed}/${total}, Pending: ${pending}, Failed: ${failed}`;
