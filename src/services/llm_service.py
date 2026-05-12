@@ -2079,6 +2079,7 @@ class LLMService:
         prompt_config: dict[str, Any],
         max_extraction_retries: int = 5,
         execution_id: int | None = None,
+        article_id: int | None = None,
         model_name: str | None = None,
         temperature: float = 0.0,
         top_p: float | None = None,
@@ -2440,28 +2441,30 @@ Every item in the output array MUST be an object (not a plain string)."""
                 is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
                 extraction_timeout = 600.0 if is_reasoning_model else 180.0
 
-                # Build Langfuse metadata (include preprocessor info for CmdlineExtract)
+                # Build Langfuse metadata. All extractors emit attention_preprocessor_enabled
+                # (False for extractors without a preprocessor) so trace schemas line up in
+                # Langfuse filters and dashboards.
+                _preprocessor_flag_by_agent = {
+                    "CmdlineExtract": attention_preprocessor_enabled,
+                    "ProcTreeExtract": proc_tree_attention_preprocessor_enabled,
+                }
                 trace_metadata: dict[str, Any] = {
                     "agent_name": agent_name,
                     "attempt": current_try,
                     "prompt_length": len(user_prompt),
                     "title": title,
                     "messages": messages,  # Include messages for input display
+                    "attention_preprocessor_enabled": _preprocessor_flag_by_agent.get(agent_name, False),
                 }
-                if agent_name == "CmdlineExtract":
-                    trace_metadata["attention_preprocessor_enabled"] = attention_preprocessor_enabled
-                    if snippet_count is not None:
-                        trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
-                if agent_name == "ProcTreeExtract":
-                    trace_metadata["attention_preprocessor_enabled"] = proc_tree_attention_preprocessor_enabled
-                    if snippet_count is not None:
-                        trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
+                if agent_name in _preprocessor_flag_by_agent and snippet_count is not None:
+                    trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
 
                 # Trace LLM call with Langfuse (each sub-agent gets its own trace)
                 with trace_llm_call(
                     name=f"{agent_name.lower()}_extraction",
                     model=model_name,
                     execution_id=execution_id,
+                    article_id=article_id,
                     metadata=trace_metadata,
                 ) as generation:
                     logger.info(
