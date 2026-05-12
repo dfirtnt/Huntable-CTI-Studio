@@ -311,3 +311,98 @@ test.describe('Execution Detail - queue warnReason', () => {
     expect(await warnReasonSpans.count()).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression: ScheduledTasksExtract card must render in Sub-Agents section
+//
+// Omission root cause: workflow.html had a parallel copy of the sub-agents
+// rendering array that was missing ScheduledTasksExtract after the agent was
+// wired.  The card rendered in workflow_executions.html but silently vanished
+// in the /workflow#executions modal view.
+// ---------------------------------------------------------------------------
+
+test.describe('Execution Detail - ScheduledTasksExtract card regression', () => {
+  test('Scheduled Tasks Extraction card renders with item count when scheduled_tasks in subresults', async ({ page }) => {
+    const exec = {
+      ...BASE_EXEC,
+      extraction_result: {
+        observables: [{ type: 'scheduled_tasks', value: 'My Task', platform: 'Windows', source_context: '' }],
+        summary: { count: 1, platforms_detected: ['Windows'] },
+        discrete_huntables_count: 1,
+        content: 'My Task',
+        subresults: {
+          cmdline: { count: 0, items: [], raw: {} },
+          process_lineage: { count: 0, items: [], raw: {} },
+          hunt_queries: { count: 0, items: [], raw: {} },
+          registry_artifacts: { count: 0, items: [], raw: {} },
+          windows_services: { count: 0, items: [], raw: {} },
+          scheduled_tasks: {
+            count: 1,
+            items: [{ task_name: 'My Task', task_path: '\\My Task', operation_type: 'created', confidence_score: 0.9 }],
+            raw: {}
+          }
+        }
+      }
+    };
+    await openExecutionWithData(page, exec);
+
+    // Navigate to the Extraction tab
+    const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
+    await extractionTab.click();
+
+    // The Sub-Agents details section -- expand it
+    const subAgentsDetails = page.locator('details').filter({ hasText: /Sub-Agents.*Individual/ });
+    if (await subAgentsDetails.count() > 0) {
+      await subAgentsDetails.first().evaluate((el: HTMLDetailsElement) => { el.open = true; });
+    }
+
+    // The Scheduled Tasks Extraction card must be present
+    const schedCard = page.locator('summary').filter({ hasText: 'Scheduled Tasks Extraction' });
+    await expect(schedCard).toBeVisible({ timeout: 3000 });
+
+    // And it must show 1 item (not 0)
+    await expect(schedCard).toContainText('(1 item)');
+  });
+
+  test('all six sub-agent cards render even when only one type has results', async ({ page }) => {
+    const exec = {
+      ...BASE_EXEC,
+      extraction_result: {
+        observables: [{ type: 'scheduled_tasks', value: 'My Task', platform: 'Windows', source_context: '' }],
+        summary: { count: 1, platforms_detected: ['Windows'] },
+        discrete_huntables_count: 1,
+        content: 'My Task',
+        subresults: {
+          cmdline: { count: 0, items: [], raw: {} },
+          process_lineage: { count: 0, items: [], raw: {} },
+          hunt_queries: { count: 0, items: [], raw: {} },
+          registry_artifacts: { count: 0, items: [], raw: {} },
+          windows_services: { count: 0, items: [], raw: {} },
+          scheduled_tasks: { count: 1, items: [{ task_name: 'My Task', task_path: '\\My Task' }], raw: {} }
+        }
+      }
+    };
+    await openExecutionWithData(page, exec);
+
+    const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
+    await extractionTab.click();
+
+    const subAgentsDetails = page.locator('details').filter({ hasText: /Sub-Agents.*Individual/ });
+    if (await subAgentsDetails.count() > 0) {
+      await subAgentsDetails.first().evaluate((el: HTMLDetailsElement) => { el.open = true; });
+    }
+
+    const expectedCards = [
+      'Command Line Extraction',
+      'Process Lineage Extraction',
+      'Hunt Queries Extraction',
+      'Registry Artifacts Extraction',
+      'Windows Services Extraction',
+      'Scheduled Tasks Extraction',
+    ];
+    for (const cardTitle of expectedCards) {
+      const card = page.locator('summary').filter({ hasText: cardTitle });
+      await expect(card).toBeVisible({ timeout: 3000 });
+    }
+  });
+});

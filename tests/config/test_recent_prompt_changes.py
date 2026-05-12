@@ -9,6 +9,11 @@ A. QAAgentCMD seed compliance
    - ASCII-only content (no Unicode emoji)
    - Passes _validate_qa_prompt_config end-to-end
 
+E. ProcTreeExtract seed -- .exe enforcement and schtasks boundary (dev-europa hardening)
+   - Both endpoints must be .exe (new rule; catches DLL sideloading, script names, family names)
+   - schtasks.exe is excluded as parent (registers tasks; does not directly spawn)
+   - DLL sideloading is explicitly called out as non-process-creation
+
 B. Quickstart preset compliance (all quickstart presets)
    - RankAgent.QAEnabled == false
    - HuntQueriesExtract.Prompt.prompt parses as JSON with
@@ -374,3 +379,68 @@ class TestNewlyRewrittenSeedEnvelopes:
                 f"{agent_name} seed still contains deprecated key '{key}'. "
                 "Use standard envelope: role/task/json_example/instructions."
             )
+
+
+# ===========================================================================
+# E. ProcTreeExtract seed -- .exe enforcement and schtasks boundary
+# ===========================================================================
+
+
+class TestProcTreeExtractHardening:
+    """Pin the critical contract rules added in dev-europa hardening pass.
+
+    These rules prevent false-positive extraction of DLL sideloads, script
+    filenames, product/family names, and schtasks.exe pseudo-spawns.  A future
+    prompt edit that silently drops them would cause regression in precision.
+    """
+
+    @pytest.fixture(scope="class")
+    def role_text(self) -> str:
+        data = _load_prompt("ProcTreeExtract")
+        return data.get("role", "")
+
+    @pytest.fixture(scope="class")
+    def instructions_text(self) -> str:
+        data = _load_prompt("ProcTreeExtract")
+        return data.get("instructions", "")
+
+    def test_exe_enforcement_in_role(self, role_text):
+        """Both endpoints must end in .exe -- the rule must appear in the role field."""
+        assert ".exe" in role_text and (
+            "Non-.exe" in role_text or "not .exe" in role_text.lower() or "SKIP" in role_text
+        ), (
+            "ProcTreeExtract role must explicitly require .exe on both endpoints and "
+            "state that non-.exe filenames are invalid."
+        )
+
+    def test_schtasks_exclusion_in_role(self, role_text):
+        """schtasks.exe must be excluded as a parent -- it registers tasks, does not spawn."""
+        assert "schtasks.exe" in role_text, (
+            "ProcTreeExtract role must explicitly exclude schtasks.exe as a parent. "
+            "schtasks.exe registers a scheduled task but does not directly spawn the payload."
+        )
+
+    def test_dll_sideloading_excluded_in_role(self, role_text):
+        """DLL sideloading must be excluded -- it is not process creation."""
+        assert "sideload" in role_text.lower() or "side-load" in role_text.lower(), (
+            "ProcTreeExtract role must explicitly exclude DLL sideloading as non-process-creation."
+        )
+
+    def test_family_name_guard_in_role(self, role_text):
+        """Product/family names must be rejected as parent/child -- they are not .exe images."""
+        assert "family" in role_text.lower() or "product name" in role_text.lower() or "Cobalt Strike" in role_text, (
+            "ProcTreeExtract role must explicitly reject product/family names "
+            "(e.g. 'Cobalt Strike', 'IcedID') as valid process image names."
+        )
+
+    def test_schtasks_in_verification_checklist(self, role_text):
+        """The verification checklist must include the schtasks.exe check."""
+        assert "schtasks" in role_text, (
+            "ProcTreeExtract checklist must include the schtasks.exe parent check."
+        )
+
+    def test_instructions_final_reminder_references_exe(self, instructions_text):
+        """The FINAL REMINDER block must reinforce the .exe rule."""
+        assert ".exe" in instructions_text, (
+            "ProcTreeExtract instructions must remind the model to skip non-.exe endpoints."
+        )
