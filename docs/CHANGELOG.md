@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **SigmaGenerate prompt contract** (2026-05-12): New `docs/contracts/sigma-generate.md` defines the invariant rules for Sigma generation prompts (role, splitting logic, generic logsource, behavioral detection operators, ATT&CK tagging, severity calibration, required fields including `observables_used`) plus a Model Adaptation section with per-model-class overlays (Local, Claude standard/thinking, OpenAI instruction, OpenAI reasoning) and an adaptation decision table. Added to `mkdocs.yml` Contracts nav.
+- **Tailored sigma generation prompts in 9 quickstart presets** (2026-05-12): Replaced the identical 2622-char prompt across all quickstart presets with three contract-compliant variants -- Local (1991 chars, inline YAML example, format directive repeated, flat numbered rules) for LMStudio-Gemma4B and LMStudio-Qwen3; Standard (3971 chars, full 8-section strategy) for anthropic-haiku-4-5, anthropic-sonnet-4-6, openai-gpt-4o, openai-gpt-4o-mini, openai-gpt-4.1, openai-gpt-4.1-mini; Reasoning (2256 chars, condensed strategy + prominent reasoning-suppression directive) for openai-gpt-5. Each variant carries the same contract markers (`observables_used`, ATT&CK tactic+technique, generic logsource, behavioral operators, severity calibration, realistic false-positives, AUTHOR PRESERVATION).
 - **ExtractAgent seed prompt** (2026-05-12): Created `src/prompts/ExtractAgent` with the standard 4-key envelope (role/task/json_example/instructions). Documents the orchestration layer and sub-agent scope map. Required by `TestNewlyRewrittenSeedEnvelopes` test contract.
 
 ### Fixed

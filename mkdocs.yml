@@ -93,6 +93,7 @@ nav:
       - ServicesExtract: contracts/services-extract.md
       - HuntQueriesExtract: contracts/huntquery-extract.md
       - Rank Agent: contracts/rank-agent.md
+      - Sigma Generate: contracts/sigma-generate.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md
 
