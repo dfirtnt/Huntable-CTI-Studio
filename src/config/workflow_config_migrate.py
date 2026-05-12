@@ -127,8 +127,8 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
         if k in CANONICAL_PROMPT_AGENT_NAMES
     }
     # Ensure every agent with Provider+Model has a prompt block (schema Part 3).
-    # ExtractAgent is intentionally excluded: it no longer carries a Prompt field after
-    # the supervisor removal; it only provides model/provider/temperature fallback defaults.
+    # ExtractAgent is intentionally excluded: it carries no prompt -- it is a model/provider
+    # fallback key for sub-agents only.
     _PROMPT_FREE_AGENTS = {"ExtractAgent"}
     for name, cfg in agents.items():
         if name in _PROMPT_FREE_AGENTS:
@@ -278,8 +278,8 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         else:
             Prompts[name] = {"prompt": "", "instructions": ""}
     # Ensure every agent with Provider+Model has a prompt block (schema Part 3).
-    # ExtractAgent is intentionally excluded: it no longer carries a Prompt field after
-    # the supervisor removal; it only provides model/provider/temperature fallback defaults.
+    # ExtractAgent is intentionally excluded: it carries no prompt -- it is a model/provider
+    # fallback key for sub-agents only.
     _PROMPT_FREE_AGENTS = {"ExtractAgent"}
     for name, cfg in Agents.items():
         if name in _PROMPT_FREE_AGENTS:

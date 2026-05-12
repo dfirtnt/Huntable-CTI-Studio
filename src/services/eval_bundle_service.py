@@ -1350,9 +1350,6 @@ class EvalBundleService:
 
         # Map agent names to config keys
         agent_config_map = {
-            "CmdlineExtract": "ExtractAgent",
-            "ProcTreeExtract": "ExtractAgent",
-            "HuntQueriesExtract": "ExtractAgent",
             "rank_article": "RankAgent",
             "generate_sigma": "SigmaAgent",
             "os_detection": "OSDetectionAgent",

@@ -67,7 +67,6 @@ _TRACEABILITY_VALUE_FIELD = "value"
 _SYSTEM_HARD_FAIL: list[tuple[str, str]] = []
 _SYSTEM_WARN_ONLY: list[tuple[str, str]] = [
     ("LITERAL TEXT EXTRACTOR", "ROLE block (sec 1)"),
-    ("sub-agent of ExtractAgent", "ARCHITECTURE CONTEXT (sec 3)"),
     ("Do NOT use prior knowledge", "INPUT CONTRACT (sec 4)"),
     ("Do NOT fetch", "INPUT CONTRACT fetch rule (sec 4)"),
     ("[ ]", "VERIFICATION CHECKLIST (sec 12)"),
@@ -113,20 +112,9 @@ def _value_matcher(removal_key: str) -> "Callable[[dict, dict], bool]":
     return _match
 
 
-_REGISTRY_HIVE_ALIASES: dict[str, str] = {
-    "hklm": "hkey_local_machine",
-    "hkcu": "hkey_current_user",
-    "hkcr": "hkey_classes_root",
-    "hku": "hkey_users",
-}
-
-
 def _norm_field(value: str, field_name: str) -> str:
-    """Normalize a field value for comparison; expands registry hive abbreviations."""
-    v = value.strip().lower()
-    if field_name == "registry_hive":
-        return _REGISTRY_HIVE_ALIASES.get(v, v)
-    return v
+    """Normalize a field value for comparison (case-insensitive strip)."""
+    return value.strip().lower()
 
 
 def _composite_matcher(field_pairs: list[tuple[str, str]]) -> "Callable[[dict, dict], bool]":
@@ -188,9 +176,8 @@ _QA_AGENT_SPECS: dict[str, _QaAgentSpec] = {
         "items",
         _composite_matcher(
             [
-                ("registry_hive", "registry_hive"),
-                ("registry_key_path", "registry_key_path"),
-                ("registry_value_name", "registry_value_name"),
+                ("key", "key"),
+                ("value_name", "value_name"),
             ]
         ),
         lambda r: r,
@@ -3235,8 +3222,8 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                     _CORRECTION_IDENT_FIELDS = (
                         "command",
                         "query",
-                        "registry_key_path",
-                        "registry_value_name",
+                        "key",
+                        "value_name",
                         "service_name",
                         "task_name",
                         "task_path",
