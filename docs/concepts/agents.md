@@ -34,8 +34,8 @@ that schedules and distributes the work. Each agent writes results to
   extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
 - **RegistryExtract**: Windows registry artifacts (persistence keys, config
-  changes, defense evasion). Split-hive output (`registry_hive` +
-  `registry_key_path`) for Sigma `registry_event` compatibility.
+  changes, defense evasion). Single `key` field (full hive-rooted path) plus
+  optional `value_name`, `value_data`, `value_type`, `operation`.
 - **ScheduledTasksExtract**: Windows scheduled task artifacts (task name,
   action, trigger, run-as user).
 - **ServicesExtract**: Windows service artifacts (service name, binary path,

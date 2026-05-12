@@ -51,10 +51,9 @@ def _registry_item(**kwargs):
     base = {
         "type": "registry_artifacts",
         "value": {
-            "registry_hive": "HKEY_LOCAL_MACHINE",
-            "registry_key_path": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-            "registry_value_name": "socks5",
-            "registry_value_data": "powershell.exe -windowstyle hidden",
+            "key": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "value_name": "socks5",
+            "value_data": "powershell.exe -windowstyle hidden",
         },
         "source": "supervisor_aggregation",
     }

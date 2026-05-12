@@ -824,28 +824,19 @@ class TestTraceabilityNormalization:
 
 
 class TestNormField:
-    """Unit tests for _norm_field -- registry hive abbreviation expansion."""
+    """Unit tests for _norm_field -- case-insensitive strip for all fields."""
 
-    def test_hklm_expands(self):
-        assert _norm_field("HKLM", "registry_hive") == "hkey_local_machine"
+    def test_lowercases_value(self):
+        assert _norm_field("HKLM\\SOFTWARE\\Run", "key") == "hklm\\software\\run"
 
-    def test_hkcu_expands(self):
-        assert _norm_field("hkcu", "registry_hive") == "hkey_current_user"
+    def test_strips_whitespace(self):
+        assert _norm_field("  MyValue  ", "value_name") == "myvalue"
 
-    def test_hkcr_expands(self):
-        assert _norm_field("HKCR", "registry_hive") == "hkey_classes_root"
+    def test_already_lowercase_unchanged(self):
+        assert _norm_field("svchost.exe", "service_name") == "svchost.exe"
 
-    def test_hku_expands(self):
-        assert _norm_field("HKU", "registry_hive") == "hkey_users"
-
-    def test_full_name_unchanged(self):
-        assert _norm_field("HKEY_LOCAL_MACHINE", "registry_hive") == "hkey_local_machine"
-
-    def test_non_hive_field_not_expanded(self):
-        assert _norm_field("HKLM", "registry_key_path") == "hklm"
-
-    def test_whitespace_stripped(self):
-        assert _norm_field("  HKLM  ", "registry_hive") == "hkey_local_machine"
+    def test_field_name_does_not_affect_result(self):
+        assert _norm_field("SomeValue", "key") == _norm_field("SomeValue", "value_name")
 
 
 class TestQACorrectionsApplication:
@@ -1025,7 +1016,7 @@ class TestQACorrectionsApplication:
 
     @pytest.mark.asyncio
     async def test_qa_corrections_wrong_identity_field_no_match(self, llm_service):
-        """RegistryExtract uses composite identity (registry_hive/key_path/value_name).
+        """RegistryExtract uses composite identity (key/value_name).
 
         A removal entry that only contains `command` has no active identity fields
         for the registry matcher, so no items are removed and corrections_applied is empty.
@@ -1276,20 +1267,18 @@ class TestQACorrectionsApplication:
 
     @pytest.mark.asyncio
     async def test_registry_extract_qa_corrections(self, llm_service):
-        """RegistryExtract: composite matcher removes item matching registry_key_path."""
+        """RegistryExtract: composite matcher removes item matching key+value_name."""
         extract_resp = json.dumps(
             {
                 "registry_artifacts": [
                     {
-                        "registry_hive": "HKLM",
-                        "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
-                        "registry_value_name": "BadValue",
+                        "key": "HKLM\\\\SOFTWARE\\\\Evil\\\\Key",
+                        "value_name": "BadValue",
                         "confidence_score": 0.9,
                     },
                     {
-                        "registry_hive": "HKCU",
-                        "registry_key_path": "SOFTWARE\\\\Legit\\\\Key",
-                        "registry_value_name": "GoodValue",
+                        "key": "HKCU\\\\SOFTWARE\\\\Legit\\\\Key",
+                        "value_name": "GoodValue",
                         "confidence_score": 0.95,
                     },
                 ],
@@ -1304,9 +1293,8 @@ class TestQACorrectionsApplication:
                 "corrections": {
                     "removed": [
                         {
-                            "registry_hive": "HKLM",
-                            "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
-                            "registry_value_name": "BadValue",
+                            "key": "HKLM\\\\SOFTWARE\\\\Evil\\\\Key",
+                            "value_name": "BadValue",
                             "reason": "not in source",
                         }
                     ],
@@ -1318,30 +1306,27 @@ class TestQACorrectionsApplication:
 
         assert result["count"] == 1
         remaining = result["items"]
-        assert remaining[0]["registry_key_path"] == "SOFTWARE\\\\Legit\\\\Key"
+        assert remaining[0]["key"] == "HKCU\\\\SOFTWARE\\\\Legit\\\\Key"
         assert result["_qa_result"]["pre_filter_count"] == 2
 
     @pytest.mark.asyncio
-    async def test_registry_extract_qa_hive_abbreviation_matches_normalized(self, llm_service):
-        """RegistryExtract: QA returns abbreviated hive (HKLM) but item has normalized form (HKEY_LOCAL_MACHINE).
+    async def test_registry_extract_qa_value_name_only_match(self, llm_service):
+        """RegistryExtract: composite matcher works when only value_name is provided in removal.
 
-        The extractor prompt requires full hive names; the QA prompt is instructed to match,
-        but models sometimes abbreviate. _norm_field expands both sides before comparing so the
-        removal still applies.
+        _composite_matcher uses all non-empty identity fields in the removal entry.
+        If only value_name is set, only value_name is compared.
         """
         extract_resp = json.dumps(
             {
                 "registry_artifacts": [
                     {
-                        "registry_hive": "HKEY_LOCAL_MACHINE",
-                        "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
-                        "registry_value_name": "BadValue",
+                        "key": "HKLM\\\\SOFTWARE\\\\Evil\\\\Key",
+                        "value_name": "BadValue",
                         "confidence_score": 0.9,
                     },
                     {
-                        "registry_hive": "HKEY_CURRENT_USER",
-                        "registry_key_path": "SOFTWARE\\\\Legit\\\\Key",
-                        "registry_value_name": "GoodValue",
+                        "key": "HKCU\\\\SOFTWARE\\\\Legit\\\\Key",
+                        "value_name": "GoodValue",
                         "confidence_score": 0.95,
                     },
                 ],
@@ -1356,9 +1341,7 @@ class TestQACorrectionsApplication:
                 "corrections": {
                     "removed": [
                         {
-                            "registry_hive": "HKLM",
-                            "registry_key_path": "SOFTWARE\\\\Evil\\\\Key",
-                            "registry_value_name": "BadValue",
+                            "value_name": "BadValue",
                             "reason": "not in source",
                         }
                     ],
@@ -1370,7 +1353,7 @@ class TestQACorrectionsApplication:
 
         assert result["count"] == 1
         remaining = result["items"]
-        assert remaining[0]["registry_key_path"] == "SOFTWARE\\\\Legit\\\\Key"
+        assert remaining[0]["value_name"] == "GoodValue"
 
     @pytest.mark.asyncio
     async def test_proc_tree_extract_qa_corrections(self, llm_service):

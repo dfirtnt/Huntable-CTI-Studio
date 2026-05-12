@@ -497,8 +497,8 @@ class TestWorkflowHelpers:
         subresults = {
             "registry_artifacts": {
                 "items": [
-                    {"registry_hive": "HKEY_LOCAL_MACHINE", "registry_key_path": "SOFTWARE\\Test"},
-                    {"registry_hive": "HKEY_CURRENT_USER", "registry_key_path": "SOFTWARE\\Other"},
+                    {"key": "HKLM\\SOFTWARE\\Test"},
+                    {"key": "HKCU\\SOFTWARE\\Other"},
                 ],
                 "count": 2,
             }
