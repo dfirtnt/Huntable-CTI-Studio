@@ -162,9 +162,7 @@ def test_rank_agent_task(
         if "RankAgent" in agent_prompts:
             from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-            rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
-                agent_prompts["RankAgent"]
-            )
+            rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(agent_prompts["RankAgent"])
 
         # Compute ground truth for Langfuse logging
         hunt_score = article.article_metadata.get("threat_hunting_score") if article.article_metadata else None
@@ -224,9 +222,7 @@ def test_sigma_agent_task(
         if "SigmaAgent" in agent_prompts:
             from src.utils.prompt_loader import parse_sigma_agent_prompt_data
 
-            sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(
-                agent_prompts["SigmaAgent"]
-            )
+            sigma_prompt_template, sigma_system_prompt = parse_sigma_agent_prompt_data(agent_prompts["SigmaAgent"])
 
         # Determine provider
         sigma_provider = agent_models.get("SigmaAgent_provider") if agent_models else None

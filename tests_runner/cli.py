@@ -27,9 +27,11 @@ from tests_runner.runner import RunTestRunner  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+
 # Thin wrappers (matching signatures used in main())
 def _load_dotenv() -> None:
     _load_dotenv_raw(project_root)
+
 
 def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_raw()
@@ -417,5 +419,3 @@ def _print_combined_summary(results: list[tuple[str, bool, dict[str, int], list[
     print(f"  {'Total':<16s} {tp:>8d} {tf:>8d} {ts:>8d}   {overall}")
     print("=" * 72)
     print()
-
-

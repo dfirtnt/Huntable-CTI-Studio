@@ -278,12 +278,8 @@ class TestIsAgentAllowed:
 
     def test_eval_lookup_values_merged(self):
         """Pre-computed eval_lookup_values are merged into the check."""
-        assert _is_agent_allowed(
-            "HuntQueriesExtract", None, None, {"hunt_queries"}, 1
-        ) is True
-        assert _is_agent_allowed(
-            "CmdlineExtract", None, None, {"hunt_queries"}, 1
-        ) is False
+        assert _is_agent_allowed("HuntQueriesExtract", None, None, {"hunt_queries"}, 1) is True
+        assert _is_agent_allowed("CmdlineExtract", None, None, {"hunt_queries"}, 1) is False
 
     def test_agent_name_match(self):
         """Agent name (lowercased) is also checked, not just the subagent alias."""
@@ -385,11 +381,13 @@ class TestDeadCodeRemoval:
         import inspect
 
         import src.workflows.agentic_workflow as wf
+
         return inspect.getsource(wf)
 
     def test_rag_service_not_imported(self):
         """RAGService was a bare instantiation with discarded result; import must be gone."""
         import src.workflows.agentic_workflow as wf
+
         assert not hasattr(wf, "RAGService"), "RAGService should not be imported into the module namespace"
 
     def test_bare_rag_service_call_absent(self):
@@ -397,8 +395,8 @@ class TestDeadCodeRemoval:
         src = self._get_source()
         # Allow the class name in comments or strings, but not as a bare call
         import re
-        assert not re.search(r"^\s*RAGService\(\)", src, re.MULTILINE), \
-            "Bare RAGService() call still present"
+
+        assert not re.search(r"^\s*RAGService\(\)", src, re.MULTILINE), "Bare RAGService() call still present"
 
     def test_state_skip_flag_removed(self):
         """state_skip_flag was always-False (skip_os_detection not in WorkflowState); must be gone."""
@@ -410,8 +408,10 @@ class TestDeadCodeRemoval:
         src = self._get_source()
         # The bare expression pattern: line that is just the expression with no assignment
         import re
-        assert not re.search(r"^\s*qa_flags\.get\(['\"]SigmaAgent", src, re.MULTILINE), \
+
+        assert not re.search(r"^\s*qa_flags\.get\(['\"]SigmaAgent", src, re.MULTILINE), (
             "Bare qa_flags.get('SigmaAgent') expression still present"
+        )
 
     def test_novelty_score_not_in_state_return(self):
         """novelty_score was written to state but absent from WorkflowState TypedDict; must be removed."""
@@ -420,7 +420,10 @@ class TestDeadCodeRemoval:
         # that it's not being set as a top-level state return key.
         # Check the similarity_search return block doesn't contain '"novelty_score":' as a state key.
         import re
-        assert not re.search(r'"novelty_score"\s*:\s*max_novelty_score', src), \
+
+        assert not re.search(r'"novelty_score"\s*:\s*max_novelty_score', src), (
             '"novelty_score" state return key still present'
-        assert not re.search(r'"novelty_results"\s*:\s*novelty_results.*New key', src), \
+        )
+        assert not re.search(r'"novelty_results"\s*:\s*novelty_results.*New key', src), (
             '"novelty_results" duplicate state key still present'
+        )

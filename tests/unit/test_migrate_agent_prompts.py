@@ -117,9 +117,7 @@ class TestNormalizeRankAgent:
 
     def test_locked_scaffold_preserves_user_template(self):
         raw = {
-            "prompt": json.dumps(
-                {"role": "RANK_PERSONA", "user_template": "Score: {title} {content}"}
-            ),
+            "prompt": json.dumps({"role": "RANK_PERSONA", "user_template": "Score: {title} {content}"}),
             "instructions": "",
         }
         result = _normalize_record("RankAgent", raw)
@@ -152,9 +150,7 @@ class TestNormalizeRankAgent:
     def test_extraction_envelope_extracts_role_drops_task(self):
         """If RankAgent was ever saved with the extraction envelope, recover the role."""
         raw = {
-            "prompt": json.dumps(
-                {"role": "RANK_PERSONA", "task": "", "json_example": "{}", "instructions": ""}
-            ),
+            "prompt": json.dumps({"role": "RANK_PERSONA", "task": "", "json_example": "{}", "instructions": ""}),
             "instructions": "",
         }
         result = _normalize_record("RankAgent", raw)

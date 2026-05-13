@@ -12,8 +12,8 @@ from src.services.eval_item_scorer import ItemScorerResult, score_items
 
 @pytest.mark.unit
 def test_exact_match_full_recall():
-    expected = ["whoami /groups", "net group \"domain admins\" /domain"]
-    actual = ["whoami /groups", "net group \"domain admins\" /domain"]
+    expected = ["whoami /groups", 'net group "domain admins" /domain']
+    actual = ["whoami /groups", 'net group "domain admins" /domain']
     result = score_items(expected, actual)
     assert result.precision == 1.0
     assert result.recall == 1.0
@@ -25,8 +25,8 @@ def test_exact_match_full_recall():
 @pytest.mark.unit
 def test_case_insensitive_normalization():
     """Lowercase normalization means casing differences match."""
-    expected = ["NET GROUP \"Domain Admins\" /domain"]
-    actual = ["net group \"domain admins\" /domain"]
+    expected = ['NET GROUP "Domain Admins" /domain']
+    actual = ['net group "domain admins" /domain']
     result = score_items(expected, actual)
     assert result.matched_count == 1
     assert result.missed_count == 0

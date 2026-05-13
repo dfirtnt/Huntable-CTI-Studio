@@ -41,13 +41,20 @@ from typing import Any
 
 # String anchors: case-insensitive substring match -- ONLY high-specificity tokens
 STRING_ANCHORS_EXACT = [
-    "Process Create", "ProcessCreate", "ProcessCreated",
-    "EventID 1", "Event ID 1",
-    "ParentImage", "ParentCommandLine",
-    "ParentProcessName", "ParentProcessId", "ParentProcessGuid",
+    "Process Create",
+    "ProcessCreate",
+    "ProcessCreated",
+    "EventID 1",
+    "Event ID 1",
+    "ParentImage",
+    "ParentCommandLine",
+    "ParentProcessName",
+    "ParentProcessId",
+    "ParentProcessGuid",
     # Arrow renderings
     "\u2192",  # right arrow
-    "->", "-->",
+    "->",
+    "-->",
     # Tree-drawing glyphs
     "\u2514\u2500",  # corner + horizontal
     "\u251c\u2500",  # tee + horizontal
@@ -94,20 +101,55 @@ _STRONG_REGEX_INDICES = frozenset({2, 3, 4, 5, 9, 10})  # P3, P4, P5, P7, P8
 _WEAK_REGEX_INDICES = frozenset({0, 1, 6, 7, 8})  # P1, P2, P6
 
 # Known process tokens for Rule T3 (proximity-qualified matching)
-KNOWN_PROCESS_TOKENS = frozenset({
-    "services.exe", "lsass.exe", "winlogon.exe", "explorer.exe",
-    "svchost.exe", "taskeng.exe", "taskhost.exe", "taskhostw.exe",
-    "spoolsv.exe", "smss.exe", "csrss.exe", "wininit.exe", "userinit.exe",
-    "cmd.exe", "powershell.exe", "pwsh.exe", "wmic.exe",
-    "cscript.exe", "wscript.exe", "mshta.exe",
-    "rundll32.exe", "regsvr32.exe", "dllhost.exe", "msbuild.exe",
-    "installutil.exe", "msdt.exe", "msiexec.exe", "certutil.exe",
-    "bitsadmin.exe", "schtasks.exe", "wuauclt.exe",
-    "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
-    "acrord32.exe", "acrobat.exe",
-    "chrome.exe", "firefox.exe", "msedge.exe", "iexplore.exe",
-    "winrshost.exe", "wsmprovhost.exe", "psexec.exe", "psexesvc.exe",
-})
+KNOWN_PROCESS_TOKENS = frozenset(
+    {
+        "services.exe",
+        "lsass.exe",
+        "winlogon.exe",
+        "explorer.exe",
+        "svchost.exe",
+        "taskeng.exe",
+        "taskhost.exe",
+        "taskhostw.exe",
+        "spoolsv.exe",
+        "smss.exe",
+        "csrss.exe",
+        "wininit.exe",
+        "userinit.exe",
+        "cmd.exe",
+        "powershell.exe",
+        "pwsh.exe",
+        "wmic.exe",
+        "cscript.exe",
+        "wscript.exe",
+        "mshta.exe",
+        "rundll32.exe",
+        "regsvr32.exe",
+        "dllhost.exe",
+        "msbuild.exe",
+        "installutil.exe",
+        "msdt.exe",
+        "msiexec.exe",
+        "certutil.exe",
+        "bitsadmin.exe",
+        "schtasks.exe",
+        "wuauclt.exe",
+        "winword.exe",
+        "excel.exe",
+        "powerpnt.exe",
+        "outlook.exe",
+        "acrord32.exe",
+        "acrobat.exe",
+        "chrome.exe",
+        "firefox.exe",
+        "msedge.exe",
+        "iexplore.exe",
+        "winrshost.exe",
+        "wsmprovhost.exe",
+        "psexec.exe",
+        "psexesvc.exe",
+    }
+)
 
 # Lineage keywords for T3 proximity check
 _LINEAGE_KEYWORDS_RE = re.compile(
@@ -118,11 +160,21 @@ _LINEAGE_KEYWORDS_RE = re.compile(
 )
 
 # Arrow / tree glyph tokens for narrative suppression check
-_ARROW_TREE_GLYPHS = frozenset({
-    "\u2192", "->", "-->", "==>",
-    "\u2514\u2500", "\u251c\u2500", "\u2514\u2500\u2500", "\u251c\u2500\u2500",
-    "\u2514>", "\\->", "|-",
-})
+_ARROW_TREE_GLYPHS = frozenset(
+    {
+        "\u2192",
+        "->",
+        "-->",
+        "==>",
+        "\u2514\u2500",
+        "\u251c\u2500",
+        "\u2514\u2500\u2500",
+        "\u251c\u2500\u2500",
+        "\u2514>",
+        "\\->",
+        "|-",
+    }
+)
 
 # Boundary patterns (reuse same logic as cmdline preprocessor)
 NEWLINE_ONLY = re.compile(r"\n")
@@ -181,11 +233,12 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
 
     # T3: two KNOWN_PROCESS_TOKENS + lineage keyword within +/-60 chars
     exe_matches = list(_EXE_TOKEN_RE.finditer(line))
-    known_positions = [(m.start(), m.end(), m.group(1).lower()) for m in exe_matches
-                       if m.group(1).lower() in KNOWN_PROCESS_TOKENS]
+    known_positions = [
+        (m.start(), m.end(), m.group(1).lower()) for m in exe_matches if m.group(1).lower() in KNOWN_PROCESS_TOKENS
+    ]
     if len(known_positions) >= 2:
         for i, (s1, e1, _) in enumerate(known_positions):
-            for s2, e2, _ in known_positions[i + 1:]:
+            for s2, e2, _ in known_positions[i + 1 :]:
                 region_start = max(0, min(s1, s2) - 60)
                 region_end = min(len(line), max(e1, e2) + 60)
                 region = line[region_start:region_end]
@@ -194,8 +247,9 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
                     positions.append((s2, e2))
 
     # T4: Sysmon field block
-    if ((_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or
-            (_SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line))):
+    if (_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or (
+        _SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line)
+    ):
         positions.append((0, len(line)))
 
     # T5: PID and PPID on same line (two distinct PID matches)
@@ -253,11 +307,10 @@ def _line_matches_structural_rules(line: str) -> bool:
 
     # T3: two known process tokens + lineage keyword nearby
     exe_matches = list(_EXE_TOKEN_RE.finditer(line))
-    known_positions = [(m.start(), m.end()) for m in exe_matches
-                       if m.group(1).lower() in KNOWN_PROCESS_TOKENS]
+    known_positions = [(m.start(), m.end()) for m in exe_matches if m.group(1).lower() in KNOWN_PROCESS_TOKENS]
     if len(known_positions) >= 2:
         for i, (s1, e1) in enumerate(known_positions):
-            for s2, e2 in known_positions[i + 1:]:
+            for s2, e2 in known_positions[i + 1 :]:
                 region_start = max(0, min(s1, s2) - 60)
                 region_end = min(len(line), max(e1, e2) + 60)
                 region = line[region_start:region_end]
@@ -265,8 +318,9 @@ def _line_matches_structural_rules(line: str) -> bool:
                     return True
 
     # T4: Sysmon field block
-    if ((_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or
-            (_SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line))):
+    if (_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or (
+        _SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line)
+    ):
         return True
 
     # T5: PID and PPID on same line
@@ -355,8 +409,13 @@ def _extract_snippet(
 
 
 def _extract_windowed_snippets(
-    line: str, lines: list[str], line_idx: int, line_lower: str,
-    *, byte_preserving: bool = False, adjacent: int = ADJACENT_LINES_DEFAULT,
+    line: str,
+    lines: list[str],
+    line_idx: int,
+    line_lower: str,
+    *,
+    byte_preserving: bool = False,
+    adjacent: int = ADJACENT_LINES_DEFAULT,
 ) -> list[str]:
     """
     For long lines (>LONG_LINE_THRESHOLD): extract match-window snippets.
@@ -371,8 +430,7 @@ def _extract_windowed_snippets(
 
     # Compute raw windows, merge overlapping/adjacent ranges
     raw: list[tuple[int, int]] = sorted(
-        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS))
-        for start, end in positions
+        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS)) for start, end in positions
     )
     merged: list[tuple[int, int]] = []
     for ws, we in raw:
@@ -389,8 +447,8 @@ def _extract_windowed_snippets(
         snippets.append(window)
 
     # Prepend previous line, append next line for cross-line context (first snippet only)
-    prev_lines = lines[max(0, line_idx - adjacent):line_idx]
-    next_lines = lines[line_idx + 1:min(len(lines), line_idx + adjacent + 1)]
+    prev_lines = lines[max(0, line_idx - adjacent) : line_idx]
+    next_lines = lines[line_idx + 1 : min(len(lines), line_idx + adjacent + 1)]
     if (prev_lines or next_lines) and snippets:
         parts = [*prev_lines, snippets[0], *next_lines]
         parts = [p for p in parts if p]
@@ -457,8 +515,12 @@ def process(
         # Long line: match-window capture
         if len(line) > LONG_LINE_THRESHOLD:
             windowed = _extract_windowed_snippets(
-                line, lines, i, line_lower,
-                byte_preserving=byte_preserving, adjacent=adjacent,
+                line,
+                lines,
+                i,
+                line_lower,
+                byte_preserving=byte_preserving,
+                adjacent=adjacent,
             )
             for snippet in windowed:
                 if not snippet or snippet in seen:
@@ -469,7 +531,9 @@ def process(
 
         # Short line: full-line capture
         snippet = _extract_snippet(
-            line, lines, i,
+            line,
+            lines,
+            i,
             byte_preserving=byte_preserving,
             adjacent=adjacent,
         )

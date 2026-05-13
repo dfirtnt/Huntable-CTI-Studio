@@ -512,7 +512,9 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "Features": {
             "SigmaFallbackEnabled": sigma.get("UseFullArticleContent", False),
             "CmdlineAttentionPreprocessorEnabled": (ui.get("CmdlineExtract") or {}).get("AttentionPreprocessor", True),
-            "ProcTreeAttentionPreprocessorEnabled": (ui.get("ProcTreeExtract") or {}).get("AttentionPreprocessor", True),
+            "ProcTreeAttentionPreprocessorEnabled": (ui.get("ProcTreeExtract") or {}).get(
+                "AttentionPreprocessor", True
+            ),
         },
         "Prompts": prompts,
     }

@@ -188,11 +188,7 @@ def test_max_snippets_zero_returns_empty():
 
 def test_snippets_preserve_article_order():
     """Multiple matches emit in document order."""
-    text = (
-        "First: winword.exe -> powershell.exe\n"
-        "Some prose here with no matches.\n"
-        "Second: cmd.exe --> explorer.exe"
-    )
+    text = "First: winword.exe -> powershell.exe\nSome prose here with no matches.\nSecond: cmd.exe --> explorer.exe"
     result = process(text)
     snippets = result["high_likelihood_snippets"]
     assert len(snippets) >= 2

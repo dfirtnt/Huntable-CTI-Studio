@@ -249,7 +249,6 @@ class TestLegacyScaffold:
             assert "must end with a valid JSON object" in user_msg
 
 
-
 # ---------------------------------------------------------------------------
 # Preset user: prefix
 # ---------------------------------------------------------------------------

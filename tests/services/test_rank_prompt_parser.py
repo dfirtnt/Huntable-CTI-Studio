@@ -134,9 +134,7 @@ class TestParseRankAgentPromptDataCanonical:
         """Post-migration: {system, user} at outer level read directly."""
         from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-        template, system = parse_rank_agent_prompt_data(
-            {"system": "RANK_PERSONA", "user": "Score: {title}"}
-        )
+        template, system = parse_rank_agent_prompt_data({"system": "RANK_PERSONA", "user": "Score: {title}"})
         assert template == "Score: {title}"
         assert system == "RANK_PERSONA"
 
@@ -144,9 +142,7 @@ class TestParseRankAgentPromptDataCanonical:
         """RankAgent canonical record with user=null falls back to file scaffold (template=None)."""
         from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-        template, system = parse_rank_agent_prompt_data(
-            {"system": "RANK_PERSONA", "user": None}
-        )
+        template, system = parse_rank_agent_prompt_data({"system": "RANK_PERSONA", "user": None})
         assert template is None
         assert system == "RANK_PERSONA"
 

@@ -89,6 +89,7 @@ from tests_runner.env import strip_cloud_llm_keys as _strip_cloud_llm_keys_fn
 def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_fn()
 
+
 def _load_dotenv() -> None:
     _load_dotenv_fn(project_root)
 
@@ -110,6 +111,8 @@ def _in_ci() -> bool:
     """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
     return _in_ci_fn()
 
+
 if __name__ == "__main__":
     import asyncio
+
     raise SystemExit(asyncio.run(main()))
