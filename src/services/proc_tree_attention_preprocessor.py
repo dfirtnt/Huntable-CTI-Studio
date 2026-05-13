@@ -322,11 +322,7 @@ def _is_narrative_only(line: str, matched_strong_anchor: bool) -> bool:
         return False
 
     # Check for arrow/tree glyphs
-    for glyph in _ARROW_TREE_GLYPHS:
-        if glyph in line:
-            return False
-
-    return True
+    return all(glyph not in line for glyph in _ARROW_TREE_GLYPHS)
 
 
 def _is_tree_glyph_line(line: str) -> bool:

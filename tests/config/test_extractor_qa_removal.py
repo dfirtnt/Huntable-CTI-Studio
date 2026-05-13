@@ -206,8 +206,8 @@ class TestSubAgentsTupleArity:
 
     def test_no_three_element_unpack_on_sub_agents(self):
         """No remaining 3-element tuple unpacking on sub_agents or original_sub_agents."""
-        import re
         import pathlib
+        import re
 
         source = pathlib.Path("src/workflows/agentic_workflow.py").read_text()
 
@@ -226,8 +226,8 @@ class TestSubAgentsTupleArity:
 
     def test_sub_agents_declaration_is_two_element_tuples(self):
         """The sub_agents list literal in agentic_workflow.py uses 2-element tuples."""
-        import re
         import pathlib
+        import re
 
         source = pathlib.Path("src/workflows/agentic_workflow.py").read_text()
 

@@ -38,7 +38,7 @@ def _make_eval_record(
     created_at=None,
 ):
     """Build a minimal mock SubagentEvaluationTable row."""
-    from datetime import datetime, timezone
+    from datetime import UTC, datetime
 
     r = MagicMock()
     r.article_url = url
@@ -48,7 +48,7 @@ def _make_eval_record(
     r.expected_count = expected_count
     r.workflow_execution_id = execution_id
     r.article_id = article_id
-    r.created_at = created_at or datetime.now(timezone.utc)
+    r.created_at = created_at or datetime.now(UTC)
     r.subagent_name = "cmdline"
     return r
 

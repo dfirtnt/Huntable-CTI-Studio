@@ -2111,9 +2111,7 @@ async def get_subagent_eval_compare(
             # Collect all unique URLs seen in either version
             all_urls: dict[str | None, str] = {}  # url -> title
             for (url, _ver), rec in latest.items():
-                if url not in all_urls:
-                    all_urls[url] = _title_for(rec)
-                elif not all_urls[url]:
+                if url not in all_urls or not all_urls[url]:
                     all_urls[url] = _title_for(rec)
 
             def _make_result(rec: SubagentEvaluationTable | None) -> dict | None:
@@ -2550,8 +2548,9 @@ async def get_saved_diagnosis(execution_id: int):
     """
     Return the most recent saved diagnosis for an execution, or 404 if none exists.
     """
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
     import json as _json
+
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
 
     matches = sorted(
         DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
@@ -2571,8 +2570,9 @@ async def get_diagnosis_counts():
     one saved diagnosis.  Uses a single directory scan (no file reads) so it is
     cheap to call on every page load.
     """
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
     from collections import defaultdict
+
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
 
     counts: dict[int, int] = defaultdict(int)
     if DIAGNOSES_DIR.exists():
@@ -2590,8 +2590,9 @@ async def list_saved_diagnoses(execution_id: int):
     Return all saved diagnoses for an execution, newest first.
     Returns an empty list (not 404) when none exist.
     """
-    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
     import json as _json
+
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
 
     matches = sorted(
         DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),

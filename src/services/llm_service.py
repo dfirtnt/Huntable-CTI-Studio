@@ -13,10 +13,9 @@ import math
 import os
 import re
 import subprocess
-from collections.abc import Callable
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Any, NamedTuple
+from typing import Any
 
 import httpx
 

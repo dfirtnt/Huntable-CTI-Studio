@@ -11,7 +11,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-import httpx
 import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier

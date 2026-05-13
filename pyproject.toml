@@ -281,7 +281,7 @@ markers = [
     "lmstudio: Tests requiring a running LMStudio instance (skipped automatically when LMStudio is unreachable)",
     "docs: Documentation build and sanity tests",
 ]
-addopts = "-p no:langsmith_plugin --strict-markers --strict-config --verbose --tb=short --alluredir=allure-results -ra --showlocals -W ignore::pydantic.warnings.PydanticDeprecatedSince20 --timeout=60"
+addopts = "-p no:langsmith_plugin --strict-markers --strict-config --verbose --tb=short --alluredir=allure-results -ra --showlocals -W ignore::pydantic.warnings.PydanticDeprecatedSince20"
 console_output_style = "progress"
 junit_family = "xunit2"
 filterwarnings = [

@@ -57,24 +57,14 @@ Manual Container Management:
     make test             # Run all tests (starts containers, runs tests, stops containers)
 """
 
-import argparse
-import asyncio
 import logging
 import os
-import queue
-import shlex
-import shutil
-import subprocess
 import sys
-import threading
-import time
 from pathlib import Path
 
 # Add project root to Python path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
-
-from tests.utils.test_database_url import build_test_database_url
 
 # Augment PATH so subprocesses can find tools (e.g. Docker Desktop CLI on macOS)
 # installed outside the default non-login shell PATH.
@@ -89,7 +79,6 @@ try:
     del _d
 except NameError:
     pass
-
 
 from tests_runner.env import in_ci as _in_ci_fn, load_dotenv as _load_dotenv_fn, strip_cloud_llm_keys as _strip_cloud_llm_keys_fn  # noqa: E402
 
@@ -107,41 +96,15 @@ try:
 except ImportError:
     pass
 
-# Enhanced debugging imports
-try:
-    from tests.utils.test_failure_analyzer import TestFailureReporter
-    from tests.utils.test_isolation import TestIsolationManager
-    from tests.utils.test_output_formatter import TestOutputFormatter
-
-    from tests.utils.async_debug_utils import AsyncDebugger
-    from tests.utils.performance_profiler import (
-        PerformanceProfiler,
-        start_performance_monitoring,
-        stop_performance_monitoring,
-    )
-
-    DEBUGGING_AVAILABLE = True
-except ImportError:
-    DEBUGGING_AVAILABLE = False
-
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-
-from tests_runner.tui import Glyph, _RunnerTUI  # noqa: E402
-
-
-from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType  # noqa: E402
-
+from tests_runner.cli import main  # noqa: E402
 
 def _in_ci() -> bool:
     """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
     return _in_ci_fn()
-
-
-from tests_runner.runner import RunTestRunner  # noqa: E402
-from tests_runner.cli import main  # noqa: E402
 
 if __name__ == "__main__":
     import asyncio

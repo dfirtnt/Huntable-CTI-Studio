@@ -10,7 +10,7 @@ import json
 import logging
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -158,7 +158,7 @@ class EvalDiagnosisService:
 
         diagnosis = {
             "diagnosis_id": diagnosis_id,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "execution_id": execution_id,
             "agent_name": agent_name,
             "provider_used": provider,

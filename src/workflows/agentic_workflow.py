@@ -14,7 +14,6 @@ This workflow processes articles through 7 steps:
 import contextlib
 import json
 import logging
-import os
 import re
 from datetime import datetime
 from typing import Any, TypedDict
@@ -30,8 +29,10 @@ from src.database.models import (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
 )
+from src.services.eval_item_scorer import score_items
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
+from src.services.qa_agent_service import QAAgentService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -40,7 +41,6 @@ from src.utils.langfuse_client import (
     log_workflow_step,
     trace_workflow_execution,
 )
-from src.services.eval_item_scorer import score_items
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.workflows.status_utils import (
     TERMINATION_REASON_NO_SIGMA_RULES,
