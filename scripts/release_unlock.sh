@@ -4,7 +4,7 @@
 #
 # `main` is held read-only between releases (see release_lock.sh). Run this
 # script to temporarily remove branch protection, perform the release merge
-# from `dev-io`, then run `release_lock.sh` to restore the lock.
+# from `dev-europa`, then run `release_lock.sh` to restore the lock.
 #
 # Requires: gh CLI authenticated with `repo` scope.
 

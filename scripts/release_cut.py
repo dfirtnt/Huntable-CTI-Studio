@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atomically cut a release on dev-io.
+"""Atomically cut a release on dev-europa.
 
 Performs every repo-local step of a release in a single commit, then creates
 the annotated tag. Does NOT push. Deliberate: the operator must still run
@@ -9,9 +9,9 @@ main and relock the branch.
 Pipeline (all-or-nothing: either every file is updated or none are):
 
 1. Preflight checks
-   - Currently on the `dev-io` branch.
+   - Currently on the `dev-europa` branch.
    - Working tree clean (no staged or unstaged changes).
-   - `dev-io` is up to date with origin (no unpushed/unpulled commits).
+   - `dev-europa` is up to date with origin (no unpushed/unpulled commits).
    - `git` and `python3` available.
 
 2. Compute edits (in memory, no writes yet)
@@ -46,8 +46,8 @@ Example output (success):
     release-cut: committed as <sha> and tagged v5.4.0
     release-cut: DONE. Next steps:
       scripts/release_unlock.sh
-      git push origin dev-io
-      # open PR: dev-io -> main; merge after CI green
+      git push origin dev-europa
+      # open PR: dev-europa -> main; merge after CI green
       git push origin v5.4.0
       scripts/release_lock.sh
 """
@@ -84,8 +84,8 @@ def _run(cmd: list[str], capture: bool = True) -> str:
 
 def _preflight() -> None:
     branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-    if branch != "dev-io":
-        _die(f"must be on dev-io (currently on {branch!r})")
+    if branch != "dev-europa":
+        _die(f"must be on dev-europa (currently on {branch!r})")
 
     status = _run(["git", "status", "--porcelain"])
     if status:
@@ -94,13 +94,13 @@ def _preflight() -> None:
             f"changes before cutting a release. Current status:\n{status}"
         )
 
-    # Fetch just origin/dev-io so we can compare without side effects on refs.
-    _run(["git", "fetch", "origin", "dev-io"])
+    # Fetch just origin/dev-europa so we can compare without side effects on refs.
+    _run(["git", "fetch", "origin", "dev-europa"])
     local = _run(["git", "rev-parse", "HEAD"])
     remote = _run(["git", "rev-parse", "FETCH_HEAD"])
     if local != remote:
         _die(
-            "dev-io is not in sync with origin/dev-io. Pull or push before "
+            "dev-europa is not in sync with origin/dev-europa. Pull or push before "
             "cutting a release."
         )
 
@@ -302,8 +302,8 @@ def main() -> int:
 
     print("release-cut: DONE. Next steps:")
     print("  scripts/release_unlock.sh")
-    print("  git push origin dev-io")
-    print("  # open PR: dev-io -> main; merge after CI green")
+    print("  git push origin dev-europa")
+    print("  # open PR: dev-europa -> main; merge after CI green")
     print(f"  git push origin {tag}")
     print("  scripts/release_lock.sh")
     return 0
