@@ -1,6 +1,7 @@
 # Non-production scripts and test runner
 scripts/
 run_tests.py
+tests_runner/
 
 # Frontend assets — pre-existing HTML/JS findings are tech debt, not this PR's scope
 src/web/static/
