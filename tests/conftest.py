@@ -228,33 +228,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-import asyncio.events as _asyncio_events
-
-
-@pytest.fixture(autouse=True)
-def _clear_playwright_running_loop():
-    """Clear asyncio running loop state after each sync-playwright test.
-
-    Playwright's sync API uses greenlets: the dispatcher fiber calls
-    asyncio.run_forever(), which sets the C-level running-loop thread-local
-    (via events._set_running_loop) at the top of run_forever(). When the
-    greenlet suspends back to the main greenlet, that thread-local stays set.
-
-    In Python 3.12+ _get_running_loop() and _set_running_loop() are C builtins
-    backed by a C-level thread-local -- NOT the Python threading.local() object.
-    We must call _set_running_loop(None) to clear the C thread-local; directly
-    zeroing _running_loop._loop has no effect on the C layer.
-
-    pytest-asyncio's Runner.run() calls _get_running_loop() before scheduling
-    each async test; if it returns non-None it raises
-    "Runner.run() cannot be called from a running event loop".
-
-    This fixture lives at the root conftest so it fires for every test, not
-    just tests under tests/e2e/ -- necessary because sync_playwright() is also
-    used in tests/ui/conftest.py, tests/templates/, and tests/conftest.py.
-    """
-    yield
-    _asyncio_events._set_running_loop(None)
 
 
 @pytest.fixture(scope="session")

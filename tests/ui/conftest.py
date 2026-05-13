@@ -124,14 +124,7 @@ def page(context):
     """
     pw_page = context.new_page()
     yield _UrlAwarePage(pw_page)
-    try:
-        pw_page.close()
-    except RuntimeError:
-        # _clear_playwright_running_loop (function-scoped, autouse) tears down
-        # before class-scoped fixtures, clearing the C-level asyncio running-loop
-        # thread-local. If the loop is gone by the time we close, ignore it --
-        # the parent context fixture will close all pages when it tears down.
-        pass
+    pw_page.close()
 
 
 @pytest.fixture
@@ -161,10 +154,7 @@ def class_page(context):
     try:
         p = context.new_page()
         yield p
-        try:
-            p.close()
-        except RuntimeError:
-            pass  # same teardown-ordering issue as the class-scoped `page` fixture above
+        p.close()
     except Exception:
         yield None
 
