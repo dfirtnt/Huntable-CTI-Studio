@@ -13,12 +13,6 @@ _MINIMAL_AGENT_MODELS = {
     "ServicesExtract_model": "gpt-4",
     "ScheduledTasksExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
-    "CmdLineQA": "gpt-4",
-    "ProcTreeQA": "gpt-4",
-    "HuntQueriesQA": "gpt-4",
-    "RegistryQA": "gpt-4",
-    "ServicesQA": "gpt-4",
-    "ScheduledTasksQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
@@ -92,8 +86,8 @@ def test_migration_accuracy_roundtrip():
     assert flat["OSDetectionAgent_embedding"] == "nlpaueb/sec-bert-base"
 
 
-def test_cmdline_qa_normalized():
-    """Legacy CmdLineQA flat key migrates to CmdLineQA in v2; flatten emits CmdLineQA for consumers."""
+def test_cmdline_qa_stripped():
+    """Legacy CmdLineQA flat key is stripped by migration -- extractor QA agents are removed."""
     raw = {
         "version": "1.0",
         "agent_models": {
@@ -107,12 +101,12 @@ def test_cmdline_qa_normalized():
         "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
     }
     migrated = migrate_v1_to_v2(raw)
-    assert "CmdLineQA" in migrated["Agents"]
-    assert migrated["Agents"]["CmdLineQA"]["Model"] == "gpt-4o"
+    assert "CmdLineQA" not in migrated["Agents"], (
+        "CmdLineQA was removed as an extractor QA agent and must be stripped by migration"
+    )
     config = WorkflowConfigV2.model_validate(migrated)
     flat = config.flatten_for_llm_service()
-    assert flat["CmdLineQA_provider"] == "openai"
-    assert flat["CmdLineQA"] == "gpt-4o"
+    assert "CmdLineQA" not in flat
 
 
 def test_v2_passthrough():
@@ -154,4 +148,4 @@ def test_missing_required_sections_get_defaults():
     assert "Agents" in migrated
     assert migrated["Thresholds"]["MinHuntScore"] == 97.0
     config = WorkflowConfigV2.model_validate(migrated)
-    assert len(config.Agents) == 17
+    assert len(config.Agents) == 10

@@ -1,8 +1,8 @@
 """
-LLM Generation Service for RAG
+LLM Generation Service
 
-Provides LLM-based response generation for RAG queries using multiple providers.
-Supports OpenAI, Anthropic Claude, and LMStudio (local).
+Provides LLM calling utilities for multiple providers (OpenAI, Anthropic Claude, LMStudio).
+Used by sigma_matching_service and benchmark tooling.
 """
 
 import asyncio
@@ -61,7 +61,7 @@ class LLMGenerationService:
         logger.info("Initialized LLM Generation Service")
 
     def _refresh_api_keys(self) -> None:
-        """Reload API keys from AppSettings + env. Call before each RAG request so Settings changes apply."""
+        """Reload API keys from AppSettings + env so Settings changes apply without restart."""
         app = _load_app_settings_keys()
         self.openai_api_key = (
             app.get(_WORKFLOW_OPENAI_API_KEY)
@@ -78,197 +78,6 @@ class LLMGenerationService:
         )
         if isinstance(self.anthropic_api_key, str):
             self.anthropic_api_key = self.anthropic_api_key.strip() or None
-
-    async def generate_rag_response(
-        self,
-        query: str,
-        retrieved_chunks: list[dict[str, Any]],
-        conversation_history: list[dict[str, Any]] | None = None,
-        provider: str = "auto",
-        retrieved_rules: list[dict[str, Any]] | None = None,
-        model_override: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Generate a synthesized response using retrieved chunks.
-
-        Args:
-            query: User's original query
-            retrieved_chunks: List of retrieved article chunks
-            conversation_history: Previous conversation context
-            provider: LLM provider ("openai", "anthropic", "lmstudio", "auto")
-            retrieved_rules: List of retrieved Sigma rules
-
-        Returns:
-            Dictionary with generated response and metadata
-        """
-        try:
-            self._refresh_api_keys()
-
-            # Build context from retrieved chunks and rules
-            context = self._build_context(retrieved_chunks, retrieved_rules)
-
-            # Create conversation context
-            conversation_context = self._build_conversation_context(conversation_history)
-
-            # Generate prompt
-            system_prompt, user_prompt = self._create_rag_prompt(query, context, conversation_context)
-
-            requested_provider = self._canonicalize_requested_provider(provider)
-
-            # Select provider after applying fallbacks
-            selected_provider = self._select_provider(provider)
-
-            # Get model metadata
-            model_name = self._get_model_name(selected_provider)
-            model_display_name = self._build_model_display(
-                selected_provider,
-                model_name,
-                requested_provider,
-            )
-
-            # Generate response
-            response = await self._call_llm(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                provider=selected_provider,
-                model_override=model_override,
-            )
-
-            # If LMStudio returned a specific model name, prefer it for display
-            if selected_provider == "lmstudio" and self.last_lmstudio_model:
-                model_name = self.last_lmstudio_model
-                model_display_name = self._build_model_display(
-                    selected_provider,
-                    model_name,
-                    requested_provider,
-                )
-
-            return {
-                "response": response,
-                "provider": selected_provider,
-                "model_name": model_name,
-                "model_display_name": model_display_name,
-                "chunks_used": len(retrieved_chunks),
-                "rules_used": len(retrieved_rules) if retrieved_rules else 0,
-                "context_length": len(context),
-                "generated_at": datetime.now().isoformat(),
-            }
-
-        except Exception as e:
-            logger.error(f"Failed to generate RAG response: {e}")
-            raise
-
-    def _build_context(
-        self,
-        retrieved_chunks: list[dict[str, Any]],
-        retrieved_rules: list[dict[str, Any]] | None = None,
-    ) -> str:
-        """Build context string from retrieved chunks and Sigma rules."""
-        context_parts = []
-
-        # Add article sources
-        for i, chunk in enumerate(retrieved_chunks, 1):
-            title = chunk.get("title", "Unknown Title")
-            source = chunk.get("source_name", "Unknown Source")
-            content = chunk.get("content", "")
-            url = chunk.get("canonical_url", "")
-            similarity = chunk.get("similarity", 0.0)
-
-            context_parts.append(
-                f"Source {i}: {title} (from {source})\nRelevance: {similarity:.1%}\nContent: {content}\nURL: {url}\n"
-            )
-
-        # Add Sigma rule sources
-        if retrieved_rules:
-            context_parts.append("\n--- SIGMA DETECTION RULES ---\n")
-            for i, rule in enumerate(retrieved_rules, 1):
-                rule_id = rule.get("rule_id", rule.get("id", "Unknown"))
-                title = rule.get("title", "Unknown Rule")
-                description = rule.get("description", "")
-                level = rule.get("level", "unknown")
-                status = rule.get("status", "unknown")
-                tags = rule.get("tags", [])
-                similarity = rule.get("similarity", 0.0)
-
-                # Build URL to view rule details
-                rule_url = f"/sigma-rules/{rule_id}"
-
-                context_parts.append(
-                    f"SIGMA Rule {i}: {title}\n"
-                    f"ID: {rule_id}\n"
-                    f"Relevance: {similarity:.1%}\n"
-                    f"Level: {level} | Status: {status}\n"
-                    f"Tags: {', '.join(tags) if tags else 'None'}\n"
-                    f"Description: {description}\n"
-                    f"View Rule: {rule_url}\n"
-                )
-
-        return "\n".join(context_parts)
-
-    def _build_conversation_context(self, conversation_history: list[dict[str, Any]] | None) -> str:
-        """Build conversation context from history."""
-        if not conversation_history:
-            return ""
-
-        context_parts = []
-        recent_turns = conversation_history[-4:]  # Last 4 turns
-
-        for turn in recent_turns:
-            role = turn.get("role", "")
-            content = turn.get("content", "")
-
-            if role == "user":
-                context_parts.append(f"User: {content}")
-            elif role == "assistant":
-                # Truncate long responses
-                truncated_content = content[:200] + "..." if len(content) > 200 else content
-                context_parts.append(f"Assistant: {truncated_content}")
-
-        return "\n".join(context_parts)
-
-    def _create_rag_prompt(self, query: str, context: str, conversation_context: str) -> tuple[str, str]:
-        """Create system and user prompts for RAG generation."""
-
-        system_prompt = """SYSTEM PROMPT — Huntable Analyst (RAG Chat Completion)
-
-You are **Huntable Analyst**, a Retrieval-Augmented Cyber Threat Intelligence assistant.
-You analyze retrieved CTI article content and Sigma detection rules to answer user questions about threat behavior, TTPs, and detection engineering.
-
-== Core Behavior ==
-1. Extract technical signals: process names, command lines, registry paths, API calls, network indicators, telemetry types.
-2. Provide detection insight: relevant Sysmon EventIDs, Windows Security events, or Sigma rule elements.
-3. Rate confidence as **High / Medium / Low** based on textual support.
-4. **IMPORTANT**: When referencing Sigma rules, ALWAYS include clickable links using the format provided in the context.
-
-== Output Template ==
-**Answer:** factual synthesis from retrieved sources.
-**Evidence:** article titles or source IDs with one-line justification.
-**Detection Notes:** Sigma-style cues (EventIDs, keywords, log sources).
-**Relevant Sigma Rules:** When Sigma rules are provided in context, list them with their clickable links (e.g., "[Rule Title](/sigma-rules/rule_id)").
-**Confidence:** High / Medium / Low.
-**If context insufficient:** say so and suggest refined query terms.
-
-== Referencing Sources ==
-- For articles: Include the article title and URL provided in context
-- For Sigma rules: Include the rule title as a clickable link using the "/sigma-rules/{rule_id}" format shown in context
-- Always provide links to allow users to explore the full source material
-
-== Conversation Memory ==
-- Modern models (GPT-4o-mini: 128k, Claude Haiku: 200k) retain extensive dialogue history
-- Reference prior context naturally when relevant
-- Maintain conversation continuity across many turns
-- Only summarize when explicitly requested or context approaches limits"""
-
-        user_prompt_parts = [f"Question: {query}\n"]
-
-        if conversation_context:
-            user_prompt_parts.append(f"Previous conversation:\n{conversation_context}\n")
-
-        user_prompt_parts.append(f"Relevant threat intelligence sources:\n{context}")
-
-        user_prompt = "\n".join(user_prompt_parts)
-
-        return system_prompt, user_prompt
 
     def _get_model_name(self, provider: str) -> str:
         """Get the actual model name for the provider."""
@@ -671,15 +480,3 @@ You analyze retrieved CTI article content and Sigma detection rules to answer us
         providers.append("lmstudio")  # Always available if LMStudio is running
 
         return providers
-
-
-# Global instance
-_llm_generation_service = None
-
-
-def get_llm_generation_service() -> LLMGenerationService:
-    """Get the global LLM generation service instance."""
-    global _llm_generation_service
-    if _llm_generation_service is None:
-        _llm_generation_service = LLMGenerationService()
-    return _llm_generation_service

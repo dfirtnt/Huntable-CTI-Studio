@@ -40,51 +40,51 @@ def _models_response(models, loaded_map=None):
 # ---------------------------------------------------------------------------
 
 
-def test_extract_lmstudio_models_skips_disabled_qa_models():
+def test_extract_lmstudio_models_skips_rank_qa_when_disabled():
     agent_models = {
-        "CmdlineExtract_model": "cmdline-model",
-        "CmdlineExtract_provider": "lmstudio",
-        "CmdLineQA": "cmdline-qa-model",
-        "CmdLineQA_provider": "lmstudio",
+        "RankAgent": "rank-model",
+        "RankAgent_provider": "lmstudio",
+        "RankAgentQA": "rank-qa-model",
+        "RankAgentQA_provider": "lmstudio",
     }
 
     models = extract_lmstudio_models(agent_models, qa_enabled={})
 
-    assert models == {"cmdline-model"}
+    assert models == {"rank-model"}
 
 
-def test_extract_lmstudio_models_skips_qa_for_disabled_subagent_even_if_flag_true():
+def test_extract_lmstudio_models_skips_rank_qa_when_base_agent_disabled():
     agent_models = {
-        "CmdlineExtract_model": "cmdline-model",
-        "CmdlineExtract_provider": "lmstudio",
-        "CmdLineQA": "cmdline-qa-model",
-        "CmdLineQA_provider": "lmstudio",
+        "RankAgent": "rank-model",
+        "RankAgent_provider": "lmstudio",
+        "RankAgentQA": "rank-qa-model",
+        "RankAgentQA_provider": "lmstudio",
     }
 
     models = extract_lmstudio_models(
         agent_models,
-        qa_enabled={"CmdlineExtract": True},
-        disabled_agents=["CmdlineExtract"],
+        qa_enabled={"RankAgent": True},
+        disabled_agents=["RankAgent"],
     )
 
-    assert models == {"cmdline-model"}
+    assert models == {"rank-model"}
 
 
-def test_extract_lmstudio_models_includes_qa_for_enabled_subagent_when_not_disabled():
+def test_extract_lmstudio_models_includes_rank_qa_when_enabled():
     agent_models = {
-        "CmdlineExtract_model": "cmdline-model",
-        "CmdlineExtract_provider": "lmstudio",
-        "CmdLineQA": "cmdline-qa-model",
-        "CmdLineQA_provider": "lmstudio",
+        "RankAgent": "rank-model",
+        "RankAgent_provider": "lmstudio",
+        "RankAgentQA": "rank-qa-model",
+        "RankAgentQA_provider": "lmstudio",
     }
 
     models = extract_lmstudio_models(
         agent_models,
-        qa_enabled={"CmdlineExtract": True},
+        qa_enabled={"RankAgent": True},
         disabled_agents=[],
     )
 
-    assert models == {"cmdline-model", "cmdline-qa-model"}
+    assert models == {"rank-model", "rank-qa-model"}
 
 
 # ---------------------------------------------------------------------------
@@ -174,41 +174,41 @@ def test_auto_load_returns_not_available_when_api_unreachable():
     assert result["lmstudio_cli_available"] is False
 
 
-def test_auto_load_only_loads_enabled_qa_models():
+def test_auto_load_skips_rank_qa_when_not_enabled():
     agent_models = {
-        "CmdlineExtract_model": "cmdline-model",
-        "CmdlineExtract_provider": "lmstudio",
-        "CmdLineQA": "cmdline-qa-model",
-        "CmdLineQA_provider": "lmstudio",
+        "RankAgent": "rank-model",
+        "RankAgent_provider": "lmstudio",
+        "RankAgentQA": "rank-qa-model",
+        "RankAgentQA_provider": "lmstudio",
     }
-    models_data = _models_response(["cmdline-model"])
+    models_data = _models_response(["rank-model"])
 
     p_fetch, p_load = _patch_api(models_data)
     with p_fetch, p_load as mock_load:
         result = auto_load_workflow_models(agent_models, qa_enabled={})
 
     assert result["success"] is True
-    assert result["models_loaded"] == ["cmdline-model"]
+    assert result["models_loaded"] == ["rank-model"]
     assert mock_load.call_count == 1
 
 
-def test_auto_load_skips_qa_for_disabled_subagent_even_if_flag_true():
+def test_auto_load_skips_rank_qa_when_base_agent_disabled():
     agent_models = {
-        "CmdlineExtract_model": "cmdline-model",
-        "CmdlineExtract_provider": "lmstudio",
-        "CmdLineQA": "cmdline-qa-model",
-        "CmdLineQA_provider": "lmstudio",
+        "RankAgent": "rank-model",
+        "RankAgent_provider": "lmstudio",
+        "RankAgentQA": "rank-qa-model",
+        "RankAgentQA_provider": "lmstudio",
     }
-    models_data = _models_response(["cmdline-model"])
+    models_data = _models_response(["rank-model"])
 
     p_fetch, p_load = _patch_api(models_data)
     with p_fetch, p_load as mock_load:
         result = auto_load_workflow_models(
             agent_models,
-            qa_enabled={"CmdlineExtract": True},
-            disabled_agents=["CmdlineExtract"],
+            qa_enabled={"RankAgent": True},
+            disabled_agents=["RankAgent"],
         )
 
     assert result["success"] is True
-    assert result["models_loaded"] == ["cmdline-model"]
+    assert result["models_loaded"] == ["rank-model"]
     assert mock_load.call_count == 1

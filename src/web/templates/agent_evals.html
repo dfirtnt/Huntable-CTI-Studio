@@ -466,7 +466,6 @@
     <div class="eval-panel mb-5 eval-animate-in">
         <div class="eval-panel-header">
             <div>
-                <div class="eval-section-label">SYS.01</div>
                 <h2 class="eval-section-title eval-body-font">Configuration</h2>
             </div>
             <div class="flex items-center gap-2">
@@ -505,7 +504,6 @@
     <div class="eval-panel mb-5 eval-animate-in">
         <div class="eval-panel-header">
             <div>
-                <div class="eval-section-label">SYS.02</div>
                 <h2 class="eval-section-title eval-body-font">Evaluation Articles</h2>
             </div>
             <div class="flex gap-2">
@@ -574,6 +572,9 @@
                     <button id="exportEvalBundleBtn" class="hidden eval-btn eval-btn--secondary eval-btn--sm" title="Export evaluation bundle (JSON)">
                         Export Bundle
                     </button>
+                    <button id="diagnoseEvalBtn" class="hidden eval-btn eval-btn--accent eval-btn--sm" title="AI diagnosis of extraction quality">
+                        Diagnose
+                    </button>
                     <button id="closeCommandlinesModal" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -591,8 +592,13 @@
     <div class="eval-panel eval-animate-in">
         <div class="eval-panel-header" style="flex-wrap: wrap;">
             <div>
-                <div class="eval-section-label">SYS.03</div>
                 <h2 class="eval-section-title eval-body-font">Results Comparison</h2>
+            </div>
+            <div class="flex items-center gap-3 flex-wrap">
+                <label class="eval-section-label" for="modelFilter">MODEL</label>
+                <select id="modelFilter" class="eval-select" style="min-width: 18rem;">
+                    <option value="">-- all models --</option>
+                </select>
             </div>
             <div class="flex gap-2 flex-wrap">
                 <button id="backfillEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm">Update Pending</button>
@@ -627,24 +633,21 @@
                 <div style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px; padding: 1.25rem;">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
                         <div>
-                            <h3 class="eval-section-title" style="font-size: 1rem;">MAE Metrics by Config Version</h3>
-                            <p class="eval-mono mt-1" style="color: var(--text-muted-slate); font-size: 0.68rem;">
-                                <span style="color: #34d399;">&#9679;</span> nMAE &le;0.20 Excellent &nbsp;
-                                <span style="color: #fbbf24;">&#9679;</span> 0.21&ndash;0.50 Good &nbsp;
-                                <span style="color: #f87171;">&#9679;</span> &gt;0.50 Needs Improvement &nbsp;&mdash;&nbsp;
-                                nMAE = avg(|actual&minus;expected| / expected); MAE = avg absolute delta in observable units
+                            <h3 class="eval-section-title" style="font-size: 1rem;">MAE by Config Version</h3>
+                            <p class="eval-mono mt-1 text-[10px]" style="color: var(--text-muted-slate);">
+                                MAE = avg(|actual&minus;expected|) in observable units
                             </p>
                         </div>
                         <div class="flex items-center gap-2">
                             <button id="chartPrevBtn" class="eval-chart-nav" disabled>&larr; Prev</button>
-                            <span id="chartRangeDisplay" class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.625rem; padding: 0 0.25rem;"></span>
+                            <span id="chartRangeDisplay" class="eval-mono text-[10px]" style="color: var(--text-muted-slate); padding: 0 0.25rem;"></span>
                             <button id="chartNextBtn" class="eval-chart-nav" disabled>Next &rarr;</button>
                         </div>
                     </div>
                     <div id="chartScrollContainer" class="overflow-x-auto" style="scrollbar-width: thin;">
                         <div class="chart-scroll-wrapper">
                             <div class="y-axis-label-sticky" aria-hidden="true">
-                                <span>Normalized MAE (nMAE)</span>
+                                <span>Mean Absolute Error (MAE)</span>
                             </div>
                             <div class="h-64" style="min-width: fit-content;">
                                 <canvas id="maeChart"></canvas>
@@ -654,13 +657,44 @@
                 </div>
             </div>
 
+            <!-- Version Compare -->
+            <div id="versionComparePanel" class="mb-6 hidden" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <div
+                    data-collapsible-panel="version-compare-panel"
+                    class="w-full flex items-center justify-between p-4 text-left rounded-t-lg transition-colors cursor-pointer"
+                    style="border-bottom: 1px solid rgba(139, 92, 246, 0.06);"
+                    onmouseover="this.style.background='rgba(139,92,246,0.04)'"
+                    onmouseout="this.style.background=''">
+                    <span class="text-sm font-semibold" style="color: var(--text-primary);">Version Compare</span>
+                    <span id="version-compare-panel-toggle" class="text-xs" style="color: var(--text-muted-slate); transition: transform 0.2s;" aria-hidden="true">&#x25BC;</span>
+                </div>
+                <div id="version-compare-panel-content" class="hidden p-4" style="border-top: 1px solid rgba(139, 92, 246, 0.06);">
+                    <div class="flex items-end gap-3 flex-wrap mb-4">
+                        <div>
+                            <label class="block text-[10px] font-medium mb-1" style="color: var(--text-muted-slate);">Baseline</label>
+                            <select id="compareVersionA" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;">
+                                <option value="">-- version --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-medium mb-1" style="color: var(--text-muted-slate);">Candidate</label>
+                            <select id="compareVersionB" class="px-2 py-1.5 border border-gray-600 rounded-md text-xs font-mono dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="min-width: 7rem;">
+                                <option value="">-- version --</option>
+                            </select>
+                        </div>
+                        <button id="runCompareBtn" class="eval-btn eval-btn--accent eval-btn--sm" style="align-self: flex-end;">Compare</button>
+                    </div>
+                    <div id="compareResult" class="hidden"></div>
+                </div>
+            </div>
+
             <!-- Results Comparison Legend -->
             <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
-                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none" style="list-style: none; color: var(--text-muted-slate); font-size: 0.75rem; font-family: 'JetBrains Mono', monospace;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
                     <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
-                    <span style="font-size: 0.65rem; opacity: 0.6;">click to expand</span>
+                    <span class="text-[10px]" style="opacity: 0.6;">click to expand</span>
                 </summary>
-                <div class="px-4 pb-4 pt-2" style="font-size: 0.78rem; color: var(--text-muted-slate);">
+                <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate);">
                     <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
                         <div>
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Cell layout</p>
@@ -673,24 +707,20 @@
                         <div>
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">Badge colors</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
-                                <li><span class="status-badge status-exact" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#10003;</span> <strong>Exact</strong> &mdash; delta = 0</li>
-                                <li><span class="status-badge status-warning" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;1</span> <strong>Close</strong> &mdash; |delta| &le; 2</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">&#177;3+</span> <strong>Miss</strong> &mdash; |delta| &gt; 2</li>
-                                <li><span class="status-badge status-pending" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem; background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);">ctx&#8599;</span> &mdash; Context window exceeded; article too long for model</li>
-                                <li><span class="status-badge status-mismatch" style="font-size: 0.7rem; padding: 0.1rem 0.45rem; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);">no mdl</span> &mdash; LMStudio not ready when run; re-run to get a real result</li>
+                                <li><span class="status-badge status-exact text-[10px]" style="padding: 0.1rem 0.5rem;">&#10003;</span> <strong>Exact</strong> &mdash; delta = 0</li>
+                                <li><span class="status-badge status-warning text-[10px]" style="padding: 0.1rem 0.5rem;">&#177;1</span> <strong>Close</strong> &mdash; |delta| &le; 2</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.5rem;">&#177;3+</span> <strong>Miss</strong> &mdash; |delta| &gt; 2</li>
+                                <li><span class="status-badge status-pending text-[10px]" style="padding: 0.1rem 0.5rem;">pending</span> &mdash; not yet completed</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.5rem;">failed</span> &mdash; extraction error</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.45rem;">&#9888;</span> &mdash; TPM rate limit hit; raise Concurrency Throttle and re-run</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.45rem; background: rgba(234,88,12,0.12); color: var(--keyword-intelligence-border); border-color: rgba(234,88,12,0.35);">ctx&#8599;</span> &mdash; Context window exceeded; article too long for model</li>
+                                <li><span class="status-badge status-mismatch text-[10px]" style="padding: 0.1rem 0.45rem; background: rgba(99,102,241,0.12); color: var(--purple-light); border-color: rgba(99,102,241,0.35);">no mdl</span> &mdash; LMStudio not ready when run; re-run to get a real result</li>
                             </ul>
                         </div>
                         <div>
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
-                                <li><strong>nMAE</strong> (Normalized MAE) &mdash; avg(|actual&minus;expected| / expected) across articles; scale 0&ndash;1</li>
-                                <li><strong>MAE</strong> (raw) &mdash; avg absolute delta in observable units (not normalized)</li>
-                                <li><span style="color: #34d399;">&#9679;</span> nMAE &le; 0.20 &mdash; Excellent</li>
-                                <li><span style="color: #fbbf24;">&#9679;</span> nMAE 0.21&ndash;0.50 &mdash; Good</li>
-                                <li><span style="color: #f87171;">&#9679;</span> nMAE &gt; 0.50 &mdash; Needs Improvement</li>
+                                <li><strong>MAE</strong> &mdash; avg(|actual&minus;expected|) in observable units; lower is better</li>
                             </ul>
                         </div>
                     </div>
@@ -698,7 +728,7 @@
             </details>
 
             <div id="resultsTable" class="comparison-table">
-                <p class="eval-mono" style="color: var(--text-muted-slate); font-size: 0.75rem;">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+                <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
             </div>
         </div>
     </div>
@@ -1054,9 +1084,53 @@ function updateRunButton() {
     }
 }
 
+// Diagnosis count badges: fetch saved diagnosis counts once per table render and
+// stamp [dx N] badges onto cells that have at least one saved diagnosis.
+let _diagnosisCountsCache = null;
+
+async function applyDiagnosisCounts() {
+    try {
+        if (_diagnosisCountsCache === null) {
+            const resp = await fetch('/api/evals/diagnosis-counts');
+            if (!resp.ok) return;
+            _diagnosisCountsCache = await resp.json(); // {execution_id: count}
+        }
+        const counts = _diagnosisCountsCache;
+        document.querySelectorAll('td[data-exec-id]').forEach(td => {
+            const execId = parseInt(td.getAttribute('data-exec-id'), 10);
+            const count = counts[execId];
+            if (!count) return;
+            const badge = td.querySelector('.dx-badge');
+            if (!badge) return;
+            badge.textContent = `[dx ${count}]`;
+            badge.title = `${count} saved diagnosis${count === 1 ? '' : 'es'} -- click cell to open`;
+            badge.style.cssText = 'display:inline-block;font-size:0.6rem;font-family:monospace;padding:0 0.3rem;line-height:1.3;border-radius:3px;background:rgba(139,92,246,0.12);color:var(--purple-light);border:1px solid rgba(139,92,246,0.3);cursor:default;';
+        });
+    } catch (_) { /* non-critical -- badge is optional */ }
+}
+
 // Help modal function
 function showHelp(fieldName) {
     const helpTexts = {
+        'diagnosisPrompt': {
+            title: 'Editing the Diagnosis Prompt',
+            content: `<p class="mb-3">The diagnosis prompt is defined directly in the service file -- there is no database-backed preset for it.</p>
+                      <p class="mb-2"><strong>File to edit:</strong></p>
+                      <ul class="list-disc list-inside mb-3 space-y-1">
+                          <li><code>src/services/eval_diagnosis_service.py</code></li>
+                      </ul>
+                      <p class="mb-2"><strong>What to look for:</strong></p>
+                      <ul class="list-disc list-inside mb-3 space-y-1">
+                          <li><code>_DIAGNOSIS_SYSTEM_PROMPT</code> -- the system message that defines the LLM's persona, response schema, and failure category definitions</li>
+                          <li><code>_build_diagnosis_prompt()</code> -- assembles the user message: extractor standard, agent contract, bundle JSON, and scoring context</li>
+                      </ul>
+                      <p class="mb-2"><strong>Extractor contracts</strong> (also included in every diagnosis call):</p>
+                      <ul class="list-disc list-inside mb-3 space-y-1">
+                          <li><code>docs/contracts/extractor-standard.md</code> -- mandatory rules for all extractors</li>
+                          <li><code>docs/contracts/cmdline-extract.md</code>, <code>proctree-extract.md</code>, etc. -- agent-specific contracts</li>
+                      </ul>
+                      <p class="mb-2"><strong>To change the model or provider</strong>, go to <a href="/settings" class="text-purple-400 hover:text-purple-300 underline">Settings &rarr; Agentic Workflow Configuration &rarr; Diagnosis Agent</a>.</p>`
+        },
         'evalCurrentConfig': {
             title: 'Eval Configuration Constraints',
             content: `<p class="mb-2">These values reflect the active agent config only.</p>
@@ -1364,15 +1438,20 @@ async function pollSubagentResults(executions) {
                 }
             }
             
-            // Count completed vs pending
+            // Count completed vs pending -- restrict to the current run's executions only.
+            // The API returns all historical records; filter so the status bar reflects
+            // only what was just launched (executionResults keys = current run's execution IDs).
+            const currentExecIds = new Set(Object.keys(executionResults).map(Number));
+            const currentRunResults = results.filter(r => currentExecIds.has(r.execution_id));
+
             // For hunt_queries, count only the most recent execution per article
             // (each article can have multiple runs, each run has 2 eval records but 1 execution)
             let completed, pending, failed, total;
             if (subagent === 'hunt_queries') {
                 // Group by article_id, then find the most recent execution_id for each article
                 const articlesToExecutions = new Map(); // article_id -> array of {execution_id, created_at, status}
-                
-                results.forEach(r => {
+
+                currentRunResults.forEach(r => {
                     const articleId = r.article_id;
                     if (!articleId) return; // Skip records without article_id
                     
@@ -1414,7 +1493,7 @@ async function pollSubagentResults(executions) {
                     });
                     
                     // Get all eval records for this execution to determine combined status
-                    const execRecords = results.filter(r => 
+                    const execRecords = currentRunResults.filter(r =>
                         r.article_id === articleId && r.execution_id === latest.execution_id
                     );
                     
@@ -1435,10 +1514,10 @@ async function pollSubagentResults(executions) {
                 failed = Array.from(latestExecutionStatus.values()).filter(item => !item.hasCompleted && !item.hasPending && item.hasFailed).length;
                 total = latestExecutionStatus.size;
             } else {
-                completed = results.filter(r => r.status === 'completed').length;
-                pending = results.filter(r => r.status === 'pending').length;
-                failed = results.filter(r => r.status === 'failed').length;
-                total = results.length;
+                completed = currentRunResults.filter(r => r.status === 'completed').length;
+                pending = currentRunResults.filter(r => r.status === 'pending').length;
+                failed = currentRunResults.filter(r => r.status === 'failed').length;
+                total = currentRunResults.length;
             }
             
             statusText.textContent = `⏳ Completed: ${completed}/${total}, Pending: ${pending}, Failed: ${failed}`;
@@ -1514,7 +1593,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         html += `<div class="flex flex-col items-center gap-0.5">`;
         html += `<div class="flex items-center gap-1">`;
         html += `<span class="cursor-help">v${version}</span>`;
-        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum})" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export bundles for all articles (v${baseVersion})">📦</button>`;
+        html += `<button type="button" onclick="exportBundlesForConfigVersion(${baseVersionNum}, true)" oncontextmenu="event.preventDefault(); exportBundlesForConfigVersion(${baseVersionNum}, false)" class="p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 hover:text-orange-600 dark:text-gray-400 dark:hover:text-orange-400" title="Export slim bundles (v${baseVersion}) -- right-click for full"><svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg></button>`;
         html += `</div></div></th>`;
     });
     
@@ -1595,7 +1674,8 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
                 const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
                 
-                html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" style="min-width: 96px;" ${onClickAttr}>`;
+                const execIdAttr = result.execution_id ? `data-exec-id="${result.execution_id}"` : '';
+                html += `<td class="px-4 py-3 whitespace-nowrap text-center ${clickClass}" style="min-width: 96px;" ${onClickAttr} ${execIdAttr}>`;
                 html += `<div class="flex flex-col items-center gap-1.5">`;
                 if (actualCount !== '-') {
                     // Main count: larger, prominent
@@ -1614,6 +1694,9 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 if (result.status !== 'completed') {
                     html += `<span class="status-badge ${statusClass} text-xs px-1.5 py-0.5">${result.status}</span>`;
                 }
+                if (result.quota_exceeded) {
+                    html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">no quota</span>`;
+                }
                 if (result.throttled) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1;" title="TPM RATE LIMIT">&#9888;</span>`;
                 }
@@ -1622,6 +1705,10 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
                 }
                 if (result.infra_not_ready) {
                     html += `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.35rem; line-height: 1.1; background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+                }
+                // Placeholder span filled by applyDiagnosisCounts() after table renders
+                if (result.execution_id) {
+                    html += `<span class="dx-badge" style="display:none;"></span>`;
                 }
                 html += `</div></td>`;
             }
@@ -1633,7 +1720,8 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     html += '</tbody></table>';
     html += '</div>';
     resultsTable.innerHTML = html;
-    
+    applyDiagnosisCounts(); // add [dx N] badges to cells that have saved diagnoses
+
     if (currentWindowVersions && currentWindowVersions.length > 0) {
         updateTableWindow(currentWindowVersions);
     }
@@ -1742,14 +1830,17 @@ function renderSubagentResults(results) {
         html += `</div></td>`;
         html += `<td class="px-4 py-3 text-sm">`;
         html += `<span class="status-badge ${statusClass}">${result.status}</span>`;
+        if (result.quota_exceeded) {
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(220,38,38,0.12); color: var(--action-danger); border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- billing cap reached. Add credits to your OpenAI account.">QUOTA EXCEEDED</span>`;
+        }
         if (result.throttled) {
             html += ` <span class="status-badge status-mismatch" title="Provider throttled this call. Raise the Concurrency Throttle and re-run.">TPM RATE LIMIT</span>`;
         }
         if (result.context_length_exceeded) {
-            html += ` <span class="status-badge status-mismatch" style="background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(234,88,12,0.12); color: var(--keyword-intelligence-border); border-color: rgba(234,88,12,0.35);" title="Context window exceeded -- article was too long for the model. No items were extracted.">ctx&#8599;</span>`;
         }
         if (result.infra_not_ready) {
-            html += ` <span class="status-badge status-mismatch" style="background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
+            html += ` <span class="status-badge status-mismatch" style="background: rgba(99,102,241,0.12); color: var(--purple-light); border-color: rgba(99,102,241,0.35);" title="LMStudio was not ready when this ran -- model not loaded. Re-run to get a real result.">no mdl</span>`;
         }
         html += `</td>`;
         html += '</tr>';
@@ -1773,15 +1864,13 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         return;
     }
     
-    // Filter aggregates that have MAE data (either normalized or raw) and exclude specified versions
+    // Filter aggregates that have MAE data and exclude specified versions
     const validAggregates = aggregates.filter(agg => {
-        const hasNMAE = agg.mean_absolute_error != null && !isNaN(agg.mean_absolute_error);
         const hasRawMAE = agg.raw_mae != null && !isNaN(agg.raw_mae);
-        const hasMAEData = hasNMAE || hasRawMAE;
         const hasConfigVersion = agg.config_version != null;
         const notExcluded = !excludedVersions.includes(parseInt(agg.config_version));
-        
-        return hasMAEData && hasConfigVersion && notExcluded;
+
+        return hasRawMAE && hasConfigVersion && notExcluded;
     });
     
     if (validAggregates.length === 0) {
@@ -1796,13 +1885,11 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     
     // Coerce to numbers so Chart.js always gets numerics (handles API string values; fixes cmdline MAE line not showing)
     const toNum = (v) => { if (v == null) return null; const n = Number(v); return (n !== n) ? null : n; };
-    const nmaeNums = validAggregates.map(agg => toNum(agg.mean_absolute_error));
     const maeNums = validAggregates.map(agg => toNum(agg.raw_mae));
     allChartData = {
         aggregates: validAggregates,
         modelsByVersion: modelsByVersion,
         labels: validAggregates.map(agg => `v${agg.config_version}`),
-        nmaeData: nmaeNums,
         maeData: maeNums,
         versions: validAggregates.map(agg => agg.config_version)
     };
@@ -1818,7 +1905,6 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     // Get window slice
     const windowEnd = Math.min(chartWindowStart + CHART_WINDOW_SIZE, allChartData.labels.length);
     const windowLabels = allChartData.labels.slice(chartWindowStart, windowEnd);
-    const windowNmaeData = allChartData.nmaeData.slice(chartWindowStart, windowEnd);
     const windowMaeData = allChartData.maeData.slice(chartWindowStart, windowEnd);
     const windowVersions = allChartData.versions.slice(chartWindowStart, windowEnd);
     currentWindowVersions = windowVersions;
@@ -1844,40 +1930,16 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         maeChart.destroy();
     }
     
-    // Determine color based on nMAE values (theme vars)
     const themeMuted = getThemeColor('--text-muted') || '#9ca3af';
     const themeSuccess = getThemeColor('--action-execute') || '#10b981';
-    const themeWarning = getThemeColor('--action-warning') || '#f59e0b';
-    const themeDanger = getThemeColor('--action-danger') || '#ef4444';
-    const themeInfo = getThemeColor('--action-info') || '#3b82f6';
-    const themeInfoFill = getThemeColor('--action-info-fill') || 'rgba(59, 130, 246, 0.1)';
     const themeSuccessFill = getThemeColor('--action-execute-fill') || 'rgba(16, 185, 129, 0.1)';
     const themeChartMuted = getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)';
-    const nmaeColors = windowNmaeData.map(nmae => {
-        if (nmae == null || isNaN(nmae)) return themeMuted;
-        if (nmae <= 0.2) return themeSuccess;
-        if (nmae <= 0.5) return themeWarning;
-        return themeDanger;
-    });
-    
+
     maeChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: windowLabels,
             datasets: [{
-                label: 'Normalized Mean Absolute Error (nMAE)',
-                data: windowNmaeData,
-                borderColor: themeInfo,
-                backgroundColor: themeInfoFill,
-                borderWidth: 2,
-                pointRadius: 5,
-                pointBackgroundColor: nmaeColors,
-                pointBorderColor: nmaeColors,
-                pointHoverRadius: 7,
-                tension: 0.1,
-                fill: true,
-                yAxisID: 'y'
-            }, {
                 label: 'Mean Absolute Error (MAE)',
                 data: windowMaeData,
                 borderColor: themeSuccess,
@@ -1888,9 +1950,9 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 pointBorderColor: themeSuccess,
                 pointHoverRadius: 7,
                 tension: 0.1,
-                fill: false,
+                fill: true,
                 spanGaps: true,
-                yAxisID: 'y1'
+                yAxisID: 'y'
             }]
         },
         options: {
@@ -1920,18 +1982,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                             return `v${version}${modelText}`;
                         },
                         label: function(context) {
-                            const datasetLabel = context.dataset.label;
                             const value = context.parsed.y;
-                            
-                            if (datasetLabel === 'Normalized Mean Absolute Error (nMAE)') {
-                                let quality = '';
-                                if (value <= 0.2) quality = ' (Excellent)';
-                                else if (value <= 0.5) quality = ' (Good)';
-                                else quality = ' (Needs Improvement)';
-                                return `nMAE: ${value.toFixed(4)}${quality}`;
-                            } else {
-                                return `MAE: ${value !== null ? value.toFixed(4) : 'N/A'}`;
-                            }
+                            return `MAE: ${value !== null ? value.toFixed(4) : 'N/A'}`;
                         }
                     }
                 }
@@ -1941,23 +1993,6 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                     type: 'linear',
                     display: true,
                     position: 'left',
-                    beginAtZero: true,
-                    title: {
-                        display: true,
-                        text: 'Normalized MAE (nMAE)',
-                        color: themeInfo
-                    },
-                    ticks: {
-                        color: themeMuted
-                    },
-                    grid: {
-                        color: themeChartMuted
-                    }
-                },
-                y1: {
-                    type: 'linear',
-                    display: true,
-                    position: 'right',
                     beginAtZero: true,
                     suggestedMin: 0,
                     suggestedMax: (() => {
@@ -1974,7 +2009,7 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                         color: themeMuted
                     },
                     grid: {
-                        drawOnChartArea: false
+                        color: themeChartMuted
                     }
                 },
                 x: {
@@ -2186,6 +2221,7 @@ async function loadAggregateScores() {
         if (filteredAggregates.length === 0) {
             aggregateScores.classList.add('hidden');
             document.getElementById('maeChartContainer').classList.add('hidden');
+            document.getElementById('versionComparePanel').classList.add('hidden');
             return;
         }
         
@@ -2247,8 +2283,19 @@ async function loadAggregateScores() {
             }
         }
         
+        // Apply model filter to aggregates (for chart and version compare)
+        const chartModelFilter = (document.getElementById('modelFilter') || {}).value || '';
+        const chartAggregates = chartModelFilter
+            ? filteredAggregates.filter(agg => {
+                const params = configParamsByVersion[agg.config_version];
+                return params && params.agentModel === chartModelFilter;
+            })
+            : filteredAggregates;
+
         // Render MAE chart
-        renderMAEChart(filteredAggregates, configParamsByVersion, true); // Reset window to show latest
+        renderMAEChart(chartAggregates, configParamsByVersion, true); // Reset window to show latest
+        populateCompareVersionSelects(chartAggregates);
+        document.getElementById('versionComparePanel').classList.remove('hidden');
         
         aggregateScores.classList.remove('hidden');
         aggregateScoresContent.innerHTML = '';
@@ -2259,13 +2306,6 @@ async function loadAggregateScores() {
         }
         
         filteredAggregates.forEach(agg => {
-            // Debug: log aggregate data to verify fields are present
-            console.log('Aggregate data for version', agg.config_version, ':', {
-                raw_mae: agg.raw_mae,
-                mean_expected_count: agg.mean_expected_count,
-                mean_absolute_error: agg.mean_absolute_error
-            });
-            
             const card = document.createElement('div');
             card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700';
             
@@ -2285,19 +2325,6 @@ async function loadAggregateScores() {
             
             let metricsHtml = '';
             if (agg.mean_score !== null) {
-                const nmaeClass = agg.mean_absolute_error <= 0.2 ? 'text-green-600 dark:text-green-400' : 
-                                 agg.mean_absolute_error <= 0.5 ? 'text-yellow-600 dark:text-yellow-400' : 
-                                 'text-red-600 dark:text-red-400';
-                
-                // Build diagnostic info for nMAE - always show if available
-                let diagnosticHtml = '';
-                if (typeof agg.raw_mae === 'number' || agg.raw_mae != null) {
-                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500 mt-1">Raw MAE: ${Number(agg.raw_mae).toFixed(4)}</div>`;
-                }
-                if (typeof agg.mean_expected_count === 'number' || agg.mean_expected_count != null) {
-                    diagnosticHtml += `<div class="text-xs text-gray-400 dark:text-gray-500">Mean Expected: ${Number(agg.mean_expected_count).toFixed(4)}</div>`;
-                }
-                
                 metricsHtml = `
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
@@ -2305,9 +2332,8 @@ async function loadAggregateScores() {
                             <div class="font-semibold text-gray-900 dark:text-white">${agg.mean_score}</div>
                         </div>
                         <div>
-                            <div class="text-gray-500 dark:text-gray-400">Normalized MAE (nMAE)</div>
-                            <div class="font-semibold ${nmaeClass}">${agg.mean_absolute_error !== null ? agg.mean_absolute_error.toFixed(4) : 'N/A'}</div>
-                            ${diagnosticHtml}
+                            <div class="text-gray-500 dark:text-gray-400">MAE</div>
+                            <div class="font-semibold text-gray-900 dark:text-white">${agg.raw_mae != null ? Number(agg.raw_mae).toFixed(4) : 'N/A'}</div>
                         </div>
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Perfect Matches</div>
@@ -2316,8 +2342,8 @@ async function loadAggregateScores() {
                         <div>
                             <div class="text-gray-500 dark:text-gray-400">Score Distribution</div>
                             <div class="font-semibold text-gray-900 dark:text-white text-xs">
-                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>, 
-                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>, 
+                                <span class="text-green-600 dark:text-green-400">${agg.score_distribution.exact} exact</span>,
+                                <span class="text-yellow-600 dark:text-yellow-400">${agg.score_distribution.within_2} ±1-2</span>,
                                 <span class="text-red-600 dark:text-red-400">${agg.score_distribution.over_2} ±3+</span>
                             </div>
                         </div>
@@ -2328,13 +2354,19 @@ async function loadAggregateScores() {
                 metricsHtml = `<p class="text-sm text-gray-500 dark:text-gray-400">No completed evaluations yet (${agg.pending} pending, ${agg.failed} failed)</p>${paramsHtml}`;
             }
             
+            const quotaChip = (agg.quota_exceeded && agg.quota_exceeded > 0)
+                ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem; background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);" title="OpenAI quota exhausted -- ${agg.quota_exceeded} article${agg.quota_exceeded === 1 ? '' : 's'} failed due to billing cap. Add credits to your OpenAI account.">${agg.quota_exceeded} quota exceeded</span>`
+                : '';
             const throttledChip = (agg.throttled && agg.throttled > 0)
                 ? `<span class="status-badge status-mismatch text-xs" style="padding: 0 0.45rem; margin-left: 0.5rem;" title="TPM RATE LIMIT - ${agg.throttled} article${agg.throttled === 1 ? '' : 's'} were throttled in this run. Raise Concurrency Throttle and re-run.">&#9888; ${agg.throttled} throttled</span>`
                 : '';
             card.innerHTML = `
                 <div class="flex justify-between items-start mb-2">
                     <h4 class="text-md font-semibold text-gray-900 dark:text-white">Config Version ${agg.config_version}</h4>
-                    <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-500 dark:text-gray-400">${agg.completed}/${agg.total_articles} completed${throttledChip}${quotaChip}</span>
+                        <button class="eval-btn eval-btn--secondary eval-btn--sm rerun-version-btn" data-config-version="${agg.config_version}" title="Pre-select these articles and re-run with current config">Re-run</button>
+                    </div>
                 </div>
                 ${metricsHtml}
             `;
@@ -2382,11 +2414,13 @@ async function loadPreviousResults() {
         // Predetermined expected_count from preset (eval_articles.yaml), not derived from results
         let presetByArticleId = {};
         let presetByUrl = {};
+        let presetArticles = [];
         try {
             const presetResp = await fetch(`/api/evaluations/subagent-eval-articles?subagent=${apiSubagent}`);
             if (presetResp.ok) {
                 const presetData = await presetResp.json();
-                (presetData.articles || []).forEach(a => {
+                presetArticles = presetData.articles || [];
+                presetArticles.forEach(a => {
                     if (a.article_id != null) presetByArticleId[a.article_id] = a.expected_count != null ? a.expected_count : 0;
                     if (a.url) presetByUrl[a.url] = a.expected_count != null ? a.expected_count : 0;
                 });
@@ -2394,7 +2428,7 @@ async function loadPreviousResults() {
         } catch (e) {
             console.warn('Could not load preset expected counts:', e);
         }
-        
+
         // Group by canonical URL so the same article never appears twice (DB and static eval for same URL → one row)
         // Support multiple runs per (article, config_version): store arrays, then assign run letters (v40a, v40b, ...)
         const byArticleKey = {};
@@ -2420,6 +2454,21 @@ async function loadPreviousResults() {
             if ((result.title && result.title.trim()) && !(row.title && row.title.trim()))
                 row.title = result.title;
             if (articleId != null && row.article_id == null) row.article_id = articleId;
+        });
+
+        // Ensure every article defined in the eval YAML has a row, even if never run
+        presetArticles.forEach(a => {
+            if (!a.url) return;
+            const key = `url:${a.url.trim()}`;
+            if (!byArticleKey[key]) {
+                byArticleKey[key] = {
+                    url: a.url,
+                    title: a.title || null,
+                    expected_count: a.expected_count != null ? a.expected_count : 0,
+                    article_id: a.article_id || null,
+                    versions: {}
+                };
+            }
         });
 
         // Assign run letters per (article, config_version): sort by created_at asc, then 40a, 40b, ...
@@ -2479,6 +2528,25 @@ async function loadPreviousResults() {
             }
         }
         
+        // Apply model filter: restrict columns to versions that used the selected model.
+        // baseVersions entries are numbers; allVersions entries are strings like "3802a".
+        // Normalize everything to strings so Set.has() (strict equality) works correctly.
+        const selectedModel = (document.getElementById('modelFilter') || {}).value || '';
+        let filteredVersions = allVersions;
+        if (selectedModel) {
+            const agentName = SUBAGENT_MAP[apiSubagent] || apiSubagent;
+            const modelKey = `${agentName}_model`;
+            const matchingBaseVersions = new Set(
+                baseVersions
+                    .filter(v => {
+                        const vData = modelsByVersion[v];
+                        return vData && vData.agent_models && vData.agent_models[modelKey] === selectedModel;
+                    })
+                    .map(v => String(v))
+            );
+            filteredVersions = allVersions.filter(v => matchingBaseVersions.has(v.replace(/[a-z]+$/, '')));
+        }
+
         // Sort: numeric article_id first (asc), then rows with null article_id (by url)
         const articleRows = Object.values(byArticleKey).sort((a, b) => {
             const aidA = a.article_id;
@@ -2488,8 +2556,8 @@ async function loadPreviousResults() {
             if (aidB != null) return 1;
             return (a.url || '').localeCompare(b.url || '');
         });
-        
-        renderSubagentResultsPivot(articleRows, allVersions, modelsByVersion);
+
+        renderSubagentResultsPivot(articleRows, filteredVersions, modelsByVersion);
         
     } catch (error) {
         console.error('Error loading previous results:', error);
@@ -2592,6 +2660,44 @@ async function clearPendingRecords() {
     }
 }
 
+// ─── Model filter dropdown ────────────────────────────────────────────────────
+
+function setModelFilterPlaceholder(text) {
+    const modelSelect = document.getElementById('modelFilter');
+    if (!modelSelect) return;
+    while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+    const opt = document.createElement('option');
+    opt.value = '';
+    opt.textContent = text;
+    modelSelect.appendChild(opt);
+}
+
+async function loadModelFilter() {
+    const modelSelect = document.getElementById('modelFilter');
+    if (!modelSelect) return;
+    setModelFilterPlaceholder('-- loading --');
+    try {
+        const resp = await fetch(`/api/evaluations/subagent-eval-models?subagent=${encodeURIComponent(currentSubagent)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const models = Array.isArray(data.models) ? data.models : [];
+        while (modelSelect.firstChild) modelSelect.removeChild(modelSelect.firstChild);
+        const allOpt = document.createElement('option');
+        allOpt.value = '';
+        allOpt.textContent = '-- all models --';
+        modelSelect.appendChild(allOpt);
+        for (const m of models) {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.config_count} config${m.config_count === 1 ? '' : 's'})`;
+            modelSelect.appendChild(opt);
+        }
+    } catch (err) {
+        console.error('Failed to load model filter:', err);
+        setModelFilterPlaceholder('-- all models --');
+    }
+}
+
 // Event listeners
 document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
 document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
@@ -2602,6 +2708,7 @@ document.getElementById('evalMultiplier').addEventListener('input', () => {
 });
 hydrateThrottleValue();
 document.getElementById('evalConcurrencyThrottle').addEventListener('change', readThrottleValue);
+document.getElementById('modelFilter').addEventListener('change', loadPreviousResults);
 document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
 document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
 document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
@@ -2644,9 +2751,12 @@ document.getElementById('subagentSelect').addEventListener('change', () => {
         aggregateScores.classList.add('hidden');
     }
     
+    // Reset model filter for the new subagent
+    setModelFilterPlaceholder('-- all models --');
+
     // Reload config to show agent-specific parameters
     loadActiveConfig().then(() => {
-        // Auto-load previous results after config is loaded
+        loadModelFilter();
         loadPreviousResults();
     });
 });
@@ -2678,6 +2788,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Auto-load previous results on page load after config is loaded
     loadActiveConfig().then(() => {
+        loadModelFilter();
         loadPreviousResults();
     });
 });
@@ -2746,10 +2857,18 @@ async function showCommandlines(executionId, articleUrl, count) {
             agentName = 'CmdlineExtract';
         }
         
-        // Show export button for all types and store executionId and agentName
+        // Show export and diagnose buttons for all types and store executionId and agentName
         exportBtn.classList.remove('hidden');
         exportBtn.dataset.executionId = executionId;
         exportBtn.dataset.agentName = agentName;
+
+        const diagnoseBtn = document.getElementById('diagnoseEvalBtn');
+        diagnoseBtn.classList.remove('hidden');
+        diagnoseBtn.dataset.executionId = executionId;
+        diagnoseBtn.dataset.agentName = agentName;
+
+        // Auto-load saved diagnosis if one exists for this execution
+        loadSavedDiagnosis(executionId);
         
         if (commandlines.length === 0) {
             if (data.context_length_exceeded) {
@@ -2913,11 +3032,174 @@ async function exportCmdlineEvalBundle(executionId) {
     return exportEvalBundle(executionId, 'CmdlineExtract');
 }
 
+// Load all previously saved diagnoses from disk (called on modal open)
+async function loadSavedDiagnosis(executionId) {
+    try {
+        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnoses`);
+        if (!response.ok) return;
+        const diagnoses = await response.json();
+        if (!diagnoses.length) return;
+        const content = document.getElementById('commandlinesContent');
+        ensureDiagnosisContainer(content);
+        const container = document.getElementById('diagnosisHistory');
+        container.replaceChildren();
+        // Newest-first from API; render in order so Run N is at top
+        diagnoses.forEach((d, i) => {
+            container.insertAdjacentHTML('beforeend', renderDiagnosisPanel(d, true, diagnoses.length - i));
+        });
+    } catch (e) {
+        // Network or parse error -- silently skip, user can run Diagnose manually
+    }
+}
+
+function ensureDiagnosisContainer(content) {
+    if (!document.getElementById('diagnosisHistory')) {
+        content.insertAdjacentHTML('beforeend',
+            `<div id="diagnosisHistory" class="mt-4 flex flex-col gap-4"></div>`
+        );
+    }
+}
+
+// AI diagnosis of a single eval bundle
+async function diagnoseBundleExecution(executionId, agentName) {
+    const button = document.getElementById('diagnoseEvalBtn');
+    const content = document.getElementById('commandlinesContent');
+    const originalText = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Diagnosing...';
+
+    try {
+        const response = await fetch(`/api/evaluations/evals/${executionId}/diagnose`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ agent_name: agentName })
+        });
+
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(err.detail || `HTTP ${response.status}`);
+        }
+
+        const diagnosis = await response.json();
+        ensureDiagnosisContainer(content);
+        const container = document.getElementById('diagnosisHistory');
+        const total = container.querySelectorAll('.diagnosis-panel').length + 1;
+        container.insertAdjacentHTML('afterbegin', renderDiagnosisPanel(diagnosis, false, total));
+        // Re-number older panels now that a new one is at the top
+        container.querySelectorAll('.diagnosis-run-label').forEach((el, idx) => {
+            el.textContent = `Run ${total - idx}`;
+        });
+        showNotification('Diagnosis complete', 'success');
+        // Invalidate cache so the [dx N] badge refreshes on next table render
+        _diagnosisCountsCache = null;
+        applyDiagnosisCounts();
+
+    } catch (error) {
+        console.error('Error diagnosing bundle:', error);
+        showNotification('Diagnosis failed: ' + error.message, 'error');
+    } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+    }
+}
+
+function renderDiagnosisPanel(d, cached = false, runNumber = null) {
+    const categoryColors = {
+        prompt_gap: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+        model_limitation: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+        input_noise: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+        infrastructure: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+        correct_behavior: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+    };
+    const severityColors = {
+        high: 'text-red-600 dark:text-red-400',
+        medium: 'text-yellow-600 dark:text-yellow-400',
+        low: 'text-gray-600 dark:text-gray-400'
+    };
+    const catClass = categoryColors[d.failure_category] || 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    const confidencePct = Math.round((d.confidence || 0) * 100);
+
+    let rootCausesHtml = '';
+    if (d.root_causes && d.root_causes.length > 0) {
+        rootCausesHtml = d.root_causes.map(rc => {
+            const sevClass = severityColors[rc.severity] || '';
+            return `<li class="mb-2">
+                <span class="font-medium ${sevClass}">[${rc.severity || 'unknown'}]</span>
+                <span class="ml-1" style="color: var(--text-muted-slate);">${escapeHtml(rc.cause)}</span>
+                ${rc.evidence ? `<div class="text-xs mt-0.5 italic" style="color: var(--text-muted);">${escapeHtml(rc.evidence)}</div>` : ''}
+            </li>`;
+        }).join('');
+    }
+
+    let recsHtml = '';
+    if (d.recommendations && d.recommendations.length > 0) {
+        const sorted = [...d.recommendations].sort((a, b) => (a.priority || 99) - (b.priority || 99));
+        recsHtml = sorted.map(r =>
+            `<li class="mb-2">
+                <span class="font-medium" style="color: var(--text-muted-slate);">${escapeHtml(r.action)}</span>
+                ${r.rationale ? `<div class="text-xs mt-0.5" style="color: var(--text-muted);">${escapeHtml(r.rationale)}</div>` : ''}
+            </li>`
+        ).join('');
+    }
+
+    let violationsHtml = '';
+    if (d.contract_violations && d.contract_violations.length > 0) {
+        violationsHtml = `
+            <div class="mt-3">
+                <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Contract Violations</h5>
+                <ul class="text-sm list-disc list-inside space-y-1" style="color: var(--text-muted-slate);">
+                    ${d.contract_violations.map(v => `<li>${escapeHtml(v)}</li>`).join('')}
+                </ul>
+            </div>`;
+    }
+
+    const runLabel = runNumber !== null ? `Run ${runNumber}` : '';
+    const runTs = d.created_at ? new Date(d.created_at).toLocaleString() : '';
+
+    return `
+    <div class="diagnosis-panel p-4 rounded-lg border" style="background: var(--panel-bg-3); border-color: rgba(139, 92, 246, 0.15); color: var(--text-muted-slate);">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-2">
+                <h4 class="text-sm font-semibold" style="color: var(--text-secondary);">AI Diagnosis</h4>
+                ${runLabel ? `<span class="diagnosis-run-label text-xs font-mono px-1.5 py-0.5 rounded" style="background: rgba(139,92,246,0.12); color: var(--text-muted-slate);">${escapeHtml(runLabel)}</span>` : ''}
+                <button type="button" onclick="showHelp('diagnosisPrompt')" title="How to edit the diagnosis prompt" class="text-gray-400 hover:text-gray-300 focus:outline-none" style="line-height:1;">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-xs px-2 py-0.5 rounded-full font-medium ${catClass}">${d.failure_category || 'unknown'}</span>
+                <span class="text-xs" style="color: var(--text-muted-slate);">${confidencePct}% confidence</span>
+                ${(d.model_used && d.model_used !== 'default') ? `<span class="text-xs font-mono" style="color: var(--text-muted);" title="Model used for this diagnosis">${escapeHtml(d.provider_used || '')}${d.provider_used ? ' / ' : ''}${escapeHtml(d.model_used)}</span>` : ''}
+                ${runTs ? `<span class="text-xs" style="color: var(--text-muted);" title="${escapeHtml(runTs)}">${escapeHtml(cached ? runTs : new Date(d.created_at).toLocaleTimeString())}</span>` : ''}
+            </div>
+        </div>
+        <p class="text-sm mb-3" style="color: var(--text-secondary);">${escapeHtml(d.summary || '')}</p>
+        ${rootCausesHtml ? `
+        <div class="mt-3">
+            <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Root Causes</h5>
+            <ul class="text-sm list-none space-y-1">${rootCausesHtml}</ul>
+        </div>` : ''}
+        ${recsHtml ? `
+        <div class="mt-3">
+            <h5 class="text-xs font-semibold uppercase tracking-wide mb-1" style="color: var(--text-muted-slate);">Recommendations</h5>
+            <ol class="text-sm list-decimal list-inside space-y-1">${recsHtml}</ol>
+        </div>` : ''}
+        ${violationsHtml}
+    </div>`;
+}
+
 // Export bundles for all articles for a config version (ZIP download)
-async function exportBundlesForConfigVersion(configVersion) {
+// slim=true (default) strips redundant data to reduce token consumption for AI review
+async function exportBundlesForConfigVersion(configVersion, slim = true) {
     const subagent = document.getElementById('subagentSelect')?.value || 'cmdline';
-    const url = `/api/evaluations/evals/export-bundles-by-config-version?config_version=${configVersion}&subagent=${encodeURIComponent(subagent)}`;
-    showNotification(`Exporting bundles for v${configVersion}...`, 'info');
+    let url = `/api/evaluations/evals/export-bundles-by-config-version?config_version=${configVersion}&subagent=${encodeURIComponent(subagent)}`;
+    if (slim) {
+        url += '&slim=true';
+    }
+    const label = slim ? 'slim bundles' : 'full bundles';
+    showNotification(`Exporting ${label} for v${configVersion}...`, 'info');
     try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -2927,12 +3209,13 @@ async function exportBundlesForConfigVersion(configVersion) {
         const blob = await response.blob();
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `eval_bundles_v${configVersion}_${subagent}.zip`;
+        const suffix = slim ? '_slim' : '';
+        a.download = `eval_bundles_v${configVersion}_${subagent}${suffix}.zip`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
-        showNotification(`Exported bundles for v${configVersion}`, 'success');
+        showNotification(`Exported ${label} for v${configVersion}`, 'success');
     } catch (error) {
         console.error('Error exporting bundles:', error);
         showNotification('Export failed: ' + error.message, 'error');
@@ -2951,12 +3234,264 @@ function closeCommandlinesModal() {
     }
 }
 
+// -- Version Compare ----------------------------------------------------------
+
+// Pre-select articles from a previous config version and scroll to the run panel
+async function rerunFromHistory(configVersion) {
+    const btn = document.querySelector(`.rerun-version-btn[data-config-version="${configVersion}"]`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+
+    try {
+        const subagent = currentSubagent;
+        const resp = await fetch(
+            `/api/evaluations/subagent-eval-version-articles?subagent=${encodeURIComponent(subagent)}&config_version=${configVersion}`
+        );
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const historyUrls = new Set(data.urls || []);
+
+        if (historyUrls.size === 0) {
+            showNotification(`No articles found for v${configVersion}`, 'warning');
+            return;
+        }
+
+        // Load eval articles if not yet loaded
+        if (!evalArticles || evalArticles.length === 0) {
+            await loadEvalArticles();
+        }
+
+        // Uncheck all, then check only those from the historical run
+        selectedArticleUrls.clear();
+        const checkboxes = document.querySelectorAll('#articleList input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+            const checked = historyUrls.has(cb.value);
+            cb.checked = checked;
+            if (checked) selectedArticleUrls.add(cb.value);
+        });
+        updateRunButton();
+
+        // Scroll to the article selection panel
+        const articlePanel = document.getElementById('articleList');
+        if (articlePanel) articlePanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        showNotification(
+            `${historyUrls.size} article${historyUrls.size === 1 ? '' : 's'} pre-selected from v${configVersion} -- review and click Run`,
+            'info'
+        );
+    } catch (err) {
+        console.error('Re-run from history failed:', err);
+        showNotification('Failed to load articles for v' + configVersion + ': ' + err.message, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Re-run'; }
+    }
+}
+
+// Delegate click for dynamically-rendered Re-run buttons
+document.getElementById('aggregateScoresContent').addEventListener('click', (e) => {
+    const btn = e.target.closest('.rerun-version-btn');
+    if (btn && btn.dataset.configVersion) {
+        rerunFromHistory(parseInt(btn.dataset.configVersion));
+    }
+});
+
+function populateCompareVersionSelects(aggregates) {
+    const selA = document.getElementById('compareVersionA');
+    const selB = document.getElementById('compareVersionB');
+    if (!selA || !selB) return;
+
+    // Sort descending
+    const versions = aggregates
+        .map(a => a.config_version)
+        .filter(v => v != null)
+        .sort((a, b) => b - a);
+
+    const buildOptions = (selected) => {
+        let html = '<option value="">-- version --</option>';
+        versions.forEach(v => {
+            const sel = v === selected ? ' selected' : '';
+            html += '<option value="' + v + '"' + sel + '>v' + v + '</option>';
+        });
+        return html;
+    };
+
+    // Pre-select: vB = highest, vA = second highest
+    const vB = versions[0] != null ? versions[0] : null;
+    const vA = versions[1] != null ? versions[1] : null;
+
+    selA.innerHTML = buildOptions(vA);
+    selB.innerHTML = buildOptions(vB);
+
+    // Clear stale comparison results from a previous subagent
+    const resultDiv = document.getElementById('compareResult');
+    if (resultDiv) {
+        resultDiv.innerHTML = '';
+        resultDiv.classList.add('hidden');
+    }
+}
+
+async function runVersionCompare() {
+    const selA = document.getElementById('compareVersionA');
+    const selB = document.getElementById('compareVersionB');
+    const btn = document.getElementById('runCompareBtn');
+    const resultDiv = document.getElementById('compareResult');
+
+    const va = selA ? parseInt(selA.value) : NaN;
+    const vb = selB ? parseInt(selB.value) : NaN;
+
+    if (!selA.value || !selB.value) {
+        showNotification('Select both versions before comparing.', 'error');
+        return;
+    }
+    if (va === vb) {
+        showNotification('Baseline and candidate must be different versions.', 'error');
+        return;
+    }
+
+    const originalText = btn.textContent;
+    btn.textContent = 'Comparing...';
+    btn.disabled = true;
+
+    try {
+        const url = '/api/evaluations/subagent-eval-compare?subagent=' + encodeURIComponent(currentSubagent) + '&version_a=' + va + '&version_b=' + vb;
+        const resp = await fetch(url);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || 'HTTP ' + resp.status);
+        }
+        const data = await resp.json();
+        resultDiv.innerHTML = renderCompareResult(data);
+        resultDiv.classList.remove('hidden');
+    } catch (error) {
+        showNotification('Compare failed: ' + error.message, 'error');
+    } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    }
+}
+
+function renderCompareResult(data) {
+    const va = data.version_a;
+    const vb = data.version_b;
+    const aggA = data.aggregate_a || {};
+    const aggB = data.aggregate_b || {};
+    const articles = data.articles || [];
+
+    const fmtMae = v => (v != null ? Number(v).toFixed(4) : '--');
+    const fmtPct = v => (v != null ? Number(v).toFixed(1) + '%' : '--');
+
+    const maeA = aggA.raw_mae;
+    const maeB = aggB.raw_mae;
+    let maeArrow = '';
+    if (maeA != null && maeB != null) {
+        if (maeB < maeA) maeArrow = ' <span style="color:#34d399;">(down)</span>';
+        else if (maeB > maeA) maeArrow = ' <span style="color:#f87171;">(up)</span>';
+        else maeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
+    }
+
+    const improved = articles.filter(a => a.improvement != null && a.improvement > 0).length;
+    const regressed = articles.filter(a => a.improvement != null && a.improvement < 0).length;
+    const unchanged = articles.filter(a => a.improvement != null && a.improvement === 0).length;
+
+    const summaryHtml = [
+        '<div class="flex flex-wrap gap-3 mb-4">',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">MAE</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + fmtMae(maeA) + ' &rarr; v' + vb + ': ' + fmtMae(maeB) + maeArrow + '</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Perfect Matches</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + (aggA.perfect_matches != null ? aggA.perfect_matches : '--') + ' (' + fmtPct(aggA.perfect_match_percentage) + ') &rarr; v' + vb + ': ' + (aggB.perfect_matches != null ? aggB.perfect_matches : '--') + ' (' + fmtPct(aggB.perfect_match_percentage) + ')</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(34,197,94,0.15);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Improved</div>',
+        '    <div class="text-xs font-mono font-semibold" style="color:#34d399;">' + improved + '</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(248,113,113,0.15);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Regressed</div>',
+        '    <div class="text-xs font-mono font-semibold" style="color:#f87171;">' + regressed + '</div>',
+        '  </div>',
+        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Unchanged</div>',
+        '    <div class="text-xs font-mono" style="color:var(--text-muted);">' + unchanged + '</div>',
+        '  </div>',
+        '</div>'
+    ].join('\n');
+
+    function cellHtml(result, expectedCount) {
+        if (!result) return '<span style="color:var(--text-muted);">--</span>';
+        const actual = result.actual_count;
+        const score = result.score;
+        const execId = result.execution_id;
+        if (actual == null) {
+            const st = escapeHtml(result.status || '--');
+            return '<span style="color:var(--text-muted); font-size:0.7rem;">' + st + '</span>';
+        }
+        const delta = score != null ? score : 0;
+        let color = 'var(--action-execute)';
+        if (delta !== 0) {
+            color = Math.abs(delta) <= 2 ? 'var(--action-warning)' : 'var(--action-danger)';
+        }
+        const deltaStr = delta > 0 ? '+' + delta : String(delta);
+        const execLink = execId
+            ? '<a href="/workflow?exec=' + execId + '#executions" class="hover:underline" style="color:var(--text-muted); font-size:0.65rem;" title="Execution #' + execId + '">#' + execId + '</a>'
+            : '';
+        return '<span class="font-mono font-semibold" style="color:' + color + '; font-size:0.8rem;">' + actual + '</span> <span class="font-mono" style="color:' + color + '; font-size:0.7rem;">(' + deltaStr + ')</span>' + (execLink ? ' ' + execLink : '');
+    }
+
+    function changeBadge(improvement) {
+        if (improvement == null) return '<span style="color:var(--text-muted); font-size:0.7rem;">--</span>';
+        if (improvement > 0) return '<span class="font-mono text-xs font-semibold" style="color:var(--action-execute);">better +' + improvement + '</span>';
+        if (improvement < 0) return '<span class="font-mono text-xs font-semibold" style="color:var(--action-danger);">worse ' + improvement + '</span>';
+        return '<span class="font-mono text-xs" style="color:var(--text-muted);">same</span>';
+    }
+
+    let rowsHtml = '';
+    articles.forEach(function(art) {
+        const rawTitle = art.title
+            ? (art.title.length > 60 ? art.title.substring(0, 57) + '...' : art.title)
+            : (art.url || '').replace(/^https?:\/\/([^/]+).*$/, '$1');
+        const titleOrDomain = escapeHtml(rawTitle);
+        const urlEsc = escapeHtml(art.url || '');
+        const titleCell = '<span title="' + urlEsc + '" style="color:var(--text-secondary); font-size:0.75rem;">' + titleOrDomain + '</span>';
+        const expected = art.expected_count != null ? art.expected_count : '--';
+        rowsHtml += '<tr style="border-top:1px solid rgba(139,92,246,0.06);">'
+            + '<td class="px-2 py-2">' + titleCell + '</td>'
+            + '<td class="px-2 py-2 text-center font-mono text-xs" style="color:var(--text-muted-slate);">' + expected + '</td>'
+            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_a, art.expected_count) + '</td>'
+            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_b, art.expected_count) + '</td>'
+            + '<td class="px-2 py-2 text-center">' + changeBadge(art.improvement) + '</td>'
+            + '</tr>';
+    });
+
+    const tableHtml = [
+        '<div class="overflow-x-auto" style="border-radius:8px; border:1px solid rgba(139,92,246,0.1);">',
+        '  <table class="w-full text-xs" style="border-collapse:collapse;">',
+        '    <thead>',
+        '      <tr style="background:var(--panel-bg-3);">',
+        '        <th class="px-2 py-2 text-left font-semibold" style="color:var(--text-muted-slate);">Article</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">Expected</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">v' + va + '</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">v' + vb + '</th>',
+        '        <th class="px-2 py-2 text-center font-semibold" style="color:var(--text-muted-slate);">Change</th>',
+        '      </tr>',
+        '    </thead>',
+        '    <tbody>' + rowsHtml + '</tbody>',
+        '  </table>',
+        '</div>'
+    ].join('\n');
+
+    return summaryHtml + tableHtml;
+}
+
 // Escape HTML to prevent XSS
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
+
+// Version compare button
+document.getElementById('runCompareBtn').addEventListener('click', runVersionCompare);
 
 // Event listeners for modal
 document.getElementById('closeCommandlinesModal').addEventListener('click', closeCommandlinesModal);
@@ -2965,6 +3500,13 @@ document.getElementById('exportEvalBundleBtn').addEventListener('click', (e) => 
     const agentName = e.target.dataset.agentName || 'CmdlineExtract';
     if (executionId) {
         exportEvalBundle(parseInt(executionId), agentName);
+    }
+});
+document.getElementById('diagnoseEvalBtn').addEventListener('click', (e) => {
+    const executionId = e.target.dataset.executionId;
+    const agentName = e.target.dataset.agentName || 'CmdlineExtract';
+    if (executionId) {
+        diagnoseBundleExecution(parseInt(executionId), agentName);
     }
 });
 document.getElementById('commandlinesModal').addEventListener('click', (e) => {

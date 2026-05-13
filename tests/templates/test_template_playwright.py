@@ -16,6 +16,7 @@ from playwright.sync_api import Page, expect
 
 
 @pytest.mark.e2e
+@pytest.mark.skip(reason="Template stub -- requires port 8002 test environment (make test-up). Not a real test.")
 def test_workflow_example(page: Page):
     """Example Playwright E2E test."""
     # Navigate to page

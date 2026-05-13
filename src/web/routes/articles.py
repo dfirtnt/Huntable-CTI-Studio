@@ -84,7 +84,7 @@ async def api_articles_list(
         )
 
         return {
-            "articles": [article.dict() for article in articles],
+            "articles": [article.dict(exclude={"embedding"}) for article in articles],
             "total": total_count,
             "sort_by": sort_by,
             "sort_order": sort_order,
@@ -291,7 +291,7 @@ async def delete_article(article_id: int):
 
 
 @router.get("/{article_id}/workflow-status")
-async def api_get_article_workflow_status(article_id: int):
+def api_get_article_workflow_status(article_id: int):
     """Return whether this article has a completed execution under the current active config."""
     try:
         from src.database.manager import DatabaseManager

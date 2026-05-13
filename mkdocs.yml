@@ -39,6 +39,7 @@ nav:
       - Generate Sigma Rules: guides/generate-sigma.md
       - Evaluate Models: guides/evaluate-models.md
       - Backup & Restore: guides/backup-and-restore.md
+      - Authentication: guides/authentication.md
       - Source Configuration: guides/source-config.md
       - Memory Tuning: guides/memory-tuning.md
   - Architecture:
@@ -52,6 +53,7 @@ nav:
       - Content Filtering: features/content-filtering.md
       - OS Detection: features/os-detection.md
       - Cmdline Preprocessor: features/cmdline-preprocessor.md
+      - ProcTree Preprocessor: features/proctree-preprocessor.md
       - RAG Search: features/semantic-search.md
       - Observable Evaluation: features/observable-evaluation.md
       - Agent Evals: features/agent-evals.md
@@ -71,7 +73,6 @@ nav:
       - Schemas: reference/schemas.md
       - Scheduled Jobs: reports/scheduled-jobs-report.md
       - ML Feature Definitions: reference/ml-features.md
-      - Versioning: reference/versioning.md
   - Development:
       - Agent Orientation: development/agent-orientation.md
       - Setup: development/setup.md
@@ -92,21 +93,7 @@ nav:
       - ServicesExtract: contracts/services-extract.md
       - HuntQueriesExtract: contracts/huntquery-extract.md
       - Rank Agent: contracts/rank-agent.md
-  - Prompts:
-      - Eval Bundle Analysis: prompts/eval-bundle.md
-      - Hunt Query Eval: prompts/huntquery-eval.md
-      - Process Tree Eval: prompts/proctree-eval.md
-  - Solutions:
-      - Test failures:
-          - Async fixture teardown loop mismatch: solutions/test-failures/async-fixture-teardown-different-loop-IntegrationTests-20260310.md
-          - Cmdline extract preset prompt drift (IEX): solutions/test-failures/cmdline-extract-preset-prompt-drift-iex-2026-05-01.md
-      - Logic errors:
-          - SIGMA similarity case-sensitive atom matching: solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md
-          - SIGMA cross-field soft matching zero similarity: solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md
-      - UI bugs:
-          - Agent prompt save/display revert race: solutions/ui-bugs/agent-prompt-save-display-revert-AgentPrompts-20260202.md
-      - Workflow issues:
-          - Agent prompt state refactor recurring save: solutions/workflow-issues/agent-prompt-state-refactor-stop-recurring-save-display-20260311.md
+      - Sigma Generate: contracts/sigma-generate.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md
 

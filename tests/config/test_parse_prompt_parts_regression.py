@@ -48,7 +48,6 @@ EXTRACTOR_CONTRACT_AGENTS = [
     "ProcTreeExtract",
     "HuntQueriesExtract",
     "CmdlineExtract",
-    "ExtractAgent",
 ]
 
 

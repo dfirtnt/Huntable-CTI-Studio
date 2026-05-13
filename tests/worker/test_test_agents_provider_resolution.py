@@ -15,12 +15,12 @@ import pytest
 pytestmark = pytest.mark.unit
 
 
-def _make_config(agent_models: dict, agent_prompts: dict | None = None, qa_enabled: dict | None = None):
+def _make_config(agent_models: dict, agent_prompts: dict | None = None):
     """Build a mock config object matching ActiveWorkflowConfig shape."""
     return SimpleNamespace(
         agent_models=agent_models,
         agent_prompts=agent_prompts or {"RegistryExtract": {"prompt": "", "instructions": ""}},
-        qa_enabled=qa_enabled or {},
+        qa_enabled={},
         qa_max_retries=5,
     )
 
@@ -38,10 +38,10 @@ def _make_article(article_id: int = 1916, title: str = "Test Article", url: str 
     )
 
 
-def _run_task(agent_name: str, agent_models: dict, qa_enabled: dict | None = None, agent_prompts: dict | None = None):
+def _run_task(agent_name: str, agent_models: dict, agent_prompts: dict | None = None):
     """Execute test_sub_agent_task with mocked dependencies, return the kwargs passed to run_extraction_agent."""
     article = _make_article()
-    config = _make_config(agent_models, agent_prompts=agent_prompts, qa_enabled=qa_enabled)
+    config = _make_config(agent_models, agent_prompts=agent_prompts)
 
     mock_llm_service = MagicMock()
     mock_run = AsyncMock(return_value={"items": [], "count": 0})
@@ -204,41 +204,6 @@ class TestTemperatureTopP:
             },
         )
         assert call.kwargs["top_p"] is None
-
-
-# ===========================================================================
-# QA model override
-# ===========================================================================
-
-
-class TestQAModelOverride:
-    """QA model override is resolved from BASE_AGENT_TO_QA mapping."""
-
-    def test_qa_model_override_from_config(self):
-        call = _run_task(
-            "RegistryExtract",
-            agent_models={
-                "RegistryExtract_provider": "openai",
-                "RegistryExtract_model": "gpt-4",
-                "RegistryQA": "gpt-4o-mini",
-            },
-            qa_enabled={"RegistryExtract": True},
-            agent_prompts={
-                "RegistryExtract": {"prompt": "", "instructions": ""},
-                "RegistryExtract_QA": {"prompt": "", "instructions": ""},
-            },
-        )
-        assert call.kwargs["qa_model_override"] == "gpt-4o-mini"
-
-    def test_no_qa_model_when_not_in_config(self):
-        call = _run_task(
-            "RegistryExtract",
-            {
-                "RegistryExtract_provider": "openai",
-                "RegistryExtract_model": "gpt-4",
-            },
-        )
-        assert call.kwargs["qa_model_override"] is None
 
 
 # ===========================================================================

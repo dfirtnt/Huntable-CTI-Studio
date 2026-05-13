@@ -1,16 +1,26 @@
 #!/usr/bin/env python3
-"""
-Migration script to fix pgvector B-tree index bug.
+"""Migration: replace B-tree vector indexes with HNSW indexes.
 
-PostgreSQL B-tree indexes have a 2704-byte row limit. Vector(768) is ~3088 bytes,
-so index=True on Vector columns creates an invalid B-tree that causes
-ProgramLimitExceeded on INSERT/UPDATE.
+Why
+---
+PostgreSQL B-tree indexes have a 2704-byte row limit. Vector(768) columns are
+~3088 bytes, so SQLAlchemy's index=True on Vector columns silently creates an
+invalid B-tree that raises ProgramLimitExceeded on every INSERT/UPDATE. This
+script is a permanent fixture -- it must be run on every fresh schema creation
+because SQLAlchemy's create_all still emits the broken B-tree and there is no
+ORM-level way to declare HNSW. models.py has inline comments pointing here.
 
-This script:
-1. Drops B-tree indexes on Vector(768) columns (sigma_rules, articles, article_annotations)
-2. Creates pgvector HNSW indexes using vector_cosine_ops (for cosine similarity)
+Actions per affected table (sigma_rules, articles, article_annotations):
+1. Drops the invalid B-tree index on the embedding column if it exists
+2. Creates a pgvector HNSW index with vector_cosine_ops for cosine similarity
 
-Run after schema exists. Safe to run multiple times (idempotent).
+Idempotent: skips tables that don't exist yet; skips HNSW creation if already present.
+
+Usage
+-----
+    python scripts/migrate_pgvector_indexes.py
+
+Run this after any fresh `create_all` / database restore.
 """
 
 import os

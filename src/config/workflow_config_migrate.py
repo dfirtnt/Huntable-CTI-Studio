@@ -29,20 +29,13 @@ _AGENT_FLAT_PREFIXES = [
     ("RankAgent", "RankAgent", "RankAgent"),
     ("ExtractAgent", "ExtractAgent", "ExtractAgent"),
     ("SigmaAgent", "SigmaAgent", "SigmaAgent"),
-    ("OSDetectionAgent_fallback", "OSDetectionFallback", "OSDetectionAgent_fallback"),
     ("CmdlineExtract", "CmdlineExtract", "CmdlineExtract_model"),
     ("ProcTreeExtract", "ProcTreeExtract", "ProcTreeExtract_model"),
     ("HuntQueriesExtract", "HuntQueriesExtract", "HuntQueriesExtract_model"),
     ("RankAgentQA", "RankAgentQA", "RankAgentQA"),
-    ("CmdLineQA", "CmdLineQA", "CmdLineQA"),
-    ("ProcTreeQA", "ProcTreeQA", "ProcTreeQA"),
-    ("HuntQueriesQA", "HuntQueriesQA", "HuntQueriesQA"),
     ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
-    ("RegistryQA", "RegistryQA", "RegistryQA"),
     ("ServicesExtract", "ServicesExtract", "ServicesExtract_model"),
-    ("ServicesQA", "ServicesQA", "ServicesQA"),
     ("ScheduledTasksExtract", "ScheduledTasksExtract", "ScheduledTasksExtract_model"),
-    ("ScheduledTasksQA", "ScheduledTasksQA", "ScheduledTasksQA"),
 ]
 
 
@@ -81,45 +74,37 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     # Features: remove agent-enablement keys (derive from Agents on export/legacy)
     features = dict(out.get("Features") or {})
     rank_en = features.pop("RankAgentEnabled", None)
-    os_fb = features.pop("OsDetectionFallbackEnabled", None)
+    features.pop("OsDetectionFallbackEnabled", None)
     out["Features"] = features
 
     agents = dict(out.get("Agents") or {})
-    # Normalize legacy CmdlineQA -> CmdLineQA
-    if "CmdlineQA" in agents and "CmdLineQA" not in agents:
-        agents["CmdLineQA"] = agents.pop("CmdlineQA")
-    elif "CmdlineQA" in agents:
-        agents.pop("CmdlineQA")
+    # Remove deprecated extractor QA agents
+    _EXTRACTOR_QA_AGENTS = {"CmdLineQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"}
+    for _qa in _EXTRACTOR_QA_AGENTS:
+        agents.pop(_qa, None)
     if "RankAgent" in agents and rank_en is not None:
         agents["RankAgent"] = dict(agents["RankAgent"])
         agents["RankAgent"]["Enabled"] = _bool_val(rank_en, True)
-    if "OSDetectionFallback" in agents and os_fb is not None:
-        agents["OSDetectionFallback"] = dict(agents["OSDetectionFallback"])
-        agents["OSDetectionFallback"]["Enabled"] = _bool_val(os_fb, False)
+    # Remove any stale OSDetectionFallback agent (feature removed)
+    agents.pop("OSDetectionFallback", None)
     # Enforce schema invariant: Enabled => non-empty Provider and Model
     for cfg in agents.values():
         if isinstance(cfg, dict) and cfg.get("Enabled") and (not cfg.get("Provider") or not cfg.get("Model")):
             cfg["Enabled"] = False
     out["Agents"] = agents
 
-    # QA.Enabled: OSDetectionAgent -> OSDetectionFallback, CmdlineQA -> CmdLineQA
+    # QA.Enabled: remove stale keys (OSDetection removed; extractor QA agents deprecated)
+    _STALE_QA_KEYS = {"OSDetectionAgent", "OSDetectionFallback", "CmdlineExtract", "ProcTreeExtract",
+                      "HuntQueriesExtract", "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"}
     qa = dict(out.get("QA") or {})
     enabled = dict(qa.get("Enabled") or {})
-    if "OSDetectionAgent" in enabled:
-        enabled["OSDetectionFallback"] = enabled.pop("OSDetectionAgent")
-    if "CmdlineQA" in enabled and "CmdLineQA" not in enabled:
-        enabled["CmdLineQA"] = enabled.pop("CmdlineQA")
-    elif "CmdlineQA" in enabled:
-        enabled.pop("CmdlineQA")
+    for _k in _STALE_QA_KEYS:
+        enabled.pop(_k, None)
     qa["Enabled"] = enabled
     out["QA"] = qa
 
-    # Prompts: normalize legacy CmdlineQA -> CmdLineQA, then drop non-canonical keys
+    # Prompts: drop non-canonical keys (extractor QA prompts are no longer canonical)
     prompts = dict(out.get("Prompts") or {})
-    if "CmdlineQA" in prompts and "CmdLineQA" not in prompts:
-        prompts["CmdLineQA"] = prompts.pop("CmdlineQA")
-    elif "CmdlineQA" in prompts:
-        prompts.pop("CmdlineQA")
     prompts_clean = {
         k: {
             "prompt": (v.get("prompt", "") if isinstance(v, dict) else ""),
@@ -129,12 +114,10 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
         if k in CANONICAL_PROMPT_AGENT_NAMES
     }
     # Ensure every agent with Provider+Model has a prompt block (schema Part 3).
-    # ExtractAgent is intentionally excluded: it no longer carries a Prompt field after
-    # the supervisor removal; it only provides model/provider/temperature fallback defaults.
+    # ExtractAgent is intentionally excluded: it carries no prompt -- it is a model/provider
+    # fallback key for sub-agents only.
     _PROMPT_FREE_AGENTS = {"ExtractAgent"}
     for name, cfg in agents.items():
-        if isinstance(cfg, dict) and name == "OSDetectionFallback" and not cfg.get("Enabled") and not cfg.get("Model"):
-            continue
         if name in _PROMPT_FREE_AGENTS:
             continue
         if (
@@ -220,31 +203,33 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         "Sigma": _str_val(sigma_emb, "ibm-research/CTI-BERT"),
     }
 
-    # QA: align keys with Agents (OSDetectionAgent -> OSDetectionFallback)
+    # QA: drop stale OSDetectionAgent/OSDetectionFallback key (feature removed)
     qa_enabled = raw.get("qa_enabled") or {}
     qa_max = raw.get("qa_max_retries")
     if qa_max is not None:
         deprecated_used.append("qa_max_retries")
+    _STALE_QA_ENABLED_KEYS = {"OSDetectionAgent", "OSDetectionFallback", "CmdlineExtract", "ProcTreeExtract",
+                               "HuntQueriesExtract", "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"}
     qa_enabled_normalized: dict[str, bool] = {}
     for k, v in qa_enabled.items():
-        key = "OSDetectionFallback" if k == "OSDetectionAgent" else k
-        qa_enabled_normalized[key] = _bool_val(v)
+        if k in _STALE_QA_ENABLED_KEYS:
+            continue
+        qa_enabled_normalized[k] = _bool_val(v)
     QA = {
         "Enabled": qa_enabled_normalized,
         "MaxRetries": int(qa_max) if qa_max is not None else 5,
     }
 
-    # Agent execution: rank and OS fallback from legacy flags into Agents
+    # Agent execution: rank from legacy flag
     rank_en = raw.get("rank_agent_enabled")
-    os_fb = raw.get("osdetection_fallback_enabled")
+    if raw.get("osdetection_fallback_enabled") is not None:
+        deprecated_used.append("osdetection_fallback_enabled")
     if rank_en is not None:
         deprecated_used.append("rank_agent_enabled")
-    if os_fb is not None:
-        deprecated_used.append("osdetection_fallback_enabled")
     if "RankAgent" in Agents:
         Agents["RankAgent"]["Enabled"] = _bool_val(rank_en, True)
-    if "OSDetectionFallback" in Agents:
-        Agents["OSDetectionFallback"]["Enabled"] = _bool_val(os_fb, False)
+    # Remove any stale OSDetectionFallback agent (feature removed)
+    Agents.pop("OSDetectionFallback", None)
 
     # Enforce schema invariant: Enabled => non-empty Provider and Model (no pseudo-enabled empty-model)
     for cfg in Agents.values():
@@ -258,9 +243,13 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         deprecated_used.append("sigma_fallback_enabled")
     if cmdline_pre is not None:
         deprecated_used.append("cmdline_attention_preprocessor_enabled")
+    proc_tree_pre = raw.get("proc_tree_attention_preprocessor_enabled")
+    if proc_tree_pre is not None:
+        deprecated_used.append("proc_tree_attention_preprocessor_enabled")
     Features = {
         "SigmaFallbackEnabled": _bool_val(sigma_fb, False),
         "CmdlineAttentionPreprocessorEnabled": _bool_val(cmdline_pre, True),
+        "ProcTreeAttentionPreprocessorEnabled": _bool_val(proc_tree_pre, True),
     }
 
     # Prompts: only canonical agent names (no ExtractAgentSettings; that lives under Execution)
@@ -278,12 +267,10 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         else:
             Prompts[name] = {"prompt": "", "instructions": ""}
     # Ensure every agent with Provider+Model has a prompt block (schema Part 3).
-    # ExtractAgent is intentionally excluded: it no longer carries a Prompt field after
-    # the supervisor removal; it only provides model/provider/temperature fallback defaults.
+    # ExtractAgent is intentionally excluded: it carries no prompt -- it is a model/provider
+    # fallback key for sub-agents only.
     _PROMPT_FREE_AGENTS = {"ExtractAgent"}
     for name, cfg in Agents.items():
-        if name == "OSDetectionFallback" and not cfg.get("Enabled") and not cfg.get("Model"):
-            continue
         if name in _PROMPT_FREE_AGENTS:
             continue
         if cfg.get("Provider") and cfg.get("Model") and name not in Prompts and name in CANONICAL_PROMPT_AGENT_NAMES:

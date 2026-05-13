@@ -134,7 +134,6 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
                 "TopP": 0.9,
                 "Enabled": True,
             },
-            "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -143,7 +142,6 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
             "RankAgent": {"prompt": "", "instructions": ""},
             "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
-            "CmdLineQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {
             "ExtractAgentSettings": {"DisabledAgents": ["CmdlineExtract", "ProcTreeExtract"]},
@@ -177,7 +175,6 @@ def test_flatten_for_llm_service_keys():
                 "TopP": 0.9,
                 "Enabled": True,
             },
-            "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
         "QA": {"Enabled": {}, "MaxRetries": 5},
@@ -186,7 +183,6 @@ def test_flatten_for_llm_service_keys():
             "RankAgent": {"prompt": "", "instructions": ""},
             "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
-            "CmdLineQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
     }
@@ -230,6 +226,7 @@ _LEGACY_RESPONSE_DICT_KEYS = frozenset(
         "qa_max_retries",
         "rank_agent_enabled",
         "cmdline_attention_preprocessor_enabled",
+        "proc_tree_attention_preprocessor_enabled",
         "created_at",
         "updated_at",
     }
@@ -346,17 +343,6 @@ def test_missing_rankagentqa_prompt_raises():
         WorkflowConfigV2.model_validate(raw)
 
 
-def test_missing_cmdlineqa_prompt_raises():
-    """Missing prompt block for CmdLineQA raises ValidationError."""
-    agents = {
-        "CmdlineExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {"CmdlineExtract": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Missing prompt block for agent CmdLineQA"):
-        WorkflowConfigV2.model_validate(raw)
-
 
 def test_missing_required_qa_agent_raises():
     """Missing required QA agent for RankAgent raises ValidationError."""
@@ -392,17 +378,13 @@ def test_valid_config_passes():
         "ProcTreeExtract": agent_cfg,
         "HuntQueriesExtract": agent_cfg,
         "RankAgentQA": agent_cfg,
-        "CmdLineQA": agent_cfg,
-        "ProcTreeQA": agent_cfg,
-        "HuntQueriesQA": agent_cfg,
-        "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": False},
     }
-    prompts = {name: {"prompt": "", "instructions": ""} for name in agents if name != "OSDetectionFallback"}
+    prompts = {name: {"prompt": "", "instructions": ""} for name in agents}
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Version == "2.0"
-    assert len(config.Agents) == 11
-    assert len(config.Prompts) == 10
+    assert len(config.Agents) == 7
+    assert len(config.Prompts) == 7
 
 
 def test_enabled_agent_missing_model_raises():
@@ -440,39 +422,6 @@ def test_disabled_agent_allows_empty_model():
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Agents["RankAgent"].Enabled is False
     assert config.Agents["RankAgent"].Model == ""
-
-
-def test_os_detection_fallback_disabled_allows_empty_model():
-    """OSDetectionFallback disabled with empty Model passes validation."""
-    agent_cfg = {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
-    agents = {
-        "RankAgent": agent_cfg,
-        "RankAgentQA": agent_cfg,
-        "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": False},
-    }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    config = WorkflowConfigV2.model_validate(raw)
-    assert config.Agents["OSDetectionFallback"].Enabled is False
-    assert config.Agents["OSDetectionFallback"].Model == ""
-
-
-def test_os_detection_fallback_enabled_requires_model():
-    """OSDetectionFallback enabled with empty Model raises ValidationError."""
-    agent_cfg = {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
-    agents = {
-        "RankAgent": agent_cfg,
-        "RankAgentQA": agent_cfg,
-        "OSDetectionFallback": {"Provider": "lmstudio", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {
-        "RankAgent": {"prompt": "", "instructions": ""},
-        "RankAgentQA": {"prompt": "", "instructions": ""},
-        "OSDetectionFallback": {"prompt": "", "instructions": ""},
-    }
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Agent 'OSDetectionFallback' is Enabled but missing Provider or Model"):
-        WorkflowConfigV2.model_validate(raw)
 
 
 # ── Regression: preset import model-key and qa_max_retries contract ───────────

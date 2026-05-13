@@ -185,7 +185,7 @@ class TestExcludeEvalsFilter:
             from src.web.routes.workflow_executions import list_workflow_executions
 
             with patch("src.web.routes.workflow_executions.get_db_manager", return_value=db):
-                result = await list_workflow_executions(
+                result = list_workflow_executions(
                     request=MagicMock(spec=Request),
                     exclude_evals=True,
                     page=1,
@@ -215,7 +215,7 @@ class TestExcludeEvalsFilter:
             from src.web.routes.workflow_executions import list_workflow_executions
 
             with patch("src.web.routes.workflow_executions.get_db_manager", return_value=db):
-                result = await list_workflow_executions(
+                result = list_workflow_executions(
                     request=MagicMock(spec=Request),
                     exclude_evals=False,
                     page=1,
@@ -240,13 +240,13 @@ class TestExcludeEvalsFilter:
             from src.web.routes.workflow_executions import list_workflow_executions
 
             with patch("src.web.routes.workflow_executions.get_db_manager", return_value=db):
-                unfiltered = await list_workflow_executions(
+                unfiltered = list_workflow_executions(
                     request=MagicMock(spec=Request),
                     exclude_evals=False,
                     page=1,
                     limit=1,
                 )
-                filtered = await list_workflow_executions(
+                filtered = list_workflow_executions(
                     request=MagicMock(spec=Request),
                     exclude_evals=True,
                     page=1,

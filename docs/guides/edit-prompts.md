@@ -67,26 +67,9 @@ All six extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract,
 
 **`user_template` is code-owned — do not store it in presets.** The user message scaffold (Title/URL/Content headers, traceability block, and instructions footer) is assembled at runtime from `_EXTRACT_BEHAVIORS_TEMPLATE` in `llm_service.py`. Preset authors control the system message content via the four keys above; the runtime controls how they are assembled into the user message. Any `user_template` key found in a saved prompt is ignored by the backend.
 
-## Extract ↔ QA pairing
+## QA
 
-Every extract sub-agent has a dedicated QA counterpart. The pairs are defined in `src/config/workflow_config_schema.py` (`BASE_AGENT_TO_QA`):
-
-| Extract agent | QA agent |
-|---|---|
-| `CmdlineExtract` | `CmdLineQA` |
-| `ProcTreeExtract` | `ProcTreeQA` |
-| `HuntQueriesExtract` | `HuntQueriesQA` |
-| `RegistryExtract` | `RegistryQA` |
-| `ServicesExtract` | `ServicesQA` |
-| `ScheduledTasksExtract` | `ScheduledTasksQA` |
-
-`RankAgent` also has a QA counterpart (`RankAgentQA`) but it operates differently — it reviews ranking scores rather than extraction fidelity.
-
-When you change one side of a pair, the other usually needs a matching edit:
-
-- **Add a field to extract output** → add it to the QA `evaluation_criteria`.
-- **Tighten an extraction rule** → have the QA prompt flag violations as `issues`.
-- **Rename a field** → rename it in both; the contract test checks QA criteria reference `source_evidence` and `extraction_justification`.
+Only `RankAgent` has a QA counterpart (`RankAgentQA`). It reviews ranking scores rather than extraction fidelity and is the only QA agent active in the pipeline. The six extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) do not have QA agents; their outputs go directly to aggregation.
 
 ## Versioning and rollback
 
@@ -117,14 +100,13 @@ Quickstart presets for the three supported providers are in `config/presets/Agen
 
 **To export your own**: Workflow page → **Export config** → saves the current active config as JSON. Put it in `config/presets/private/` (gitignored) to keep it out of version control.
 
-See [Workflow baseline presets](../getting-started/configuration.md#workflow-baseline-presets-getting-started) for the full preset reference including how to regenerate baseline files.
+See [Workflow Presets](../getting-started/configuration.md#workflow-presets) for the full preset reference including how to regenerate baseline files.
 
 ## Common mistakes
 
 - **Editing `src/prompts/` expecting the running app to change.** It won't. Those are seed defaults. Edit through the UI instead.
 - **Dropping the traceability block from the schema.** Downstream UI renders `source_evidence` and `extraction_justification`; items missing them render as bare values.
 - **Asking for `confidence_level` (high/medium/low).** Deprecated. Ask for numeric `confidence_score` with calibration bands.
-- **Forgetting the QA prompt.** If extract adds a field, QA must know about it — otherwise QA will either ignore the field or flag every item as non-compliant.
 - **Loosening precision rules.** Extract prompts favor under-extraction ("when uncertain → EXCLUDE"). Loosening this floods the Sigma generator with junk candidates.
 
 ## Related
@@ -133,7 +115,10 @@ See [Workflow baseline presets](../getting-started/configuration.md#workflow-bas
 - [Extract Observables](extract-observables.md) — observable shape and downstream consumers
 - [Evaluate Models](evaluate-models.md) — measuring prompt changes against eval articles
 - [Agent Config Schema](../architecture/agent-config-schema.md) — Pydantic contract for the broader config
-- [Workflow baseline presets](../getting-started/configuration.md#workflow-baseline-presets-getting-started) — quickstart preset files and how to import/export configs
+- [Workflow Presets](../getting-started/configuration.md#workflow-presets) -- quickstart preset files and how to import/export configs
 - Contract test: `tests/config/test_subagent_traceability_contract.py` -- authoritative schema enforcement
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-12_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTcxNTMzNjM4XX0=
+-->

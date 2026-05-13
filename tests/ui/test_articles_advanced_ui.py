@@ -187,7 +187,7 @@ class TestArticlesSearchAndFilter:
         score_filter = page.locator("#threat_hunting_range")
         expect(score_filter).to_be_visible()
         # Verify Excellent option exists (avoid asserting visibility on <option> when select is collapsed)
-        expect(score_filter.locator("option").nth(1)).to_have_text("🎯 Excellent (80-100)")
+        expect(score_filter.locator("option").nth(1)).to_have_text("Excellent (80-100)")
 
         # Select score range
         score_filter.select_option("80-100")

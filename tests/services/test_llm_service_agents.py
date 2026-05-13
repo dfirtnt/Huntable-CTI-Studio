@@ -64,16 +64,25 @@ class TestRankArticle:
     """Tests for LLMService.rank_article."""
 
     @pytest.mark.asyncio
-    async def test_rank_article_requires_prompt_template(self, llm_service):
-        """rank_article raises ValueError when no prompt_template is given."""
-        with pytest.raises(ValueError, match="prompt_template must be provided"):
-            await llm_service.rank_article(
+    async def test_rank_article_uses_file_fallback_when_no_template(self, llm_service):
+        """rank_article loads src/prompts/rank_article.txt when prompt_template is None."""
+        llm_response = {
+            "choices": [{"message": {"content": '{"score": 5, "reasoning": "Test"}'}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        }
+        with (
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response),
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            result = await llm_service.rank_article(
                 title="Test",
                 content="x" * 1000,
                 source="Blog",
                 url="https://example.com",
                 prompt_template=None,
             )
+            assert "score" in result
 
     @pytest.mark.asyncio
     async def test_rank_article_parses_score_from_llm_response(self, llm_service):
@@ -148,6 +157,42 @@ class TestRankArticle:
         call_messages = mock_req.call_args.kwargs.get("messages") or mock_req.call_args[1].get("messages", [])
         user_msg = next((m for m in call_messages if m.get("role") == "user"), {})
         assert len(user_msg.get("content", "")) < len(long_content)
+
+    @pytest.mark.asyncio
+    async def test_rank_article_sends_canonical_system_message_as_fallback(self, llm_service):
+        """rank_article sends the canonical fallback system message when system_override is None.
+
+        Regression: agentic_workflow.py and llm_service.py must use the same fallback
+        so the QA agent evaluates against what the LLM actually received.
+        """
+        llm_response = {
+            "choices": [{"message": {"content": '{"score": 5, "reasoning": "ok"}'}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        }
+        with (
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock, return_value=llm_response) as mock_req,
+            patch.object(llm_service, "check_model_context_length", new_callable=AsyncMock) as mock_ctx,
+        ):
+            mock_ctx.return_value = {"context_length": 32768, "is_sufficient": True, "method": "test"}
+            await llm_service.rank_article(
+                title="Test",
+                content="x" * 1000,
+                source="Blog",
+                url="https://example.com",
+                # Plain user-template with no embedded system field so the
+                # hardcoded fallback in rank_article() is actually triggered.
+                prompt_template="Title: {title}\nSource: {source}\nURL: {url}\nContent:\n{content}",
+                system_override=None,
+            )
+
+        messages = mock_req.call_args.kwargs.get("messages") or mock_req.call_args[1].get("messages", [])
+        system_msgs = [m for m in messages if m.get("role") == "system"]
+        assert len(system_msgs) == 1
+        content = system_msgs[0]["content"]
+        assert "cybersecurity detection engineer" in content
+        assert "1-10" in content
+        assert "SIGMA huntability" in content
+        assert "score and brief reasoning" in content
 
     @pytest.mark.asyncio
     async def test_rank_article_raises_when_json_prompt_has_empty_system(self, llm_service):
@@ -556,6 +601,64 @@ class TestRunExtractionAgentExecution:
         assert "UNIQUE_ARTICLE_CONTENT" in full_prompt, (
             "Article content was crowded out by snippet runaway -- cap is not working"
         )
+
+    @pytest.mark.asyncio
+    async def test_proc_tree_preprocessor_invoked_when_enabled(self, llm_service):
+        """ProcTreeExtract preprocessor is invoked when proc_tree_attention_preprocessor_enabled=True."""
+        mock_snippets = ["winword.exe -> powershell.exe"]
+        article_text = "Some article content with winword.exe -> powershell.exe"
+
+        with (
+            patch(
+                "src.services.proc_tree_attention_preprocessor.process",
+                return_value={"high_likelihood_snippets": mock_snippets, "full_article": article_text},
+            ) as mock_process,
+            patch.object(llm_service, "_get_context_limit", return_value=8000),
+            patch.object(
+                llm_service,
+                "request_chat",
+                new_callable=AsyncMock,
+                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
+            ),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content=article_text,
+                title="Test",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_extraction_retries=1,
+                proc_tree_attention_preprocessor_enabled=True,
+            )
+            mock_process.assert_called_once_with(article_text, agent_name="ProcTreeExtract")
+
+    @pytest.mark.asyncio
+    async def test_proc_tree_preprocessor_skipped_when_disabled(self, llm_service):
+        """ProcTreeExtract preprocessor is NOT invoked when proc_tree_attention_preprocessor_enabled=False."""
+        article_text = "Some article content with winword.exe -> powershell.exe"
+
+        with (
+            patch(
+                "src.services.proc_tree_attention_preprocessor.process",
+            ) as mock_process,
+            patch.object(llm_service, "_get_context_limit", return_value=8000),
+            patch.object(
+                llm_service,
+                "request_chat",
+                new_callable=AsyncMock,
+                return_value={"choices": [{"message": {"content": '{"items":[],"count":0}'}}], "usage": {}},
+            ),
+        ):
+            await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content=article_text,
+                title="Test",
+                url="https://example.com",
+                prompt_config=_EXTRACT_PROMPT_CFG,
+                max_extraction_retries=1,
+                proc_tree_attention_preprocessor_enabled=False,
+            )
+            mock_process.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

@@ -2774,7 +2774,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }.bind(this));
 
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-lg w-full mx-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">Save Observable</h3>
                         <div class="char-counter ${lengthStatus}">
@@ -2962,7 +2962,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">Classify Selected Text</h3>
                         <div class="char-counter ${lengthStatus}">
@@ -3321,7 +3321,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">Classify Selected Text</h3>
                         <div class="char-counter ${lengthStatus}">
@@ -3640,7 +3640,7 @@ Please provide a detailed analysis based on the article content and the user's s
             document.addEventListener('keydown', handleEsc);
             
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <h3 class="text-lg font-semibold text-gray-50 mb-4">Remove Annotation</h3>
                     <p class="text-sm text-gray-300 mb-2">
                         <strong>Type:</strong> ${this.getAnnotationLabel(annotationType)}
@@ -4943,7 +4943,7 @@ Please provide a detailed analysis based on the article content and the user's s
         }
         
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+            <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                 <div class="mt-3 text-center">
                     <h3 class="text-lg font-medium text-gray-50 mb-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> AL/ML Assistant</h3>
                     <p class="text-sm text-gray-400 mb-4">One shot LLM demos for this article's content. Uses LLM chosen in Settings Page</p>
@@ -5065,457 +5065,6 @@ Please provide a detailed analysis based on the article content and the user's s
         // No-op
     }
     
-    /*
-    // Original generateAIAnalysis function (commented out)
-    async function generateAIAnalysis(type, forceRegenerate = false, useLLMValidation = false) {
-        // Check for existing content first (unless force regenerate)
-        if (!forceRegenerate) {
-            if (type === 'sigma' && (window.latestSigmaData || {{ 'true' if article.article_metadata and article.article_metadata.get('sigma_rules') else 'false' }})) {
-                // Use the latest generated data if available, otherwise fall back to page data
-                const sigmaData = window.latestSigmaData || {{ article.article_metadata.get('sigma_rules') | tojson if article.article_metadata and article.article_metadata.get('sigma_rules') else 'null' }};
-                console.log('Using sigma data:', window.latestSigmaData ? 'from window.latestSigmaData' : 'from page template');
-                // Parse conversation log if it's a string
-                if (sigmaData && sigmaData.metadata && sigmaData.metadata.conversation && typeof sigmaData.metadata.conversation === 'string') {
-                    try {
-                        sigmaData.metadata.conversation = JSON.parse(sigmaData.metadata.conversation);
-                    } catch (e) {
-                        console.error('Failed to parse conversation log:', e);
-                        sigmaData.metadata.conversation = [];
-                    }
-                }
-                showSigmaRulesModal(sigmaData.rules, sigmaData);
-                return;
-            }
-            
-            
-            
-            if (type === 'ranking' && {{ 'true' if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'false' }}) {
-                const rankingData = {{ article.article_metadata.get('gpt4o_ranking') | tojson if article.article_metadata and article.article_metadata.get('gpt4o_ranking') else 'null' }};
-                showGPT4oRankingModal(rankingData.analysis, rankingData);
-                return;
-            }
-        }
-        
-
-        
-        // Get AI model from settings - ALWAYS respect user's explicit choice
-        const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
-        let aiModel = settings.aiModel || 'chatgpt';
-        
-        // NEVER override user's explicit model selection - if they chose LMStudio, use it
-        // Having API keys configured doesn't mean they want to use them
-        
-        // Only set API key for cloud models that require it
-        let apiKey = null;
-        if (aiModel === 'anthropic') {
-            apiKey = settings.aiAnthropicApiKey;
-        } else if (aiModel === 'chatgpt') {
-            apiKey = settings.aiOpenaiApiKey;
-        }
-        
-        // DEBUG: Log what we got from localStorage
-        console.log(`🔍 DEBUG: aiModel="${aiModel}", aiOpenaiApiKey exists=${!!settings.aiOpenaiApiKey}, aiAnthropicApiKey exists=${!!settings.aiAnthropicApiKey}`);
-        console.log(`🔍 DEBUG: apiKey after selection=${apiKey ? 'EXISTS' : 'NULL'}, type=${typeof apiKey}, length=${apiKey ? apiKey.length : 0}`);
-        
-        if (apiKey) {
-            console.log(`🔍 DEBUG localStorage: apiKey type: ${typeof apiKey}, length: ${apiKey.length}, ends_with: ...${apiKey.substring(apiKey.length - 4)}`);
-            console.log(`🔍 DEBUG localStorage: Full key check - ends with "1WQA": ${apiKey.endsWith('1WQA')}, ends with "gkMA": ${apiKey.endsWith('gkMA')}`);
-            
-            // CRITICAL: Detect if key is corrupted (ends with gkMA instead of expected 1WQA)
-            if (apiKey.endsWith('gkMA')) {
-                console.error(`❌ CORRUPTED API KEY DETECTED: Key ends with 'gkMA' instead of expected '1WQA'`);
-                console.error(`❌ This indicates localStorage corruption. The key must be re-entered in Settings.`);
-                showNotification(
-                    '⚠️ API key appears corrupted in localStorage (ends with gkMA). Please go to Settings and re-enter your OpenAI API key.',
-                    'error'
-                );
-                return;
-            }
-        } else {
-            // DEBUG: More detailed logging when apiKey is null
-            console.warn(`⚠️ DEBUG: apiKey is NULL. aiModel="${aiModel}", settings keys:`, {
-                hasOpenaiKey: !!settings.aiOpenaiApiKey,
-                hasAnthropicKey: !!settings.aiAnthropicApiKey,
-                openaiKeyLength: settings.aiOpenaiApiKey ? settings.aiOpenaiApiKey.length : 0,
-                anthropicKeyLength: settings.aiAnthropicApiKey ? settings.aiAnthropicApiKey.length : 0
-            });
-        }
-        
-        // Strip whitespace from API key (common issue when copying/pasting)
-        if (apiKey && typeof apiKey === 'string') {
-            const beforeTrim = apiKey;
-            apiKey = apiKey.trim();
-            
-            // DEBUG: Check if trim changed anything
-            if (beforeTrim !== apiKey) {
-                console.warn(`⚠️ API key had whitespace - trimmed from ${beforeTrim.length} to ${apiKey.length}`);
-            }
-            
-            // Validate key format before using
-            if (!apiKey.startsWith('sk-')) {
-                console.error(`❌ ERROR: API key doesn't start with 'sk-': ${apiKey.substring(0, 10)}...`);
-                showNotification('Invalid API key format in localStorage. Please re-enter your API key in Settings.', 'error');
-                return;
-            }
-            
-            if (apiKey.startsWith('sk-proj-') && apiKey.length < 100) {
-                console.error(`❌ ERROR: API key appears truncated: length ${apiKey.length} (expected 100+ for sk-proj- keys)`);
-                showNotification('API key appears truncated in localStorage. Please re-enter your API key in Settings.', 'error');
-                return;
-            }
-            
-            // Update localStorage with trimmed value to persist the fix
-            if (aiModel === 'anthropic') {
-                settings.aiAnthropicApiKey = apiKey;
-            } else if (aiModel === 'chatgpt') {
-                settings.aiOpenaiApiKey = apiKey;
-            }
-            localStorage.setItem('ctiScraperSettings', JSON.stringify(settings));
-        }
-        // For local models like lmstudio, apiKey remains null
-        
-        if ((aiModel === 'chatgpt' || aiModel === 'anthropic') && !apiKey) {
-            const keyType = aiModel === 'anthropic' ? 'Anthropic' : 'OpenAI';
-            console.error(`❌ ERROR: ${keyType} API key not found! aiModel="${aiModel}", apiKey is ${apiKey ? 'NOT NULL' : 'NULL'}`);
-            console.error(`❌ DEBUG: Full settings from localStorage:`, {
-                aiModel: settings.aiModel,
-                hasOpenaiKey: !!settings.aiOpenaiApiKey,
-                hasAnthropicKey: !!settings.aiAnthropicApiKey,
-                openaiKeyLength: settings.aiOpenaiApiKey ? settings.aiOpenaiApiKey.length : 0,
-                anthropicKeyLength: settings.aiAnthropicApiKey ? settings.aiAnthropicApiKey.length : 0,
-                allSettingsKeys: Object.keys(settings)
-            });
-            showNotification(`Please configure your ${keyType} API key in Settings first. Make sure to click "Save Settings" after entering the key.`, 'error');
-            return;
-        }
-        
-        // Store ongoing AI operation in localStorage for cross-page tracking
-        const articleId = {{ article.id|default(0)|int }};
-        const operationId = `ai_${type}_${articleId}_${Date.now()}`;
-        const operationData = {
-            id: operationId,
-            type: type,
-            typeText:
-                type === 'sigma'
-                    ? 'SIGMA Rules'
-                    : type === 'ranking'
-                        ? aiModel === 'chatgpt'
-                            ? 'GPT4o Ranking'
-                            : 'Local AI Ranking'
-                        : 'IOCs',
-            typeIcon:
-                type === 'sigma'
-                    ? '🔍'
-                    : type === 'ranking'
-                        ? '📊'
-                        : '🔍',
-            articleId: articleId,
-            articleTitle: {{ article.title | tojson }},
-            startedAt: Date.now(),
-            status: 'running'
-        };
-        
-        // Store in localStorage
-        const ongoingOps = JSON.parse(localStorage.getItem('ongoingAIOperations') || '[]');
-        ongoingOps.push(operationData);
-        localStorage.setItem('ongoingAIOperations', JSON.stringify(ongoingOps));
-        
-        // Show loading modal
-        const loadingModal = document.createElement('div');
-        loadingModal.id = 'loadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
-        
-        const typeText = operationData.typeText;
-        const typeIcon = operationData.typeIcon;
-        
-        // Debug logging
-        console.log('generateAIAnalysis called with type:', type);
-        console.log('typeText:', typeText);
-        console.log('typeIcon:', typeIcon);
-        
-        // Track if request has started
-        let requestStarted = false;
-        
-        // Create AbortController for cancellation
-        const abortController = new AbortController();
-        let isCancelled = false;
-        
-        // Cancel handler function
-        const handleCancel = function() {
-            if (requestStarted && !isCancelled) {
-                isCancelled = true;
-                abortController.abort();
-                markOperationComplete(operationId, 'cancelled');
-                showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} cancelled`, 'info');
-            }
-            const modal = document.getElementById('loadingModal');
-            if (modal && modal.parentNode) {
-                modal.remove();
-            }
-            document.removeEventListener('keydown', handleEsc);
-        };
-        
-        // Close modal when clicking outside (dismiss without cancelling)
-        loadingModal.addEventListener('click', function(e) {
-            if (e.target === loadingModal) {
-                const modal = document.getElementById('loadingModal');
-                if (modal && modal.parentNode) {
-                    modal.remove();
-                }
-                document.removeEventListener('keydown', handleEsc);
-            }
-        });
-        
-        // Add ESC key handler to close loading modal (dismiss without cancelling)
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                // ESC just closes the modal, operation continues in background
-                const modal = document.getElementById('loadingModal');
-                if (modal && modal.parentNode) {
-                    modal.remove();
-                }
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
-        
-        const loadingVerb = (type === 'sigma' || type === 'ranking') ? 'Generating' : 'Extracting';
-        const loadingDescription = type === 'sigma'
-            ? 'Creating detection rules'
-            : type === 'ranking'
-                ? (aiModel === 'chatgpt' ? 'Analyzing content with GPT-4o' : 'Analyzing content with local AI')
-                : 'Extracting indicators of compromise';
-
-        loadingModal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md mx-4">
-                <div class="mt-3 text-center">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-500/20">
-                        <svg class="animate-spin h-6 w-6 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </div>
-                    <h3 class="text-lg font-medium text-gray-50 mt-4">${typeIcon} ${loadingVerb} ${typeText}...</h3>
-                    <p class="text-sm text-gray-400 mt-2">${loadingDescription} - this may take a few moments.</p>
-                    <div class="mt-6 flex flex-col items-center space-y-3">
-                        <button id="cancelBtn" class="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900 shadow-sm transition-colors">
-                            Cancel Operation
-                        </button>
-                        <div class="flex items-center space-x-2 text-sm text-gray-400">
-                            <span>Press</span>
-                            <kbd class="px-2 py-1 bg-panel-0 border border-gray-700 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
-                            <span>or click outside to dismiss (operation continues)</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(loadingModal);
-        
-        // Wire up cancel button
-        const cancelBtn = loadingModal.querySelector('#cancelBtn');
-        if (cancelBtn) {
-            cancelBtn.addEventListener('click', handleCancel);
-        }
-        
-        try {
-            // Create a timeout promise - longer for LLM operations
-            const timeoutPromise = new Promise((_, reject) => {
-                const timeoutMs = aiModel === 'chatgpt' ? 180000 : 600000; // 180s for ChatGPT, 600s for LLM
-                setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs/1000} seconds`)), timeoutMs);
-            });
-            
-            // Create the fetch promise
-            const endpoint = type === 'sigma'
-                ? 'generate-sigma'
-                : type === 'ranking'
-                    ? 'rank-with-gpt4o'
-                    : 'extract-iocs';
-            
-            // Prepare request body
-            const requestBody = {
-                include_content: true,
-                force_regenerate: forceRegenerate,
-                ai_model: aiModel,
-                temperature: parseFloat(settings.aiTemperature || '0.3')
-            };
-            
-            // Only include API key if it's provided (for cloud models)
-            if (apiKey) {
-                // DEBUG: Log before assignment
-                console.log(`🔍 DEBUG Frontend: apiKey type: ${typeof apiKey}, length: ${apiKey.length}, ends_with: ...${apiKey.substring(apiKey.length - 4)}`);
-                requestBody.api_key = apiKey;
-                // DEBUG: Log after assignment
-                console.log(`🔍 DEBUG Frontend: requestBody.api_key type: ${typeof requestBody.api_key}, length: ${requestBody.api_key.length}, ends_with: ...${requestBody.api_key.substring(requestBody.api_key.length - 4)}`);
-                // Debug logging (masked for security)
-                const apiKeyPreview = apiKey.length > 12 ? `${apiKey.substring(0, 8)}...${apiKey.substring(apiKey.length - 4)}` : 'N/A';
-                console.log(`🔑 Sending API key with length: ${apiKey.length}, preview: ${apiKeyPreview}`);
-                // DEBUG: Log full request body size
-                console.log(`🔍 DEBUG Frontend: requestBody JSON size: ${JSON.stringify(requestBody).length} chars`);
-            } else {
-                console.warn(`⚠️ No API key available for model: ${aiModel}`);
-            }
-            
-
-            
-            // Add author name for SIGMA rules
-            if (type === 'sigma') {
-                const sigmaAuthor = settings.sigmaAuthor || 'Huntable CTI Studio User';
-                requestBody.author_name = sigmaAuthor;
-            }
-            
-            // Add optimization options for ranking, sigma, observables, and IOC extraction with LLM validation
-            // Show optimization dialog for cloud models (for all features) and for IOC extraction with LLM validation (all models)
-            const shouldShowOptimization = (type === 'ranking' || type === 'sigma');
-            
-            console.log('shouldShowOptimization:', shouldShowOptimization, 'type:', type, 'useLLMValidation:', useLLMValidation, 'aiModel:', aiModel);
-            
-            if (shouldShowOptimization) {
-                console.log('Showing optimization dialog...');
-                const optimizationOptions = await showOptimizationDialog(false);
-                if (!optimizationOptions) {
-                    // User dismissed the modal (ESC or Cancel) - clean up and return
-                    const loadingModal = document.getElementById('loadingModal');
-                    if (loadingModal && loadingModal.parentNode) {
-                        loadingModal.remove();
-                    }
-                    document.removeEventListener('keydown', handleEsc);
-                    return;
-                }
-                requestBody.optimization_options = optimizationOptions;
-            }
-            
-            console.log('Making fetch request to:', `/api/articles/{{ article.id }}/${endpoint}`);
-            // DEBUG: Check API key in request body before sending
-            if (requestBody.api_key) {
-                const keyInBody = requestBody.api_key;
-                console.log(`🔍 DEBUG Before Fetch: requestBody.api_key length: ${keyInBody.length}, ends_with: ...${keyInBody.substring(keyInBody.length - 4)}`);
-                console.log(`🔍 DEBUG Before Fetch: Key ends with "1WQA": ${keyInBody.endsWith('1WQA')}, ends with "gkMA": ${keyInBody.endsWith('gkMA')}`);
-                
-                // Stringify and parse back to check for corruption
-                const stringified = JSON.stringify(requestBody);
-                const parsedBack = JSON.parse(stringified);
-                if (parsedBack.api_key) {
-                    console.log(`🔍 DEBUG After JSON round-trip: api_key length: ${parsedBack.api_key.length}, ends_with: ...${parsedBack.api_key.substring(parsedBack.api_key.length - 4)}`);
-                    if (parsedBack.api_key !== keyInBody) {
-                        console.error(`❌ ERROR: API key corrupted during JSON stringify/parse!`);
-                        console.error(`Original: ...${keyInBody.substring(keyInBody.length - 10)}`);
-                        console.error(`After:    ...${parsedBack.api_key.substring(parsedBack.api_key.length - 10)}`);
-                    }
-                }
-            }
-            console.log('Request body (without content):', {...requestBody, include_content: requestBody.include_content ? '[CONTENT INCLUDED]' : false});
-            
-            // Send API key in header instead of body to avoid corruption with large payloads
-            const fetchHeaders = {
-                'Content-Type': 'application/json',
-            };
-            if (apiKey) {
-                // FINAL VALIDATION: Check key one more time before sending
-                const keyEnd = apiKey.substring(apiKey.length - 4);
-                if (keyEnd === 'gkMA') {
-                    console.error(`❌ CORRUPTED KEY DETECTED AT SEND TIME: ends with 'gkMA'`);
-                    showNotification(
-                        '⚠️ API key corruption detected. Please go to Settings and re-enter your OpenAI API key.',
-                        'error'
-                    );
-                    return;
-                }
-                
-                // Use appropriate header based on model
-                if (aiModel === 'anthropic') {
-                    fetchHeaders['X-Anthropic-API-Key'] = apiKey;
-                } else {
-                    fetchHeaders['X-OpenAI-API-Key'] = apiKey;
-                }
-                
-                // DEBUG: Log what we're actually sending
-                console.log(`🔍 DEBUG Send: Setting ${aiModel === 'anthropic' ? 'X-Anthropic-API-Key' : 'X-OpenAI-API-Key'} header with key ending: ...${keyEnd}`);
-                
-                // Remove from body to avoid potential corruption
-                delete requestBody.api_key;
-            }
-            
-            const fetchPromise = fetch(`/api/articles/{{ article.id }}/${endpoint}`, {
-                method: 'POST',
-                headers: fetchHeaders,
-                body: JSON.stringify(requestBody),
-                signal: abortController.signal
-            });
-            
-            // Mark request as started
-            requestStarted = true;
-            
-            // Race between fetch and timeout
-            const response = await Promise.race([fetchPromise, timeoutPromise]);
-            
-            if (response.ok) {
-                const data = await response.json();
-
-                console.log('AI generation completed successfully:', data);
-
-                // Show truncation warnings if any
-                if (data.warnings && Array.isArray(data.warnings) && data.warnings.length > 0) {
-                    data.warnings.forEach(warning => {
-                        showNotification(`⚠️ LMStudio Truncation: ${warning}`, 'warning');
-                    });
-                }
-
-                // Mark operation as complete and show banner
-                markOperationComplete(operationId);
-                showCompletionBanner(type, typeText, typeIcon);
-
-                console.log('Completion banner should be showing now');
-
-                // Update cached data and optionally show results
-                if (type === 'sigma' && data.rules) {
-                    // Update the page's sigmaData variable with the new rules
-                    window.latestSigmaData = data;
-                    console.log('✅ Updated window.latestSigmaData with new SIGMA rules');
-
-                    // Parse conversation log if needed
-                    if (data.metadata && data.metadata.conversation && typeof data.metadata.conversation === 'string') {
-                        try {
-                            data.metadata.conversation = JSON.parse(data.metadata.conversation);
-                        } catch (e) {
-                            console.error('Failed to parse conversation log:', e);
-                            data.metadata.conversation = [];
-                        }
-                    }
-
-                    // Automatically show the new rules
-                    setTimeout(() => showSigmaRulesModal(data.rules, data), 500);
-                }
-            } else {
-                const error = await response.json();
-                console.log('API Error:', error);
-                markOperationComplete(operationId, 'failed');
-                showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} failed: ${error.detail}`, 'error');
-            }
-        } catch (error) {
-            // Don't show error if request was cancelled
-            if (isCancelled || error.name === 'AbortError') {
-                return; // Already handled in handleCancel
-            }
-            console.log('Caught error:', error);
-            markOperationComplete(operationId, 'failed');
-            if (error.message.includes('timed out')) {
-                const timeoutMsg = aiModel === 'chatgpt' ? '60 seconds' : '200 seconds';
-                showNotification(`${typeText} ${type === 'sigma' ? 'generation' : type === 'ranking' ? 'generation' : 'extraction'} timed out after ${timeoutMsg}. Try using a different model or check your settings.`, 'error');
-            } else {
-                showNotification(`Error: ${error.message}`, 'error');
-            }
-        } finally {
-            // Remove loading modal and clean up ESC handler
-            const loadingModal = document.getElementById('loadingModal');
-            if (loadingModal && loadingModal.parentNode) {
-                loadingModal.remove();
-            }
-            // Clean up the ESC key handler
-            document.removeEventListener('keydown', handleEsc);
-        }
-    }
-    */
     
     // Enhanced GPT4o Ranking Function with Content Filtering
     async function rankWithGPT4o() {
@@ -5674,7 +5223,7 @@ Please provide a detailed analysis based on the article content and the user's s
             const modal = document.createElement('div');
             modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50';
             modal.innerHTML = `
-                <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-md w-full mx-4">
+                <div class="card shadow-2xl p-6 max-w-md w-full mx-4">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-50">${modelDisplayName} Content Filter</h3>
                     </div>
@@ -5807,7 +5356,7 @@ Please provide a detailed analysis based on the article content and the user's s
         `).join('');
         
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+            <div class="card shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg> Removed Content Chunks</h3>
                     <button onclick="this.closest('.fixed').remove()" class="text-gray-400 hover:text-gray-200 p-1 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
@@ -5887,7 +5436,7 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEsc);
         
         modal.innerHTML = `
-            <div class="bg-gray-800 border border-gray-700 rounded-xl shadow-2xl p-6 max-w-2xl w-full mx-4">
+            <div class="card shadow-2xl p-6 max-w-2xl w-full mx-4">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-50"><svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/></svg> Custom AI Prompt</h3>
                     <div class="flex items-center space-x-2">
@@ -7227,7 +6776,6 @@ Please provide a detailed analysis based on the article content and the user's s
                 },
                 body: JSON.stringify({
                     use_classifier: true,
-                    use_fallback: true,
                     use_junk_filter: optimizationOptions.useFiltering,
                     junk_filter_threshold: optimizationOptions.minConfidence
                 }),

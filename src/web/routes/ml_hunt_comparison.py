@@ -11,11 +11,11 @@ from fastapi import APIRouter, HTTPException
 
 from src.web.dependencies import logger
 
-router = APIRouter(prefix="/api/ml-hunt-comparison", tags=["ML Hunt Comparison"])
+router = APIRouter(prefix="/api/ml-model-performance", tags=["ML Model Performance"])
 
 
 @router.get("/stats")
-async def get_model_comparison_stats(model_version: str | None = None):
+def get_model_comparison_stats(model_version: str | None = None):
     """Get comparison statistics for model versions."""
     try:
         from src.database.manager import DatabaseManager
@@ -35,7 +35,7 @@ async def get_model_comparison_stats(model_version: str | None = None):
 
 
 @router.get("/results")
-async def get_chunk_analysis_results(
+def get_chunk_analysis_results(
     article_id: int | None = None,
     model_version: str | None = None,
     hunt_score_min: float | None = None,
@@ -75,7 +75,7 @@ async def get_chunk_analysis_results(
 
 
 @router.get("/model-versions")
-async def get_available_model_versions():
+def get_available_model_versions():
     """Get list of available model versions."""
     try:
         from src.database.manager import DatabaseManager
@@ -95,7 +95,7 @@ async def get_available_model_versions():
 
 
 @router.get("/eligible-count")
-async def get_eligible_articles_count(min_hunt_score: float = 50.0):
+def get_eligible_articles_count(min_hunt_score: float = 50.0):
     """Get count of articles eligible for chunk analysis."""
     try:
         from src.database.manager import DatabaseManager
@@ -117,7 +117,7 @@ async def get_eligible_articles_count(min_hunt_score: float = 50.0):
 
 
 @router.get("/logs")
-async def get_backfill_logs():
+def get_backfill_logs():
     """Get real-time backfill processing logs."""
     try:
         import subprocess
@@ -339,7 +339,7 @@ async def process_eligible_articles_backfill(min_hunt_score: float = 50.0, min_c
 
 
 @router.get("/summary")
-async def get_comparison_summary():
+def get_comparison_summary():
     """Get summary statistics for the comparison."""
     try:
         from src.database.manager import DatabaseManager

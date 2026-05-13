@@ -1,6 +1,6 @@
-# Configuration
+# Configuration Reference
 
-Huntable CTI Studio configuration is managed through environment variables (`.env`), Docker Compose (`docker-compose.yml`), and YAML files in `config/`.
+Huntable CTI Studio configuration uses three files: environment variables (`.env`), Docker Compose (`docker-compose.yml`), and source feeds (`config/sources.yaml`).
 
 ## Configuration Files
 
@@ -11,7 +11,8 @@ Primary configuration file for sensitive values and service settings. Provision 
 ```
 
 ### Docker Compose (docker-compose.yml)
-Defines service configuration, port mappings, and inter-service networking.
+
+Defines service topology, port mappings, and volume mounts.
 
 ### Source Configuration (config/sources.yaml)
 Defines CTI feeds and sources. See [Source Configuration Precedence](../guides/source-config.md) for details on YAML vs database sync.
@@ -23,7 +24,7 @@ Defines CTI feeds and sources. See [Source Configuration Precedence](../guides/s
 | Service | Host Port | Container Port | Purpose |
 |---------|-----------|----------------|---------|
 | Web/API | 8001 | 8001 | Main FastAPI application |
-| Debug/Aux | 8888 | 8888 | Auxiliary services |
+| Web (alt) | 8888 | 8888 | Secondary port on the web container |
 | PostgreSQL | 5432 | 5432 | Database |
 | Redis | 6379 | 6379 | Cache and message broker |
 | LM Studio | 1234 | — | External (host machine) |
@@ -58,9 +59,7 @@ Check if a port is in use:
 lsof -i :8001
 ```
 
-To resolve conflicts, either:
-1. Stop the conflicting service
-2. Change the host port in `docker-compose.yml` as shown above
+To resolve conflicts, either stop the conflicting service or change the host port in `docker-compose.yml` as shown above.
 
 ## Environment Variables Reference
 
@@ -89,7 +88,7 @@ To resolve conflicts, either:
 | `OPENAI_API_KEY` | OpenAI API key | No |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API key | No |
 
-**Keys set during `./setup.sh`**: If you enter OpenAI or Anthropic API keys when prompted by `setup.sh`, they are written to `.env` only. The application uses these values at runtime—**you do not need to enter them again in the Settings page**. The Settings page shows values stored in the database; keys that exist only in `.env` are not displayed there, so the OpenAI/Anthropic fields may appear empty even though the keys are in use. To have keys visible and editable in Settings, add them there; values saved in Settings are stored in the database and take precedence over `.env` for the workflow UI.
+**Keys set during `./setup.sh`**: Keys entered when `setup.sh` prompts you are written to `.env` only. The application uses these values at runtime; you do not need to enter them again in the Settings page. The Settings page shows values stored in the database, so the OpenAI/Anthropic fields may appear empty even though the keys are active. To make keys visible and editable in Settings, add them there; values saved in Settings are stored in the database and take precedence over `.env` for the workflow UI.
 
 ### Workflow-Specific LLM Configuration
 
@@ -112,46 +111,52 @@ To resolve conflicts, either:
 | `LMSTUDIO_MODEL_RANK` | Model for ranking agent | — |
 | `LMSTUDIO_MODEL_EXTRACT` | Model for extraction agent | — |
 | `LMSTUDIO_MODEL_SIGMA` | Model for Sigma generation | — |
-| `LMSTUDIO_EMBEDDING_URL` | Embedding API URL | `http://localhost:1234/v1/embeddings` |
+| `LMSTUDIO_EMBEDDING_URL` | Embedding API URL | `http://host.docker.internal:1234/v1/embeddings` |
 | `LMSTUDIO_EMBEDDING_MODEL` | Embedding model | `text-embedding-e5-base-v2` |
 | `LMSTUDIO_TEMPERATURE` | LLM temperature | — |
 | `LMSTUDIO_TOP_P` | Top-p sampling | — |
 | `LMSTUDIO_SEED` | Random seed for reproducibility | — |
 | `LMSTUDIO_MAX_CONTEXT` | Max context window size | — |
 
-**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to access services on the host. You can also set `LMSTUDIO_API_URL` and `LMSTUDIO_EMBEDDING_URL` in **Settings → Agentic Workflow Configuration** (LM Studio section); those values override `.env`. Context length can differ by service: `docker-compose.yml` may set `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` to 16384 for web and 4096 for workers; see [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
+**Note**: LM Studio runs on your host machine. The `host.docker.internal` hostname allows Docker containers to reach services on the host. You can also set `LMSTUDIO_API_URL` and `LMSTUDIO_EMBEDDING_URL` in **Settings -> Agentic Workflow Configuration** (LM Studio section); those values override `.env`. Context length is configured per-model via `LMSTUDIO_CONTEXT_LENGTH_<model_slug>` in `docker-compose.yml` and can differ between web and worker services. See [LM Studio Integration](../llm/lmstudio.md#context-length) for details.
 
-### Workflow baseline presets (getting started)
+## Workflow Presets
 
-Pre-built workflow config presets are in the repo so you can run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent, plus default prompt configs (role, task, instructions, schema) for each agent. Seed prompt files live in `src/prompts/` but are only read on first bootstrap or explicit reset -- the authoritative prompts at runtime live in the database. See [Prompt Architecture](../concepts/agents.md#prompt-architecture) for details.
+Pre-built workflow config presets let you run the pipeline without configuring prompts by hand. Each preset sets one LLM provider and model for every workflow agent, plus default prompt configs (role, task, instructions, schema) for each agent. Seed prompt files live in `src/prompts/` but are only read on first bootstrap or explicit reset; the authoritative prompts at runtime live in the database. See [Prompt Architecture](../concepts/agents.md#prompt-architecture) for details.
 
-Committed quickstart presets (v2 format, always present in repo) are in `config/presets/AgentConfigs/quickstart/`:
+Quickstart presets (v2 format, always committed to the repo) are in `config/presets/AgentConfigs/quickstart/`:
 
 | Preset file | Provider | Model | Use when |
 |-------------|----------|--------|----------|
-| `config/presets/AgentConfigs/quickstart/Quickstart-anthropic-sonnet-4-6.json` | Anthropic | Claude Sonnet 4.6 | You have `ANTHROPIC_API_KEY` and want to use Claude for all agents. |
-| `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json` | OpenAI | gpt-4.1-mini | You have `OPENAI_API_KEY` and want a fast OpenAI model for all agents. |
-| `config/presets/AgentConfigs/quickstart/Quickstart-LMStudio-Qwen3.json` | LM Studio | Qwen 3 (local) | You run LM Studio with a Qwen3-compatible model and want to use it for all agents. |
+| `Quickstart-anthropic-sonnet-4-6.json` | Anthropic | Claude Sonnet 4.6 | You have `ANTHROPIC_API_KEY` and want Claude for all agents. |
+| `Quickstart-anthropic-haiku-4-5.json` | Anthropic | Claude Haiku 4.5 | You have `ANTHROPIC_API_KEY` and want a faster, lower-cost Claude model. |
+| `Quickstart-openai-gpt-4.1-mini.json` | OpenAI | gpt-4.1-mini | You have `OPENAI_API_KEY` and want a fast, low-cost OpenAI model. |
+| `Quickstart-openai-gpt-4.1.json` | OpenAI | gpt-4.1 | You have `OPENAI_API_KEY` and want the full gpt-4.1 model. |
+| `Quickstart-openai-gpt-4o.json` | OpenAI | gpt-4o | You have `OPENAI_API_KEY` and want gpt-4o. |
+| `Quickstart-openai-gpt-4o-mini.json` | OpenAI | gpt-4o-mini | You have `OPENAI_API_KEY` and want the gpt-4o-mini variant. |
+| `Quickstart-openai-gpt-5.json` | OpenAI | gpt-5 | You have `OPENAI_API_KEY` and want gpt-5. |
+| `Quickstart-LMStudio-Qwen3.json` | LM Studio | Qwen 3 (local) | You run LM Studio with a Qwen3-compatible model. |
+| `Quickstart-LMStudio-Gemma4B.json` | LM Studio | Gemma 4B (local) | You run LM Studio with a Gemma 4B-compatible model. |
 
-Alternatively, you can generate baseline presets (`anthropic-sonnet-4.5.json`, `chatgpt-4o-mini.json`, `lmstudio-qwen2.5-8b.json`) at the top level of `config/presets/AgentConfigs/` by running `python3 scripts/build_baseline_presets.py`. These are not committed to the repo; use the quickstart files above for a fresh install.
+All paths are relative to `config/presets/AgentConfigs/quickstart/`.
 
 **How to load a preset**
 
 1. Open the **Workflow** page in the web UI.
-2. In the workflow config panel, use **Import from file** and choose one of the JSON files above (e.g. `config/presets/AgentConfigs/quickstart/Quickstart-openai-gpt-4.1-mini.json`).
-3. Confirm the import; the active workflow config (thresholds, agent models, and agent prompts) will be replaced by the preset. You can then run the workflow or tweak individual prompt fields (role, task, instructions, schema) in the workflow config editor.
+2. In the workflow config panel, use **Import from file** and choose a JSON file from `config/presets/AgentConfigs/quickstart/`.
+3. Confirm the import; the active workflow config (thresholds, agent models, and agent prompts) is replaced by the preset. Tweak individual prompt fields (role, task, instructions, schema) in the workflow config editor as needed.
 
 **Private presets**: To keep presets out of version control, put JSON files in `config/presets/private/`. That directory is gitignored (only `*.json` there); use **Import from file** to load from it.
 
-To regenerate the baseline preset files (not the quickstart presets), run from the repo root:
+To normalize key order in quickstart presets after a schema update, run from the repo root:
 
 ```bash
 python3 scripts/build_baseline_presets.py
 ```
 
-Note: `src/prompts/` files are seed defaults, not live prompts. Editing them only affects new installs or explicit bootstrap resets -- it does not change prompts for an already-running instance. To change prompts on a running instance, use the workflow config editor in the UI or the prompt API endpoints.
+`src/prompts/` files are seed defaults, not live prompts. Editing them only affects new installs or explicit bootstrap resets; it does not change prompts for a running instance. To change prompts on a running instance, use the workflow config editor or the prompt API endpoints.
 
-### Content Filtering
+## Content Filtering
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
@@ -160,7 +165,7 @@ Note: `src/prompts/` files are seed defaults, not live prompts. Editing them onl
 | `CHATGPT_CONTENT_LIMIT` | Max content chars for ChatGPT | `1000000` |
 | `ANTHROPIC_CONTENT_LIMIT` | Max content chars for Anthropic | `1000000` |
 
-### Langfuse Observability
+## Langfuse Observability
 
 | Variable | Purpose | Notes |
 |----------|---------|-------|
@@ -171,15 +176,15 @@ Note: `src/prompts/` files are seed defaults, not live prompts. Editing them onl
 
 Configure Langfuse through environment variables or the Settings UI. Settings stored in the web UI take precedence over the same values in the environment.
 
-Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments may be technically possible in Langfuse itself, but they are outside this project's supported and tested configurations.
+Huntable CTI Studio supports **Langfuse Cloud only**. Local or self-hosted Langfuse deployments are outside this project's supported and tested configurations.
 
-Use `LANGFUSE_HOST` for the correct Langfuse Cloud region for your account. If you do not set it, the runtime defaults to `https://cloud.langfuse.com`. Common cloud hosts include `https://cloud.langfuse.com`, `https://us.cloud.langfuse.com`, and `https://hipaa.cloud.langfuse.com`.
+Set `LANGFUSE_HOST` to the correct Langfuse Cloud region for your account. If unset, the runtime defaults to `https://cloud.langfuse.com`. Common cloud hosts: `https://cloud.langfuse.com`, `https://us.cloud.langfuse.com`, `https://hipaa.cloud.langfuse.com`.
 
 Security note: Langfuse receives workflow and LLM telemetry. Depending on the workflow path, traces may contain prompts, article content, extracted observables, outputs, and metadata. Enable Langfuse only where external cloud tracing is acceptable for your data.
 
 See [Langfuse Setup](../guides/langfuse-setup.md) for the full setup and verification workflow.
 
-### SIGMA / GitHub Integration
+## SIGMA / GitHub Integration
 
 The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during `./setup.sh`.**
 
@@ -191,7 +196,7 @@ The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during
 
 **After setup (required):**
 
-- Add your **GitHub Personal Access Token** in **Settings → GitHub** (repo scope)
+- Add your **GitHub Personal Access Token** in **Settings -> GitHub** (repo scope)
 - Create token at [github.com/settings/tokens](https://github.com/settings/tokens)
 
 **Non-interactive:** Set `SIGMA_GITHUB_REPO=owner/repo` before running `./setup.sh --non-interactive` to clone automatically.
@@ -204,10 +209,10 @@ The app submits approved SIGMA rules via GitHub PRs. **Setup is automated during
 
 ## Source Configuration
 
-- **YAML File**: `config/sources.yaml` (version-controlled template)
-- **Runtime Source of Truth**: PostgreSQL `sources` table
-- **Auto-sync behavior**: YAML → DB sync runs automatically on startup if fewer than 5 sources exist in the database
-- **Manual sync**: Use `./run_cli.sh sync-sources --config config/sources.yaml --no-remove`
+- **YAML file**: `config/sources.yaml` (version-controlled template)
+- **Runtime source of truth**: PostgreSQL `sources` table
+- **Auto-sync**: YAML -> DB sync runs on startup when fewer than 5 sources exist in the database
+- **Manual sync**: `./run_cli.sh sync-sources --config config/sources.yaml --no-remove`
 - **Disable auto-sync**: Set `DISABLE_SOURCE_AUTO_SYNC=true`
 
 See [Source Configuration Precedence](../guides/source-config.md) for details.
@@ -226,7 +231,7 @@ Sources that accumulate consecutive failures are automatically diagnosed and rep
 - **Failure threshold**: Consecutive failures before healing triggers (default: 100)
 - **Check interval**: Hours between scheduled scans (default: 1)
 
-Eligibility note: the coordinator skips sources with a recent success (`last_success` within 24 hours) to avoid rewriting config for transient failures.
+Eligibility: the coordinator skips sources with a recent success (`last_success` within 24 hours) to avoid rewriting config for transient failures.
 
 For architecture details, see `src/services/source_healing_service.py`.
 
@@ -283,3 +288,4 @@ After modifying configuration:
 ---
 
 _Last updated: 2026-05-01_
+_Last reviewed: 2026-05-04_

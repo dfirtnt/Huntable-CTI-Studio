@@ -466,17 +466,32 @@ handle_sigma_repo_setup() {
     echo ""
     echo "Enter your GitHub repo as owner/repo (e.g. dfirtnt/Huntable-SIGMA-Rules):"
     local repo_input=""
-    prompt_input "GitHub repo [$default_repo]: " "$default_repo" "repo_input"
-    repo_input="${repo_input:-$default_repo}"
-    repo_input="${repo_input#https://github.com/}"
-    repo_input="${repo_input%.git}"
-    repo_input="${repo_input%/}"
+    local clone_success=false
 
-    print_status "Cloning https://github.com/${repo_input}.git ..."
-    if git clone "https://github.com/${repo_input}.git" "$sigma_repo_dir" 2>/dev/null; then
-        print_status "✅ Sigma rules repo cloned"
-    else
-        print_warning "Clone failed (repo may not exist or be private). Creating local repo with rules structure..."
+    while true; do
+        prompt_input "GitHub repo [$default_repo]: " "$default_repo" "repo_input"
+        repo_input="${repo_input:-$default_repo}"
+        repo_input="${repo_input#https://github.com/}"
+        repo_input="${repo_input%.git}"
+        repo_input="${repo_input%/}"
+
+        print_status "Cloning https://github.com/${repo_input}.git ..."
+        if git clone "https://github.com/${repo_input}.git" "$sigma_repo_dir" 2>/dev/null; then
+            print_status "Sigma rules repo cloned"
+            clone_success=true
+            break
+        fi
+
+        print_warning "Clone failed. The repo may not exist yet, may be private, or the name may be misspelled."
+        if ! prompt_yes_no "Try a different repo name?" "yes"; then
+            break
+        fi
+        echo ""
+        echo "Enter your GitHub repo as owner/repo (e.g. dfirtnt/Huntable-SIGMA-Rules):"
+    done
+
+    if [[ "$clone_success" != "true" ]]; then
+        print_warning "Creating local repo with rules structure..."
         mkdir -p "$sigma_repo_dir"
         (cd "$sigma_repo_dir" && git init && mkdir -p rules/windows rules/linux rules/macos rules/network rules/cloud)
         for d in windows linux macos network cloud; do

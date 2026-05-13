@@ -1,0 +1,8 @@
+**Article Title:** {title}
+**Source:** {source}
+**URL:** {url}
+
+**Article Content:**
+{content}
+
+Score this article according to the criteria in your system instructions.

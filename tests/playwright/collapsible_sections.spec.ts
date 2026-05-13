@@ -92,18 +92,25 @@ test.describe('Collapsible Sections', () => {
 
       // Neutralize auto-save AND the re-render path so clicking a panel
       // header doesn't trigger a debounced performAutoSave() ->
-      // renderWorkflowConfigDisplay() cycle mid-test. That call replaces
-      // the prompt panel innerHTML, which (a) wipes the just-toggled
-      // state and (b) detaches the click handlers we just registered via
-      // initCollapsiblePanels(). Stubbing renderWorkflowConfigDisplay
-      // here is safe because we already waited for
-      // data-collapsible-initialized above, proving the initial render
-      // has completed. These tests only verify collapsible toggle
-      // behavior; dedicated auto-save specs cover that code path.
+      // renderAgentPrompts() cycle mid-test. performAutoSave calls
+      // renderAgentPrompts() on success (replaces prompt panel innerHTML),
+      // which detaches the click handlers registered by initCollapsiblePanels().
+      // The root hazard is a pending autoSaveTimeout from page-load initialization:
+      // stubbing window.autoSaveConfig doesn't cancel already-queued performAutoSave
+      // callbacks, so we must also cancel the timer and stub renderAgentPrompts.
       await page.evaluate(() => {
+        if ((window as any).autoSaveTimeout) {
+          clearTimeout((window as any).autoSaveTimeout);
+          (window as any).autoSaveTimeout = null;
+        }
+        if ((window as any).autoSaveModelChangeTimeout) {
+          clearTimeout((window as any).autoSaveModelChangeTimeout);
+          (window as any).autoSaveModelChangeTimeout = null;
+        }
         (window as any).autoSaveConfig = async () => {};
         (window as any).autoSaveModelChange = async () => {};
         (window as any).renderWorkflowConfigDisplay = () => {};
+        (window as any).renderAgentPrompts = () => {};
       });
     });
 

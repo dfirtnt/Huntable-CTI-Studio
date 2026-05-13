@@ -41,11 +41,6 @@ def test_display_names_are_non_empty_strings():
     assert not bad, f"Blank or non-string display names for: {bad}"
 
 
-def test_cmdline_qa_canonical_key_has_display_name():
-    """CmdLineQA (canonical casing) must have a display name; CmdlineQA must not."""
-    assert "CmdLineQA" in AGENT_DISPLAY_NAMES, "Canonical CmdLineQA missing from AGENT_DISPLAY_NAMES"
-    assert "CmdlineQA" not in AGENT_DISPLAY_NAMES, "Legacy CmdlineQA must not appear in AGENT_DISPLAY_NAMES"
-
 
 def test_main_agents_all_covered():
     for name in AGENT_NAMES_MAIN:

@@ -1,18 +1,18 @@
 # Huntable CTI Studio
 
-**Reports to Rules… in Record time.**
+**Reports to Rules... in Record time.**
 
 Huntable CTI Studio is an AI-assisted workbench for detection engineers and threat hunters. It ingests open-source threat intelligence from RSS feeds and web scraping, extracts Windows observables, command lines, process trees, event IDs, registry keys, services, scheduled tasks, and hunt queries, and turns them into Sigma rules you can validate, review, and ship.
 
 With full transparency, each article moves through an explicit LangGraph pipeline, execution state is checkpointed in PostgreSQL, configuration is versioned through presets, and novelty is enforced by similarity search against 3,000+ community Sigma rules. Bring your own model using OpenAI, Anthropic, or local LM Studio.
 
-## Who Is This For?
+## Who Is This For??
 
 | Role | What you get |
 |------|--------------|
 | **Detection Engineers** | Auto-generated Sigma rules from CTI articles, validated and de-duplicated against SigmaHQ |
 | **Threat Hunters** | Extracted command-lines, process trees, and hunt queries ready for triage |
-| **SOC Analysts** | Curated, scored intelligence feed with RAG-powered search |
+| **SOC Analysts** | Curated, scored intelligence feed with semantic search via MCP |
 | **Contributors and agents** | A Docker-first stack with explicit workflow, config, and persistence contracts |
 
 ## Highlights
@@ -63,9 +63,9 @@ ML-based classification to filter low-quality content. See [Content Filtering](f
 
 Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection](features/os-detection.md).
 
-### RAG Search
+### MCP Semantic Search
 
-Semantic search across your CTI corpus using embeddings. See [Semantic Search](features/semantic-search.md).
+Semantic search across your CTI corpus using embeddings, accessed via MCP tools. See [Semantic Search](features/semantic-search.md).
 
 ### Source Auto-Healing
 
@@ -92,3 +92,6 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
 _Last updated: 2026-05-01_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
+-->

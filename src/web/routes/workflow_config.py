@@ -57,9 +57,41 @@ def _enable_providers_from_agent_models(db_session, agent_models: dict[str, Any]
             row.updated_at = datetime.now()
         else:
             db_session.add(AppSettingsTable(key=settings_key, value="true", category="user"))
-    if providers:
-        db_session.commit()
-        logger.info("Auto-enabled providers from preset: %s", sorted(providers))
+    db_session.commit()
+    logger.info("Auto-enabled providers from preset: %s", sorted(providers))
+
+
+_AUTO_TRIGGER_THRESHOLD_KEY = "AUTO_TRIGGER_HUNT_SCORE_THRESHOLD"
+
+
+def _get_threshold_from_settings(db_session) -> float | None:
+    """Read auto-trigger threshold from AppSettingsTable. Returns None if not set."""
+    row = db_session.query(AppSettingsTable).filter(
+        AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY
+    ).first()
+    if row and row.value is not None:
+        try:
+            return float(row.value)
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
+def _save_threshold_to_settings(db_session, value: float) -> None:
+    """Write auto-trigger threshold to AppSettingsTable (upsert)."""
+    from datetime import datetime
+    row = db_session.query(AppSettingsTable).filter(
+        AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY
+    ).first()
+    if row:
+        row.value = str(value)
+        row.updated_at = datetime.now()
+    else:
+        db_session.add(AppSettingsTable(
+            key=_AUTO_TRIGGER_THRESHOLD_KEY,
+            value=str(value),
+            category="workflow",
+        ))
 
 
 def _active_workflow_config_query(db_session):
@@ -102,10 +134,11 @@ class WorkflowConfigResponse(BaseModel):
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow None values
     qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool = False
-    osdetection_fallback_enabled: bool = False
+    osdetection_fallback_enabled: bool = False  # deprecated, always False
     qa_max_retries: int = 5
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
+    proc_tree_attention_preprocessor_enabled: bool = True
     auto_trigger_hunt_score_threshold: float = 60.0
     created_at: str
     updated_at: str
@@ -123,20 +156,32 @@ class WorkflowConfigUpdate(BaseModel):
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow numeric temperatures
     qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool | None = None
-    osdetection_fallback_enabled: bool | None = None
     rank_agent_enabled: bool | None = None
     qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
+    proc_tree_attention_preprocessor_enabled: bool | None = None
     auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
 
 
 class AgentPromptUpdate(BaseModel):
-    """Request model for updating agent prompts."""
+    """Request model for updating agent prompts.
+
+    Two storage modes:
+      * Canonical: pass `system` and/or `user` (writes outer dict
+        ``{"system": ..., "user": ...}`` -- the post-migration shape).
+      * Legacy: pass `prompt` (a JSON-encoded string or raw text) -- still
+        accepted for backward compatibility with older clients.
+
+    When ``system`` or ``user`` is provided, the canonical write path runs and
+    any ``prompt`` field is ignored. When neither is set, the legacy path runs.
+    """
 
     agent_name: str
     prompt: str | None = None
     instructions: str | None = None
     change_description: str | None = None
+    system: str | None = None
+    user: str | None = None
 
 
 class RollbackRequest(BaseModel):
@@ -217,7 +262,7 @@ class SaveConfigPresetRequest(BaseModel):
 
 
 @router.get("/config", response_model=WorkflowConfigResponse)
-async def get_workflow_config(request: Request):
+def get_workflow_config(request: Request):
     """Get active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -271,9 +316,15 @@ async def get_workflow_config(request: Request):
                 created_at=config.created_at.isoformat(),
                 updated_at=config.updated_at.isoformat(),
             )
-            legacy_dict["auto_trigger_hunt_score_threshold"] = getattr(
-                config, "auto_trigger_hunt_score_threshold", 60.0
-            )
+            settings_threshold = _get_threshold_from_settings(db_session)
+            if settings_threshold is None:
+                # Lazy migration: seed AppSettingsTable from config row so subsequent
+                # PUT autosaves never fall back to the column default of 60.0.
+                config_threshold = getattr(config, "auto_trigger_hunt_score_threshold", 60.0)
+                _save_threshold_to_settings(db_session, config_threshold)
+                db_session.commit()
+                settings_threshold = config_threshold
+            legacy_dict["auto_trigger_hunt_score_threshold"] = settings_threshold
             return WorkflowConfigResponse(**legacy_dict)
         finally:
             db_session.close()
@@ -287,7 +338,7 @@ async def get_workflow_config(request: Request):
 
 
 @router.put("/config", response_model=WorkflowConfigResponse)
-async def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate):
+def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate):
     """Update workflow configuration (creates new version)."""
     try:
         db_manager = DatabaseManager()
@@ -351,11 +402,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     else False
                 )
             )
-            osdetection_fallback = (
-                config_update.osdetection_fallback_enabled
-                if config_update.osdetection_fallback_enabled is not None
-                else (getattr(current_config, "osdetection_fallback_enabled", False) if current_config else False)
-            )
+            osdetection_fallback = False
             qa_max_retries = (
                 config_update.qa_max_retries
                 if config_update.qa_max_retries is not None
@@ -437,12 +484,24 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     getattr(current_config, "cmdline_attention_preprocessor_enabled", True) if current_config else True
                 )
             )
+            final_proc_tree_attention_preprocessor_enabled = (
+                config_update.proc_tree_attention_preprocessor_enabled
+                if config_update.proc_tree_attention_preprocessor_enabled is not None
+                else (
+                    getattr(current_config, "proc_tree_attention_preprocessor_enabled", True)
+                    if current_config
+                    else True
+                )
+            )
+            _settings_threshold = _get_threshold_from_settings(db_session)
             final_auto_trigger_hunt_score_threshold = (
                 config_update.auto_trigger_hunt_score_threshold
                 if config_update.auto_trigger_hunt_score_threshold is not None
-                else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
-                if current_config
-                else 60.0
+                else (
+                    _settings_threshold
+                    if _settings_threshold is not None
+                    else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
+                )
             )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
@@ -452,10 +511,6 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     "ProcTreeExtract",
                     "HuntQueriesExtract",
                     "RegistryExtract",
-                    "CmdLineQA",
-                    "ProcTreeQA",
-                    "HuntQueriesQA",
-                    "RegistryQA",
                 ]
                 for agent_name, prompt_data in final_agent_prompts.items():
                     if agent_name in extraction_agents and isinstance(prompt_data, dict):
@@ -479,11 +534,12 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                     and abs(current_config.similarity_threshold - similarity_threshold) < 0.0001
                     and abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001
                     and current_config.sigma_fallback_enabled == sigma_fallback
-                    and getattr(current_config, "osdetection_fallback_enabled", False) == osdetection_fallback
                     and current_config.qa_max_retries == qa_max_retries
                     and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
                     and getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
                     == final_cmdline_attention_preprocessor_enabled
+                    and getattr(current_config, "proc_tree_attention_preprocessor_enabled", True)
+                    == final_proc_tree_attention_preprocessor_enabled
                     and abs(
                         getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                         - final_auto_trigger_hunt_score_threshold
@@ -533,7 +589,7 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         agent_models=current_config.agent_models,
                         qa_enabled=current_config.qa_enabled,
                         sigma_fallback_enabled=current_config.sigma_fallback_enabled,
-                        osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                        osdetection_fallback_enabled=False,
                         qa_max_retries=current_config.qa_max_retries,
                         rank_agent_enabled=current_config.rank_agent_enabled
                         if hasattr(current_config, "rank_agent_enabled")
@@ -541,8 +597,13 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                         cmdline_attention_preprocessor_enabled=getattr(
                             current_config, "cmdline_attention_preprocessor_enabled", True
                         ),
-                        auto_trigger_hunt_score_threshold=getattr(
-                            current_config, "auto_trigger_hunt_score_threshold", 60.0
+                        proc_tree_attention_preprocessor_enabled=getattr(
+                            current_config, "proc_tree_attention_preprocessor_enabled", True
+                        ),
+                        auto_trigger_hunt_score_threshold=(
+                            _settings_threshold
+                            if _settings_threshold is not None
+                            else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                         ),
                         created_at=current_config.created_at.isoformat(),
                         updated_at=current_config.updated_at.isoformat(),
@@ -565,10 +626,12 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 qa_max_retries=qa_max_retries,
                 rank_agent_enabled=final_rank_agent_enabled,
                 cmdline_attention_preprocessor_enabled=final_cmdline_attention_preprocessor_enabled,
+                proc_tree_attention_preprocessor_enabled=final_proc_tree_attention_preprocessor_enabled,
                 auto_trigger_hunt_score_threshold=final_auto_trigger_hunt_score_threshold,
             )
 
             db_session.add(new_config)
+            _save_threshold_to_settings(db_session, final_auto_trigger_hunt_score_threshold)
             db_session.commit()
             db_session.refresh(new_config)
 
@@ -587,11 +650,14 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
                 agent_models=new_config.agent_models,
                 qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
-                osdetection_fallback_enabled=getattr(new_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 qa_max_retries=new_config.qa_max_retries,
                 rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
                 cmdline_attention_preprocessor_enabled=getattr(
                     new_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    new_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=getattr(new_config, "auto_trigger_hunt_score_threshold", 60.0),
                 created_at=new_config.created_at.isoformat(),
@@ -602,6 +668,48 @@ async def update_workflow_config(request: Request, config_update: WorkflowConfig
 
     except Exception as e:
         logger.error(f"Error updating workflow config: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.patch("/config/auto-trigger-threshold")
+def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
+    """Update the auto-trigger hunt score threshold.
+
+    This setting is intentionally separate from the main workflow config PUT endpoint
+    so it cannot be overwritten by preset imports or agent config saves.
+    Only the Settings UI should call this endpoint.
+    """
+    try:
+        value = body.get("auto_trigger_hunt_score_threshold")
+        if value is None:
+            raise HTTPException(status_code=400, detail="auto_trigger_hunt_score_threshold is required")
+        try:
+            value = float(value)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=400, detail="auto_trigger_hunt_score_threshold must be a number") from exc
+        if not (0.0 <= value <= 100.0):
+            raise HTTPException(
+                status_code=400, detail=f"auto_trigger_hunt_score_threshold must be 0-100, got {value}"
+            )
+
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            # Write to AppSettingsTable first (race-condition-safe source of truth)
+            _save_threshold_to_settings(db_session, value)
+            # Also update the active config row for backward compat
+            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+            if current_config:
+                current_config.auto_trigger_hunt_score_threshold = value
+            db_session.commit()
+            return {"auto_trigger_hunt_score_threshold": value}
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating auto-trigger threshold: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -634,7 +742,6 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
             prompt_str = str(prompt_str)
 
         if not prompt_str.strip():
-            # Special agents (e.g. OSDetectionFallback) are embedding-based and don't use LLM prompts.
             if agent_name not in AGENT_NAMES_SPECIAL:
                 warnings.append(f"{label}: system prompt is empty")
             continue
@@ -697,7 +804,7 @@ def _scan_preset_prompts_for_warnings(agent_prompts: dict[str, Any]) -> list[str
 
 
 @router.post("/config/preset/save")
-async def save_config_preset(save_request: SaveConfigPresetRequest):
+def save_config_preset(save_request: SaveConfigPresetRequest):
     """Save or update a workflow config preset (upsert by name)."""
     try:
         db_manager = DatabaseManager()
@@ -743,7 +850,7 @@ async def save_config_preset(save_request: SaveConfigPresetRequest):
 
 
 @router.post("/config/preset/export")
-async def export_config_as_v2(preset: dict[str, Any]):
+def export_config_as_v2(preset: dict[str, Any]):
     """
     Export preset as canonical WorkflowConfigV2 only (strict schema).
     Populates metadata if empty, re-validates; returns Version 2.0 with no legacy keys.
@@ -761,8 +868,6 @@ async def export_config_as_v2(preset: dict[str, Any]):
 def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
     """Convert WorkflowConfigV2 to applyPreset()-ready legacy preset shape."""
     qa_enabled = dict(config.QA.Enabled)
-    if "OSDetectionFallback" in qa_enabled and "OSDetectionAgent" not in qa_enabled:
-        qa_enabled["OSDetectionAgent"] = qa_enabled["OSDetectionFallback"]
     return {
         "version": "1.0",
         "min_hunt_score": config.Thresholds.MinHuntScore,
@@ -774,12 +879,11 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
         "agent_models": config.flatten_for_llm_service(),
         "qa_enabled": qa_enabled,
         "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
-        "osdetection_fallback_enabled": config.Agents.get("OSDetectionFallback").Enabled
-        if config.Agents.get("OSDetectionFallback")
-        else False,
+        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True,
         "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
+        "proc_tree_attention_preprocessor_enabled": config.Features.ProcTreeAttentionPreprocessorEnabled,
         "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
         "agent_prompts": {
             name: {
@@ -792,7 +896,7 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
 
 
 @router.post("/config/preset/to-legacy")
-async def preset_to_legacy(preset: dict[str, Any]):
+def preset_to_legacy(preset: dict[str, Any]):
     """
     Accept a preset (v1 or v2), validate and normalize via load_workflow_config,
     return legacy shape for applyPreset() (version, thresholds, agent_models, qa_enabled, etc.).
@@ -813,7 +917,7 @@ async def preset_to_legacy(preset: dict[str, Any]):
 
 
 @router.post("/config/preset/validate")
-async def validate_preset_prompts(preset: dict[str, Any]):
+def validate_preset_prompts(preset: dict[str, Any]):
     """Scan a legacy-shaped preset for prompt issues without applying it.
 
     Returns {warnings: [...]} where each entry is a human-readable description
@@ -828,7 +932,7 @@ async def validate_preset_prompts(preset: dict[str, Any]):
 
 
 @router.get("/config/preset/list")
-async def list_config_presets(request: Request, scope: str | None = None):
+def list_config_presets(request: Request, scope: str | None = None):
     """List workflow config presets (id, name, description, scope, created_at, updated_at; no config_json).
     Optional scope filter: 'full', 'cmdline', 'proctree', 'huntqueries'. Presets without scope treated as full."""
     try:
@@ -864,7 +968,7 @@ async def list_config_presets(request: Request, scope: str | None = None):
 
 
 @router.get("/config/preset/{preset_id}")
-async def get_config_preset(request: Request, preset_id: int):
+def get_config_preset(request: Request, preset_id: int):
     """Get a workflow config preset by id; merge config_json into response for applyPreset."""
     try:
         db_manager = DatabaseManager()
@@ -893,7 +997,7 @@ async def get_config_preset(request: Request, preset_id: int):
 
 
 @router.delete("/config/preset/{preset_id}")
-async def delete_config_preset(request: Request, preset_id: int):
+def delete_config_preset(request: Request, preset_id: int):
     """Delete a workflow config preset by id."""
     try:
         db_manager = DatabaseManager()
@@ -931,19 +1035,20 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         "agent_models": config.agent_models if config.agent_models is not None else {},
         "qa_enabled": config.qa_enabled if config.qa_enabled is not None else {},
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False) or False,
-        "osdetection_fallback_enabled": getattr(config, "osdetection_fallback_enabled", False) or False,
+        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": getattr(config, "rank_agent_enabled", True)
         if getattr(config, "rank_agent_enabled", None) is not None
         else True,
         "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
+        "proc_tree_attention_preprocessor_enabled": getattr(config, "proc_tree_attention_preprocessor_enabled", True),
         "extract_agent_settings": {"disabled_agents": disabled_agents},
         "agent_prompts": agent_prompts,
     }
 
 
 @router.get("/config/versions")
-async def list_config_versions(
+def list_config_versions(
     request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
@@ -996,7 +1101,7 @@ async def list_config_versions(
 
 
 @router.get("/config/version/{version_number}")
-async def get_config_by_version(request: Request, version_number: int):
+def get_config_by_version(request: Request, version_number: int):
     """Get full workflow config by version number; returns preset-shaped payload for applyPreset."""
     try:
         db_manager = DatabaseManager()
@@ -1021,7 +1126,7 @@ async def get_config_by_version(request: Request, version_number: int):
 
 
 @router.get("/config/prompts")
-async def get_agent_prompts(request: Request):
+def get_agent_prompts(request: Request):
     """Get agent prompts from active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -1061,13 +1166,9 @@ async def get_agent_prompts(request: Request):
             # Sub-agents list for model assignment
             sub_agents = [
                 "CmdlineExtract",
-                "CmdLineQA",
                 "ProcTreeExtract",
-                "ProcTreeQA",
                 "HuntQueriesExtract",
-                "HuntQueriesQA",
                 "RegistryExtract",
-                "RegistryQA",
             ]
 
             # Deleted subagents that should be filtered out
@@ -1114,7 +1215,7 @@ async def get_agent_prompts(request: Request):
 
 
 @router.get("/config/prompts/{agent_name}")
-async def get_agent_prompt(request: Request, agent_name: str):
+def get_agent_prompt(request: Request, agent_name: str):
     """Get prompt for a specific agent from active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -1166,7 +1267,7 @@ async def get_agent_prompt(request: Request, agent_name: str):
 
 
 @router.put("/config/prompts")
-async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
+def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
     """Update agent prompt in active workflow configuration."""
     try:
         db_manager = DatabaseManager()
@@ -1186,9 +1287,19 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             # Get existing prompts or create new dict
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
 
-            # Get current prompt values for version history
-            old_prompt = agent_prompts.get(prompt_update.agent_name, {}).get("prompt", "")
-            old_instructions = agent_prompts.get(prompt_update.agent_name, {}).get("instructions", "")
+            # Get current prompt values for version history. If the existing record
+            # is canonical {system, user} (post-migration), encode it as JSON so the
+            # text-only `prompt` column captures the full state for rollback.
+            existing = agent_prompts.get(prompt_update.agent_name, {}) or {}
+            if existing.get("prompt"):
+                old_prompt = existing.get("prompt", "")
+            elif "system" in existing or "user" in existing:
+                old_prompt = json.dumps(
+                    {"system": existing.get("system"), "user": existing.get("user")}
+                )
+            else:
+                old_prompt = ""
+            old_instructions = existing.get("instructions", "")
 
             # Deactivate current config
             _deactivate_active_workflow_configs(db_session)
@@ -1198,31 +1309,47 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             if prompt_update.agent_name not in agent_prompts:
                 agent_prompts[prompt_update.agent_name] = {}
 
-            # Validate JSON format for extraction agents
-            if prompt_update.prompt is not None:
-                extraction_agents = [
-                    "CmdlineExtract",
-                    "ProcTreeExtract",
-                    "HuntQueriesExtract",
-                    "RegistryExtract",
-                    "CmdLineQA",
-                    "ProcTreeQA",
-                    "HuntQueriesQA",
-                    "RegistryQA",
-                ]
-                if prompt_update.agent_name in extraction_agents:
-                    try:
-                        json.loads(prompt_update.prompt)
-                    except json.JSONDecodeError as e:
-                        raise HTTPException(
-                            status_code=400,
-                            detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
-                        ) from e
-                agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
-            if prompt_update.instructions is not None:
-                agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
+            # Canonical write path: when system or user is explicitly provided,
+            # replace the agent's record with {system, user[, instructions]}.
+            # This is the post-migration shape produced by SigmaAgent and
+            # RankAgent saves.  Drops legacy 'prompt' and 'model' siblings.
+            canonical_mode = prompt_update.system is not None or prompt_update.user is not None
+            if canonical_mode:
+                canonical_record: dict[str, Any] = {
+                    "system": prompt_update.system if prompt_update.system is not None else "",
+                    "user": prompt_update.user,
+                }
+                instructions_val = (
+                    prompt_update.instructions
+                    if prompt_update.instructions is not None
+                    else agent_prompts[prompt_update.agent_name].get("instructions", "")
+                )
+                if instructions_val:
+                    canonical_record["instructions"] = instructions_val
+                agent_prompts[prompt_update.agent_name] = canonical_record
+            else:
+                # Legacy write path: prompt as JSON-encoded string or raw text.
+                if prompt_update.prompt is not None:
+                    extraction_agents = [
+                        "CmdlineExtract",
+                        "ProcTreeExtract",
+                        "HuntQueriesExtract",
+                        "RegistryExtract",
+                    ]
+                    if prompt_update.agent_name in extraction_agents:
+                        try:
+                            json.loads(prompt_update.prompt)
+                        except json.JSONDecodeError as e:
+                            raise HTTPException(
+                                status_code=400,
+                                detail=f"Invalid JSON format for {prompt_update.agent_name} prompt in workflow config. Please fix the prompt in the UI. Error: {e}",
+                            ) from e
+                    agent_prompts[prompt_update.agent_name]["prompt"] = prompt_update.prompt
+                if prompt_update.instructions is not None:
+                    agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
 
             # Create new config version - preserve all fields including agent_models and qa_enabled
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1237,13 +1364,20 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1260,8 +1394,15 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
             )
 
             # Always save version history for all agents (same behavior as CmdlineExtract)
-            # Use the new prompt/instructions if provided, otherwise use the old ones
-            version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
+            # Use the new prompt/instructions if provided, otherwise use the old ones.
+            # For canonical writes, encode {system, user} as JSON for the text-only
+            # prompt column so rollback restores via the legacy shim's shape-3 branch.
+            if canonical_mode:
+                version_prompt = json.dumps(
+                    {"system": prompt_update.system, "user": prompt_update.user}
+                )
+            else:
+                version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
             version_instructions = (
                 prompt_update.instructions if prompt_update.instructions is not None else old_instructions
             )
@@ -1303,7 +1444,7 @@ async def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdat
 
 
 @router.get("/config/prompts/{agent_name}/versions")
-async def get_agent_prompt_versions(request: Request, agent_name: str):
+def get_agent_prompt_versions(request: Request, agent_name: str):
     """Get version history for an agent prompt."""
     try:
         db_manager = DatabaseManager()
@@ -1341,7 +1482,7 @@ async def get_agent_prompt_versions(request: Request, agent_name: str):
 
 
 @router.get("/config/prompts/{agent_name}/by-config-version/{config_version}")
-async def get_prompt_by_config_version(request: Request, agent_name: str, config_version: int):
+def get_prompt_by_config_version(request: Request, agent_name: str, config_version: int):
     """Get prompt for a specific agent and workflow config version."""
     try:
         db_manager = DatabaseManager()
@@ -1425,7 +1566,7 @@ async def get_prompt_by_config_version(request: Request, agent_name: str, config
 
 
 @router.post("/config/prompts/{agent_name}/rollback")
-async def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: RollbackRequest):
+def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: RollbackRequest):
     """Rollback an agent prompt to a previous version."""
     try:
         db_manager = DatabaseManager()
@@ -1461,10 +1602,29 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
             # Get existing prompts
             agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
 
-            # Restore prompt from target version
-            agent_prompts[agent_name] = {"prompt": target_version.prompt, "instructions": target_version.instructions}
+            # Restore prompt from target version. Older versions captured the
+            # legacy {prompt, instructions} shape; newer canonical writes encode
+            # {system, user} as JSON in the prompt column. Detect canonical
+            # encoding here so the restored record uses the canonical shape
+            # directly instead of round-tripping through the parser shim.
+            restored: dict[str, Any] = {}
+            try:
+                decoded = json.loads(target_version.prompt) if target_version.prompt else None
+            except (ValueError, json.JSONDecodeError):
+                decoded = None
+            if isinstance(decoded, dict) and ("system" in decoded and "user" in decoded) and "role" not in decoded:
+                # Canonical-encoded version record -> restore as canonical outer dict.
+                restored["system"] = decoded.get("system")
+                restored["user"] = decoded.get("user")
+                if target_version.instructions:
+                    restored["instructions"] = target_version.instructions
+            else:
+                # Legacy version record -> restore as legacy {prompt, instructions}.
+                restored = {"prompt": target_version.prompt, "instructions": target_version.instructions}
+            agent_prompts[agent_name] = restored
 
             # Create new config version
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1479,13 +1639,20 @@ async def rollback_agent_prompt(request: Request, agent_name: str, rollback_requ
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1560,7 +1727,7 @@ class TestSigmaAgentRequest(BaseModel):
 
 
 @router.post("/config/test-subagent")
-async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
+def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
     """Test a sub-agent extraction on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_sub_agent_task
@@ -1667,7 +1834,7 @@ async def test_sub_agent(request: Request, test_request: TestSubAgentRequest):
 
 
 @router.post("/config/prompts/bootstrap")
-async def bootstrap_prompts_from_files(request: Request):
+def bootstrap_prompts_from_files(request: Request):
     """Bootstrap agent prompts from flat files into database (one-time initialization)."""
     try:
         db_manager = DatabaseManager()
@@ -1728,24 +1895,17 @@ async def bootstrap_prompts_from_files(request: Request):
 
             # Sub-Agents
             sub_agents = [
-                ("CmdlineExtract", "CmdLineQA"),
-                ("ProcTreeExtract", "ProcTreeQA"),
-                ("HuntQueriesExtract", "HuntQueriesQA"),
-                ("RegistryExtract", "RegistryQA"),
+                "CmdlineExtract",
+                "ProcTreeExtract",
+                "HuntQueriesExtract",
+                "RegistryExtract",
             ]
 
-            for agent_name, qa_name in sub_agents:
-                # Load Extraction Agent
+            for agent_name in sub_agents:
                 agent_path = prompts_dir / agent_name
                 if agent_path.exists():
                     with open(agent_path) as f:
                         loaded_prompts[agent_name] = {"prompt": f.read(), "instructions": ""}
-
-                # Load QA Agent
-                qa_path = prompts_dir / qa_name
-                if qa_path.exists():
-                    with open(qa_path) as f:
-                        loaded_prompts[qa_name] = {"prompt": f.read(), "instructions": ""}
 
             if not loaded_prompts:
                 raise HTTPException(status_code=404, detail="No prompt files found to bootstrap from")
@@ -1755,6 +1915,7 @@ async def bootstrap_prompts_from_files(request: Request):
             new_version = _next_workflow_config_version(db_session)
 
             # Create new config with bootstrapped prompts
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1769,13 +1930,20 @@ async def bootstrap_prompts_from_files(request: Request):
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
                 qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1802,7 +1970,7 @@ async def bootstrap_prompts_from_files(request: Request):
 
 
 @router.post("/config/prompts/reset-to-defaults")
-async def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDefaultsRequest):
+def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDefaultsRequest):
     """Selectively reset agent prompts to on-disk defaults.
 
     Unlike ``/config/prompts/bootstrap`` (which wholesale replaces every prompt),
@@ -1845,6 +2013,7 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
             _deactivate_active_workflow_configs(db_session)
             new_version = _next_workflow_config_version(db_session)
 
+            _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
                 ranking_threshold=current_config.ranking_threshold,
@@ -1857,11 +2026,18 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=getattr(current_config, "sigma_fallback_enabled", False),
-                osdetection_fallback_enabled=getattr(current_config, "osdetection_fallback_enabled", False),
+                osdetection_fallback_enabled=False,
                 rank_agent_enabled=getattr(current_config, "rank_agent_enabled", True),
                 qa_max_retries=getattr(current_config, "qa_max_retries", 5),
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None
+                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1910,7 +2086,7 @@ async def reset_prompts_to_defaults(request: Request, reset_request: ResetPrompt
 
 
 @router.get("/config/test-status/{task_id}")
-async def get_test_status(request: Request, task_id: str):
+def get_test_status(request: Request, task_id: str):
     """Get the status and result of a test task."""
     try:
         from celery.result import AsyncResult
@@ -1934,7 +2110,7 @@ async def get_test_status(request: Request, task_id: str):
 
 
 @router.post("/config/test-sigmaagent")
-async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
+def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest):
     """Test SIGMA generation agent on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_sigma_agent_task
@@ -1983,7 +2159,7 @@ async def test_sigma_agent(request: Request, test_request: TestSigmaAgentRequest
 
 
 @router.post("/config/test-rankagent")
-async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
+def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
     """Test Rank Agent on a specific article (dispatches to worker)."""
     try:
         from src.worker.tasks.test_agents import test_rank_agent_task
@@ -2089,7 +2265,7 @@ async def test_rank_agent(request: Request, test_request: TestRankAgentRequest):
 
 
 @router.get("/config/validate")
-async def validate_workflow_config():
+def validate_workflow_config():
     """Dry-run the full Pydantic validator against the active config. Returns structured issues list."""
     issues = []
 
@@ -2111,7 +2287,6 @@ async def validate_workflow_config():
         from src.services.llm_service import (
             PromptConfigValidationError,
             _validate_extraction_prompt_config,
-            _validate_qa_prompt_config,
         )
 
         _EXTRACTION_AGENTS = {
@@ -2122,10 +2297,6 @@ async def validate_workflow_config():
             "ServicesExtract",
             "ScheduledTasksExtract",
         }
-        from src.config.workflow_config_loader import QA_AGENTS
-
-        _QA_AGENTS = set(QA_AGENTS)
-
         agent_prompts = current_config.agent_prompts or {}
         for agent_name, prompt_data in agent_prompts.items():
             if agent_name == "ExtractAgentSettings":
@@ -2145,12 +2316,6 @@ async def validate_workflow_config():
             if agent_name in _EXTRACTION_AGENTS:
                 try:
                     _validate_extraction_prompt_config(agent_name, parsed)
-                except PromptConfigValidationError as e:
-                    issues.append({"level": "error", "msg": str(e)})
-
-            if agent_name in _QA_AGENTS:
-                try:
-                    _validate_qa_prompt_config(agent_name, parsed)
                 except PromptConfigValidationError as e:
                     issues.append({"level": "error", "msg": str(e)})
 

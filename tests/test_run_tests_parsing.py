@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from run_tests import ExecutionContext, RunTestConfig, RunTestRunner, RunTestType
+from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType
+from tests_runner.runner import RunTestRunner
+from tests_runner.tui import _RunnerTUI
 
 pytestmark = pytest.mark.unit
 
@@ -19,7 +21,7 @@ def runner():
     config = RunTestConfig(
         test_type=RunTestType.UI,
         context=ExecutionContext.LOCALHOST,
-        validate_env=False,
+        run_teardown=False,
     )
     return RunTestRunner(config)
 
@@ -71,7 +73,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=["agent_config_mutation"],
         )
         runner = RunTestRunner(config)
@@ -83,7 +85,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=None,
             include_agent_config_tests=False,
         )
@@ -95,7 +97,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=None,
             include_agent_config_tests=True,
         )
@@ -107,7 +109,7 @@ class TestAgentConfigExcludeEnv:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
             exclude_markers=["slow", "integration"],
             include_agent_config_tests=False,
         )
@@ -238,7 +240,7 @@ class TestUITestOptimizations:
         config = RunTestConfig(
             test_type=RunTestType.UI,
             context=ExecutionContext.LOCALHOST,
-            validate_env=False,
+            run_teardown=False,
         )
         runner = RunTestRunner(config)
         cmd = runner._build_pytest_command()
@@ -338,3 +340,307 @@ class TestTestContainerStartup:
                 "redis_test",
             ]
         ]
+
+
+class TestDryRun:
+    """--dry-run flag: command resolution and env-var computation."""
+
+    def _make_runner(self, test_type: RunTestType) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=test_type,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            dry_run=True,
+        )
+        return RunTestRunner(config)
+
+    def test_smoke_has_no_playwright(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        assert runner._build_playwright_command() is None
+
+    def test_ui_has_playwright_command(self):
+        runner = self._make_runner(RunTestType.UI)
+        cmd = runner._build_playwright_command()
+        assert cmd is not None
+        assert "playwright" in cmd
+
+    def test_pytest_command_contains_pytest(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        cmd = runner._build_pytest_command()
+        assert any("pytest" in part for part in cmd)
+
+    def test_dry_run_env_always_has_app_env_test(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        env = runner._build_dry_run_env()
+        assert env["APP_ENV"] == "test"
+
+    def test_dry_run_env_api_type_sets_asgi_client(self):
+        runner = self._make_runner(RunTestType.API)
+        env = runner._build_dry_run_env()
+        assert env.get("USE_ASGI_CLIENT") == "1"
+
+    def test_dry_run_env_smoke_does_not_set_asgi_client(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        env = runner._build_dry_run_env()
+        assert "USE_ASGI_CLIENT" not in env
+
+    def test_dry_run_env_ui_full_sets_quarantine(self):
+        runner = self._make_runner(RunTestType.UI_FULL)
+        env = runner._build_dry_run_env()
+        assert env.get("CTI_INCLUDE_QUARANTINE") == "1"
+
+    def test_dry_run_env_smoke_no_quarantine(self):
+        runner = self._make_runner(RunTestType.SMOKE)
+        env = runner._build_dry_run_env()
+        assert "CTI_INCLUDE_QUARANTINE" not in env
+
+
+class TestVerbosityFlags:
+    """_build_pytest_command verbosity flag behaviour (T2.3)."""
+
+    def _make_runner(
+        self,
+        output_format: str = "progress",
+        verbose: bool = False,
+        test_type: RunTestType = RunTestType.SMOKE,
+    ) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=test_type,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            output_format=output_format,
+            verbose=verbose,
+        )
+        return RunTestRunner(config)
+
+    def test_default_progress_format_no_v_flag(self):
+        """progress format without --verbose must NOT add -v."""
+        cmd = self._make_runner(output_format="progress", verbose=False)._build_pytest_command()
+        assert "-v" not in cmd and "-vv" not in cmd and "-q" not in cmd
+
+    def test_verbose_flag_adds_v(self):
+        """--verbose adds -v regardless of output_format."""
+        cmd = self._make_runner(output_format="progress", verbose=True)._build_pytest_command()
+        assert "-v" in cmd
+
+    def test_verbose_format_adds_vv(self):
+        """output_format='verbose' adds -vv."""
+        cmd = self._make_runner(output_format="verbose")._build_pytest_command()
+        assert "-vv" in cmd
+
+    def test_quiet_format_adds_q(self):
+        """output_format='quiet' adds -q."""
+        cmd = self._make_runner(output_format="quiet")._build_pytest_command()
+        assert "-q" in cmd
+
+    def test_verbose_format_takes_precedence_over_verbose_flag(self):
+        """output_format='verbose' uses -vv even when --verbose is also set."""
+        cmd = self._make_runner(output_format="verbose", verbose=True)._build_pytest_command()
+        assert "-vv" in cmd
+        assert "-v" not in [p for p in cmd if p == "-v"]
+
+
+class TestCoverageFlags:
+    """T3.3: --cov-branch, --cov-fail-under, --cov-append, JSON snapshot."""
+
+    def _make_runner(self, coverage: bool = True, cov_append: bool = False) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=RunTestType.UNIT,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            coverage=coverage,
+            cov_append=cov_append,
+        )
+        return RunTestRunner(config)
+
+    def test_coverage_includes_cov_branch(self):
+        cmd = self._make_runner()._build_pytest_command()
+        assert "--cov-branch" in cmd
+
+    def test_coverage_includes_json_snapshot(self):
+        cmd = self._make_runner()._build_pytest_command()
+        assert any(p.startswith("--cov-report=json:test-results/coverage_") for p in cmd)
+
+    def test_cov_append_flag(self):
+        cmd = self._make_runner(cov_append=True)._build_pytest_command()
+        assert "--cov-append" in cmd
+
+    def test_no_cov_append_by_default(self):
+        cmd = self._make_runner(cov_append=False)._build_pytest_command()
+        assert "--cov-append" not in cmd
+
+    def test_cov_fail_under_from_env(self, monkeypatch):
+        monkeypatch.setenv("CTI_COVERAGE_FAIL_UNDER", "75")
+        cmd = self._make_runner()._build_pytest_command()
+        assert "--cov-fail-under=75" in cmd
+
+    def test_no_cov_fail_under_when_env_unset(self, monkeypatch):
+        monkeypatch.delenv("CTI_COVERAGE_FAIL_UNDER", raising=False)
+        cmd = self._make_runner()._build_pytest_command()
+        assert not any(p.startswith("--cov-fail-under") for p in cmd)
+
+    def test_no_coverage_flags_when_disabled(self):
+        cmd = self._make_runner(coverage=False)._build_pytest_command()
+        assert "--cov-branch" not in cmd
+        assert not any(p.startswith("--cov") for p in cmd)
+
+
+class TestPathGroupResolution:
+    """T3.5(b): _get_pytest_test_groups uses Path.parts for exact dir match."""
+
+    def _make_runner(self, paths: list[str]) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=RunTestType.SMOKE,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            test_paths=paths,
+        )
+        return RunTestRunner(config)
+
+    def test_smoke_path_resolves_to_smoke(self):
+        groups = self._make_runner(["tests/smoke/test_foo.py"])._get_pytest_test_groups()
+        assert groups == ["smoke"]
+
+    def test_api_path_with_smoke_in_name_resolves_to_api(self):
+        """tests/api/test_smoke_endpoints.py must not be misclassified as smoke."""
+        groups = self._make_runner(["tests/api/test_smoke_endpoints.py"])._get_pytest_test_groups()
+        assert "smoke" not in groups
+        assert "api" in groups
+
+    def test_unrecognised_path_returns_all(self):
+        groups = self._make_runner(["tests/unknown/test_foo.py"])._get_pytest_test_groups()
+        assert groups == ["all"]
+
+
+class TestContainerHealthBatch:
+    """T3.4: _poll_container_health_batch parses docker compose ps JSON output."""
+
+    def _make_runner(self) -> RunTestRunner:
+        config = RunTestConfig(
+            test_type=RunTestType.SMOKE,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+        )
+        return RunTestRunner(config)
+
+    def test_both_healthy(self, monkeypatch):
+        import json
+        from types import SimpleNamespace
+
+        lines = [
+            json.dumps({"Service": "postgres_test", "Health": "healthy"}),
+            json.dumps({"Service": "redis_test", "Health": "healthy"}),
+        ]
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: SimpleNamespace(returncode=0, stdout="\n".join(lines), stderr=""),
+        )
+        runner = self._make_runner()
+        statuses, all_healthy = runner._poll_container_health_batch(
+            ["docker", "compose", "-f", "docker-compose.test.yml"],
+            ("postgres_test", "redis_test"),
+        )
+        assert all_healthy
+        assert statuses == ["postgres_test=healthy", "redis_test=healthy"]
+
+    def test_one_missing_falls_through(self, monkeypatch):
+        import json
+        from types import SimpleNamespace
+
+        lines = [json.dumps({"Service": "postgres_test", "Health": "healthy"})]
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *a, **kw: SimpleNamespace(returncode=0, stdout="\n".join(lines), stderr=""),
+        )
+        runner = self._make_runner()
+        statuses, all_healthy = runner._poll_container_health_batch(
+            ["docker", "compose", "-f", "docker-compose.test.yml"],
+            ("postgres_test", "redis_test"),
+        )
+        assert not all_healthy
+        assert "redis_test=missing" in statuses
+
+    def test_json_parse_error_falls_back_to_legacy(self, monkeypatch):
+        from types import SimpleNamespace
+
+        calls: list[str] = []
+
+        def fake_run(cmd, **kw):
+            calls.append(cmd[0])
+            return SimpleNamespace(returncode=0, stdout="not-json\n", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        monkeypatch.setattr(
+            self._make_runner().__class__,
+            "_poll_container_health_legacy",
+            lambda self, base, services: (["postgres_test=healthy", "redis_test=healthy"], True),
+        )
+        runner = self._make_runner()
+        statuses, all_healthy = runner._poll_container_health_batch(
+            ["docker", "compose", "-f", "docker-compose.test.yml"],
+            ("postgres_test", "redis_test"),
+        )
+        assert all_healthy
+
+
+class TestRunnerTUI:
+    """T3.1: _RunnerTUI activation logic and plain-mode no-op behaviour."""
+
+    def test_plain_mode_never_activates(self):
+        tui = _RunnerTUI(mode="plain")
+        assert not tui._active
+
+    def test_non_tty_does_not_activate(self, monkeypatch):
+        """auto mode on a non-TTY (CI) must not activate rich."""
+        monkeypatch.setattr("sys.stdout.isatty", lambda: False)
+        tui = _RunnerTUI(mode="auto")
+        assert not tui._active
+
+    def test_no_color_disables_tui(self, monkeypatch):
+        monkeypatch.setenv("NO_COLOR", "1")
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+        tui = _RunnerTUI(mode="auto")
+        assert not tui._active
+
+    def test_is_active_false_before_start(self):
+        """is_active is False until start() is called (even if _active=True)."""
+        tui = _RunnerTUI.__new__(_RunnerTUI)
+        tui._live = None
+        tui._active = True
+        assert not tui.is_active
+
+    def test_finish_is_noop_when_not_active(self):
+        """finish() on a plain-mode TUI must not raise."""
+        tui = _RunnerTUI(mode="plain")
+        tui.finish()  # must not raise
+
+    def test_on_line_buffers_stripped_lines(self):
+        tui = _RunnerTUI(mode="plain")
+        tui.on_line("hello\n")
+        tui.on_line("world\n")
+        assert tui._log_lines == ["hello", "world"]
+
+    def test_log_buffer_capped_at_max(self):
+        tui = _RunnerTUI(mode="plain")
+        for i in range(_RunnerTUI.MAX_LOG_LINES + 5):
+            tui.on_line(f"line {i}\n")
+        assert len(tui._log_lines) == _RunnerTUI.MAX_LOG_LINES
+
+    def test_on_category_updates_seen_list(self):
+        tui = _RunnerTUI(mode="plain")
+        tui._all_categories = ["smoke", "unit", "api"]
+        tui.on_category({"smoke", "unit"}, test_count=12)
+        assert set(tui._categories_seen) == {"smoke", "unit"}
+        assert tui._test_count == 12
+
+    def test_rich_mode_flag_in_config(self):
+        """RunTestConfig accepts tui='rich' without error."""
+        config = RunTestConfig(
+            test_type=RunTestType.SMOKE,
+            context=ExecutionContext.LOCALHOST,
+            run_teardown=False,
+            tui="rich",
+        )
+        assert config.tui == "rich"

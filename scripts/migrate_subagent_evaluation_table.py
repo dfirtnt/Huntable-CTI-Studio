@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
-"""
-Migration script to create subagent_evaluations table.
+"""Migration: create subagent_evaluations table.
 
-This table stores evaluation results for extractor subagents (cmdline, hunt_queries, etc.)
-with expected vs actual observable counts.
+Why
+---
+The extractor eval workflow needed per-article, per-subagent tracking of expected
+vs actual observable counts (e.g. "expected 3 cmdlines, got 2"). This table backs
+the /eval UI results page and the cmdline extractor tuning pipeline. It was
+introduced alongside the subagent evaluation scripts in scripts/evaluate_cmdline_extractor.py.
+
+Creates:
+- subagent_evaluations table (see src/database/models.py: SubagentEvaluationTable)
+
+Idempotent: SQLAlchemy create_all with checkfirst -- safe to re-run.
+
+Usage
+-----
+    python scripts/migrate_subagent_evaluation_table.py
 """
 
 import os

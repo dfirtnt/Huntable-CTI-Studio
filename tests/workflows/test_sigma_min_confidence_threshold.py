@@ -187,7 +187,7 @@ async def test_generate_sigma_rules_receives_configured_threshold():
         patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls,
         patch("src.workflows.agentic_workflow.auto_load_workflow_models") as mock_load,
         patch("src.workflows.agentic_workflow.trace_workflow_execution") as mock_trace,
-        patch("sqlalchemy.orm.attributes.flag_modified"),
+        patch("src.workflows.agentic_workflow.flag_modified"),
         patch(
             "src.services.sigma_generation_service.SigmaGenerationService",
             return_value=mock_sigma_service_instance,
@@ -291,7 +291,7 @@ async def test_generate_sigma_rules_receives_default_when_config_is_none():
         patch("src.workflows.agentic_workflow.LLMService") as mock_llm_cls,
         patch("src.workflows.agentic_workflow.auto_load_workflow_models") as mock_load,
         patch("src.workflows.agentic_workflow.trace_workflow_execution") as mock_trace,
-        patch("sqlalchemy.orm.attributes.flag_modified"),
+        patch("src.workflows.agentic_workflow.flag_modified"),
         patch(
             "src.services.sigma_generation_service.SigmaGenerationService",
             return_value=mock_sigma_service_instance,

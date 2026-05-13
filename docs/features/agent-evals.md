@@ -35,31 +35,17 @@ items, process lineage) so you can inspect what the agent actually returned.
 
 ## MAE chart metrics
 
-The **MAE Metrics by Config Version** chart tracks two signals over time:
+The **MAE by Config Version** chart tracks extraction accuracy over time.
 
-### nMAE — Normalized Mean Absolute Error
-
-```
-nMAE = mean( |actual - expected| / expected )  across all articles in the run
-```
-
-Scale: 0 to 1. Lower is better. Normalized by expected count so articles with
-large expected counts don't dominate the score.
-
-| Point color | nMAE range | Label |
-|---|---|---|
-| Green | &le; 0.20 | Excellent |
-| Yellow | 0.21 – 0.50 | Good |
-| Red | > 0.50 | Needs Improvement |
-
-### MAE — Mean Absolute Error (raw)
+### MAE — Mean Absolute Error
 
 ```
 MAE = mean( |actual - expected| )  in observable units
 ```
 
-Not normalized. Useful for understanding absolute extraction volume difference
-(e.g. "on average, off by 3 observables per article").
+Lower is better. Represents the average absolute difference between extracted
+count and expected count per article (e.g. "on average, off by 3 observables
+per article").
 
 ---
 
@@ -200,6 +186,242 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 
 ---
 
+## Eval Bundles
+
+An **eval bundle** is a self-contained JSON snapshot of one extraction attempt.
+It captures everything the agent received and produced so that failures can be
+investigated offline or fed to the AI Diagnosis feature.
+
+### What a bundle contains
+
+| Field | Description |
+|---|---|
+| `bundle_id` | Unique identifier for this bundle (UUID) |
+| `article_id` | Source article being extracted |
+| `article_text` | Full text of the article |
+| `agent_name` | Extractor subagent that ran (e.g. `CmdlineExtract`) |
+| `system_prompt` | System prompt the agent received |
+| `llm_request` | Full request payload sent to the LLM |
+| `llm_response` | Raw LLM response |
+| `extraction_results` | Parsed extraction output |
+| `expected_count` | Expected number of extractions from the eval config |
+| `actual_count` | How many the agent actually returned |
+| `eval_score` | Score (pass/fail/partial) assigned by QA |
+| `integrity` | SHA256 + any warnings flagged at export time |
+
+### Exporting bundles
+
+- **Single bundle**: Open an execution detail modal and click **Export Bundle**.
+  Downloads `eval_bundle_exec{id}_{agent}_{uuid}.json`.
+- **All bundles for a config version**: Click the bundle icon (shown on eval cards
+  that have at least one diagnosis run) to export a slim or full bundle set.
+  Right-click the icon to get the full version with all fields.
+
+### Using exported bundles
+
+Exported bundles can be:
+- Shared with colleagues for offline analysis
+- Fed back to the Diagnose endpoint via the API (see API reference below)
+- Used to reproduce a failure locally against a different model or prompt
+
+---
+
+## AI Diagnosis
+
+The **Diagnose** button (next to Export Bundle in the execution detail modal) sends
+the full eval bundle and the agent's extractor contract to an LLM and returns a
+structured failure analysis.
+
+### What it returns
+
+| Field | Description |
+|---|---|
+| **Summary** | 1-2 sentence plain-English explanation of the failure |
+| **Failure category** | `prompt_gap`, `model_limitation`, `input_noise`, `infrastructure`, or `correct_behavior` |
+| **Confidence** | 0.0-1.0 estimate of how certain the diagnosis is |
+| **Root causes** | List of causes with evidence and severity (high/medium/low) |
+| **Recommendations** | Ordered action items with rationale |
+| **Contract violations** | Specific rules from the extractor contract that were broken |
+
+### Persistence
+
+Diagnosis results are saved to `data/diagnoses/` as JSON and auto-load the next
+time you open the same execution's modal. Running Diagnose again creates a new
+file; the most recent one is shown.
+
+### Configuring the diagnosis model
+
+**Settings -> Diagnosis Agent** lets you choose the provider (Anthropic, OpenAI,
+LMStudio) and model. Click the **?** button in the diagnosis panel header for a
+pointer to where the system prompt and prompt builder live in the codebase.
+
+Provider/model resolution order when running a diagnosis:
+
+1. Explicit override in request body (API callers only)
+2. App settings (`DIAGNOSIS_PROVIDER`, `DIAGNOSIS_MODEL` in Settings)
+3. Hardcoded fallback: OpenAI / gpt-4o
+
+### Model recommendations
+
+| Provider | Model | Tradeoff |
+|---|---|---|
+| OpenAI | `gpt-4o` | Best balance of speed and quality; recommended default |
+| OpenAI | `gpt-4.1` | Slightly better at contract reasoning; slower |
+| Anthropic | `claude-sonnet-4-6` | Strong at structured JSON output; good alternative |
+| LMStudio | (local) | Free/private; quality depends on loaded model size |
+
+For routine diagnosis of extraction failures, `gpt-4o` is sufficient. Switch to
+`gpt-4.1` or Anthropic when investigating subtle contract violations that
+require careful reasoning about extraction rules.
+
+### Understanding contract violations
+
+The `contract_violations` field in a diagnosis result lists specific rules from
+the extractor contract that the agent broke during extraction. Each entry is a
+quoted rule or paraphrase from one of two contract documents:
+
+1. **Extractor Standard** (`docs/contracts/extractor-standard.md`) -- mandatory
+   rules for ALL extractors (e.g., deduplication, field formatting, confidence
+   thresholds)
+2. **Specific Extractor Contract** (e.g., `docs/contracts/cmdline-extract.md`) --
+   rules specific to that agent type (e.g., what counts as a command-line
+   observable, exclusion patterns)
+
+**How to act on violations:**
+
+- If the violation identifies a prompt gap (the contract says X but the prompt
+  doesn't mention X), edit the agent's extractor contract in the workflow config
+- If the violation identifies a model limitation (the model ignores a rule it
+  was told about), consider switching to a stronger model or adding few-shot
+  examples
+- If the violation is `correct_behavior` with no entries, the extraction was
+  correct and the eval expected_count may need updating
+
+### Diagnosis API reference
+
+All endpoints live under the `/api` prefix.
+
+#### POST /api/evals/{execution_id}/diagnose
+
+Run LLM-powered failure diagnosis on an eval bundle.
+
+**Request body (JSON):**
+
+```json
+{
+  "agent_name": "CmdlineExtract",
+  "provider": "openai",
+  "model_name": "gpt-4o"
+}
+```
+
+| Field | Required | Default | Description |
+|---|---|---|---|
+| `agent_name` | Yes | -- | Agent name (e.g., `CmdlineExtract`, `ProcTreeExtract`) |
+| `provider` | No | `"openai"` | LLM provider (`openai`, `anthropic`, `lmstudio`) |
+| `model_name` | No | `"gpt-4o"` | Model to use for diagnosis |
+
+**Response (200):** Structured diagnosis JSON (see "What it returns" above).
+
+**Errors:** 404 if execution_id not found, 500 on LLM or service failure.
+
+---
+
+#### GET /api/evals/{execution_id}/diagnosis
+
+Return the most recent saved diagnosis for an execution.
+
+**Response (200):** The diagnosis JSON object.
+
+**Errors:** 404 if no diagnosis has been saved for this execution.
+
+---
+
+#### GET /api/evals/{execution_id}/diagnoses
+
+Return all saved diagnoses for an execution, newest first.
+
+**Response (200):** Array of diagnosis JSON objects. Returns `[]` (not 404) when
+none exist.
+
+---
+
+#### GET /api/subagent-eval-compare
+
+Side-by-side comparison of two config versions for a subagent.
+
+**Query parameters:**
+
+| Param | Required | Description |
+|---|---|---|
+| `subagent` | Yes | Subagent name (e.g., `cmdline`) |
+| `version_a` | Yes | Baseline config version (integer) |
+| `version_b` | Yes | Candidate config version (integer) |
+
+**Response (200):** Comparison object with per-article scores, MAE for each
+version, and improved/regressed/unchanged counts.
+
+---
+
+#### GET /api/subagent-eval-version-articles
+
+Return the distinct article URLs used in a specific config version run.
+
+**Query parameters:**
+
+| Param | Required | Description |
+|---|---|---|
+| `subagent` | Yes | Subagent name |
+| `config_version` | Yes | Config version to look up (integer) |
+
+**Response (200):**
+
+```json
+{
+  "config_version": 42,
+  "urls": ["https://...", "https://..."],
+  "count": 8
+}
+```
+
+---
+
+## Version Comparison
+
+The **Compare Versions** panel (below the MAE chart, collapsible) lets you select
+any two config versions and see a per-article side-by-side breakdown.
+
+### Reading the comparison table
+
+| Column | Meaning |
+|---|---|
+| **Article** | URL of the article |
+| **vA score** / **vB score** | `actual - expected` for each version |
+| **Change** | `Improved`, `Regressed`, or `Unchanged` badge |
+| **Improvement** | `abs(score_A) - abs(score_B)`; positive = B moved closer to expected |
+
+The summary bar above the table shows aggregate MAE for each version, total
+perfect matches, and counts of improved/regressed/unchanged articles.
+
+Articles with the biggest change (either direction) sort to the top. Articles
+that appear in only one version sort to the bottom with no change badge.
+
+---
+
+## Re-run from History
+
+Each card in the **Aggregate Scores** panel has a **Re-run** button. Clicking it:
+
+1. Fetches the distinct article URLs that were used in that config version
+2. Pre-selects exactly those articles in the article list (unchecking any others)
+3. Updates the execution counter hint
+4. Scrolls to the article list and shows a notification
+
+This lets you reproduce a previous run's exact article set against the current
+config version without manually re-selecting articles.
+
+---
+
 ## Common failure patterns
 
 | Symptom | Likely cause |
@@ -210,4 +432,4 @@ Edit `config/eval_articles.yaml` only — change the `expected_count` value for 
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-06 (added Eval Bundles section; help button for diagnosis prompt location confirmed)_

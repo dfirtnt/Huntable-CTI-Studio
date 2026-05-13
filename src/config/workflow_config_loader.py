@@ -29,29 +29,22 @@ EXTRACT_AGENTS = [
     "ServicesExtract",
     "ScheduledTasksExtract",
 ]
-QA_AGENTS = ["RankAgentQA", "CmdLineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"]
-UTILITY_AGENTS = ["OSDetectionFallback"]
+QA_AGENTS = ["RankAgentQA"]
+UTILITY_AGENTS: list[str] = []
 
 # UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
-# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract + QA
-# → ProcTree + QA → HuntQueries + QA → Sigma.
+# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract
+# → ProcTree → HuntQueries → Sigma.
 AGENTS_ORDER_UI = [
-    "OSDetectionFallback",
     "RankAgent",
     "RankAgentQA",
     "ExtractAgent",
     "CmdlineExtract",
-    "CmdLineQA",
     "ProcTreeExtract",
-    "ProcTreeQA",
     "HuntQueriesExtract",
-    "HuntQueriesQA",
     "RegistryExtract",
-    "RegistryQA",
     "ServicesExtract",
-    "ServicesQA",
     "ScheduledTasksExtract",
-    "ScheduledTasksQA",
     "SigmaAgent",
 ]
 
@@ -105,9 +98,9 @@ _LEGACY_REQUIRED_KEYS = [
     "qa_enabled",
     "qa_max_retries",
     "sigma_fallback_enabled",
-    "osdetection_fallback_enabled",
     "rank_agent_enabled",
     "cmdline_attention_preprocessor_enabled",
+    "proc_tree_attention_preprocessor_enabled",
     "extract_agent_settings",
     "description",
     "created_at",
@@ -118,7 +111,7 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("JunkFilter", ["JunkFilterThreshold"]),
     ("QASettings", ["MaxRetries"]),
     ("Thresholds", ["MinHuntScore"]),
-    ("OSDetection", ["Embedding", "FallbackEnabled", "Fallback", "SelectedOs", "Prompt"]),
+    ("OSDetection", ["Embedding", "SelectedOs"]),
     (
         "RankAgent",
         [
@@ -137,38 +130,27 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("ExtractAgent", ["Provider", "Model", "Temperature", "TopP"]),
     (
         "CmdlineExtract",
-        [
-            "Enabled",
-            "Provider",
-            "Model",
-            "Temperature",
-            "TopP",
-            "Prompt",
-            "QAEnabled",
-            "QA",
-            "QAPrompt",
-            "AttentionPreprocessor",
-        ],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "AttentionPreprocessor"],
     ),
     (
         "ProcTreeExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "AttentionPreprocessor"],
     ),
     (
         "HuntQueriesExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "RegistryExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "ServicesExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "ScheduledTasksExtract",
-        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"],
+        ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"],
     ),
     (
         "SigmaAgent",
@@ -227,18 +209,9 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "MinHuntScore": float(th.get("MinHuntScore", 97.0)),
     }
 
-    os_fb = _agent_cfg(agents, "OSDetectionFallback")
     out["OSDetection"] = {
         "Embedding": emb.get("OsDetection", "ibm-research/CTI-BERT"),
-        "FallbackEnabled": os_fb["Enabled"],
-        "Fallback": {
-            "Provider": os_fb["Provider"],
-            "Model": os_fb["Model"],
-            "Temperature": os_fb["Temperature"],
-            "TopP": os_fb["TopP"],
-        },
         "SelectedOs": exe.get("OsDetectionSelectedOs") or ["Windows"],
-        "Prompt": _prompt_cfg(prompts, "OSDetectionFallback"),
     }
 
     rank = _agent_cfg(agents, "RankAgent")
@@ -269,16 +242,15 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "TopP": extract["TopP"],
     }
 
-    for base, qa_name in [
-        ("CmdlineExtract", "CmdLineQA"),
-        ("ProcTreeExtract", "ProcTreeQA"),
-        ("HuntQueriesExtract", "HuntQueriesQA"),
-        ("RegistryExtract", "RegistryQA"),
-        ("ServicesExtract", "ServicesQA"),
-        ("ScheduledTasksExtract", "ScheduledTasksQA"),
+    for base in [
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
     ]:
         cfg = _agent_cfg(agents, base)
-        qa_cfg = _agent_cfg(agents, qa_name)
         enabled = base not in disabled
         block_dict: dict[str, Any] = {
             "Enabled": enabled,
@@ -287,17 +259,11 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
             "Temperature": cfg["Temperature"],
             "TopP": cfg["TopP"],
             "Prompt": _prompt_cfg(prompts, base),
-            "QAEnabled": qa_enabled.get(base, False),
-            "QA": {
-                "Provider": qa_cfg["Provider"],
-                "Model": qa_cfg["Model"],
-                "Temperature": qa_cfg["Temperature"],
-                "TopP": qa_cfg["TopP"],
-            },
-            "QAPrompt": _prompt_cfg(prompts, qa_name),
         }
         if base == "CmdlineExtract":
             block_dict["AttentionPreprocessor"] = features.get("CmdlineAttentionPreprocessorEnabled", True)
+        if base == "ProcTreeExtract":
+            block_dict["AttentionPreprocessor"] = features.get("ProcTreeAttentionPreprocessorEnabled", True)
         out[base] = block_dict
 
     sigma = _agent_cfg(agents, "SigmaAgent")
@@ -404,9 +370,6 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": "", "instructions": ""},
-            "QAEnabled": False,
-            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
     (
@@ -418,9 +381,6 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": "", "instructions": ""},
-            "QAEnabled": False,
-            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
     (
@@ -432,9 +392,6 @@ _OPTIONAL_SUB_AGENT_SECTIONS: list[tuple[str, dict[str, Any]]] = [
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": "", "instructions": ""},
-            "QAEnabled": False,
-            "QA": {"Provider": "", "Model": "", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": "", "instructions": ""},
         },
     ),
 ]
@@ -447,11 +404,16 @@ def _backfill_ui_ordered_sub_agents(ui: dict[str, Any]) -> dict[str, Any]:
     can still be imported without error.  The agent is added as disabled (Enabled=False)
     so it has no effect on existing workflows.
     """
-    ui = dict(ui)  # shallow copy – don't mutate caller's dict
+    ui = dict(ui)  # shallow copy -- don't mutate caller's dict
     for section, default_block in _OPTIONAL_SUB_AGENT_SECTIONS:
         if section not in ui:
             logger.debug("Backfilling missing sub-agent section '%s' with defaults", section)
             ui[section] = default_block
+    # Backfill AttentionPreprocessor key for sections that gained it after initial release
+    for section in ("CmdlineExtract", "ProcTreeExtract"):
+        block = ui.get(section)
+        if isinstance(block, dict) and "AttentionPreprocessor" not in block:
+            block["AttentionPreprocessor"] = True
     return ui
 
 
@@ -498,42 +460,28 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
             if qa_prompt is not None:
                 prompts[qa_name] = qa_prompt
 
-    fallback = osd.get("Fallback") or {}
-    agents["OSDetectionFallback"] = {
-        "Provider": fallback.get("Provider", ""),
-        "Model": fallback.get("Model", ""),
-        "Temperature": float(fallback.get("Temperature", 0.0)),
-        "TopP": float(fallback.get("TopP", 0.9)),
-        "Enabled": bool(osd.get("FallbackEnabled", False)),
-    }
-    prompts["OSDetectionFallback"] = osd.get("Prompt") or {"prompt": "", "instructions": ""}
-
     add_agent("RankAgent", rank, rank.get("Prompt"), "RankAgentQA", rank.get("QA"), rank.get("QAPrompt"))
     qa_enabled["RankAgent"] = bool(rank.get("QAEnabled", False))
 
     add_agent("ExtractAgent", extract, None)
 
-    for base, qa_name in [
-        ("CmdlineExtract", "CmdLineQA"),
-        ("ProcTreeExtract", "ProcTreeQA"),
-        ("HuntQueriesExtract", "HuntQueriesQA"),
-        ("RegistryExtract", "RegistryQA"),
-        ("ServicesExtract", "ServicesQA"),
-        ("ScheduledTasksExtract", "ScheduledTasksQA"),
+    for base in [
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
     ]:
         block = ui.get(base) or {}
         if not block:
             agents[base] = _default_agent(enabled=False)
-            agents[qa_name] = _default_agent(enabled=True)
             prompts[base] = {"prompt": "", "instructions": ""}
-            prompts[qa_name] = {"prompt": "", "instructions": ""}
-            qa_enabled[base] = False
             continue
         enabled = block.get("Enabled", True)
         if not enabled:
             disabled_agents.append(base)
-        add_agent(base, block, block.get("Prompt"), qa_name, block.get("QA"), block.get("QAPrompt"))
-        qa_enabled[base] = bool(block.get("QAEnabled", False))
+        add_agent(base, block, block.get("Prompt"))
 
     add_agent("SigmaAgent", sigma, sigma.get("Prompt") or {"prompt": "", "instructions": ""})
 
@@ -564,6 +512,7 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "Features": {
             "SigmaFallbackEnabled": sigma.get("UseFullArticleContent", False),
             "CmdlineAttentionPreprocessorEnabled": (ui.get("CmdlineExtract") or {}).get("AttentionPreprocessor", True),
+            "ProcTreeAttentionPreprocessorEnabled": (ui.get("ProcTreeExtract") or {}).get("AttentionPreprocessor", True),
         },
         "Prompts": prompts,
     }
@@ -660,9 +609,9 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "qa_enabled": getattr(row, "qa_enabled", None) or {},
         "qa_max_retries": getattr(row, "qa_max_retries", 5),
         "sigma_fallback_enabled": getattr(row, "sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": getattr(row, "osdetection_fallback_enabled", False),
         "rank_agent_enabled": getattr(row, "rank_agent_enabled", True),
         "cmdline_attention_preprocessor_enabled": getattr(row, "cmdline_attention_preprocessor_enabled", True),
+        "proc_tree_attention_preprocessor_enabled": getattr(row, "proc_tree_attention_preprocessor_enabled", True),
         "extract_agent_settings": _extract_agent_settings_from_row(row),
         "description": getattr(row, "description", None) or "",
         "created_at": str(getattr(row, "created_at", "")) if getattr(row, "created_at", None) else "",
@@ -682,9 +631,9 @@ def _empty_v1() -> dict[str, Any]:
         "qa_enabled": {},
         "qa_max_retries": 5,
         "sigma_fallback_enabled": False,
-        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
+        "proc_tree_attention_preprocessor_enabled": True,
         "extract_agent_settings": {"disabled_agents": []},
         "description": "",
         "created_at": "",

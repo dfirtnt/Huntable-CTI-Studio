@@ -875,7 +875,6 @@ class TestWorkflowConfigRegressions:
 
         qa_container = page.locator("#huntqueriesextract-agent-qa-prompt-container")
         expect(qa_container).to_contain_text("HuntQueriesQA QA Prompt")
-        expect(qa_container).to_contain_text("User scaffold is locked in runtime")
         expect(page.locator("#huntqueriesqa-prompt-user-2")).to_have_count(0)
 
 

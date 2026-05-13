@@ -148,7 +148,7 @@ docker exec cti_workflow_worker celery -A src.worker.celery_app inspect reserved
 
 2. **Check database connectivity:**
    ```bash
-   docker exec cti_workflow_worker python -c "from src.database.manager import DatabaseManager; db = DatabaseManager(); print('DB OK')"
+   docker exec cti_workflow_worker python3 -c "from src.database.manager import DatabaseManager; db = DatabaseManager(); print('DB OK')"
    ```
 
 ## Scaling

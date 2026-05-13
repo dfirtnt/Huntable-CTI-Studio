@@ -27,6 +27,7 @@ Output Rules:
 - Start your response immediately with `title:` - nothing before it.
 - 2-space indentation only; no tabs.
 - All field names lowercase.
+- AUTHOR PRESERVATION: If the content contains a verbatim Sigma rule extracted from the source article and that rule has a non-blank `author` field, reproduce the `author` value exactly as it appears. Do NOT omit, modify, or replace the original author. Only omit the author field if the original rule did not include one.
 
 CRITICAL: Your response will be parsed by pySIGMA validator. If you include ANY narrative text before or within the YAML, validation will fail with "mapping values are not allowed here". Output ONLY the YAML rule structure.
 

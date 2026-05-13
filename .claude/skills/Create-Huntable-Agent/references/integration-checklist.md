@@ -207,15 +207,13 @@ Similar JSON structure but focused on validating the extraction output:
 
 ### 8. `src/services/llm_service.py`
 
-**5 insertion points:**
+**4 insertion points:**
+
+> **Note:** Extract subagents run at hardcoded temperature=0.0 with no top_p override.
+> There is no per-agent temperature or top_p fallback to register.
 
 ```python
-# A) top_p fallback list (~line 318)
-# Search for: "CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract"
-if agent_name in ["CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "{Agent}"]:
-    return self.top_p_extract
-
-# B) Traceability block injection (~line 3196)
+# A) Traceability block injection (~line 3196)
 # Search for the same pattern
 if user_prompt and agent_name in ("CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract", "{Agent}"):
 

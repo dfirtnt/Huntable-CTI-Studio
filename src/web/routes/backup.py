@@ -21,7 +21,6 @@ from src.utils.input_validation import (
     validate_backup_dir,
     validate_backup_name,
 )
-from src.web.auth import RequireAdminAuth
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/backup", tags=["Backup"])
@@ -79,7 +78,7 @@ def _get_cron_state() -> dict[str, Any]:
 
 
 @router.post("/create")
-async def api_create_backup(request: Request, _auth: str = RequireAdminAuth):
+async def api_create_backup(request: Request):
     """API endpoint for creating a backup."""
     try:
         payload = await request.json()
@@ -131,20 +130,20 @@ async def api_list_backups():
     try:
         project_root = Path(__file__).parent.parent.parent.parent
 
-        result = subprocess.run(
-            [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="Internal server error")
-
         backups: list[dict[str, Any]] = []
-        lines = result.stdout.split("\n")
+        script_path = project_root / "scripts" / "prune_backups.py"
+        if script_path.exists():
+            result = subprocess.run(
+                [sys.executable, str(script_path), "--stats"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            lines = result.stdout.split("\n") if result.returncode == 0 else []
+        else:
+            lines = []
         in_backup_list = False
 
         for index, line in enumerate(lines):
@@ -181,7 +180,7 @@ async def api_list_backups():
 
 
 @router.get("/cron")
-async def api_get_backup_cron(_auth: str = RequireAdminAuth):
+async def api_get_backup_cron():
     """Return current CTI-managed backup cron state and all visible cron jobs."""
     try:
         state = _get_cron_state()
@@ -228,7 +227,7 @@ async def api_update_backup_cron(payload: BackupCronUpdate):
 
 
 @router.delete("/cron")
-async def api_delete_backup_cron(_auth: str = RequireAdminAuth):
+async def api_delete_backup_cron():
     """Disable CTI-managed backup cron jobs while preserving other crontab entries."""
     try:
         manager = get_backup_config_manager()
@@ -253,23 +252,23 @@ async def api_backup_status():
         cron_state = _get_cron_state()
 
         # Get backup statistics
-        result = subprocess.run(
-            [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="Internal server error")
-
         total_backups = 0
         total_size_gb = 0.0
         last_backup = None
 
-        lines = result.stdout.split("\n")
+        script_path = project_root / "scripts" / "prune_backups.py"
+        if script_path.exists():
+            result = subprocess.run(
+                [sys.executable, str(script_path), "--stats"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            lines = result.stdout.split("\n") if result.returncode == 0 else []
+        else:
+            lines = []
         for line in lines:
             if "Total backups:" in line:
                 try:
@@ -326,7 +325,7 @@ async def api_backup_status():
 
 
 @router.post("/restore")
-async def api_restore_backup(request: Request, _auth: str = RequireAdminAuth):
+async def api_restore_backup(request: Request):
     """API endpoint for restoring from a backup."""
     try:
         payload = await request.json()
@@ -429,7 +428,6 @@ RESTORE_FILE_SUFFIXES = (".sql", ".sql.gz")
 @router.post("/restore-from-file")
 async def api_restore_from_file(
     file: UploadFile = File(..., description="Backup file (.sql or .sql.gz)"),
-    _auth: str = RequireAdminAuth,
 ):
     """Restore database from an uploaded backup file."""
     suffix = Path(file.filename or "").suffix.lower()

@@ -30,23 +30,16 @@ FIDELITY_JUNK = 0.72
 FIDELITY_QA_RETRIES = 2
 FIDELITY_MIN_HUNT = 88.0
 FIDELITY_OS_EMBEDDING = "test/embedding-model"
-FIDELITY_OS_FALLBACK_ENABLED = True
 FIDELITY_OS_SELECTED = ["Linux", "Darwin"]
 FIDELITY_RANK_THRESHOLD = 7.0
 FIDELITY_RANK_QA_ENABLED = True
 FIDELITY_CMDLINE_ENABLED = True
-FIDELITY_CMDLINE_QA_ENABLED = True
 FIDELITY_CMDLINE_ATTENTION = False
 FIDELITY_PROCTREE_ENABLED = True
-FIDELITY_PROCTREE_QA_ENABLED = True
 FIDELITY_HUNTQUERIES_ENABLED = True
-FIDELITY_HUNTQUERIES_QA_ENABLED = True
 FIDELITY_REGISTRY_ENABLED = True
-FIDELITY_REGISTRY_QA_ENABLED = True
 FIDELITY_SERVICES_ENABLED = True
-FIDELITY_SERVICES_QA_ENABLED = True
 FIDELITY_SCHEDULEDTASKS_ENABLED = True
-FIDELITY_SCHEDULEDTASKS_QA_ENABLED = True
 FIDELITY_SIGMA_THRESHOLD = 0.42
 FIDELITY_SIGMA_FULL_ARTICLE = True
 FIDELITY_DISABLED_AGENTS: list[str] = []  # all enabled
@@ -65,15 +58,7 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
         },
         "OSDetection": {
             "Embedding": FIDELITY_OS_EMBEDDING,
-            "FallbackEnabled": FIDELITY_OS_FALLBACK_ENABLED,
-            "Fallback": {
-                "Provider": "anthropic",
-                "Model": "claude-sonnet-4-5",
-                "Temperature": 0.0,
-                "TopP": 0.9,
-            },
             "SelectedOs": list(FIDELITY_OS_SELECTED),
-            "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " OS", "instructions": ""},
         },
         "RankAgent": {
             "Enabled": True,
@@ -101,9 +86,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "TopP": 0.9,
             "AttentionPreprocessor": FIDELITY_CMDLINE_ATTENTION,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Cmdline", "instructions": ""},
-            "QAEnabled": FIDELITY_CMDLINE_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " CmdLineQA", "instructions": ""},
         },
         "ProcTreeExtract": {
             "Enabled": FIDELITY_PROCTREE_ENABLED,
@@ -112,9 +94,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ProcTree", "instructions": ""},
-            "QAEnabled": FIDELITY_PROCTREE_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ProcTreeQA", "instructions": ""},
         },
         "HuntQueriesExtract": {
             "Enabled": FIDELITY_HUNTQUERIES_ENABLED,
@@ -123,9 +102,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " HuntQueries", "instructions": ""},
-            "QAEnabled": FIDELITY_HUNTQUERIES_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " HuntQueriesQA", "instructions": ""},
         },
         "RegistryExtract": {
             "Enabled": FIDELITY_REGISTRY_ENABLED,
@@ -134,9 +110,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Registry", "instructions": ""},
-            "QAEnabled": FIDELITY_REGISTRY_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " RegistryQA", "instructions": ""},
         },
         "ServicesExtract": {
             "Enabled": FIDELITY_SERVICES_ENABLED,
@@ -145,9 +118,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Services", "instructions": ""},
-            "QAEnabled": FIDELITY_SERVICES_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ServicesQA", "instructions": ""},
         },
         "ScheduledTasksExtract": {
             "Enabled": FIDELITY_SCHEDULEDTASKS_ENABLED,
@@ -156,9 +126,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "Temperature": 0.0,
             "TopP": 0.9,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasks", "instructions": ""},
-            "QAEnabled": FIDELITY_SCHEDULEDTASKS_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " ScheduledTasksQA", "instructions": ""},
         },
         "SigmaAgent": {
             "Provider": "anthropic",
@@ -212,10 +179,6 @@ def test_import_enforces_all_settings():
     # QA
     assert config.QA.MaxRetries == FIDELITY_QA_RETRIES
     assert config.QA.Enabled.get("RankAgent") is FIDELITY_RANK_QA_ENABLED
-    assert config.QA.Enabled.get("CmdlineExtract") is FIDELITY_CMDLINE_QA_ENABLED
-    assert config.QA.Enabled.get("ProcTreeExtract") is FIDELITY_PROCTREE_QA_ENABLED
-    assert config.QA.Enabled.get("HuntQueriesExtract") is FIDELITY_HUNTQUERIES_QA_ENABLED
-    assert config.QA.Enabled.get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
 
     # Execution
     assert config.Execution.OsDetectionSelectedOs == FIDELITY_OS_SELECTED
@@ -228,16 +191,12 @@ def test_import_enforces_all_settings():
     assert config.Features.SigmaFallbackEnabled is FIDELITY_SIGMA_FULL_ARTICLE
     assert config.Features.CmdlineAttentionPreprocessorEnabled is FIDELITY_CMDLINE_ATTENTION
 
-    # OS fallback agent
-    assert config.Agents["OSDetectionFallback"].Enabled is FIDELITY_OS_FALLBACK_ENABLED
-
     # Prompts (sentinels)
     def _prompt_text(p: Any) -> str:
         if p is None:
             return ""
         return p.prompt if hasattr(p, "prompt") else (p.get("prompt", "") if isinstance(p, dict) else "")
 
-    assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("OSDetectionFallback"))
     assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("RankAgent"))
     assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("CmdlineExtract"))
     assert FIDELITY_PROMPT_SENTINEL in _prompt_text(config.Prompts.get("SigmaAgent"))
@@ -258,13 +217,9 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     assert legacy["similarity_threshold"] == FIDELITY_SIGMA_THRESHOLD
     assert legacy["qa_max_retries"] == FIDELITY_QA_RETRIES
     assert legacy["qa_enabled"].get("RankAgent") is FIDELITY_RANK_QA_ENABLED
-    assert legacy["qa_enabled"].get("CmdlineExtract") is FIDELITY_CMDLINE_QA_ENABLED
-    assert legacy["qa_enabled"].get("ProcTreeExtract") is FIDELITY_PROCTREE_QA_ENABLED
-    assert legacy["qa_enabled"].get("HuntQueriesExtract") is FIDELITY_HUNTQUERIES_QA_ENABLED
-    assert legacy["qa_enabled"].get("RegistryExtract") is FIDELITY_REGISTRY_QA_ENABLED
     assert legacy["sigma_fallback_enabled"] is FIDELITY_SIGMA_FULL_ARTICLE
     assert legacy["cmdline_attention_preprocessor_enabled"] is FIDELITY_CMDLINE_ATTENTION
-    assert legacy["osdetection_fallback_enabled"] is FIDELITY_OS_FALLBACK_ENABLED
+    assert legacy["osdetection_fallback_enabled"] is False
     # Note: schema to_legacy_response_dict does not include extract_agent_settings; the API
     # route _v2_to_legacy_preset_dict adds it. Execution.DisabledAgents is asserted in test_import_enforces_all_settings.
 
@@ -298,9 +253,7 @@ def test_export_contains_all_settings():
 
     osd = exported["OSDetection"]
     assert osd["Embedding"] == FIDELITY_OS_EMBEDDING
-    assert osd["FallbackEnabled"] is FIDELITY_OS_FALLBACK_ENABLED
     assert osd["SelectedOs"] == FIDELITY_OS_SELECTED
-    assert FIDELITY_PROMPT_SENTINEL in osd["Prompt"].get("prompt", "")
 
     rank = exported["RankAgent"]
     assert float(rank["RankingThreshold"]) == FIDELITY_RANK_THRESHOLD
@@ -310,17 +263,13 @@ def test_export_contains_all_settings():
 
     cmd = exported["CmdlineExtract"]
     assert cmd["Enabled"] is FIDELITY_CMDLINE_ENABLED
-    assert cmd["QAEnabled"] is FIDELITY_CMDLINE_QA_ENABLED
     assert cmd["AttentionPreprocessor"] is FIDELITY_CMDLINE_ATTENTION
     assert FIDELITY_PROMPT_SENTINEL in cmd["Prompt"].get("prompt", "")
 
     assert exported["ProcTreeExtract"]["Enabled"] is FIDELITY_PROCTREE_ENABLED
-    assert exported["ProcTreeExtract"]["QAEnabled"] is FIDELITY_PROCTREE_QA_ENABLED
     assert exported["HuntQueriesExtract"]["Enabled"] is FIDELITY_HUNTQUERIES_ENABLED
-    assert exported["HuntQueriesExtract"]["QAEnabled"] is FIDELITY_HUNTQUERIES_QA_ENABLED
 
     assert exported["RegistryExtract"]["Enabled"] is FIDELITY_REGISTRY_ENABLED
-    assert exported["RegistryExtract"]["QAEnabled"] is FIDELITY_REGISTRY_QA_ENABLED
     assert FIDELITY_PROMPT_SENTINEL in exported["RegistryExtract"]["Prompt"].get("prompt", "")
 
     sigma = exported["SigmaAgent"]
@@ -404,9 +353,9 @@ def test_legacy_import_fails_when_qa_max_retries_missing():
         "qa_enabled": {},
         # qa_max_retries omitted intentionally
         "sigma_fallback_enabled": False,
-        "osdetection_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
+        "proc_tree_attention_preprocessor_enabled": True,
         "extract_agent_settings": {"disabled_agents": []},
         "description": "",
         "created_at": "",

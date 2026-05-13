@@ -1,12 +1,10 @@
 # Extract Agent Evaluation
 
-## Evaluation Framework
-
-## Extract Agent Evaluation Framework
-
 ## Overview
 
-Evaluation framework for measuring Extract Agent performance before and after fine-tuning.
+<!-- AUDIT: Clarity -- Original had three nested identical "## Evaluation Framework" headings. Collapsed to one. -->
+
+Evaluation framework for measuring Extract Agent performance. The active eval system runs through the Agent Evals UI (`/mlops/agent-evals`). The CLI-based `eval_extract_agent.py` script was removed in v6.2.0; this document covers the UI pathway and the metrics it uses.
 
 ## Purpose
 
@@ -45,50 +43,29 @@ Evaluation framework for measuring Extract Agent performance before and after fi
 - **Error Rate**: Failures during extraction
 - **Processing Time**: Time per article (optional)
 
-## Eval articles and rehydration
+## Eval Articles and Rehydration
 
-Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **static files** as the source of eval data. Article snapshots are **committed** in `config/eval_articles_data/{subagent}/articles.json` so evals work without any network fetch. Setup seeds these files into the DB at startup; the API and Agent Evals UI load from the committed JSON. See [Installation → Agent evals](../getting-started/installation.md#agent-evals) and `config/eval_articles_data/README.md`. Maintainers: when adding URLs to `config/eval_articles.yaml`, run `scripts/fetch_eval_articles_static.py` (or `dump_eval_articles_static.py`) and commit the updated JSON.
+Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **static files** as the source of eval data. Article snapshots are **committed** in `config/eval_articles_data/{subagent}/articles.json` so evals work without any network fetch. Setup seeds these files into the DB at startup; the API and Agent Evals UI load from the committed JSON. See [Installation -> Agent evals](../getting-started/installation.md#agent-evals) [VERIFY LINK] and `config/eval_articles_data/README.md`. Maintainers: when adding URLs to `config/eval_articles.yaml`, run `scripts/fetch_eval_articles_static.py` (or `dump_eval_articles_static.py`) and commit the updated JSON.
 
-## Test Dataset
+## Running Evaluations
 
-**Location:** `outputs/training_data/test_finetuning_data.json`
+<!-- AUDIT: Accuracy -- The CLI eval script (scripts/eval_extract_agent.py) was deleted in v6.2.0. The examples below replace the previous CLI-based workflow. -->
 
-**Contents:**
-- 10 high-scoring articles (hunt scores 80+)
-- Filtered content (junk filter applied)
-- Existing extraction results (ground truth)
+### UI Eval (Active)
 
-**Articles:**
-- 602, 1411, 1840, 1937, 2034, 2040, 2062, 2063, 2068, 2082
-
-## Usage
-
-### Run Baseline Evaluation
-
-```bash
-# Evaluate current model
-docker compose exec -T web python scripts/eval_extract_agent.py \
-    --test-data outputs/training_data/test_finetuning_data.json \
-    --output outputs/evaluations/extract_agent_baseline.json \
-    --model baseline
-```
-
-### Run After Fine-Tuning
-
-```bash
-# Evaluate fine-tuned model
-docker compose exec -T web python scripts/eval_extract_agent.py \
-    --test-data outputs/training_data/test_finetuning_data.json \
-    --output outputs/evaluations/extract_agent_finetuned.json \
-    --model finetuned-mistral-7b
-```
+1. Navigate to **MLOps -> Agent Evals** (`/mlops/agent-evals`)
+2. Click **Load Eval Articles** to populate the eval dataset from `config/eval_articles_data/`
+3. Select a subagent type (e.g. `cmdline`, `hunt_queries`)
+4. Click **Run Eval** to execute extractions against the loaded articles
+5. Review results in the metrics table: JSON validity, field completeness, observable counts
 
 ### Compare Results
 
+`scripts/compare_evaluations.py` compares two saved evaluation JSON files (e.g. baseline vs. post-fine-tune):
+
 ```bash
-# Compare baseline vs fine-tuned
 # Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
-python scripts/compare_evaluations.py \
+python3 scripts/compare_evaluations.py \
     --baseline outputs/evaluations/extract_agent_baseline.json \
     --finetuned outputs/evaluations/extract_agent_finetuned.json
 ```
@@ -117,7 +94,7 @@ Evaluation results are saved as JSON:
     {
       "article_id": 602,
       "title": "...",
-      "extraction_result": {...},
+      "extraction_result": {},
       "evaluation": {
         "json_valid": true,
         "has_required_fields": true,
@@ -144,7 +121,7 @@ Evaluation results are saved as JSON:
 ### Count Accuracy
 
 - **Pass**: `discrete_huntables_count` matches expected count
-- **Partial**: Within ±2 of expected
+- **Partial**: Within +/-2 of expected
 - **Fail**: >2 difference from expected
 
 ### Type Correctness
@@ -156,10 +133,10 @@ Evaluation results are saved as JSON:
 
 Before fine-tuning, establish these baseline targets:
 
-- **JSON Validity**: ≥95%
-- **Field Completeness**: ≥95%
-- **Count Accuracy**: ≥80% (if ground truth available)
-- **Type Errors**: ≤5%
+- **JSON Validity**: >=95%
+- **Field Completeness**: >=95%
+- **Count Accuracy**: >=80% (if ground truth available)
+- **Type Errors**: <=5%
 
 ## Improvement Goals
 
@@ -167,36 +144,9 @@ After fine-tuning, aim for:
 
 - **JSON Validity**: 100%
 - **Field Completeness**: 100%
-- **Count Accuracy**: ≥90%
+- **Count Accuracy**: >=90%
 - **Type Errors**: 0%
 - **Observable Count**: Maintain or improve
-
-## Comparison Workflow
-
-1. **Before Fine-Tuning:**
-   ```bash
-   python scripts/eval_extract_agent.py --output outputs/evaluations/baseline.json
-   ```
-
-2. **Fine-Tune Model:**
-   ```bash
-   python scripts/finetune_extract_agent.py ...
-   ```
-
-3. **After Fine-Tuning:**
-   ```bash
-   python scripts/eval_extract_agent.py \
-       --model finetuned \
-       --output outputs/evaluations/finetuned.json
-   ```
-
-4. **Compare:**
-   ```bash
-   # Flags: --eval1 / --eval2 (or --baseline / --finetuned as aliases)
-   python scripts/compare_evaluations.py \
-       --baseline outputs/evaluations/baseline.json \
-       --finetuned outputs/evaluations/finetuned.json
-   ```
 
 ## Troubleshooting
 
@@ -225,68 +175,22 @@ After fine-tuning, aim for:
 - Run evaluation **multiple times** to check consistency
 - Save results for **historical comparison**
 
-
-
-
 ---
 
 ## Fine-tuning (Deprecated)
 
 **Note**: This section describes deprecated fine-tuning approaches. Current extract agents use prompt engineering and few-shot learning instead.
 
-## Extract Agent Fine-Tuning Guide
-
 > DEPRECATION NOTICE (Feb 2026): The HuggingFace-based fine-tuning workflow described below is no longer maintained or supported. This guide is retained for historical reference only and may not work with current tooling or configuration.
 
-Guide for fine-tuning models to improve Extract Agent performance.
+## Extract Agent Fine-Tuning Guide
 
-## Overview
-
-The Extract Agent extracts telemetry-aware observables from threat intelligence articles. Fine-tuning improves:
-- JSON output format compliance
-- Observable extraction quality
-- Platform-specific detection (Windows focus)
-- Handling of obfuscated/encoded values
-
-## Workflow
-
-### 1. Harvest Training Data
-
-Collect training examples from database and JSON result files:
-
-```bash
-# From database only
-python scripts/harvest_extract_training_data.py \
-    --from-database \
-    --min-observables 3 \
-    --output outputs/training_data/extract_training_data.json
-
-# From JSON files only
-python scripts/harvest_extract_training_data.py \
-    --auto-find-json \
-    --min-observables 3 \
-    --output outputs/training_data/extract_training_data.json
-
-# From both
-python scripts/harvest_extract_training_data.py \
-    --from-database \
-    --auto-find-json \
-    --min-observables 3 \
-    --output outputs/training_data/extract_training_data.json
-```
-
-**Options:**
-- `--min-observables`: Minimum observables per example (default: 1)
-- `--status-filter`: Filter database by execution status (completed/failed/etc)
-- `--json-files`: Specific JSON files to harvest from
-- `--auto-find-json`: Automatically find JSON result files in project root
-
-### 2. Format Training Data
+### 1. Format Training Data
 
 Convert harvested data into instruction-following format:
 
 ```bash
-python scripts/format_extract_training_data.py \
+python3 scripts/format_extract_training_data.py \
     --input outputs/training_data/extract_training_data.json \
     --output outputs/training_data/extract_formatted.json \
     --format alpaca
@@ -298,12 +202,12 @@ python scripts/format_extract_training_data.py \
 - `simple`: Simple prompt-response format
 - `all`: Generate all formats
 
-### 3. Fine-Tune Model
+### 2. Fine-Tune Model
 
 Fine-tune using HuggingFace Transformers:
 
 ```bash
-python scripts/finetune_extract_agent.py \
+python3 scripts/finetune_extract_agent.py \
     --model mistralai/Mistral-7B-Instruct-v0.2 \
     --data outputs/training_data/extract_formatted_alpaca.json \
     --output models/extract_agent_finetuned \
@@ -318,11 +222,6 @@ python scripts/finetune_extract_agent.py \
 - Faster training
 - Good for consumer GPUs
 - Enabled by default
-
-**Full Fine-Tuning:**
-- Use `--no-qlora` flag
-- Requires more VRAM
-- Better for high-resource environments
 
 **Options:**
 - `--model`: HuggingFace model name or local path
@@ -339,10 +238,6 @@ python scripts/finetune_extract_agent.py \
 **Minimum:**
 - 100+ examples for QLoRA
 - 500+ examples for full fine-tuning
-
-**Recommended:**
-- 500+ examples for QLoRA
-- 1000+ examples for full fine-tuning
 
 **Quality:**
 - Examples with 3+ observables preferred
@@ -363,104 +258,13 @@ python scripts/finetune_extract_agent.py \
    - Set `ExtractAgent` model to fine-tuned model name
    - Or set `LMSTUDIO_MODEL_EXTRACT` environment variable
 
-3. **Test extraction:**
-   ```bash
-   # Test on a single article
-   docker exec -it cti_web python3 scripts/evalpython test_extract_agent.py --article-id 1937
-   ```
-
 ### Model Naming
 
-Fine-tuned models should follow naming convention:
+Fine-tuned models should follow this naming convention:
 - `extract-agent-{base-model}-{date}`
 - Example: `extract-agent-mistral-7b-20250115`
 
-## Evaluation
-
-### Metrics
-
-Track these metrics before/after fine-tuning:
-- **JSON validity rate**: % of valid JSON outputs
-- **Average observables per article**: Should increase
-- **Discrete huntables count**: Quality indicator
-- **Platform detection accuracy**: Windows-only focus
-
-### Benchmarking
-
-Compare fine-tuned model against baseline:
-
-```bash
-# Run extraction evaluation
-docker exec -it cti_web benchmark
-python3 scripts/evalore_extract_agentlmstudio.py \
-    --model extract-agent-mistral-7b-20250115 \
-    --test-data outputs/training_data/test_finetuning_data.json \
-    --output outputs/evaluations/extract_agent_finetuned.jsonarticles 1974 1909 1866 1860 1937 1794
-```
-
-## Troubleshooting
-
-### Out of Memory
-
-- Reduce `--batch-size` (try 2 or 1)
-- Increase `--gradient-accumulation-steps`
-- Use QLoRA (default)
-- Reduce `--max-length`
-
-### Poor Results
-
-- Increase training data size
-- Check data quality (valid JSON, sufficient observables)
-- Adjust learning rate (try 1e-4 to 5e-4)
-- Increase epochs (try 5-10)
-- Verify format matches model architecture
-
-### JSON Format Issues
-
-- Ensure training data has valid JSON outputs
-- Check prompt template matches training format
-- Verify model supports JSON output
-
-## Best Practices
-
-1. **Data Quality > Quantity**: 500 high-quality examples > 2000 poor examples
-2. **Diverse Examples**: Include various threat types and article lengths
-3. **Validation Split**: Always use 10% validation set (automatic)
-4. **Checkpointing**: Model checkpoints saved every 100 steps
-5. **Evaluation**: Monitor validation loss during training
-6. **Testing**: Test on held-out articles before deployment
-
-## Example: Complete Workflow
-
-```bash
-# 1. Harvest data
-python scripts/harvest_extract_training_data.py \
-    --from-database \
-    --auto-find-json \
-    --min-observables 3 \
-    --output outputs/training_data/extract_training_data.json
-
-# 2. Format data
-python scripts/format_extract_training_data.py \
-    --input outputs/training_data/extract_training_data.json \
-    --output outputs/training_data/extract_formatted.json \
-    --format alpaca
-
-# 3. Fine-tune
-python scripts/finetune_extract_agent.py \
-    --model mistralai/Mistral-7B-Instruct-v0.2 \
-    --data outputs/training_data/extract_formatted_alpaca.json \
-    --output models/extract_agent_mistral_7b \
-    --format alpaca \
-    --epochs 5
-
-# 4. Test
-docker exec -it cti_web python3 scripts/evalpython test_extract_agent.py --article-id 1937
-```
-
 ## Dependencies
-
-Install required packages:
 
 ```bash
 pip install transformers datasets peft bitsandbytes accelerate torch
@@ -480,3 +284,4 @@ pip install torch --index-url https://download.pytorch.org/whl/cu118
 ---
 
 _Last updated: 2026-05-01_
+_Last reviewed: 2026-05-03_

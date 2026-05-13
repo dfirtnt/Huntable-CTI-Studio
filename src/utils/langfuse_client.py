@@ -180,6 +180,7 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
             self._attributes_cm = propagate_attributes(
                 session_id=session_id,
                 user_id=self.user_id or f"article_{self.article_id}",
+                trace_name=f"agentic_workflow_execution_{self.execution_id}",
             )
             self._attributes_cm.__enter__()
 
@@ -462,6 +463,7 @@ def trace_llm_call(
             with propagate_attributes(
                 session_id=resolved_session_id,
                 user_id=f"article_{article_id}" if article_id else None,
+                trace_name=name,
             ):
                 generation = client.start_observation(**generation_kwargs)
         else:

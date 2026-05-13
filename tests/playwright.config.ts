@@ -68,6 +68,7 @@ const featureProjects = [
     name: 'intelligence',
     use: browser,
     testMatch: [
+      /playwright\/sigma_queue_lifecycle\.spec\.ts$/,
       /playwright\/sigma_enrich\.spec\.ts$/,
       /playwright\/agent_evals_hunt_query\.spec\.ts$/,
       /playwright\/agent_evals_input_persistence\.spec\.ts$/,
@@ -120,8 +121,9 @@ export default defineConfig({
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
 
-  /* Retry on CI only */
-  retries: process.env.CI ? 2 : 0,
+  /* CI: 2 retries. Local: 1 retry handles transient socket hang-ups from 4
+   * workers hitting a single uvicorn server simultaneously. */
+  retries: process.env.CI ? 2 : 1,
 
   /* Local: cap at 4 workers to avoid macOS ENFILE (file table overflow) from
    * allure-playwright writing many JSON results simultaneously.

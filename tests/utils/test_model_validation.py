@@ -125,7 +125,8 @@ class TestFilterOpenaiModelsProjectAllowlist:
     def test_non_allowlisted_chat_models_dropped(self):
         # Valid chat models the project pipeline does not use.
         # gpt-5* is intentionally excluded here -- it passes by pattern.
-        ids = ["gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-pro", "o3", "o3-pro"]
+        # o3 is now in the allowlist; o3-pro is not.
+        ids = ["gpt-4-turbo", "gpt-3.5-turbo", "o1", "o1-pro", "o3-pro"]
         assert filter_openai_models_project_allowlist(ids) == []
 
     def test_allowlisted_mixed_with_noise(self):
@@ -134,6 +135,8 @@ class TestFilterOpenaiModelsProjectAllowlist:
             "gpt-4o-mini",
             "gpt-4.1",
             "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "o3",
             "o3-mini",
             "o4-mini",
             # gpt-5* passes by pattern (not noise)
@@ -185,12 +188,15 @@ class TestFilterOpenaiModelsProjectAllowlist:
 
     def test_allowlist_size_matches_spec(self):
         # Canary: if this changes, update the Todoist task / docs before landing.
-        assert len(PROJECT_OPENAI_ALLOWLIST) == 6
+        # gpt-4.1-nano and o3 added to allowlist to match provider catalog expansion.
+        assert len(PROJECT_OPENAI_ALLOWLIST) == 8
         assert {
             "gpt-4o-mini",
             "gpt-4o",
             "gpt-4.1-mini",
             "gpt-4.1",
+            "gpt-4.1-nano",
+            "o3",
             "o3-mini",
             "o4-mini",
         } == PROJECT_OPENAI_ALLOWLIST
@@ -408,6 +414,8 @@ class TestModelSupportsVariableTemperature:
             "gpt-4o-mini": True,
             "gpt-4.1": True,
             "gpt-4.1-mini": True,
+            "gpt-4.1-nano": True,
+            "o3": False,
             "o3-mini": False,
             "o4-mini": False,
         }

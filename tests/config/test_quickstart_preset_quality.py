@@ -22,15 +22,9 @@ pytestmark = pytest.mark.unit
 _QUICKSTART_DIR = Path(__file__).resolve().parent.parent.parent / "config" / "presets" / "AgentConfigs" / "quickstart"
 _QUICKSTART_PRESETS = sorted(_QUICKSTART_DIR.glob("*.json"))
 
-# Sections that carry a nested QA block with a Temperature field.
+# Only RankAgent retains a QA block; extractor QA was removed.
 _QA_SECTIONS = [
     "RankAgent",
-    "CmdlineExtract",
-    "ProcTreeExtract",
-    "HuntQueriesExtract",
-    "RegistryExtract",
-    "ServicesExtract",
-    "ScheduledTasksExtract",
 ]
 
 # Sections whose top-level Temperature must be deterministic (0.0).

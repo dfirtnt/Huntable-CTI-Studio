@@ -20,6 +20,7 @@ from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
     AgenticWorkflowExecutionTable,
+    AppSettingsTable,
     ArticleTable,
     SubagentEvaluationTable,
 )
@@ -42,6 +43,18 @@ _THROTTLE_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+# Billing-quota exhaustion -- 429 but NOT a retriable rate limit.
+# Must be checked before _THROTTLE_PATTERNS so "insufficient_quota" errors
+# are not misclassified as TPM throttles.
+_QUOTA_ERROR_PATTERNS = re.compile(r"insufficient_quota", re.IGNORECASE)
+
+
+def _is_throttle_string(text: str) -> bool:
+    """Return True only if text signals a retriable rate limit (not a billing cap)."""
+    if _QUOTA_ERROR_PATTERNS.search(text):
+        return False
+    return bool(_THROTTLE_PATTERNS.search(text))
+
 # Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
 _CONTEXT_OVERFLOW_PATTERNS = re.compile(
     r"context.{0,15}(size|length|window).{0,15}exceeded|context_length_exceeded",
@@ -62,7 +75,7 @@ def _execution_is_throttled(
     # Checks both error_message (terminal 429) and error_log conversation entries
     # because a throttled extractor stamps the error inside error_log while the
     # workflow still reports status='completed' and actual_count=0.
-    if error_message and _THROTTLE_PATTERNS.search(error_message):
+    if error_message and _is_throttle_string(error_message):
         return True
 
     if not isinstance(error_log, dict):
@@ -84,7 +97,7 @@ def _execution_is_throttled(
             continue
         for field in ("error", "error_type", "error_details"):
             value = result.get(field)
-            if isinstance(value, str) and _THROTTLE_PATTERNS.search(value):
+            if isinstance(value, str) and _is_throttle_string(value):
                 return True
     return False
 
@@ -120,6 +133,39 @@ def _execution_has_context_overflow(
             subresult = subresults.get(subagent_lookup, {})
             raw = subresult.get("raw", {}) if isinstance(subresult, dict) else {}
             if isinstance(raw, dict) and raw.get("context_length_exceeded"):
+                return True
+
+    return False
+
+
+def _execution_has_quota_error(
+    error_message: str | None,
+    error_log: dict | list | str | None,
+) -> bool:
+    """Return True when the execution failed due to billing quota exhaustion (not a retriable rate limit)."""
+    if error_message and _QUOTA_ERROR_PATTERNS.search(error_message):
+        return True
+
+    if not isinstance(error_log, dict):
+        return False
+
+    extract_agent = error_log.get("extract_agent")
+    if not isinstance(extract_agent, dict):
+        return False
+
+    conversation_log = extract_agent.get("conversation_log")
+    if not isinstance(conversation_log, list):
+        return False
+
+    for entry in conversation_log:
+        if not isinstance(entry, dict):
+            continue
+        result = entry.get("result")
+        if not isinstance(result, dict):
+            continue
+        for field in ("error", "error_type", "error_details"):
+            value = result.get(field)
+            if isinstance(value, str) and _QUOTA_ERROR_PATTERNS.search(value):
                 return True
 
     return False
@@ -232,7 +278,9 @@ _EVAL_ARTICLES_DATA_DIR = _ROOT / "config" / "eval_articles_data"
 def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     """Load static eval article snapshots for a subagent.
 
-    Returns dict url -> {url, title, content, filtered_content?, expected_count}.
+    Returns dict url -> {url, title, content, filtered_content?, expected_count,
+    expected_items?}.  expected_items comes from the separate ground_truth.json
+    file (if present) and is never stored in articles.json.
     """
     out: dict[str, dict] = {}
     data_dir = (
@@ -255,9 +303,28 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
                     "content": entry.get("content", ""),
                     "filtered_content": entry.get("filtered_content") or entry.get("content", ""),
                     "expected_count": entry.get("expected_count", 0),
+                    "expected_items": None,
                 }
     except Exception as e:
         logger.warning("Failed to load static eval articles for %s: %s", subagent_key, e)
+        return out
+
+    # Merge expected_items from ground_truth.json (item-level eval ground truth).
+    # This file is separate so article snapshot refreshes never clobber annotations.
+    gt_path = data_dir / "ground_truth.json"  # codeql[py/path-injection] false positive: see above
+    if gt_path.exists():  # codeql[py/path-injection] false positive: see above
+        try:
+            with open(gt_path) as f:  # codeql[py/path-injection] false positive: see above
+                gt_entries = json.load(f)
+            if isinstance(gt_entries, list):
+                for gt in gt_entries:
+                    url = gt.get("url")
+                    items = gt.get("expected_items")
+                    if url and url in out and isinstance(items, list):
+                        out[url]["expected_items"] = items
+        except Exception as e:
+            logger.warning("Failed to load ground_truth.json for %s: %s", subagent_key, e)
+
     return out
 
 
@@ -907,11 +974,13 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
                 normalized = urlunparse((parsed.scheme, parsed.netloc, parsed.path, "", "", ""))
                 if normalized == url:
                     continue
-                article = (
-                    db_session.query(ArticleTable).filter(ArticleTable.canonical_url.like(f"{normalized}%")).first()
+                row = (
+                    db_session.query(ArticleTable.id)
+                    .filter(ArticleTable.canonical_url.like(f"{normalized}%"))
+                    .first()
                 )
-                if article:
-                    result[url] = article.id
+                if row:
+                    result[url] = row[0]
 
             return result
         finally:
@@ -977,6 +1046,10 @@ async def get_subagent_eval_articles(
             from_static = url in url_to_static
             found = article_id is not None or from_static
             expected_count = article_def.get("expected_count", 0)
+            expected_items = article_def.get("expected_items")
+            # Also pull expected_items from static snapshot when present
+            if not expected_items and from_static and url in url_to_static:
+                expected_items = url_to_static[url].get("expected_items")
             title = ""
             if from_static and url in url_to_static:
                 title = (url_to_static[url].get("title") or "").strip()
@@ -987,6 +1060,7 @@ async def get_subagent_eval_articles(
                     "url": url,
                     "title": title or None,
                     "expected_count": expected_count,
+                    "expected_items": expected_items,
                     "article_id": article_id,
                     "found": found,
                     "from_static": from_static,
@@ -1066,6 +1140,14 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                             expected_counts[url] = expected_count if expected_count is not None else 0
 
             url_to_static = _load_static_eval_articles(canonical_subagent_name)
+
+            # Build expected_items map from static snapshots (optional, item-level scoring)
+            url_to_expected_items: dict[str, list[str] | None] = {}
+            for _url, _entry in url_to_static.items():
+                items = _entry.get("expected_items")
+                if isinstance(items, list):
+                    url_to_expected_items[_url] = items
+
             eval_records = []
             executions = []
 
@@ -1113,18 +1195,17 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 title=static_entry.get("title", ""),
                                 url=url,
                                 prompt_config=prompt_config,
-                                qa_prompt_config=None,
-                                max_retries=1,
+                                max_extraction_retries=1,
                                 execution_id=None,
                                 model_name=agent_models.get(f"{agent_name}_model") or agent_models.get("ExtractAgent"),
                                 temperature=float(agent_models.get(f"{agent_name}_temperature", 0) or 0),
                                 top_p=float(agent_models.get(f"{agent_name}_top_p"))
                                 if agent_models.get(f"{agent_name}_top_p") is not None
                                 else None,
-                                qa_model_override=None,
                                 provider=agent_models.get(f"{agent_name}_provider")
                                 or agent_models.get("ExtractAgent_provider"),
                                 attention_preprocessor_enabled=True,
+                                langfuse_session_id=f"eval_subagent_{canonical_subagent_name}",
                             )
                             actual_count = _actual_count_from_agent_result(canonical_subagent_name, agent_result or {})
                             if actual_count is None:
@@ -1135,6 +1216,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                                 article_url=url,
                                 article_id=None,
                                 expected_count=expected_count,
+                                expected_items=url_to_expected_items.get(url),
                                 actual_count=actual_count,
                                 score=score,
                                 workflow_config_id=active_config.id,
@@ -1198,6 +1280,12 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "skip_rank_agent": True,  # Bypass rank agent for evals
                         "skip_sigma_generation": True,  # Skip SIGMA generation for evals
                         "subagent_eval": canonical_subagent_name,
+                        "cmdline_attention_preprocessor_enabled": getattr(
+                            active_config, "cmdline_attention_preprocessor_enabled", True
+                        ),
+                        "proc_tree_attention_preprocessor_enabled": getattr(
+                            active_config, "proc_tree_attention_preprocessor_enabled", True
+                        ),
                     },
                 )
                 db_session.add(execution)
@@ -1209,6 +1297,7 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                     article_url=url,
                     article_id=article_id,
                     expected_count=expected_count,
+                    expected_items=url_to_expected_items.get(url),
                     workflow_execution_id=execution.id,
                     workflow_config_id=active_config.id,
                     workflow_config_version=active_config.version,
@@ -1256,6 +1345,42 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
         raise
     except Exception as e:
         logger.error(f"Error running subagent eval: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/subagent-eval-version-articles")
+async def get_subagent_eval_version_articles(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name"),
+    config_version: int = Query(..., description="Config version to look up"),
+):
+    """Return the distinct article URLs that were run in a specific config version."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            _, lookup_values = _resolve_subagent_query(subagent)
+            query = db_session.query(SubagentEvaluationTable.article_url).distinct()
+            if lookup_values:
+                query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            query = query.filter(
+                SubagentEvaluationTable.workflow_config_version == config_version,
+                SubagentEvaluationTable.article_url.isnot(None),
+            )
+            if EXCLUDED_EVAL_ARTICLE_IDS:
+                query = query.filter(
+                    SubagentEvaluationTable.article_id.notin_(EXCLUDED_EVAL_ARTICLE_IDS)
+                    | SubagentEvaluationTable.article_id.is_(None)
+                )
+            rows = query.all()
+            urls = [r[0] for r in rows if r[0]]
+            return {"config_version": config_version, "urls": urls, "count": len(urls)}
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching version articles: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -1335,6 +1460,7 @@ async def get_subagent_eval_results(
                 throttled = False
                 context_length_exceeded = False
                 infra_not_ready = False
+                quota_exceeded = False
 
                 if record.workflow_execution_id:
                     execution = executions_by_id.get(record.workflow_execution_id)
@@ -1350,7 +1476,9 @@ async def get_subagent_eval_results(
                                 warnings.extend(extraction_warnings)
                         if execution.error_message:
                             execution_error_message = execution.error_message
-                        if _execution_is_throttled(execution.error_message, execution.error_log):
+                        if _execution_has_quota_error(execution.error_message, execution.error_log):
+                            quota_exceeded = True
+                        elif _execution_is_throttled(execution.error_message, execution.error_log):
                             throttled = True
                         if _execution_has_context_overflow(
                             execution.error_message,
@@ -1392,6 +1520,13 @@ async def get_subagent_eval_results(
                         "throttled": throttled,
                         "context_length_exceeded": context_length_exceeded,
                         "infra_not_ready": infra_not_ready,
+                        "quota_exceeded": quota_exceeded,
+                        # Item-level fields (present when expected_items was set)
+                        "expected_items": record.expected_items,
+                        "actual_items": record.actual_items,
+                        "matched_count": record.matched_count,
+                        "missed_count": record.missed_count,
+                        "extra_count": record.extra_count,
                     }
                 )
 
@@ -1592,8 +1727,17 @@ async def get_subagent_eval_aggregate(
     request: Request,
     subagent: str = Query(..., description="Subagent name"),
     config_version: int | None = Query(None, description="Optional: filter by config version"),
+    model: str | None = Query(
+        None,
+        description="Optional: filter to config versions where this subagent used the given model",
+    ),
 ):
-    """Get aggregate scores per config version for a subagent."""
+    """Get aggregate scores per config version for a subagent.
+
+    When ``model`` is provided, restricts results to config versions where the
+    subagent's configured model matches. This is used by the Evaluation Metrics
+    Over Time chart to plot a single model's trajectory across config snapshots.
+    """
     try:
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -1614,14 +1758,35 @@ async def get_subagent_eval_aggregate(
             if config_version:
                 query = query.filter(SubagentEvaluationTable.workflow_config_version == config_version)
 
+            # If a model filter is supplied, narrow to config versions where the subagent
+            # used that model. We do this by joining on the workflow config table and
+            # inspecting agent_models[<AgentName>_model].
+            agent_name_for_model = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent)
+            if model and agent_name_for_model:
+                model_key = f"{agent_name_for_model}_model"
+                matching_versions = (
+                    db_session.query(AgenticWorkflowConfigTable.version)
+                    .filter(AgenticWorkflowConfigTable.agent_models[model_key].astext == model)
+                    .all()
+                )
+                version_set = {v for (v,) in matching_versions}
+                if not version_set:
+                    return {
+                        "subagent": subagent,
+                        "aggregates": [],
+                        "total_config_versions": 0,
+                    }
+                query = query.filter(SubagentEvaluationTable.workflow_config_version.in_(version_set))
+
             all_records = query.order_by(
                 SubagentEvaluationTable.workflow_config_version.desc(),
                 SubagentEvaluationTable.created_at.desc(),
             ).all()
 
-            # Batch-fetch execution rows to avoid N+1 queries when counting throttled runs.
+            # Batch-fetch execution rows to avoid N+1 queries when counting throttled/quota runs.
             execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
             throttled_execution_ids: set[int] = set()
+            quota_exceeded_execution_ids: set[int] = set()
             if execution_ids:
                 execution_rows = (
                     db_session.query(
@@ -1633,7 +1798,9 @@ async def get_subagent_eval_aggregate(
                     .all()
                 )
                 for exec_id, err_msg, err_log in execution_rows:
-                    if _execution_is_throttled(err_msg, err_log):
+                    if _execution_has_quota_error(err_msg, err_log):
+                        quota_exceeded_execution_ids.add(exec_id)
+                    elif _execution_is_throttled(err_msg, err_log):
                         throttled_execution_ids.add(exec_id)
 
             # Predetermined expected_count by article_url from eval_articles.yaml
@@ -1656,6 +1823,7 @@ async def get_subagent_eval_aggregate(
                 failed_records = [r for r in records if r.status == "failed"]
                 pending_records = [r for r in records if r.status == "pending"]
                 throttled_count = sum(1 for r in records if r.workflow_execution_id in throttled_execution_ids)
+                quota_exceeded_count = sum(1 for r in records if r.workflow_execution_id in quota_exceeded_execution_ids)
 
                 if not completed_records:
                     aggregates.append(
@@ -1666,8 +1834,8 @@ async def get_subagent_eval_aggregate(
                             "failed": len(failed_records),
                             "pending": len(pending_records),
                             "throttled": throttled_count,
+                            "quota_exceeded": quota_exceeded_count,
                             "mean_score": None,
-                            "mean_absolute_error": None,
                             "raw_mae": None,
                             "mean_expected_count": None,
                             "mean_squared_error": None,
@@ -1678,6 +1846,12 @@ async def get_subagent_eval_aggregate(
                                 "within_2": 0,
                                 "over_2": 0,
                             },
+                            # Item-level metrics: macro-averaged precision/recall and
+                            # derived F1 across articles annotated with expected_items.
+                            "mean_precision": None,
+                            "mean_recall": None,
+                            "mean_f1": None,
+                            "scored_articles": 0,
                         }
                     )
                     continue
@@ -1695,15 +1869,40 @@ async def get_subagent_eval_aggregate(
                 mean_score = sum(scores) / len(scores)
                 mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
                 mean_expected_count = sum(expected_counts) / len(expected_counts) if expected_counts else 1.0
-                divisor = max(mean_expected_count, 1.0)
-                nmae_raw = mean_absolute_error / divisor if divisor > 0 else None
-                normalized_mean_absolute_error = min(nmae_raw, 1.0) if nmae_raw is not None else None
                 mean_squared_error = sum(s * s for s in scores) / len(scores)
                 perfect_matches = sum(1 for s in scores if s == 0)
                 perfect_match_percentage = (perfect_matches / len(completed_records)) * 100
                 exact = sum(1 for s in scores if s == 0)
                 within_2 = sum(1 for s in scores if abs(s) <= 2 and s != 0)
                 over_2 = sum(1 for s in scores if abs(s) > 2)
+
+                # Item-level macro precision/recall (only over articles that have item-level
+                # scoring -- i.e. expected_items was set and matched_count was populated).
+                scored_records = [
+                    r for r in completed_records
+                    if r.matched_count is not None
+                    and r.missed_count is not None
+                    and r.extra_count is not None
+                ]
+                if scored_records:
+                    per_article_precision = []
+                    per_article_recall = []
+                    for r in scored_records:
+                        m = r.matched_count or 0
+                        miss = r.missed_count or 0
+                        ex = r.extra_count or 0
+                        precision_denom = m + ex
+                        recall_denom = m + miss
+                        per_article_precision.append(m / precision_denom if precision_denom > 0 else 0.0)
+                        per_article_recall.append(m / recall_denom if recall_denom > 0 else 0.0)
+                    mean_precision = sum(per_article_precision) / len(per_article_precision)
+                    mean_recall = sum(per_article_recall) / len(per_article_recall)
+                    pr_sum = mean_precision + mean_recall
+                    mean_f1 = (2 * mean_precision * mean_recall / pr_sum) if pr_sum > 0 else 0.0
+                else:
+                    mean_precision = None
+                    mean_recall = None
+                    mean_f1 = None
 
                 aggregates.append(
                     {
@@ -1713,10 +1912,8 @@ async def get_subagent_eval_aggregate(
                         "failed": len(failed_records),
                         "pending": len(pending_records),
                         "throttled": throttled_count,
+                        "quota_exceeded": quota_exceeded_count,
                         "mean_score": round(mean_score, 2),
-                        "mean_absolute_error": round(normalized_mean_absolute_error, 4)
-                        if normalized_mean_absolute_error is not None
-                        else None,
                         "raw_mae": round(mean_absolute_error, 4),
                         "mean_expected_count": round(mean_expected_count, 4),
                         "mean_squared_error": round(mean_squared_error, 2),
@@ -1727,6 +1924,11 @@ async def get_subagent_eval_aggregate(
                             "within_2": within_2,
                             "over_2": over_2,
                         },
+                        # Item-level metrics (null when no annotated articles in this version).
+                        "mean_precision": round(mean_precision, 4) if mean_precision is not None else None,
+                        "mean_recall": round(mean_recall, 4) if mean_recall is not None else None,
+                        "mean_f1": round(mean_f1, 4) if mean_f1 is not None else None,
+                        "scored_articles": len(scored_records),
                     }
                 )
 
@@ -1739,6 +1941,295 @@ async def get_subagent_eval_aggregate(
             db_session.close()
     except Exception as e:
         logger.error(f"Error getting aggregate eval scores: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/subagent-eval-models")
+async def get_subagent_eval_models(
+    request: Request,
+    subagent: str = Query(..., description="Subagent name"),
+):
+    """List models that have been used for the given subagent across configs with eval data.
+
+    Powers the model dropdown on the Evaluation Metrics Over Time chart. We only
+    surface models that are *both* configured for this subagent in some config
+    version *and* have at least one eval record under that version -- otherwise
+    the chart would be empty for that selection.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+            if canonical_subagent == "hunt_queries":
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
+
+            agent_name = _SUBAGENT_TO_BUNDLE_AGENT.get(canonical_subagent)
+            if not agent_name:
+                return {"subagent": subagent, "models": []}
+
+            # Versions that actually have eval rows for this subagent.
+            eval_query = db_session.query(SubagentEvaluationTable.workflow_config_version).distinct()
+            if lookup_values:
+                eval_query = eval_query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            versions_with_evals = {v for (v,) in eval_query.all() if v is not None}
+            if not versions_with_evals:
+                return {"subagent": subagent, "models": []}
+
+            # Pull the configured model per version, intersect with versions_with_evals.
+            model_key = f"{agent_name}_model"
+            configs = (
+                db_session.query(
+                    AgenticWorkflowConfigTable.version,
+                    AgenticWorkflowConfigTable.agent_models,
+                )
+                .filter(AgenticWorkflowConfigTable.version.in_(versions_with_evals))
+                .all()
+            )
+            models_seen: dict[str, int] = {}
+            for version, agent_models in configs:
+                if not isinstance(agent_models, dict):
+                    continue
+                model_name = agent_models.get(model_key)
+                if not model_name:
+                    continue
+                models_seen[model_name] = models_seen.get(model_name, 0) + 1
+
+            # Sort: most-used first, then alphabetical for stability.
+            sorted_models = sorted(
+                models_seen.items(),
+                key=lambda kv: (-kv[1], kv[0]),
+            )
+            return {
+                "subagent": subagent,
+                "models": [
+                    {"name": name, "config_count": count}
+                    for name, count in sorted_models
+                ],
+            }
+        finally:
+            db_session.close()
+    except Exception as e:
+        logger.error("Error listing eval models for subagent: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/subagent-eval-compare")
+async def get_subagent_eval_compare(
+    request: Request,
+    subagent: str = Query(...),
+    version_a: int = Query(..., description="Baseline config version"),
+    version_b: int = Query(..., description="Candidate config version"),
+):
+    """Side-by-side comparison of two config versions for a subagent."""
+    logger.info(
+        "subagent-eval-compare: subagent=%s version_a=%s version_b=%s",
+        subagent,
+        version_a,
+        version_b,
+    )
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
+
+            # For hunt_queries include historical edr records
+            if canonical_subagent == "hunt_queries":
+                lookup_values = set(lookup_values) if lookup_values else set()
+                lookup_values.add("hunt_queries_edr")
+                lookup_values = list(lookup_values)
+
+            query = db_session.query(SubagentEvaluationTable)
+            if lookup_values:
+                query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
+            query = query.filter(
+                SubagentEvaluationTable.workflow_config_version.in_([version_a, version_b])
+            )
+            all_records = query.order_by(
+                SubagentEvaluationTable.workflow_config_version.desc(),
+                SubagentEvaluationTable.created_at.desc(),
+            ).all()
+
+            # Batch-fetch article titles
+            article_ids = [
+                r.article_id
+                for r in all_records
+                if r.article_id is not None and r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
+            ]
+            id_to_title: dict[int, str] = {}
+            if article_ids:
+                title_rows = (
+                    db_session.query(ArticleTable.id, ArticleTable.title)
+                    .filter(ArticleTable.id.in_(article_ids))
+                    .all()
+                )
+                id_to_title = {r[0]: (r[1] or "") for r in title_rows}
+
+            url_to_static = _load_static_eval_articles(canonical_subagent)
+
+            def _title_for(rec: SubagentEvaluationTable) -> str:
+                if rec.article_url and rec.article_url in url_to_static:
+                    t = (url_to_static[rec.article_url].get("title") or "").strip()
+                    if t:
+                        return t
+                if rec.article_id is not None:
+                    return (id_to_title.get(rec.article_id) or "").strip()
+                return ""
+
+            # Batch-fetch executions
+            execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
+            executions_by_id: dict[int, AgenticWorkflowExecutionTable] = {}
+            if execution_ids:
+                exec_rows = (
+                    db_session.query(AgenticWorkflowExecutionTable)
+                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
+                    .all()
+                )
+                executions_by_id = {e.id: e for e in exec_rows}
+
+            preset_expected_by_url = _load_preset_expected_by_url(subagent)
+
+            # Build per-(url, version) latest-record map (most recent by created_at)
+            latest: dict[tuple[str | None, int], SubagentEvaluationTable] = {}
+            for record in all_records:
+                if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
+                    continue
+                key = (record.article_url, record.workflow_config_version)
+                if key not in latest:
+                    latest[key] = record
+                else:
+                    existing = latest[key]
+                    if record.created_at and (
+                        existing.created_at is None or record.created_at > existing.created_at
+                    ):
+                        latest[key] = record
+
+            # Collect all unique URLs seen in either version
+            all_urls: dict[str | None, str] = {}  # url -> title
+            for (url, _ver), rec in latest.items():
+                if url not in all_urls or not all_urls[url]:
+                    all_urls[url] = _title_for(rec)
+
+            def _make_result(rec: SubagentEvaluationTable | None) -> dict | None:
+                if rec is None:
+                    return None
+                actual = rec.actual_count
+                expected = preset_expected_by_url.get(rec.article_url)
+                if expected is None:
+                    expected = rec.expected_count if rec.expected_count is not None else 0
+                score = (actual - expected) if actual is not None else None
+                return {
+                    "actual_count": actual,
+                    "score": score,
+                    "status": rec.status or "unknown",
+                    "execution_id": rec.workflow_execution_id,
+                }
+
+            def _compute_aggregate(records: list[SubagentEvaluationTable], version: int) -> dict:
+                completed = [
+                    r for r in records if r.status == "completed" and r.actual_count is not None
+                ]
+                if not completed:
+                    return {
+                        "config_version": version,
+                        "total_articles": len(records),
+                        "completed": 0,
+                        "raw_mae": None,
+                        "perfect_matches": 0,
+                        "perfect_match_percentage": 0.0,
+                    }
+                scores = []
+                expected_counts = []
+                for r in completed:
+                    expected = preset_expected_by_url.get(r.article_url)
+                    if expected is None:
+                        expected = r.expected_count if r.expected_count is not None else 0
+                    expected_counts.append(expected)
+                    scores.append((r.actual_count or 0) - expected)
+                mean_absolute_error = sum(abs(s) for s in scores) / len(scores)
+                perfect_matches = sum(1 for s in scores if s == 0)
+                perfect_match_pct = (perfect_matches / len(completed)) * 100
+                return {
+                    "config_version": version,
+                    "total_articles": len(records),
+                    "completed": len(completed),
+                    "raw_mae": round(mean_absolute_error, 4),
+                    "perfect_matches": perfect_matches,
+                    "perfect_match_percentage": round(perfect_match_pct, 1),
+                }
+
+            # Collect per-version record lists for aggregate computation
+            records_a: list[SubagentEvaluationTable] = []
+            records_b: list[SubagentEvaluationTable] = []
+            for (url, ver), rec in latest.items():
+                if ver == version_a:
+                    records_a.append(rec)
+                elif ver == version_b:
+                    records_b.append(rec)
+
+            aggregate_a = _compute_aggregate(records_a, version_a)
+            aggregate_b = _compute_aggregate(records_b, version_b)
+
+            # Build per-article rows
+            articles = []
+            for url, title in all_urls.items():
+                rec_a = latest.get((url, version_a))
+                rec_b = latest.get((url, version_b))
+                result_a = _make_result(rec_a)
+                result_b = _make_result(rec_b)
+
+                expected_count = preset_expected_by_url.get(url)
+                if expected_count is None:
+                    rec_any = rec_a or rec_b
+                    if rec_any:
+                        expected_count = rec_any.expected_count
+                if expected_count is None:
+                    expected_count = 0
+
+                improvement: int | None = None
+                if (
+                    result_a is not None
+                    and result_b is not None
+                    and result_a.get("score") is not None
+                    and result_b.get("score") is not None
+                ):
+                    improvement = abs(result_a["score"]) - abs(result_b["score"])
+
+                articles.append(
+                    {
+                        "url": url,
+                        "title": title or None,
+                        "expected_count": expected_count,
+                        "result_a": result_a,
+                        "result_b": result_b,
+                        "improvement": improvement,
+                    }
+                )
+
+            # Sort: biggest changes first (most improved or most regressed), nulls at end
+            articles.sort(key=lambda a: (
+                a["improvement"] is None,
+                -abs(a["improvement"]) if a["improvement"] is not None else 0,
+            ))
+
+            return {
+                "subagent": canonical_subagent,
+                "version_a": version_a,
+                "version_b": version_b,
+                "aggregate_a": aggregate_a,
+                "aggregate_b": aggregate_b,
+                "articles": articles,
+            }
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error in subagent-eval-compare: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -1958,6 +2449,159 @@ async def get_eval_bundle_metadata(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+class DiagnoseRequest(BaseModel):
+    """Request body for the bundle diagnosis endpoint."""
+
+    agent_name: str = Field(..., description="Agent name (e.g., 'CmdlineExtract')")
+    provider: str = Field("openai", description="LLM provider for diagnosis")
+    model_name: str | None = Field("gpt-4o", description="Model override for diagnosis")
+
+
+@router.post("/evals/{execution_id}/diagnose")
+async def diagnose_eval_bundle(
+    request: Request,
+    execution_id: int,
+    body: DiagnoseRequest,
+):
+    """
+    Run LLM-powered failure diagnosis on an eval bundle.
+
+    Generates a slim bundle, sends it with the extractor contract to a frontier
+    model, and returns a structured diagnosis with root causes, recommendations,
+    and contract violations.
+
+    Provider/model resolution order:
+    1. Explicit request body values (if non-default)
+    2. App settings (DIAGNOSIS_PROVIDER, DIAGNOSIS_MODEL)
+    3. Hardcoded defaults (openai / gpt-4o)
+    """
+    from src.services.eval_diagnosis_service import EvalDiagnosisService
+
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            # Resolve provider/model from app settings if not explicitly overridden
+            provider = body.provider
+            model_name = body.model_name
+            try:
+                from sqlalchemy import select
+
+                settings_result = db_session.execute(
+                    select(AppSettingsTable).where(
+                        AppSettingsTable.key.in_(["DIAGNOSIS_PROVIDER", "DIAGNOSIS_MODEL"])
+                    )
+                )
+                settings_map = {s.key: s.value for s in settings_result.scalars().all()}
+                if settings_map.get("DIAGNOSIS_PROVIDER"):
+                    provider = settings_map["DIAGNOSIS_PROVIDER"]
+                if settings_map.get("DIAGNOSIS_MODEL"):
+                    model_name = settings_map["DIAGNOSIS_MODEL"]
+            except Exception as e:
+                logger.warning(f"Could not load diagnosis settings, using defaults: {e}")
+
+            # Explicit request body overrides settings (when caller passes non-defaults)
+            if body.provider != "openai":
+                provider = body.provider
+            if body.model_name and body.model_name != "gpt-4o":
+                model_name = body.model_name
+
+            bundle_service = EvalBundleService(db_session)
+            bundle = bundle_service.generate_bundle(
+                execution_id=execution_id,
+                agent_name=body.agent_name,
+                slim=True,
+            )
+
+            llm_service = LLMService(config_models={})
+            diagnosis_service = EvalDiagnosisService(llm_service)
+            diagnosis = await diagnosis_service.diagnose_bundle(
+                bundle=bundle,
+                agent_name=body.agent_name,
+                provider=provider,
+                model_name=model_name,
+            )
+
+            diagnosis_service.save_diagnosis(diagnosis)
+
+            return diagnosis
+
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Execution not found: {execution_id} - {e}")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        logger.error(
+            f"Error diagnosing eval bundle for execution {execution_id}: {e}",
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/evals/{execution_id}/diagnosis")
+async def get_saved_diagnosis(execution_id: int):
+    """
+    Return the most recent saved diagnosis for an execution, or 404 if none exists.
+    """
+    import json as _json
+
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
+
+    matches = sorted(
+        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not matches:
+        raise HTTPException(status_code=404, detail="No diagnosis found")
+
+    return _json.loads(matches[0].read_text(encoding="utf-8"))
+
+
+@router.get("/evals/diagnosis-counts")
+async def get_diagnosis_counts():
+    """
+    Return a dict of {execution_id: count} for every execution that has at least
+    one saved diagnosis.  Uses a single directory scan (no file reads) so it is
+    cheap to call on every page load.
+    """
+    from collections import defaultdict
+
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
+
+    counts: dict[int, int] = defaultdict(int)
+    if DIAGNOSES_DIR.exists():
+        for p in DIAGNOSES_DIR.glob("*.json"):
+            # filename format: {exec_id}_{agent}_{short_id}.json
+            parts = p.stem.split("_", 1)
+            if parts and parts[0].isdigit():
+                counts[int(parts[0])] += 1
+    return dict(counts)
+
+
+@router.get("/evals/{execution_id}/diagnoses")
+async def list_saved_diagnoses(execution_id: int):
+    """
+    Return all saved diagnoses for an execution, newest first.
+    Returns an empty list (not 404) when none exist.
+    """
+    import json as _json
+
+    from src.services.eval_diagnosis_service import DIAGNOSES_DIR
+
+    matches = sorted(
+        DIAGNOSES_DIR.glob(f"{execution_id}_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    return [_json.loads(p.read_text(encoding="utf-8")) for p in matches]
+
+
 # Map subagent canonical names to agent names used in eval bundles
 _SUBAGENT_TO_BUNDLE_AGENT = {
     "cmdline": "CmdlineExtract",
@@ -1976,6 +2620,7 @@ async def export_bundles_by_config_version(
     config_version: int = Query(..., description="Workflow config version"),
     subagent: str = Query(..., description="Subagent name (cmdline, process_lineage, hunt_queries)"),
     include_langfuse: bool = Query(False, description="Fetch Langfuse data for each bundle before export"),
+    slim: bool = Query(False, description="Strip redundant data to reduce token consumption for AI review"),
 ):
     """
     Export eval bundles for all articles evaluated under a given config version.
@@ -1988,6 +2633,7 @@ async def export_bundles_by_config_version(
 
         try:
             include_langfuse_data = include_langfuse is True
+            slim_mode = slim is True
             canonical_subagent, lookup_values = _resolve_subagent_query(subagent)
             if canonical_subagent == "hunt_queries":
                 lookup_values = set(lookup_values) if lookup_values else set()
@@ -2017,6 +2663,9 @@ async def export_bundles_by_config_version(
 
             bundle_service = EvalBundleService(db_session)
             buffer = io.BytesIO()
+            # Track shared prompts across bundles for the slim manifest
+            shared_prompts: dict[str, str] = {}  # sha256 -> prompt text
+
             with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zf:
                 for record in records:
                     try:
@@ -2025,7 +2674,22 @@ async def export_bundles_by_config_version(
                             agent_name=agent_name,
                             attempt=None,
                             fetch_langfuse=include_langfuse_data,
+                            slim=slim_mode,
                         )
+                        # Collect shared prompts before they get stripped (for slim manifest)
+                        if slim_mode:
+                            for inp in bundle.get("inputs", []):
+                                if (
+                                    isinstance(inp, dict)
+                                    and inp.get("name") == "system_prompt"
+                                    and inp.get("sha256")
+                                    and inp.get("text")
+                                ):
+                                    shared_prompts[inp["sha256"]] = inp["text"]
+                                    # Replace prompt text with SHA ref in the bundle
+                                    inp["text"] = None
+                                    inp["_slim_ref"] = f"see _prompts.json#{inp['sha256'][:12]}"
+
                         filename = f"article_{record.article_id or record.id}_{record.id}.json"
                         zf.writestr(filename, json.dumps(bundle, indent=2, ensure_ascii=False))
                     except (ValueError, AttributeError) as e:
@@ -2035,13 +2699,26 @@ async def export_bundles_by_config_version(
                             f"Bundle generation failed: {e}",
                         )
 
+                # Write shared prompt manifest for slim ZIPs
+                if slim_mode and shared_prompts:
+                    manifest = {
+                        "description": "Shared prompts extracted from slim bundles. "
+                        "Each bundle references these by SHA256 prefix.",
+                        "prompts": {
+                            sha[:12]: {"sha256": sha, "text": text} for sha, text in shared_prompts.items()
+                        },
+                    }
+                    zf.writestr("_prompts.json", json.dumps(manifest, indent=2, ensure_ascii=False))
+
             buffer.seek(0)
+            suffix = "_slim" if slim_mode else ""
             return StreamingResponse(
                 buffer,
                 media_type="application/zip",
                 headers={
                     "Content-Disposition": (
-                        f"attachment; filename=eval_bundles_v{config_version}_{canonical_subagent or subagent}.zip"
+                        f"attachment; filename=eval_bundles_v{config_version}"
+                        f"_{canonical_subagent or subagent}{suffix}.zip"
                     )
                 },
             )

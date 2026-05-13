@@ -126,7 +126,7 @@ async def test_preprocess_invariant_error_stores_infra_failed_in_subresults(
     with (
         patch("src.workflows.agentic_workflow.ContentFilter") as mock_cf_cls,
         patch("src.workflows.agentic_workflow.WorkflowTriggerService") as mock_trigger_cls,
-        patch("sqlalchemy.orm.attributes.flag_modified"),  # Avoid SQLAlchemy inspect on Mock
+        patch("src.workflows.agentic_workflow.flag_modified"),  # Patch where the name is looked up
     ):
         mock_cf_cls.return_value.filter_content.return_value = filter_result
         mock_trigger = Mock()
@@ -200,7 +200,7 @@ async def test_extraction_result_subresult_promotes_error_to_top_level(
     with (
         patch("src.workflows.agentic_workflow.ContentFilter") as mock_cf_cls,
         patch("src.workflows.agentic_workflow.WorkflowTriggerService") as mock_trigger_cls,
-        patch("sqlalchemy.orm.attributes.flag_modified"),
+        patch("src.workflows.agentic_workflow.flag_modified"),  # Patch where the name is looked up
     ):
         mock_cf_cls.return_value.filter_content.return_value = filter_result
         mock_trigger = Mock()
@@ -294,7 +294,7 @@ async def test_lmstudio_health_gate_not_called_for_openai_config(
         patch("src.workflows.agentic_workflow.trace_workflow_execution"),
         patch("src.workflows.agentic_workflow.LLMService"),
         patch("src.workflows.agentic_workflow.ContentFilter"),
-        patch("sqlalchemy.orm.attributes.flag_modified"),
+        patch("src.workflows.agentic_workflow.flag_modified"),
     ):
         mock_trigger = Mock()
         mock_trigger.get_active_config.return_value = mock_config

@@ -11,7 +11,6 @@ import warnings
 from pathlib import Path
 from typing import Any
 
-import httpx
 import numpy as np
 import torch
 from sklearn.ensemble import RandomForestClassifier
@@ -393,153 +392,23 @@ class OSDetectionService:
             "confidence": "high" if max_similarity > 0.7 else "medium" if max_similarity > 0.6 else "low",
         }
 
-    async def _detect_with_llm_fallback(
-        self,
-        content: str,
-        fallback_model: str | None = None,
-        qa_feedback: str | None = None,
-        provider: str | None = None,
-        llm_service: Any | None = None,
-    ) -> dict[str, Any] | None:
-        """Detect OS using LLM (fallback). Supports multiple providers via LLMService."""
-        model_name = fallback_model or "mistralai/mistral-7b-instruct-v0.3"
-        effective_provider = provider or "lmstudio"
-
-        prompt = f"""Determine which operating system the described behaviors target (Windows, Linux, MacOS, or multiple). Output one label only.
-
-Content:
-{content[:3000]}
-
-Output only the OS label: Windows, Linux, MacOS, or multiple"""
-
-        try:
-            # Mistral-7B-Instruct-v0.3 in LMStudio doesn't support system role
-            # Combine system and user messages into a single user message
-            combined_prompt = f"""You are a detection engineer. Determine which operating system the described behaviors target.
-
-{prompt}"""
-
-            # Add QA feedback if provided
-            if qa_feedback:
-                combined_prompt = f"{qa_feedback}\n\n{combined_prompt}"
-
-            # Reasoning models (DeepSeek R1) need more tokens for reasoning output
-            is_reasoning_model = "deepseek-r1" in model_name.lower() or "r1" in model_name.lower()
-            max_tokens = 500 if is_reasoning_model else 50
-
-            # Use LLMService if provided (supports multiple providers), otherwise fall back to direct LMStudio call
-            if llm_service:
-                messages = [{"role": "user", "content": combined_prompt}]
-                result = await llm_service.request_chat(
-                    provider=effective_provider,
-                    model_name=model_name,
-                    messages=messages,
-                    max_tokens=max_tokens,
-                    temperature=0.0,
-                    timeout=60.0,
-                    failure_context="OS detection LLM fallback",
-                )
-            else:
-                # Fallback to direct LMStudio call (backward compatibility)
-                from src.utils.lmstudio_url import get_lmstudio_base_url
-
-                lmstudio_url = get_lmstudio_base_url("http://localhost:1234/v1")
-                read_timeout = 600.0
-                async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0, read=read_timeout)) as client:
-                    response = await client.post(
-                        f"{lmstudio_url}/chat/completions",
-                        headers={"Content-Type": "application/json"},
-                        json={
-                            "model": model_name,
-                            "messages": [{"role": "user", "content": combined_prompt}],
-                            "temperature": 0,
-                            "max_tokens": max_tokens,
-                        },
-                    )
-
-                    if response.status_code != 200:
-                        error_text = response.text[:500] if hasattr(response, "text") else "No error text"
-                        logger.warning(f"LLM fallback failed: HTTP {response.status_code} - {error_text}")
-                        return None
-
-                    result = response.json()
-                    if "choices" not in result or len(result["choices"]) == 0:
-                        logger.warning(
-                            f"LLM fallback failed: No choices in response. Response keys: {list(result.keys())}"
-                        )
-                        return None
-
-            # Handle reasoning models (DeepSeek R1) that return answer in reasoning_content
-            message = result["choices"][0]["message"]
-            content_text = message.get("content", "")
-            reasoning_text = message.get("reasoning_content", "")
-
-            # For reasoning models, check reasoning_content first, then content
-            if is_reasoning_model and reasoning_text:
-                response_text = reasoning_text.strip()
-            else:
-                response_text = content_text.strip()
-
-                # Parse response - look for OS label
-                response_lower = response_text.lower()
-                if (
-                    "windows" in response_lower
-                    and "linux" not in response_lower
-                    and "macos" not in response_lower
-                    and "multiple" not in response_lower
-                ):
-                    os_label = "Windows"
-                elif (
-                    "linux" in response_lower
-                    and "windows" not in response_lower
-                    and "macos" not in response_lower
-                    and "multiple" not in response_lower
-                ):
-                    os_label = "Linux"
-                elif "macos" in response_lower or "mac os" in response_lower:
-                    os_label = "MacOS"
-                elif "multiple" in response_lower:
-                    os_label = "multiple"
-                else:
-                    os_label = "Unknown"
-
-                return {
-                    "operating_system": os_label,
-                    "method": f"llm_fallback_{model_name}",
-                    "raw_response": response_text[:200],
-                }
-        except Exception as e:
-            logger.error(f"LLM fallback failed with exception: {type(e).__name__}: {e}", exc_info=True)
-            return None
-
     async def detect_os(
         self,
         content: str,
         use_classifier: bool = True,
-        use_fallback: bool = True,
-        fallback_model: str | None = None,
-        force_fallback: bool = False,
-        qa_feedback: str | None = None,
         min_windows_keywords: int = 3,
-        provider: str | None = None,
-        llm_service: Any | None = None,
     ) -> dict[str, Any]:
         """
         Detect OS from content.
 
         Detection order:
-        1. Windows keyword check (>= min_windows_keywords matches → Windows)
+        1. Windows keyword check (>= min_windows_keywords matches -> Windows)
         2. BERT classifier (if available)
         3. BERT similarity-based detection
-        4. LLM fallback (if enabled)
 
         Args:
             content: Article content
             use_classifier: Try to use trained classifier first (after keyword check)
-            use_fallback: Fall back to LLM if classifier/similarity fails
-            fallback_model: Optional LLM model name for fallback (defaults to mistralai/mistral-7b-instruct-v0.3)
-            force_fallback: Always use LLM fallback regardless of confidence (for testing)
-            qa_feedback: Optional QA feedback for LLM fallback
             min_windows_keywords: Minimum Windows keyword matches to return Windows (default: 3)
 
         Returns:
@@ -556,17 +425,8 @@ Output only the OS label: Windows, Linux, MacOS, or multiple"""
             if result:
                 return result
 
-        # Step 3: Fall back to similarity-based detection
-        result = self._detect_with_similarity(content)
-
-        # UNRELEASED / FUTURE FEATURE: LLM fallback for OS detection.
-        # Intentionally disabled until multi-OS support is implemented.
-        # The _detect_with_llm_fallback method is preserved for future use.
-        # Re-enable by removing the early-return below and wiring up the
-        # OSDetectionFallback agent config in workflow_config_schema.py.
-        _ = (use_fallback, force_fallback, fallback_model, qa_feedback, provider, llm_service)
-
-        return result
+        # Step 3: Similarity-based detection
+        return self._detect_with_similarity(content)
 
     def train_classifier(self, training_data: list[dict[str, Any]], save_path: Path | None = None) -> dict[str, Any]:
         """

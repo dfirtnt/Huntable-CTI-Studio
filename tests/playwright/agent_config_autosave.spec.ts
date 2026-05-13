@@ -282,9 +282,20 @@ test.describe('Agent Config Autosave', () => {
   });
 
   test('should preserve other fields when autosaving one field', async ({ page }) => {
-    // Get initial config
-    const initialResponse = await page.request.get(`${BASE}/api/workflow/config`);
-    const initialConfig = await initialResponse.json();
+    // Read initial values from the DOM -- the same source performAutoSave reads when it
+    // builds the PUT payload. Using a fresh API GET here would be a race: a concurrent
+    // test can write rank_agent_enabled between the GET and the PUT, making the expected
+    // value differ from what the DOM (and therefore performAutoSave) actually sends.
+    const initialConfig = await page.evaluate(() => {
+      const junkInput = document.getElementById('junkFilterThreshold') as HTMLInputElement;
+      const simInput  = document.getElementById('similarityThreshold') as HTMLInputElement;
+      const rankToggle = document.getElementById('rank-agent-enabled') as HTMLInputElement;
+      return {
+        junk_filter_threshold: junkInput  ? parseFloat(junkInput.value)  : 0.8,
+        similarity_threshold:  simInput   ? parseFloat(simInput.value)   : 0.5,
+        rank_agent_enabled:    rankToggle ? rankToggle.checked            : true,
+      };
+    });
 
     const input = page.locator('#rankingThreshold');
     await input.waitFor({ state: 'visible', timeout: 10000 });
@@ -293,7 +304,7 @@ test.describe('Agent Config Autosave', () => {
 
     const responsePromise = page.waitForResponse(
       (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
+      { timeout: 10000 }
     );
 
     await input.evaluate((el, val) => {
@@ -307,9 +318,9 @@ test.describe('Agent Config Autosave', () => {
     expect(response.status()).toBe(200);
 
     const responseData = await response.json();
-    // Verify other fields are preserved
-    expect(responseData.junk_filter_threshold).toBe(initialConfig.junk_filter_threshold);
-    expect(responseData.similarity_threshold).toBe(initialConfig.similarity_threshold);
+    // Verify the autosave preserved other fields (values come from DOM, same as performAutoSave)
+    expect(responseData.junk_filter_threshold).toBeCloseTo(initialConfig.junk_filter_threshold, 3);
+    expect(responseData.similarity_threshold).toBeCloseTo(initialConfig.similarity_threshold, 3);
     expect(responseData.rank_agent_enabled).toBe(initialConfig.rank_agent_enabled);
   });
 

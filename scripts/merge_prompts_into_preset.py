@@ -18,11 +18,8 @@ AGENT_PROMPT_FILES = {
     "SigmaAgent": "sigma_generation.txt",
     "QAAgent": "QAAgentCMD",
     "CmdlineExtract": "CmdlineExtract",
-    "CmdLineQA": "CmdLineQA",
     "ProcTreeExtract": "ProcTreeExtract",
-    "ProcTreeQA": "ProcTreeQA",
     "HuntQueriesExtract": "HuntQueriesExtract",
-    "HuntQueriesQA": "HuntQueriesQA",
     "ExtractAgent": "ExtractAgent",
 }
 

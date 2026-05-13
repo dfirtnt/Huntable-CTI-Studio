@@ -262,7 +262,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### embed
 
-**When:** Manage article embeddings for RAG and Sigma similarity search. Use `embed stats` to see coverage; use `embed embed` (the embedding generation subcommand inside the `embed` group) to generate embeddings for articles that don't have them (queues a Celery task). Use `embed search` for semantic search from the CLI.
+**When:** Manage article embeddings for MCP semantic search and Sigma similarity. Use `embed stats` to see coverage; use `embed embed` (the embedding generation subcommand inside the `embed` group) to generate embeddings for articles that don't have them (queues a Celery task). Use `embed search` for semantic search from the CLI.
 
 > **Note:** The embedding generation subcommand is `embed embed` (not just `embed` by itself). Example: `./run_cli.sh embed embed --batch-size 1000`
 
@@ -343,7 +343,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma stats
 ```
 
-**Note:** Sigma rule embeddings use local sentence-transformers (`intfloat/e5-base-v2`) inside the CLI container; LM Studio is not required for indexing. Run `sigma index-metadata` first (or `sigma index`); then run `sigma index-embeddings` to enable Sigma rule retrieval in RAG. Use `capabilities check` to see current feature status.
+**Note:** Sigma rule embeddings use local sentence-transformers (`intfloat/e5-base-v2`) inside the CLI container; LM Studio is not required for indexing. Run `sigma index-metadata` first (or `sigma index`); then run `sigma index-embeddings` to enable Sigma rule retrieval via MCP. Use `capabilities check` to see current feature status.
 
 **See also:** [Generate Sigma](../guides/generate-sigma.md), [Sigma Detection Rules](../features/sigma-rules.md).
 
@@ -351,7 +351,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### capabilities
 
-**When:** Check which features are available in the current environment (article retrieval, Sigma metadata/embedding indexing, Sigma retrieval in RAG, LLM generation). Used by setup/start scripts and for troubleshooting.
+**When:** Check which features are available in the current environment (article retrieval, Sigma metadata/embedding indexing, Sigma retrieval via MCP, LLM generation). Used by setup/start scripts and for troubleshooting.
 
 **Subcommands:**
 

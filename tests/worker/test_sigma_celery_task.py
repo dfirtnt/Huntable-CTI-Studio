@@ -6,14 +6,36 @@ from unittest.mock import MagicMock, patch
 
 
 def _import_celery_app():
-    """Import celery_app with all heavy dependencies mocked."""
-    # Remove cached module so we get a fresh import
+    """Import celery_app with all heavy dependencies mocked.
+
+    Celery and its signals are explicitly mocked here so the behaviour is
+    deterministic regardless of test-suite order (real celery may already be
+    in sys.modules from an earlier test, which would bypass the conftest guard
+    and expose the bind=True task as a live Celery task object rather than the
+    raw function the tests expect).
+    """
     for key in list(sys.modules.keys()):
         if key.startswith("src.worker"):
             del sys.modules[key]
 
-    # Patch modules that celery_app.py imports at module level
+    mock_app = MagicMock()
+    # task() must be a passthrough decorator so decorated functions remain
+    # the real Python functions (not MagicMock return values).
+    mock_app.task = lambda *a, **kw: lambda fn: fn
+
+    mock_celery = MagicMock()
+    mock_celery.Celery.return_value = mock_app
+
+    mock_wpi = MagicMock()
+    mock_wpi.connect = lambda fn: fn  # passthrough for @worker_process_init.connect
+
+    mock_signals = MagicMock()
+    mock_signals.worker_process_init = mock_wpi
+
     mocks = {
+        "celery": mock_celery,
+        "celery.schedules": MagicMock(),
+        "celery.signals": mock_signals,
         "src.worker.tasks.annotation_embeddings": MagicMock(),
         "src.worker.tasks.observable_training": MagicMock(),
         "src.worker.tasks.test_agents": MagicMock(),
@@ -55,7 +77,9 @@ class TestSyncSigmaRulesTask:
                 "src.services.sigma_sync_service": MagicMock(SigmaSyncService=mock_svc_cls),
             },
         ):
-            result = mod.sync_sigma_rules(force_reindex=False)
+            # sync_sigma_rules uses bind=True; with the mocked task decorator it
+            # remains the raw function, so we must supply a mock task instance as self.
+            result = mod.sync_sigma_rules(MagicMock(), force_reindex=False)
 
         assert result["status"] == "success"
         assert result["rules_indexed"] == 100

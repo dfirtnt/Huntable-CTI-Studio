@@ -39,14 +39,15 @@ The panel should include:
 - Enable/Disable toggle
 - Model Provider dropdown (OpenAI, Anthropic, Gemini, LMStudio)
 - Model dropdown
-- Temperature slider
-- Top_P slider
 - Prompt editor (expandable)
 - QA Agent toggle
 - QA Agent model/provider/temperature/top_p (conditionally shown)
 - QA Prompt editor
 - Test button
 - Save/Load Preset buttons
+
+> **Note:** Extract subagents run at hardcoded temperature=0.0 (no UI slider).
+> QA agents still support configurable temperature and top_p.
 
 ---
 
@@ -61,16 +62,14 @@ Add two entries:
 > will show only "Use Extract Agents Fallback Model" even when LMStudio is running.
 
 ```javascript
-// Extract agent config
+// Extract agent config (no temperature/topP -- hardcoded to deterministic 0.0)
 {prefix}: {
     providerKey: '{Agent}_provider',
     modelKey: '{Agent}_model',
-    temperatureKey: '{Agent}_temperature',
-    topPKey: '{Agent}_top_p',
     // ... other keys matching peer agents
 }
 
-// QA agent config
+// QA agent config (QA agents still support temperature/topP)
 {qa_prefix}: {
     providerKey: '{QA}_provider',
     modelKey: '{QA}',

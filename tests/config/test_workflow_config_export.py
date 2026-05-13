@@ -3,7 +3,7 @@
 from types import SimpleNamespace
 
 # Minimal agent_models so v1→v2 migration produces all enabled agents with non-empty Model (schema invariant).
-# OSDetectionFallback is disabled by default and may have empty Model; others need a model when Enabled.
+# All non-disabled agents need a model; sub-agents and QA agents listed explicitly.
 _MINIMAL_AGENT_MODELS = {
     "RankAgent_provider": "openai",
     "RankAgent": "gpt-4",
@@ -15,17 +15,11 @@ _MINIMAL_AGENT_MODELS = {
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
     "RankAgentQA": "gpt-4",
-    "CmdLineQA": "gpt-4",
-    "ProcTreeQA": "gpt-4",
-    "HuntQueriesQA": "gpt-4",
-    "RegistryQA": "gpt-4",
-    "ServicesQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
     CORE_AGENTS,
     EXTRACT_AGENTS,
-    QA_AGENTS,
     UI_ORDERED_TOP_LEVEL_ORDER,
     UTILITY_AGENTS,
     export_preset_as_canonical_v2,
@@ -36,7 +30,7 @@ from src.config.workflow_config_loader import (
 
 # Minimal agent_prompts so migrated config satisfies prompt symmetry (every agent with Model has a prompt block).
 _MINIMAL_AGENT_PROMPTS = {
-    name: {"prompt": "", "instructions": ""} for name in (CORE_AGENTS + EXTRACT_AGENTS + QA_AGENTS + UTILITY_AGENTS)
+    name: {"prompt": "", "instructions": ""} for name in (CORE_AGENTS + EXTRACT_AGENTS + UTILITY_AGENTS)
 }
 
 # Full legacy v1 preset (all required keys) so strict import validation passes.
@@ -51,6 +45,7 @@ _FULL_LEGACY_V1 = {
     "osdetection_fallback_enabled": False,
     "rank_agent_enabled": True,
     "cmdline_attention_preprocessor_enabled": True,
+    "proc_tree_attention_preprocessor_enabled": True,
     "extract_agent_settings": {"disabled_agents": []},
     "description": "",
     "created_at": "",
@@ -92,7 +87,9 @@ def test_no_legacy_keys_present():
     assert "RankAgent" in out
     assert "Enabled" in out["RankAgent"]
     assert "OSDetection" in out
-    assert "FallbackEnabled" in out["OSDetection"]
+    assert "Embedding" in out["OSDetection"]
+    assert "SelectedOs" in out["OSDetection"]
+    assert "FallbackEnabled" not in out["OSDetection"]
 
 
 def test_no_stray_prompt_keys():
@@ -130,8 +127,8 @@ def test_qa_enabled_keys_match_agents():
     """Exported UI-ordered preset loads; config has QA.Enabled keys in Agents."""
     raw = {
         **_FULL_LEGACY_V1,
-        "agent_models": {**_MINIMAL_AGENT_MODELS, "OSDetectionAgent_fallback": "gpt-4"},
-        "qa_enabled": {"OSDetectionAgent": True},
+        "agent_models": dict(_MINIMAL_AGENT_MODELS),
+        "qa_enabled": {},
     }
     out = export_preset_as_canonical_v2(raw)
     config = load_workflow_config(out)
@@ -256,10 +253,7 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
         "Thresholds": {"MinHuntScore": 85.0},
         "OSDetection": {
             "Embedding": "bert",
-            "FallbackEnabled": False,
-            "Fallback": {},
             "SelectedOs": ["Windows"],
-            "Prompt": {},
         },
         "RankAgent": {
             "Enabled": True,
@@ -281,9 +275,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
             "AttentionPreprocessor": True,
         },
         "ProcTreeExtract": {
@@ -293,9 +284,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "HuntQueriesExtract": {
             "Enabled": True,
@@ -304,9 +292,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "RegistryExtract": {
             "Enabled": True,
@@ -315,9 +300,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ServicesExtract": {
             "Enabled": True,
@@ -326,9 +308,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ScheduledTasksExtract": {
             "Enabled": True,
@@ -337,9 +316,6 @@ def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "SigmaAgent": {
             "Provider": "openai",
@@ -371,6 +347,7 @@ def test_config_row_to_preset_dict_includes_disabled_agents_from_agent_prompts()
         rank_agent_enabled=True,
         qa_max_retries=5,
         cmdline_attention_preprocessor_enabled=True,
+        proc_tree_attention_preprocessor_enabled=True,
         agent_prompts={
             "ExtractAgentSettings": {"disabled_agents": ["CmdlineExtract"]},
             "RankAgent": {"prompt": "", "instructions": ""},
@@ -398,6 +375,7 @@ def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompt
         osdetection_fallback_enabled=False,
         rank_agent_enabled=True,
         cmdline_attention_preprocessor_enabled=True,
+        proc_tree_attention_preprocessor_enabled=True,
         description="",
         created_at="",
     )
@@ -442,10 +420,7 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
         "Thresholds": {"MinHuntScore": 85.0},
         "OSDetection": {
             "Embedding": "bert",
-            "FallbackEnabled": False,
-            "Fallback": {},
             "SelectedOs": ["Windows"],
-            "Prompt": {},
         },
         "RankAgent": {
             "Enabled": True,
@@ -468,9 +443,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
             "AttentionPreprocessor": True,
         },
         "ProcTreeExtract": {
@@ -480,9 +452,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "HuntQueriesExtract": {
             "Enabled": True,
@@ -491,9 +460,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "RegistryExtract": {
             "Enabled": True,
@@ -502,9 +468,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ServicesExtract": {
             "Enabled": True,
@@ -513,9 +476,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "ScheduledTasksExtract": {
             "Enabled": True,
@@ -524,9 +484,6 @@ def test_load_preset_without_extract_agent_prompt_succeeds():
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         },
         "SigmaAgent": {
             "Enabled": True,

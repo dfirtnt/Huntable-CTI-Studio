@@ -1,9 +1,31 @@
 #!/usr/bin/env python3
-"""
-Migration script to backfill canonical fields for existing SIGMA rules.
+"""Migration: backfill canonical fields for existing sigma rules.
 
-Computes canonical_json, exact_hash, canonical_text, and logsource_key
-for all existing rules in the sigma_rules table.
+Why
+---
+migrate_sigma_canonical_fields.py adds the schema columns. New rules get their
+canonical fields populated at index time by SigmaNoveltyService. Existing rules
+that were indexed before the canonical columns existed need a one-time backfill
+so the novelty service can compare them against incoming rules.
+
+Computes and stores for every rule missing canonical data:
+- canonical_json, exact_hash, canonical_text, logsource_key
+
+Ordering
+--------
+Must run AFTER migrate_sigma_canonical_fields.py (requires the columns to exist).
+Safe to run before or after migrate_sigma_semantic_precompute.py.
+
+Idempotent: by default only processes rows where canonical fields are NULL.
+Use --force to recompute all rows (e.g. after a normalization logic change).
+Commits every 100 rows; use --resume-from <id> if a run was interrupted.
+
+Usage
+-----
+    python scripts/migrate_sigma_to_canonical.py               # fill missing rows only
+    python scripts/migrate_sigma_to_canonical.py --force        # recompute all rows
+    python scripts/migrate_sigma_to_canonical.py --limit 500    # process first 500
+    python scripts/migrate_sigma_to_canonical.py --resume-from 1200  # restart from rule id
 """
 
 import sys

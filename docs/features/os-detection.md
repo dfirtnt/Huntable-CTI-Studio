@@ -16,14 +16,15 @@ exit early, reducing unnecessary LLM calls in downstream steps.
 
 ## Detection Method
 
-Three tiers run in order:
+Twohree tiers run in order:
 
 1. **Keyword-based** (Tier 1): Fast pattern matching against OS-specific terms
    (registry paths, PowerShell, Linux paths). Handles clear-cut cases without
    invoking ML models.
-2. **Embedding-based** (Primary): CTI-BERT or SEC-BERT embeddings fed into a
+2. **Embedding-based** (Tier 2Primary): CTI-BERT or SEC-BERT embeddings fed into a
    RandomForest or LogisticRegression classifier. High-confidence threshold
-   (> 0.8) for single-OS detection. When confidence is low, falls through to
+   (> 0.8) for single-OS detection. Low-When confidence results are returned as
+   `Unknown`is low, falls through to
    the LLM fallback.
 3. **LLM fallback** (Secondary): Optional. When enabled, uses a configured LLM
    (default: LMStudio) to classify articles the classifier is uncertain about.
@@ -197,9 +198,12 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 
 - `src/services/os_detection_service.py` — service implementation
 - `src/utils/content.py` — LOLBAS keyword definitions
-- `scripts/prepare_os_detection_training_data.py` — LLM-based label generation
+- `scripts/prepare_os_detection_training_data.py` — training data prepaLLM-based label generation
 - `scripts/train_os_detection_classifier_enhanced.py` — training with CV
 - `scripts/prepare_huntable_windows_training_data.py` — Windows binary classifier data
 - `scripts/train_huntable_windows_classifier.py` — Windows binary classifier training
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-051_
+<!--stackedit_data:
+eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
+-->

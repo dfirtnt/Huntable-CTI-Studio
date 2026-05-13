@@ -1,12 +1,25 @@
 #!/usr/bin/env python3
-"""
-Migration script: add raw_yaml column to sigma_rules table.
+"""Migration: add raw_yaml column to sigma_rules table.
+
+Why
+---
+The sigma indexer was updated to preserve the original YAML source from the
+SigmaHQ repo alongside the parsed fields. Storing raw_yaml enables rule
+diff/debugging without needing the SigmaHQ repo checked out locally, and is
+used by the MCP sigma tool to return source YAML to callers. The smoke test
+in tests/smoke/test_mcp_rag_smoke.py skips with a warning if this column is absent.
 
 Adds:
-- raw_yaml TEXT (nullable) — stores the original YAML text from the SigmaHQ repo file.
+- raw_yaml TEXT (nullable) -- original YAML text from the SigmaHQ repo file
 
-After running this migration, re-index sigma rules to populate the column:
+After running, re-index to populate the column for existing rules:
     ./run_cli.sh sigma index-metadata --force
+
+Idempotent: skips if the column already exists.
+
+Usage
+-----
+    python scripts/migrate_sigma_raw_yaml.py
 """
 
 import logging

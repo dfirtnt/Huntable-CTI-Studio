@@ -1,8 +1,23 @@
 #!/usr/bin/env python3
-"""Migration: drop healing_exhausted, healing_attempts columns and healing_events table.
+"""Migration: drop auto-healing schema objects from sources table.
 
-The auto-healing feature was removed; these schema objects are no longer referenced.
-Idempotent: each DROP is guarded by an existence check.
+Why
+---
+The auto-healing feature (automatic retry with prompt repair on extraction failure)
+was removed. The columns healing_exhausted and healing_attempts on the sources table
+and the healing_events child table are no longer referenced by any code. Leaving
+them wastes space and confuses schema readers. This script removes them cleanly.
+
+Drops:
+- sources.healing_exhausted (BOOLEAN)
+- sources.healing_attempts  (INTEGER)
+- healing_events table
+
+Idempotent: each DROP is guarded by an existence check -- safe to re-run.
+
+Usage
+-----
+    python scripts/migrate_drop_healing_columns.py
 """
 
 import logging

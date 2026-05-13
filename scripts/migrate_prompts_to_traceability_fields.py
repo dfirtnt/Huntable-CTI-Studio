@@ -72,11 +72,8 @@ sys.path.insert(0, str(REPO_ROOT))
 from src.config.workflow_config_schema import AGENT_NAMES_SUB  # noqa: E402
 
 # Agents to scan during migration.  AGENT_NAMES_SUB is the canonical list of
-# extract sub-agents (source of truth in workflow_config_schema.py).  RegistryQA
-# and ServicesQA are added explicitly because they also had deprecated field names
-# at migration time.  All other agents are no-ops if they never carried the
-# deprecated fields.
-MIGRATED_AGENTS: tuple[str, ...] = tuple(AGENT_NAMES_SUB) + ("RegistryQA", "ServicesQA")
+# extract sub-agents (source of truth in workflow_config_schema.py).
+MIGRATED_AGENTS: tuple[str, ...] = tuple(AGENT_NAMES_SUB)
 
 DEPRECATED_FIELDS: tuple[str, ...] = ("raw_text_snippet", "confidence_level")
 

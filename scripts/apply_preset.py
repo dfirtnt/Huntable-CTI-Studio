@@ -84,6 +84,7 @@ def _v2_to_legacy(config) -> dict:
         "rank_agent_enabled": (config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True),
         "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
+        "proc_tree_attention_preprocessor_enabled": config.Features.ProcTreeAttentionPreprocessorEnabled,
         "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
         "agent_prompts": {
             name: {
@@ -118,6 +119,7 @@ def build_put_payload(legacy: dict, description: str = "Preset applied via scrip
         "rank_agent_enabled": legacy.get("rank_agent_enabled", True),
         "qa_max_retries": legacy.get("qa_max_retries", 5),
         "cmdline_attention_preprocessor_enabled": legacy.get("cmdline_attention_preprocessor_enabled", True),
+        "proc_tree_attention_preprocessor_enabled": legacy.get("proc_tree_attention_preprocessor_enabled", True),
         "agent_prompts": prompts,
         "description": description,
     }

@@ -29,5 +29,11 @@ if "celery" not in sys.modules:
     sys.modules["celery"] = _mock_celery
     sys.modules["celery.schedules"] = MagicMock()
     _mock_signals = MagicMock()
-    _mock_signals.worker_process_init = MagicMock()
+    # worker_process_init.connect must be a passthrough decorator so that
+    # @worker_process_init.connect leaves the decorated function as the real
+    # Python function rather than replacing it with a MagicMock return value.
+    _wpi = MagicMock()
+    _wpi.connect = lambda fn: fn
+    _wpi.receivers = []
+    _mock_signals.worker_process_init = _wpi
     sys.modules["celery.signals"] = _mock_signals

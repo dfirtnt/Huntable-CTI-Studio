@@ -87,7 +87,7 @@ These establish the agent's existence in the system. If these are wrong, nothing
 
 ### Layer 3: Services & Workflow Engine (5 files)
 
-8. **`src/services/llm_service.py`** — top_p fallback, traceability block, JSON normalization, Langfuse output keys
+8. **`src/services/llm_service.py`** — traceability block, JSON normalization, Langfuse output keys
 9. **`src/services/lmstudio_model_loader.py`** — Sub-agent preload list
 10. **`src/services/eval_bundle_service.py`** — Eval bundle export maps (3 locations)
 10b. **`src/workflows/agentic_workflow.py`** — LangGraph execution: subagent maps, default results, QA name mapping (~5 spots)
@@ -309,8 +309,9 @@ Adding a QA agent here requires touching all three places, in order:
 These areas require **no per-agent code changes** once Layers 1–3 are complete:
 
 - **Test button (Celery task)** — `src/worker/tasks/test_agents.py` resolves
-  `{Agent}_provider`, `{Agent}_model`, `{Agent}_temperature`, and `{Agent}_top_p`
-  dynamically from `agent_models` in the saved config. No per-agent code needed —
+  `{Agent}_provider` and `{Agent}_model` dynamically from `agent_models` in the
+  saved config. Extract subagents always run at temperature=0.0 (deterministic);
+  top_p is not configurable for extract agents. No per-agent code needed —
   but **verify** the Test button uses the correct provider after wiring a new agent.
   If it falls back to ExtractAgent's provider, the resolution keys don't match
   (check `{Agent}_provider` exists in the DB's `agent_models` JSONB).
@@ -353,7 +354,7 @@ After all edits, verify in this order:
 6. **Browser verification** (requires running server at http://127.0.0.1:8001/workflow#config):
    - Workflow Overview shows correct sub-agent count
    - Selected Models panel shows new agent + QA with correct provider/model
-   - Clicking Extract Agent → expanding new sub-agent shows provider dropdown, model dropdown, temperature, top_p, prompt editor, QA toggle, test button
+   - Clicking Extract Agent → expanding new sub-agent shows provider dropdown, model dropdown, prompt editor, QA toggle, test button
    - **LMStudio model dropdown is populated** (not just "Use Extract Agents Fallback Model") when LMStudio is selected as provider — this confirms AGENT_CONFIG registration is correct and `loadAgentModels()` is calling the LMStudio API
    - No console errors mentioning the new agent name
 7. **Check for console errors**: Open browser DevTools, reload, search for agent-related errors
