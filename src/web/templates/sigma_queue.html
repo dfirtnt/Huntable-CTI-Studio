@@ -331,10 +331,10 @@ function renderQueue() {
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">${rule.id}</td>
                 <td class="px-6 py-4 text-sm">
                     <a href="/articles/${rule.article_id}" class="text-purple-600 hover:text-purple-800 dark:text-purple-400">
-                        ${rule.article_title || 'Article ' + rule.article_id}
+                        ${escapeHtml(rule.article_title || 'Article ' + rule.article_id)}
                     </a>
                 </td>
-                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${title}</td>
+                <td class="px-6 py-4 text-sm text-gray-900 dark:text-white">${escapeHtml(title)}</td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
