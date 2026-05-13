@@ -19,3 +19,6 @@ src/utils/simhash.py
 src/web/routes/workflow_executions.py
 # Dynamic SQL with internal bounded parameters (no user input in SQL string)
 src/database/async_manager.py
+
+# Eval data fixtures — scraped article content with natural bidi characters
+config/eval_articles_data/
