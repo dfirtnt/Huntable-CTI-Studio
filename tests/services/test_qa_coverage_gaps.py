@@ -4,7 +4,6 @@ Gap 1: Eval bundle fixtures for ProcTreeExtract, ServicesExtract, ScheduledTasks
         (CmdlineExtract-only coverage existed prior to this file)
 """
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest

@@ -12,22 +12,18 @@ separated from execution logic, matching the file-size target of the spec.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
-import os
 import shlex
 import sys
-import time
 from pathlib import Path
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from tests.utils.test_database_url import build_test_database_url  # noqa: E402
 from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType  # noqa: E402
-from tests_runner.env import load_dotenv as _load_dotenv_raw, strip_cloud_llm_keys as _strip_cloud_llm_keys_raw  # noqa: E402
+from tests_runner.env import load_dotenv as _load_dotenv_raw  # noqa: E402
+from tests_runner.env import strip_cloud_llm_keys as _strip_cloud_llm_keys_raw
 from tests_runner.runner import RunTestRunner  # noqa: E402
-from tests_runner.tui import Glyph  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -349,7 +345,7 @@ async def main():
         return 1
 
 
-def _extract_counts(runner: "RunTestRunner") -> dict[str, int]:
+def _extract_counts(runner: RunTestRunner) -> dict[str, int]:
     """Aggregate passed/failed/skipped counts from a runner's results."""
     passed = failed = skipped = 0
     for key in ("pytest", "playwright"):

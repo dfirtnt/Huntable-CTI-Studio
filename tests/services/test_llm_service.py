@@ -1,7 +1,6 @@
 """Tests for LLM service functionality."""
 
 import contextlib
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest

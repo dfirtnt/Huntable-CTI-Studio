@@ -80,7 +80,10 @@ try:
 except NameError:
     pass
 
-from tests_runner.env import in_ci as _in_ci_fn, load_dotenv as _load_dotenv_fn, strip_cloud_llm_keys as _strip_cloud_llm_keys_fn  # noqa: E402
+from tests_runner.env import in_ci as _in_ci_fn  # noqa: E402
+from tests_runner.env import load_dotenv as _load_dotenv_fn
+from tests_runner.env import strip_cloud_llm_keys as _strip_cloud_llm_keys_fn
+
 
 # Backward-compatible local aliases used throughout this file
 def _strip_cloud_llm_keys() -> None:
@@ -101,6 +104,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 from tests_runner.cli import main  # noqa: E402
+
 
 def _in_ci() -> bool:
     """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
