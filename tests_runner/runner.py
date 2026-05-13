@@ -1561,9 +1561,7 @@ class RunTestRunner:
         # Prefer JUnit XML if present (written by pytest even when terminal summary is lost)
         if junit_path.is_file():
             try:
-                tree = ET.parse(
-                    junit_path
-                )  # nosemgrep: python.lang.security.use-defused-xml-parse.use-defused-xml-parse
+                tree = ET.parse(junit_path)
                 root = tree.getroot()
                 # Handle both <testsuites> and single <testsuite>
                 suites = list(root.iter("testsuite")) if root.tag != "testsuite" else [root]
