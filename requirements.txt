@@ -88,7 +88,7 @@ langgraph-cli==0.4.23  # LangGraph CLI for HTTP server
 langfuse==4.5.0  # Langfuse for LLM observability and tracing
 
 # MCP server
-mcp[cli]==1.27.0  # Model Context Protocol SDK for LLM tool integration
+mcp[cli]==1.27.1  # Model Context Protocol SDK for LLM tool integration
 
 # Security pins (transitive dependency floors)
 Authlib==1.7.0  # CVE fix: JWS header injection, Bleichenbacher oracle, OIDC hash bypass
