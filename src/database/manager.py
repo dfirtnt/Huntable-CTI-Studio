@@ -90,8 +90,59 @@ class DatabaseManager:
 
     def create_tables(self) -> None:
         """Create all database tables."""
+        from sqlalchemy import text
+
         try:
             Base.metadata.create_all(bind=self.engine)
+            with self.engine.begin() as conn:
+                for col_ddl in [
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
+                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                ]:
+                    conn.execute(text(col_ddl))
+                # Add primary keys to tables that pre-date PK enforcement.
+                # Each statement is a no-op if the constraint already exists.
+                # Will raise if duplicate IDs are still present -- that requires
+                # a data cleanup before the next startup.
+                for pk_ddl in [
+                    """
+                    DO $$ BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'sources' AND constraint_type = 'PRIMARY KEY'
+                        AND table_schema = 'public'
+                      ) THEN
+                        ALTER TABLE sources ADD PRIMARY KEY (id);
+                      END IF;
+                    END $$
+                    """,
+                    """
+                    DO $$ BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'subagent_evaluations' AND constraint_type = 'PRIMARY KEY'
+                        AND table_schema = 'public'
+                      ) THEN
+                        ALTER TABLE subagent_evaluations ADD PRIMARY KEY (id);
+                      END IF;
+                    END $$
+                    """,
+                    """
+                    DO $$ BEGIN
+                      IF NOT EXISTS (
+                        SELECT 1 FROM information_schema.table_constraints
+                        WHERE table_name = 'content_hashes' AND constraint_type = 'PRIMARY KEY'
+                        AND table_schema = 'public'
+                      ) THEN
+                        ALTER TABLE content_hashes ADD PRIMARY KEY (id);
+                      END IF;
+                    END $$
+                    """,
+                ]:
+                    conn.execute(text(pk_ddl))
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create database tables: {e}")
@@ -138,7 +189,7 @@ class DatabaseManager:
     def get_source(self, source_id: int) -> Source | None:
         """Get source by ID."""
         with self.get_session() as session:
-            db_source = session.query(SourceTable).filter(SourceTable.id == source_id).first()
+            db_source = session.query(SourceTable).filter(SourceTable.id == source_id).limit(1).first()
             return self._db_source_to_model(db_source) if db_source else None
 
     def get_source_by_identifier(self, identifier: str) -> Source | None:

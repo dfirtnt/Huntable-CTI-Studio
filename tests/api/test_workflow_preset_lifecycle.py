@@ -136,6 +136,9 @@ class TestPresetLifecycle:
             "cmdline_attention_preprocessor_enabled": current_config.get(
                 "cmdline_attention_preprocessor_enabled", True
             ),
+            "proc_tree_attention_preprocessor_enabled": current_config.get(
+                "proc_tree_attention_preprocessor_enabled", True
+            ),
             "extract_agent_settings": {"disabled_agents": []},
             "agent_prompts": current_config.get("agent_prompts", {}),
         }

@@ -134,9 +134,6 @@ def extract_lmstudio_models(
 
     # QA agents (model key = agent name, no _model suffix)
     qa_agents = [
-        ("CmdLineQA", "CmdlineExtract"),
-        ("ProcTreeQA", "ProcTreeExtract"),
-        ("HuntQueriesQA", "HuntQueriesExtract"),
         ("RankAgentQA", "RankAgent"),
     ]
     for agent_name, base_agent in qa_agents:
@@ -149,13 +146,6 @@ def extract_lmstudio_models(
             provider = agent_models.get(f"{agent_name}_provider", "lmstudio")
             if provider and provider.lower().strip() == "lmstudio":
                 models_to_load.add(model.strip())
-
-    # OS Detection fallback
-    fallback_model = agent_models.get("OSDetectionAgent_fallback")
-    if fallback_model and isinstance(fallback_model, str) and fallback_model.strip():
-        provider = agent_models.get("OSDetectionAgent_fallback_provider", "lmstudio")
-        if provider and provider.lower().strip() == "lmstudio":
-            models_to_load.add(fallback_model.strip())
 
     return models_to_load
 

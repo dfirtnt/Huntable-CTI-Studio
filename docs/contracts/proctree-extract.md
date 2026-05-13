@@ -16,6 +16,18 @@ Extract explicit Windows parent/child process creation pairs observed in attacke
 Output feeds Sigma rule generation targeting logsource category: process_creation
 (Sysmon Event ID 1 ParentImage/Image and Windows Security Event ID 4688).
 
+## ATTENTION PREPROCESSOR
+
+Before this prompt is sent, `proc_tree_attention_preprocessor.py` scans the article and
+prepends a `=== HIGH-LIKELIHOOD PROCESS TREE SNIPPETS ===` block containing the regions
+most likely to contain process lineage (Sysmon fields, tree glyphs, spawn patterns).
+The full article is always included. This is attention shaping only -- the LLM extracts
+from both the snippets and the full article.
+
+- **Config flag**: `proc_tree_attention_preprocessor_enabled` (default: true)
+- **HARD CONTRACT**: `full_article` bytes are never modified by the preprocessor.
+- **Feature doc**: [ProcTree Preprocessor](../features/proctree-preprocessor.md)
+
 ## ARCHITECTURE CONTEXT
 
 You are a sub-agent of ExtractAgent. Sibling extractors:

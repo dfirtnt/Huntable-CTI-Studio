@@ -13,10 +13,9 @@ import math
 import os
 import re
 import subprocess
-from collections.abc import Callable
 from datetime import datetime
 from email.utils import parsedate_to_datetime
-from typing import Any, NamedTuple
+from typing import Any
 
 import httpx
 
@@ -67,7 +66,6 @@ _TRACEABILITY_VALUE_FIELD = "value"
 _SYSTEM_HARD_FAIL: list[tuple[str, str]] = []
 _SYSTEM_WARN_ONLY: list[tuple[str, str]] = [
     ("LITERAL TEXT EXTRACTOR", "ROLE block (sec 1)"),
-    ("sub-agent of ExtractAgent", "ARCHITECTURE CONTEXT (sec 3)"),
     ("Do NOT use prior knowledge", "INPUT CONTRACT (sec 4)"),
     ("Do NOT fetch", "INPUT CONTRACT fetch rule (sec 4)"),
     ("[ ]", "VERIFICATION CHECKLIST (sec 12)"),
@@ -80,198 +78,10 @@ _INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# QA corrections dispatch
-# ---------------------------------------------------------------------------
-
-
-class _QaAgentSpec(NamedTuple):
-    """Per-agent spec for applying QA corrections.
-
-    items_key:    Key in last_result that holds the items list.
-    matcher:      Returns True when a removal entry matches an item.
-    removal_id:   Converts a removal entry to its stored representation.
-                  Returns str for simple agents (CmdlineExtract, HuntQueriesExtract)
-                  and dict (the full removal entry, including reason) for structured
-                  agents (Registry/ProcTree/Services/ScheduledTasks). Intentionally
-                  inhomogeneous -- no current consumer reads the list type-sensitively.
-    """
-
-    items_key: str
-    matcher: "Callable[[dict, dict], bool]"
-    removal_id: "Callable[[dict], Any]"
-
-
-def _value_matcher(removal_key: str) -> "Callable[[dict, dict], bool]":
-    """Match a single removal field against item.value (CmdlineExtract, HuntQueriesExtract)."""
-
-    def _match(removal: dict, item: dict) -> bool:
-        r = (removal.get(removal_key) or "").strip()
-        v = (item.get("value") or "").strip() if isinstance(item, dict) else str(item).strip()
-        return bool(r) and r == v
-
-    return _match
-
-
-_REGISTRY_HIVE_ALIASES: dict[str, str] = {
-    "hklm": "hkey_local_machine",
-    "hkcu": "hkey_current_user",
-    "hkcr": "hkey_classes_root",
-    "hku": "hkey_users",
-}
-
-
-def _norm_field(value: str, field_name: str) -> str:
-    """Normalize a field value for comparison; expands registry hive abbreviations."""
-    v = value.strip().lower()
-    if field_name == "registry_hive":
-        return _REGISTRY_HIVE_ALIASES.get(v, v)
-    return v
-
-
-def _composite_matcher(field_pairs: list[tuple[str, str]]) -> "Callable[[dict, dict], bool]":
-    """Match a removal entry against an item using multiple identity fields.
-
-    At least one field must be non-empty in the removal, and all non-empty
-    removal fields must match the corresponding item field (case-insensitive).
-    Registry hive abbreviations (HKLM, HKCU, etc.) are expanded before comparison.
-    """
-
-    def _match(removal: dict, item: dict) -> bool:
-        if not isinstance(item, dict):
-            return False
-        active = [(rf, itf) for rf, itf in field_pairs if (removal.get(rf) or "").strip()]
-        if not active:
-            return False
-        return all(
-            _norm_field((removal.get(rf) or ""), rf) == _norm_field((item.get(itf) or ""), itf) for rf, itf in active
-        )
-
-    return _match
-
-
-def _first_nonempty_matcher(fields: list[str]) -> "Callable[[dict, dict], bool]":
-    """Match using the first non-empty identity field in the removal entry.
-
-    Used by ScheduledTasksExtract where identity is whichever of
-    task_name / task_path / store_path is non-null.
-    """
-
-    def _match(removal: dict, item: dict) -> bool:
-        if not isinstance(item, dict):
-            return False
-        for field in fields:
-            r = (removal.get(field) or "").strip()
-            if r:
-                return r.lower() == (item.get(field) or "").strip().lower()
-        return False
-
-    return _match
-
-
-# Map agent names to their QA-corrections spec.
-# items_key reflects the key in last_result AFTER the rename step
-# (registry_artifacts / process_lineage / windows_services / scheduled_tasks
-# are all renamed to "items" before QA runs; queries and cmdline_items stay).
-_QA_AGENT_SPECS: dict[str, _QaAgentSpec] = {
-    "CmdlineExtract": _QaAgentSpec(
-        "cmdline_items",
-        _value_matcher("command"),
-        lambda r: (r.get("command") or "").strip(),
-    ),
-    "HuntQueriesExtract": _QaAgentSpec(
-        "queries",
-        _value_matcher("query"),
-        lambda r: (r.get("query") or "").strip(),
-    ),
-    "RegistryExtract": _QaAgentSpec(
-        "items",
-        _composite_matcher(
-            [
-                ("registry_hive", "registry_hive"),
-                ("registry_key_path", "registry_key_path"),
-                ("registry_value_name", "registry_value_name"),
-            ]
-        ),
-        lambda r: r,
-    ),
-    "ProcTreeExtract": _QaAgentSpec(
-        "items",
-        _composite_matcher(
-            [
-                ("parent", "parent"),
-                ("child", "child"),
-            ]
-        ),
-        lambda r: r,
-    ),
-    "ServicesExtract": _QaAgentSpec(
-        "items",
-        _composite_matcher(
-            [
-                ("service_name", "service_name"),
-                ("binary_path", "binary_path"),
-            ]
-        ),
-        lambda r: r,
-    ),
-    "ScheduledTasksExtract": _QaAgentSpec(
-        "items",
-        _first_nonempty_matcher(["task_name", "task_path", "store_path"]),
-        lambda r: r,
-    ),
-}
-
 
 class PromptConfigValidationError(ValueError):
     """Raised when prompt config violates hard-fail contract requirements."""
 
-
-def _validate_qa_prompt_config(agent_name: str, qa_prompt_config: dict[str, Any]) -> None:
-    """Validate a QA agent prompt config before the QA retry loop.
-
-    Called once when qa_prompt_config is provided, so a misconfigured QA prompt aborts
-    cleanly rather than silently falling back to defaults mid-run.
-
-    Hard-fail rules (structural -- config is unusable without these):
-      - system/role key: REQUIRED, non-empty
-      - instructions key: REQUIRED, non-empty
-      - evaluation_criteria key: REQUIRED, must be a non-empty list
-
-    Warn-only rules (text-pattern checks):
-      - objective: present (falls back to a generic string if absent, but should be set)
-    """
-    qa_system = (qa_prompt_config.get("system") or qa_prompt_config.get("role") or "").strip()
-    if not qa_system:
-        raise PromptConfigValidationError(
-            f"{agent_name} QA: prompt_config missing required 'system'/'role' key. "
-            "The QA agent needs a non-empty system prompt to function."
-        )
-
-    instructions = (qa_prompt_config.get("instructions") or "").strip()
-    if not instructions:
-        raise PromptConfigValidationError(
-            f"{agent_name} QA: prompt_config missing required 'instructions' key. "
-            "Without instructions the QA agent has no evaluation directive."
-        )
-
-    criteria = qa_prompt_config.get("evaluation_criteria")
-    if not criteria:
-        raise PromptConfigValidationError(
-            f"{agent_name} QA: prompt_config missing required 'evaluation_criteria' key (must be non-empty list). "
-            "The QA retry loop uses evaluation_criteria to build the grading rubric."
-        )
-    if not isinstance(criteria, list):
-        raise PromptConfigValidationError(
-            f"{agent_name} QA: 'evaluation_criteria' must be a list, got {type(criteria).__name__}."
-        )
-
-    if not qa_prompt_config.get("objective"):
-        logger.warning(
-            "%s QA: prompt_config missing 'objective' -- will fall back to generic 'Verify extraction.' string. "
-            "Add an explicit objective for clearer QA behaviour.",
-            agent_name,
-        )
 
 
 def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str, Any]) -> None:
@@ -392,6 +202,57 @@ def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str,
             )
 
 
+def _parse_rank_prompt(prompt_template: str) -> tuple[str, str | None]:
+    """Resolve RankAgent's user-message template and optional system override.
+
+    The DB stores RankAgent prompts in several historical shapes:
+      * Locked scaffold JSON: {"role": ..., "user_template": ...}
+      * Legacy simple JSON:   {"system": ..., "user": ...}
+      * Generic JSON:         {"prompt": ..., ...}
+      * Raw text:             template string with {title}/{content} placeholders
+
+    Returns (user_template_str, system_override_or_None).  Raises
+    PreprocessInvariantError if the input parses as JSON but yields no
+    usable system override -- a misconfigured prompt that would otherwise
+    silently fall back to empty.
+
+    KNOWN LIMITATION (shape-5 / auto-persist): if prompt_template is a plain
+    persona string with no {title}/{content} placeholders (the auto-persist
+    UI path produces this), it is returned as-is and the caller's .format()
+    becomes a no-op, dropping the article from the user message.  The fix is
+    to stop generating shape-5 at the UI write side; this helper preserves
+    backwards compatibility until that lands.
+    """
+    user_template_str = prompt_template
+    system_override: str | None = None
+    is_json_prompt = False
+    try:
+        parsed_prompt = json.loads(prompt_template)
+        if isinstance(parsed_prompt, dict):
+            is_json_prompt = True
+            user_template = (
+                parsed_prompt.get("user")
+                or parsed_prompt.get("user_template")
+                or parsed_prompt.get("prompt")
+                or ""
+            )
+            system_override = parsed_prompt.get("system") or parsed_prompt.get("role") or None
+            if user_template:
+                user_template_str = user_template
+            elif system_override:
+                user_template_str = system_override
+    except json.JSONDecodeError:
+        pass
+
+    if is_json_prompt and not system_override:
+        raise PreprocessInvariantError(
+            "RankAgent prompt resolved to an empty system message. "
+            "Ensure the prompt config contains a non-empty 'system' or 'role' key."
+        )
+
+    return user_template_str, system_override
+
+
 def _validate_preprocess_invariants(
     messages: list[dict[str, Any]],
     *,
@@ -480,6 +341,17 @@ WORKFLOW_PROVIDER_APPSETTING_KEYS = {
     "lmstudio_enabled": "WORKFLOW_LMSTUDIO_ENABLED",
 }
 
+LMSTUDIO_APPSETTING_KEYS = (
+    "LMSTUDIO_MODEL",
+    "LMSTUDIO_MODEL_RANK",
+    "LMSTUDIO_MODEL_EXTRACT",
+    "LMSTUDIO_MODEL_SIGMA",
+    "LMSTUDIO_EMBEDDING_MODEL",
+    "LMSTUDIO_TEMPERATURE",
+    "LMSTUDIO_TOP_P",
+    "LMSTUDIO_SEED",
+)
+
 
 class LLMService:
     """Service for LLM API calls using Deepseek-R1 via LMStudio."""
@@ -499,16 +371,19 @@ class LLMService:
         self.assumed_lmstudio_context_tokens = int(os.getenv("WORKFLOW_LMSTUDIO_CONTEXT_TOKENS", "16384"))
         self.assumed_cloud_context_tokens = int(os.getenv("WORKFLOW_CLOUD_CONTEXT_TOKENS", "80000"))
 
-        # Default model (fallback for backward compatibility)
-        default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
-
         # Per-operation model configuration
-        # Priority: config_models > environment variables > default
+        # Priority: config_models > AppSettings DB > environment variables > default
         config_models = config_models or {}
 
-        self.lmstudio_model = default_model  # Keep for backward compatibility
-
         workflow_settings = self._load_workflow_provider_settings()
+        lmstudio_db = self._load_lmstudio_settings()
+
+        # Default model: AppSettings DB > env > hardcoded default
+        default_model = (
+            lmstudio_db.get("LMSTUDIO_MODEL")
+            or os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+        )
+        self.lmstudio_model = default_model  # Keep for backward compatibility
         # Prefer AppSettings, fall back to env; if a key exists, default enable unless explicitly false
         self.openai_api_key = (
             workflow_settings.get(WORKFLOW_PROVIDER_APPSETTING_KEYS["openai_api_key"])
@@ -557,14 +432,14 @@ class LLMService:
         self.provider_sigma = self._canonicalize_provider(config_models.get("SigmaAgent_provider") or "")
 
         rank_override = (config_models.get("RankAgent") or "").strip()
-        rank_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
+        rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK", "")).strip()
         self.model_rank = self._resolve_agent_model(
             "RankAgent", rank_override, rank_env, self.provider_rank, default_model
         )
         self.model_extract = self._resolve_agent_model(
             "ExtractAgent",
             (config_models.get("ExtractAgent") or "").strip(),
-            os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_EXTRACT") or os.getenv("LMSTUDIO_MODEL_EXTRACT", "")).strip(),
             self.provider_extract,
             default_model,
             require_specific_model=False,
@@ -572,7 +447,7 @@ class LLMService:
         self.model_sigma = self._resolve_agent_model(
             "SigmaAgent",
             (config_models.get("SigmaAgent") or "").strip(),
-            os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip(),
+            (lmstudio_db.get("LMSTUDIO_MODEL_SIGMA") or os.getenv("LMSTUDIO_MODEL_SIGMA", "")).strip(),
             self.provider_sigma,
             default_model=default_model,
             require_specific_model=False,
@@ -581,38 +456,26 @@ class LLMService:
         # Detect if model requires system message conversion (Mistral models don't support system role)
         self._needs_system_conversion = self._model_needs_system_conversion(default_model)
 
-        # Recommended settings for reasoning models (temperature/top_p work well for structured output)
-        # Temperature 0.0 for deterministic scoring
-        self.temperature = float(os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
+        # Temperature: AppSettings DB > env > default 0.0
+        _temp_str = lmstudio_db.get("LMSTUDIO_TEMPERATURE") or os.getenv("LMSTUDIO_TEMPERATURE", "0.0")
+        self.temperature = float(_temp_str)
+        self.temperature_rank = float(config_models.get("RankAgent_temperature") or _temp_str)
+        self.temperature_sigma = float(config_models.get("SigmaAgent_temperature") or _temp_str)
 
-        # Per-agent temperature settings (from config, fallback to global)
-        self.temperature_rank = float(
-            config_models.get("RankAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
-        )
-        self.temperature_sigma = float(
-            config_models.get("SigmaAgent_temperature", os.getenv("LMSTUDIO_TEMPERATURE", "0.0"))
-        )
-
-        self.top_p = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
-
-        # Per-agent top_p settings (from config, fallback to global)
-        # Handle both string and numeric values from JSONB
+        # Top-P: AppSettings DB > env > default 0.9
+        _top_p_str = lmstudio_db.get("LMSTUDIO_TOP_P") or os.getenv("LMSTUDIO_TOP_P", "0.9")
+        self.top_p = float(_top_p_str)
         rank_top_p_raw = config_models.get("RankAgent_top_p") if config_models else None
-        if rank_top_p_raw is not None:
-            self.top_p_rank = float(rank_top_p_raw)
-        else:
-            self.top_p_rank = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
-
+        self.top_p_rank = float(rank_top_p_raw) if rank_top_p_raw is not None else float(_top_p_str)
         sigma_top_p_raw = config_models.get("SigmaAgent_top_p") if config_models else None
-        if sigma_top_p_raw is not None:
-            self.top_p_sigma = float(sigma_top_p_raw)
-        else:
-            self.top_p_sigma = float(os.getenv("LMSTUDIO_TOP_P", "0.9"))
+        self.top_p_sigma = float(sigma_top_p_raw) if sigma_top_p_raw is not None else float(_top_p_str)
 
         # Store config_models for per-subagent top_p lookup
         self.config_models = config_models if config_models else {}
 
-        self.seed = int(os.getenv("LMSTUDIO_SEED", "42")) if os.getenv("LMSTUDIO_SEED") else None
+        # Seed: AppSettings DB > env > default None
+        _seed_str = lmstudio_db.get("LMSTUDIO_SEED") or os.getenv("LMSTUDIO_SEED")
+        self.seed = int(_seed_str) if _seed_str else None
 
         model_source = "config" if config_models else "environment"
         logger.info(
@@ -661,6 +524,28 @@ class LLMService:
                 "Workers read keys from DB; ensure Settings are saved.",
                 exc,
             )
+        finally:
+            if db_session:
+                db_session.close()
+        return settings
+
+    def _load_lmstudio_settings(self) -> dict[str, str | None]:
+        """Load LM Studio model/tuning settings from AppSettings DB. Empty strings are excluded."""
+        settings: dict[str, str | None] = {}
+        db_session = None
+        try:
+            from src.database.manager import DatabaseManager
+            from src.database.models import AppSettingsTable
+
+            db_manager = DatabaseManager()
+            db_session = db_manager.get_session()
+            for row in db_session.query(AppSettingsTable).filter(
+                AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)
+            ):
+                if row.value is not None and row.value.strip():
+                    settings[row.key] = row.value.strip()
+        except Exception as exc:
+            logger.warning("Unable to load LM Studio settings from AppSettings: %s", exc)
         finally:
             if db_session:
                 db_session.close()
@@ -1672,6 +1557,22 @@ class LLMService:
                     last_error_detail = f"Status {response.status_code}: {error_message}"
                     logger.error(f"LMStudio at {lmstudio_url} returned {response.status_code}: {error_message}")
 
+                    # 5xx: surface Channel Error and similar inference failures immediately
+                    if response.status_code >= 500:
+                        error_lower_5xx = error_message.lower()
+                        if "channel error" in error_lower_5xx:
+                            with contextlib.suppress(Exception):
+                                await client.aclose()
+                            raise RuntimeError(
+                                f"{failure_context}: LMStudio inference failed with Channel Error for model "
+                                f"'{model_name}'. This usually means the model crashed mid-inference, ran out "
+                                f"of VRAM, or the configured context window was too small. "
+                                f"Check the LMStudio Developer console and try reducing input size or "
+                                f"increasing the context window."
+                            )
+                        if idx < len(lmstudio_urls) - 1:
+                            continue
+
                     # For 400 errors, check if it's a model name issue and retry with different format
                     if response.status_code == 400:
                         error_lower = error_message.lower()
@@ -1713,19 +1614,23 @@ class LLMService:
                         with contextlib.suppress(Exception):
                             await client.aclose()
 
-                        # Check for common errors that indicate LMStudio isn't ready
-                        if (
-                            "context length" in error_lower
-                            or (
-                                "model" in error_lower
-                                and "not loaded" in error_lower
-                                and "invalid model identifier" not in error_lower
-                            )
-                            or "no model" in error_lower
-                        ):
+                        # Context window exceeded -- model is ready but request is too large
+                        if "context length" in error_lower or "context window" in error_lower:
                             raise RuntimeError(
-                                f"{failure_context}: LMStudio is not ready. "
-                                f"Please ensure LMStudio is running and a model is loaded."
+                                f"{failure_context}: Context window exceeded for model '{model_name}'. "
+                                f"The request is too large for the configured context length. "
+                                f"Increase the context window in LMStudio or reduce input size."
+                            )
+
+                        # Model not loaded
+                        if (
+                            "model" in error_lower
+                            and "not loaded" in error_lower
+                            and "invalid model identifier" not in error_lower
+                        ) or "no model" in error_lower:
+                            raise RuntimeError(
+                                f"{failure_context}: LMStudio model '{model_name}' is not loaded. "
+                                f"Please ensure the model is loaded in LMStudio."
                             )
 
                         raise RuntimeError(
@@ -1790,6 +1695,7 @@ class LLMService:
         url: str,
         _prompt_template_path: str | None = None,
         prompt_template: str | None = None,
+        system_override: str | None = None,
         execution_id: int | None = None,
         article_id: int | None = None,
         qa_feedback: str | None = None,
@@ -1805,42 +1711,27 @@ class LLMService:
             source: Article source name
             url: Article URL
             _prompt_template_path: Unused; prompt_template from workflow config is required
-            prompt_template: Optional prompt template string (required from workflow config)
+            prompt_template: Optional user-message template; falls back to
+                src/prompts/rank_article.txt if None.
+            system_override: Optional system persona; takes precedence over any
+                system extracted from prompt_template's JSON wrapper.
             ground_truth_rank: Optional 1-10 ground truth rank to log to Langfuse
             ground_truth_details: Optional dict of source scores/rounding used for ground truth
 
         Returns:
             Dict with 'score' (1-10 float) and 'reasoning' (str)
         """
-        # Use provided prompt template only (no file fallback)
-        if not prompt_template:
-            raise ValueError(
-                "RankAgent prompt_template must be provided from workflow config. No file fallback available."
-            )
+        # Resolve template: explicit > file fallback
+        if prompt_template:
+            prompt_template_str, embedded_system = _parse_rank_prompt(prompt_template)
+        else:
+            from src.utils.prompt_loader import load_prompt_async
 
-        prompt_template_str = prompt_template
-        system_override = None
-        is_json_prompt = False
-        try:
-            parsed_prompt = json.loads(prompt_template_str)
-            if isinstance(parsed_prompt, dict):
-                is_json_prompt = True
-                user_template = (
-                    parsed_prompt.get("user") or parsed_prompt.get("user_template") or parsed_prompt.get("prompt") or ""
-                )
-                system_override = parsed_prompt.get("system") or parsed_prompt.get("role") or None
-                if user_template:
-                    prompt_template_str = user_template
-                elif system_override:
-                    prompt_template_str = system_override
-        except json.JSONDecodeError:
-            pass
+            prompt_template_str = await load_prompt_async("rank_article")
+            embedded_system = None
 
-        if is_json_prompt and not system_override:
-            raise PreprocessInvariantError(
-                "RankAgent prompt resolved to an empty system message. "
-                "Ensure the prompt config contains a non-empty 'system' or 'role' key."
-            )
+        # Caller-supplied system override takes precedence over any embedded one.
+        system_override = system_override or embedded_system
 
         logger.info(f"Using RankAgent prompt from workflow config (length: {len(prompt_template_str)} chars)")
 
@@ -2185,18 +2076,19 @@ class LLMService:
         title: str,
         url: str,
         prompt_config: dict[str, Any],
-        qa_prompt_config: dict[str, Any] | None = None,
         max_extraction_retries: int = 5,
         execution_id: int | None = None,
+        article_id: int | None = None,
         model_name: str | None = None,
         temperature: float = 0.0,
         top_p: float | None = None,
-        qa_model_override: str | None = None,
         provider: str | None = None,
         attention_preprocessor_enabled: bool = True,
+        proc_tree_attention_preprocessor_enabled: bool = True,
+        langfuse_session_id: str | None = None,
     ) -> dict[str, Any]:
         """
-        Run a generic extraction agent with optional QA loop.
+        Run a generic extraction agent.
 
         Args:
             agent_name: Name of the sub-agent (e.g. "CmdlineExtract")
@@ -2204,8 +2096,7 @@ class LLMService:
             title: Article title
             url: Article URL
             prompt_config: Extraction prompt configuration
-            qa_prompt_config: QA prompt configuration (optional)
-            max_extraction_retries: Max retries on extraction exceptions/timeouts (QA runs exactly once per attempt)
+            max_extraction_retries: Max retries on extraction exceptions/timeouts
             provider: LLM provider to use (e.g. "lmstudio", "openai", "anthropic").
                      If None, uses self.provider_extract (from ExtractAgent_provider)
 
@@ -2213,7 +2104,7 @@ class LLMService:
             Dict with extraction results
         """
         logger.info(
-            f"Running extraction agent {agent_name} (QA enabled: {bool(qa_prompt_config)}, provider={provider}, model_name={model_name})"
+            f"Running extraction agent {agent_name} (provider={provider}, model_name={model_name})"
         )
 
         # Validate content is not empty
@@ -2231,7 +2122,6 @@ class LLMService:
         logger.debug(f"{agent_name} prompt_config keys: {list(prompt_config.keys())}")
 
         current_try = 0
-        feedback = ""
         last_result = {"items": [], "count": 0}
 
         # Determine model to use
@@ -2285,6 +2175,17 @@ class LLMService:
                             f"{agent_name} could not determine LMStudio context length for {model_name}: {e}"
                         )
 
+                # Estimate actual static prompt overhead from the live prompt_config.
+                # PROMPT_OVERHEAD_TOKENS (500) underestimates prompts with long instructions
+                # (e.g. CmdlineExtract ~1500 tokens static overhead). Computing from the
+                # actual config fields prevents context overflow on small LM Studio models.
+                _static_prompt_overhead = (
+                    self._estimate_tokens(prompt_config.get("system") or prompt_config.get("role", ""))
+                    + self._estimate_tokens(prompt_config.get("instructions", ""))
+                    + self._estimate_tokens(str(prompt_config.get("json_example") or ""))
+                    + 200  # scaffold buffer: title, url, task line, format labels, traceability footer
+                )
+
                 # CmdlineExtract: optional attention preprocessor (snippets first, then full article)
                 snippet_count: int | None = None
                 if agent_name == "CmdlineExtract" and attention_preprocessor_enabled:
@@ -2335,9 +2236,77 @@ class LLMService:
                     full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
                     combined_prefix = snippets_header + snippets_section + full_header
 
-                    # Reserve: snippets + 256 token overhead + template + output
+                    # Reserve: snippets + static prompt overhead + output + buffer
                     snippet_tokens = self._estimate_tokens(combined_prefix)
-                    overhead_tokens = 256 + PROMPT_OVERHEAD_TOKENS + 1000
+                    overhead_tokens = _static_prompt_overhead + 1000 + 256  # 1000 output, 256 extra buffer
+                    available_for_article = max(0, context_limit_tokens - snippet_tokens - overhead_tokens)
+                    available_for_article = int(available_for_article * 0.9)  # safety margin
+
+                    article_tokens = self._estimate_tokens(full_article)
+                    if article_tokens <= available_for_article:
+                        truncated_article = full_article
+                    else:
+                        max_chars = available_for_article * 4
+                        truncated_article = full_article[:max_chars]
+                        last_boundary = max(truncated_article.rfind("."), truncated_article.rfind("\n"))
+                        if last_boundary > max_chars * 0.8:
+                            truncated_article = truncated_article[: last_boundary + 1]
+                        truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
+
+                    truncated_content = combined_prefix + truncated_article
+
+                # ProcTreeExtract: optional attention preprocessor (process lineage snippets)
+                elif agent_name == "ProcTreeExtract" and proc_tree_attention_preprocessor_enabled:
+                    from src.services.proc_tree_attention_preprocessor import (
+                        process as preprocess_proc_tree_attention,
+                    )
+
+                    preprocess_result = preprocess_proc_tree_attention(content, agent_name=agent_name)
+                    snippets = preprocess_result.get("high_likelihood_snippets", [])
+                    snippet_count = len(snippets)
+                    full_article = preprocess_result.get("full_article", content)
+                    logger.debug(
+                        f"ProcTree attention preprocessor enabled: True. Snippets found: {snippet_count}"
+                    )
+
+                    # Cheap mechanical invariant: byte-preserving preprocessor must not alter newline count
+                    orig_nl = content.count("\n")
+                    prep_nl = full_article.count("\n")
+                    if abs(prep_nl - orig_nl) > 1:
+                        raise PreprocessInvariantError(
+                            f"{agent_name}: newline count mismatch (preprocessed={prep_nl}, original={orig_nl})",
+                            debug_artifacts={
+                                "agent_name": agent_name,
+                                "content_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                                "attention_preprocessor_enabled": True,
+                                "execution_id": execution_id,
+                                "orig_newline_count": orig_nl,
+                                "prep_newline_count": prep_nl,
+                            },
+                        )
+
+                    # Cap snippets to 25% of context budget (tokens) before joining.
+                    if snippets:
+                        max_snippet_tokens = int(context_limit_tokens * 0.25)
+                        kept: list[str] = []
+                        budget = max_snippet_tokens
+                        for s in snippets:
+                            cost = self._estimate_tokens(s) + 2  # +2 for separator
+                            if cost > budget:
+                                break
+                            kept.append(s)
+                            budget -= cost
+                        snippets = kept or snippets[:1]  # always keep at least one
+                        snippet_count = len(snippets)
+
+                    snippets_section = "\n\n".join(snippets) if snippets else ""
+                    snippets_header = "=== HIGH-LIKELIHOOD PROCESS LINEAGE SNIPPETS ===\n"
+                    full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
+                    combined_prefix = snippets_header + snippets_section + full_header
+
+                    # Reserve: snippets + static prompt overhead + output + buffer
+                    snippet_tokens = self._estimate_tokens(combined_prefix)
+                    overhead_tokens = _static_prompt_overhead + 1000 + 256  # 1000 output, 256 extra buffer
                     available_for_article = max(0, context_limit_tokens - snippet_tokens - overhead_tokens)
                     available_for_article = int(available_for_article * 0.9)  # safety margin
 
@@ -2354,7 +2323,9 @@ class LLMService:
 
                     truncated_content = combined_prefix + truncated_article
                 else:
-                    truncated_content = self._truncate_content(content, context_limit_tokens, 1000)
+                    truncated_content = self._truncate_content(
+                        content, context_limit_tokens, 1000, prompt_overhead=_static_prompt_overhead
+                    )
 
                 logger.info(
                     f"{agent_name} prompt construction: content_length={len(content)}, "
@@ -2365,7 +2336,8 @@ class LLMService:
                 # Legacy format - build prompt from individual fields.
                 # The extractor/QA scaffold is fixed in runtime; UI edits only affect
                 # the editable prompt fields (role/objective, instructions, examples).
-                task = prompt_config.get("objective", "Extract information.")
+                # Check "objective" first (legacy key), then "task" (new envelope key).
+                task = prompt_config.get("objective") or prompt_config.get("task", "Extract information.")
                 instructions = prompt_config.get("instructions", "Output valid JSON.")
                 output_format = json.dumps(prompt_config.get("output_format", {}), indent=2)
                 json_example = prompt_config.get("json_example")
@@ -2438,8 +2410,6 @@ Every item in the output array MUST be an object (not a plain string)."""
                     )
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
-                if feedback:
-                    user_prompt = f"PREVIOUS FEEDBACK (FIX THESE ISSUES):\n{feedback}\n\n" + user_prompt
                 # Minimal user prefix when preset uses "user" (bulk in system, minimal in user)
                 user_prefix = (prompt_config.get("user") or "").strip()
                 if user_prefix:
@@ -2468,24 +2438,31 @@ Every item in the output array MUST be an object (not a plain string)."""
                 is_reasoning_model = "r1" in model_name.lower() or "reasoning" in model_name.lower()
                 extraction_timeout = 600.0 if is_reasoning_model else 180.0
 
-                # Build Langfuse metadata (include preprocessor info for CmdlineExtract)
+                # Build Langfuse metadata. All extractors emit attention_preprocessor_enabled
+                # (False for extractors without a preprocessor) so trace schemas line up in
+                # Langfuse filters and dashboards.
+                _preprocessor_flag_by_agent = {
+                    "CmdlineExtract": attention_preprocessor_enabled,
+                    "ProcTreeExtract": proc_tree_attention_preprocessor_enabled,
+                }
                 trace_metadata: dict[str, Any] = {
                     "agent_name": agent_name,
                     "attempt": current_try,
                     "prompt_length": len(user_prompt),
                     "title": title,
                     "messages": messages,  # Include messages for input display
+                    "attention_preprocessor_enabled": _preprocessor_flag_by_agent.get(agent_name, False),
                 }
-                if agent_name == "CmdlineExtract":
-                    trace_metadata["attention_preprocessor_enabled"] = attention_preprocessor_enabled
-                    if snippet_count is not None:
-                        trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
+                if agent_name in _preprocessor_flag_by_agent and snippet_count is not None:
+                    trace_metadata["attention_preprocessor_snippet_count"] = snippet_count
 
                 # Trace LLM call with Langfuse (each sub-agent gets its own trace)
                 with trace_llm_call(
                     name=f"{agent_name.lower()}_extraction",
                     model=model_name,
                     execution_id=execution_id,
+                    article_id=article_id,
+                    session_id=langfuse_session_id,
                     metadata=trace_metadata,
                 ) as generation:
                     logger.info(
@@ -2861,307 +2838,18 @@ Every item in the output array MUST be an object (not a plain string)."""
                     last_result["_llm_messages"] = messages
                     last_result["_llm_response"] = response_text
                     last_result["_llm_attempt"] = current_try
-                    # CmdlineExtract: surface preprocessor info for trace UI / Langfuse
+                    # CmdlineExtract / ProcTreeExtract: surface preprocessor info for trace UI / Langfuse
                     if agent_name == "CmdlineExtract":
                         last_result["_attention_preprocessor"] = {
                             "enabled": attention_preprocessor_enabled,
                             "snippet_count": snippet_count if snippet_count is not None else 0,
                         }
-
-                # If no QA config, return immediately
-                if not qa_prompt_config:
-                    return last_result
-
-                # 2. Run QA -- validate config once on first attempt
-                if current_try == 1:
-                    _validate_qa_prompt_config(agent_name, qa_prompt_config)
-
-                qa_task = qa_prompt_config.get("objective", "Verify extraction.")
-                qa_criteria = qa_prompt_config.get("evaluation_criteria", [])
-                qa_criteria_json = json.dumps(qa_criteria, indent=2)
-                qa_criteria_text = (
-                    "\n".join([f"- {criterion}" for criterion in qa_criteria])
-                    if isinstance(qa_criteria, list)
-                    else qa_criteria_json
-                )
-
-                qa_model_to_use = qa_model_override or model_name
-
-                # Handle different extraction result formats
-                if "cmdline_items" in last_result:
-                    cmdline_items = last_result.get("cmdline_items", [])
-                    if cmdline_items:
-                        extracted_commands_text = "\n".join(
-                            [
-                                f"{i + 1}. {cmd.get('value', cmd) if isinstance(cmd, dict) else cmd}"
-                                for i, cmd in enumerate(cmdline_items)
-                            ]
-                        )
-                    else:
-                        extracted_commands_text = "No commands extracted."
-                elif "items" in last_result:
-                    items = last_result.get("items", [])
-                    if items:
-                        extracted_commands_text = "\n".join([f"{i + 1}. {item}" for i, item in enumerate(items)])
-                    else:
-                        extracted_commands_text = "No items extracted."
-                else:
-                    # Fallback: format entire result as JSON
-                    extracted_commands_text = json.dumps(last_result, indent=2)
-
-                qa_prompt = f"""Task: {qa_task}
-
-Article Title: {title}
-Article URL: {url}
-
-Original Extraction Task: {task}
-
-Original Extraction Instructions:
-{instructions}
-
-Original Extraction Output Format:
-{output_format}{json_example_str}
-
-Source Text:
-{truncated_content}
-
-Extracted Data:
-{json.dumps(last_result, indent=2)}
-
-Evaluation Criteria:
-{qa_criteria_json}
-
-Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")}
-"""
-                logger.debug(f"{agent_name} QA using legacy programmatic format (len={len(qa_prompt)} chars)")
-
-                qa_system = (qa_prompt_config.get("system") or qa_prompt_config.get("role") or "").strip()
-                if not qa_system:
-                    raise PreprocessInvariantError(
-                        f"{agent_name} QA prompt resolved to an empty system message. "
-                        "Ensure the QA prompt config contains a non-empty 'system' or 'role' key."
-                    )
-                qa_user_content = (qa_prompt_config.get("user") or "").strip()
-                if qa_user_content:
-                    qa_prompt = f"{qa_user_content}\n\n{qa_prompt}"
-                qa_messages = [
-                    {"role": "system", "content": qa_system},
-                    {"role": "user", "content": qa_prompt},
-                ]
-
-                # Delegate LLM call, parsing, and normalization to QAEvaluator
-                from src.services.qa_evaluator import QAEvaluator
-
-                _qa_eval = await QAEvaluator(self).evaluate(
-                    messages=qa_messages,
-                    agent_name=agent_name,
-                    model_name=qa_model_to_use,
-                    provider=self.provider_extract,
-                    temperature=temperature,
-                    seed=self.seed,
-                    max_tokens=1000,
-                    timeout=180.0,
-                    execution_id=execution_id,
-                    attempt=current_try,
-                )
-                qa_result = _qa_eval
-                parsing_failed = _qa_eval.get("parsing_failed", False)
-                parse_error = _qa_eval.get("_parse_error")
-                qa_text = _qa_eval.get("_qa_text", "")
-
-                # QAEvaluator normalizes verdict; status is kept only for backward-compat storage.
-                # The one exception (handled below) is when there are no items to validate at all.
-                status = qa_result.get("verdict", "needs_revision")
-
-                # Extract feedback from QA result (try multiple fields, fallback to raw text if parsing failed)
-                extracted_feedback = ""
-                if not parsing_failed:
-                    extracted_feedback = (
-                        qa_result.get("feedback")
-                        or qa_result.get("qa_corrections_applied")
-                        or qa_result.get("summary")
-                        or ""
-                    )
-                else:
-                    # QA parsing failed - try to extract feedback from raw text
-                    if "feedback" in qa_text.lower() or "issue" in qa_text.lower() or "problem" in qa_text.lower():
-                        feedback_patterns = re.findall(
-                            r"[^.!?]*(?:missing|incorrect|wrong|should|must|need|issue|problem)[^.!?]*[.!?]",
-                            qa_text,
-                            re.IGNORECASE,
-                        )
-                        if feedback_patterns:
-                            extracted_feedback = " ".join(feedback_patterns[:3])
-                        else:
-                            # Fallback: use first 200 chars of QA text as feedback
-                            extracted_feedback = qa_text[:200] if qa_text else ""
-                    else:
-                        extracted_feedback = ""
-
-                # Capture pre-filter count so traces can distinguish "extractor found nothing"
-                # from "extractor found things and QA removed them all".
-                # Defensive: handle the case where the model emits e.g. {"cmdline_items": null}
-                # by treating None as an empty list.
-                _spec = _QA_AGENT_SPECS.get(agent_name)
-                items_key = (
-                    _spec.items_key if _spec else ("cmdline_items" if "cmdline_items" in last_result else "items")
-                )
-                pre_filter_count = len(last_result.get(items_key) or [])
-
-                # If QA parsing failed and there was nothing to validate, return cleanly --
-                # the QA call was effectively a no-op, no need to record a parse-failure verdict.
-                if parsing_failed and pre_filter_count == 0:
-                    logger.info(
-                        f"{agent_name} QA parse failed but extraction returned 0 items; "
-                        f"returning without recording verdict (no-op)."
-                    )
-                    return last_result
-
-                # Apply QA corrections for all extractors that have a spec entry.
-                applied_removals: list = []
-                if (
-                    not parsing_failed
-                    and qa_result
-                    and _spec is not None
-                    and isinstance(qa_result.get("corrections"), dict)
-                ):
-                    removal_entries = [r for r in qa_result["corrections"].get("removed", []) if isinstance(r, dict)]
-                    if removal_entries:
-                        before_items = last_result.get(items_key) or []
-                        after_items = []
-                        actual_removals: list = []
-                        for item in before_items:
-                            matched = any(_spec.matcher(r, item) for r in removal_entries)
-                            if matched:
-                                # Find first matching removal to record identity
-                                for r in removal_entries:
-                                    if _spec.matcher(r, item):
-                                        actual_removals.append(_spec.removal_id(r))
-                                        break
-                            else:
-                                after_items.append(item)
-                        if actual_removals:
-                            last_result[items_key] = after_items
-                            last_result["count"] = len(after_items)
-                            applied_removals = actual_removals
-                            logger.info(
-                                f"{agent_name} QA removed {len(before_items) - len(after_items)} items "
-                                f"(pre={len(before_items)}, post={len(after_items)}). "
-                                f"Removed: {applied_removals}"
-                            )
-
-                # Store QA result in the agent result for later retrieval (always store if QA ran)
-                if qa_prompt_config:  # QA was enabled, so store result even if parsing failed
-                    # verdict is already normalized by QAEvaluator
-                    verdict = qa_result.get("verdict", "needs_revision")
-                    # Keep status for backward-compat in stored _qa_result bundles
-                    qa_status = qa_result.get("status") or verdict
-
-                    # Build display issues list from corrections (read for display only;
-                    # actual filtering already happened above via _QA_AGENT_SPECS dispatch).
-                    _CORRECTION_IDENT_FIELDS = (
-                        "command",
-                        "query",
-                        "registry_key_path",
-                        "registry_value_name",
-                        "service_name",
-                        "task_name",
-                        "task_path",
-                        "parent",
-                        "child",
-                    )
-
-                    def _correction_ident(
-                        entry: dict,
-                        _fields: tuple = _CORRECTION_IDENT_FIELDS,
-                    ) -> str:
-                        for f in _fields:
-                            v = (entry.get(f) or "").strip()
-                            if v:
-                                return v
-                        return ""
-
-                    issues = []
-                    if qa_result and isinstance(qa_result.get("corrections"), dict):
-                        corrections_obj = qa_result["corrections"]
-                        for removed in corrections_obj.get("removed", []):
-                            if not isinstance(removed, dict):
-                                continue
-                            ident = _correction_ident(removed)
-                            reason = removed.get("reason", "")
-                            issues.append(
-                                {
-                                    "type": "compliance",
-                                    "description": f"Removed: {ident} - {reason}",
-                                    "severity": "medium",
-                                }
-                            )
-                        for added in corrections_obj.get("added", []):
-                            if not isinstance(added, dict):
-                                continue
-                            ident = _correction_ident(added)
-                            found = added.get("found_in", "")
-                            issues.append(
-                                {
-                                    "type": "completeness",
-                                    "description": f"Added (not applied): {ident} - Found in: {found}",
-                                    "severity": "low",
-                                }
-                            )
-
-                    # Set appropriate summary based on verdict
-                    # Override any misleading summary when verdict is "pass"
-                    if verdict == "pass":
-                        # If no feedback or feedback indicates failure, use positive message
-                        if (
-                            not extracted_feedback
-                            or "failed" in extracted_feedback.lower()
-                            or "without feedback" in extracted_feedback.lower()
-                        ):
-                            extracted_feedback = "QA passed successfully."
-                    elif not extracted_feedback:
-                        # Only set failure message if no feedback exists
-                        extracted_feedback = "QA failed without feedback."
-
-                    # Always store QA result when QA runs, even if parsing failed
-                    if parsing_failed:
-                        error_description = (
-                            f"QA response parsing failed: {parse_error}"
-                            if parse_error
-                            else "QA response parsing failed"
-                        )
-                        raw_snippet = qa_text[:500] if qa_text else "No response received"
-                        feedback_with_diagnostic = (
-                            extracted_feedback
-                            or f"QA response could not be parsed. Raw response preview: {raw_snippet}"
-                        )
-                        last_result["_qa_result"] = {
-                            "verdict": "needs_revision",
-                            "summary": extracted_feedback or "QA evaluation ran but response parsing failed",
-                            "status": "fail",
-                            "feedback": feedback_with_diagnostic,
-                            "issues": [{"type": "compliance", "description": error_description, "severity": "medium"}],
-                            "corrections_applied": {"removed": []},
-                            "pre_filter_count": pre_filter_count,
-                        }
-                    else:
-                        last_result["_qa_result"] = {
-                            "verdict": verdict,
-                            "summary": extracted_feedback,
-                            "status": qa_status,
-                            "feedback": extracted_feedback,
-                            "issues": issues,
-                            "corrections_applied": {"removed": applied_removals},
-                            "pre_filter_count": pre_filter_count,
+                    if agent_name == "ProcTreeExtract":
+                        last_result["_attention_preprocessor"] = {
+                            "enabled": proc_tree_attention_preprocessor_enabled,
+                            "snippet_count": snippet_count if snippet_count is not None else 0,
                         }
 
-                # After applying corrections (or recording the parse failure),
-                # always return -- extraction QA no longer drives a re-extraction loop.
-                items = last_result.get("cmdline_items") or last_result.get("items") or []
-                logger.info(
-                    f"{agent_name} QA complete on attempt {current_try} (status={status}). "
-                    f"Returning {len(items)} items."
-                )
                 return last_result
 
             except PreprocessInvariantError:
@@ -3189,8 +2877,10 @@ Instructions: {qa_prompt_config.get("instructions", "Evaluate and return JSON.")
                         },
                         "connection_error": "connection" in str(e).lower() or "cannot connect" in str(e).lower(),
                     }
-                feedback = f"Previous attempt failed with error: {str(e)}"
-                # Continue loop
+                # Continue loop with a fresh attempt; we deliberately do not inject the
+                # raw exception text into the next prompt -- transport errors (timeouts,
+                # 5xx, connection drops) are not signal the LLM can act on, and seeding
+                # them as "PREVIOUS FEEDBACK" misleads extraction on the retry.
 
         logger.warning(f"{agent_name} failed all {max_extraction_retries} attempts. Returning last result.")
         return last_result

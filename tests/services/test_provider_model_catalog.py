@@ -62,6 +62,8 @@ class TestLoadCatalog:
                 "gpt-4o-mini",
                 "gpt-4.1",
                 "gpt-4.1-mini",
+                "gpt-4.1-nano",
+                "o3",
                 "o3-mini",
                 "o4-mini",
                 # gpt-5* passes by pattern:
@@ -111,7 +113,6 @@ class TestLoadCatalog:
             "o3-mini-high",
             "o3-mini-low",
             "gpt-4.1-realtime-preview",
-            "gpt-4.1-nano",
             "gpt-4.1-turbo",
             "o4",
             "o1",

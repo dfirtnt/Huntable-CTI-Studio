@@ -248,222 +248,6 @@ class TestLegacyScaffold:
             user_msg = next(m["content"] for m in messages if m["role"] == "user")
             assert "must end with a valid JSON object" in user_msg
 
-    @pytest.mark.asyncio
-    async def test_subagent_qa_scaffold_includes_article_and_extraction_context(self, llm_service):
-        """Sub-agent QA receives article identity and the original extraction contract."""
-        content = "This is a test article about malware.\n" * 50
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.side_effect = [
-                {
-                    "choices": [{"message": {"content": '{"items":[{"value":"cmd.exe /c whoami"}],"count":1}'}}],
-                    "usage": {},
-                },
-                {
-                    "choices": [{"message": {"content": '{"passed": true, "issues": []}'}}],
-                    "usage": {},
-                },
-            ]
-            await llm_service.run_extraction_agent(
-                agent_name="CmdlineExtract",
-                content=content,
-                title="Malware Analysis Report",
-                url="https://example.com/report",
-                prompt_config={
-                    "role": "You are an extractor.",
-                    "objective": "Extract suspicious commands.",
-                    "instructions": "Return only command lines tied to execution evidence.",
-                    "output_format": {"items": [], "count": 0},
-                    "json_example": '{"items":[],"count":0}',
-                },
-                qa_prompt_config={
-                    "role": "You are a QA reviewer.",
-                    "objective": "Review the extracted commands.",
-                    "instructions": "Return JSON with pass/fail findings.",
-                    "evaluation_criteria": ["Check grounding", "Check completeness"],
-                },
-                max_extraction_retries=1,
-            )
-
-            qa_messages = mock_chat.await_args_list[1].kwargs["messages"]
-            qa_user_msg = next(m["content"] for m in qa_messages if m["role"] == "user")
-
-            assert "Article Title: Malware Analysis Report" in qa_user_msg
-            assert "Article URL: https://example.com/report" in qa_user_msg
-            assert "Original Extraction Task: Extract suspicious commands." in qa_user_msg
-            assert "Original Extraction Instructions:" in qa_user_msg
-            assert "Return only command lines tied to execution evidence." in qa_user_msg
-            assert "Original Extraction Output Format:" in qa_user_msg
-            assert '"count": 0' in qa_user_msg
-            assert "Source Text:" in qa_user_msg
-            assert "Extracted Data:" in qa_user_msg
-
-
-# ---------------------------------------------------------------------------
-# QA prompt validator
-# ---------------------------------------------------------------------------
-
-
-class TestQAPromptValidator:
-    """Pin the _validate_qa_prompt_config hard-fail rules.
-
-    The extraction validator (_validate_extraction_prompt_config) was already
-    tested. This class covers the matching QA validator added for the same
-    contract-compliance pass.
-    """
-
-    VALID_QA_CONFIG = {
-        "role": "You are a QA reviewer.",
-        "objective": "Verify extraction accuracy.",
-        "instructions": "Return JSON with pass/fail findings.",
-        "evaluation_criteria": ["Check grounding", "Check completeness"],
-    }
-
-    VALID_EXTRACT_CONFIG = {
-        "role": "You are an extractor.",
-        "task": "Extract commands.",
-        "instructions": "Output JSON.",
-        "json_example": '{"items":[],"count":0}',
-    }
-
-    @pytest.mark.asyncio
-    async def test_qa_hard_fails_on_missing_role(self, llm_service):
-        """QA config with no system/role raises ValueError before QA loop."""
-        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
-            with pytest.raises(ValueError, match="QA.*missing required 'system'/'role'"):
-                await llm_service.run_extraction_agent(
-                    agent_name="CmdlineExtract",
-                    content=content,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_config=self.VALID_EXTRACT_CONFIG,
-                    qa_prompt_config={
-                        "objective": "Verify extraction.",
-                        "instructions": "Return JSON.",
-                        "evaluation_criteria": ["Check grounding"],
-                    },
-                    max_extraction_retries=1,
-                )
-
-    @pytest.mark.asyncio
-    async def test_qa_hard_fails_on_missing_instructions(self, llm_service):
-        """QA config with no instructions raises ValueError before QA loop."""
-        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
-            with pytest.raises(ValueError, match="QA.*missing required 'instructions'"):
-                await llm_service.run_extraction_agent(
-                    agent_name="CmdlineExtract",
-                    content=content,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_config=self.VALID_EXTRACT_CONFIG,
-                    qa_prompt_config={
-                        "role": "You are a QA reviewer.",
-                        "objective": "Verify extraction.",
-                        "evaluation_criteria": ["Check grounding"],
-                    },
-                    max_extraction_retries=1,
-                )
-
-    @pytest.mark.asyncio
-    async def test_qa_hard_fails_on_empty_evaluation_criteria(self, llm_service):
-        """QA config with empty evaluation_criteria raises ValueError -- vacuous QA passes everything."""
-        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
-            with pytest.raises(ValueError, match="evaluation_criteria.*non-empty list"):
-                await llm_service.run_extraction_agent(
-                    agent_name="CmdlineExtract",
-                    content=content,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_config=self.VALID_EXTRACT_CONFIG,
-                    qa_prompt_config={
-                        "role": "You are a QA reviewer.",
-                        "objective": "Verify extraction.",
-                        "instructions": "Return JSON.",
-                        "evaluation_criteria": [],
-                    },
-                    max_extraction_retries=1,
-                )
-
-    @pytest.mark.asyncio
-    async def test_qa_hard_fails_when_evaluation_criteria_is_string(self, llm_service):
-        """evaluation_criteria as a string (not list) raises ValueError."""
-        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.return_value = {
-                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                "usage": {},
-            }
-            with pytest.raises(ValueError, match="evaluation_criteria.*must be a list"):
-                await llm_service.run_extraction_agent(
-                    agent_name="CmdlineExtract",
-                    content=content,
-                    title="Test",
-                    url="https://example.com",
-                    prompt_config=self.VALID_EXTRACT_CONFIG,
-                    qa_prompt_config={
-                        "role": "You are a QA reviewer.",
-                        "objective": "Verify extraction.",
-                        "instructions": "Return JSON.",
-                        "evaluation_criteria": "Check everything",
-                    },
-                    max_extraction_retries=1,
-                )
-
-    @pytest.mark.asyncio
-    async def test_qa_passes_with_valid_config(self, llm_service):
-        """Valid QA config does not raise -- QA loop proceeds normally."""
-        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
-
-        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
-            mock_chat.side_effect = [
-                {
-                    "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
-                    "usage": {},
-                },
-                {
-                    "choices": [{"message": {"content": '{"passed": true, "issues": []}'}}],
-                    "usage": {},
-                },
-            ]
-            # Should not raise
-            await llm_service.run_extraction_agent(
-                agent_name="CmdlineExtract",
-                content=content,
-                title="Test",
-                url="https://example.com",
-                prompt_config=self.VALID_EXTRACT_CONFIG,
-                qa_prompt_config=self.VALID_QA_CONFIG,
-                max_extraction_retries=1,
-            )
-
-
-# ---------------------------------------------------------------------------
-# QA feedback prepend
-# ---------------------------------------------------------------------------
-# NOTE: The QA feedback prepend ("PREVIOUS FEEDBACK (FIX THESE ISSUES):...")
-# is internal to the retry loop in run_extraction_agent. Testing it requires
-# a full QA loop mock (QA agent returns needs_revision, feedback is generated,
-# then prepended on the next attempt). That's an integration test, not a unit
-# pin. The behavior is documented in docs/concepts/agents.md#prompt-architecture.
 
 
 # ---------------------------------------------------------------------------
@@ -579,3 +363,79 @@ class TestActualCountFallback:
         subresults = {}
         result = _extract_actual_count("cmdline", subresults, execution_id=1)
         assert result == 0
+
+
+# ---------------------------------------------------------------------------
+# task key used when objective is absent (eval 3802 fix)
+# ---------------------------------------------------------------------------
+
+
+class TestTaskKeyFallback:
+    """Pin that prompt_config 'task' key is used when 'objective' is absent.
+
+    Extractor prompts using the new envelope format (role/task/json_example/instructions)
+    previously had their task description silently ignored -- the code looked for 'objective'
+    only and fell back to the generic 'Extract information.' string. Fixed in eval 3802.
+    """
+
+    @pytest.mark.asyncio
+    async def test_task_key_appears_in_user_message(self, llm_service):
+        """When prompt_config has 'task' but no 'objective', task text appears in user message."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "role": "You are a test extractor.",
+                    "task": "Extract only Windows command-line literals for EDR use.",
+                    "instructions": "Output valid JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+            )
+
+            call_args = mock_chat.call_args
+            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+            user_msg = next(m["content"] for m in messages if m["role"] == "user")
+            assert "Extract only Windows command-line literals for EDR use." in user_msg, (
+                "The 'task' field must appear in the user message when 'objective' is absent. "
+                "Before the eval 3802 fix, task was silently ignored and the generic "
+                "'Extract information.' fallback was used instead."
+            )
+
+    @pytest.mark.asyncio
+    async def test_objective_takes_precedence_over_task(self, llm_service):
+        """When both 'objective' and 'task' are present, 'objective' wins (backward compat)."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "role": "You are a test extractor.",
+                    "objective": "Objective text (should win).",
+                    "task": "Task text (should lose).",
+                    "instructions": "Output valid JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+            )
+
+            call_args = mock_chat.call_args
+            messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+            user_msg = next(m["content"] for m in messages if m["role"] == "user")
+            assert "Objective text (should win)." in user_msg
+            assert "Task text (should lose)." not in user_msg

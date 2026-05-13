@@ -265,19 +265,23 @@ async def api_dashboard_data():
 
             top_query = text(
                 """
-                SELECT
-                    a.id,
-                    a.title,
-                    a.article_metadata,
-                    a.published_at,
-                    a.canonical_url,
-                    s.name as source_name
-                FROM articles a
-                JOIN sources s ON a.source_id = s.id
-                WHERE a.article_metadata->>'threat_hunting_score' IS NOT NULL
-                  AND (a.article_metadata->>'threat_hunting_score')::float > 50
-                  AND a.created_at >= NOW() - INTERVAL '7 days'
-                ORDER BY a.published_at DESC
+                SELECT id, title, article_metadata, published_at, canonical_url, source_name
+                FROM (
+                    SELECT DISTINCT ON (a.canonical_url)
+                        a.id,
+                        a.title,
+                        a.article_metadata,
+                        a.published_at,
+                        a.canonical_url,
+                        s.name as source_name
+                    FROM articles a
+                    JOIN sources s ON a.source_id = s.id
+                    WHERE a.article_metadata->>'threat_hunting_score' IS NOT NULL
+                      AND (a.article_metadata->>'threat_hunting_score')::float > 50
+                      AND a.created_at >= NOW() - INTERVAL '7 days'
+                    ORDER BY a.canonical_url, a.created_at DESC
+                ) deduped
+                ORDER BY published_at DESC
                 LIMIT 10
                 """
             )

@@ -213,19 +213,29 @@ async def test_restore_from_file_accepts_sql_gz_extension(monkeypatch, tmp_path)
 
 
 @pytest.mark.api
-def test_update_backup_cron_requires_no_admin_auth():
-    """Regression: POST /api/backup/cron must not require admin auth.
+def test_backup_endpoints_require_no_admin_auth():
+    """Regression: backup endpoints must not have FastAPI Depends() defaults.
 
-    The Settings page Save button has no mechanism to supply X-API-Key.
-    If RequireAdminAuth is re-added to this handler the endpoint returns
-    401 for every save, breaking the UI silently.
+    The Settings page sends no X-API-Key header. If any backup handler grows
+    a `Depends(...)` default (e.g. someone re-adds the old admin-auth guard)
+    the endpoint will start returning 401 silently and break the UI.
     """
     import inspect
 
-    from src.web.auth import RequireAdminAuth
+    from fastapi.params import Depends
 
-    sig = inspect.signature(backup_routes.api_update_backup_cron)
-    for param in sig.parameters.values():
-        assert param.default is not RequireAdminAuth, (
-            "api_update_backup_cron must not use RequireAdminAuth -- the Settings page sends no X-API-Key header"
-        )
+    handlers = [
+        backup_routes.api_create_backup,
+        backup_routes.api_get_backup_cron,
+        backup_routes.api_update_backup_cron,
+        backup_routes.api_delete_backup_cron,
+        backup_routes.api_restore_backup,
+        backup_routes.api_restore_from_file,
+    ]
+    for handler in handlers:
+        sig = inspect.signature(handler)
+        for param in sig.parameters.values():
+            assert not isinstance(param.default, Depends), (
+                f"{handler.__name__} must not use FastAPI Depends() -- "
+                "the Settings page does not authenticate"
+            )

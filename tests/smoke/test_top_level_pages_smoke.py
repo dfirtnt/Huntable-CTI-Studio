@@ -15,13 +15,12 @@ class TestTopLevelPagesSmoke:
         ("path", "expected_snippets"),
         [
             ("/analytics", ("Analytics Dashboard", "Quick Overview")),
-            ("/mlops", ("MLOps Control Center", "Observable Training")),
+            ("/mlops", ("MLOps Control Center", "Agent Evals")),
             ("/mlops/agent-evals", ("Agent Evaluations", "Configuration")),
             ("/settings", ("Settings", "Save Settings")),
             ("/diags", ("System Diagnostics & Health", "Quick Actions")),
             ("/jobs", ("Job Monitor", "Worker Status")),
             ("/pdf-upload", ("Upload PDF Report",)),
-            ("/observables-training", ("Observable Extractor Training",)),
             ("/evaluations", ("Agent Evaluations", "Recent Evaluations")),
         ],
     )

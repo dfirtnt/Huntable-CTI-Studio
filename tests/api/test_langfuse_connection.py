@@ -233,3 +233,61 @@ async def test_langfuse_connection_accepts_pk_lf_prefix(monkeypatch):
     result = await api_test_langfuse_connection(_make_request())
 
     assert result["valid"] is True
+
+
+@pytest.mark.asyncio
+async def test_langfuse_connection_test_spans_tagged(monkeypatch):
+    """Connection-test spans must carry session_id and tags to avoid polluting production data."""
+
+    captured_propagate_kwargs = {}
+
+    class _OkProjectsClient:
+        async def get(self):
+            return SimpleNamespace(data=[SimpleNamespace(id="proj-ok")])
+
+    class _OkAPIClient:
+        def __init__(self, **kwargs):
+            self.projects = _OkProjectsClient()
+
+    class _DummyObs:
+        trace_id = "t1"
+
+        def update(self, **kw):
+            pass
+
+        def end(self):
+            pass
+
+    class _OkLangfuse:
+        def __init__(self, **kw):
+            pass
+
+        def start_observation(self, **kw):
+            return _DummyObs()
+
+        def flush(self):
+            pass
+
+    import contextlib
+
+    @contextlib.contextmanager
+    def _fake_propagate_attributes(**kwargs):
+        captured_propagate_kwargs.update(kwargs)
+        yield
+
+    import langfuse.types as lf_types
+
+    monkeypatch.setattr(lf_types, "TraceContext", _TraceContext, raising=False)
+    monkeypatch.setattr("langfuse.propagate_attributes", _fake_propagate_attributes)
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-lf-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-lf-valid")
+    monkeypatch.setenv("LANGFUSE_HOST", "https://us.cloud.langfuse.com")
+    _patch_langfuse_api_client(monkeypatch, _OkAPIClient)
+    monkeypatch.setattr("langfuse.Langfuse", _OkLangfuse)
+
+    result = await api_test_langfuse_connection(_make_request())
+
+    assert result["valid"] is True
+    assert captured_propagate_kwargs.get("session_id") == "connection-test"
+    assert "connection-test" in captured_propagate_kwargs.get("tags", [])
+    assert captured_propagate_kwargs.get("trace_name") == "langfuse_connection_test"

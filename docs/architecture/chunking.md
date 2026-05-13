@@ -1,6 +1,6 @@
 # Chunking Pipeline
 
-Chunking is used for analysis and ML scoring, not for training or extraction itself. The Extract Agent still operates on full article content.
+Chunking is used for analysis, ML scoring, and content filtering. Non-huntable chunks are stripped before extraction and Sigma generation, so both agents receive a filtered subset of the article rather than the full content.
 
 ## Defaults
 - Chunk size: 1,000 characters
@@ -41,7 +41,8 @@ Aggregates in article metadata:
 - Recompute ML scores: `./run_cli.sh rescore-ml --article-id <id>` recalculates chunk predictions and updates metadata.
 
 ## Boundaries
-- Chunks are **not** sent to the Extract Agent or Sigma generator; they support scoring, triage, and dataset selection only.
-- Training inputs remain the full article content paired with complete extraction results.
+- Chunk metadata objects (ml_prediction, confidence, offsets) are not passed to the Extract Agent or Sigma generator.
+- The **filtered content** produced by removing non-huntable chunks is what both agents actually receive; the full raw article is not used.
+- Training examples produced by `prepare_articles_for_finetuning.py` also use filtered content by default (same junk filter as extraction); the original full content is stored alongside as a reference field but is not the training input.
 
 _Last updated: 2026-05-01_

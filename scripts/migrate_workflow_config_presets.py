@@ -1,9 +1,21 @@
 #!/usr/bin/env python3
-"""
-Migration script to create workflow_config_presets table.
+"""Migration: create workflow_config_presets table.
 
-This table stores workflow configuration presets (thresholds, agent models,
-QA toggles, prompts, etc.) for the workflow #config page.
+Why
+---
+The workflow config UI gained a presets system allowing named snapshots of the
+full configuration (thresholds, agent models, QA toggles, prompts) to be saved,
+restored, and shared. Without this table the app will fail to load the #config
+page's preset list and the apply/save preset endpoints will 500.
+
+Creates:
+- workflow_config_presets table (see src/database/models.py: WorkflowConfigPresetTable)
+
+Idempotent: SQLAlchemy create_all with checkfirst -- safe to re-run.
+
+Usage
+-----
+    python scripts/migrate_workflow_config_presets.py
 """
 
 import os

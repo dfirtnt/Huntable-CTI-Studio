@@ -1,0 +1,50 @@
+[
+  {
+    "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+    "expected_items": [
+      "SystemBC",
+      "GhostSOCKS",
+      "Cobalt Strike psexec remote service"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
+    "expected_items": [
+      "QBot DLL remote service (random name, DeleteFlag set)"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
+    "expected_items": [
+      "Reset-ComputerMachinePassword service (Zerologon, Event ID 7045)"
+    ]
+  },
+  {
+    "url": "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company",
+    "expected_items": [
+      "WebrootCheck",
+      "Mesh Agent (web.exe)"
+    ]
+  },
+  {
+    "url": "https://www.huntress.com/blog/cephalus-ransomware",
+    "expected_items": [
+      "SecurityHealthService",
+      "Sense",
+      "WinDefend",
+      "WdNisSvc"
+    ]
+  },
+  {
+    "url": "https://www.zscaler.com/blogs/security-research/latest-mustang-panda-arsenal-paklog-corklog-and-splatcloak-p2",
+    "expected_items": []
+  },
+  {
+    "url": "https://blog.talosintelligence.com/kraken-ransomware-group/",
+    "expected_items": []
+  },
+  {
+    "url": "https://unit42.paloaltonetworks.com/unit42-abusing-service-control-manager-establish-persistence-non-service-applications/",
+    "expected_items": []
+  }
+]

@@ -1109,7 +1109,7 @@ async def api_test_langfuse_connection(request: Request):
 
             # Try to initialize Langfuse client and validate keys with actual API call
             try:
-                from langfuse import Langfuse
+                from langfuse import Langfuse, propagate_attributes
                 from langfuse.api import AccessDeniedError, UnauthorizedError
                 from langfuse.api.client import AsyncLangfuseAPI
                 from langfuse.api.core.api_error import ApiError
@@ -1172,31 +1172,38 @@ async def api_test_langfuse_connection(request: Request):
                     flush_interval=1.0,
                 )
 
-                # Send a test trace/generation using Langfuse v4 API
-                test_span = langfuse_client.start_observation(
-                    name="langfuse_connection_test",
-                    metadata={"test": True, "timestamp": datetime.now().isoformat()},
-                )
+                # Send a test trace/generation using Langfuse v4 API.
+                # Wrap in propagate_attributes so test spans get a dedicated
+                # session and tag, keeping them out of production dashboards.
+                with propagate_attributes(
+                    session_id="connection-test",
+                    tags=["connection-test"],
+                    trace_name="langfuse_connection_test",
+                ):
+                    test_span = langfuse_client.start_observation(
+                        name="langfuse_connection_test",
+                        metadata={"test": True, "timestamp": datetime.now().isoformat()},
+                    )
 
-                test_generation = langfuse_client.start_observation(
-                    name="test_generation",
-                    as_type="generation",
-                    model="test",
-                    model_parameters={"temperature": "0.1"},
-                    trace_context=TraceContext(
-                        trace_id=getattr(test_span, "trace_id", None) or getattr(test_span, "id", None),
-                    ),
-                )
+                    test_generation = langfuse_client.start_observation(
+                        name="test_generation",
+                        as_type="generation",
+                        model="test",
+                        model_parameters={"temperature": "0.1"},
+                        trace_context=TraceContext(
+                            trace_id=getattr(test_span, "trace_id", None) or getattr(test_span, "id", None),
+                        ),
+                    )
 
-                # Update generation with output, then end it
-                test_generation.update(output="Connection test successful")
-                test_generation.end()
+                    # Update generation with output, then end it
+                    test_generation.update(output="Connection test successful")
+                    test_generation.end()
 
-                test_span.end()
+                    test_span.end()
 
-                # Flush to ensure it's sent and verify it succeeds
-                # This will raise an exception if keys are invalid
-                langfuse_client.flush()
+                    # Flush to ensure it's sent and verify it succeeds
+                    # This will raise an exception if keys are invalid
+                    langfuse_client.flush()
 
                 return {
                     "valid": True,
@@ -1322,21 +1329,22 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                     detail="No active workflow configuration found. Please configure the workflow first.",
                 )
 
-            # Get RankAgent prompt from config
+            # Get RankAgent prompt from config (canonical {system, user} or legacy)
             rank_prompt_template = None
+            rank_system_prompt = None
             if config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
-                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
-                if isinstance(rank_prompt_data.get("prompt"), str):
-                    rank_prompt_template = rank_prompt_data["prompt"]
-                    logger.info(
-                        f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)"
-                    )
+                from src.utils.prompt_loader import parse_rank_agent_prompt_data
 
-            if not rank_prompt_template:
-                raise HTTPException(
-                    status_code=400,
-                    detail="RankAgent prompt not configured in workflow. Please configure the RankAgent prompt in Workflow settings.",
+                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
+                    config_obj.agent_prompts["RankAgent"]
                 )
+                logger.info(
+                    f"Using RankAgent prompt from workflow config "
+                    f"(template_len={len(rank_prompt_template or '')} chars, "
+                    f"system_len={len(rank_system_prompt or '')} chars)"
+                )
+
+            # Template can be None -- rank_article() falls back to src/prompts/rank_article.txt
 
             # Get agent models from config
             agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else None
@@ -1397,6 +1405,7 @@ async def api_rank_with_gpt4o(article_id: int, request: Request):
                 source=source_name,
                 url=article.canonical_url or "",
                 prompt_template=rank_prompt_template,
+                system_override=rank_system_prompt,
                 article_id=article.id,
                 ground_truth_rank=ground_truth_rank,
                 ground_truth_details=ground_truth_details,
@@ -1746,192 +1755,6 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/{article_id}/extract-iocs")
-async def api_extract_iocs(article_id: int, request: Request):
-    """Extract IOCs (Indicators of Compromise) from an article using AI."""
-    try:
-        # Get the article
-        article = await async_db_manager.get_article(article_id)
-        if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
-
-        # Get request body
-        body = await request.json()
-        # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
-        # For Anthropic, check X-Anthropic-API-Key header, for OpenAI check X-OpenAI-API-Key
-        api_key_raw = None
-        if body.get("ai_model", "chatgpt") == "anthropic":
-            api_key_raw = request.headers.get("X-Anthropic-API-Key") or body.get("api_key")
-        else:
-            api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
-        # Strip whitespace from API key (common issue when copying/pasting)
-        api_key = api_key_raw.strip() if api_key_raw else None
-        ai_model = body.get("ai_model", "chatgpt")
-        use_llm_validation = body.get("use_llm_validation", False)
-        debug_mode = body.get("debug_mode", False)
-
-        # Only require API key for cloud-based models
-        if ai_model in ["chatgpt", "anthropic"] and not api_key:
-            key_type = "OpenAI" if ai_model == "chatgpt" else "Anthropic"
-            raise HTTPException(
-                status_code=400,
-                detail=f"{key_type} API key is required. Please configure it in Settings.",
-            )
-
-        # Use the IOC extractor
-        from src.utils.ioc_extractor import HybridIOCExtractor
-
-        # Enable LLM validation for all models
-        effective_llm_validation = use_llm_validation
-        if use_llm_validation:
-            logger.info(f"LLM validation enabled for {ai_model} model")
-
-        # Apply content filtering only when LLM validation is enabled
-        # This reduces costs by filtering out non-huntable content before sending to LLM
-        content_to_use = article.content
-        filter_metadata = {}
-        if use_llm_validation:
-            from src.utils.content_filter import ContentFilter
-
-            content_filter = ContentFilter()
-            filter_result = content_filter.filter_content(
-                article.content,
-                min_confidence=0.9,  # Use least aggressive filter (similar to Extract Observables)
-                hunt_score=article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0,
-                article_id=article.id,
-            )
-
-            # Use filtered content if available and huntable, otherwise use original
-            if filter_result.is_huntable and filter_result.filtered_content:
-                content_to_use = filter_result.filtered_content
-                filter_metadata = {
-                    "content_filtering": {
-                        "enabled": True,
-                        "cost_savings": filter_result.cost_savings,
-                        "chunks_removed": len(filter_result.removed_chunks) if filter_result.removed_chunks else 0,
-                        "min_confidence": 0.9,
-                    }
-                }
-                logger.info(
-                    f"Content filtering applied: {filter_result.cost_savings:.1%} cost savings, {len(filter_result.removed_chunks) if filter_result.removed_chunks else 0} chunks removed"
-                )
-            else:
-                logger.info("Content filter did not find huntable content, using original content for LLM validation")
-
-        # Create a cancellation event
-        cancellation_event = asyncio.Event()
-
-        # Start monitoring client disconnection in background
-        async def monitor_disconnection():
-            # Only check for disconnection periodically, and be more careful about false positives
-            while True:
-                await asyncio.sleep(1.0)  # Check every 1 second (less aggressive)
-                try:
-                    # Check if client disconnected - only use property check, avoid callable check
-                    # which can cause false positives
-                    if hasattr(request, "is_disconnected"):
-                        # Only check the property, not as a callable
-                        is_disconnected = request.is_disconnected
-                        if isinstance(is_disconnected, bool) and is_disconnected:
-                            logger.info(f"Client disconnected, cancelling IOCs extraction for article {article_id}")
-                            cancellation_event.set()
-                            break
-                except Exception as e:
-                    # Don't cancel on exceptions checking disconnection - just log and continue
-                    logger.debug(f"Error checking disconnection status: {e}")
-                    # Don't break - continue monitoring
-
-        monitor_task = asyncio.create_task(monitor_disconnection())
-
-        try:
-            extractor = HybridIOCExtractor(use_llm_validation=effective_llm_validation)
-
-            # Extract IOCs from the article content (filtered if LLM validation is enabled)
-            extraction_task = asyncio.create_task(
-                extractor.extract_iocs(
-                    content=content_to_use,
-                    api_key=api_key,
-                    ai_model=ai_model,  # Pass AI model to extractor
-                    cancellation_event=cancellation_event,  # Pass cancellation event
-                )
-            )
-
-            # Wait for either completion or cancellation
-            done, pending = await asyncio.wait([extraction_task, monitor_task], return_when=asyncio.FIRST_COMPLETED)
-
-            # Cancel remaining tasks
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-
-            # Check if cancellation was requested
-            if cancellation_event.is_set():
-                logger.info(f"IOCs extraction cancelled for article {article_id}")
-                raise HTTPException(status_code=499, detail="Client cancelled the request")
-
-            # Get the result
-            result = await extraction_task
-
-            # Update article metadata with extracted IOCs
-            if result.iocs and len(result.iocs) > 0:
-                # Get current metadata and merge with new IOCs data
-                current_metadata = article.article_metadata or {}
-                current_metadata["extracted_iocs"] = {
-                    "iocs": result.iocs,
-                    "extraction_method": result.extraction_method,
-                    "confidence": result.confidence,
-                    "extracted_at": datetime.now().isoformat(),
-                    "ai_model": ai_model,
-                    "use_llm_validation": result.extraction_method == "hybrid",  # Store actual validation status
-                    "processing_time": result.processing_time,
-                    "raw_count": result.raw_count,
-                    "validated_count": result.validated_count,
-                    "metadata": result.metadata,  # Store prompt and response
-                    **filter_metadata,  # Include content filtering metadata if applied
-                }
-
-                # Update the article in the database
-                from src.models.article import ArticleUpdate
-
-                update_data = ArticleUpdate(article_metadata=current_metadata)
-                await async_db_manager.update_article(article_id, update_data)
-
-            return {
-                "success": len(result.iocs) > 0,
-                "iocs": result.iocs,
-                "method": result.extraction_method,
-                "confidence": result.confidence,
-                "processing_time": result.processing_time,
-                "raw_count": result.raw_count,
-                "validated_count": result.validated_count,
-                "debug_info": result.metadata if debug_mode else None,
-                "llm_prompt": result.metadata.get("prompt") if result.metadata else None,
-                "llm_response": result.metadata.get("response") if result.metadata else None,
-                "error": None if len(result.iocs) > 0 else "No IOCs found",
-            }
-
-        except asyncio.CancelledError as e:
-            logger.info(f"IOCs extraction task cancelled for article {article_id}")
-            raise HTTPException(status_code=499, detail="Client cancelled the request") from e
-        finally:
-            # Clean up monitor task
-            if not monitor_task.done():
-                monitor_task.cancel()
-                try:
-                    await monitor_task
-                except asyncio.CancelledError:
-                    pass
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"IOCs extraction error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
 @router.post("/{article_id}/extract-iocs-ctibert")
 async def api_extract_iocs_ctibert(article_id: int, request: Request):
     """Extract IOCs using CTI-BERT Named Entity Recognition."""
@@ -2016,7 +1839,6 @@ async def api_detect_os(article_id: int, request: Request):
         # Get request body
         body = await request.json()
         use_classifier = body.get("use_classifier", True)
-        use_fallback = body.get("use_fallback", True)
         use_junk_filter = body.get("use_junk_filter", True)  # Enable junk filter by default
         junk_filter_threshold = body.get("junk_filter_threshold", 0.8)  # Default threshold
 
@@ -2034,7 +1856,6 @@ async def api_detect_os(article_id: int, request: Request):
             config_obj = trigger_service.get_active_config()
             agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
             embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
-            fallback_model = agent_models.get("OSDetectionAgent_fallback")
 
             # Get junk filter threshold from config if not provided in request
             if config_obj and not body.get("junk_filter_threshold"):
@@ -2076,12 +1897,9 @@ async def api_detect_os(article_id: int, request: Request):
         # Initialize service with configured embedding model
         service = OSDetectionService(model_name=embedding_model)
 
-        # Detect OS with configured fallback model using filtered content
         result = await service.detect_os(
             content=content_to_analyze,
             use_classifier=use_classifier,
-            use_fallback=use_fallback,
-            fallback_model=fallback_model,
         )
 
         # Update article metadata with OS detection result
@@ -2317,9 +2135,10 @@ async def api_generate_sigma(article_id: int, request: Request):
         sigma_system_prompt = None
         sigma_repair_template = None
         if config and config.agent_prompts and "SigmaRepair" in config.agent_prompts:
-            repair_prompt_data = config.agent_prompts["SigmaRepair"]
-            if isinstance(repair_prompt_data.get("prompt"), str):
-                sigma_repair_template = repair_prompt_data["prompt"]
+            from src.utils.prompt_loader import parse_sigma_repair_prompt_data
+
+            sigma_repair_template = parse_sigma_repair_prompt_data(config.agent_prompts["SigmaRepair"])
+            if sigma_repair_template:
                 logger.info(f"Using SigmaRepair prompt from workflow config (len={len(sigma_repair_template)} chars)")
         if config and config.agent_prompts and "SigmaAgent" in config.agent_prompts:
             from src.utils.prompt_loader import parse_sigma_agent_prompt_data
@@ -2429,188 +2248,6 @@ async def api_generate_sigma(article_id: int, request: Request):
                 )
 
         rules = formatted_rules
-
-        # Define helper function for API calls based on ai_model (kept for backward compatibility, not used)
-        async def call_llm_api(prompt_text: str) -> str:
-            """Call the appropriate LLM API based on ai_model setting."""
-            nonlocal sigma_response_truncation_warning
-            logger.info(
-                f"🔧 call_llm_api: ai_model='{ai_model}', will use {'LMStudio' if ai_model == 'lmstudio' else 'OpenAI (GPT-4o-mini)'}"
-            )
-            if ai_model == "lmstudio":
-                # Use LMStudio API
-                lmstudio_model = await _get_current_lmstudio_model()
-
-                lmstudio_settings = _get_lmstudio_settings()
-
-                # For reasoning models like Deepseek-R1, need more tokens for reasoning + output
-                is_reasoning_model = "r1" in lmstudio_model.lower() or "reasoning" in lmstudio_model.lower()
-                max_tokens = 2000 if is_reasoning_model else 800
-
-                payload = {
-                    "model": lmstudio_model,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries. No markdown, no explanations.",
-                        },
-                        {"role": "user", "content": prompt_text},
-                    ],
-                    "max_tokens": max_tokens,
-                    "temperature": lmstudio_settings["temperature"],
-                    "top_p": lmstudio_settings["top_p"],
-                }
-                if lmstudio_settings["seed"] is not None:
-                    payload["seed"] = lmstudio_settings["seed"]
-
-                result = await _post_lmstudio_chat(
-                    payload,
-                    model_name=lmstudio_model,
-                    timeout=300.0,
-                    failure_context="Failed to generate SIGMA rules from LMStudio",
-                )
-
-                # Deepseek-R1 returns reasoning in 'reasoning_content', fallback to 'content'
-                message = result["choices"][0]["message"]
-                content_text = message.get("content", "")
-                reasoning_text = message.get("reasoning_content", "")
-
-                # For Deepseek-R1: prefer content if it exists and looks like YAML
-                # Otherwise, try to extract YAML from reasoning_content
-                if content_text and (content_text.strip().startswith("title:") or "title:" in content_text[:100]):
-                    output = content_text
-                    logger.debug("Using 'content' field for SIGMA generation (contains YAML)")
-                elif reasoning_text:
-                    # Try to extract YAML from reasoning_content
-
-                    yaml_match = re.search(
-                        r"(?:^|\n)title:\s*[^\n]+\n(?:[^\n]+\n)*",
-                        reasoning_text,
-                        re.MULTILINE,
-                    )
-                    if yaml_match:
-                        yaml_start = yaml_match.start()
-                        yaml_block = reasoning_text[yaml_start:]
-                        output = yaml_block
-                        logger.debug("Extracted YAML from 'reasoning_content' field")
-                    else:
-                        # No YAML found in reasoning, use reasoning as-is
-                        output = reasoning_text
-                        logger.debug("Using 'reasoning_content' field for SIGMA generation (no YAML pattern found)")
-                else:
-                    output = content_text or reasoning_text or ""
-
-                # Check if response was truncated
-                finish_reason = result["choices"][0].get("finish_reason", "")
-                if finish_reason == "length":
-                    sigma_response_truncation_warning = (
-                        f"Response truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. "
-                        f"max_tokens={max_tokens} may need to be increased."
-                    )
-                    logger.warning(
-                        f"SIGMA generation response was truncated (finish_reason=length). Used {result.get('usage', {}).get('completion_tokens', 0)} tokens. max_tokens={max_tokens} may need to be increased."
-                    )
-
-                if not output or len(output.strip()) == 0:
-                    logger.error("LLM returned empty response for SIGMA generation")
-                    raise ValueError(
-                        "LLM returned empty response for SIGMA generation. Check LMStudio is responding correctly."
-                    )
-
-                return output
-            # Use OpenAI API (chatgpt)
-            # Verify API key is valid before making request
-            if not api_key:
-                error_detail = "OpenAI API key is missing. Please configure it in Settings."
-                logger.error("❌ OpenAI API key is None or empty when calling API")
-                raise HTTPException(status_code=400, detail=error_detail)
-
-            # Validate API key format before making request
-            if not api_key.startswith("sk-"):
-                error_detail = "Invalid API key format. OpenAI keys should start with 'sk-'. Please check your API key in Settings."
-                logger.error(f"❌ API key validation failed: does not start with 'sk-' (length: {len(api_key)})")
-                raise HTTPException(status_code=400, detail=error_detail)
-            if len(api_key) < 20:
-                error_detail = (
-                    "API key appears to be truncated or invalid (too short). Please check your API key in Settings."
-                )
-                logger.error(f"❌ API key validation failed: too short (length: {len(api_key)})")
-                raise HTTPException(status_code=400, detail=error_detail)
-            # OpenAI API keys are typically 51 chars (sk-) or 100+ chars (sk-proj-)
-            # If key is suspiciously short for a proj key, warn
-            if api_key.startswith("sk-proj-") and len(api_key) < 100:
-                logger.warning(
-                    f"⚠️ API key appears truncated: sk-proj- key with length {len(api_key)} (expected 100+ chars)"
-                )
-
-            # Log API key info (masked) for debugging
-            api_key_len = len(api_key) if api_key else 0
-            api_key_start = api_key[:8] if api_key and len(api_key) >= 8 else "N/A"
-            api_key_end = api_key[-4:] if api_key and len(api_key) >= 4 else "N/A"
-            logger.info(  # codeql[py/clear-text-logging-sensitive-data] false positive: intentionally masked partial key for debug tracing
-                f"🔑 Making OpenAI API call with api_key length: {api_key_len}, starts_with: {api_key_start}..., ends_with: ...{api_key_end}"
-            )
-
-            async with httpx.AsyncClient() as client:
-                try:
-                    response = await client.post(
-                        "https://api.openai.com/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {api_key}",
-                            "Content-Type": "application/json",
-                        },
-                        json={
-                            "model": "gpt-4o-mini",
-                            "messages": [
-                                {
-                                    "role": "system",
-                                    "content": "You are a SIGMA rule creation expert. Output ONLY valid YAML starting with 'title:'. Use exact 2-space indentation. logsource and detection must be nested dictionaries with proper structure. No markdown, no explanations, no code blocks.",
-                                },
-                                {"role": "user", "content": prompt_text},
-                            ],
-                            "max_tokens": 4000,
-                            "temperature": 0.2,
-                        },
-                        timeout=120.0,
-                    )
-
-                    if response.status_code == 429:
-                        error_detail = "OpenAI API rate limit exceeded. Please wait a few minutes and try again, or check your API usage limits."
-                        logger.warning(f"OpenAI rate limit hit: {response.text}")
-                        raise HTTPException(status_code=429, detail=error_detail)
-                    if response.status_code != 200:
-                        error_detail = f"OpenAI API error: {response.status_code}"
-                        if response.status_code == 401:
-                            # Try to get more details from the response
-                            try:
-                                error_json = response.json()
-                                error_message = error_json.get("error", {}).get("message", "Unknown error")
-                                logger.error(
-                                    f"❌ OpenAI 401 error details: {error_message}, full response: {response.text}"
-                                )
-                                error_detail = f"OpenAI API key is invalid or expired. Error: {error_message}. Please check your API key in Settings."
-                            except Exception:
-                                logger.error(f"❌ OpenAI 401 error, response text: {response.text}")
-                                error_detail = (
-                                    "OpenAI API key is invalid or expired. Please check your API key in Settings."
-                                )
-                        elif response.status_code == 402:
-                            error_detail = "OpenAI API billing issue. Please check your account billing."
-                        else:
-                            logger.error(f"OpenAI API error {response.status_code}: {response.text}")
-                        raise HTTPException(status_code=500, detail=error_detail)
-                except httpx.HTTPError as e:
-                    logger.error(f"❌ HTTP error calling OpenAI API: {e}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail="Network error calling OpenAI API",
-                    ) from e
-                except Exception as e:
-                    logger.error(f"❌ Unexpected error calling OpenAI API: {e}")
-                    raise HTTPException(status_code=500, detail="Internal server error") from e
-
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
 
         # Log final results
         if validation_results and all(result.get("is_valid", False) for result in validation_results):

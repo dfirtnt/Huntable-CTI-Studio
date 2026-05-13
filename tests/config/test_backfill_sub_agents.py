@@ -113,7 +113,7 @@ class TestBackfillMissingSections:
         preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
         section = result[agent_name]
-        required = ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt", "QAEnabled", "QA", "QAPrompt"]
+        required = ["Enabled", "Provider", "Model", "Temperature", "TopP", "Prompt"]
         for key in required:
             assert key in section, f"{agent_name} missing required key: {key}"
 
@@ -129,7 +129,9 @@ class TestBackfillMissingSections:
     def test_injected_qa_is_disabled(self, agent_name):
         preset = _make_preset_without(agent_name)
         result = _backfill_ui_ordered_sub_agents(preset)
-        assert result[agent_name]["QAEnabled"] is False
+        # QAEnabled may be absent from the default block if extractor QA agents were removed.
+        qa_enabled = result[agent_name].get("QAEnabled", False)
+        assert qa_enabled is False
 
     @pytest.mark.parametrize("agent_name", BACKFILL_AGENTS)
     def test_injected_provider_is_empty_string(self, agent_name):

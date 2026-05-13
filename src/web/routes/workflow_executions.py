@@ -159,7 +159,7 @@ _SORT_COLUMNS = {
 
 
 @router.get("/executions", response_model=ExecutionListResponse)
-async def list_workflow_executions(
+def list_workflow_executions(
     request: Request,
     article_id: int | None = None,
     status: str | None = None,
@@ -298,7 +298,7 @@ async def list_workflow_executions(
 
 
 @router.get("/executions/{execution_id}", response_model=ExecutionDetailResponse)
-async def get_workflow_execution(request: Request, execution_id: int):
+def get_workflow_execution(request: Request, execution_id: int):
     """Get detailed workflow execution information."""
     try:
         db_manager = get_db_manager()
@@ -431,7 +431,7 @@ def _build_observables_response(
 
 
 @router.get("/executions/{execution_id}/observables", response_model=ObservablesResponse)
-async def get_execution_observables(
+def get_execution_observables(
     request: Request,
     execution_id: int,
     type: str | None = Query(None, description="Filter by observable type: cmdline, process_lineage, hunt_queries"),
@@ -465,7 +465,7 @@ async def get_execution_observables(
 
 
 @router.post("/executions/cleanup-stale")
-async def cleanup_stale_executions(
+def cleanup_stale_executions(
     request: Request,
     max_age_hours: float = Query(1.0, description="Maximum age in hours for running executions to be considered stale"),
 ):

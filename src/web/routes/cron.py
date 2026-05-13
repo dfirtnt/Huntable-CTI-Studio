@@ -6,7 +6,6 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from src.services.backup_cron_service import BackupCronService, CronCommandError, CronUnavailableError
-from src.web.auth import RequireAdminAuth
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/cron", tags=["Cron"])
@@ -19,7 +18,7 @@ class CronUpdate(BaseModel):
 
 
 @router.get("")
-async def api_get_cron(_auth: str = RequireAdminAuth):
+async def api_get_cron():
     """Return the current user's crontab, parsed jobs, and managed CTI entries."""
     try:
         service = BackupCronService()

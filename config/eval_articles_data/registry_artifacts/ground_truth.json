@@ -1,0 +1,72 @@
+[
+  {
+    "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
+    "expected_items": [
+      "HKLM\\SOFTWARE\\Microsoft\\Microsoft Antimalware\\Exclusions\\Paths",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\Paths"
+    ]
+  },
+  {
+    "url": "https://www.huntress.com/blog/cephalus-ransomware",
+    "expected_items": [
+      "HKLM\\SOFTWARE\\Microsoft\\Windows Defender\\Exclusions\\Paths",
+      "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable",
+      "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring",
+      "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\DisableAntiSpyware",
+      "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring",
+      "HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection"
+    ]
+  },
+  {
+    "url": "https://www.picussecurity.com/resource/blog/t1547-014-active-setup",
+    "expected_items": [
+      "HKLM\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\",
+      "HKLM\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\{malicious-guid}",
+      "HKCU\\SOFTWARE\\Microsoft\\Active Setup\\Installed Components\\",
+      "HKLM\\Software\\Microsoft\\Active Setup\\Installed Components\\<CLSID>",
+      "c:\\windows:svvchost.exe"
+    ]
+  },
+  {
+    "url": "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/",
+    "expected_items": [
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\WinUpdate",
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\{GUID}",
+      "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree"
+    ]
+  },
+  {
+    "url": "https://www.zscaler.com/blogs/security-research/technical-analysis-xloader-versions-6-and-7-part-1",
+    "expected_items": [
+      "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\",
+      "HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\",
+      "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run"
+    ]
+  },
+  {
+    "url": "https://www.zscaler.com/blogs/security-research/technical-analysis-matanbuchus-3-0",
+    "expected_items": [
+      "HKEY_CURRENT_USER\\SOFTWARE\\%volume_serial_number_based_ID%"
+    ]
+  },
+  {
+    "url": "https://securelist.com/crystalx-rat-with-prankware-features/119283/",
+    "expected_items": [
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"
+    ]
+  },
+  {
+    "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+    "expected_items": [
+      "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    ]
+  },
+  {
+    "url": "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company",
+    "expected_items": [
+      "HKLM\\System\\CurrentControlSet\\Control\\Lsa",
+      "HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest"
+    ]
+  }
+]

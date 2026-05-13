@@ -15,20 +15,12 @@ PROMPTS_DIR = _SRC_DIR / "prompts"
 AGENT_PROMPT_FILES = {
     "RankAgent": "lmstudio_sigma_ranking.txt",
     "SigmaAgent": "sigma_generation.txt",
-    "QAAgent": "QAAgentCMD",
     "CmdlineExtract": "CmdlineExtract",
-    "CmdLineQA": "CmdLineQA",
     "ProcTreeExtract": "ProcTreeExtract",
-    "ProcTreeQA": "ProcTreeQA",
     "HuntQueriesExtract": "HuntQueriesExtract",
-    "HuntQueriesQA": "HuntQueriesQA",
     "RegistryExtract": "RegistryExtract",
-    "RegistryQA": "RegistryQA",
     "ServicesExtract": "ServicesExtract",
-    "ServicesQA": "ServicesQA",
     "ScheduledTasksExtract": "ScheduledTasksExtract",
-    "ScheduledTasksQA": "ScheduledTasksQA",
-    "ExtractAgent": "ExtractAgent",
     "OSDetectionAgent": "OSDetectionAgent",
 }
 

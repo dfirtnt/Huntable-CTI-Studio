@@ -29,6 +29,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Allow `python scripts/verify_backup.py` to import sibling helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _restore_common import filter_dump_lines  # noqa: E402
+
 # Database configuration
 DB_CONFIG = {
     "host": "localhost",
@@ -251,13 +255,20 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
         with tempfile.NamedTemporaryFile(mode="w", suffix=".sql", delete=False) as temp_file:
             temp_path = temp_file.name
 
-            # Extract SQL content
-            if db_filename.endswith(".gz"):
-                with gzip.open(db_backup_file, "rt") as f_in:
-                    shutil.copyfileobj(f_in, temp_file)
-            else:
-                with open(db_backup_file) as f_in:
-                    shutil.copyfileobj(f_in, temp_file)
+            # Extract SQL content through the shared filter so a verification
+            # restore tolerates the same dangling-FK situation that real restores
+            # do (dumps with NOT-yet-cleaned orphan rows are still considered valid).
+            opener = (
+                (lambda: gzip.open(db_backup_file, "rt"))
+                if db_filename.endswith(".gz")
+                else (lambda: open(db_backup_file))
+            )
+            with opener() as f_in:
+                for filtered_line in filter_dump_lines(
+                    f_in,
+                    rewrite_fk_constraints=True,
+                ):
+                    temp_file.write(filtered_line)
 
         # Copy SQL file to container
         copy_cmd = ["docker", "cp", temp_path, "cti_postgres:/tmp/test_restore.sql"]

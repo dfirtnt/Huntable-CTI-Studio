@@ -26,27 +26,21 @@ function parseUTCDate(timestamp) {
  * @returns {Array} Ordered and annotated models
  */
 function orderModelsByWorkflow(models) {
-    // Define workflow execution order with QA agents immediately after their corresponding agents
+    // Define workflow execution order
     const workflowOrder = [
         'Rank',
         'RankAgentQA',
         'Extract',
         'CmdlineExtract',
-        'CmdLineQA',
         'ProcTreeExtract',
-        'ProcTreeQA',
         'HuntQueriesExtract',
-        'HuntQueriesQA',
         'RegistryExtract',
-        'RegistryQA',
         'ServicesExtract',
-        'ServicesQA',
         'ScheduledTasksExtract',
-        'ScheduledTasksQA',
         'SIGMA',
         'OS Fallback'
     ];
-    
+
     // Define first-level sub-agents (indent level 1)
     const firstLevelSubAgents = new Set([
         'CmdlineExtract',
@@ -58,15 +52,8 @@ function orderModelsByWorkflow(models) {
         'RankAgentQA'
     ]);
 
-    // Define second-level sub-agents (indent level 2) - QA agents under Extract
-    const secondLevelSubAgents = new Set([
-        'CmdLineQA',
-        'ProcTreeQA',
-        'HuntQueriesQA',
-        'RegistryQA',
-        'ServicesQA',
-        'ScheduledTasksQA'
-    ]);
+    // No second-level sub-agents remain (extractor QA agents removed)
+    const secondLevelSubAgents = new Set([]);
     
     // Create a map for quick lookup
     const orderMap = new Map();
@@ -135,6 +122,24 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             ...models.slice(cmdlineIndex + 1)
         ];
     };
+
+    const addProcTreeAttentionPreprocessorStatus = (models) => {
+        const procTreeIndex = models.findIndex(m => m.text && m.text.startsWith('ProcTreeExtract:'));
+        if (procTreeIndex === -1) return models;
+
+        const enabled = currentConfig.proc_tree_attention_preprocessor_enabled !== false;
+        const statusRow = {
+            text: 'ProcTreeAttnPreprocessor:',
+            indentLevel: 2,
+            badge: makeStatusBadge(enabled)
+        };
+
+        return [
+            ...models.slice(0, procTreeIndex + 1),
+            statusRow,
+            ...models.slice(procTreeIndex + 1)
+        ];
+    };
     
     let selectedModels = [];
     
@@ -150,6 +155,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             };
         });
         selectedModels = addCmdlineAttentionPreprocessorStatus(selectedModels);
+        selectedModels = addProcTreeAttentionPreprocessorStatus(selectedModels);
     } else if (currentConfig.agent_models) {
         // Build from saved config
         const agentModels = currentConfig.agent_models;
@@ -170,14 +176,20 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             });
         };
 
-        // 1. Rank Agent
-        if (agentModels.RankAgent) {
-            addAgent('RankAgent', 'Rank', 0, currentConfig.rank_agent_enabled !== false);
-        }
-        
-        // 2. RankAgentQA
-        if (agentModels.RankAgentQA) {
-            addAgent('RankAgentQA', 'RankAgentQA', 1, qaEnabled['RankAgent'] || false);
+        // 1. Rank Agent + QA sub-agent (always shown; model may be unconfigured)
+        {
+            const rankModel = agentModels.RankAgent || agentModels.RankAgent_model || 'N/A';
+            const rankProvider = agentModels.RankAgent_provider || '';
+            modelsList.push({
+                text: `Rank: ${rankModel} (${rankProvider})`,
+                indentLevel: 0,
+                badge: makeStatusBadge(currentConfig.rank_agent_enabled !== false)
+            });
+            modelsList.push({
+                text: `RankAgentQA: ${rankModel} (${rankProvider})`,
+                indentLevel: 1,
+                badge: makeStatusBadge(qaEnabled['RankAgent'] || false)
+            });
         }
         
         // 3. Extract Agent (supervisor)
@@ -187,49 +199,25 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         
         // 4. Extract Sub-agents
         const subAgentOrder = [
-            { id: 'CmdlineExtract', name: 'CmdlineExtract', qa: 'CmdLineQA' },
-            { id: 'ProcTreeExtract', name: 'ProcTreeExtract', qa: 'ProcTreeQA' },
-            { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract', qa: 'HuntQueriesQA' },
-            { id: 'RegistryExtract', name: 'RegistryExtract', qa: 'RegistryQA' },
-            { id: 'ServicesExtract', name: 'ServicesExtract', qa: 'ServicesQA' },
-            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract', qa: 'ScheduledTasksQA' }
+            { id: 'CmdlineExtract', name: 'CmdlineExtract' },
+            { id: 'ProcTreeExtract', name: 'ProcTreeExtract' },
+            { id: 'HuntQueriesExtract', name: 'HuntQueriesExtract' },
+            { id: 'RegistryExtract', name: 'RegistryExtract' },
+            { id: 'ServicesExtract', name: 'ServicesExtract' },
+            { id: 'ScheduledTasksExtract', name: 'ScheduledTasksExtract' }
         ];
-        
+
         // Disabled state from config only so Workflow and Agent-evals show the same status
         const fromConfig = currentConfig?.agent_prompts?.ExtractAgentSettings?.disabled_agents;
         const disabled = Array.isArray(fromConfig) ? new Set(fromConfig) : new Set();
-        
+
         // Sub-agents fall back to ExtractAgent model/provider when not explicitly configured
         const extractModel = agentModels.ExtractAgent || null;
         const extractProvider = agentModels.ExtractAgent_provider || null;
 
-        // QA agents fall back to a peer QA agent's model/provider
-        const qaNames = subAgentOrder.map(a => a.qa);
-        const qaFallbackModel = qaNames.reduce((f, qa) => f || agentModels[qa], '') || null;
-        const qaFallbackProvider = qaNames.reduce((f, qa) => f || agentModels[`${qa}_provider`], '') || null;
-
         subAgentOrder.forEach(agent => {
             const isEnabled = !disabled.has(agent.id);
             addAgent(agent.id, agent.name, 1, isEnabled, extractModel, extractProvider);
-
-            // Add CmdAttnPreprocessor status under CmdlineExtract
-            if (agent.id === 'CmdlineExtract') {
-                const attnEnabled = currentConfig.cmdline_attention_preprocessor_enabled !== false;
-                const attnBadgeClass = attnEnabled
-                    ? 'px-1.5 py-0.5 text-[10px] rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                    : 'px-1.5 py-0.5 text-[10px] rounded-full bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300';
-                modelsList.push({
-                    text: 'CmdAttnPreprocessor',
-                    indentLevel: 2,
-                    badge: `<span class="${attnBadgeClass} ml-1.5">${attnEnabled ? 'Enabled' : 'Disabled'}</span>`
-                });
-            }
-
-            // Add QA for this sub-agent (fall back to peer QA model if not explicitly set)
-            const qaModel = agentModels[agent.qa] || qaFallbackModel;
-            if (qaModel) {
-                addAgent(agent.qa, agent.qa, 2, qaEnabled[agent.id] || false, qaFallbackModel, qaFallbackProvider);
-            }
         });
         
         // 5. SIGMA Agent
@@ -243,6 +231,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         }
         
         selectedModels = addCmdlineAttentionPreprocessorStatus(modelsList);
+        selectedModels = addProcTreeAttentionPreprocessorStatus(selectedModels);
     }
     
     const modelsHtml = selectedModels.length > 0 

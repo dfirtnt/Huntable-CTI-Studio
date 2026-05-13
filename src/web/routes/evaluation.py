@@ -112,7 +112,7 @@ async def api_eval_metrics():
 
 
 @router.get("/api/eval/history")
-async def api_eval_history(agent_name: str, limit: int = 50):
+def api_eval_history(agent_name: str, limit: int = 50):
     """Get evaluation history for an agent."""
     try:
         from src.database.manager import DatabaseManager
@@ -134,7 +134,7 @@ async def api_eval_history(agent_name: str, limit: int = 50):
 
 
 @router.get("/api/eval/comparison")
-async def api_eval_comparison(baseline_id: int, current_id: int):
+def api_eval_comparison(baseline_id: int, current_id: int):
     """Compare two evaluations."""
     try:
         from src.database.manager import DatabaseManager
@@ -158,7 +158,7 @@ async def api_eval_comparison(baseline_id: int, current_id: int):
 
 
 @router.get("/api/eval/agent-metrics")
-async def api_eval_agent_metrics(agent_name: str):
+def api_eval_agent_metrics(agent_name: str):
     """Get latest metrics for an agent."""
     try:
         from src.database.manager import DatabaseManager
@@ -186,7 +186,7 @@ async def api_eval_agent_metrics(agent_name: str):
 
 
 @router.get("/api/eval/trends")
-async def api_eval_trends(agent_name: str, metric_key: str, evaluation_type: str = None):
+def api_eval_trends(agent_name: str, metric_key: str, evaluation_type: str = None):
     """Get improvement trends for a specific metric."""
     try:
         from src.database.manager import DatabaseManager
@@ -208,7 +208,7 @@ async def api_eval_trends(agent_name: str, metric_key: str, evaluation_type: str
 
 
 @router.get("/api/eval/os-detection-manual-results")
-async def api_os_detection_manual_results():
+def api_os_detection_manual_results():
     """Get manual test results for OS Detection model comparison."""
     try:
         import json
@@ -336,7 +336,7 @@ async def api_os_detection_manual_results():
 
 
 @router.get("/api/eval/observables-count-results")
-async def api_observables_count_results():
+def api_observables_count_results():
     """Get observables count results from test runs."""
     try:
         import json
@@ -578,7 +578,7 @@ async def api_observables_count_results():
 
 
 @router.get("/api/eval/rank-agent-benchmarks")
-async def api_rank_agent_benchmarks():
+def api_rank_agent_benchmarks():
     """Get benchmark data for RankAgent visualizations."""
     try:
         from src.database.manager import DatabaseManager

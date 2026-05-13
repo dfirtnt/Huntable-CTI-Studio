@@ -1,0 +1,1764 @@
+{% extends "base.html" %}
+
+{% block title %}Agent Evals (Item-Level) - Huntable CTI Studio{% endblock %}
+
+{% block content %}
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap');
+
+    .eval-page {
+        min-height: 100vh;
+        background:
+            radial-gradient(ellipse 80% 60% at 50% -10%, rgba(16, 185, 129, 0.04) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 90%, rgba(59, 130, 246, 0.03) 0%, transparent 50%),
+            var(--panel-bg-0);
+        position: relative;
+    }
+    .eval-page::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image:
+            linear-gradient(rgba(139, 92, 246, 0.02) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(139, 92, 246, 0.02) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .eval-page > * { position: relative; z-index: 1; }
+
+    .eval-body-font { font-family: 'Inter', system-ui, sans-serif; }
+    .eval-mono { font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+
+    .eval-panel {
+        background: linear-gradient(135deg, var(--panel-bg-2) 0%, var(--panel-bg-3) 100%);
+        border: 1px solid rgba(139, 92, 246, 0.08);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+    }
+    .eval-panel::before {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0.3) 30%, rgba(59, 130, 246, 0.3) 70%, transparent 100%);
+    }
+    .eval-panel-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.06);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .eval-panel-body { padding: 1.5rem; }
+
+    .eval-section-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--text-muted-slate);
+        opacity: 0.7;
+    }
+    .eval-section-title {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 600;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+
+    .eval-status-dot {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .eval-status-dot--live {
+        background: var(--action-execute);
+        box-shadow: 0 0 6px var(--action-execute);
+        animation: eval-pulse 2s ease-in-out infinite;
+    }
+    @keyframes eval-pulse {
+        0%, 100% { box-shadow: 0 0 4px var(--action-execute); opacity: 1; }
+        50% { box-shadow: 0 0 12px var(--action-execute); opacity: 0.8; }
+    }
+
+    .eval-breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        letter-spacing: 0.05em;
+        color: var(--text-muted-slate);
+        opacity: 0.6;
+    }
+    .eval-breadcrumb a { color: var(--text-muted-slate); text-decoration: none; transition: color 0.2s; }
+    .eval-breadcrumb a:hover { color: var(--action-execute); }
+    .eval-breadcrumb .sep { opacity: 0.4; }
+
+    .eval-hero { display: flex; align-items: flex-start; gap: 1.5rem; margin-bottom: 2rem; }
+    .eval-hero-icon {
+        width: 56px; height: 56px;
+        border-radius: 14px;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        flex-shrink: 0;
+    }
+    .eval-hero h1 {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 700;
+        font-size: 1.25rem;
+        color: var(--text-emphasis);
+        line-height: 1.2;
+        margin: 0;
+    }
+    .eval-hero-desc {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-size: 0.875rem;
+        color: var(--text-muted-slate);
+        line-height: 1.6;
+        margin-top: 0.5rem;
+        max-width: 640px;
+    }
+    .eval-hero-desc code {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--action-info);
+        padding: 0.15em 0.4em;
+        border-radius: 4px;
+        border: 1px solid rgba(59, 130, 246, 0.15);
+    }
+
+    .eval-select {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.875rem;
+        background: var(--panel-bg-4);
+        border: 1px solid rgba(139, 92, 246, 0.12);
+        border-radius: 8px;
+        padding: 0.6rem 0.85rem;
+        color: var(--text-primary);
+        width: 100%;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2394a3b8' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        padding-right: 2.25rem;
+    }
+    .eval-select:focus { outline: none; border-color: var(--action-execute); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+
+    .eval-btn {
+        font-family: 'Inter', system-ui, sans-serif;
+        font-weight: 600;
+        font-size: 0.75rem;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        white-space: nowrap;
+    }
+    .eval-btn:active { transform: scale(0.97); }
+    .eval-btn--secondary {
+        background: var(--panel-bg-5);
+        color: var(--text-secondary);
+        border: 1px solid rgba(139, 92, 246, 0.1);
+    }
+    .eval-btn--secondary:hover { background: var(--panel-bg-6); border-color: rgba(139, 92, 246, 0.2); color: var(--text-primary); }
+    .eval-btn--accent {
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--action-info);
+        border: 1px solid rgba(59, 130, 246, 0.15);
+    }
+    .eval-btn--accent:hover { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.3); }
+    .eval-btn--danger {
+        background: rgba(220, 38, 38, 0.1);
+        color: #f87171;
+        border: 1px solid rgba(220, 38, 38, 0.15);
+    }
+    .eval-btn--danger:hover { background: rgba(220, 38, 38, 0.2); border-color: rgba(220, 38, 38, 0.3); }
+    .eval-btn--sm { font-size: 0.75rem; padding: 0.35rem 0.75rem; border-radius: 6px; }
+    .eval-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    .eval-run-btn {
+        font-family: 'JetBrains Mono', monospace;
+        font-weight: 700;
+        font-size: 1rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        width: 100%;
+        padding: 1rem 2rem;
+        border-radius: 10px;
+        border: none;
+        color: white;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, var(--action-execute) 0%, #047857 100%);
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.25), inset 0 1px 0 rgba(255,255,255,0.12);
+        transition: all 0.3s ease;
+    }
+    .eval-run-btn::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%; right: 0; bottom: 0;
+        width: 300%;
+        background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.05) 50%, transparent 100%);
+        animation: eval-sweep 3s ease-in-out infinite;
+    }
+    @keyframes eval-sweep {
+        0% { transform: translateX(-33%); }
+        100% { transform: translateX(33%); }
+    }
+    .eval-run-btn:hover:not(:disabled) {
+        box-shadow: 0 6px 28px rgba(16, 185, 129, 0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        transform: translateY(-1px);
+    }
+    .eval-run-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+    .eval-run-btn:disabled::before { animation: none; }
+
+    .eval-article-list {
+        max-height: 18rem;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--panel-bg-6) transparent;
+    }
+
+    .status-badge {
+        font-family: 'JetBrains Mono', monospace;
+        padding: 0.2rem 0.6rem;
+        border-radius: 5px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
+    .status-exact { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
+    .status-mismatch { background: rgba(220, 38, 38, 0.12); color: #f87171; border: 1px solid rgba(220, 38, 38, 0.2); }
+    .status-pending { background: rgba(234, 179, 8, 0.12); color: #fbbf24; border: 1px solid rgba(234, 179, 8, 0.2); }
+    .status-warning { background: rgba(234, 179, 8, 0.12); color: #fbbf24; border: 1px solid rgba(234, 179, 8, 0.2); }
+    .status-dim { background: rgba(100, 116, 139, 0.1); color: var(--text-muted-slate); border: 1px solid rgba(100, 116, 139, 0.15); }
+
+    /* Item-level results table */
+    .eval-results-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .eval-results-table th {
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted-slate);
+        border-bottom: 1px solid rgba(139, 92, 246, 0.08);
+        white-space: nowrap;
+    }
+    .eval-results-table th.center { text-align: center; }
+    .eval-results-table td {
+        padding: 0.65rem 0.75rem;
+        border-bottom: 1px solid rgba(139, 92, 246, 0.04);
+        vertical-align: middle;
+        color: var(--text-primary);
+    }
+    .eval-results-table tbody tr:hover { background: rgba(139, 92, 246, 0.03); }
+    .eval-results-table tbody tr.clickable { cursor: pointer; }
+    .eval-results-table tbody tr.clickable:hover { background: rgba(59, 130, 246, 0.05); }
+
+    .metric-cell { text-align: center; }
+    .metric-value { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; font-weight: 700; }
+    .metric-value--good { color: #34d399; }
+    .metric-value--ok { color: #fbbf24; }
+    .metric-value--bad { color: #f87171; }
+    .metric-value--na { color: var(--text-muted-slate); font-size: 0.75rem; font-weight: 400; }
+
+    .count-cell { text-align: center; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+    .count-matched { color: #34d399; }
+    .count-missed { color: #f87171; }
+    .count-extra { color: #fbbf24; }
+
+    /* Modal */
+    .eval-modal-backdrop { background: rgba(5, 8, 18, 0.75); backdrop-filter: blur(4px); }
+    .eval-modal-content {
+        background: linear-gradient(135deg, var(--panel-bg-2), var(--panel-bg-3));
+        border: 1px solid rgba(139, 92, 246, 0.12);
+        border-radius: 14px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+    }
+
+    /* Item lists in modal */
+    .item-section { margin-bottom: 1.25rem; }
+    .item-section-header {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.625rem;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 0.5rem;
+        padding: 0.3rem 0.5rem;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .item-section-header--missed { color: #f87171; background: rgba(220, 38, 38, 0.1); }
+    .item-section-header--extra { color: #fbbf24; background: rgba(234, 179, 8, 0.1); }
+    .item-section-header--matched { color: #34d399; background: rgba(16, 185, 129, 0.1); }
+    .item-entry {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.75rem;
+        padding: 0.4rem 0.6rem;
+        margin-bottom: 0.25rem;
+        border-radius: 5px;
+        word-break: break-all;
+    }
+    .item-entry--missed { background: rgba(220, 38, 38, 0.07); color: #fca5a5; border-left: 2px solid rgba(220, 38, 38, 0.4); }
+    .item-entry--extra { background: rgba(234, 179, 8, 0.07); color: #fde68a; border-left: 2px solid rgba(234, 179, 8, 0.4); }
+    .item-entry--matched { background: rgba(16, 185, 129, 0.07); color: #6ee7b7; border-left: 2px solid rgba(16, 185, 129, 0.4); }
+
+    @keyframes eval-fadeUp {
+        from { opacity: 0; transform: translateY(16px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .eval-animate-in { animation: eval-fadeUp 0.5s ease-out both; }
+    .eval-animate-in:nth-child(1) { animation-delay: 0.05s; }
+    .eval-animate-in:nth-child(2) { animation-delay: 0.12s; }
+    .eval-animate-in:nth-child(3) { animation-delay: 0.19s; }
+    .eval-animate-in:nth-child(4) { animation-delay: 0.26s; }
+</style>
+
+<div class="eval-page">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+    <!-- Breadcrumb -->
+    <div class="eval-breadcrumb mb-6 eval-animate-in">
+        <a href="/">DASHBOARD</a>
+        <span class="sep">/</span>
+        <a href="/mlops">MLOPS</a>
+        <span class="sep">/</span>
+        <a href="/mlops/agent-evals">AGENT EVALS</a>
+        <span class="sep">/</span>
+        <span style="color: var(--action-info);">ITEM-LEVEL</span>
+    </div>
+
+    <!-- Hero Header -->
+    <div class="eval-hero eval-animate-in">
+        <div class="eval-hero-icon">
+            <svg class="w-7 h-7" style="color: var(--action-info);" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+            </svg>
+        </div>
+        <div>
+            <h1>Agent Evals &mdash; Item-Level Scoring</h1>
+            <p class="eval-hero-desc">
+                Structured ground-truth evaluation: compares extracted items against human-validated ground truth <code>expected_items</code> lists.
+                Scores <strong>precision</strong> and <strong>recall</strong> using set-based normalized matching.
+                Articles without <code>expected_items</code> fall back to count-only display.
+            </p>
+        </div>
+    </div>
+
+    <!-- SYS.01 Configuration Panel -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-header">
+            <div>
+                <div class="eval-section-label">SYS.01</div>
+                <h2 class="eval-section-title eval-body-font">Configuration</h2>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="eval-status-dot eval-status-dot--live"></span>
+                <span class="eval-mono text-xs" style="color: var(--action-execute);">ACTIVE</span>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="eval-section-label block mb-2">EXTRACTOR SUBAGENT</label>
+                    <select id="subagentSelect" class="eval-select">
+                        <option value="cmdline">CommandLine</option>
+                        <option value="process_lineage">Process Lineage</option>
+                        <option value="hunt_queries">Hunt Queries</option>
+                        <option value="registry_artifacts">Registry Artifacts</option>
+                        <option value="windows_services">Windows Services</option>
+                        <option value="scheduled_tasks">Scheduled Tasks</option>
+                    </select>
+                    <button id="loadEvalArticlesBtn" class="eval-btn eval-btn--accent mt-3">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Load Eval Articles
+                    </button>
+                </div>
+                <div>
+                    {% set show_eval_config_help = true %}
+                    {% include 'components/workflow_config_snippet.html' %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYS.02 Article Selection Panel -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-header">
+            <div>
+                <div class="eval-section-label">SYS.02</div>
+                <h2 class="eval-section-title eval-body-font">Evaluation Articles</h2>
+            </div>
+            <div class="flex gap-2">
+                <button id="selectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Select All</button>
+                <button id="deselectAllBtn" class="eval-btn eval-btn--secondary eval-btn--sm">Deselect All</button>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <div id="articleList" class="eval-article-list space-y-2">
+                <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Load a dataset to see articles.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Run Evaluation Panel -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-body" style="padding: 1.25rem 1.5rem;">
+            <div class="flex items-center gap-3 mb-3" style="flex-wrap: wrap;">
+                <label for="evalMultiplier" class="eval-mono text-xs" style="color: var(--text-muted-slate);">Runs per article</label>
+                <input id="evalMultiplier" type="number" min="1" max="50" value="1" class="eval-mono text-sm"
+                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary);" />
+                <span id="evalMultiplierHint" class="eval-mono text-xs" style="color: var(--text-muted-slate);"></span>
+                <label for="evalConcurrencyThrottle" class="eval-mono text-xs" style="color: var(--text-muted-slate);">Concurrency Throttle (s)</label>
+                <input id="evalConcurrencyThrottle" type="number" min="0" max="60" step="0.5" value="5" class="eval-mono text-sm"
+                    style="width: 5rem; padding: 0.4rem 0.6rem; background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.15); border-radius: 6px; color: var(--text-primary);" />
+            </div>
+            <button id="runEvalBtn" class="eval-run-btn" disabled>RUN ITEM-LEVEL EVALUATION</button>
+            <div id="evalStatus" class="mt-4 hidden">
+                <div class="flex items-center gap-3" style="padding: 0.5rem 0;">
+                    <div id="evalSpinner" class="animate-spin rounded-full h-4 w-4 border-2 border-transparent" style="border-top-color: var(--action-execute); border-right-color: var(--action-execute);"></div>
+                    <span class="eval-mono" style="color: var(--text-muted-slate);" id="evalStatusText"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Item Detail Modal -->
+    <div id="itemDetailModal" class="hidden fixed inset-0 eval-modal-backdrop z-50 flex items-center justify-center">
+        <div class="eval-modal-content max-w-3xl w-full mx-4 max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-6" style="border-bottom: 1px solid rgba(139, 92, 246, 0.08);">
+                <h3 id="itemDetailTitle" class="eval-section-title">Item-Level Detail</h3>
+                <button id="closeItemDetailModal" class="eval-btn eval-btn--secondary eval-btn--sm" style="padding: 0.4rem;">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div id="itemDetailContent" class="p-6 overflow-y-auto flex-1"></div>
+        </div>
+    </div>
+
+    <!-- SYS.03 Results Panel -->
+    <div class="eval-panel eval-animate-in">
+        <div class="eval-panel-header" style="flex-wrap: wrap;">
+            <div>
+                <div class="eval-section-label">SYS.03</div>
+                <h2 class="eval-section-title eval-body-font">Item-Level Results</h2>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+                <button id="backfillEvalBtn" class="eval-btn eval-btn--accent eval-btn--sm">Update Pending</button>
+                <button id="clearPendingBtn" class="eval-btn eval-btn--danger eval-btn--sm">Clear Pending</button>
+                <button id="loadPreviousResultsBtn" class="eval-btn eval-btn--secondary eval-btn--sm">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                    Load Previous
+                </button>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+
+            <!-- Legend -->
+            <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
+                <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
+                    <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
+                    <span class="text-[10px]" style="opacity: 0.6;">click to expand</span>
+                </summary>
+                <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate);">
+                    <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
+                        <div>
+                            <p class="font-semibold mb-2" style="color: var(--text-emphasis);">Metrics</p>
+                            <ul class="space-y-1" style="line-height: 1.7;">
+                                <li><strong style="color: var(--text-emphasis);">Precision</strong> &mdash; matched &divide; actual extracted &mdash; low false positives</li>
+                                <li><strong style="color: var(--text-emphasis);">Recall</strong> &mdash; matched &divide; expected &mdash; low missed items</li>
+                                <li><strong style="color: var(--text-emphasis);">Matched</strong> &mdash; in both expected and extracted</li>
+                                <li><strong style="color: var(--text-emphasis);">Missed</strong> &mdash; in expected but not extracted (false negatives)</li>
+                                <li><strong style="color: var(--text-emphasis);">Extra</strong> &mdash; extracted but not in expected (false positives)</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-2" style="color: var(--text-emphasis);">Score colors</p>
+                            <ul class="space-y-1" style="line-height: 1.7;">
+                                <li><span class="metric-value metric-value--good">90%+</span> &mdash; Excellent</li>
+                                <li><span class="metric-value metric-value--ok">70&ndash;89%</span> &mdash; Good</li>
+                                <li><span class="metric-value metric-value--bad">&lt;70%</span> &mdash; Needs work</li>
+                                <li><span class="metric-value metric-value--na">n/a</span> &mdash; No human-validated ground truth or pending</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <p class="font-semibold mb-2" style="color: var(--text-emphasis);">Notes</p>
+                            <ul class="space-y-1" style="line-height: 1.7;">
+                                <li>Click any completed row to see missed and extra item lists.</li>
+                                <li>Only the most recent completed run per article is shown.</li>
+                                <li>Matching normalizes to lowercase, defangs <code>[.]</code>&rarr;<code>.</code>, collapses whitespace.</li>
+                                <li><span class="status-dim status-badge text-[10px]">count only</span> &mdash; article has no <code>expected_items</code> ground truth established yet.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </details>
+
+            <!-- Aggregate summary strip -->
+            <div id="aggregateSummary" class="hidden mb-4 p-4 rounded-lg" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08);">
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div>
+                        <div class="eval-section-label mb-1">Articles</div>
+                        <div id="aggTotal" class="eval-mono text-lg font-bold" style="color: var(--text-emphasis);">--</div>
+                    </div>
+                    <div>
+                        <div class="eval-section-label mb-1">Avg Precision</div>
+                        <div id="aggPrecision" class="eval-mono text-lg font-bold">--</div>
+                    </div>
+                    <div>
+                        <div class="eval-section-label mb-1">Avg Recall</div>
+                        <div id="aggRecall" class="eval-mono text-lg font-bold">--</div>
+                    </div>
+                    <div>
+                        <div class="eval-section-label mb-1">Perfect Recall</div>
+                        <div id="aggPerfect" class="eval-mono text-lg font-bold" style="color: var(--text-emphasis);">--</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="resultsTable">
+                <p class="eval-mono text-xs" style="color: var(--text-muted-slate);">Run an evaluation to see results, or click "Load Previous" to view past evaluations.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYS.04 Evaluation Metrics Over Time -->
+    <div class="eval-panel mb-5 eval-animate-in">
+        <div class="eval-panel-header">
+            <div>
+                <div class="eval-section-label">SYS.04</div>
+                <h2 class="eval-section-title eval-body-font">Evaluation Metrics Over Time</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <label class="eval-section-label" for="trendModelSelect">MODEL</label>
+                <select id="trendModelSelect" class="eval-select" style="min-width: 18rem;">
+                    <option value="">-- select a model --</option>
+                </select>
+            </div>
+        </div>
+        <div class="eval-panel-body">
+            <p class="eval-mono mb-3 text-xs" style="color: var(--text-muted-slate);">
+                Macro-averaged Precision, Recall, and F1 across articles with human-validated ground truth, plotted per <strong>config_version</strong>.
+                Only versions where this subagent used the selected model are shown. Articles without <code>expected_items</code> are excluded.
+            </p>
+            <div id="trendChartEmpty" class="eval-mono text-center py-8 text-xs" style="color: var(--text-muted-slate);">
+                Select a model above to plot its precision/recall/F1 trajectory across config versions.
+            </div>
+            <div id="trendChartContainer" class="hidden">
+                <div style="position: relative; height: 380px; width: 100%;">
+                    <canvas id="trendChart"></canvas>
+                </div>
+                <div id="trendChartMeta" class="eval-mono text-center mt-2 text-xs" style="color: var(--text-muted-slate);"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+</div>
+
+<script>
+'use strict';
+
+let evalArticles = [];
+let activeConfig = null;
+let selectedArticleUrls = new Set();
+let currentSubagent = 'cmdline';
+
+// Rows cache used by modal -- avoids passing data through DOM attributes
+let cachedResultRows = [];
+
+const THROTTLE_LS_KEY = 'eval2.concurrency_throttle_seconds';
+const THROTTLE_DEFAULT = 5;
+const MULTIPLIER_LS_KEY = 'eval2.runs_per_article';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function escHtml(s) {
+    return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function normalizeItem(s) {
+    return String(s).toLowerCase().trim()
+        .replace(/\[\.\]/g, '.')
+        .replace(/\[:\]/g, ':')
+        .replace(/\s+/g, ' ');
+}
+
+function metricColorClass(v) {
+    if (v == null) return 'metric-value--na';
+    if (v >= 0.90) return 'metric-value--good';
+    if (v >= 0.70) return 'metric-value--ok';
+    return 'metric-value--bad';
+}
+
+function fmtPct(v) {
+    if (v == null) return '<span class="metric-value metric-value--na">n/a</span>';
+    return '<span class="metric-value ' + metricColorClass(v) + '">' + (v * 100).toFixed(0) + '%</span>';
+}
+
+// ─── Config ───────────────────────────────────────────────────────────────────
+
+async function loadActiveConfig() {
+    try {
+        const resp = await fetch('/api/workflow/config');
+        activeConfig = await resp.json();
+        if (typeof renderWorkflowConfigDisplay === 'function') {
+            renderWorkflowConfigDisplay(activeConfig);
+        }
+    } catch (e) {
+        console.error('Error loading config:', e);
+    }
+}
+
+// ─── Article loading ──────────────────────────────────────────────────────────
+
+async function loadEvalArticles() {
+    const subagentVal = document.getElementById('subagentSelect').value;
+    currentSubagent = subagentVal;
+    const loadBtn = document.getElementById('loadEvalArticlesBtn');
+    const listEl = document.getElementById('articleList');
+
+    loadBtn.disabled = true;
+    loadBtn.textContent = 'Loading...';
+
+    // Clear list safely
+    while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+    const loadingP = document.createElement('p');
+    loadingP.className = 'eval-mono';
+    loadingP.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+    loadingP.textContent = 'Loading articles...';
+    listEl.appendChild(loadingP);
+
+    try {
+        const resp = await fetch('/api/evaluations/subagent-eval-articles?subagent=' + encodeURIComponent(subagentVal));
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || ('HTTP ' + resp.status));
+        }
+        const data = await resp.json();
+        evalArticles = data.articles || [];
+
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        selectedArticleUrls.clear();
+
+        if (evalArticles.length === 0) {
+            const p = document.createElement('p');
+            p.className = 'eval-mono';
+            p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+            p.textContent = 'No eval articles found for this subagent.';
+            listEl.appendChild(p);
+            return;
+        }
+
+        evalArticles.forEach(article => {
+            const div = document.createElement('div');
+            div.className = 'flex items-center gap-3 p-2 rounded';
+            div.style.cssText = 'border: 1px solid rgba(139,92,246,0.08); background: var(--panel-bg-4);';
+
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = article.url;
+            cb.id = 'article-' + article.url;
+            cb.className = 'w-4 h-4';
+            cb.checked = true;
+            selectedArticleUrls.add(article.url);
+            cb.addEventListener('change', function(e) {
+                if (e.target.checked) selectedArticleUrls.add(article.url);
+                else selectedArticleUrls.delete(article.url);
+                updateRunButton();
+            });
+
+            const label = document.createElement('label');
+            label.htmlFor = 'article-' + article.url;
+            label.className = 'flex-1 cursor-pointer';
+            label.style.fontSize = '0.8rem';
+
+            const rawDisplay = (article.title && article.title.trim()) ? article.title.trim()
+                : (article.url.length > 60 ? article.url.substring(0, 60) + '...' : article.url);
+
+            const titleSpan = document.createElement('span');
+            titleSpan.style.color = 'var(--text-primary)';
+            titleSpan.title = article.url;
+            titleSpan.textContent = rawDisplay;
+
+            const hasItems = article.expected_items && article.expected_items.length > 0;
+            const badge = document.createElement('span');
+            badge.style.cssText = 'font-family: monospace; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; margin-left: 0.4rem;';
+            if (hasItems) {
+                badge.style.cssText += 'background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2);';
+                badge.textContent = article.expected_items.length + ' items';
+            } else {
+                badge.style.cssText += 'background: rgba(100,116,139,0.1); color: var(--text-muted-slate);';
+                badge.textContent = 'count only';
+            }
+
+            label.appendChild(titleSpan);
+            label.appendChild(badge);
+            div.appendChild(cb);
+            div.appendChild(label);
+            listEl.appendChild(div);
+        });
+
+        const msg = document.createElement('p');
+        msg.className = 'eval-mono mt-2';
+        msg.style.cssText = 'color: #34d399; font-size: 0.75rem;';
+        msg.textContent = 'Loaded ' + evalArticles.length + ' article(s)';
+        listEl.appendChild(msg);
+
+        updateRunButton();
+    } catch (e) {
+        console.error('Error loading eval articles:', e);
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+        const errP = document.createElement('p');
+        errP.className = 'eval-mono';
+        errP.style.cssText = 'color: #f87171; font-size: 0.75rem;';
+        errP.textContent = 'Error: ' + e.message;
+        listEl.appendChild(errP);
+        if (typeof showNotification === 'function') showNotification('Failed to load eval articles: ' + e.message, 'error');
+    } finally {
+        loadBtn.disabled = false;
+        loadBtn.textContent = 'Load Eval Articles';
+    }
+}
+
+// ─── Run button ───────────────────────────────────────────────────────────────
+
+function updateRunButton() {
+    const btn = document.getElementById('runEvalBtn');
+    btn.disabled = selectedArticleUrls.size === 0;
+    const hint = document.getElementById('evalMultiplierHint');
+    const multInput = document.getElementById('evalMultiplier');
+    if (hint && multInput) {
+        let m = parseInt(multInput.value, 10);
+        if (!Number.isFinite(m) || m < 1) m = 1;
+        const n = selectedArticleUrls.size;
+        hint.textContent = n === 0 ? '' : (m > 1 ? '= ' + (n * m) + ' total executions (' + n + ' x ' + m + ')' : '= ' + n + ' execution' + (n === 1 ? '' : 's'));
+    }
+}
+
+// ─── Throttle / multiplier persistence ───────────────────────────────────────
+
+function readThrottleValue() {
+    const input = document.getElementById('evalConcurrencyThrottle');
+    if (!input) return THROTTLE_DEFAULT;
+    let v = parseFloat(input.value);
+    if (!Number.isFinite(v) || v < 0) v = 0;
+    if (v > 60) v = 60;
+    localStorage.setItem(THROTTLE_LS_KEY, String(v));
+    return v;
+}
+
+function hydrateThrottleValue() {
+    const input = document.getElementById('evalConcurrencyThrottle');
+    if (!input) return;
+    const s = localStorage.getItem(THROTTLE_LS_KEY);
+    if (s !== null) {
+        const v = parseFloat(s);
+        if (Number.isFinite(v) && v >= 0 && v <= 60) input.value = String(v);
+    }
+}
+
+function persistMultiplierValue() {
+    const input = document.getElementById('evalMultiplier');
+    if (!input) return;
+    let v = parseInt(input.value, 10);
+    if (!Number.isFinite(v) || v < 1) v = 1;
+    if (v > 50) v = 50;
+    localStorage.setItem(MULTIPLIER_LS_KEY, String(v));
+}
+
+function hydrateMultiplierValue() {
+    const input = document.getElementById('evalMultiplier');
+    if (!input) return;
+    const s = localStorage.getItem(MULTIPLIER_LS_KEY);
+    if (s !== null) {
+        const v = parseInt(s, 10);
+        if (Number.isFinite(v) && v >= 1 && v <= 50) input.value = String(v);
+    }
+}
+
+// ─── Run evaluation ───────────────────────────────────────────────────────────
+
+async function runEvaluation() {
+    if (selectedArticleUrls.size === 0) {
+        if (typeof showNotification === 'function') showNotification('Please select at least one article', 'error');
+        return;
+    }
+    if (!activeConfig) {
+        if (typeof showNotification === 'function') showNotification('Active config not loaded. Refresh the page.', 'error');
+        return;
+    }
+
+    const runBtn = document.getElementById('runEvalBtn');
+    const statusDiv = document.getElementById('evalStatus');
+    const statusText = document.getElementById('evalStatusText');
+    const multInput = document.getElementById('evalMultiplier');
+    let multiplier = parseInt(multInput ? multInput.value : '1', 10);
+    if (!Number.isFinite(multiplier) || multiplier < 1) multiplier = 1;
+    if (multiplier > 50) multiplier = 50;
+    const throttle = readThrottleValue();
+
+    const baseUrls = Array.from(selectedArticleUrls);
+    const repeatedUrls = [];
+    for (let i = 0; i < multiplier; i++) repeatedUrls.push(...baseUrls);
+
+    runBtn.disabled = true;
+    statusDiv.classList.remove('hidden');
+    document.getElementById('evalSpinner').classList.remove('hidden');
+    const windowSec = Math.max(0, Math.round((repeatedUrls.length - 1) * (0.2 + throttle)));
+    statusText.textContent = 'Triggering ' + repeatedUrls.length + ' executions @ ' + throttle + 's throttle (~' + windowSec + 's dispatch window)...';
+
+    try {
+        const resp = await fetch('/api/evaluations/run-subagent-eval', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                subagent_name: currentSubagent,
+                article_urls: repeatedUrls,
+                use_active_config: true,
+                concurrency_throttle_seconds: throttle,
+            }),
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || ('HTTP ' + resp.status));
+        }
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.message || 'Evaluation run failed');
+
+        const executions = data.executions || [];
+        if (executions.length > 0) {
+            statusText.textContent = 'Triggered ' + executions.length + ' executions. Polling for results...';
+            pollResults();
+        } else {
+            statusText.textContent = 'Evaluated ' + (data.total_articles || 0) + ' article(s). Refreshing results...';
+            statusText.style.color = '#34d399';
+            document.getElementById('evalSpinner').classList.add('hidden');
+            setTimeout(loadPreviousResults, 100);
+        }
+    } catch (e) {
+        console.error('Error running evaluation:', e);
+        statusText.textContent = 'Error: ' + e.message;
+        statusText.style.color = '#f87171';
+        document.getElementById('evalSpinner').classList.add('hidden');
+    } finally {
+        runBtn.disabled = false;
+    }
+}
+
+// ─── Poll ─────────────────────────────────────────────────────────────────────
+
+function pollResults() {
+    const statusText = document.getElementById('evalStatusText');
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    function poll() {
+        attempts++;
+        fetch('/api/evaluations/subagent-eval-results?subagent=' + encodeURIComponent(currentSubagent))
+            .then(function(resp) {
+                if (!resp.ok) { setTimeout(poll, 2000); return; }
+                return resp.json();
+            })
+            .then(function(data) {
+                if (!data) return;
+                const results = data.results || [];
+                const completed = results.filter(function(r) { return r.status === 'completed'; }).length;
+                const pending = results.filter(function(r) { return r.status === 'pending'; }).length;
+                const failed = results.filter(function(r) { return r.status === 'failed'; }).length;
+                statusText.textContent = 'Completed: ' + completed + '/' + results.length + ', Pending: ' + pending + ', Failed: ' + failed;
+                if (completed + failed === results.length || attempts >= maxAttempts) {
+                    statusText.textContent = 'All executions completed. Refreshing results...';
+                    statusText.style.color = '#34d399';
+                    document.getElementById('evalSpinner').classList.add('hidden');
+                    setTimeout(loadPreviousResults, 100);
+                } else {
+                    setTimeout(poll, 2000);
+                }
+            })
+            .catch(function(e) {
+                console.error('Poll error:', e);
+                statusText.textContent = 'Poll error: ' + e.message;
+                statusText.style.color = '#f87171';
+                document.getElementById('evalSpinner').classList.add('hidden');
+            });
+    }
+    poll();
+}
+
+// ─── Load previous results ────────────────────────────────────────────────────
+
+async function loadPreviousResults() {
+    const subagentVal = document.getElementById('subagentSelect').value;
+    const resultsEl = document.getElementById('resultsTable');
+
+    while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+    const loadingP = document.createElement('p');
+    loadingP.className = 'eval-mono';
+    loadingP.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+    loadingP.textContent = 'Loading results...';
+    resultsEl.appendChild(loadingP);
+
+    try {
+        // Load preset expected_items to supplement DB results
+        const presetByUrl = {};
+        try {
+            const presetResp = await fetch('/api/evaluations/subagent-eval-articles?subagent=' + encodeURIComponent(subagentVal));
+            if (presetResp.ok) {
+                const presetData = await presetResp.json();
+                (presetData.articles || []).forEach(function(a) {
+                    if (a.url) {
+                        presetByUrl[a.url] = {
+                            expected_count: a.expected_count != null ? a.expected_count : 0,
+                            expected_items: a.expected_items || null,
+                        };
+                    }
+                });
+            }
+        } catch (e) { console.warn('Could not load preset:', e); }
+
+        const resp = await fetch('/api/evaluations/subagent-eval-results?subagent=' + encodeURIComponent(subagentVal));
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({ detail: resp.statusText }));
+            throw new Error(err.detail || ('HTTP ' + resp.status));
+        }
+        const data = await resp.json();
+        const results = data.results || [];
+
+        if (results.length === 0) {
+            while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+            const p = document.createElement('p');
+            p.className = 'eval-mono';
+            p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+            p.textContent = 'No previous results found for this subagent.';
+            resultsEl.appendChild(p);
+            document.getElementById('aggregateSummary').classList.add('hidden');
+            return;
+        }
+
+        // Group by article URL: one bucket per article
+        const byUrl = {};
+        results.forEach(function(r) {
+            const url = (r.url || '').trim();
+            const key = url ? ('url:' + url) : ('id:' + (r.article_id != null ? r.article_id : r.id));
+            if (!byUrl[key]) byUrl[key] = [];
+            byUrl[key].push(r);
+        });
+
+        // Pick the most recent completed run per bucket (fallback to most recent any-status)
+        const articleRows = Object.values(byUrl).map(function(rows) {
+            const completed = rows.filter(function(r) { return r.status === 'completed'; });
+            const pool = completed.length > 0 ? completed : rows;
+            pool.sort(function(a, b) {
+                const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return tb - ta;
+            });
+            const row = Object.assign({}, pool[0]);
+            // Merge preset data
+            const preset = presetByUrl[row.url];
+            if (preset) {
+                if (row.expected_count == null) row.expected_count = preset.expected_count;
+                if (!row.expected_items && preset.expected_items) row.expected_items = preset.expected_items;
+            }
+            return row;
+        });
+
+        // Sort by article_id, then URL
+        articleRows.sort(function(a, b) {
+            if (a.article_id != null && b.article_id != null) return a.article_id - b.article_id;
+            if (a.article_id != null) return -1;
+            if (b.article_id != null) return 1;
+            return (a.url || '').localeCompare(b.url || '');
+        });
+
+        // Store in cache for modal lookups (safe -- no DOM roundtrip with data)
+        cachedResultRows = articleRows;
+
+        renderItemLevelTable(articleRows);
+        renderAggregateSummary(articleRows);
+
+    } catch (e) {
+        console.error('Error loading results:', e);
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const errP = document.createElement('p');
+        errP.className = 'eval-mono';
+        errP.style.cssText = 'color: #f87171; font-size: 0.75rem;';
+        errP.textContent = 'Error: ' + e.message;
+        resultsEl.appendChild(errP);
+    }
+}
+
+// ─── Render item-level table (safe DOM construction) ─────────────────────────
+
+function renderItemLevelTable(rows) {
+    const resultsEl = document.getElementById('resultsTable');
+    while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'overflow-x-auto';
+
+    const table = document.createElement('table');
+    table.className = 'eval-results-table';
+
+    // Header
+    const thead = document.createElement('thead');
+    const headerRow = document.createElement('tr');
+    const headers = [
+        { text: 'Article', cls: '', style: 'width: 280px; min-width: 180px;' },
+        { text: 'Expected', cls: 'center', style: 'min-width: 60px;' },
+        { text: 'Actual', cls: 'center', style: 'min-width: 60px;' },
+        { text: 'Precision', cls: 'center', style: 'min-width: 80px;' },
+        { text: 'Recall', cls: 'center', style: 'min-width: 80px;' },
+        { text: 'F1', cls: 'center', style: 'min-width: 70px;', title: 'Harmonic mean of Precision and Recall' },
+        { text: 'Matched', cls: 'center', style: 'min-width: 60px;', title: 'Items in both expected and extracted' },
+        { text: 'Missed', cls: 'center', style: 'min-width: 60px;', title: 'Expected but not extracted' },
+        { text: 'Extra', cls: 'center', style: 'min-width: 60px;', title: 'Extracted but not expected' },
+        { text: 'Status', cls: '', style: 'min-width: 100px;' },
+    ];
+    headers.forEach(function(h) {
+        const th = document.createElement('th');
+        if (h.cls) th.className = h.cls;
+        if (h.style) th.style.cssText = h.style;
+        if (h.title) th.title = h.title;
+        th.textContent = h.text;
+        headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
+    table.appendChild(thead);
+
+    const tbody = document.createElement('tbody');
+
+    rows.forEach(function(r, idx) {
+        const isCompleted = r.status === 'completed';
+        const hasItemScoring = isCompleted && r.matched_count != null;
+        const actual = r.actual_count != null ? r.actual_count : null;
+        const expected = r.expected_count != null ? r.expected_count : null;
+
+        let precision = null;
+        let recall = null;
+        let f1 = null;
+        if (hasItemScoring && actual != null && actual > 0) precision = r.matched_count / actual;
+        if (hasItemScoring && expected != null && expected > 0) recall = r.matched_count / expected;
+        if (precision != null && recall != null && (precision + recall) > 0) f1 = 2 * precision * recall / (precision + recall);
+
+        const tr = document.createElement('tr');
+        if (isCompleted && r.execution_id != null) {
+            tr.className = 'clickable';
+            tr.dataset.rowIndex = String(idx);
+        }
+
+        // Article cell
+        const tdArticle = document.createElement('td');
+        tdArticle.style.cssText = 'max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+        if (r.article_id != null) {
+            const a = document.createElement('a');
+            a.href = '/articles/' + r.article_id;
+            a.className = 'text-blue-400 hover:underline';
+            a.style.fontSize = '0.8rem';
+            const rawTitle = (r.title && r.title.trim()) ? r.title.trim() : ('Article #' + r.article_id);
+            a.textContent = rawTitle;
+            a.title = r.url || '';
+            tdArticle.appendChild(a);
+        } else {
+            const span = document.createElement('span');
+            span.style.cssText = 'color: var(--text-primary); font-size: 0.8rem;';
+            const rawTitle = (r.title && r.title.trim()) ? r.title.trim() : ('#' + (idx + 1));
+            span.textContent = rawTitle;
+            span.title = r.url || '';
+            tdArticle.appendChild(span);
+        }
+        tr.appendChild(tdArticle);
+
+        // Count cells
+        function mkCountCell(val, extraClass) {
+            const td = document.createElement('td');
+            td.className = 'count-cell' + (extraClass ? (' ' + extraClass) : '');
+            td.textContent = val != null ? String(val) : '-';
+            return td;
+        }
+
+        tr.appendChild(mkCountCell(expected));
+        tr.appendChild(mkCountCell(actual));
+
+        // Precision cell
+        const tdPrec = document.createElement('td');
+        tdPrec.className = 'metric-cell';
+        if (hasItemScoring) {
+            const span = document.createElement('span');
+            span.className = 'metric-value ' + metricColorClass(precision);
+            span.textContent = precision != null ? (precision * 100).toFixed(0) + '%' : 'n/a';
+            tdPrec.appendChild(span);
+        } else {
+            const span = document.createElement('span');
+            span.className = 'metric-value metric-value--na';
+            span.textContent = 'n/a';
+            tdPrec.appendChild(span);
+        }
+        tr.appendChild(tdPrec);
+
+        // Recall cell
+        const tdRec = document.createElement('td');
+        tdRec.className = 'metric-cell';
+        if (hasItemScoring) {
+            const span = document.createElement('span');
+            span.className = 'metric-value ' + metricColorClass(recall);
+            span.textContent = recall != null ? (recall * 100).toFixed(0) + '%' : 'n/a';
+            tdRec.appendChild(span);
+        } else {
+            const span = document.createElement('span');
+            span.className = 'metric-value metric-value--na';
+            span.textContent = 'n/a';
+            tdRec.appendChild(span);
+        }
+        tr.appendChild(tdRec);
+
+        // F1 cell
+        const tdF1 = document.createElement('td');
+        tdF1.className = 'metric-cell';
+        if (hasItemScoring) {
+            const span = document.createElement('span');
+            span.className = 'metric-value ' + metricColorClass(f1);
+            span.textContent = f1 != null ? (f1 * 100).toFixed(0) + '%' : 'n/a';
+            tdF1.appendChild(span);
+        } else {
+            const span = document.createElement('span');
+            span.className = 'metric-value metric-value--na';
+            span.textContent = 'n/a';
+            tdF1.appendChild(span);
+        }
+        tr.appendChild(tdF1);
+
+        tr.appendChild(mkCountCell(hasItemScoring ? r.matched_count : null, 'count-matched'));
+        tr.appendChild(mkCountCell(hasItemScoring ? r.missed_count : null, 'count-missed'));
+        tr.appendChild(mkCountCell(hasItemScoring ? r.extra_count : null, 'count-extra'));
+
+        // Status cell
+        const tdStatus = document.createElement('td');
+        const badge = document.createElement('span');
+        badge.className = 'status-badge';
+        if (r.status === 'completed') {
+            if (hasItemScoring) {
+                const rc = f1 != null ? f1 : (recall != null ? recall : 0);
+                badge.className += rc >= 0.9 ? ' status-exact' : rc >= 0.7 ? ' status-warning' : ' status-mismatch';
+            } else {
+                badge.className += ' status-dim';
+            }
+            badge.textContent = 'completed';
+        } else if (r.status === 'failed') {
+            badge.className += ' status-mismatch';
+            badge.textContent = 'failed';
+        } else {
+            badge.className += ' status-pending';
+            badge.textContent = r.status || 'pending';
+        }
+        tdStatus.appendChild(badge);
+
+        // Extra warning chips
+        function addChip(title, text, style) {
+            const chip = document.createElement('span');
+            chip.className = 'status-badge status-mismatch';
+            chip.style.cssText = 'padding: 0 0.35rem; margin-left: 0.25rem; ' + (style || '');
+            chip.title = title;
+            chip.textContent = text;
+            tdStatus.appendChild(chip);
+        }
+        if (r.quota_exceeded) addChip('OpenAI quota exhausted', 'no quota', 'background: rgba(220,38,38,0.12); color: #f87171; border-color: rgba(220,38,38,0.35);');
+        if (r.throttled) addChip('TPM rate limit', '⚠', '');
+        if (r.context_length_exceeded) addChip('Context window exceeded', 'ctx↗', 'background: rgba(234,88,12,0.12); color: #ea580c; border-color: rgba(234,88,12,0.35);');
+        if (r.infra_not_ready) addChip('LMStudio not ready', 'no mdl', 'background: rgba(99,102,241,0.12); color: #818cf8; border-color: rgba(99,102,241,0.35);');
+
+        // count-only badge for articles without ground truth
+        if (isCompleted && !hasItemScoring && !r.quota_exceeded && !r.context_length_exceeded && !r.infra_not_ready) {
+            const ctag = document.createElement('span');
+            ctag.className = 'status-badge status-dim';
+            ctag.style.cssText = 'font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0.25rem;';
+            ctag.title = 'No human-validated ground truth for this article';
+            ctag.textContent = 'count only';
+            tdStatus.appendChild(ctag);
+        }
+
+        tr.appendChild(tdStatus);
+        tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    wrapper.appendChild(table);
+    resultsEl.appendChild(wrapper);
+
+    // Attach click handlers after the table is in the DOM
+    tbody.addEventListener('click', function(e) {
+        const tr = e.target.closest('tr.clickable');
+        if (!tr) return;
+        const idx = parseInt(tr.dataset.rowIndex, 10);
+        if (!Number.isFinite(idx) || idx < 0 || idx >= cachedResultRows.length) return;
+        showItemDetail(cachedResultRows[idx]);
+    });
+}
+
+// ─── Aggregate summary ────────────────────────────────────────────────────────
+
+function renderAggregateSummary(rows) {
+    const strip = document.getElementById('aggregateSummary');
+    const annotated = rows.filter(function(r) { return r.status === 'completed' && r.matched_count != null; });
+
+    if (annotated.length === 0) {
+        strip.classList.add('hidden');
+        return;
+    }
+
+    let totalP = 0, totalR = 0, perfectRecall = 0;
+    annotated.forEach(function(r) {
+        const p = (r.actual_count > 0) ? r.matched_count / r.actual_count : 1;
+        const rc = (r.expected_count > 0) ? r.matched_count / r.expected_count : 1;
+        totalP += p;
+        totalR += rc;
+        if (rc >= 1.0) perfectRecall++;
+    });
+    const avgP = totalP / annotated.length;
+    const avgR = totalR / annotated.length;
+
+    document.getElementById('aggTotal').textContent = rows.length;
+
+    const pEl = document.getElementById('aggPrecision');
+    pEl.textContent = (avgP * 100).toFixed(1) + '%';
+    pEl.className = 'eval-mono text-lg font-bold metric-value ' + metricColorClass(avgP);
+
+    const rEl = document.getElementById('aggRecall');
+    rEl.textContent = (avgR * 100).toFixed(1) + '%';
+    rEl.className = 'eval-mono text-lg font-bold metric-value ' + metricColorClass(avgR);
+
+    document.getElementById('aggPerfect').textContent = perfectRecall + '/' + annotated.length;
+
+    strip.classList.remove('hidden');
+}
+
+// ─── Item detail modal ────────────────────────────────────────────────────────
+
+function showItemDetail(row) {
+    const modal = document.getElementById('itemDetailModal');
+    const content = document.getElementById('itemDetailContent');
+    const titleEl = document.getElementById('itemDetailTitle');
+
+    if (window.ModalManager) {
+        window.ModalManager.register('itemDetailModal', { isDynamic: false, hasInput: false });
+        window.ModalManager.open('itemDetailModal');
+    } else {
+        modal.classList.remove('hidden');
+    }
+
+    const rawLabel = (row.title && row.title.trim()) ? row.title.trim()
+        : (row.article_id != null ? 'Article #' + row.article_id : row.url || 'Article');
+    titleEl.textContent = rawLabel.length > 60 ? rawLabel.substring(0, 57) + '...' : rawLabel;
+
+    // Clear content
+    while (content.firstChild) content.removeChild(content.firstChild);
+
+    if (row.matched_count == null) {
+        const p = document.createElement('p');
+        p.className = 'eval-mono';
+        p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.8rem;';
+        const hasAnnotation = row.expected_items && row.expected_items.length > 0;
+        p.textContent = hasAnnotation
+            ? 'This run predates item-level scoring. Re-run this article to see precision and recall.'
+            : 'This article has no human-validated ground truth. Item-level detail is only available for articles with expected_items set.';
+        content.appendChild(p);
+        return;
+    }
+
+    const actual = row.actual_count || 0;
+    const expected = row.expected_count || 0;
+    const matched = row.matched_count || 0;
+    const missed = row.missed_count || 0;
+    const extra = row.extra_count || 0;
+    const precision = actual > 0 ? matched / actual : 1;
+    const recall = expected > 0 ? matched / expected : 1;
+    const f1 = (precision + recall) > 0 ? 2 * precision * recall / (precision + recall) : 0;
+
+    // Score summary bar
+    const summaryGrid = document.createElement('div');
+    summaryGrid.className = 'grid grid-cols-4 gap-3 mb-5 p-3 rounded-lg';
+    summaryGrid.style.cssText = 'background: var(--panel-bg-4); border: 1px solid rgba(139,92,246,0.08);';
+
+    function mkScoreCell(label, value, sub) {
+        const div = document.createElement('div');
+        div.className = 'text-center';
+        const lbl = document.createElement('div');
+        lbl.className = 'eval-section-label mb-1';
+        lbl.textContent = label;
+        const val = document.createElement('div');
+        val.className = 'metric-value ' + metricColorClass(value);
+        val.style.fontSize = '1.25rem';
+        val.textContent = (value * 100).toFixed(0) + '%';
+        const subEl = document.createElement('div');
+        subEl.className = 'eval-mono';
+        subEl.style.cssText = 'font-size: 0.65rem; color: var(--text-muted-slate); margin-top: 0.2rem;';
+        subEl.textContent = sub;
+        div.appendChild(lbl);
+        div.appendChild(val);
+        div.appendChild(subEl);
+        return div;
+    }
+
+    summaryGrid.appendChild(mkScoreCell('Precision', precision, matched + '/' + actual));
+    summaryGrid.appendChild(mkScoreCell('Recall', recall, matched + '/' + expected));
+    summaryGrid.appendChild(mkScoreCell('F1', f1, '2*P*R/(P+R)'));
+
+    const execDiv = document.createElement('div');
+    execDiv.className = 'text-center';
+    const execLbl = document.createElement('div');
+    execLbl.className = 'eval-section-label mb-1';
+    execLbl.textContent = 'Execution';
+    const execLink = document.createElement('a');
+    execLink.href = '/workflow?exec=' + row.execution_id + '#executions';
+    execLink.className = 'eval-mono';
+    execLink.style.cssText = 'color: var(--action-info); font-size: 0.75rem;';
+    execLink.textContent = '#' + row.execution_id;
+    execDiv.appendChild(execLbl);
+    execDiv.appendChild(execLink);
+    summaryGrid.appendChild(execDiv);
+    content.appendChild(summaryGrid);
+
+    // Derive missed and extra from item lists if not already in the row
+    const actualItems = row.actual_items || [];
+    const expectedItems = row.expected_items || [];
+
+    let missedItems = row.missed_items;
+    let extraItems = row.extra_items;
+
+    if (!missedItems && expectedItems.length > 0) {
+        const actualNorm = new Set(actualItems.map(function(s) { return normalizeItem(String(s)); }));
+        missedItems = expectedItems.filter(function(s) { return !actualNorm.has(normalizeItem(String(s))); });
+    }
+    if (!extraItems && expectedItems.length > 0) {
+        const expectedNorm = new Set(expectedItems.map(function(s) { return normalizeItem(String(s)); }));
+        extraItems = actualItems.filter(function(s) { return !expectedNorm.has(normalizeItem(String(s))); });
+    }
+    missedItems = missedItems || [];
+    extraItems = extraItems || [];
+
+    function mkItemSection(headerText, headerCls, items, entryCls) {
+        const section = document.createElement('div');
+        section.className = 'item-section';
+        const hdr = document.createElement('div');
+        hdr.className = 'item-section-header ' + headerCls;
+        hdr.textContent = headerText;
+        section.appendChild(hdr);
+        const listDiv = document.createElement('div');
+        listDiv.className = 'mt-2';
+        items.forEach(function(item) {
+            const entry = document.createElement('div');
+            entry.className = 'item-entry ' + entryCls;
+            entry.textContent = String(item);
+            listDiv.appendChild(entry);
+        });
+        section.appendChild(listDiv);
+        return section;
+    }
+
+    if (missed > 0 && missedItems.length > 0) {
+        content.appendChild(mkItemSection(
+            'Missed (' + missed + ') -- in expected, not extracted',
+            'item-section-header--missed',
+            missedItems,
+            'item-entry--missed'
+        ));
+    } else if (missed === 0) {
+        const okDiv = document.createElement('div');
+        okDiv.className = 'item-section';
+        const okHdr = document.createElement('div');
+        okHdr.className = 'item-section-header item-section-header--matched';
+        okHdr.textContent = 'All expected items extracted (Recall 100%)';
+        okDiv.appendChild(okHdr);
+        content.appendChild(okDiv);
+    }
+
+    if (extra > 0 && extraItems.length > 0) {
+        content.appendChild(mkItemSection(
+            'Extra (' + extra + ') -- extracted but not in expected',
+            'item-section-header--extra',
+            extraItems,
+            'item-entry--extra'
+        ));
+    }
+
+    // Matched items (collapsible)
+    if (matched > 0 && actualItems.length > 0) {
+        const extraNorm = new Set(extraItems.map(function(s) { return normalizeItem(String(s)); }));
+        const matchedList = actualItems.filter(function(s) { return !extraNorm.has(normalizeItem(String(s))); });
+        if (matchedList.length > 0) {
+            const details = document.createElement('details');
+            details.className = 'item-section';
+            const summary = document.createElement('summary');
+            summary.className = 'item-section-header item-section-header--matched';
+            summary.style.cursor = 'pointer';
+            summary.textContent = 'Matched (' + matchedList.length + ') -- click to expand';
+            details.appendChild(summary);
+            const listDiv = document.createElement('div');
+            listDiv.className = 'mt-2';
+            matchedList.forEach(function(item) {
+                const entry = document.createElement('div');
+                entry.className = 'item-entry item-entry--matched';
+                entry.textContent = String(item);
+                listDiv.appendChild(entry);
+            });
+            details.appendChild(listDiv);
+            content.appendChild(details);
+        }
+    }
+}
+
+function closeItemDetailModal() {
+    const modal = document.getElementById('itemDetailModal');
+    if (window.ModalManager) window.ModalManager.close('itemDetailModal');
+    else modal.classList.add('hidden');
+}
+
+// ─── Backfill / clear ─────────────────────────────────────────────────────────
+
+async function backfillEvalRecords() {
+    const subagentVal = document.getElementById('subagentSelect').value;
+    const resultsEl = document.getElementById('resultsTable');
+    while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+    const p = document.createElement('p');
+    p.className = 'eval-mono';
+    p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+    p.textContent = 'Updating pending records...';
+    resultsEl.appendChild(p);
+    try {
+        const resp = await fetch('/api/evaluations/subagent-eval-backfill?subagent=' + encodeURIComponent(subagentVal), { method: 'POST' });
+        if (!resp.ok) { const e = await resp.json().catch(() => ({ detail: resp.statusText })); throw new Error(e.detail || ('HTTP ' + resp.status)); }
+        const data = await resp.json();
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const ok = document.createElement('p');
+        ok.className = 'eval-mono';
+        ok.style.cssText = 'color: #34d399; font-size: 0.75rem;';
+        ok.textContent = data.message;
+        resultsEl.appendChild(ok);
+        setTimeout(loadPreviousResults, 1000);
+    } catch (e) {
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const errP = document.createElement('p');
+        errP.className = 'eval-mono';
+        errP.style.cssText = 'color: #f87171; font-size: 0.75rem;';
+        errP.textContent = 'Error: ' + e.message;
+        resultsEl.appendChild(errP);
+    }
+}
+
+async function clearPendingRecords() {
+    const subagentVal = document.getElementById('subagentSelect').value;
+    if (!confirm('Delete all pending evaluation records for ' + subagentVal + '? This cannot be undone.')) return;
+    const resultsEl = document.getElementById('resultsTable');
+    while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+    const p = document.createElement('p');
+    p.className = 'eval-mono';
+    p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+    p.textContent = 'Clearing pending records...';
+    resultsEl.appendChild(p);
+    try {
+        const resp = await fetch('/api/evaluations/subagent-eval-clear-pending?subagent=' + encodeURIComponent(subagentVal), { method: 'DELETE' });
+        if (!resp.ok) { const e = await resp.json().catch(() => ({ detail: resp.statusText })); throw new Error(e.detail || ('HTTP ' + resp.status)); }
+        const data = await resp.json();
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const ok = document.createElement('p');
+        ok.className = 'eval-mono';
+        ok.style.cssText = 'color: #34d399; font-size: 0.75rem;';
+        ok.textContent = data.message;
+        resultsEl.appendChild(ok);
+        setTimeout(loadPreviousResults, 1000);
+    } catch (e) {
+        while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+        const errP = document.createElement('p');
+        errP.className = 'eval-mono';
+        errP.style.cssText = 'color: #f87171; font-size: 0.75rem;';
+        errP.textContent = 'Error: ' + e.message;
+        resultsEl.appendChild(errP);
+    }
+}
+
+// ─── Event listeners ──────────────────────────────────────────────────────────
+
+document.getElementById('loadEvalArticlesBtn').addEventListener('click', loadEvalArticles);
+document.getElementById('runEvalBtn').addEventListener('click', runEvaluation);
+document.getElementById('loadPreviousResultsBtn').addEventListener('click', loadPreviousResults);
+document.getElementById('backfillEvalBtn').addEventListener('click', backfillEvalRecords);
+document.getElementById('clearPendingBtn').addEventListener('click', clearPendingRecords);
+document.getElementById('closeItemDetailModal').addEventListener('click', closeItemDetailModal);
+
+document.getElementById('itemDetailModal').addEventListener('click', function(e) {
+    if (e.target === document.getElementById('itemDetailModal')) closeItemDetailModal();
+});
+
+document.getElementById('selectAllBtn').addEventListener('click', function() {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(function(a) {
+        selectedArticleUrls.add(a.url);
+        const cb = document.getElementById('article-' + a.url);
+        if (cb) cb.checked = true;
+    });
+    updateRunButton();
+});
+
+document.getElementById('deselectAllBtn').addEventListener('click', function() {
+    selectedArticleUrls.clear();
+    evalArticles.forEach(function(a) {
+        const cb = document.getElementById('article-' + a.url);
+        if (cb) cb.checked = false;
+    });
+    updateRunButton();
+});
+
+document.getElementById('subagentSelect').addEventListener('change', function() {
+    currentSubagent = document.getElementById('subagentSelect').value;
+    const resultsEl = document.getElementById('resultsTable');
+    while (resultsEl.firstChild) resultsEl.removeChild(resultsEl.firstChild);
+    const p = document.createElement('p');
+    p.className = 'eval-mono';
+    p.style.cssText = 'color: var(--text-muted-slate); font-size: 0.75rem;';
+    p.textContent = 'Loading previous results...';
+    resultsEl.appendChild(p);
+    document.getElementById('aggregateSummary').classList.add('hidden');
+    loadActiveConfig().then(loadPreviousResults);
+    // Refresh model dropdown for the new subagent and reset chart.
+    loadTrendModels();
+});
+
+// ---------------------------------------------------------------------------
+// SYS.04 Evaluation Metrics Over Time
+// ---------------------------------------------------------------------------
+// One chart instance lives for the page; we destroy and recreate on each render
+// so Chart.js can rebuild scales/tooltips cleanly without merge issues.
+let trendChartInstance = null;
+
+async function loadTrendModels() {
+    const modelSelect = document.getElementById('trendModelSelect');
+    if (!modelSelect) return;
+    // Reset to placeholder while we fetch.
+    modelSelect.innerHTML = '<option value="">-- loading --</option>';
+    try {
+        const resp = await fetch(`/api/evaluations/subagent-eval-models?subagent=${encodeURIComponent(currentSubagent)}`);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const models = Array.isArray(data.models) ? data.models : [];
+        modelSelect.innerHTML = '';
+        if (models.length === 0) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '-- no models with eval data --';
+            modelSelect.appendChild(opt);
+            renderTrendChart(null, []);
+            return;
+        }
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = '-- select a model --';
+        modelSelect.appendChild(placeholder);
+        for (const m of models) {
+            const opt = document.createElement('option');
+            opt.value = m.name;
+            opt.textContent = `${m.name} (${m.config_count} config${m.config_count === 1 ? '' : 's'})`;
+            modelSelect.appendChild(opt);
+        }
+        // Clear chart until user picks a model.
+        renderTrendChart(null, []);
+    } catch (err) {
+        console.error('Failed to load trend models:', err);
+        modelSelect.innerHTML = '<option value="">-- error loading --</option>';
+    }
+}
+
+async function loadTrendData(model) {
+    if (!model) {
+        renderTrendChart(null, []);
+        return;
+    }
+    try {
+        const url = `/api/evaluations/subagent-eval-aggregate`
+            + `?subagent=${encodeURIComponent(currentSubagent)}`
+            + `&model=${encodeURIComponent(model)}`;
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const aggs = Array.isArray(data.aggregates) ? data.aggregates : [];
+        // Keep only versions that have item-level scoring (at least one article with ground truth).
+        const scored = aggs.filter(a =>
+            a.mean_precision != null && a.mean_recall != null && a.mean_f1 != null,
+        );
+        // Sort ascending by config_version so the line moves left-to-right in time order.
+        scored.sort((a, b) => Number(a.config_version) - Number(b.config_version));
+        renderTrendChart(model, scored);
+    } catch (err) {
+        console.error('Failed to load trend data:', err);
+        renderTrendChart(model, []);
+    }
+}
+
+function renderTrendChart(model, aggregates) {
+    const empty = document.getElementById('trendChartEmpty');
+    const container = document.getElementById('trendChartContainer');
+    const meta = document.getElementById('trendChartMeta');
+    if (!empty || !container) return;
+
+    if (!model) {
+        container.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = 'Select a model above to plot its precision/recall/F1 trajectory across config versions.';
+        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        if (meta) meta.textContent = '';
+        return;
+    }
+    if (!aggregates || aggregates.length === 0) {
+        container.classList.add('hidden');
+        empty.classList.remove('hidden');
+        empty.textContent = `No scored eval runs found for "${model}" on subagent "${currentSubagent}".`;
+        if (trendChartInstance) { trendChartInstance.destroy(); trendChartInstance = null; }
+        if (meta) meta.textContent = '';
+        return;
+    }
+
+    empty.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    const labels = aggregates.map(a => `v${a.config_version}`);
+    // Convert 0-1 ratios to 0-100 for the y-axis.
+    const precisionData = aggregates.map(a => +(a.mean_precision * 100).toFixed(2));
+    const recallData = aggregates.map(a => +(a.mean_recall * 100).toFixed(2));
+    const f1Data = aggregates.map(a => +(a.mean_f1 * 100).toFixed(2));
+
+    // Theme-aware palette: align with --chart-* variables defined in theme-variables.css.
+    const colorPrecision = getThemeColor('--chart-pink') || '#ff6384';
+    const colorRecall = getThemeColor('--chart-blue-light') || '#36a2eb';
+    const colorF1 = getThemeColor('--chart-orange') || '#f97316';
+    const gridColor = getThemeColor('--chart-grid') || 'rgba(113, 113, 122, 0.1)';
+    const tickColor = getThemeColor('--text-muted') || '#9ca3af';
+
+    if (trendChartInstance) trendChartInstance.destroy();
+    const canvas = document.getElementById('trendChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    trendChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Precision',
+                    data: precisionData,
+                    borderColor: colorPrecision,
+                    backgroundColor: colorPrecision,
+                    borderDash: [6, 4],
+                    tension: 0.25,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                },
+                {
+                    label: 'Recall',
+                    data: recallData,
+                    borderColor: colorRecall,
+                    backgroundColor: colorRecall,
+                    tension: 0.25,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                },
+                {
+                    label: 'F1 Score',
+                    data: f1Data,
+                    borderColor: colorF1,
+                    backgroundColor: colorF1,
+                    tension: 0.25,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    labels: { color: tickColor, usePointStyle: true, pointStyle: 'circle' },
+                },
+                tooltip: {
+                    callbacks: {
+                        afterBody: (items) => {
+                            if (!items || items.length === 0) return '';
+                            const idx = items[0].dataIndex;
+                            const agg = aggregates[idx];
+                            if (!agg) return '';
+                            return [
+                                `Ground-truth articles: ${agg.scored_articles}`,
+                                `Total articles: ${agg.total_articles}`,
+                            ];
+                        },
+                    },
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: { color: gridColor },
+                    ticks: { color: tickColor, callback: (v) => `${v}%` },
+                },
+                x: {
+                    grid: { color: gridColor },
+                    ticks: { color: tickColor },
+                },
+            },
+        },
+    });
+
+    if (meta) {
+        const total = aggregates.reduce((sum, a) => sum + (a.scored_articles || 0), 0);
+        const plural = aggregates.length === 1 ? '' : 's';
+        meta.textContent = `${aggregates.length} config version${plural} plotted (${total} article-runs with human-validated ground truth)`;
+    }
+}
+
+document.getElementById('trendModelSelect').addEventListener('change', function() {
+    loadTrendData(this.value);
+});
+
+hydrateMultiplierValue();
+hydrateThrottleValue();
+document.getElementById('evalMultiplier').addEventListener('input', function() { persistMultiplierValue(); updateRunButton(); });
+document.getElementById('evalConcurrencyThrottle').addEventListener('change', readThrottleValue);
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (window.ModalManager) {
+        window.ModalManager.register('itemDetailModal', { isDynamic: false, hasInput: false });
+    }
+    loadActiveConfig().then(loadPreviousResults);
+    // Load the trend model dropdown for the initial subagent.
+    loadTrendModels();
+});
+</script>
+{% endblock %}

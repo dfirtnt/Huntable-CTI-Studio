@@ -3,7 +3,7 @@ name: Docs
 on:
   workflow_dispatch:
   push:
-    branches: [main, dev-io]
+    branches: [main, dev-io, dev-europa]
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
@@ -73,15 +73,21 @@ jobs:
           mkdir -p staging/dev
           cp -r site/* staging/dev/
 
+      - name: Prepare site structure (dev-europa)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/dev-europa'
+        run: |
+          mkdir -p staging/europa
+          cp -r site/* staging/europa/
+
       - name: Upload pages artifact
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io' || github.ref == 'refs/heads/dev-europa')
         uses: actions/upload-pages-artifact@v5
         with:
           path: staging/
 
   deploy:
     name: Deploy to GitHub Pages
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io')
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-io' || github.ref == 'refs/heads/dev-europa')
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5

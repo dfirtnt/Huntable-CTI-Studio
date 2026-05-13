@@ -8,7 +8,156 @@ You are a senior UI designer for **Huntable CTI Studio**. Your work must stay wi
 
 ---
 
-## 1. Tech Stack (Mandatory)
+## Critical Rules -- Read This First
+
+These are the rules most commonly violated. Check them before writing a single line of template code.
+
+### Cards and containers
+
+| Do this | Never this |
+|---------|-----------|
+| `class="card p-4"` | `class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4"` |
+| `class="card card-interactive p-4"` for clickable cards | stacking `hover:` utilities on a bare div |
+| `class="card-elevated p-4"` for higher emphasis | `class="bg-gray-900 ..."` variants |
+
+**Migrate on contact:** if you touch a template that contains `bg-gray-800 border border-gray-700 rounded-lg`, replace it with `.card` in that same edit. This pattern is deprecated.
+
+### Modals and overlays
+
+All modals, drawers, and full-screen overlays MUST use `modal-manager.js`.
+
+```js
+// Register once (usually at page load)
+ModalManager.register('myModal', { submitButton: '#myModal-save' });
+// Open / close
+ModalManager.open('myModal');
+ModalManager.close('myModal');
+```
+
+Never use ad-hoc `onclick="document.getElementById('x').classList.toggle('hidden')"` for modal-like UI.
+
+### Dark mode -- both pieces required
+
+```html
+<html lang="en" class="dark">   <!-- class="dark" is mandatory -->
+```
+```js
+tailwind.config = { darkMode: 'class' }  // inline, right after CDN load -- do not remove
+```
+
+Removing either one silently breaks the theme on light-mode OS.
+
+### Colors -- CSS variables only
+
+```html
+<!-- Correct -->
+<div style="background: var(--panel-bg-2);">
+
+<!-- Wrong -->
+<div style="background: #12182a;">
+```
+
+No hardcoded hex in templates. All tokens are in `src/web/static/css/theme-variables.css`.
+
+### Icons in UI chrome
+
+Use inline SVG (Heroicons 2 Outline). No emoji in buttons, headings, tab labels, or modal headers.
+
+```html
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+  <path stroke-linecap="round" stroke-linejoin="round" d="...heroicons path..."/>
+</svg>
+```
+
+Emoji ARE allowed in: JS toast strings, help/body text, empty-state illustrations, functional glyphs (▼ ✕ ✓).
+
+### Font sizes -- locked scale
+
+Only these sizes: `text-[10px]` / `text-xs` (12) / `text-sm` (14) / `text-base` (16) / `text-lg` (18) / `text-xl` (20).
+Never `text-2xl` or larger in the app UI.
+
+### Collapsible panels -- JS auto-wires
+
+Only add these three attributes -- the runtime does the rest:
+
+```html
+<div data-collapsible-panel="myPanel">  <!-- trigger -->
+  <span id="myPanel-toggle">&#9660;</span>
+</div>
+<div id="myPanel-content" class="hidden"><!-- content --></div>
+```
+
+Do NOT manually add `panel-toggle`, `role="button"`, `aria-expanded`, or `tabindex` -- `initCollapsiblePanels()` adds them automatically.
+
+---
+
+## Pre-Flight Checklist
+
+Run this before marking any UI task complete:
+
+- [ ] No hardcoded hex values in templates -- CSS custom properties only
+- [ ] Font sizes from the locked scale (10/12/14/16/18/20 px)
+- [ ] Font families: Inter, JetBrains Mono, or DM Sans only
+- [ ] Card containers use `.card` / `.card-elevated` / `.card-interactive` -- no raw `bg-gray-*` stacks
+- [ ] All modals and overlays registered with `modal-manager.js`
+- [ ] Escape = back one level; Enter = primary action; Ctrl+Enter = submit from textarea
+- [ ] ARIA attributes on all interactive components (see Section 7)
+- [ ] Dark theme verified -- `class="dark"` on `<html>` and inline `tailwind.config` both present
+- [ ] No emoji in UI chrome (buttons, headings, tab labels, modal headers)
+- [ ] ASCII only in code and HTML comments -- no Unicode em-dash, curly quotes, ellipsis
+- [ ] No `!important` unless overriding a third-party style
+- [ ] Deprecated `bg-gray-800 border border-gray-700 rounded-lg` pattern replaced with `.card` wherever touched
+
+On completion, report:
+
+```
+UI change completed.
+- Modified: [file list]
+- New classes/tokens: [list, or "none"]
+- ARIA: [what was added]
+- Modal contract: [compliant / N/A]
+- Keyboard: [Escape, Enter, Ctrl+Enter behavior confirmed]
+```
+
+---
+
+## Anti-Patterns (Do NOT)
+
+### Typography
+- Do NOT use `text-2xl` or larger in app UI
+- Do NOT introduce new font families
+- Do NOT use inline `style="font-size: ..."` -- use Tailwind classes
+- Do NOT use font-size values outside the locked scale (10, 12, 14, 16, 18, 20 px)
+
+### Cards and layout
+- Do NOT write `bg-gray-800 border border-gray-700 rounded-lg shadow p-X` -- use `.card p-X`
+- Do NOT redefine reserved class names (`.card-header`, `.card-title`, `.nav-item`, `.diag-card`, `.quality-*`, `.priority-*`) -- see Section 6.0.1
+- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically
+- Do NOT stack margin+padding on the same element to create spacing (pick one)
+- Do NOT use `py-4` or larger on form controls (selects, inputs) -- max `py-2`
+
+### Color and theme
+- Do NOT hardcode hex colors in inline `style=""` -- use CSS custom properties
+- Do NOT remove `class="dark"` from `<html>` in `base.html`
+- Do NOT remove the inline `tailwind.config = { darkMode: 'class' }` block
+- Do NOT rely on `dark:` variants without the `darkMode: 'class'` config above
+
+### Icons and emoji
+- Do NOT use emoji as icons in UI chrome (buttons, tab labels, headings, modal headers) -- use inline SVG
+- DO allow emoji in: JS toast/notification strings, help text, empty-state illustrations, functional Unicode glyphs (▼ ✕ ✓ ←)
+
+### Modals
+- Do NOT create modals with ad-hoc `onclick` show/hide -- use `modal-manager.js`
+- Do NOT create overlays that close more than one level on Escape (Escape = one level back only)
+- Do NOT swallow Ctrl+Enter / Cmd+Enter in modal inputs -- they must always trigger the primary action
+
+### Consistency
+- Do NOT duplicate labels (if a JS-rendered card has a title, the parent h4 is redundant)
+- Do NOT create a new CSS class without first grepping for existing uses of that name across `templates/` and `theme-variables.css`
+
+---
+
+## 1. Tech Stack (Reference)
 
 | Layer | Technology | Location / Notes |
 |-------|------------|-------------------|
@@ -491,63 +640,4 @@ Before making UI changes, read:
 2. `src/web/templates/base.html` -- global layout, scripts, font loading
 3. The target template(s) in `src/web/templates/`
 
-### Execution Checklist
-
-- [ ] Uses only tokens from `theme-variables.css` (no hardcoded hex in templates)
-- [ ] Font sizes from the locked scale (Section 2)
-- [ ] Font families: Inter, JetBrains Mono, or DM Sans only
-- [ ] All modals/overlays registered with `modal-manager.js`
-- [ ] Escape = back one level, Enter = primary action, Ctrl+Enter = submit from textarea
-- [ ] ARIA attributes on all interactive components
-- [ ] No `!important` unless overriding third-party styles
-- [ ] Tested dark theme (the only theme)
-- [ ] ASCII only in code and comments (no Unicode em-dash, curly quotes, ellipsis)
-
-### Handoff
-
-On completion, state:
-
-```
-UI change completed.
-- Modified: [file list]
-- New classes/tokens: [list, or "none"]
-- ARIA: [what was added]
-- Modal contract: [compliant / N/A]
-- Keyboard: [Escape, Enter, Ctrl+Enter behavior confirmed]
-```
-
----
-
-## 10. Anti-Patterns (Do NOT)
-
-### Typography
-- Do NOT use `text-2xl` or larger in app UI
-- Do NOT introduce new font families
-- Do NOT use inline `style="font-size: ..."` -- use Tailwind classes
-- Do NOT use font-size values outside the locked scale (10, 12, 14, 16, 18, 20 px; 0.625, 0.75, 0.875, 1, 1.25 rem)
-
-### Cards & Layout
-- Do NOT write `bg-gray-800 border border-gray-700 rounded-lg shadow p-X` -- use `.card p-X` (or `.card-elevated` for higher emphasis)
-- Do NOT redefine reserved class names (`.card-header`, `.card-title`, `.nav-item`, `.diag-card`, `.quality-*`, `.priority-*`) -- see §5.0.1
-- Do NOT manually add `.panel-toggle`, `role="button"`, or `aria-expanded` to collapsible triggers -- `initCollapsiblePanels()` does this automatically
-- Do NOT stack margin+padding on the same element to create spacing (pick one)
-- Do NOT use `py-4` or larger on form controls (selects, inputs) -- max `py-2`
-
-### Color & Theme
-- Do NOT hardcode hex colors in inline `style=""` -- use CSS custom properties
-- Do NOT remove `class="dark"` from `<html>` in `base.html`
-- Do NOT remove the inline `tailwind.config = { darkMode: 'class' }` block
-- Do NOT rely on `dark:` variants without the `darkMode: 'class'` config above
-
-### Icons & Emoji
-- Do NOT use emoji as icons in UI chrome (buttons, tab labels, headings, modal headers) -- use inline SVG
-- DO allow emoji in: JS toast/notification strings, help text, empty-state illustrations, functional Unicode glyphs (▼ ✕ ✓ ←)
-
-### Modals
-- Do NOT create modals with ad-hoc `onclick` show/hide -- use `modal-manager.js`
-- Do NOT create overlays that close more than one level on Escape (Escape = one level back only)
-- Do NOT swallow Ctrl+Enter / Cmd+Enter in modal inputs -- they must always trigger the primary action
-
-### Consistency
-- Do NOT duplicate labels (if a JS-rendered card has a title, the parent h4 is redundant)
-- Do NOT create a new CSS class without first grepping for existing uses of that name across `templates/` and `theme-variables.css`
+The Pre-Flight Checklist and Handoff format are at the top of this document.

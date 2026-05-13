@@ -200,25 +200,30 @@ async def api_pdf_upload(file: UploadFile = File(...)):
                 )
 
                 # Get threshold from workflow config
+                import asyncio
+
                 from src.database.manager import DatabaseManager
                 from src.database.models import AgenticWorkflowConfigTable
 
-                db_manager = DatabaseManager()
-                db_session = db_manager.get_session()
-                try:
-                    config = (
-                        db_session.query(AgenticWorkflowConfigTable)
-                        .filter(AgenticWorkflowConfigTable.is_active == True)
-                        .order_by(AgenticWorkflowConfigTable.version.desc())
-                        .first()
-                    )
-                    threshold = (
-                        config.auto_trigger_hunt_score_threshold
-                        if config and hasattr(config, "auto_trigger_hunt_score_threshold")
-                        else 60.0
-                    )
-                finally:
-                    db_session.close()
+                def _get_threshold():
+                    db_manager = DatabaseManager()
+                    db_session = db_manager.get_session()
+                    try:
+                        config = (
+                            db_session.query(AgenticWorkflowConfigTable)
+                            .filter(AgenticWorkflowConfigTable.is_active == True)
+                            .order_by(AgenticWorkflowConfigTable.version.desc())
+                            .first()
+                        )
+                        return (
+                            config.auto_trigger_hunt_score_threshold
+                            if config and hasattr(config, "auto_trigger_hunt_score_threshold")
+                            else 60.0
+                        )
+                    finally:
+                        db_session.close()
+
+                threshold = await asyncio.to_thread(_get_threshold)
 
                 # Check if workflow should be triggered
                 # Only trigger if RegexHuntScore > threshold

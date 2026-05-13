@@ -198,10 +198,43 @@ Notes:
 - Presets under `config/presets/AgentConfigs/` are full workflow snapshots, not partial overrides.
 - Startup performs data-shaping work such as source seeding checks, eval article seeding, and settings normalization. Consider startup side effects when debugging.
 - UI-visible changes require browser-level verification; API or unit tests alone are insufficient.
+- **Any UI change requires reading `.cursor/agents/ui-designer.md` (the UX contract) first.** The most
+  common violation: using raw Tailwind utilities (`bg-gray-800 border border-gray-700 rounded-lg`)
+  instead of the semantic card classes (`.card`, `.card-elevated`, `.card-interactive`). Migrate
+  the deprecated pattern wherever you touch it.
+
+---
+
+## UX Contract (Mandatory for All UI Changes)
+
+**Read `.cursor/agents/ui-designer.md` before making any UI change. No exceptions.**
+
+This file is the authoritative design system contract for Huntable CTI Studio. It covers typography,
+color tokens, spacing, component patterns, modal behavior, accessibility, and anti-patterns.
+
+The rules most commonly violated by agents -- check these first:
+
+| Rule | Correct | Wrong |
+|------|---------|-------|
+| Card containers | `class="card p-4"` or `class="card-elevated p-4"` | `class="bg-gray-800 border border-gray-700 rounded-lg shadow p-4"` |
+| Clickable cards | add `card-interactive` to the `.card` element | custom `hover:` utilities stacked on a div |
+| Modals and overlays | register with `modal-manager.js`; open via `ModalManager.open()` | ad-hoc `onclick="document.getElementById('x').classList.toggle('hidden')"` |
+| Icons in UI chrome | inline SVG, Heroicons 2 Outline style | emoji in buttons, tab labels, headings, or modal headers |
+| Colors | CSS custom properties: `var(--panel-bg-1)`, `var(--purple-primary)` | hardcoded hex in inline `style=""` attributes |
+| Dark theme | `class="dark"` on `<html>` + inline `tailwind.config = { darkMode: 'class' }` -- both required | removing either, or relying on `prefers-color-scheme` |
+| Font sizes | locked scale only: 10, 12, 14, 16, 18, 20 px | `text-2xl` or larger, or inline `style="font-size: ..."` |
+| Collapsible panels | `data-collapsible-panel="id"` trigger + `id="id-content"` content; JS auto-wires the rest | manually adding `panel-toggle`, `role="button"`, or `aria-expanded` |
+
+If a template has `bg-gray-800 border border-gray-700 rounded-lg` anywhere you touch, replace it
+with `.card` on that edit. That pattern is deprecated and the contract requires migration on contact.
 
 ---
 
 ## UI Stability Contracts
+
+> See the [UX Contract section above](#ux-contract-mandatory-for-all-ui-changes) for the design
+> system rules (tokens, components, modals). This section covers DOM IDs and JS function signatures
+> that are hard-wired into Playwright tests and HTML `onclick`/`onchange` bindings.
 
 The Playwright suite and JS `onclick`/`onchange` bindings treat the items below as hard contracts. Renaming or removing any of them silently breaks tests or runtime wiring. **A spec in `docs/superpowers/specs/` must be approved before touching them.**
 

@@ -194,7 +194,11 @@ test.describe('Workflow Config Persistence', () => {
     }
   });
 
-  test('Rank Agent enabled toggle persists after save + refresh', async ({ page }) => {
+  // retries: 2 guards against concurrent-test DB interference on the reload check.
+  // The primary persistence assertion is on the PUT response body (immune to races);
+  // the reload check is secondary and can be disrupted when other spec files run in
+  // parallel and write rank_agent_enabled to the shared database.
+  test('Rank Agent enabled toggle persists after save + refresh', { retries: 2 }, async ({ page }) => {
     await gotoWorkflowConfig(page);
     await ensureRankAgentPanel(page);
 
@@ -221,9 +225,15 @@ test.describe('Workflow Config Persistence', () => {
         input.checked = !input.checked;
         input.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      await savePromise;
+      const saveResponse = await savePromise;
 
       const expectedValue = !originalValue;
+      // Primary check: the PUT response itself must reflect the toggled value.
+      // This is race-free because it reads what the backend actually persisted.
+      const saveBody = await saveResponse.json();
+      expect(saveBody.rank_agent_enabled).toBe(expectedValue);
+
+      // Secondary check: reload and confirm the UI reflects what was saved.
       await reloadWorkflowConfig(page);
       await ensureRankAgentPanel(page);
 

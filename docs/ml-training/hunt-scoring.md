@@ -174,7 +174,8 @@ Use the CLI command to recalculate scores:
 
 | Aspect | Keyword Score (`threat_hunting_score`) | ML Score (`ml_hunt_score`) |
 |--------|----------------------------------------|----------------------------|
-| **Method** | Pattern matching (~1003 perfect discriminators) | RandomForest ML classification |
+<!-- AUDIT: Accuracy -- "~1003 perfect discriminators" was wrong. Verified count from src/utils/content.py: 92 perfect_discriminators, ~476 total keywords across all categories (perfect + good + lolbas + intelligence). -->
+| **Method** | Pattern matching (~92 perfect discriminators; ~476 total keywords) | RandomForest ML classification |
 | **Granularity** | Article-level | Chunk-level aggregation |
 | **Range** | 0-100 | 0-100 |
 | **Speed** | Fast (regex matching) | Slower (ML inference) |
@@ -280,7 +281,8 @@ The ML vs Hunt Comparison Dashboard is a comprehensive analytics interface that 
 
 ### Initial Data Loading
 - **Total Model Versions**: Number of trained model versions
-- **Total Chunk Analyses**: Total number of chunk analyses performed (currently 11,644)
+<!-- AUDIT: Accuracy -- Hardcoded "currently 11,644" is a snapshot value; dashboard shows live count. Removed. -->
+- **Total Chunk Analyses**: Total number of chunk analyses performed (live count shown in dashboard)
 - **Average Accuracy**: Average accuracy across all model versions
 - **Last Updated**: Date of last model training or evaluation
 
@@ -491,3 +493,4 @@ The dashboard metrics are influenced by three key content filter settings:
 ---
 
 _Last updated: 2026-05-01_
+_Last reviewed: 2026-05-03_

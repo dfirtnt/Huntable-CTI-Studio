@@ -17,6 +17,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Allow `python scripts/restore_database.py` to import sibling helpers.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _restore_common import filter_dump_lines  # noqa: E402
+
 # Database configuration - use environment variables
 DB_CONFIG = {
     "host": os.getenv("POSTGRES_HOST", "cti_postgres"),
@@ -179,13 +183,21 @@ def restore_database(backup_path: Path, create_snapshot: bool = True, force: boo
         with tempfile.NamedTemporaryFile(mode="w", suffix=".sql", delete=False) as temp_file:
             temp_path = temp_file.name
 
-            # Extract SQL content
-            if backup_info["is_compressed"]:
-                with gzip.open(backup_path, "rt") as f_in:
-                    shutil.copyfileobj(f_in, temp_file)
-            else:
-                with open(backup_path) as f_in:
-                    shutil.copyfileobj(f_in, temp_file)
+            # Extract SQL content through the shared filter so dumps with dangling
+            # FK references (NOT VALID rewrite) and stray DROP/CREATE DATABASE
+            # statements load cleanly into the harness-managed target database.
+            opener = (
+                (lambda: gzip.open(backup_path, "rt"))
+                if backup_info["is_compressed"]
+                else (lambda: open(backup_path))
+            )
+            with opener() as f_in:
+                for filtered_line in filter_dump_lines(
+                    f_in,
+                    skip_db_lifecycle=True,
+                    rewrite_fk_constraints=True,
+                ):
+                    temp_file.write(filtered_line)
 
         # Copy SQL file to container
         copy_cmd = ["docker", "cp", temp_path, "cti_postgres:/tmp/restore.sql"]

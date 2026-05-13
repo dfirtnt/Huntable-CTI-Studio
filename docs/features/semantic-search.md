@@ -1,12 +1,8 @@
-# Retrieval: Semantic Search and MCP
+# Retrieval: Semantic Search via MCP
 
-Huntable CTI Studio indexes articles and Sigma rules as dense vectors and exposes retrieval two ways:
+Huntable CTI Studio indexes articles and Sigma rules as dense vectors and exposes retrieval through the **Huntable MCP server**, which any MCP-capable client (Claude Desktop, Cursor, etc.) can drive for conversational retrieval.
 
-- The in-app **semantic search** page (`/search`)
-- The **Huntable MCP server**, which any MCP-capable client (Claude Desktop, Cursor, etc.) can drive for conversational retrieval
-
-The previous in-app RAG Chat UI was removed in v6.0.0. Conversational retrieval has moved to MCP.
-<!-- TODO: verify: versioning.md lists this removal under v6.0.0; CHANGELOG references v5.5.0 which has no entry in the public version history. -->
+The previous in-app RAG Chat UI was removed in v6.0.0 and the in-app `/search` page has also been retired. All semantic search is now accessed via MCP tools.
 
 ## Core Components
 
@@ -16,25 +12,24 @@ The previous in-app RAG Chat UI was removed in v6.0.0. Conversational retrieval 
    - Enriched text: title + source + summary + tags + content
 
 2. **Vector Storage** (`src/database/models.py`)
-   - `articles.embedding` — `Vector(768)` with pgvector index
-   - `article_annotations.embedding` — chunk-level
-   - `sigma_rules.embedding` — rule-level
+   - `articles.embedding` -- `Vector(768)` with pgvector index
+   - `article_annotations.embedding` -- chunk-level
+   - `sigma_rules.embedding` -- rule-level
    - `embedding_model` column tracks the model that produced each vector
 
-3. **RAG Service** (`src/services/rag_service.py`)
+3. **Semantic Search Service** (`src/services/rag_service.py`)
    - Dual search: article-level + chunk-level
    - Cosine similarity via pgvector `<=>`
    - Used by:
-     - Web semantic search at `/search` (`src/web/routes/search.py`)
      - MCP tools: `search_articles`, `search_articles_by_keywords`, `search_unified`, `search_sigma_rules` (`src/huntable_mcp/tools/`)
      - CLI: `./run_cli.sh embed stats | similar` (`src/cli/commands/embed.py`)
      - Agentic workflow (`src/workflows/agentic_workflow.py`)
 
 4. **Sigma similarity / novelty**
-   - Workflow duplicate detection uses the behavioral novelty engine (Jaccard × Containment − Filter when `sigma_semantic_similarity` is installed; legacy Atom/Logic-shape scoring otherwise).
+   - Workflow duplicate detection uses the behavioral novelty engine (Jaccard x Containment - Filter when `sigma_semantic_similarity` is installed; legacy Atom/Logic-shape scoring otherwise).
    - Cosine similarity is used for **rule retrieval**, not workflow duplicate ranking.
 
-## Using MCP for conversational retrieval
+## Using MCP for retrieval
 
 Point an MCP-capable client at the Huntable MCP server. See [MCP tools reference](../reference/mcp-tools.md).
 
@@ -60,6 +55,6 @@ Run once after setup, then again whenever Sigma rules change:
 
 ## Embedding coverage API
 
-`GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by `/search`, CLI `embed stats`, and MCP `get_stats`.
+`GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by CLI `embed stats` and MCP `get_stats`.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-05_

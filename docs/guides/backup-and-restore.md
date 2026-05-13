@@ -472,7 +472,7 @@ python -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
 cat config/sources.yaml
 
 # Verify containers
-docker-compose ps
+docker compose ps
 ```
 
 ---
@@ -490,13 +490,13 @@ docker-compose ps
 
 ```bash
 # 1. Stop all services
-docker-compose down
+docker compose down
 
 # 2. Restore from latest backup
 ./scripts/backup_restore.sh restore system_backup_YYYYMMDD_HHMMSS
 
 # 3. Start services
-docker-compose up -d
+docker compose up -d
 
 # 4. Verify system health
 ./scripts/backup_restore.sh verify system_backup_YYYYMMDD_HHMMSS
@@ -606,8 +606,8 @@ LATEST_BACKUP=$(./scripts/backup_restore.sh list | grep "system_backup_" | head 
 
 **Solution**:
 ```bash
-docker-compose up -d
-docker-compose ps
+docker compose up -d
+docker compose ps
 ```
 
 #### 2. Permission Denied
@@ -638,7 +638,7 @@ docker system prune -a
 #### 4. Backup Creation Fails
 
 **Solutions**:
-- Check Docker containers: `docker-compose ps`
+- Check Docker containers: `docker compose ps`
 - Verify disk space: `df -h`
 - Check file permissions: `ls -la scripts/`
 - Review logs: `tail -50 logs/backup.log`
@@ -795,45 +795,6 @@ Full system backups provide:
 | `./scripts/backup_restore.sh create` | `./scripts/backup_restore.sh db-create` | Database-only backup |
 | `./scripts/backup_restore.sh list` | `./scripts/backup_restore.sh db-list` | Database-only backups |
 | `./scripts/backup_restore.sh restore` | `./scripts/backup_restore.sh db-restore` | Database-only restore |
-
----
-
-## Future Enhancements
-
-### Planned Features
-
-1. **Incremental Backups**: Only backup changed files to reduce time and storage
-2. **Backup Encryption**: Encrypt sensitive backup data with key management
-3. **Remote Storage**: Cloud storage integration (S3, Azure, GCS)
-4. **Multi-Region Replication**: Backup replication across regions
-5. **Backup Monitoring Dashboard**: Web-based status and alerting
-6. **Automated Scheduling**: Enhanced cron/systemd-based scheduling
-7. **Notification Integration**: Slack/Teams/Email alerts
-
-### Integration Opportunities
-
-1. **CI/CD Integration**: Automated backup testing, deployment rollback
-2. **Monitoring Integration**: Prometheus metrics, Grafana dashboards
-3. **Notification Integration**: Real-time backup status alerts
-
----
-
-## Support
-
-For issues with backups:
-
-1. Check troubleshooting section above
-2. Review backup logs: `tail -50 logs/backup.log`
-3. Verify Docker containers are running: `docker-compose ps`
-4. Test manual backup operations
-5. Check system resources (disk space, memory)
-
----
-
-**Last Updated**: January 2025  
-**Version**: 2.0
-
-
 
 ---
 
@@ -1075,3 +1036,4 @@ The only requirement is that Docker containers are running with the expected nam
 ---
 
 _Last updated: 2026-05-01_
+_Last reviewed: 2026-05-03_

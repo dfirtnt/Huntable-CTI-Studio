@@ -1,13 +1,31 @@
 #!/usr/bin/env python3
-"""
-Migration script to add canonical fields to sigma_rules table.
+"""Migration: add canonical fields to sigma_rules table.
 
-Adds fields for behavioral novelty assessment:
-- canonical_json: JSONB field storing canonical rule representation
-- exact_hash: SHA256 hash of canonical JSON (indexed)
-- canonical_text: Text representation for hashing/embeddings
-- logsource_key: product|category key (indexed)
-- near_hash: Optional SimHash for candidate retrieval (indexed)
+Why
+---
+The sigma novelty service compares incoming rules against the corpus to detect
+exact duplicates and near-duplicates. Without pre-computed canonical forms,
+every comparison required a full parse and normalization pass at runtime.
+These columns cache that work at index time so novelty checks stay fast as the
+corpus grows.
+
+Adds (all nullable, idempotent):
+- canonical_json:  JSONB -- normalized rule representation (detection logic only)
+- exact_hash:      VARCHAR(64) -- SHA-256 of canonical_json; indexed for O(1) dedup
+- canonical_text:  TEXT -- flattened text form used for embedding generation
+- logsource_key:   VARCHAR(100) -- "product|category" shard key; indexed for scoped search
+- near_hash:       VARCHAR(64) -- SimHash for candidate retrieval in near-dedup pass; indexed
+
+Ordering
+--------
+Run this script first, then migrate_sigma_to_canonical.py to backfill data for
+existing rules. New rules get canonical fields populated at index time.
+
+Idempotent: each column and index is checked before creation -- safe to re-run.
+
+Usage
+-----
+    python scripts/migrate_sigma_canonical_fields.py
 """
 
 import os

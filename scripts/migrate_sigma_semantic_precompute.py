@@ -1,12 +1,30 @@
 #!/usr/bin/env python3
-"""
-Migration script to add deterministic semantic precompute fields to sigma_rules table.
+"""Migration: add semantic precompute fields to sigma_rules table.
 
-Adds fields for precomputed atom sets and surface score (eliminates recomputation during novelty comparison):
-- canonical_class: TEXT - resolved telemetry class (e.g. windows.process_creation)
-- positive_atoms: JSONB - sorted list of positive atom identity strings
-- negative_atoms: JSONB - sorted list of negative atom identity strings
-- surface_score: INTEGER - DNF branch count
+Why
+---
+The sigma novelty comparison was re-computing DNF atom sets and surface scores
+on every call. At corpus scale this made novelty checks CPU-bound. These columns
+cache the deterministic outputs of the parse so comparisons become a simple DB
+read instead of a full re-parse.
+
+Adds (all nullable, idempotent):
+- canonical_class: TEXT    -- resolved telemetry class, e.g. "windows.process_creation"; indexed
+- positive_atoms:  JSONB   -- sorted list of positive atom identity strings
+- negative_atoms:  JSONB   -- sorted list of negative atom identity strings
+- surface_score:   INTEGER -- DNF branch count (complexity proxy)
+
+Ordering
+--------
+Run after migrate_sigma_canonical_fields.py (depends on canonical_json existing).
+Run before or alongside migrate_sigma_to_canonical.py -- both scripts process
+the sigma_rules table independently.
+
+Idempotent: each column and index is checked before creation -- safe to re-run.
+
+Usage
+-----
+    python scripts/migrate_sigma_semantic_precompute.py
 """
 
 import os

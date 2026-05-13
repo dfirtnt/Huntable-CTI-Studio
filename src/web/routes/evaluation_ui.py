@@ -17,7 +17,7 @@ router = APIRouter(tags=["evaluation-ui"])
 
 
 @router.get("/evaluations", response_class=HTMLResponse)
-async def evaluations_page(request: Request):
+def evaluations_page(request: Request):
     """Main evaluations dashboard page."""
     try:
         return templates.TemplateResponse("evaluations.html", {"request": request})
@@ -29,7 +29,7 @@ async def evaluations_page(request: Request):
 
 
 @router.get("/evaluations/compare", response_class=HTMLResponse)
-async def compare_evaluations_page(request: Request, baseline_id: int = Query(...), current_id: int = Query(...)):
+def compare_evaluations_page(request: Request, baseline_id: int = Query(...), current_id: int = Query(...)):
     """Compare two evaluations."""
     db_manager = DatabaseManager()
     db_session = db_manager.get_session()
@@ -48,7 +48,7 @@ async def compare_evaluations_page(request: Request, baseline_id: int = Query(..
 
 
 @router.get("/evaluations/{agent_name}/{subagent_name}", response_class=HTMLResponse)
-async def subagent_evaluation_page(
+def subagent_evaluation_page(
     request: Request, agent_name: str, subagent_name: str, evaluation_id: int | None = Query(None)
 ):
     """Subagent-specific evaluation page."""
@@ -110,7 +110,7 @@ async def subagent_evaluation_page(
 
 
 @router.get("/evaluations/{agent_name}", response_class=HTMLResponse)
-async def agent_evaluation_page(request: Request, agent_name: str, evaluation_id: int | None = Query(None)):
+def agent_evaluation_page(request: Request, agent_name: str, evaluation_id: int | None = Query(None)):
     """Agent-specific evaluation page."""
     db_manager = DatabaseManager()
     db_session = db_manager.get_session()

@@ -98,7 +98,6 @@ class EvalBundleService:
         if not execution:
             raise ValueError(f"Execution {execution_id} not found")
 
-        # Log available agents for debugging
         # Ensure error_log is a dict (JSONB might be string)
         error_log = _coerce_json_dict(execution.error_log)
 
@@ -209,6 +208,26 @@ class EvalBundleService:
                 evaluation_score = subagent_eval.score
                 evaluation_status = subagent_eval.status
 
+                # Item-level fields (populated only when expected_items was set)
+                if subagent_eval.expected_items is not None:
+                    workflow_meta["expected_items"] = subagent_eval.expected_items
+                if subagent_eval.actual_items is not None:
+                    workflow_meta["actual_items"] = subagent_eval.actual_items
+                if subagent_eval.matched_count is not None:
+                    workflow_meta["matched_count"] = subagent_eval.matched_count
+                if subagent_eval.missed_count is not None:
+                    workflow_meta["missed_count"] = subagent_eval.missed_count
+                    workflow_meta["missed_items"] = [
+                        i for i in (subagent_eval.expected_items or [])
+                        if i not in (subagent_eval.actual_items or [])
+                    ]
+                if subagent_eval.extra_count is not None:
+                    workflow_meta["extra_count"] = subagent_eval.extra_count
+                    workflow_meta["extra_items"] = [
+                        i for i in (subagent_eval.actual_items or [])
+                        if i not in (subagent_eval.expected_items or [])
+                    ]
+
         if expected_count is not None:
             workflow_meta["expected_count"] = expected_count
         if actual_count is not None:
@@ -268,11 +287,9 @@ class EvalBundleService:
         llm_messages = llm_request.get("messages") if isinstance(llm_request, dict) else []
         exec_status = execution_context.get("status", "") if isinstance(execution_context, dict) else ""
         if (
-            not llm_messages or (isinstance(llm_messages, list) and len(llm_messages) == 0)
+            not llm_messages
         ) and exec_status == "completed":
             warnings.append("ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED")
-            if execution_context is None:
-                execution_context = {}
             execution_context["infra_failed"] = True
             execution_context["infra_failed_reason"] = "messages empty but execution marked completed"
             bundle["execution_context"] = execution_context
@@ -488,7 +505,7 @@ class EvalBundleService:
                                     messages = last_entry.get("messages", [])
 
         # Diagnostic logging for missing messages
-        if not messages or (isinstance(messages, list) and len(messages) == 0):
+        if not messages:
             attempt_keys = list(attempt_entry.keys()) if isinstance(attempt_entry, dict) else "N/A"
             result_obj = attempt_entry.get("result", {}) if isinstance(attempt_entry, dict) else {}
             result_keys = list(result_obj.keys()) if isinstance(result_obj, dict) else "N/A"
@@ -580,7 +597,7 @@ class EvalBundleService:
         if langfuse_messages:
             messages = langfuse_messages
             warnings.append("MESSAGES_FETCHED_FROM_LANGFUSE")
-        elif not messages or (isinstance(messages, list) and len(messages) == 0):
+        elif not messages:
             warnings.append("MESSAGES_MISSING - LLM request messages not found in conversation_log entry or Langfuse")
             messages = []
 
@@ -1245,15 +1262,8 @@ class EvalBundleService:
         if not isinstance(qa_results_all, dict):
             return None
 
-        # Map agent names to QA agent names. All extractor + RankAgent QA pairs must be listed
-        # here -- agents missing from this map have their QA results silently dropped from the bundle.
+        # Map agent names to QA agent names. Only RankAgent QA is still active.
         qa_agent_map = {
-            "CmdlineExtract": "CmdLineQA",
-            "ProcTreeExtract": "ProcTreeQA",
-            "HuntQueriesExtract": "HuntQueriesQA",
-            "RegistryExtract": "RegistryQA",
-            "ServicesExtract": "ServicesQA",
-            "ScheduledTasksExtract": "ScheduledTasksQA",
             "rank_article": "RankAgentQA",
         }
 
@@ -1333,9 +1343,6 @@ class EvalBundleService:
 
         # Map agent names to config keys
         agent_config_map = {
-            "CmdlineExtract": "ExtractAgent",
-            "ProcTreeExtract": "ExtractAgent",
-            "HuntQueriesExtract": "ExtractAgent",
             "rank_article": "RankAgent",
             "generate_sigma": "SigmaAgent",
             "os_detection": "OSDetectionAgent",
@@ -1351,6 +1358,10 @@ class EvalBundleService:
         if "cmdline_attention_preprocessor_enabled" in config_snapshot:
             filtered_config["cmdline_attention_preprocessor_enabled"] = config_snapshot[
                 "cmdline_attention_preprocessor_enabled"
+            ]
+        if "proc_tree_attention_preprocessor_enabled" in config_snapshot:
+            filtered_config["proc_tree_attention_preprocessor_enabled"] = config_snapshot[
+                "proc_tree_attention_preprocessor_enabled"
             ]
 
         # Include only the relevant agent's model config

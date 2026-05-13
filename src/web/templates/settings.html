@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "components/provider_model_macros.html" import provider_model_grid %}
 
 {% block title %}Settings - Huntable CTI Studio{% endblock %}
 
@@ -376,7 +377,6 @@
                          </div>
                          <div class="flex flex-wrap gap-3">
                              <button id="refreshBackupCronBtn" class="settings-btn-secondary">Refresh Cron</button>
-                             <button id="saveCronEditorBtn" class="settings-btn-primary">Save Crontab</button>
                              <button id="applyBackupCronBtn" class="settings-btn-primary">Apply Backup Schedule</button>
                              <button id="disableBackupCronBtn" class="settings-btn-danger">Disable Backup Schedule</button>
                          </div>
@@ -460,7 +460,6 @@
                     </div>
                     <div class="flex flex-wrap gap-3">
                         <button id="refreshScheduledJobsBtn" class="settings-btn-secondary">Refresh Scheduled Jobs</button>
-                        <button id="saveScheduledJobsBtn" class="settings-btn-primary">Save Scheduled Jobs</button>
                     </div>
                 </div>
 
@@ -619,15 +618,7 @@
                                 class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Chat/completions and models endpoint. Leave blank for default (host.docker.internal or localhost).</p>
                      </div>
-                     <div class="mb-4">
-                         <label for="lmstudioEmbeddingUrl" class="block text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">LM Studio embedding URL</label>
-                         <input type="text"
-                                id="lmstudioEmbeddingUrl"
-                                placeholder="http://localhost:1234/v1/embeddings or http://192.168.1.65:1234/v1/embeddings"
-                                class="w-full bg-panel-0 border border-gray-700 rounded-lg px-3 py-2 text-gray-50 placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500">
-                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for Sigma rule embeddings (e.g. sigma index). Leave blank for default.</p>
-                     </div>
-                     <div class="flex items-center justify-between">
+                     <div class="flex items-center justify-between mt-4">
                          <p class="text-sm text-gray-500 dark:text-gray-400">Test connection to local LM Studio server</p>
                          <button id="testWorkflowLmstudioApiKey"
                                  class="inline-flex items-center px-3 py-1 text-xs border border-gray-600 hover:bg-gray-800 text-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -750,6 +741,15 @@
                           </p>
                           <p id="autoTriggerThresholdStatus" class="text-sm mt-2"></p>
                       </div>
+                  </div>
+
+                  <!-- Evals Diagnosis Agent Configuration -->
+                  <div class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                      <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">Evals Diagnosis Agent</h3>
+                      <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">Configure the LLM provider and model used for AI-powered eval diagnostics (the "Diagnose" button on Agent Evals).</p>
+                      <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">To edit the diagnosis prompt, see <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">src/services/eval_diagnosis_service.py</code> &mdash; <code class="font-mono bg-gray-100 dark:bg-gray-800 px-1 rounded">_DIAGNOSIS_SYSTEM_PROMPT</code>.</p>
+                      {{ provider_model_grid('diagnosis', 'diagnosis_provider', 'diagnosis_model',
+                           validate=false, use_select=true) }}
                   </div>
               </div>
         </div>
@@ -1025,30 +1025,34 @@
         );
         document.getElementById('workflowAnthropicApiKey').value = workflowAnthropicApiKey;
 
-        const lmstudioApiUrl = parseWorkflowStringSetting(
-            workflowAppSettings,
-            'LMSTUDIO_API_URL',
-            settings.lmstudioApiUrl || ''
-        );
-        const lmstudioEmbeddingUrl = parseWorkflowStringSetting(
-            workflowAppSettings,
-            'LMSTUDIO_EMBEDDING_URL',
-            settings.lmstudioEmbeddingUrl || ''
-        );
+        const lmstudioApiUrl = parseWorkflowStringSetting(workflowAppSettings, 'LMSTUDIO_API_URL', settings.lmstudioApiUrl || '');
         const lmstudioApiUrlEl = document.getElementById('lmstudioApiUrl');
-        const lmstudioEmbeddingUrlEl = document.getElementById('lmstudioEmbeddingUrl');
         if (lmstudioApiUrlEl) lmstudioApiUrlEl.value = lmstudioApiUrl;
-        if (lmstudioEmbeddingUrlEl) lmstudioEmbeddingUrlEl.value = lmstudioEmbeddingUrl;
 
         // Update workflow API key visibility
         updateWorkflowApiKeyVisibility();
+
+        // Load diagnosis agent config
+        const diagProvider = parseWorkflowStringSetting(workflowAppSettings, 'DIAGNOSIS_PROVIDER', 'openai');
+        const diagModel = parseWorkflowStringSetting(workflowAppSettings, 'DIAGNOSIS_MODEL', 'gpt-4o');
+        document.getElementById('diagnosis-provider').value = diagProvider;
+        onAgentProviderChange('diagnosis');
+        // Populate cloud model selects from catalog, then restore saved value
+        await populateDiagnosisCloudModelSelects(diagModel);
+        if (diagProvider === 'lmstudio') {
+            await populateDiagnosisLmstudioModels(diagModel);
+        } else if (diagProvider === 'openai') {
+            document.getElementById('diagnosis-model-openai').value = diagModel;
+        } else if (diagProvider === 'anthropic') {
+            document.getElementById('diagnosis-model-anthropic').value = diagModel;
+        }
 
         // Load auto-trigger hunt score threshold from workflow config API
         await loadAutoTriggerThreshold();
         // Signal that all async settings fetches have completed (used by Playwright tests)
         document.body.dataset.settingsHydrated = 'true';
     }
-    
+
     // Load auto-trigger threshold from workflow config API
     async function loadAutoTriggerThreshold() {
         try {
@@ -1064,6 +1068,114 @@
         }
     }
     
+    // Shared provider visibility toggle (same logic as workflow.html)
+    function updateAgentProviderVisibility(agentPrefix, provider) {
+        var normalized = (provider || 'openai').toString().trim().toLowerCase();
+        var groups = document.querySelectorAll('[data-agent-prefix="' + agentPrefix + '"]');
+        groups.forEach(function(group) {
+            if (!group.dataset.provider) return;
+            var groupProvider = group.dataset.provider.toString().trim().toLowerCase();
+            if (groupProvider === normalized) {
+                group.classList.remove('hidden');
+                group.style.display = '';
+            } else {
+                group.classList.add('hidden');
+                group.style.display = 'none';
+            }
+        });
+    }
+
+    function onAgentProviderChange(agentPrefix) {
+        var select = document.getElementById(agentPrefix + '-provider');
+        if (!select) return;
+        var provider = (select.value || 'openai').toString().trim().toLowerCase();
+        updateAgentProviderVisibility(agentPrefix, provider);
+        if (agentPrefix === 'diagnosis' && provider === 'lmstudio') {
+            populateDiagnosisLmstudioModels();
+        }
+    }
+    window.onAgentProviderChange = onAgentProviderChange;
+
+    async function populateDiagnosisCloudModelSelects(savedModel) {
+        try {
+            const resp = await fetch('/api/provider-model-catalog');
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const catalog = data.catalog || {};
+            ['openai', 'anthropic'].forEach(function(provider) {
+                const models = catalog[provider] || [];
+                const sel = document.querySelector(
+                    '[data-catalog-provider="' + provider + '"][id^="diagnosis-model-"]'
+                );
+                if (!sel || models.length === 0) return;
+                const current = sel.value;
+                sel.textContent = '';
+                models.forEach(function(m) {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    sel.appendChild(opt);
+                });
+                if (savedModel && sel.id.endsWith('-' + provider)) sel.value = savedModel;
+                else if (current) sel.value = current;
+            });
+        } catch (e) {
+            console.warn('Could not load provider catalog for diagnosis selects', e);
+        }
+    }
+
+    async function populateDiagnosisLmstudioModels(selectedModel) {
+        const select = document.getElementById('diagnosis-model');
+        select.textContent = '';
+        const loadingOpt = document.createElement('option');
+        loadingOpt.value = '';
+        loadingOpt.textContent = 'Loading...';
+        select.appendChild(loadingOpt);
+        try {
+            const resp = await fetch('/api/lmstudio-models');
+            if (resp.ok) {
+                const data = await resp.json();
+                const models = data.models || [];
+                select.textContent = '';
+                if (models.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.textContent = '(no models loaded)';
+                    select.appendChild(opt);
+                } else {
+                    models.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = m;
+                        opt.textContent = m;
+                        select.appendChild(opt);
+                    });
+                }
+                if (selectedModel) select.value = selectedModel;
+            } else {
+                select.textContent = '';
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = '(LMStudio unavailable)';
+                select.appendChild(opt);
+            }
+        } catch (e) {
+            select.textContent = '';
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = '(LMStudio unavailable)';
+            select.appendChild(opt);
+        }
+    }
+
+    function getDiagnosisModel() {
+        const provider = document.getElementById('diagnosis-provider').value;
+        if (provider === 'lmstudio') return document.getElementById('diagnosis-model').value;
+        if (provider === 'openai') return document.getElementById('diagnosis-model-openai').value || 'gpt-4o';
+        if (provider === 'anthropic') return document.getElementById('diagnosis-model-anthropic').value || 'claude-sonnet-4-6';
+        return 'gpt-4o';
+    }
+
+
     // Load Langfuse settings from database (with localStorage fallback)
     async function loadLangfuseSettings() {
         const settings = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');
@@ -1615,7 +1727,6 @@
             workflowOpenaiApiKey: document.getElementById('workflowOpenaiApiKey').value.trim() || '',
             workflowAnthropicApiKey: document.getElementById('workflowAnthropicApiKey').value.trim() || '',
             lmstudioApiUrl: document.getElementById('lmstudioApiUrl')?.value.trim() || '',
-            lmstudioEmbeddingUrl: document.getElementById('lmstudioEmbeddingUrl')?.value.trim() || '',
             backupSettings: backupSettings
         };
 
@@ -1628,8 +1739,7 @@
             [WORKFLOW_PROVIDER_SETTING_KEYS.lmstudioEnabled]: lmstudioEnabledForSave ? 'true' : 'false',
             [WORKFLOW_PROVIDER_SETTING_KEYS.openaiApiKey]: settings.workflowOpenaiApiKey,
             [WORKFLOW_PROVIDER_SETTING_KEYS.anthropicApiKey]: settings.workflowAnthropicApiKey,
-            'LMSTUDIO_API_URL': settings.lmstudioApiUrl || '',
-            'LMSTUDIO_EMBEDDING_URL': settings.lmstudioEmbeddingUrl || ''
+            'LMSTUDIO_API_URL': settings.lmstudioApiUrl || ''
         };
 
         const failures = [];
@@ -1651,8 +1761,8 @@
             failures.push('auto-trigger threshold (must be 0-100)');
         } else {
             await runSection('auto-trigger threshold', async () => {
-                const response = await fetch('/api/workflow/config', {
-                    method: 'PUT',
+                const response = await fetch('/api/workflow/config/auto-trigger-threshold', {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ auto_trigger_hunt_score_threshold: autoTriggerThreshold })
                 });
@@ -1666,6 +1776,12 @@
         await runSection('backup configuration', () => persistBackupSettingsToServer(false));
         await runSection('cron editor', () => saveCronEditor({ silent: true }));
         await runSection('scheduled jobs', () => saveScheduledJobs({ silent: true }));
+        await runSection('diagnosis config', async () => {
+            await persistWorkflowAppSettings({
+                DIAGNOSIS_PROVIDER: document.getElementById('diagnosis-provider').value,
+                DIAGNOSIS_MODEL: getDiagnosisModel()
+            });
+        });
 
         await runSection('GitHub PR config', async () => {
             const githubPRSettings = [
@@ -2253,14 +2369,11 @@
                 showNotification(`Failed to refresh scheduled jobs: ${error.message}`, 'error');
             });
         });
-        safeAddListener('saveScheduledJobsBtn', 'click', saveScheduledJobs);
-
         safeAddListener('refreshBackupCronBtn', 'click', function() {
             loadCronState().catch(function(error) {
                 showNotification(`Failed to refresh cron jobs: ${error.message}`, 'error');
             });
         });
-        safeAddListener('saveCronEditorBtn', 'click', saveCronEditor);
         safeAddListener('applyBackupCronBtn', 'click', applyBackupCronSchedule);
         safeAddListener('disableBackupCronBtn', 'click', disableBackupCronSchedule);
 

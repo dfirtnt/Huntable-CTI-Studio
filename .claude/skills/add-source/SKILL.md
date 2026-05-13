@@ -52,14 +52,14 @@ Use this template, adapting based on discovery:
   name: "{Source Name}"
   url: "{site_url}"
   rss_url: {rss_url or null}
-  check_frequency: 1800  # 30 minutes
-  active: true
+  check_frequency: 14400  # 4 hours (system default; reduce to 1800 only after successful validation)
+  active: false  # Start disabled; enable manually after verifying articles are ingested correctly
   config:
     allow: ["{domain}"]
     post_url_regex: ["{regex_pattern}"]
     robots:
       enabled: true
-      user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+      user_agent: "Huntable-CTI-Studio/1.0 (+https://github.com/dfirtnt/Huntable-CTI-Studio)"
       respect_delay: true
       max_requests_per_minute: 10
       crawl_delay: 1.0
@@ -110,7 +110,7 @@ If the CLI is not available (e.g., Docker not running), tell the user:
 
 If Docker is running, verify via:
 ```bash
-curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | select(.name == "{Source Name}") | {name, active, total: .total_articles}'
+curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | select(.source_name == "{Source Name}") | {name: .source_name, total: .articles_count}'
 ```
 
 Or direct the user to the Sources page in the UI.

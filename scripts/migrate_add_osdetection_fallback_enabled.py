@@ -1,6 +1,21 @@
 #!/usr/bin/env python3
-"""
-Migration script to add osdetection_fallback_enabled column to agentic_workflow_config table.
+"""Migration: add osdetection_fallback_enabled column to agentic_workflow_config.
+
+Why
+---
+A UI toggle was added to the workflow config page allowing the OS Detection agent
+to fall back from SEC-BERT classification to an LLM call when the classifier
+confidence is below the configured threshold. The column defaults to FALSE so
+existing installs keep their prior behavior (no fallback) until explicitly enabled.
+
+Adds:
+- osdetection_fallback_enabled: BOOLEAN NOT NULL DEFAULT FALSE on agentic_workflow_config
+
+Idempotent: skips silently if the column already exists.
+
+Usage
+-----
+    python scripts/migrate_add_osdetection_fallback_enabled.py
 """
 
 import os

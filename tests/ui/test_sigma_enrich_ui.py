@@ -77,6 +77,13 @@ class TestSigmaEnrichUI:
             )
         except Exception:
             pass
+        # Clear all routes so test-specific mocks (e.g. 500 error handlers) do
+        # not bleed into the next test.  The autouse mock_sigma_queue_list fixture
+        # re-registers its route on the next test iteration after this teardown.
+        try:
+            page.unroute_all()
+        except Exception:
+            pass
 
     def test_sigma_queue_page_shows_pagination_bar(self, page: Page):
         """Workflow Queue tab shows pagination bar with Showing X-Y of Z."""

@@ -120,10 +120,9 @@ Rules:
 [d5] Author: add author field/value provided by the application
 Toggle: toggles.d5
 Rules:
-- Ensure top-level field exists: author: <author_value>
-- If author exists but differs:
-  - Append rather than overwrite if it looks like multiple authors are allowed in your ecosystem; otherwise set to author_value and record a low/medium issue.
-  - Default behavior: if author is a string, convert to "Existing Author; <author_value>" only if you are confident this is acceptable YAML for your consumers; otherwise overwrite and note.
+- If the rule already has a non-blank `author` field: PRESERVE it unchanged. Do NOT overwrite, append to, or modify the existing author value in any way. Record a note in diff_notes that the existing author was retained.
+- Only set `author: <author_value>` when the rule has no author field at all, or the existing author field is blank/empty.
+- Never change the author field unless the user_instruction explicitly requests an author change.
 - Record action in actions_taken and diff_notes.
 
 [d6] Title: improve title to be more unique and specific to use-case

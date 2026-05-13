@@ -158,6 +158,20 @@ async def agent_evals_page(request: Request):
         )
 
 
+@router.get("/mlops/agent-evals2", response_class=HTMLResponse)
+async def agent_evals2_page(request: Request):
+    """Agent evaluation page with item-level precision/recall scoring."""
+    try:
+        return templates.TemplateResponse("agent_evals2.html", {"request": request})
+    except Exception as exc:
+        logger.error("Agent evals2 page error: %s", exc)
+        return templates.TemplateResponse(
+            "error.html",
+            {"request": request, "error": "An unexpected error occurred"},
+            status_code=500,
+        )
+
+
 @router.get("/settings", response_class=HTMLResponse)
 async def settings_page(request: Request):
     """Settings page."""
@@ -256,7 +270,15 @@ async def sources_list(request: Request):
                 return hunt_score_lookup[source.id].get("avg_hunt_score", 0)
             return 0
 
-        sources_sorted = sorted(sources, key=get_hunt_score, reverse=True)
+        # Deduplicate by ID — list_sources() can occasionally return the same row
+        # twice due to SQLAlchemy session identity-map edge cases with relationships.
+        _seen: set[int] = set()
+        sources_unique = []
+        for s in sources:
+            if s.id not in _seen:
+                _seen.add(s.id)
+                sources_unique.append(s)
+        sources_sorted = sorted(sources_unique, key=get_hunt_score, reverse=True)
 
         # Add collection method helper to template context
         def get_collection_method(source):
@@ -577,9 +599,9 @@ async def jobs_page(request: Request):
     return templates.TemplateResponse("jobs.html", {"request": request, "environment": ENVIRONMENT})
 
 
-@router.get("/ml-hunt-comparison", response_class=HTMLResponse)
+@router.get("/ml-model-performance", response_class=HTMLResponse)
 async def ml_hunt_comparison_page(request: Request):
-    """ML vs Hunt scoring comparison page."""
+    """ML model performance page."""
     return templates.TemplateResponse("ml_hunt_comparison.html", {"request": request, "environment": ENVIRONMENT})
 
 

@@ -6,6 +6,7 @@ Run 'playwright install' in the Docker container before running UI tests.
 These tests are marked with @pytest.mark.ui and will be excluded from normal test runs.
 """
 
+import sys
 from urllib.parse import urlparse
 
 import pytest
@@ -207,3 +208,9 @@ def pytest_collection_modifyitems(config, items):
             )
         elif not WEB_SERVER_AVAILABLE:
             item.add_marker(pytest.mark.skip(reason="Web server not accessible on localhost:8001"))
+        elif sys.version_info >= (3, 14):
+            item.add_marker(
+                pytest.mark.skip(
+                    reason="playwright sync API incompatible with Python 3.14+ asyncio ThreadedChildWatcher"
+                )
+            )

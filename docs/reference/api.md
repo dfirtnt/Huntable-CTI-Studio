@@ -59,9 +59,9 @@ These are the main article browsing and maintenance endpoints.
 
 These power the semantic search workflow. For conversational retrieval, use the Huntable MCP server (see [MCP tools reference](mcp-tools.md)).
 
-### Embeddings And RAG Coverage
+### Embeddings And Vector Coverage
 
-- `GET /api/embeddings/stats` — Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with RAG embeddings), distinct from the AI **sigma_rule_queue**. Used by `/search`, CLI `embed stats`, and MCP `get_stats`.
+- `GET /api/embeddings/stats` -- Embedding coverage summary. Response includes a **`sigma_corpus`** block (SigmaHQ `sigma_rules` row counts vs rows with embeddings), distinct from the AI **sigma_rule_queue**. Used by CLI `embed stats` and MCP `get_stats`.
 
 ### Workflow Execution
 
@@ -89,6 +89,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `GET /api/workflow/config/versions` — List config versions with pagination. Query params: `page` (default 1), `limit` (default 20, max 100), `version` (optional, exact integer match). Response: `versions`, `total`, `page`, `total_pages`.
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
+- `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
 Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`).
 
@@ -143,14 +144,15 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 
 These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, **ScheduledTasksExtract**):
 
-- `GET /api/evaluation/subagent-eval-articles` — List seeded eval articles for a given subagent.
-- `POST /api/evaluation/run-subagent-eval` — Trigger a subagent eval run.
-- `GET /api/evaluation/subagent-eval-results` — Get results for completed subagent eval runs.
-- `GET /api/evaluation/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
-- `DELETE /api/evaluation/subagent-eval-clear-pending` — Clear pending/stuck eval records.
-- `POST /api/evaluation/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
-- `GET /api/evaluation/subagent-eval-aggregate` — Aggregated metrics across all subagent eval runs.
-- `GET /api/evaluation/config-versions-models` — List config versions with model info for each agent.
+- `GET /api/evaluations/subagent-eval-articles` — List seeded eval articles for a given subagent.
+- `POST /api/evaluations/run-subagent-eval` — Trigger a subagent eval run.
+- `GET /api/evaluations/subagent-eval-results` — Get results for completed subagent eval runs (includes `expected_items`, `actual_items`, `matched_count`, `missed_count`, `extra_count` when item-level ground truth is set).
+- `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
+- `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.
+- `POST /api/evaluations/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
+- `GET /api/evaluations/subagent-eval-aggregate` — Aggregated metrics per `config_version`. Includes count-based fields (`mean_score`, `raw_mae`, `score_distribution`) and item-level fields (`mean_precision`, `mean_recall`, `mean_f1`, `scored_articles`). Optional `?model=` query param filters to versions where the subagent used the given model (powers the SYS.04 trend chart).
+- `GET /api/evaluations/subagent-eval-models?subagent=...` — List models that have eval data for the given subagent, sorted by usage frequency. Powers the model dropdown on the `/mlops/agent-evals2` SYS.04 chart.
+- `GET /api/evaluations/config-versions-models` — List config versions with model info for each agent.
 
 Route module: `src/web/routes/evaluation_api.py`.
 

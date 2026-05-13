@@ -130,20 +130,20 @@ async def api_list_backups():
     try:
         project_root = Path(__file__).parent.parent.parent.parent
 
-        result = subprocess.run(
-            [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="Internal server error")
-
         backups: list[dict[str, Any]] = []
-        lines = result.stdout.split("\n")
+        script_path = project_root / "scripts" / "prune_backups.py"
+        if script_path.exists():
+            result = subprocess.run(
+                [sys.executable, str(script_path), "--stats"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            lines = result.stdout.split("\n") if result.returncode == 0 else []
+        else:
+            lines = []
         in_backup_list = False
 
         for index, line in enumerate(lines):
@@ -252,23 +252,23 @@ async def api_backup_status():
         cron_state = _get_cron_state()
 
         # Get backup statistics
-        result = subprocess.run(
-            [sys.executable, str(project_root / "scripts" / "prune_backups.py"), "--stats"],
-            cwd=str(project_root),
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-
-        if result.returncode != 0:
-            raise HTTPException(status_code=500, detail="Internal server error")
-
         total_backups = 0
         total_size_gb = 0.0
         last_backup = None
 
-        lines = result.stdout.split("\n")
+        script_path = project_root / "scripts" / "prune_backups.py"
+        if script_path.exists():
+            result = subprocess.run(
+                [sys.executable, str(script_path), "--stats"],
+                cwd=str(project_root),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            lines = result.stdout.split("\n") if result.returncode == 0 else []
+        else:
+            lines = []
         for line in lines:
             if "Total backups:" in line:
                 try:

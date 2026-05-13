@@ -251,7 +251,7 @@ async def api_services_health() -> dict[str, Any]:
 
 
 @router.get("/api/health/celery")
-async def api_celery_health() -> dict[str, Any]:
+def api_celery_health() -> dict[str, Any]:
     """Celery workers health check."""
     try:
         celery_status: dict[str, Any] = {}

@@ -14,7 +14,6 @@ This workflow processes articles through 7 steps:
 import contextlib
 import json
 import logging
-import os
 import re
 from datetime import datetime
 from typing import Any, TypedDict
@@ -30,10 +29,10 @@ from src.database.models import (
     SigmaRuleQueueTable,
     SubagentEvaluationTable,
 )
+from src.services.eval_item_scorer import score_items
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
 from src.services.qa_agent_service import QAAgentService
-from src.services.rag_service import RAGService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -102,6 +101,48 @@ def _extraction_is_infra_failure(extraction_result: dict | None) -> bool:
     return True
 
 
+def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str | None]:
+    """Return (True, reason) if every executed subagent returned an error, (False, None) otherwise.
+
+    Broader than _extraction_is_infra_failure: catches any error type, not just known
+    infra patterns.  Used to set success=False on the workflow_completed Langfuse span
+    when LangGraph reaches END without raising (the graph swallows subagent errors so
+    final_state carries no top-level 'error' key even when nothing was extracted).
+    """
+    if not isinstance(extraction_result, dict):
+        return False, None
+    subresults = extraction_result.get("subresults", {})
+    if not isinstance(subresults, dict) or not subresults:
+        return False, None
+
+    executed = []
+    for sr in subresults.values():
+        if not isinstance(sr, dict):
+            continue
+        raw = sr.get("raw", {})
+        if isinstance(raw, dict) and raw.get("status") == "skipped_for_eval":
+            continue
+        executed.append(sr)
+
+    if not executed:
+        return False, None
+
+    errors = []
+    for sr in executed:
+        raw = sr.get("raw", {}) if isinstance(sr.get("raw"), dict) else {}
+        err = sr.get("error") or raw.get("error") or ""
+        if not (isinstance(err, str) and err):
+            return False, None  # at least one subagent succeeded
+        errors.append(err)
+
+    # Every executed subagent errored -- build a compact reason string
+    unique_errors = list(dict.fromkeys(errors))  # deduplicate, preserve order
+    reason = f"All {len(executed)} extractor(s) failed: {'; '.join(unique_errors[:2])}"
+    if len(unique_errors) > 2:
+        reason += f" (and {len(unique_errors) - 2} more)"
+    return True, reason
+
+
 class WorkflowState(TypedDict):
     """State for the agentic workflow."""
 
@@ -112,7 +153,11 @@ class WorkflowState(TypedDict):
     eval_run: bool
     skip_rank_agent: bool
 
-    # Step 0: Junk Filter
+    # Step 0: OS Detection
+    os_detection_result: dict[str, Any] | None
+    detected_os: str | None
+
+    # Step 1: Junk Filter
     filtered_content: str | None
     junk_filter_result: dict[str, Any] | None
 
@@ -120,10 +165,6 @@ class WorkflowState(TypedDict):
     ranking_score: float | None
     ranking_reasoning: str | None
     should_continue: bool
-
-    # Step 1.5: OS Detection
-    os_detection_result: dict[str, Any] | None
-    detected_os: str | None
 
     # Step 2: Extract Agent
     extraction_result: dict[str, Any] | None
@@ -311,6 +352,38 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
     return actual_count
 
 
+def _extract_actual_items(subagent_name: str, subresults: dict) -> list[str] | None:
+    """Extract the items list from subresults for item-level scoring.
+
+    Returns a list of strings or None if the subagent type doesn't support item lists.
+    """
+    if subagent_name in ("hunt_queries", "hunt_queries_edr", "hunt_queries_sigma"):
+        # Hunt queries produce query text objects, not simple string items
+        return None
+
+    subagent_result = subresults.get(subagent_name, {})
+    if not isinstance(subagent_result, dict):
+        return None
+
+    items = subagent_result.get("items")
+    if not isinstance(items, list):
+        return None
+
+    # Flatten: each item may be a string, or a dict with a "cmdline" / "command" / "value" field
+    flat: list[str] = []
+    for item in items:
+        if isinstance(item, str):
+            flat.append(item)
+        elif isinstance(item, dict):
+            # Try common string payload fields in priority order
+            for field in ("cmdline", "command", "commandline", "value", "name"):
+                v = item.get(field)
+                if isinstance(v, str) and v.strip():
+                    flat.append(v.strip())
+                    break
+    return flat if flat else None
+
+
 def _update_single_eval_record(
     eval_record: SubagentEvaluationTable,
     execution: AgenticWorkflowExecutionTable,
@@ -349,6 +422,21 @@ def _update_single_eval_record(
 
         # Calculate score
         score = actual_count - eval_record.expected_count
+
+        # Item-level scoring (only when expected_items ground truth is available).
+        # When the model returns zero items, _extract_actual_items returns None to signal
+        # "no items field present at all". For scoring purposes that's identical to an
+        # empty list -- the run completed and produced nothing -- so we coerce here so
+        # the zero-extraction case still scores (matched=0, missed=len(expected), extra=0).
+        if eval_record.expected_items and isinstance(eval_record.expected_items, list):
+            actual_items = _extract_actual_items(eval_record.subagent_name, subresults)
+            if actual_items is None:
+                actual_items = []
+            result = score_items(eval_record.expected_items, actual_items)
+            eval_record.actual_items = actual_items
+            eval_record.matched_count = result.matched_count
+            eval_record.missed_count = result.missed_count
+            eval_record.extra_count = result.extra_count
 
         # Update eval record
         eval_record.actual_count = actual_count
@@ -540,11 +628,161 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
     # Initialize services
     content_filter = ContentFilter()
-    # LLMService will be initialized per-node with config models
-    RAGService()
     trigger_service = WorkflowTriggerService(db_session)
 
     # Define workflow nodes
+
+    async def os_detection_node(state: WorkflowState) -> WorkflowState:
+        """Step 0: Detect operating system from article content."""
+        try:
+            logger.info(f"[Workflow {state['execution_id']}] Step 0: OS Detection")
+
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
+            if not article:
+                raise ValueError(f"Article {state['article_id']} not found in database")
+            content = article.content if article else ""
+
+            execution = (
+                db_session.query(AgenticWorkflowExecutionTable)
+                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
+                .first()
+            )
+
+            if execution:
+                execution.current_step = "os_detection"
+                db_session.commit()
+
+            config = state.get("config")
+            config_snapshot = execution.config_snapshot if execution else {}
+            if isinstance(config_snapshot, str):
+                try:
+                    config_snapshot = json.loads(config_snapshot)
+                except (json.JSONDecodeError, ValueError):
+                    config_snapshot = {}
+            if not isinstance(config_snapshot, dict):
+                config_snapshot = {}
+
+            skip_os_detection_flag = _bool_from_value(config_snapshot.get("skip_os_detection", False))
+            eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
+            skip_os_detection = skip_os_detection_flag or eval_run_flag
+
+            if skip_os_detection:
+                logger.info(f"[Workflow {state['execution_id']}] Skipping OS Detection (eval run)")
+                detected_os = "Windows"
+                os_result = {
+                    "operating_system": "Windows",
+                    "method": "eval_skip",
+                    "confidence": 1.0,
+                    "similarities": {"Windows": 1.0},
+                }
+            else:
+                from src.services.os_detection_service import OSDetectionService
+
+                agent_models = (config.get("agent_models") or {}) if config and isinstance(config, dict) else {}
+                embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
+
+                service = OSDetectionService(model_name=embedding_model)
+                os_result = await service.detect_os(
+                    content=content,
+                    use_classifier=True,
+                )
+                detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"
+
+            similarities = os_result.get("similarities", {}) if os_result else {}
+            windows_similarity = similarities.get("Windows", 0.0) if isinstance(similarities, dict) else 0.0
+
+            if detected_os == "Unknown" and similarities:
+                max_similarity_os = max(similarities, key=similarities.get)
+                if max_similarity_os == "Windows" and windows_similarity > 0.0:
+                    detected_os = "Windows"
+                    os_result["operating_system"] = "Windows"
+                    logger.info(
+                        f"[Workflow {state['execution_id']}] Overriding detected_os to 'Windows' (highest similarity: {windows_similarity:.1%})"
+                    )
+
+            is_windows = (
+                detected_os == "Windows"
+                or (detected_os == "multiple" and windows_similarity > 0.0)
+                or (
+                    windows_similarity > 0.0 and windows_similarity == max(similarities.values())
+                    if similarities
+                    else False
+                )
+            )
+
+            termination_reason = state.get("termination_reason")
+            termination_details = state.get("termination_details")
+
+            if execution:
+                execution.current_step = "os_detection"
+                if execution.error_log is None:
+                    execution.error_log = {}
+                execution.error_log["os_detection_result"] = {
+                    "detected_os": detected_os,
+                    "detection_method": os_result.get("method"),
+                    "confidence": os_result.get("confidence"),
+                    "similarities": os_result.get("similarities"),
+                    "max_similarity": os_result.get("max_similarity"),
+                    "probabilities": os_result.get("probabilities"),
+                }
+                flag_modified(execution, "error_log")
+
+                if is_windows:
+                    execution.status = "running"
+                    db_session.commit()
+                else:
+                    termination_details = {
+                        "detected_os": detected_os,
+                        "detection_method": os_result.get("method"),
+                        "confidence": os_result.get("confidence"),
+                        "similarities": os_result.get("similarities"),
+                        "max_similarity": os_result.get("max_similarity"),
+                    }
+                    mark_execution_completed(
+                        execution,
+                        "os_detection",
+                        db_session=db_session,
+                        reason=TERMINATION_REASON_NON_WINDOWS_OS,
+                        details=termination_details,
+                        commit=False,
+                    )
+                    db_session.commit()
+                    termination_reason = TERMINATION_REASON_NON_WINDOWS_OS
+
+            logger.info(f"[Workflow {state['execution_id']}] OS Detection: {detected_os}, continue: {is_windows}")
+
+            return {
+                **state,
+                "os_detection_result": os_result,
+                "detected_os": detected_os,
+                "should_continue": is_windows,
+                "current_step": "os_detection",
+                "status": "completed" if not is_windows else "running",
+                "termination_reason": termination_reason,
+                "termination_details": termination_details,
+            }
+
+        except Exception as e:
+            logger.error(f"[Workflow {state['execution_id']}] OS detection error: {e}")
+            execution = (
+                db_session.query(AgenticWorkflowExecutionTable)
+                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
+                .first()
+            )
+            if execution:
+                execution.status = "failed"
+                execution.error_message = str(e)
+                db_session.commit()
+
+            return {
+                **state,
+                "error": str(e),
+                "should_continue": False,
+                "current_step": "os_detection",
+                "status": "failed",
+                "termination_reason": state.get("termination_reason"),
+                "termination_details": state.get("termination_details"),
+            }
 
     def junk_filter_node(state: WorkflowState) -> WorkflowState:
         """Step 1: Filter content using conservative junk filter."""
@@ -646,7 +884,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         # Determine bypass reason
         config_snapshot = execution.config_snapshot if execution else {}
         eval_run_flag = _bool_from_value(config_snapshot.get("eval_run", False))
-        _bool_from_value(config_snapshot.get("skip_rank_agent", False))
         state_eval_run = _bool_from_value(state.get("eval_run", False))
         is_eval_run = state_eval_run or eval_run_flag
         bypass_reason = "Rank Agent skipped for eval run" if is_eval_run else "Rank Agent disabled - bypassed"
@@ -767,14 +1004,24 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Get agent prompt from config (for both ranking and QA)
             rank_prompt_template = None
-            agent_prompt = "Rank the article from 1-10 for SIGMA huntability based on telemetry observables, behavioral patterns, and detection rule feasibility."
+            rank_system_prompt = None
+            agent_prompt = (
+                "You are a cybersecurity detection engineer. "
+                "Score threat intelligence articles 1-10 for SIGMA huntability. "
+                "Output only a score and brief reasoning."
+            )
             if config_obj and config_obj.agent_prompts and "RankAgent" in config_obj.agent_prompts:
-                rank_prompt_data = config_obj.agent_prompts["RankAgent"]
-                if isinstance(rank_prompt_data.get("prompt"), str):
-                    rank_prompt_template = rank_prompt_data["prompt"]
-                    agent_prompt = rank_prompt_template[:5000]  # Truncate for QA context
+                from src.utils.prompt_loader import parse_rank_agent_prompt_data
+
+                rank_prompt_template, rank_system_prompt = parse_rank_agent_prompt_data(
+                    config_obj.agent_prompts["RankAgent"]
+                )
+                if rank_prompt_template or rank_system_prompt:
+                    agent_prompt = (rank_system_prompt or rank_prompt_template or "")[:5000]
                     logger.info(
-                        f"Using RankAgent prompt from workflow config (length: {len(rank_prompt_template)} chars)"
+                        f"Using RankAgent prompt from workflow config "
+                        f"(template_len={len(rank_prompt_template or '')} chars, "
+                        f"system_len={len(rank_system_prompt or '')} chars)"
                     )
 
             # Initialize conversation log for rank_article
@@ -789,6 +1036,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     source=source_name,
                     url=article.canonical_url or "",
                     prompt_template=rank_prompt_template,
+                    system_override=rank_system_prompt,
                     execution_id=state["execution_id"],
                     article_id=article.id,
                     ground_truth_rank=ground_truth_rank,
@@ -803,7 +1051,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "messages": [
                             {
                                 "role": "system",
-                                "content": "You are a cybersecurity detection engineer. Score threat intelligence articles 1-10 for SIGMA huntability.",
+                                "content": agent_prompt,
                             },
                             {
                                 "role": "user",
@@ -964,201 +1212,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 "termination_details": state.get("termination_details"),
             }
 
-    async def os_detection_node(state: WorkflowState) -> WorkflowState:
-        """Step 0: Detect operating system from article content."""
-        try:
-            logger.info(f"[Workflow {state['execution_id']}] Step 0: OS Detection")
-
-            # Load article from DB instead of state
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == state["article_id"]).first()
-            if not article:
-                raise ValueError(f"Article {state['article_id']} not found in database")
-            # OS detection runs first, so use original content
-            content = article.content if article else ""
-
-            # Update execution record
-            execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
-                .first()
-            )
-
-            if execution:
-                execution.current_step = "os_detection"
-                db_session.commit()
-
-            # Check if OS detection should be skipped (for eval runs)
-            config = state.get("config")
-            config_snapshot = execution.config_snapshot if execution else {}
-            # Handle JSONB - it might be a dict or need parsing
-            if isinstance(config_snapshot, str):
-                try:
-                    config_snapshot = json.loads(config_snapshot)
-                except (json.JSONDecodeError, ValueError):
-                    config_snapshot = {}
-            if not isinstance(config_snapshot, dict):
-                config_snapshot = {}
-
-            # Handle both boolean and string "true"/"false" values from JSON
-            skip_os_detection_flag = config_snapshot.get("skip_os_detection", False) if config_snapshot else False
-            if isinstance(skip_os_detection_flag, str):
-                skip_os_detection_flag = skip_os_detection_flag.lower() == "true"
-            eval_run_flag = config_snapshot.get("eval_run", False) if config_snapshot else False
-            if isinstance(eval_run_flag, str):
-                eval_run_flag = eval_run_flag.lower() == "true"
-            state_skip_flag = state.get("skip_os_detection", False)
-            if isinstance(state_skip_flag, str):
-                state_skip_flag = state_skip_flag.lower() == "true"
-
-            skip_os_detection = skip_os_detection_flag or eval_run_flag or state_skip_flag
-
-            if skip_os_detection:
-                logger.info(f"[Workflow {state['execution_id']}] Skipping OS Detection (eval run)")
-                # For eval runs, force Windows detection to allow workflow to continue
-                detected_os = "Windows"
-                os_result = {
-                    "operating_system": "Windows",
-                    "method": "eval_skip",
-                    "confidence": 1.0,
-                    "similarities": {"Windows": 1.0},
-                }
-            else:
-                # Import OS detection service
-                from src.services.os_detection_service import OSDetectionService
-
-                # Get OS detection config from workflow config (None when key exists with null)
-                agent_models = (config.get("agent_models") or {}) if config and isinstance(config, dict) else {}
-                embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
-                fallback_model = agent_models.get("OSDetectionAgent_fallback")
-                fallback_provider = agent_models.get("OSDetectionAgent_fallback_provider")
-
-                # Initialize service with configured embedding model
-                service = OSDetectionService(model_name=embedding_model)
-
-                # LLM fallback only when LMStudio (or another provider) is enabled
-                _lmstudio_enabled = os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
-                use_os_fallback = _lmstudio_enabled and (fallback_model or fallback_provider)
-                llm_service_for_os = LLMService(config_models=agent_models) if use_os_fallback else None
-
-                # Detect OS; no LLM fallback when LMStudio disabled (embedding-only)
-                os_result = await service.detect_os(
-                    content=content,
-                    use_classifier=True,
-                    use_fallback=use_os_fallback,
-                    fallback_model=fallback_model if use_os_fallback else None,
-                    provider=fallback_provider if use_os_fallback else None,
-                    llm_service=llm_service_for_os,
-                )
-
-                detected_os = os_result.get("operating_system", "Unknown") if os_result else "Unknown"
-
-            # Check if Windows is detected or has the highest similarity
-            # This handles cases where Windows has highest similarity but confidence is low
-            similarities = os_result.get("similarities", {}) if os_result else {}
-            windows_similarity = similarities.get("Windows", 0.0) if isinstance(similarities, dict) else 0.0
-
-            # If Windows has the highest similarity but detected_os is "Unknown", override it
-            if detected_os == "Unknown" and similarities:
-                max_similarity_os = max(similarities, key=similarities.get)
-                if max_similarity_os == "Windows" and windows_similarity > 0.0:
-                    detected_os = "Windows"
-                    # Update the os_result to reflect this
-                    os_result["operating_system"] = "Windows"
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Overriding detected_os from 'Unknown' to 'Windows' (highest similarity: {windows_similarity:.1%})"
-                    )
-
-            # Continue if:
-            # 1. detected_os is 'Windows', OR
-            # 2. detected_os is 'multiple' and Windows is included, OR
-            # 3. Windows has the highest similarity (even if confidence is low)
-            is_windows = (
-                detected_os == "Windows"
-                or (detected_os == "multiple" and windows_similarity > 0.0)
-                or (
-                    windows_similarity > 0.0 and windows_similarity == max(similarities.values())
-                    if similarities
-                    else False
-                )
-            )
-
-            termination_reason = state.get("termination_reason")
-            termination_details = state.get("termination_details")
-
-            # Update execution record
-            if execution:
-                execution.current_step = "os_detection"
-
-                # Store OS detection result in error_log for retrieval
-                # (We'll add a dedicated os_detection_result column later via migration)
-                if execution.error_log is None:
-                    execution.error_log = {}
-                execution.error_log["os_detection_result"] = {
-                    "detected_os": detected_os,
-                    "detection_method": os_result.get("method"),
-                    "confidence": os_result.get("confidence"),
-                    "similarities": os_result.get("similarities"),
-                    "max_similarity": os_result.get("max_similarity"),
-                    "probabilities": os_result.get("probabilities"),
-                }
-
-                if is_windows:
-                    execution.status = "running"
-                    db_session.commit()
-                else:
-                    termination_details = {
-                        "detected_os": detected_os,
-                        "detection_method": os_result.get("method"),
-                        "confidence": os_result.get("confidence"),
-                        "similarities": os_result.get("similarities"),
-                        "max_similarity": os_result.get("max_similarity"),
-                    }
-                    mark_execution_completed(
-                        execution,
-                        "os_detection",
-                        db_session=db_session,
-                        reason=TERMINATION_REASON_NON_WINDOWS_OS,
-                        details=termination_details,
-                        commit=False,
-                    )
-                    db_session.commit()
-                    termination_reason = TERMINATION_REASON_NON_WINDOWS_OS
-
-            logger.info(f"[Workflow {state['execution_id']}] OS Detection: {detected_os}, continue: {is_windows}")
-
-            return {
-                **state,
-                "os_detection_result": os_result,
-                "detected_os": detected_os,
-                "should_continue": is_windows,
-                "current_step": "os_detection",
-                "status": "completed" if not is_windows else "running",
-                "termination_reason": termination_reason,
-                "termination_details": termination_details,
-            }
-
-        except Exception as e:
-            logger.error(f"[Workflow {state['execution_id']}] OS detection error: {e}")
-            execution = (
-                db_session.query(AgenticWorkflowExecutionTable)
-                .filter(AgenticWorkflowExecutionTable.id == state["execution_id"])
-                .first()
-            )
-            if execution:
-                execution.status = "failed"
-                execution.error_message = str(e)
-                db_session.commit()
-
-            return {
-                **state,
-                "error": str(e),
-                "should_continue": False,
-                "current_step": "os_detection",
-                "status": "failed",
-                "termination_reason": state.get("termination_reason"),
-                "termination_details": state.get("termination_details"),
-            }
-
     async def extract_agent_node(state: WorkflowState) -> WorkflowState:
         """Step 3: Extract behaviors using ExtractAgent."""
         try:
@@ -1185,22 +1238,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             logger.info(f"[Workflow {state['execution_id']}] Step 3: Extract Agent (Supervisor Mode with Sub-Agents)")
 
             config_obj = trigger_service.get_active_config()
-            qa_flags = (
-                config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled
-                else (state.get("config", {}).get("qa_enabled", {}) or {})
-            )
             if not config_obj:
                 raise ValueError("No active workflow configuration found")
 
-            # Check if this is a subagent eval run - if so, filter qa_flags to only the evaluated agent
+            # Check if this is a subagent eval run
             config_snapshot = execution.config_snapshot if execution else {}
             state_config = state.get("config", {})
             subagent_eval = normalize_subagent_name(
                 config_snapshot.get("subagent_eval") or state_config.get("subagent_eval")
             )
             if subagent_eval:
-                # Map subagent names to agent names
                 subagent_to_agent = {
                     "cmdline": "CmdlineExtract",
                     "process_lineage": "ProcTreeExtract",
@@ -1209,16 +1256,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     "windows_services": "ServicesExtract",
                     "scheduled_tasks": "ScheduledTasksExtract",
                 }
-                agent_name = subagent_to_agent.get(subagent_eval)
-                if agent_name:
-                    # Only keep QA flag for the evaluated agent
-                    original_qa_flags = qa_flags.copy() if isinstance(qa_flags, dict) else {}
-                    qa_flags = {agent_name: qa_flags.get(agent_name, False)} if isinstance(qa_flags, dict) else {}
-                    logger.info(
-                        f"[Workflow {state['execution_id']}] Subagent eval ({subagent_eval}): Filtering QA flags to only {agent_name}. "
-                        f"Original: {original_qa_flags}, Filtered: {qa_flags}"
-                    )
-                else:
+                if subagent_eval not in subagent_to_agent:
                     logger.warning(
                         f"[Workflow {state['execution_id']}] Unknown subagent_eval value: {subagent_eval}. "
                         f"Available: {list(subagent_to_agent.keys())}"
@@ -1238,7 +1276,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             # For eval runs, exclude SigmaAgent to avoid loading the SIGMA model unnecessarily
             # For subagent evals, only include models for the agent being evaluated
             agent_models = config_obj.agent_models if config_obj else None
-            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
+            max_extraction_retries = 5
             if agent_models:
                 # Check if this is an eval run (check both config_snapshot and state config)
                 config_snapshot = execution.config_snapshot if execution else {}
@@ -1269,37 +1307,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # Ensure it's still normalized (defensive check)
                     subagent_eval = str(subagent_eval).lower().strip() if subagent_eval else None
                 if subagent_eval:
-                    # Map subagent names to agent names
-                    subagent_to_agent = {
-                        "cmdline": "CmdlineExtract",
-                        "process_lineage": "ProcTreeExtract",
-                        "hunt_queries": "HuntQueriesExtract",
-                        "registry_artifacts": "RegistryExtract",
-                        "windows_services": "ServicesExtract",
-                        "scheduled_tasks": "ScheduledTasksExtract",
-                    }
                     agent_name = subagent_to_agent.get(subagent_eval)
                     if agent_name:
-                        # Keep only models for this agent and its QA, plus ExtractAgent (fallback)
-                        # Also keep RankAgent if needed (though it should be skipped in eval)
+                        # Keep only models for this agent plus ExtractAgent (fallback) and RankAgent
                         prefixes_to_keep = [
                             f"{agent_name}_",  # Agent model, temperature, provider
                             "ExtractAgent",  # Fallback model
                             "RankAgent",  # May be needed for initialization
                         ]
-                        # Also include QA model prefix if present
-                        qa_names = {
-                            "CmdlineExtract": "CmdLineQA",
-                            "ProcTreeExtract": "ProcTreeQA",
-                            "HuntQueriesExtract": "HuntQueriesQA",
-                            "RegistryExtract": "RegistryQA",
-                            "ServicesExtract": "ServicesQA",
-                            "ScheduledTasksExtract": "ScheduledTasksQA",
-                        }
-                        qa_name = qa_names.get(agent_name)
-                        if qa_name:
-                            prefixes_to_keep.append(qa_name)
-
                         original_count = len(agent_models)
                         agent_models = {
                             k: v
@@ -1316,12 +1331,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # --- Sub-Agents (including CmdlineExtract) ---
             sub_agents = [
-                ("CmdlineExtract", "cmdline", "CmdLineQA"),
-                ("ProcTreeExtract", "process_lineage", "ProcTreeQA"),
-                ("HuntQueriesExtract", "hunt_queries", "HuntQueriesQA"),
-                ("RegistryExtract", "registry_artifacts", "RegistryQA"),
-                ("ServicesExtract", "windows_services", "ServicesQA"),
-                ("ScheduledTasksExtract", "scheduled_tasks", "ScheduledTasksQA"),
+                ("CmdlineExtract", "cmdline"),
+                ("ProcTreeExtract", "process_lineage"),
+                ("HuntQueriesExtract", "hunt_queries"),
+                ("RegistryExtract", "registry_artifacts"),
+                ("ServicesExtract", "windows_services"),
+                ("ScheduledTasksExtract", "scheduled_tasks"),
             ]
 
             # Initialize conversation log for extract_agent
@@ -1450,7 +1465,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 logger.info(
                     f"[Workflow {state['execution_id']}] 🔍 BEFORE FILTERING - subagent_eval='{subagent_eval}' "
                     f"(lookup_values={sorted(eval_lookup_values)}), sub_agents list: "
-                    f"{[(name, subagent, f'match={subagent.lower() in eval_lookup_values or name.lower() in eval_lookup_values}') for name, subagent, _ in original_sub_agents]}"
+                    f"{[(name, subagent, f'match={subagent.lower() in eval_lookup_values or name.lower() in eval_lookup_values}') for name, subagent in original_sub_agents]}"
                 )
 
                 # Filter with explicit comparison logging
@@ -1471,22 +1486,22 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 logger.info(
                     f"[Workflow {state['execution_id']}] AFTER FILTERING - looking for subagent='{subagent_eval}'. "
                     f"Original count: {len(original_sub_agents)}, Filtered count: {len(sub_agents)}. "
-                    f"Original agents: {[(name, subagent) for name, subagent, _ in original_sub_agents]}. "
-                    f"Filtered agents: {[(name, subagent) for name, subagent, _ in sub_agents]}"
+                    f"Original agents: {[(name, subagent) for name, subagent in original_sub_agents]}. "
+                    f"Filtered agents: {[(name, subagent) for name, subagent in sub_agents]}"
                 )
 
                 # CRITICAL: Verify filtering worked
                 if len(sub_agents) != 1:
                     logger.error(
                         f"[Workflow {state['execution_id']}] 🚫 CRITICAL FILTERING ERROR: Expected 1 agent, got {len(sub_agents)}. "
-                        f"Filtered agents: {[(name, subagent) for name, subagent, _ in sub_agents]}. "
+                        f"Filtered agents: {[(name, subagent) for name, subagent in sub_agents]}. "
                         f"This will cause incorrect agent execution!"
                     )
 
                 if not sub_agents:
                     logger.error(
                         f"[Workflow {state['execution_id']}] ⚠️ subagent_eval='{subagent_eval}' not found in sub_agents list. "
-                        f"Available subagents: {[subagent for _, subagent, _ in original_sub_agents]}. "
+                        f"Available subagents: {[subagent for _, subagent in original_sub_agents]}. "
                         f"CRITICAL: This should not happen - filtering failed!"
                     )
                     # DO NOT reset to original - this is a critical error
@@ -1497,12 +1512,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 else:
                     logger.info(
                         f"[Workflow {state['execution_id']}] 🔬 Eval mode: Only running {subagent_eval}. "
-                        f"Filtered sub_agents: {[name for name, _, _ in sub_agents]}. "
+                        f"Filtered sub_agents: {[name for name, _ in sub_agents]}. "
                         f"Other agents will be skipped."
                     )
                     # Mark all non-evaluated agents as skipped
                     evaluated_agent_names = {agent[0] for agent in sub_agents}
-                    for agent_name, result_key, _ in original_sub_agents:
+                    for agent_name, result_key in original_sub_agents:
                         if agent_name not in evaluated_agent_names and agent_name not in disabled_agents_cfg:
                             subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "skipped_for_eval"}}
                             conversation_log.append(
@@ -1513,7 +1528,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             )
 
             logger.info(
-                f"[Workflow {state['execution_id']}] 🔍 FINAL CHECK - Sub-agents to process: {[name for name, _, _ in sub_agents]}, "
+                f"[Workflow {state['execution_id']}] 🔍 FINAL CHECK - Sub-agents to process: {[name for name, _ in sub_agents]}, "
                 f"subagent_eval='{subagent_eval}', count={len(sub_agents)}"
             )
 
@@ -1528,10 +1543,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             logger.info(
                 f"[Workflow {state['execution_id']}] 🔍 ABOUT TO LOOP - sub_agents count: {len(sub_agents)}, "
-                f"agents: {[(name, subagent) for name, subagent, _ in sub_agents]}, subagent_eval='{subagent_eval}'"
+                f"agents: {[(name, subagent) for name, subagent in sub_agents]}, subagent_eval='{subagent_eval}'"
             )
 
-            for agent_name, result_key, qa_name in sub_agents:
+            for agent_name, result_key in sub_agents:
                 # Consolidated eval-blocking check (replaces three formerly-separate inline checks)
                 if not _is_agent_allowed(agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]):
                     subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "blocked_by_eval_filter"}}
@@ -1556,7 +1571,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
                     # Load Prompts from config only (no file fallback)
                     prompt_config = None
-                    qa_config = None
 
                     # Get prompt from config
                     if not config_obj or not config_obj.agent_prompts or agent_name not in config_obj.agent_prompts:
@@ -1576,35 +1590,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     except json.JSONDecodeError as e:
                         logger.error(f"Failed to parse {agent_name} prompt from config as JSON: {e}, skipping")
                         continue
-
-                    # Get QA prompt from config (optional - only if QA is enabled)
-                    qa_enabled = qa_flags.get(agent_name, False)
-                    if qa_enabled:
-                        if qa_name not in config_obj.agent_prompts:
-                            logger.warning(
-                                f"{qa_name} prompt not found in config but QA is enabled for {agent_name}, disabling QA"
-                            )
-                            qa_enabled = False
-                        else:
-                            qa_prompt_data = config_obj.agent_prompts[qa_name]
-                            if isinstance(qa_prompt_data.get("prompt"), str):
-                                try:
-                                    qa_config = json.loads(qa_prompt_data["prompt"])
-                                    logger.info(
-                                        f"Using {qa_name} prompt from workflow config (length: {len(qa_prompt_data['prompt'])} chars)"
-                                    )
-                                except json.JSONDecodeError as e:
-                                    logger.warning(
-                                        f"Failed to parse {qa_name} prompt from config as JSON: {e}, disabling QA"
-                                    )
-                                    qa_enabled = False
-                                    qa_config = None
-                            else:
-                                logger.warning(f"{qa_name} prompt in config is not a string, disabling QA")
-                                qa_enabled = False
-                                qa_config = None
-
-                    # QA enabled flag is set above when loading QA config
 
                     # Get model and provider for this agent
                     model_key = f"{agent_name}_model"
@@ -1633,7 +1618,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             f"provider_key={provider_key} not found in config. Will fallback to ExtractAgent provider."
                         )
                     # Run Agent
-                    qa_model_override = agent_models.get(qa_name) if agent_models else None
                     logger.info(
                         f"[Workflow {state['execution_id']}] 🚀 About to call LLM for {agent_name} (provider={agent_provider}, model={agent_model})"
                     )
@@ -1643,18 +1627,17 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         title=article.title,
                         url=article.canonical_url or "",
                         prompt_config=prompt_config,
-                        qa_prompt_config=qa_config if qa_enabled else None,
-                        # max_extraction_retries governs extraction-exception retries only (QA is single-shot post-v1).
-                        # The previous `if qa_enabled else 1` conditional reflected pre-v1 semantics where
-                        # max_retries doubled as the QA retry budget; that distinction no longer exists.
-                        max_extraction_retries=max_qa_retries,
+                        max_extraction_retries=max_extraction_retries,
                         execution_id=state["execution_id"],
+                        article_id=state["article_id"],
                         model_name=agent_model,
                         temperature=0.0,
-                        qa_model_override=qa_model_override,
-                        provider=agent_provider,  # Pass provider from config
+                        provider=agent_provider,
                         attention_preprocessor_enabled=state.get("config", {}).get(
                             "cmdline_attention_preprocessor_enabled", True
+                        ),
+                        proc_tree_attention_preprocessor_enabled=state.get("config", {}).get(
+                            "proc_tree_attention_preprocessor_enabled", True
                         ),
                     )
 
@@ -1675,7 +1658,7 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     # causes the conversation_log JSONB to grow too large, which prevents the
                     # last agents' message data from being transferred correctly.
                     _MAX_MSG_CHARS = 3000
-                    _MAX_RESP_CHARS = 2000
+                    _MAX_RESP_CHARS = 20000
                     log_entry: dict = {"agent": agent_name, "items_count": len(items), "result": agent_result}
                     if isinstance(agent_result, dict):
                         if "_llm_messages" in agent_result:
@@ -1703,46 +1686,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     if execution:
                         if execution.error_log is None or not isinstance(execution.error_log, dict):
                             execution.error_log = {}
-                        _existing_qa = execution.error_log.get("qa_results", {})
                         execution.error_log["extract_agent"] = {"conversation_log": conversation_log}
-                        if _existing_qa:
-                            execution.error_log["qa_results"] = _existing_qa
-
-
                         flag_modified(execution, "error_log")
                         db_session.commit()
                         logger.debug(
                             f"[Workflow {state['execution_id']}] Incremental commit after {agent_name} "
                             f"({len(conversation_log)} conversation_log entries)"
                         )
-
-                    # Store QA result if available
-                    if qa_enabled and "_qa_result" in agent_result:
-                        # Use the execution object we already have, don't refresh (avoids transaction isolation issues)
-                        if execution:
-                            qa_result = agent_result.get("_qa_result")
-                            if execution.error_log is None:
-                                execution.error_log = {}
-                            if "qa_results" not in execution.error_log:
-                                execution.error_log["qa_results"] = {}
-                            # Store using agent_name as primary key; qa_name is only for backward compatibility
-                            # The streaming endpoint maps both to the same workflow agent, so storing once is sufficient
-                            execution.error_log["qa_results"][agent_name] = qa_result
-                            # Only store qa_name if it's different from agent_name to avoid duplicates
-                            if qa_name and qa_name != agent_name:
-                                execution.error_log["qa_results"][qa_name] = qa_result
-                            # Mark as modified so SQLAlchemy tracks the change
-    
-
-                            flag_modified(execution, "error_log")
-                            db_session.commit()
-                            logger.info(
-                                f"[Workflow {state['execution_id']}] Stored QA result for {agent_name}: {qa_result.get('verdict', 'unknown')}, error_log keys: {list(execution.error_log.keys())}"
-                            )
-                        else:
-                            logger.warning(
-                                f"[Workflow {state['execution_id']}] Execution not found when storing QA result for {agent_name}"
-                            )
 
                 except Exception as e:
                     from src.services.llm_service import ContextLengthExceededError, PreprocessInvariantError
@@ -1904,24 +1854,15 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 # Ensure error_log is a dict
                 if execution.error_log is None or not isinstance(execution.error_log, dict):
                     execution.error_log = {}
-                # Preserve all existing keys (especially qa_results we stored earlier in the loop)
-                existing_qa_results = execution.error_log.get("qa_results", {})
-                # Merge extract_agent data, preserving existing qa_results and all other keys
                 execution.error_log["extract_agent"] = {
                     "conversation_log": conversation_log,
                     "sub_agents_run": sub_agents_run,
                     "sub_agents_disabled": disabled_sub_agents,
                 }
-                # Ensure qa_results is preserved (it should already be there from earlier commits in the loop)
-                if existing_qa_results:
-                    execution.error_log["qa_results"] = existing_qa_results
-                # Mark as modified so SQLAlchemy tracks the change
-
-
                 flag_modified(execution, "error_log")
                 db_session.commit()
                 logger.info(
-                    f"[Workflow {state['execution_id']}] Stored extract_agent log, preserved {len(existing_qa_results)} QA results, error_log keys: {list(execution.error_log.keys())}"
+                    f"[Workflow {state['execution_id']}] Stored extract_agent log, error_log keys: {list(execution.error_log.keys())}"
                 )
 
             discrete_count = total_count
@@ -2007,11 +1948,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Get config models for SigmaGenerationService
             config_obj = trigger_service.get_active_config()
-            qa_flags = (
-                config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled
-                else (state.get("config", {}).get("qa_enabled", {}) or {})
-            )
             agent_models = config_obj.agent_models if config_obj else None
 
             # Get SIGMA fallback setting from config
@@ -2027,11 +1963,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 config_obj.junk_filter_threshold if config_obj and hasattr(config_obj, "junk_filter_threshold") else 0.8
             )
 
-            # Check if QA is enabled for Sigma Agent
-            qa_flags.get("SigmaAgent", False)
-
-            # Get QA max retries from config
-            config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
             qa_feedback = None
             generation_result = None
 
@@ -2043,9 +1974,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             sigma_system_prompt = None
             sigma_repair_template = None
             if config_obj and config_obj.agent_prompts and "SigmaRepair" in config_obj.agent_prompts:
-                repair_prompt_data = config_obj.agent_prompts["SigmaRepair"]
-                if isinstance(repair_prompt_data.get("prompt"), str):
-                    sigma_repair_template = repair_prompt_data["prompt"]
+                from src.utils.prompt_loader import parse_sigma_repair_prompt_data
+
+                sigma_repair_template = parse_sigma_repair_prompt_data(config_obj.agent_prompts["SigmaRepair"])
+                if sigma_repair_template:
                     logger.info(
                         f"[Workflow {state['execution_id']}] Using database prompt for SigmaRepair (len={len(sigma_repair_template)} chars)"
                     )
@@ -2376,10 +2308,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             return {
                 **state,
-                "similarity_results": novelty_results,  # Keep key for backward compatibility
-                "novelty_results": novelty_results,  # New key
-                "max_similarity": 1.0 - max_novelty_score,  # Backward compatibility
-                "novelty_score": max_novelty_score,  # New key
+                "similarity_results": novelty_results,
+                "max_similarity": 1.0 - max_novelty_score,
                 "current_step": "similarity_search",
                 "status": state.get("status", "running"),
                 "termination_reason": state.get("termination_reason"),
@@ -2574,13 +2504,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
         detected_os = state.get("detected_os")
         os_result = state.get("os_detection_result", {})
 
-        # Check if Windows is detected or has highest similarity
         if should_continue:
-            # Already determined to continue (Windows detected)
             return "junk_filter"
         if detected_os == "Windows":
             return "junk_filter"
-        # Check if Windows has highest similarity even if detected_os is Unknown
         similarities = os_result.get("similarities", {}) if isinstance(os_result, dict) else {}
         if isinstance(similarities, dict) and similarities:
             windows_sim = similarities.get("Windows", 0.0)
@@ -2687,10 +2614,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     workflow = StateGraph(WorkflowState)
 
     # Add nodes
+    workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("junk_filter", junk_filter_node)
     workflow.add_node("rank_article", rank_article_node)
     workflow.add_node("rank_agent_bypass", rank_agent_bypass_node)
-    workflow.add_node("os_detection", os_detection_node)
     workflow.add_node("extract_agent", extract_agent_node)
     workflow.add_node("generate_sigma", generate_sigma_node)
     workflow.add_node("similarity_search", similarity_search_node)
@@ -2785,6 +2712,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     )
                     if config_obj
                     else True,
+                    "proc_tree_attention_preprocessor_enabled": getattr(
+                        config_obj, "proc_tree_attention_preprocessor_enabled", True
+                    )
+                    if config_obj
+                    else True,
                     "config_id": config_obj.id if config_obj else None,
                     "config_version": config_obj.version if config_obj else None,
                 }
@@ -2822,6 +2754,11 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 )
                 if config_obj
                 else True,
+                "proc_tree_attention_preprocessor_enabled": getattr(
+                    config_obj, "proc_tree_attention_preprocessor_enabled", True
+                )
+                if config_obj
+                else True,
             }
             if config_obj
             else {
@@ -2833,6 +2770,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "agent_models": {},
                 "rank_agent_enabled": True,
                 "cmdline_attention_preprocessor_enabled": True,
+                "proc_tree_attention_preprocessor_enabled": True,
             }
         )
 
@@ -2935,13 +2873,13 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             "config": config,
             "eval_run": state_eval_run_flag,
             "skip_rank_agent": state_skip_rank_flag,
+            "os_detection_result": None,
+            "detected_os": None,
             "filtered_content": None,
             "junk_filter_result": None,
             "ranking_score": None,
             "ranking_reasoning": None,
             "should_continue": True,
-            "os_detection_result": None,
-            "detected_os": None,
             "extraction_result": None,
             "discrete_huntables_count": None,
             "sigma_rules": None,
@@ -3035,14 +2973,27 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Update trace with final output (non-critical - wrap in try/except)
                 if trace:
                     try:
+                        _sigma_rules = final_state.get("sigma_rules", []) or []
+                        import json as _json
+                        _rules_serialized = _json.dumps(_sigma_rules)
+                        # OTel attribute values have a practical size ceiling; if the full
+                        # rules payload would exceed ~32KB, store only titles+ids to avoid
+                        # silent truncation of the trace output attribute.
+                        if len(_rules_serialized) > 32768:
+                            _sigma_rules_out = [
+                                {"title": r.get("title"), "id": r.get("id")} for r in _sigma_rules
+                            ]
+                        else:
+                            _sigma_rules_out = _sigma_rules
                         trace.update(
                             output={
                                 "status": "completed" if final_state.get("error") is None else "failed",
                                 "ranking_score": final_state.get("ranking_score"),
-                                "sigma_rules_count": len(final_state.get("sigma_rules", [])),
+                                "sigma_rules_count": len(_sigma_rules),
                                 "queued_rules_count": len(final_state.get("queued_rules", [])),
                                 "final_step": final_state.get("current_step"),
                                 "error": final_state.get("error"),
+                                "sigma_rules": _sigma_rules_out,
                             }
                         )
                     except Exception as update_error:
@@ -3051,16 +3002,29 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Log workflow completion (non-critical - wrap in try/except)
                 if trace:
                     try:
+                        # Detect total-extractor-failure: LangGraph reaches END without
+                        # raising even when all subagents error, so final_state carries
+                        # no top-level "error" key despite zero extraction.
+                        _all_failed, _extractor_failure_reason = _all_extractors_errored(
+                            final_state.get("extraction_result")
+                        )
+                        _top_level_error = final_state.get("error")
+                        _success = _top_level_error is None and not _all_failed
+                        _completion_result: dict = {
+                            "success": _success,
+                            "ranking_score": final_state.get("ranking_score"),
+                            "sigma_rules_count": len(final_state.get("sigma_rules", [])),
+                            "queued_rules_count": len(final_state.get("queued_rules", [])),
+                        }
+                        if not _success:
+                            _completion_result["failure_reason"] = (
+                                _extractor_failure_reason or str(_top_level_error)
+                            )
                         log_workflow_step(
                             trace,
                             "workflow_completed",
-                            step_result={
-                                "success": final_state.get("error") is None,
-                                "ranking_score": final_state.get("ranking_score"),
-                                "sigma_rules_count": len(final_state.get("sigma_rules", [])),
-                                "queued_rules_count": len(final_state.get("queued_rules", [])),
-                            },
-                            error=None if final_state.get("error") is None else Exception(final_state.get("error")),
+                            step_result=_completion_result,
+                            error=None if _success else Exception(_completion_result["failure_reason"]),
                             metadata={"final_step": final_state.get("current_step")},
                         )
                     except Exception as log_error:
@@ -3094,7 +3058,18 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 # Workflow didn't complete or trace error happened during workflow execution
                 logger.error(f"Trace error during workflow execution {execution.id}: {trace_error}")
                 if final_state is None:
-                    # Workflow never started or failed early - re-raise the exception
+                    # Workflow crashed before ainvoke completed. Emit an explicit child
+                    # span so the Langfuse trace timeline shows a distinguishable
+                    # "crashed on startup" signal rather than a silent root-only trace.
+                    if trace:
+                        with contextlib.suppress(Exception):
+                            log_workflow_step(
+                                trace,
+                                "workflow_crashed",
+                                step_result={"success": False},
+                                error=trace_error,
+                                metadata={"crashed_before": "ainvoke"},
+                            )
                     raise
                 # Suppress so status update can proceed
 

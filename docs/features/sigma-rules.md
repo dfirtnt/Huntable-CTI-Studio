@@ -10,10 +10,31 @@ Three capabilities work together:
 
 1. **Rule generation**: LLM produces Sigma YAML from extracted observables;
    pySigma validates the output.
-2. **Rule matching**: Articles are matched to existing SigmaHQ rules using
-   behavioral overlap scoring to determine coverage status.
-3. **Similarity search**: Generated rules are compared against indexed SigmaHQ
-   rules to detect duplication and classify novelty.
+2. **Rule matching**: Articles are matched to the indexed rule corpus (SigmaHQ
+   plus your customer repo, if indexed) using behavioral overlap scoring to
+   determine coverage status.
+3. **Similarity search**: Generated rules are compared against the same indexed
+   corpus to detect duplication and classify novelty.
+
+These last two are distinct pipelines with different inputs and scoring
+mechanisms. Rule matching is **article-centric** — it asks whether an existing
+rule already covers the behaviors described in a CTI article. Similarity search
+is **rule-centric** — it asks whether a newly generated Sigma rule is
+behaviorally novel relative to what is already indexed. Both query the same
+`sigma_rules` table, so customer repo rules participate in both once indexed.
+
+!!! warning "Your rules are not included by default"
+    SigmaHQ rules are indexed automatically during setup. Rules from your own
+    approved repo are **not** — you must index them manually and re-run whenever
+    the repo changes:
+
+    ```bash
+    ./run_cli.sh sigma index-customer-repo
+    ```
+
+    Until you do, coverage classification and similarity search only compare
+    against the SigmaHQ corpus. Run `sigma stats` to confirm how many customer
+    rules are currently indexed.
 
 ### System Flow
 
@@ -44,10 +65,35 @@ Generation uses temperature 0.2 for deterministic output.
 
 ### Iterative Retry
 
-- Up to 3 attempts per rule set
+- Up to 3 attempts per rule set (initial generation)
 - Validation errors from pySigma are fed back into the next prompt
 - All attempt logs (prompts, responses, validation results) are stored for
   post-mortem review
+
+### Repair Pass (SigmaRepair)
+
+After the initial generation attempt, any rules that failed pySigma validation
+are sent through a dedicated per-rule repair loop before the result is finalized.
+
+**How it works:**
+
+1. Invalid rules are collected after the generation/validation phase.
+2. For each invalid rule, the `SigmaRepair` prompt is called with two injected
+   values:
+   - `{validation_errors}` -- the list of pySigma error strings from the failed
+     attempt
+   - `{original_rule}` -- the first 500 characters of the broken YAML
+3. The LLM returns a corrected rule; pySigma re-validates it.
+4. This repeats up to `max_repair_attempts_per_rule` times (default: 3) per rule.
+
+**Implementation:** `src/services/sigma_generation_service.py` --
+`SigmaGenerationService._repair_rules()`
+
+**Prompt source:** `src/prompts/sigma_repair_single.txt` (seed default). The
+live prompt is stored in the database under the `SigmaRepair` key in the
+workflow config's `agent_prompts` and can be edited in **Settings -> Workflow
+Config -> SigmaRepair**. The DB value takes precedence over the seed file at
+runtime.
 
 ### Conversation Log Display
 
@@ -113,7 +159,10 @@ Key methods: `clone_or_pull_repository()`, `find_rule_files()`,
 **File**: `src/services/sigma_coverage_service.py`
 
 Extracts behaviors from `chunk_analysis_results`, compares them to rule
-detection patterns, and classifies each match:
+detection patterns, and classifies each match. The underlying query has no
+source filter, so customer repo rules (prefix `cust-`) are candidates alongside
+SigmaHQ rules whenever they have been indexed — see
+[Customer Repo Rules](#customer-repo-rules).
 
 | Status | Condition |
 |---|---|
@@ -262,7 +311,7 @@ entry for display in the Sigma Queue UI.
 | Precompute | `sigma_semantic_precompute.py` | Materializes canonical atom sets and logsource keys at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
-| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based fallback when deterministic atoms are unavailable |
+| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based similarity scoring (cosine similarity via local sentence-transformers) |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine; used when installed |
 
@@ -483,4 +532,4 @@ docker-compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-04_

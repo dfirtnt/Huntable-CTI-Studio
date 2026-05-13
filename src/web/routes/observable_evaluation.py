@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/observables/evaluation", tags=["Observable Evalu
 
 
 @router.post("/run")
-async def api_run_observable_evaluation(body: dict[str, Any] | None = None):
+def api_run_observable_evaluation(body: dict[str, Any] | None = None):
     """
     Run evaluation for an observable extraction model.
 
@@ -87,7 +87,7 @@ async def api_run_observable_evaluation(body: dict[str, Any] | None = None):
 
 
 @router.get("/metrics")
-async def api_get_observable_metrics(
+def api_get_observable_metrics(
     model_name: str | None = None,
     model_version: str | None = None,
     observable_type: str | None = None,
@@ -134,7 +134,7 @@ async def api_get_observable_metrics(
 
 
 @router.get("/metrics/aggregated")
-async def api_get_aggregated_metrics(
+def api_get_aggregated_metrics(
     model_name: str | None = None,
     model_version: str | None = None,
     observable_type: str | None = None,
@@ -190,7 +190,7 @@ async def api_get_aggregated_metrics(
 
 
 @router.get("/failures")
-async def api_get_evaluation_failures(
+def api_get_evaluation_failures(
     model_name: str | None = None,
     model_version: str | None = None,
     observable_type: str | None = None,

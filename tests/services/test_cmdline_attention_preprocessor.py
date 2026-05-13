@@ -230,14 +230,22 @@ def test_expand_to_boundary_newline_only():
     assert result_sentence == "match."
 
 
-def test_long_line_multiple_snippets():
-    """Long line with multiple anchors produces multiple windowed snippets (not one blob)."""
+def test_long_line_multiple_anchors_both_captured():
+    """Long line with multiple anchors: both commands appear in output.
+
+    When anchors are close (windows overlap) they merge into one snippet.
+    When anchors are far (windows don't overlap) they produce separate snippets.
+    Either way, content from both anchors must be present somewhere in the output.
+    """
     long_prose = "This is a long intrusion report. " * 40
     cmd1 = "The attacker ran certutil -urlcache to download."
     cmd2 = "Then they used bitsadmin /transfer to exfiltrate."
     text = long_prose + cmd1 + " " + long_prose[:200] + " " + cmd2
     result = process(text)
-    assert len(result["high_likelihood_snippets"]) >= 2
+    all_snippets = " ".join(result["high_likelihood_snippets"]).lower()
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "certutil" in all_snippets
+    assert "bitsadmin" in all_snippets
 
 
 # ---------------------------------------------------------------------------
@@ -277,6 +285,81 @@ def test_max_snippets_zero_returns_empty():
     article = _make_dense_article(10)
     result = process(article, agent_name="CmdlineExtract", max_snippets=0)
     assert result["high_likelihood_snippets"] == []
+
+
+def test_sc_no_false_positives():
+    """'sc' promoted to regex: Microsoft, describe, scan, transcript must NOT match via sc."""
+    for text in [
+        "The Microsoft Security team investigated the incident.",
+        "We describe the attack chain in detail below.",
+        "The scanner detected suspicious activity.",
+        "A transcript of the session was captured.",
+        "The scope of the breach was limited.",
+    ]:
+        result = process(text)
+        assert result["high_likelihood_snippets"] == [], f"sc false-positive for: {text!r}"
+
+
+def test_sc_regex_anchor_matches_real_usage():
+    """'sc' regex fires on actual sc.exe invocation shapes."""
+    for text in [
+        "sc start MyService",
+        "sc.exe stop Defender",
+        "sc create malware binPath= C:\\evil.exe",
+        "sc query type= service state= all",
+    ]:
+        result = process(text)
+        assert len(result["high_likelihood_snippets"]) >= 1, f"sc missed real usage: {text!r}"
+
+
+def test_cmd_slash_question_mark_matches():
+    """'/?' regex fires correctly (was dead due to \\b after non-word char '?')."""
+    # Use a line where /? is the only LOLBAS anchor -- no .exe, no other known tools
+    text = "Run the binary with /? to see usage options."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1, "'/?' should trigger the slash-flag anchor"
+
+
+def test_long_line_threshold_boundary():
+    """Lines of 499 vs 501 chars both produce a snippet (pins the LONG_LINE_THRESHOLD=500 boundary)."""
+    anchor = "powershell -enc "
+    # 499-char line: goes through _extract_snippet (full-line path)
+    filler = "A" * (499 - len(anchor))
+    short_line = anchor + filler
+    assert len(short_line) == 499
+    result_short = process(short_line)
+    assert len(result_short["high_likelihood_snippets"]) >= 1, "499-char line should produce a snippet"
+
+    # 501-char line: goes through _extract_windowed_snippets (windowed path)
+    filler = "A" * (501 - len(anchor))
+    long_line = anchor + filler
+    assert len(long_line) == 501
+    result_long = process(long_line)
+    assert len(result_long["high_likelihood_snippets"]) >= 1, "501-char line should produce a snippet"
+
+
+def test_overlapping_windows_are_merged():
+    """Two close anchors on a long line produce ONE merged snippet, not two overlapping ones.
+
+    Without window merging, both windows overlap significantly and emit different-but-
+    mostly-duplicated strings that the exact-string dedup misses. With merging they
+    collapse to a single snippet.
+    """
+    # Build a line > 500 chars with two anchors separated by ~110 chars
+    # (both within 2*MATCH_WINDOW_CHARS=700 of each other, so windows definitely overlap)
+    prefix = "X" * 250
+    gap = "Y" * 110
+    suffix = "Z" * 250
+    line = prefix + "powershell" + gap + "certutil" + suffix
+    assert len(line) > 500  # must trigger windowed path
+
+    result = process(line)
+    snippets = result["high_likelihood_snippets"]
+    # Both anchors are within one merged window -- should be exactly 1 snippet
+    assert len(snippets) == 1, f"Expected 1 merged snippet, got {len(snippets)}"
+    # The single snippet must contain both anchor words
+    assert "powershell" in snippets[0].lower()
+    assert "certutil" in snippets[0].lower()
 
 
 def test_runaway_snippet_token_budget():

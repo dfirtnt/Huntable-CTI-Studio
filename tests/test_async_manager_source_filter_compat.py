@@ -21,6 +21,9 @@ class _FakeExecuteResult:
     def __init__(self, rows):
         self._rows = rows
 
+    def unique(self):
+        return self
+
     def scalars(self):
         return _FakeScalarResult(self._rows)
 
