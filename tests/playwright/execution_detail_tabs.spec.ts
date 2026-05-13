@@ -150,7 +150,17 @@ async function openExecutionWithData(page: any, execData: object) {
     () => typeof (window as any).viewExecution === 'function',
     { timeout: 5000 }
   );
-  await page.evaluate(() => (window as any).viewExecution(99999));
+  // Retry once on context-destroyed from residual hash navigation: the workflow
+  // page assigns window.location.hash in init code, which can fire after
+  // waitForFunction passes and briefly destroy the JS execution context.
+  try {
+    await page.evaluate(() => (window as any).viewExecution(99999));
+  } catch (e) {
+    if (!String(e).includes('Execution context was destroyed')) throw e;
+    await page.waitForLoadState('networkidle');
+    await page.waitForFunction(() => typeof (window as any).viewExecution === 'function', { timeout: 5000 });
+    await page.evaluate(() => (window as any).viewExecution(99999));
+  }
   await page.waitForSelector('#executionModal:not(.hidden)', { timeout: 5000 });
 }
 
