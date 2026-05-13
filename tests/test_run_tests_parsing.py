@@ -7,7 +7,9 @@ from types import SimpleNamespace
 
 import pytest
 
-from run_tests import ExecutionContext, RunTestConfig, RunTestRunner, RunTestType, _RunnerTUI
+from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType
+from tests_runner.runner import RunTestRunner
+from tests_runner.tui import _RunnerTUI
 
 pytestmark = pytest.mark.unit
 
