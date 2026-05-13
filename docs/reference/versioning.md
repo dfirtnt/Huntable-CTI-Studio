@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v6.2.1 "Io"** - Current stable release
-**v6.2.0 "Io"** - Previous stable release
-**v6.1.1 "Io"** - Earlier stable release
+**v7.0.0 "Europa"** - Current stable release
+**v6.2.1 "Io"** - Previous stable release
+**v6.2.0 "Io"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
@@ -48,6 +48,12 @@ Triton, Europa, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Arie
 - Io (v6.0 - v6.2)
 
 ## Version History
+
+### v7.0.0 "Europa" (2026-05-12)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.0.0] section. -->
+- **Named After**: <fill>
+- **Significance**: <fill>
+- **Features**: <fill>
 
 ### v6.2.1 "Io" (2026-05-02)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
