@@ -228,29 +228,46 @@ class TestSigmaEnrichUI:
 
         page.route("**/api/sigma-queue/*/enrich", slow_response)
 
+        # Mock /api/lmstudio-models so populateEnrichModelDropdown() populates
+        # the model select with a real value.  Without this mock the fetch fails
+        # in CI (no LMStudio running), populateEnrichModelDropdown clears the
+        # select to a disabled "Error loading models" option AFTER the
+        # page.evaluate below sets it, causing enrichRule() to see
+        # selectedModel==='' and return early (re-enabling the button).
+        page.route(
+            "**/api/lmstudio-models",
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"success": true, "models": ["test-model"]}',
+            ),
+        )
+
         self._open_preview_then_enrich(page)
 
-        # Set provider/model selects to lmstudio so enrichRule() proceeds past
-        # the provider/model guard without waiting for catalog API calls that
-        # are not mocked in this test. LMStudio skips the API-key check too.
+        # Wait briefly for populateEnrichModelDropdown to finish its async fetch
+        # so the model select is already populated before we proceed.
+        page.wait_for_timeout(300)
+
+        # Confirm provider/model are set (populateEnrichModelDropdown should
+        # have selected 'lmstudio' / 'test-model' from the mock above).
+        # Force-set them as a fallback in case timing is tight.
         page.evaluate(
             """() => {
                 const ps = document.getElementById('enrichProviderSelect');
                 const ms = document.getElementById('enrichModelSelect');
-                if (ps) {
-                    while (ps.options.length > 0) ps.remove(0);
-                    const opt = document.createElement('option');
-                    opt.value = 'lmstudio';
-                    opt.textContent = 'LMStudio';
-                    ps.appendChild(opt);
+                if (ps && ps.value !== 'lmstudio') {
                     ps.value = 'lmstudio';
                 }
                 if (ms) {
-                    while (ms.options.length > 0) ms.remove(0);
-                    const opt = document.createElement('option');
-                    opt.value = 'test-model';
-                    opt.textContent = 'test-model';
-                    ms.appendChild(opt);
+                    // Ensure test-model option exists and is selected
+                    let found = Array.from(ms.options).some(o => o.value === 'test-model');
+                    if (!found) {
+                        const opt = document.createElement('option');
+                        opt.value = 'test-model';
+                        opt.textContent = 'test-model';
+                        ms.appendChild(opt);
+                    }
                     ms.value = 'test-model';
                 }
             }"""
