@@ -28,15 +28,15 @@ pytestmark = pytest.mark.unit
 
 
 class TestNormalizeSigmaAgent:
-    """SigmaAgent always converges on {system, user=None}."""
+    """SigmaAgent is normalized identically to RankAgent -- user template is preserved."""
 
-    def test_locked_scaffold_extracts_role_drops_template(self):
+    def test_locked_scaffold_extracts_role_preserves_template(self):
         raw = {
             "prompt": json.dumps({"role": "PERSONA_V1", "user_template": "tmpl {title}"}),
             "instructions": "",
         }
         result = _normalize_record("SigmaAgent", raw)
-        assert result == {"system": "PERSONA_V1", "user": None}
+        assert result == {"system": "PERSONA_V1", "user": "tmpl {title}"}
 
     def test_extraction_envelope_extracts_role_drops_task_etc(self):
         raw = {
@@ -57,21 +57,20 @@ class TestNormalizeSigmaAgent:
             "instructions": "outer instructions",
         }
 
-    def test_legacy_simple_extracts_system_drops_user_for_sigma(self):
-        """SigmaAgent's user is code-owned even if the legacy record had one."""
+    def test_legacy_simple_preserves_both(self):
+        """SigmaAgent preserves user template just like RankAgent."""
         raw = {
             "prompt": json.dumps({"system": "PERSONA_V3", "user": "old user template"}),
             "instructions": "",
         }
         result = _normalize_record("SigmaAgent", raw)
-        assert result == {"system": "PERSONA_V3", "user": None}
+        assert result == {"system": "PERSONA_V3", "user": "old user template"}
 
-    def test_raw_text_with_placeholders_routes_to_user_then_drops(self):
-        """Even if the raw text is template-like, SigmaAgent's user is forced None."""
+    def test_raw_text_with_placeholders_routes_to_user(self):
+        """Raw text with placeholders becomes user, same as RankAgent."""
         raw = {"prompt": "Generate Sigma for {title}: {content}", "instructions": ""}
         result = _normalize_record("SigmaAgent", raw)
-        # System stays None because the persona was never set; user dropped per SigmaAgent rule
-        assert result == {"system": None, "user": None}
+        assert result == {"system": None, "user": "Generate Sigma for {title}: {content}"}
 
     def test_raw_text_persona_routes_to_system(self):
         """Auto-persist shape: plain persona text with no placeholders."""
