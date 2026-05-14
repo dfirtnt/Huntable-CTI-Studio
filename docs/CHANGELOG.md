@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.0.1] - 2026-05-14
+
+### Changed
+- **ProcTreeExtract attention preprocessor: P4/P5 patterns removed** (2026-05-14): Removed PID/PPID (P4) and injection/hollowing (P5) regex patterns from `proc_tree_attention_preprocessor.py`. The preprocessor now anchors exclusively on structural lineage evidence (Sysmon fields, tree glyphs, explicit spawn verbs, parent/child label patterns). P4 was too broad -- bare PID mentions do not imply a process tree. P5 was causing false positives because injection/hollowing terminology appears without any process creation event. Removed the now-unreferenced `KNOWN_PROCESS_TOKENS` set. Updated strong/weak index sets to reflect new pattern numbering (P1=0, P2=1, P3=2-3, P6=4-6, P7=7, P8=8). Test `test_injection_into_process` renamed to `test_injection_into_process_no_match` and updated to assert injection-only text produces no snippets.
+- **workflow.html extractor prompt validator: accept plain role-persona strings** (2026-05-14): The JS-side validation for extraction sub-agent system prompts previously hard-failed on JSON parse errors, blocking saves for prompts that use the plain role-persona shape (a valid alternate form). Changed to treat a parse failure as the plain-role shape and return early without error. Added a defensive check for JSON-parsed scalars (quoted strings) which are also treated as plain-role.
+- **settings.html backup section SVG icons** (2026-05-14): Swapped the SVG icons used in the "Backup Components" and "Backup Actions" section headers to better match their semantics.
+
+### Fixed
+- **TestWorkflowConfig active-version assertion** (2026-05-14): `test_workflow_config_active_version_roundtrip` required exactly one active version and that it equal the just-saved version. This failed in environments where multiple active versions coexist (valid state). Relaxed to assert at least one active version exists and that the saved version appears among them.
+
+### Added
+- **ProcTreeExtract v2.0 contract: four eval gaps closed** (2026-05-14): Eval against `wsusservice.exe -> cmd.exe -> cmd.exe -> powershell.exe` exposed three gaps in the `ProcTreeExtract` extractor contract; a fourth gap (`.lnk` files) was identified during the fix. All addressed in `src/prompts/ProcTreeExtract`, all 9 Quickstart presets, and `docs/contracts/proctree-extract.md`:
+  - **Arrow-notation chains**: new EDGE CASES rule stating that arrow notation (`A.exe -> B.exe -> C.exe`) is valid creation verb evidence; each adjacent pair is evaluated independently with all standard exclusion rules applied per-hop. Illustrated with the `wsusservice.exe` eval chain showing which hops are extracted vs. skipped.
+  - **Cross-chain deduplication**: new COUNT SEMANTICS rule -- if the same `(parent_image, child_image)` pair appears as a hop in multiple chains in the article, emit it once; `source_evidence` references the first occurrence.
+  - **Self-referential hops**: explicit rule that hops where `parent_image == child_image` are not process creation and are skipped.
+  - **Multi-hop `json_example`**: replaced the single-item `explorer.exe -> rundll32.exe` example with a two-item example derived from `services.exe -> svchost.exe -> svchost.exe -> powershell.exe`, demonstrating the self-loop skip. Acts as the primary behavioral anchor for gpt-4o-mini at temperature=0.
+  - **`.lnk` file exclusion**: Windows shortcut files are not process images and are never valid as parent or child; added to NEGATIVE EXTRACTION SCOPE.
+  - Two new VERIFICATION CHECKLIST items: arrow-chain adjacency check and self-referential hop check.
+
 ## [7.0.0 "Europa"] - 2026-05-12
 ### Added
 - **SigmaGenerate prompt contract** (2026-05-12): New `docs/contracts/sigma-generate.md` defines the invariant rules for Sigma generation prompts (role, splitting logic, generic logsource, behavioral detection operators, ATT&CK tagging, severity calibration, required fields including `observables_used`) plus a Model Adaptation section with per-model-class overlays (Local, Claude standard/thinking, OpenAI instruction, OpenAI reasoning) and an adaptation decision table. Added to `mkdocs.yml` Contracts nav.
