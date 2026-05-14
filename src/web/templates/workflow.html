@@ -2595,14 +2595,20 @@
           }
 
           if (typeof EXTRACT_SUB_AGENTS !== 'undefined' && EXTRACT_SUB_AGENTS.includes(agentName)) {
-            // Extraction sub-agents store a JSON object in the system textarea.
-            // Run the same hard-fail + warn-only checks as _validate_extraction_prompt_config
-            // in llm_service.py (extractor-standard.md).
+            // Extraction sub-agents accept two valid system-prompt shapes:
+            //   1. Full JSON envelope (role/task/json_example/instructions) -- validated below.
+            //   2. Plain role-persona string -- saveAgentPrompt2 will wrap it into the
+            //      existing envelope (see line ~10527). For this shape, JSON validation
+            //      does not apply; the non-empty check earlier in this function is sufficient.
             let parsed;
             try {
               parsed = JSON.parse(systemVal);
             } catch (e) {
-              issues.push({ level: 'error', msg: 'System prompt is not valid JSON. Cannot validate structure.' });
+              // Plain role text -- valid shape, skip envelope validation.
+              return issues;
+            }
+            // Defensive: a JSON-parsed scalar (e.g. a quoted string) is also plain-role.
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
               return issues;
             }
 

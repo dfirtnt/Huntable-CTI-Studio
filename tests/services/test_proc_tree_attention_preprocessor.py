@@ -108,11 +108,11 @@ def test_sysmon_parent_image_block():
     assert len(result["high_likelihood_snippets"]) >= 1, "Sysmon ParentImage+Image should match"
 
 
-def test_injection_into_process():
-    """P5: 'injected code into lsass.exe' matches."""
+def test_injection_into_process_no_match():
+    """P5 removed: injection/hollowing patterns no longer anchor on their own."""
     text = "The attacker injected code into lsass.exe"
     result = process(text)
-    assert len(result["high_likelihood_snippets"]) >= 1, "P5 injection should match"
+    assert result["high_likelihood_snippets"] == [], "Injection-only line should not match after P5 removal"
 
 
 def test_inventory_line_no_lineage_keyword_no_match():
