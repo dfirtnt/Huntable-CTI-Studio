@@ -30,6 +30,12 @@ test.describe('Agent Config Provider Switching', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
+
     // Get initial provider
     const initialProvider = await providerSelect.inputValue();
 
@@ -89,6 +95,11 @@ test.describe('Agent Config Provider Switching', () => {
     
     // Switch away from LMStudio first if needed
     if (initialProvider === 'lmstudio') {
+      const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+      if (!hasOpenAI) {
+        test.skip(true, 'OpenAI provider not available (needed to switch away from LMStudio first)');
+        return;
+      }
       await providerSelect.selectOption('openai');
       await page.waitForTimeout(2000);
     }
@@ -116,6 +127,12 @@ test.describe('Agent Config Provider Switching', () => {
   test('should show commercial model inputs when switching to OpenAI', async ({ page }) => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
+
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
 
     await providerSelect.selectOption('openai');
     await page.waitForTimeout(2000);
@@ -162,6 +179,12 @@ test.describe('Agent Config Provider Switching', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
+
     // Set a model for OpenAI
     await providerSelect.selectOption('openai');
     await page.waitForTimeout(2000);
@@ -196,6 +219,12 @@ test.describe('Agent Config Provider Switching', () => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
+
     // Test LMStudio
     await providerSelect.selectOption('lmstudio');
     // Wait for loadLMStudioModels API call
@@ -229,6 +258,12 @@ test.describe('Agent Config Provider Switching', () => {
   test('should update UI correctly when switching providers', async ({ page }) => {
     const providerSelect = page.locator('#rankagent-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
+
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
 
     await providerSelect.selectOption('openai');
     await page.waitForResponse(
