@@ -185,3 +185,114 @@ class TestIsCanonical:
         assert not _is_canonical({"prompt": "...", "model": "x", "instructions": ""})
         # Shape 4 (raw text)
         assert not _is_canonical({"prompt": "raw text", "instructions": ""})
+
+
+# ---------------------------------------------------------------------------
+# Post-migration contract: output is always canonical; migration is idempotent
+# ---------------------------------------------------------------------------
+
+_SIGMA_LEGACY_SHAPES = [
+    # Shape 1: locked scaffold
+    {
+        "prompt": json.dumps({"role": "PERSONA", "user_template": "tmpl {title}"}),
+        "instructions": "",
+    },
+    # Shape 2: extraction-agent envelope
+    {
+        "prompt": json.dumps(
+            {"role": "PERSONA", "task": "", "json_example": "{}", "instructions": ""}
+        ),
+        "instructions": "outer",
+    },
+    # Shape 3: legacy {system, user}
+    {
+        "prompt": json.dumps({"system": "PERSONA", "user": "old tmpl {title}"}),
+        "instructions": "",
+    },
+    # Shape 4: raw persona text (no placeholders)
+    {"prompt": "You are a Sigma rule generator.", "instructions": ""},
+    # Shape 5: auto-persist (has model sibling)
+    {"prompt": "Strict Sigma generator.", "model": "qwen/qwen3-8b", "instructions": ""},
+    # Sibling system_prompt
+    {"prompt": "", "system_prompt": "PERSONA FROM SIBLING"},
+]
+
+_RANK_LEGACY_SHAPES = [
+    # Shape 1: locked scaffold
+    {
+        "prompt": json.dumps({"role": "RANK_PERSONA", "user_template": "Score {title}"}),
+        "instructions": "",
+    },
+    # Shape 2: extraction-agent envelope
+    {
+        "prompt": json.dumps(
+            {"role": "RANK_PERSONA", "task": "", "json_example": "{}", "instructions": ""}
+        ),
+        "instructions": "",
+    },
+    # Shape 3: legacy {system, user}
+    {
+        "prompt": json.dumps({"system": "RANK_PERSONA", "user": "Score {title} {content}"}),
+        "instructions": "",
+    },
+    # Shape 4: raw user-template text (has placeholders)
+    {
+        "prompt": "Rank this:\nTitle: {title}\nContent: {content}",
+        "instructions": "",
+    },
+    # Shape 5: auto-persist persona (no placeholders)
+    {"prompt": "You are a strict CTI ranking analyst.", "model": "qwen/qwen3-8b", "instructions": ""},
+]
+
+
+class TestPostMigrationContract:
+    """Verify migration convergence: every normalized record is canonical,
+    and running normalization again on canonical output is a no-op."""
+
+    @pytest.mark.parametrize("raw", _SIGMA_LEGACY_SHAPES)
+    def test_sigma_output_is_canonical(self, raw):
+        """_normalize_record must always produce canonical output for SigmaAgent."""
+        result = _normalize_record("SigmaAgent", raw)
+        assert result is not None, f"_normalize_record returned None for non-empty input: {raw}"
+        assert _is_canonical(result), (
+            f"SigmaAgent normalization produced non-canonical output for {raw!r}:\n  got {result!r}"
+        )
+
+    @pytest.mark.parametrize("raw", _RANK_LEGACY_SHAPES)
+    def test_rank_output_is_canonical(self, raw):
+        """_normalize_record must always produce canonical output for RankAgent."""
+        result = _normalize_record("RankAgent", raw)
+        assert result is not None, f"_normalize_record returned None for non-empty input: {raw}"
+        assert _is_canonical(result), (
+            f"RankAgent normalization produced non-canonical output for {raw!r}:\n  got {result!r}"
+        )
+
+    @pytest.mark.parametrize("raw", _SIGMA_LEGACY_SHAPES)
+    def test_sigma_migration_is_idempotent(self, raw):
+        """After one normalization, _is_canonical returns True -- migrate() would skip
+        the row on a re-run. This is the composed idempotency contract: _normalize_record
+        itself need not be a fixed point; _is_canonical is the gate that prevents double
+        normalization.
+        """
+        first_pass = _normalize_record("SigmaAgent", raw)
+        assert first_pass is not None
+        assert _is_canonical(first_pass), (
+            f"SigmaAgent: normalized output is not canonical, so migrate() would "
+            f"rewrite it again on a second run.\n"
+            f"  input  = {raw!r}\n"
+            f"  output = {first_pass!r}"
+        )
+
+    @pytest.mark.parametrize("raw", _RANK_LEGACY_SHAPES)
+    def test_rank_migration_is_idempotent(self, raw):
+        """After one normalization, _is_canonical returns True -- a second migrate() run
+        would skip the row via the canonical guard, making the migration a one-shot op.
+        """
+        first_pass = _normalize_record("RankAgent", raw)
+        assert first_pass is not None
+        assert _is_canonical(first_pass), (
+            f"RankAgent: normalized output is not canonical, so migrate() would "
+            f"rewrite it again on a second run.\n"
+            f"  input  = {raw!r}\n"
+            f"  output = {first_pass!r}"
+        )
