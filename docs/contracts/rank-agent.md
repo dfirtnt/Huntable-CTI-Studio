@@ -165,4 +165,4 @@ Before finalizing the generated prompt, ensure:
 
 If any invariant is violated, regenerate.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_

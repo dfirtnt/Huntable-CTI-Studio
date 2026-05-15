@@ -44,4 +44,4 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 - Scheduler cadence is controlled by `check_frequency` (seconds) and the Celery Beat schedule defined in `docker-compose.yml`. The default is 14400 (4 hours); add an explicit `check_frequency` in YAML only when a faster cadence is needed.
 - If a new source starts failing, the auto-healing pipeline will diagnose it after the configured failure threshold is reached (default: 100 consecutive failures in fresh installs). It runs deep probes and proposes config fixes. See `src/services/source_healing_service.py` for details.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_

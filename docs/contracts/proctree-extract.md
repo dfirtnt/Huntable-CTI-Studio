@@ -238,4 +238,4 @@ If injection, hollowing, or DLL loading is described, SKIP -- that is not proces
 If the source is a code listing or shell command without narrative lineage, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_
