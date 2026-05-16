@@ -67,10 +67,6 @@ Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection]
 
 Semantic search across your CTI corpus using embeddings, accessed via MCP tools. See [Semantic Search](features/semantic-search.md).
 
-### Source Auto-Healing
-
-LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See `src/services/source_healing_service.py` for implementation details.
-
 ### Model Versioning And Rollback
 
 Train, evaluate, and roll back the content-filtering model through the MLOps control center. Every training run is versioned with metrics (accuracy, precision, recall, F1); rollback restores a prior artifact and re-scores all chunks in the background. See [Content Filtering](features/content-filtering.md).

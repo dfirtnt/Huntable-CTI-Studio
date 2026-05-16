@@ -8,8 +8,6 @@ This workflow orchestrates the Extract Agent (and any supporting sub-agents) thr
 - Stack is running (`./start.sh` and web reachable on `http://localhost:8001`)
 - Article exists (from RSS collection, UI upload, or `POST /api/scrape-url`)
 
-The workflow definition lives in `langgraph.json`, and the API trigger below tells LangGraph to execute the agents in the proper order; there is no public endpoint to start a single agent on its own.
-
 ## 1) Get or create an article
 Manual scrape example:
 ```bash

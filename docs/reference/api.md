@@ -33,15 +33,6 @@ Use these first when verifying the stack.
 
 These endpoints control source state and manual collection.
 
-### Source Healing
-
-- `POST /api/actions/trigger-healing` — Trigger a scan for all sources currently eligible for healing
-- `POST /api/sources/{source_id}/heal` — Trigger a healing session for a failing source
-- `POST /api/sources/{source_id}/reset-healing` — Reset `healing_exhausted` and `healing_attempts`
-- `GET /api/sources/{source_id}/healing-history` — Audit trail of all healing rounds and actions
-
-See `src/services/source_healing_service.py` for the diagnostic pipeline implementation.
-
 ### Articles
 
 - `GET /api/articles`
@@ -86,12 +77,13 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `GET /api/workflow/config/prompts/{agent_name}/by-config-version/{config_version}`
 - `POST /api/workflow/config/prompts/{agent_name}/rollback`
 - `POST /api/workflow/config/prompts/bootstrap`
+- `POST /api/workflow/config/prompts/reset-to-defaults` — Reset individual agent prompts to seed defaults. Unlike `bootstrap` (which wholesale replaces all prompts), this selectively resets only the requested agents while preserving others. Body: `{ "agent_names": ["RankAgent", ...] }` (omit `agent_names` to reset all). See `src/web/routes/workflow_config.py`.
 - `GET /api/workflow/config/versions` — List config versions with pagination. Query params: `page` (default 1), `limit` (default 20, max 100), `version` (optional, exact integer match). Response: `versions`, `total`, `page`, `total_pages`.
 - `GET /api/workflow/config/preset/list`
 - `POST /api/workflow/config/preset/save`
 - `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
-Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and their QA counterparts (`RankAgentQA`, `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`).
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and the QA counterpart defined in the schema (`RankAgentQA`). Note: names such as `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA` appear in internal workflow execution tracking but are not part of `CANONICAL_PROMPT_AGENT_NAMES` in `workflow_config_schema.py` and cannot be stored in the Prompts section of a v2 config.
 
 Each prompt object is a JSON dict with these fields:
 
@@ -137,8 +129,8 @@ Route module: `src/web/routes/models.py`. Version data is stored in the `ml_mode
 - `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
-- `GET /api/evaluation/*`
-- `GET /api/evaluation-ui/*`
+- `GET /api/eval/*` — Hallucination/relevance ratings, metrics, history, comparison, agent benchmarks (route module: `src/web/routes/evaluation.py`)
+- `/evaluations/*` — HTML evaluation UI pages (route module: `src/web/routes/evaluation_ui.py`; not API routes)
 
 #### Subagent Evaluation Endpoints
 

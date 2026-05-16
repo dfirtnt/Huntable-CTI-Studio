@@ -68,14 +68,14 @@ Tree-drawing glyphs: `└─`, `├─`, `└──`, `├──`, `└>`
 | **P1** | Lineage verb binding two tokens: `winword.exe spawned powershell.exe` |
 | **P2** | Reverse direction: `X was spawned by Y` |
 | **P3** | Parent/child label: `parent process:`, `child pid =` |
-| **P4** | PID/PPID numeric: `ppid: 1234`, `process id = 5678` |
-| **P5** | Injection/hollowing: `injected code into explorer.exe` |
 | **P6** | Relational phrases: `child of svchost.exe`, `running under services.exe` |
 | **P7** | Explicit `.exe -> .exe` arrow: `cmd.exe -> powershell.exe` |
 | **P8** | Tree glyph + `.exe` at line start: `└── powershell.exe` |
 
-P3, P4, P5, P7, P8 are **strong** anchors. P1, P2, P6 are **weak** and subject to
+P3, P7, P8 are **strong** anchors. P1, P2, P6 are **weak** and subject to
 narrative suppression (see below).
+
+Internal index mapping after P4/P5 removal: P1=0, P2=1, P3=2-3, P6=4-6, P7=7, P8=8.
 
 ### Structural Rules (T3-T5)
 
@@ -87,22 +87,21 @@ narrative suppression (see below).
 
 All structural rule matches are treated as **strong** anchors.
 
-### Known Process Token List (T3)
+### Executable-Shape Heuristic (T3)
 
-T3 proximity matching requires at least two tokens from a hardcoded allow-list of
-well-known Windows executables. Examples include:
-
-`services.exe`, `lsass.exe`, `winlogon.exe`, `explorer.exe`, `svchost.exe`,
-`cmd.exe`, `powershell.exe`, `pwsh.exe`, `wmic.exe`, `rundll32.exe`, `regsvr32.exe`,
-`mshta.exe`, `cscript.exe`, `wscript.exe`, `certutil.exe`, `bitsadmin.exe`,
-`schtasks.exe`, `winword.exe`, `excel.exe`, `outlook.exe`, `chrome.exe`, `msedge.exe`,
-`psexec.exe`, and others.
+T3 uses a shape-based regex (`_EXE_SHAPE_RE`) rather than a fixed allow-list.
+It matches any token ending in `.exe`, `.dll`, `.scr`, `.com`, `.bat`, `.cmd`,
+or `.ps1`. Path indicators (Windows drive roots, UNC paths, quoted executables)
+are also recognized via `_PATH_INDICATOR_RE`. Two such tokens plus a lineage
+keyword within 60 characters of each other triggers T3a; a path indicator plus
+a lineage keyword triggers T3b.
 
 ## Narrative Suppression
 
 Weak verb anchors (P1, P2, P6) are suppressed when the matched line has **none** of:
 
-- A known `.exe` token from the T3 allow-list
+- An executable-shape token (any `*.exe/dll/scr/com/bat/cmd/ps1` token matched by `_EXE_SHAPE_RE`)
+- A Windows path indicator (drive root, UNC path, or quoted executable)
 - An arrow or tree-drawing glyph
 
 This prevents generic sentences like *"the attacker launched a campaign"* from polluting
@@ -152,7 +151,9 @@ Edit `src/services/proc_tree_attention_preprocessor.py`:
   (Sysmon field names, glyphs, arrows). Do NOT add bare verbs here.
 - **Regex anchors**: add to `PROC_TREE_REGEX_PATTERNS` with `\b` guards. Bare verbs like
   `spawn`, `child`, `parent` belong here.
-- **Known process tokens**: add to `KNOWN_PROCESS_TOKENS` for T3 proximity matching.
+- **T3 executable matching**: `_EXE_SHAPE_RE` matches any `*.exe/dll/scr/com/bat/cmd/ps1`
+  token by shape; there is no fixed allow-list. To extend T3, adjust `_EXE_SHAPE_RE` or
+  `_PATH_INDICATOR_RE`.
 - Pre-compile regexes at module load. Do not add scoring, weighting, or caps.
 
 _Last updated: 2026-05-12_

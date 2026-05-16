@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Docs: proctree-preprocessor.md updated for P4/P5 removal and shape-based T3** (2026-05-15): Pattern table and narrative suppression section now reflect the 7.0.1 changes: P4/P5 rows removed, strong/weak anchor list corrected (P3/P7/P8 strong only), internal index mapping documented. "Known Process Token List" section replaced with "Executable-Shape Heuristic" describing `_EXE_SHAPE_RE` / `_PATH_INDICATOR_RE` and the T3a/T3b trigger conditions. Extension guide updated: `KNOWN_PROCESS_TOKENS` reference removed; readers directed to `_EXE_SHAPE_RE`.
+- **Docs: Source Auto-Healing references purged** (2026-05-15): The feature was removed in 6.2.1 but references survived in `docs/getting-started/configuration.md`, `docs/guides/add-feed.md`, `docs/index.md`, and `docs/internals/architecture.md`. All removed. `add-feed.md` guidance simplified to a practical troubleshooting line.
+- **Docs: api.md corrections** (2026-05-15): Added `POST /api/workflow/config/prompts/reset-to-defaults` (selective per-agent prompt reset; body: `{ "agent_names": [...] }`). Clarified `CANONICAL_PROMPT_AGENT_NAMES` -- sub-agent QA names (CmdLineQA, etc.) appear in workflow tracking but are not storable via the Prompts section API. Fixed `/api/evaluation/*` and `/api/evaluation-ui/*` references to their actual route prefixes (`/api/eval/*` and `/evaluations/*`). Source Healing endpoints block removed.
+- **Docs: agent-config-schema.md** (2026-05-15): Added `ProcTreeAttentionPreprocessorEnabled` to the Features key list.
+- **Docs: minor cleanup** (2026-05-15): Removed Europa from available moon names in `versioning.md` (used in 7.0.0); removed stale LangGraph sentence from `extract-observables.md`.
+
 ## [7.0.1] - 2026-05-14
 
 ### Changed
