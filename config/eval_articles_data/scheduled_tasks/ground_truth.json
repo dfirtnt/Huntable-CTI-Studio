@@ -26,6 +26,8 @@
   },
   {
     "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
-    "expected_items": []
+    "expected_items": [
+      "Update2"
+    ]
   }
 ]
