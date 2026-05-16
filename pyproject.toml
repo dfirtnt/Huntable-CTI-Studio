@@ -42,7 +42,7 @@ dependencies = [
     "rich==14.3.3",
     "pydantic==2.12.5",
     "pydantic-settings==2.13.1",
-    "reportlab==4.4.10",
+    "reportlab==4.5.1",
     "python-dateutil==2.9.0.post0",
     # Security
     "certifi==2025.11.12",
