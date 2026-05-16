@@ -16,7 +16,7 @@ pytest-timeout>=2.4.0  # Per-test timeout guard to prevent hung Playwright tests
 
 # Test utilities
 factory-boy==3.3.3
-freezegun==1.4.0
+freezegun==1.5.5
 responses==0.24.0  # HTTP mocking
 requests-mock==1.11.0
 
