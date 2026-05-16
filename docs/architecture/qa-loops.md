@@ -7,7 +7,9 @@ to catch bad output before it surfaces to users.
 
 > **Note:** The regex + encoder + LLM-validator pipeline described here reflects
 > an earlier architecture and is archived. Current extraction runs direct LLM
-> sub-agents (CmdlineExtract, ProcTreeExtract, etc.) with QA handled per-agent.
+> sub-agents (CmdlineExtract, ProcTreeExtract, etc.) without per-extractor QA
+> agents; per-extractor QA was removed in v7.0.0. The only active QA agent is
+> RankAgentQA (see [Ranking QA](#ranking-qa) below).
 > The steps below are retained for historical context.
 
 Historical pipeline steps:
@@ -57,4 +59,4 @@ for consistency and compliance. If validation fails, the ranking retries up to
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

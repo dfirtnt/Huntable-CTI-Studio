@@ -13,10 +13,9 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
   - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, sub-agents, QA agents, OSDetectionFallback).
   - **Embeddings**: OsDetection and Sigma (moved out of `agent_models`).
   - **QA**: Enabled (per-agent) and MaxRetries.
-  - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled. (OS Detection fallback and Rank Agent enablement are controlled via `Agents.OSDetectionFallback.Enabled` and `Agents.RankAgent.Enabled` respectively.)
+  - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (OS Detection fallback and Rank Agent enablement are controlled via `Agents.OSDetectionFallback.Enabled` and `Agents.RankAgent.Enabled` respectively.)
   - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
-- **Naming normalization**: The canonical name is `CmdLineQA`. Legacy configs using `CmdlineQA` are automatically migrated.
 - **No unknown keys**: Schema validation forbids unknown root keys; validation errors are explicit.
 
 ## Backward compatibility
@@ -47,4 +46,4 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

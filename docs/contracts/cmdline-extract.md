@@ -204,7 +204,7 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 
 ```json
 {
-  "commands": [
+  "cmdline_items": [
     {
       "value": "powershell.exe -NoP -W Hidden -enc ZQBjAGgAbwAgACIASABlAGw=",
       "command_line": "powershell.exe -NoP -W Hidden -enc ZQBjAGgAbwAgACIASABlAGw=",
@@ -249,7 +249,7 @@ Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 If no valid commands exist, return exactly:
 
 ```json
-{"commands": [], "count": 0}
+{"cmdline_items": [], "count": 0}
 ```
 
 ### FINAL REMINDER
@@ -261,4 +261,4 @@ If a cmd.exe wrapper strips down to a trivial command, SKIP.
 If the source is malware source code, detection logic, or defensive guidance, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

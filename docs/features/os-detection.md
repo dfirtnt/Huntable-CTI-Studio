@@ -16,17 +16,16 @@ exit early, reducing unnecessary LLM calls in downstream steps.
 
 ## Detection Method
 
-Twohree tiers run in order:
+Three tiers run in order:
 
 1. **Keyword-based** (Tier 1): Fast pattern matching against OS-specific terms
    (registry paths, PowerShell, Linux paths). Handles clear-cut cases without
    invoking ML models.
-2. **Embedding-based** (Tier 2Primary): CTI-BERT or SEC-BERT embeddings fed into a
+2. **Embedding-based** (Tier 2): CTI-BERT or SEC-BERT embeddings fed into a
    RandomForest or LogisticRegression classifier. High-confidence threshold
-   (> 0.8) for single-OS detection. Low-When confidence results are returned as
-   `Unknown`is low, falls through to
+   (> 0.8) for single-OS detection. When confidence is low, falls through to
    the LLM fallback.
-3. **LLM fallback** (Secondary): Optional. When enabled, uses a configured LLM
+3. **LLM fallback** (Tier 3): Optional. When enabled, uses a configured LLM
    (default: LMStudio) to classify articles the classifier is uncertain about.
    The fallback model and provider are configurable in Workflow Config.
 
@@ -203,7 +202,7 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 - `scripts/prepare_huntable_windows_training_data.py` — Windows binary classifier data
 - `scripts/train_huntable_windows_classifier.py` — Windows binary classifier training
 
-_Last updated: 2026-05-051_
+_Last updated: 2026-05-16_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
 -->

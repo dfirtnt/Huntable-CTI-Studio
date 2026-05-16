@@ -158,7 +158,7 @@ If structurally present but incomplete / fragmentary / not executable as shown, 
 - Identical artifact appearing multiple times = ONE item.
 - Near-duplicates (whitespace, comments, title differences) = separate items.
 - Emit EDR/SIEM queries and Sigma rules in the same `queries` array.
-- `query_count` MUST equal `len(queries)` and MUST be the combined total of EDR/SIEM query items plus Sigma rule items.
+- `count` MUST equal `len(queries)` and MUST be the combined total of EDR/SIEM query items plus Sigma rule items.
 - Do NOT emit or score separate `sigma_rules` / `sigma_count` fields for this extractor contract.
 
 ## EDGE CASES
@@ -222,7 +222,7 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
       "confidence_score": 0.98
     }
   ],
-  "query_count": 2
+  "count": 2
 }
 ```
 
@@ -245,7 +245,7 @@ Domain fields (queries array):
 - query: REQUIRED. Verbatim extracted EDR/SIEM query or Sigma YAML.
 - type: REQUIRED. One of: kql, falcon, logscale, sentinelone_dv, sentinelone_pq, splunk, elastic, xql, carbon_black, sigma, unknown, other.
 - context: Optional short source or detection context. Omit when not useful.
-- query_count: REQUIRED envelope field. Integer equal to len(queries), counting both EDR/SIEM queries and Sigma rules.
+- count: REQUIRED envelope field. Integer equal to len(queries), counting both EDR/SIEM queries and Sigma rules.
 
 Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 
@@ -254,7 +254,7 @@ Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 If no valid artifacts exist, return exactly:
 
 ```json
-{"queries": [], "query_count": 0}
+{"queries": [], "count": 0}
 ```
 
 ### FINAL REMINDER
@@ -266,4 +266,4 @@ If the query is presented as "you could detect..." or "defenders should...", SKI
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-08_
+_Last updated: 2026-05-16_

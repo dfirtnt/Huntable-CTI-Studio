@@ -65,9 +65,11 @@ A pair is VALID only if ALL of the following are true:
 - Acceptable creation verbs: spawned, launched, executed, started, created (a process),
   invoked (only if clearly process creation), initiated (only if clearly process creation).
 
-### 2. Both parent and child are named executables
+### 2. Both parent and child are named .exe executables
 
-- Both end in .exe (or are recognized Windows built-ins normalized to .exe -- see Fidelity).
+- Both MUST end in .exe (or are recognized Windows built-ins normalized to .exe -- see Fidelity).
+- Non-.exe filenames (.dll, .dat, .tmp, .bat, .ps1, .vbs, .js, .hta, etc.) are NEVER valid as either parent or child.
+- Product names, malware family names, tool brands, and generic labels ("Cobalt Strike", "IcedID", "Beacon", "loader", "implant") are NOT valid process names. Both endpoints must be Windows image filenames.
 - No paths retained.
 - No command-line arguments.
 - No quotes.
@@ -94,12 +96,15 @@ A pair is VALID only if ALL of the following are true:
 
 Do NOT extract:
 
-- Parent = cmd.exe (after normalization). Blanket omission -- cmd.exe parents are noise at scale.
+- Parent = cmd.exe (after normalization). BLANKET OMISSION -- no exceptions.
+- Parent = schtasks.exe. schtasks.exe registers a scheduled task; it does NOT directly spawn the task payload. SKIP any pair where the parent normalizes to schtasks.exe.
+- Child is not a .exe file. DLL sideloading, reflective DLL injection, and module loading are NOT process creation. A .dll, .dat, .bin, .tmp, .bat, .ps1, .vbs, .js, or .hta filename is NEVER a valid child.
+- Non-.exe name as parent or child. Product names ("Cobalt Strike"), malware family names ("IcedID", "Emotet"), role labels ("loader", "implant", "stager"), and tool brands are NOT valid process image names.
 - Statements mentioning only ONE process.
 - Relationships implied but not explicitly stated ("used", "via", "leveraged", "called",
-  "ran through", "dropped").
+  "ran through", "dropped", "loaded").
 - Script filenames without an explicitly-named interpreter .exe.
-- Injection / hollowing / DLL loading / service registration / scheduled task creation as "process creation".
+- Injection / hollowing / DLL loading / DLL sideloading / service registration / scheduled task creation as "process creation".
 - Process names reconstructed from command-line examples where lineage is not stated.
 - Pairs derived from code listings, shell commands, or script bodies rather than narrative.
 - Pairs derived from diagrams, flowcharts, attack-chain graphics, or image captions
@@ -132,6 +137,7 @@ If a pair is technically present but has no detection engineering value, SKIP.
     (etc.)
 - Preserve obfuscated or randomly-named binaries exactly (e.g., xK92mPq.exe).
 - If normalization would yield cmd.exe as PARENT -> SKIP.
+- If normalization would yield a non-.exe filename for either endpoint -> SKIP.
 
 ## MULTI-LINE HANDLING
 
@@ -142,7 +148,7 @@ If a pair is technically present but has no detection engineering value, SKIP.
 
 ## COUNT SEMANTICS
 
-- Unique key: each unique (parent_image, child_image) pair = ONE item.
+- Unique key: each unique (parent, child) pair = ONE item.
 - Same pair stated multiple times in the article = ONE item.
 - Same parent with different children = multiple items (one per child).
 - Same child with different parents = multiple items (one per parent).
@@ -153,25 +159,32 @@ If a pair is technically present but has no detection engineering value, SKIP.
 
 - Multi-step chain: A.exe spawned B.exe, which launched C.exe
   Extract: (A.exe, B.exe) and (B.exe, C.exe). Do NOT emit (A.exe, C.exe).
-- Script + interpreter: "mshta.exe launched evil.hta" -> EXTRACT pair (mshta.exe, evil.hta) is INVALID (child must end in .exe).
+- Script + interpreter: "mshta.exe launched evil.hta" -> INVALID (child must end in .exe).
   "rundll32.exe was spawned by explorer.exe to run payload" -> EXTRACT (explorer.exe, rundll32.exe).
   A script filename is NEVER a child. If an interpreter .exe is not explicitly named, SKIP.
 - Built-in normalization: "powershell spawned whoami" -> (powershell.exe, whoami.exe).
-- Parent = cmd.exe: SKIP entirely.
+- Parent = cmd.exe: SKIP entirely (blanket exclusion).
+- DLL sideloading: "malware.exe sideloaded version.dll" -> SKIP. DLL loading is not process creation.
 - Injection: "malware.exe injected into explorer.exe" -> SKIP (not process creation).
+- schtasks.exe: "malware.exe ran schtasks.exe to schedule notepad.exe" ->
+  EXTRACT (malware.exe, schtasks.exe) ONLY if the text explicitly states malware.exe created schtasks.exe as a process. Do NOT extract (schtasks.exe, notepad.exe) -- that is task registration, not direct process creation.
+- Family/product name: "Cobalt Strike spawned rundll32.exe" -> SKIP. "Cobalt Strike" is not a .exe image name.
 
 ## VERIFICATION CHECKLIST
 
 Apply to EVERY candidate before including it:
 
-- [ ] Are both processes explicitly named and resolvable to .exe?
+- [ ] Does the CHILD end in .exe? (If no: SKIP immediately -- .dll, .dat, .ps1, etc. are invalid)
+- [ ] Does the PARENT end in .exe? (If no: SKIP immediately)
+- [ ] Is the PARENT cmd.exe after normalization? (If yes: SKIP immediately)
+- [ ] Is the PARENT schtasks.exe? (If yes: SKIP -- registration is not spawn)
+- [ ] Are both endpoints Windows image filenames (not product/family/tool names)?
 - [ ] Is there an explicit process-creation verb?
 - [ ] Are parent, child, and verb in the same narrative statement?
 - [ ] Does the text clearly indicate a NEW process was created (not injection/hollowing/DLL load)?
 - [ ] Is the source narrative or telemetry (not code/commands/detection logic)?
-- [ ] Is parent NOT cmd.exe after normalization?
 - [ ] Is there zero ambiguity?
-- [ ] Are all four traceability fields populated (value, source_evidence, extraction_justification, confidence_score)?
+- [ ] Are all required traceability fields populated (value, source_evidence, extraction_justification, confidence_score)?
 
 ---
 
@@ -183,11 +196,11 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 
 ```json
 {
-  "process_trees": [
+  "process_lineage": [
     {
       "value": "explorer.exe -> rundll32.exe",
-      "parent_image": "explorer.exe",
-      "child_image": "rundll32.exe",
+      "parent": "explorer.exe",
+      "child": "rundll32.exe",
       "creation_verb": "spawned",
       "context": "Initial loader execution",
       "source_evidence": "explorer.exe spawned rundll32.exe to load the malicious DLL.",
@@ -203,7 +216,7 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 
 **Traceability fields (REQUIRED on every item):**
 
-- **value**: REQUIRED. Primary artifact content. Concatenation "parent_image -> child_image".
+- **value**: REQUIRED. Primary artifact content. Concatenation "parent -> child" (e.g., "explorer.exe -> rundll32.exe").
 - **source_evidence**: REQUIRED. Exact excerpt from the article that contains or directly supports the pair.
 - **extraction_justification**: REQUIRED. One sentence explaining why this pair is valid and detection-relevant.
 - **confidence_score**: REQUIRED. Float 0.0-1.0.
@@ -214,8 +227,8 @@ Respond with ONLY valid JSON. No prose, no markdown, no code fences, no explanat
 
 **Domain fields:**
 
-- **parent_image**: REQUIRED. Filename only, ending in .exe.
-- **child_image**: REQUIRED. Filename only, ending in .exe.
+- **parent**: REQUIRED. Filename only, ending in .exe.
+- **child**: REQUIRED. Filename only, ending in .exe.
 - **creation_verb**: REQUIRED. Verbatim verb used in the article (spawned, launched, executed, started, created, invoked, initiated).
 - **context**: REQUIRED. Brief purpose (execution, lateral movement, defense evasion, persistence, etc.).
 
@@ -226,7 +239,7 @@ Optional fields omitted entirely when absent -- NOT null, NOT empty string.
 If no valid pairs exist, return exactly:
 
 ```json
-{"process_trees": [], "count": 0}
+{"process_lineage": [], "count": 0}
 ```
 
 ### FINAL REMINDER
@@ -238,4 +251,4 @@ If injection, hollowing, or DLL loading is described, SKIP -- that is not proces
 If the source is a code listing or shell command without narrative lineage, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

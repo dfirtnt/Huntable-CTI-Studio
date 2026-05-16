@@ -1,7 +1,7 @@
 # Extractor Agent Prompt Standard
 
-Version: 1.1
-Last Updated: 2026-04-15
+Version: 2.0
+Last Updated: 2026-05-16
 Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
 
 ---
@@ -35,7 +35,7 @@ The Huntable pipeline code (`llm_service.py`) enforces specific prompt structure
 - The code auto-appends a traceability block to every user prompt requiring: `value`, `source_evidence`, `extraction_justification`, `confidence_score`.
 - Your `json_example` MUST already include these four fields.
 - If `json_example` omits them, the model receives conflicting schema instructions (your example says one thing, the appended block says another).
-- `source_evidence` and `extraction_justification` are not cosmetic -- the QA agent uses them for factuality checks. Without them, QA flags outputs as potentially hallucinated.
+- `source_evidence` and `extraction_justification` are not cosmetic -- they are the pipeline's ground truth for downstream evaluation and human review.
 
 ### 4. json_example must match output schema
 
@@ -401,4 +401,4 @@ Use this when reviewing any extractor prompt (new or revised):
     - Check that the fleet's combined coverage has no gaps or overlaps
     - Verify all `json_examples` still match the pipeline's traceability requirements
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

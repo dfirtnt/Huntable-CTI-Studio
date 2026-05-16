@@ -837,7 +837,7 @@ When evaluation runs correctly, you should see:
 
 2. **Extraction Agent Start:**
    ```
-   INFO: Running extraction agent CmdlineExtract (QA enabled: False)
+   INFO: Running extraction agent CmdlineExtract (provider=lmstudio, model_name={model})
    ```
 
 3. **LMStudio Request:**
@@ -1034,4 +1034,4 @@ for exec in pending:
 
 ---
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

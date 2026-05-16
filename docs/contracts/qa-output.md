@@ -43,17 +43,6 @@ Mapping from legacy `status` values:
 }
 ```
 
-Extractor QA results additionally include a `corrections` key (extractor-specific):
-
-```json
-{
-  "corrections": {
-    "removed": [{"command": "...", "reason": "..."}],
-    "added":   [{"command": "...", "found_in": "..."}]
-  }
-}
-```
-
 ## Stored `_qa_result` Shape
 
 The `_qa_result` key written into `execution.error_log["qa_results"]` includes
@@ -78,4 +67,4 @@ that owns the LLM call, the 6-strategy response parser, fail-closed default,
 and schema normalization.  All call sites (`qa_agent_service.py`,
 `run_extraction_agent` in `llm_service.py`) delegate to it.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

@@ -5,9 +5,9 @@ Allure Reports provides interactive, step-by-step test execution reports. It is 
 ## Setup
 
 ### Dependencies
-Allure is included in test dependencies (`requirements-test.txt`):
+Allure is included in test dependencies (`pyproject.toml`, `[dependency-groups.test]`):
 ```
-allure-pytest>=2.13.0
+allure-pytest==2.15.3
 ```
 
 ### Configuration
@@ -155,5 +155,5 @@ python3 run_tests.py all
 allure generate allure-results --clean -o allure-report
 ```
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_
 _Last reviewed: 2026-05-03_

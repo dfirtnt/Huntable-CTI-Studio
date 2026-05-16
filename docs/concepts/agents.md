@@ -26,10 +26,10 @@ that schedules and distributes the work. Each agent writes results to
 
 ## Extract Agent Sub-Agents
 
-- **CmdlineExtract**: Command-line observables with arguments and QA
-  corrections. The optional **Attention Preprocessor** surfaces LOLBAS-aligned
-  snippets earlier in the LLM prompt; toggle in Workflow Config under
-  Cmdline Extract. See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
+- **CmdlineExtract**: Command-line observables with arguments. The optional
+  **Attention Preprocessor** surfaces LOLBAS-aligned snippets earlier in the
+  LLM prompt; toggle in Workflow Config under Cmdline Extract. See
+  [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 - **HuntQueriesExtract**: Detection queries (EDR queries and Sigma rules)
   extracted from content.
 - **ProcTreeExtract**: Parent/child process lineage.
@@ -107,7 +107,7 @@ To see the full assembled prompt for any execution, check its Langfuse trace.
 ### Traceability Fields
 
 All six extract sub-agents require these fields on every extracted item. They
-feed the QA agent and the evaluation pipeline:
+feed the evaluation pipeline:
 
 - **`value`**: the extracted artifact itself.
 - **`source_evidence`**: verbatim excerpt from the article supporting the artifact.
@@ -168,4 +168,4 @@ run is currently streaming results.
 - Prefer API/CLI entry points (`./run_cli.sh`, workflow triggers) over ad-hoc
   code paths to keep telemetry consistent.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

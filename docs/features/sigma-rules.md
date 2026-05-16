@@ -532,4 +532,4 @@ docker-compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-05-04_
+_Last updated: 2026-05-16_

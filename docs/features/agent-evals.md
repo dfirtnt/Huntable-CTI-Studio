@@ -432,4 +432,4 @@ config version without manually re-selecting articles.
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-05-06 (added Eval Bundles section; help button for diagnosis prompt location confirmed)_
+_Last updated: 2026-05-16_

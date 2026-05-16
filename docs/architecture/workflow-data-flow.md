@@ -509,4 +509,4 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Direct test trigger**: `src/web/routes/workflow_config.py` — `test_sub_agent()`
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_

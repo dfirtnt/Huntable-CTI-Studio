@@ -77,4 +77,4 @@ To add anchors, edit `cmdline_attention_preprocessor.py`:
 
 Keep anchors aligned with LOLBAS tradecraft. Do not add scoring, weighting, or caps.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-16_
