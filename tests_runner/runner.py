@@ -1794,6 +1794,35 @@ class RunTestRunner:
         print(f"Test Execution Report ({total_duration:.2f}s)")
         print("=" * 60)
 
+        # Aggregate counts from all suites (pytest + playwright)
+        total_passed = total_failed = total_skipped = total_tests = 0
+        for suite in ("pytest", "playwright"):
+            counts = self.results.get(suite, {}).get("counts", {})
+            total_passed += counts.get("passed", 0)
+            total_failed += counts.get("failed", 0) + counts.get("errors", 0)
+            total_skipped += counts.get("skipped", 0)
+        total_tests = total_passed + total_failed + total_skipped
+
+        if total_tests > 0:
+            status = f"{Glyph.PASS} PASSED" if total_failed == 0 else f"{Glyph.FAIL} FAILED"
+            print(f"\nOverall: {status}")
+            print(f"  Total:   {total_tests}")
+            print(f"  Passed:  {total_passed}")
+            if total_failed:
+                print(f"  Failed:  {total_failed}")
+            if total_skipped:
+                print(f"  Skipped: {total_skipped}")
+
+        if self.failed_test_names:
+            print("\nFailed tests:")
+            seen: set[str] = set()
+            for name in self.failed_test_names:
+                # Normalize "FAILED tests/x.py::foo" → "tests/x.py::foo"
+                normalized = name.removeprefix("FAILED ").strip()
+                if normalized not in seen:
+                    seen.add(normalized)
+                    print(f"  {Glyph.FAIL} {normalized}")
+
     def start_debugging(self):
         """Start debugging components."""
         if not DEBUGGING_AVAILABLE:
