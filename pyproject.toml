@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     # Core scraping and processing
-    "requests==2.33.1",
+    "requests==2.34.2",
     "httpx==0.28.1",
     "brotli==1.2.0",
     "beautifulsoup4==4.14.3",

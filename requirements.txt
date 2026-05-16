@@ -10,7 +10,7 @@
 # Phase 6 security updates: 2026-05-12 (urllib3 2.7.0, python-multipart 0.0.27, GitPython 3.1.50, langchain-core 1.3.3, Mako 1.3.12)
 
 # Core scraping and processing
-requests==2.33.1
+requests==2.34.2
 httpx==0.28.1
 brotli==1.2.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
