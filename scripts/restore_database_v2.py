@@ -228,6 +228,7 @@ class DatabaseRestore:
                 for filtered_line in filter_dump_lines(
                     f_in,
                     skip_db_lifecycle=True,
+                    skip_unsupported_sets=True,
                     rewrite_fk_constraints=True,
                 ):
                     f_out.write(filtered_line)

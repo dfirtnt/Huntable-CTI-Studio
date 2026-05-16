@@ -242,3 +242,31 @@ def test_realistic_clean_dump_excerpt():
     )
     result = _run(excerpt, dedup_primary_keys=True, dedup_copy_rows=True, rewrite_fk_constraints=True)
     assert result.count("PRIMARY KEY") == 2
+
+
+# ---------------------------------------------------------------------------
+# Cross-script consistency: all restore callers must pass skip_unsupported_sets
+# ---------------------------------------------------------------------------
+
+_SCRIPTS_DIR = Path(__file__).resolve().parents[2] / "scripts"
+
+_RESTORE_SCRIPTS = [
+    "restore_database.py",
+    "restore_database_v2.py",
+    "restore_database_v3.py",
+    "restore_system.py",
+    "verify_backup.py",
+]
+
+
+@pytest.mark.parametrize("script_name", _RESTORE_SCRIPTS)
+def test_restore_script_passes_skip_unsupported_sets(script_name):
+    """Every restore/verify script must pass skip_unsupported_sets=True to
+    filter_dump_lines so that pg_dump directives from Postgres 17+ (e.g.
+    SET transaction_timeout) do not abort restores against older psql clients.
+    """
+    text = (_SCRIPTS_DIR / script_name).read_text(encoding="utf-8")
+    assert "skip_unsupported_sets=True" in text, (
+        f"{script_name} calls filter_dump_lines without skip_unsupported_sets=True. "
+        f"Add the flag to protect against newer pg_dump versions."
+    )

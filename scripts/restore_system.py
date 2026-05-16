@@ -233,6 +233,7 @@ def restore_database(
                 for filtered_line in filter_dump_lines(
                     f_in,
                     skip_db_lifecycle=True,
+                    skip_unsupported_sets=True,
                     rewrite_fk_constraints=True,
                 ):
                     temp_file.write(filtered_line)
