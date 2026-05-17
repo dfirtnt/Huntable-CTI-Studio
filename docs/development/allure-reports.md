@@ -155,5 +155,5 @@ python3 run_tests.py all
 allure generate allure-results --clean -o allure-report
 ```
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_
 _Last reviewed: 2026-05-03_

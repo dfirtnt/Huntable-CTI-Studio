@@ -319,4 +319,4 @@ is_huntable, confidence = filter_system.predict_huntability(text)
 features = filter_system.extract_features(text)
 ```
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_

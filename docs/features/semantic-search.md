@@ -57,4 +57,4 @@ Run once after setup, then again whenever Sigma rules change:
 
 `GET /api/embeddings/stats` returns a `sigma_corpus` block (SigmaHQ row counts vs. rows with embeddings). Consumed by CLI `embed stats` and MCP `get_stats`.
 
-_Last updated: 2026-05-05_
+_Last updated: 2026-05-17_

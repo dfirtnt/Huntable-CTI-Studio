@@ -329,4 +329,4 @@ Always verify model hash against official releases.
 
 ---
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_

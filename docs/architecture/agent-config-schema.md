@@ -47,4 +47,4 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 ExtractAgent is the parent config; sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) inherit provider/model from ExtractAgent when not configured. The schema types `Agents.ExtractAgent` explicitly; fallback behavior is implemented in the workflow and LLMService.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_

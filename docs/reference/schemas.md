@@ -143,4 +143,4 @@ Operationally important tables include:
 
 Use `src/database/models.py` when you need exact field names, nullability, or relationships.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_

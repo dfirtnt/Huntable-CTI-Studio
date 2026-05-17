@@ -155,4 +155,4 @@ Edit `src/services/proc_tree_attention_preprocessor.py`:
 - **Known process tokens**: add to `KNOWN_PROCESS_TOKENS` for T3 proximity matching.
 - Pre-compile regexes at module load. Do not add scoring, weighting, or caps.
 
-_Last updated: 2026-05-12_
+_Last updated: 2026-05-17_
