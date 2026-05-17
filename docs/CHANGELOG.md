@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **Committed MCP client config** (2026-05-17): `.mcp.json` plus `scripts/run_mcp_server.sh` register the `huntable-cti-studio` MCP server for project-aware clients (e.g. Claude Code) with zero per-user setup. The launcher self-locates the repo from its own path and auto-selects the project virtualenv (`.venv`/`venv`, falling back to PATH `python3`), so it works regardless of cwd or shell activation. `.mcp.json` is force-tracked via a `!.mcp.json` negation appended to the existing `*.json` exception block in `.gitignore`.
+
+### Fixed
+- **MCP "Server disconnected / Could not attach"** (2026-05-17): MCP clients spawn the server in a clean environment and do not inherit an activated virtualenv, so the previously documented `python3 run_mcp.py` died with `ModuleNotFoundError: No module named 'mcp'` before the JSON-RPC handshake — surfacing only as a generic disconnect toast. The server code itself was healthy. Docs (`README.md`, `docs/index.md`, `docs/quickstart.md`, `docs/reference/mcp-tools.md`) now point clients at the committed `.mcp.json` / launcher and show the venv-explicit run command.
 
 ## [7.0.0 "Europa"] - 2026-05-12
 ### Added

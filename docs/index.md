@@ -22,7 +22,7 @@ With full transparency, each article moves through an explicit LangGraph pipelin
 - **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
 - **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
-- **MCP (optional)** — Read-only Model Context Protocol server: `python3 run_mcp.py` (same env as the web app; [tool reference](reference/mcp-tools.md))
+- **MCP (optional)** — Read-only Model Context Protocol server; committed `.mcp.json` wires it up for project-aware clients with no setup (same env as the web app; [tool reference](reference/mcp-tools.md))
 
 ## Quick Start
 

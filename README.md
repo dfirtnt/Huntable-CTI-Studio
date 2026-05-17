@@ -56,11 +56,15 @@ cd Huntable-CTI-Studio
 
 Read-only MCP server for agents (articles, sources, SIGMA, workflow tools). Requires app env/DB as for the web app.
 
-**Tool reference:** [docs/reference/mcp-tools.md](docs/reference/mcp-tools.md) (nine tools; `get_article` uses **Article ID** from search output, not list position).
+**Tool reference:** [docs/reference/mcp-tools.md](docs/reference/mcp-tools.md) (`get_article` uses **Article ID** from search output, not list position).
+
+**Connecting an MCP client (Claude Code, Claude Desktop, Cursor, …):** the repo ships a committed [`.mcp.json`](.mcp.json) that points at [`scripts/run_mcp_server.sh`](scripts/run_mcp_server.sh). Clients that read project `.mcp.json` (e.g. Claude Code in this directory) need **no setup** — approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command. The wrapper auto-selects the project virtualenv, so it works regardless of cwd or shell state.
+
+Run it by hand (debugging) with the **project venv** — MCP clients do *not* inherit an activated venv, so bare `python3 run_mcp.py` fails with `ModuleNotFoundError: No module named 'mcp'`:
 
 ```bash
-python3 run_mcp.py
-# or: python3 -m src.huntable_mcp
+.venv/bin/python run_mcp.py        # or: source .venv/bin/activate first
+bash scripts/run_mcp_server.sh     # same launcher the .mcp.json uses
 ```
 
 ## For Coding Agents And Contributors

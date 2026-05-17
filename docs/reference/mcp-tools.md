@@ -1,6 +1,10 @@
 # Huntable CTI Studio MCP tools
 
-The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for querying the same PostgreSQL corpus and queues as the web app. Run it with the same environment as the API (`python3 run_mcp.py` or `python3 -m src.huntable_mcp`; same `.env` / DB as the web app).
+The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for querying the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
+
+**Connecting a client.** The repo ships a committed `.mcp.json` registering this server via `scripts/run_mcp_server.sh`. Clients that read project `.mcp.json` (Claude Code launched in the repo) need no further setup — approve the server when prompted. For other clients, register the command `bash scripts/run_mcp_server.sh`.
+
+**Running by hand (debugging).** MCP clients spawn the server in a clean environment and do **not** inherit an activated virtualenv, so bare `python3 run_mcp.py` fails with `ModuleNotFoundError: No module named 'mcp'`. Use the project venv explicitly — `.venv/bin/python run_mcp.py` (or `bash scripts/run_mcp_server.sh`, which auto-selects it).
 
 **Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
 
