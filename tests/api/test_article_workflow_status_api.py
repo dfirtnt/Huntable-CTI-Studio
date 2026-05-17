@@ -1,9 +1,10 @@
 """
 API tests for GET /api/articles/{article_id}/workflow-status
 
-This endpoint returns {"processed_with_current_config": true|false}.
-It queries for a completed execution matching the active config's
-(config_id, config_version) pair and fails open on any error.
+This endpoint returns
+{"processed_with_current_config": true|false, "latest_execution_id": int|null}.
+It queries for the most recent completed execution matching the active
+config's (config_id, config_version) pair and fails open on any error.
 """
 
 from __future__ import annotations
@@ -53,10 +54,11 @@ def _patch_route_internals(monkeypatch, config, completed_exec):
         lambda self: config,
     )
 
-    # 2. Build a mock DB session whose query().filter().first() returns completed_exec
+    # 2. Build a mock DB session whose query().filter().order_by().first()
+    #    returns completed_exec (route orders by id desc to get the latest match)
     mock_session = MagicMock()
     mock_query = MagicMock()
-    mock_query.filter.return_value.first.return_value = completed_exec
+    mock_query.filter.return_value.order_by.return_value.first.return_value = completed_exec
     mock_session.query.return_value = mock_query
     mock_session.close = MagicMock()
 
@@ -92,7 +94,7 @@ async def test_workflow_status_false_when_no_completed_execution(async_client, m
     response = await async_client.get("/api/articles/42/workflow-status")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"processed_with_current_config": False}
+    assert data == {"processed_with_current_config": False, "latest_execution_id": None}
 
 
 @pytest.mark.asyncio
@@ -110,7 +112,7 @@ async def test_workflow_status_true_when_completed_execution_exists(async_client
     response = await async_client.get("/api/articles/42/workflow-status")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"processed_with_current_config": True}
+    assert data == {"processed_with_current_config": True, "latest_execution_id": 101}
 
 
 @pytest.mark.asyncio
@@ -141,7 +143,7 @@ async def test_workflow_status_false_when_no_active_config(async_client, monkeyp
     response = await async_client.get("/api/articles/99/workflow-status")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"processed_with_current_config": False}
+    assert data == {"processed_with_current_config": False, "latest_execution_id": None}
 
 
 @pytest.mark.asyncio
@@ -162,7 +164,7 @@ async def test_workflow_status_false_on_db_error_fail_open(async_client, monkeyp
     response = await async_client.get("/api/articles/7/workflow-status")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"processed_with_current_config": False}
+    assert data == {"processed_with_current_config": False, "latest_execution_id": None}
 
 
 @pytest.mark.asyncio
@@ -184,6 +186,6 @@ async def test_workflow_status_different_config_id_returns_false(async_client, m
     response = await async_client.get("/api/articles/42/workflow-status")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"processed_with_current_config": False}, (
+    assert data == {"processed_with_current_config": False, "latest_execution_id": None}, (
         "Execution from config_id=1 must not satisfy a query for config_id=2, even though both have version=1."
     )

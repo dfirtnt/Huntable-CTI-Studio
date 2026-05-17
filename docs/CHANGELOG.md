@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **MCP "Server disconnected / Could not attach"** (2026-05-17): MCP clients spawn the server in a clean environment and do not inherit an activated virtualenv, so the previously documented `python3 run_mcp.py` died with `ModuleNotFoundError: No module named 'mcp'` before the JSON-RPC handshake — surfacing only as a generic disconnect toast. The server code itself was healthy. Docs (`README.md`, `docs/index.md`, `docs/quickstart.md`, `docs/reference/mcp-tools.md`) now point clients at the committed `.mcp.json` / launcher and show the venv-explicit run command.
+- **Stale workflow-status API tests** (2026-05-17): `tests/api/test_article_workflow_status_api.py` (5 tests) was written for the old `GET /api/articles/{id}/workflow-status` contract. Commit `77be72ac` added `.order_by(id desc)` to the completed-execution lookup and a `latest_execution_id` field to the response (consumed by `article_detail.html`), but the test's mocked DB session still stubbed `query().filter().first()` and asserted exact dicts without `latest_execution_id`. The unmocked `.order_by()` caused `.first()` to return a truthy `MagicMock`, so `processed_with_current_config` and the response shape were wrong and all 5 tests failed. Updated the session mock to the real `query().filter().order_by().first()` chain and the 5 assertions to the documented response shape. Endpoint code unchanged.
 
 ## [7.0.0 "Europa"] - 2026-05-12
 ### Added
