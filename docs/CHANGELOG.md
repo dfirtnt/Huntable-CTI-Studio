@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- **Documentation: Sigma validation/repair flow clarified** (2026-05-17): The Sigma QA section of [QA Loops](architecture/qa-loops.md) was vague about where the LLM enters the validate→repair loop. It now states explicitly that pySigma validation is **deterministic with no LLM** (`validate_sigma_rule` in `src/services/sigma_validator.py` plus `sigma_extended_validator.py`'s pySigma hard-fail gate), and that the iterative repair pass (`_repair_rules` in `src/services/sigma_generation_service.py`, up to `max_repair_attempts_per_rule`=3) reuses the `SigmaAgent` model/provider/temperature/`top_p`/seed and the **same system prompt** as generation — only the user prompt differs (`sigma_repair_single`/`SigmaRepair` vs `sigma_generate_multi`/`sigma_generation`), both funneling through `_call_provider_for_sigma`. [Model Selection](llm/model-selection.md) Sigma Generator section now notes the same model serves the repair pass (no separate repair model to select). Fixed a garbled `sigma_repair_single.txt` description in the [prompt mapping table](reference/prompt-mapping-table.md) and clarified that `SigmaRepair` is a prompt-only config key.
+
 ### Added
 - **Committed MCP client config** (2026-05-17): `.mcp.json` plus `scripts/run_mcp_server.sh` register the `huntable-cti-studio` MCP server for project-aware clients (e.g. Claude Code) with zero per-user setup. The launcher self-locates the repo from its own path and auto-selects the project virtualenv (`.venv`/`venv`, falling back to PATH `python3`), so it works regardless of cwd or shell activation. `.mcp.json` is force-tracked via a `!.mcp.json` negation appended to the existing `*.json` exception block in `.gitignore`.
 

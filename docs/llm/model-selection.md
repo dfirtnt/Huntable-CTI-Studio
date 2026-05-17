@@ -189,6 +189,8 @@ Sigma YAML is structurally simple. Instruction-tuned models handle it well. Over
 - Include logic operator guidance (when AND vs OR)
 - Define detection level criteria
 
+**Repair pass uses this same model:** When a rule fails the deterministic pySigma validation gate, the per-rule repair pass reuses this Sigma Generator model, provider, temperature, and `top_p` (and the same system prompt) — only the user prompt differs (`sigma_repair_single`). There is no separate repair model to select; choosing the Sigma Generator model also chooses the repair model. See [QA Loops](../architecture/qa-loops.md#sigma-qa).
+
 ---
 
 ## Testing Protocol
@@ -329,4 +331,4 @@ Always verify model hash against official releases.
 
 ---
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_
