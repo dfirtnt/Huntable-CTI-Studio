@@ -188,6 +188,7 @@ class DatabaseRestore:
             with open(temp_sql_path) as f_in, open(filtered_sql_path, "w") as f_out:
                 for filtered_line in filter_dump_lines(
                     f_in,
+                    skip_unsupported_sets=True,
                     skip_db_lifecycle=True,
                     rewrite_fk_constraints=True,
                 ):

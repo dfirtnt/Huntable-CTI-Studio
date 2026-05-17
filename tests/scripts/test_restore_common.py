@@ -162,3 +162,32 @@ def test_trailing_alter_table_is_flushed():
     lines = ["ALTER TABLE ONLY public.articles ENABLE ROW LEVEL SECURITY;\n"]
     result = _run(lines)
     assert any("ALTER TABLE" in l for l in result)
+
+
+# ---------------------------------------------------------------------------
+# Contract: every restore-script caller must pass skip_unsupported_sets=True
+# ---------------------------------------------------------------------------
+
+_SCRIPTS_ROOT = Path(__file__).resolve().parent.parent.parent / "scripts"
+
+_RESTORE_SCRIPTS_WITH_FILTER = [
+    "restore_database.py",
+    "restore_database_v2.py",
+    "restore_database_v3.py",
+    "restore_system.py",
+    "verify_backup.py",
+]
+
+
+@pytest.mark.parametrize("script_name", _RESTORE_SCRIPTS_WITH_FILTER)
+def test_restore_script_passes_skip_unsupported_sets(script_name: str) -> None:
+    """Every restore script that calls filter_dump_lines must pass skip_unsupported_sets=True.
+
+    Without this flag, newer pg_dump versions that emit SET transaction_timeout
+    and similar directives will cause restore failures on older Postgres clients.
+    """
+    source = (_SCRIPTS_ROOT / script_name).read_text()
+    assert "skip_unsupported_sets=True" in source, (
+        f"{script_name} calls filter_dump_lines without skip_unsupported_sets=True. "
+        "Add skip_unsupported_sets=True to the filter_dump_lines call in that script."
+    )

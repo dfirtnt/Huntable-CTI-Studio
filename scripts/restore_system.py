@@ -232,6 +232,7 @@ def restore_database(
             with opener() as f_in:
                 for filtered_line in filter_dump_lines(
                     f_in,
+                    skip_unsupported_sets=True,
                     skip_db_lifecycle=True,
                     rewrite_fk_constraints=True,
                 ):
