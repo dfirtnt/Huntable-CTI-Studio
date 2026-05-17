@@ -332,3 +332,112 @@ class TestAsyncDatabaseManager:
         """Test search_articles_by_lexical_terms returns [] for empty terms."""
         results = await manager.search_articles_by_lexical_terms(terms=[], limit=10)
         assert results == []
+
+    @pytest.mark.asyncio
+    async def test_create_source_upsert_returns_source(self, manager):
+        """create_source uses an upsert and returns the Source model from the DB row.
+
+        Regression: the old implementation used session.add() with no ON CONFLICT
+        guard, which produced duplicate rows when list_sources() silently returned [].
+        The new implementation uses pg_insert(...).on_conflict_do_update() so the
+        call is idempotent regardless of whether the row already exists.
+        """
+        from contextlib import asynccontextmanager
+        from datetime import datetime
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, Mock
+
+        from src.models.source import SourceConfig, SourceCreate
+
+        now = datetime.now()
+        fake_db_row = SimpleNamespace(
+            id=99,
+            identifier="talos-blog",
+            name="Cisco Talos",
+            url="https://blog.talosintelligence.com",
+            rss_url="https://blog.talosintelligence.com/rss.xml",
+            check_frequency=1800,
+            lookback_days=180,
+            active=True,
+            config={},
+            last_check=None,
+            last_success=None,
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=now,
+            updated_at=now,
+        )
+
+        mock_execute_result = Mock()
+        mock_execute_result.scalar_one = Mock(return_value=fake_db_row)
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_execute_result)
+        mock_session.commit = AsyncMock()
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_session
+
+        manager.get_session = mock_get_session
+
+        source_data = SourceCreate(
+            identifier="talos-blog",
+            name="Cisco Talos",
+            url="https://blog.talosintelligence.com",
+            rss_url="https://blog.talosintelligence.com/rss.xml",
+            active=True,
+            config=SourceConfig(check_frequency=1800, lookback_days=180),
+        )
+
+        result = await manager.create_source(source_data)
+
+        # Verify the result is a Source with the right identifier
+        assert result is not None
+        assert result.identifier == "talos-blog"
+        assert result.id == 99
+
+        # Verify it used execute (upsert path), not session.add (old blind-insert path)
+        mock_session.execute.assert_awaited_once()
+        mock_session.commit.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_create_source_upsert_does_not_use_session_add(self, manager):
+        """create_source must NOT call session.add() — that was the pre-upsert path
+        that allowed duplicates to be created when ON CONFLICT was absent."""
+        from contextlib import asynccontextmanager
+        from datetime import datetime
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, Mock
+
+        from src.models.source import SourceCreate
+
+        now = datetime.now()
+        fake_db_row = SimpleNamespace(
+            id=1, identifier="test-src", name="Test", url="https://t.co",
+            rss_url=None, check_frequency=3600, lookback_days=180,
+            active=True, config={}, last_check=None, last_success=None,
+            consecutive_failures=0, total_articles=0, average_response_time=0.0,
+            created_at=now, updated_at=now,
+        )
+
+        mock_execute_result = Mock()
+        mock_execute_result.scalar_one = Mock(return_value=fake_db_row)
+
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_execute_result)
+        mock_session.commit = AsyncMock()
+        mock_session.add = Mock()
+
+        @asynccontextmanager
+        async def mock_get_session():
+            yield mock_session
+
+        manager.get_session = mock_get_session
+
+        source_data = SourceCreate(identifier="test-src", name="Test", url="https://t.co")
+        await manager.create_source(source_data)
+
+        # session.add() must never be called — that was the old blind-insert path
+        mock_session.add.assert_not_called()
