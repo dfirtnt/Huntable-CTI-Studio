@@ -178,6 +178,7 @@ datasets/
 !config/eval_articles_data/**/ground_truth.json
 !package.json
 !package-lock.json
+!.mcp.json
 !browser-extension/manifest.json
 !data/diagnoses/.gitkeep
 *.parquet
