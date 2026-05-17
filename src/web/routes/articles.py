@@ -292,7 +292,10 @@ async def delete_article(article_id: int):
 
 @router.get("/{article_id}/workflow-status")
 def api_get_article_workflow_status(article_id: int):
-    """Return whether this article has a completed execution under the current active config."""
+    """Return whether this article has a completed execution under the current active config.
+
+    Also returns the most recent execution ID for the article so the UI can offer a direct link.
+    """
     try:
         from src.database.manager import DatabaseManager
         from src.database.models import AgenticWorkflowExecutionTable
@@ -304,7 +307,7 @@ def api_get_article_workflow_status(article_id: int):
             service = WorkflowTriggerService(db_session)
             config = service.get_active_config()
             if not config:
-                return {"processed_with_current_config": False}
+                return {"processed_with_current_config": False, "latest_execution_id": None}
 
             completed = (
                 db_session.query(AgenticWorkflowExecutionTable)
@@ -314,13 +317,18 @@ def api_get_article_workflow_status(article_id: int):
                     AgenticWorkflowExecutionTable.config_snapshot["config_id"].as_integer() == config.id,
                     AgenticWorkflowExecutionTable.config_snapshot["config_version"].as_integer() == config.version,
                 )
+                .order_by(AgenticWorkflowExecutionTable.id.desc())
                 .first()
             )
-            return {"processed_with_current_config": completed is not None}
+            latest_execution_id = completed.id if completed is not None else None
+            return {
+                "processed_with_current_config": completed is not None,
+                "latest_execution_id": latest_execution_id,
+            }
         finally:
             db_session.close()
 
     except Exception as exc:  # noqa: BLE001
         logger.error("API workflow-status error for article %s: %s", article_id, exc)
         # Fail open: unknown status means treat as unprocessed so the button still works
-        return {"processed_with_current_config": False}
+        return {"processed_with_current_config": False, "latest_execution_id": None}

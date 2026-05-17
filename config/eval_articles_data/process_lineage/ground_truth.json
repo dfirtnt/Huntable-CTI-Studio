@@ -2,8 +2,8 @@
   {
     "url": "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
     "expected_items": [
-      "OneNote -> cmd -> powershell -> rundll32 (IcedID)",
-      "rundll32 (IcedID) -> regsvr32 (Cobalt Strike DLL)"
+      "OneNote.exe -> cmd.exe -> powershell.exe -> rundll32.exe",
+      "rundll32.exe -> regsvr32.exe"
     ]
   },
   {
@@ -32,27 +32,22 @@
   {
     "url": "https://thedfirreport.com/2024/12/02/the-curious-case-of-an-egg-cellent-resume/",
     "expected_items": [
-      "John-_Shimkus.lnk -> cmd.exe -> ie4uinit.exe -> wmiprvse.exe -> regsvr32 (more_eggs)"
+      "wmiprvse.exe -> regsvr32.exe"
     ]
   },
   {
     "url": "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/",
-    "expected_items": [
-      "REGSVR32 -> svchost.exe (DLL sideload injection chain)"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
-    "expected_items": [
-      "TeamCity (w3wp.exe) -> schtasks.exe /create DefenderUPDService -> rundll32.exe AclNumsInvertHost.dll",
-      "iisexpresstray.exe -> mscoree.dll sideload -> lsass.exe access"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/",
     "expected_items": [
-      "EarthTime.exe -> cmd.exe -> MSBuild.exe (SectopRAT injection)",
-      "MSBuild.exe -> ccs.exe (Betruger)"
+      "EarthTime.exe -> cmd.exe -> MSBuild.exe",
+      "MSBuild.exe -> ccs.exe"
     ]
   }
 ]

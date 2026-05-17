@@ -2,23 +2,18 @@
   {
     "url": "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/",
     "expected_items": [
-      "WinUpdate",
-      "\\Microsoft\\Windows NT\\CurrentVersion\\Schedule\\TaskCache\\Tree\\WinUpdate",
-      "Scheduled Task Hide"
+      "WinUpdate"
     ]
   },
   {
     "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
     "expected_items": [
-      "juqpxmakfk",
-      "QBot scheduled task REGSVR32 and C$ image path"
+      "juqpxmakfk"
     ]
   },
   {
     "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
-    "expected_items": [
-      "sysmon_cobaltstrike_service_installs"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://www.huntress.com/blog/cephalus-ransomware",

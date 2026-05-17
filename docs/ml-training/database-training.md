@@ -182,23 +182,35 @@ UPDATE article_annotations SET used_for_training = TRUE
 WHERE LENGTH(selected_text) BETWEEN 950 AND 1050;
 ```
 
-## Migration from CSV
+## Fresh Install / Bootstrap
 
-### Migration Script
+On a clean install or after a restore where `models/content_filter.pkl` is
+missing, seed the model from the bundled eval article fixtures before annotating:
+
 ```bash
-python scripts/migrate_feedback_csv_to_db.py
+python3 scripts/seed_model.py
+docker-compose restart web
 ```
 
-**What it does**:
-- Reads existing `chunk_classification_feedback.csv`
-- Imports data into database table
-- Preserves all existing feedback
-- Marks as `used_for_training = FALSE` for new training
+`seed_model.py` chunks the 52 fixture articles in `config/eval_articles_data/`,
+labels each chunk against the ground-truth `expected_items`, and trains a
+baseline RandomForest (F1 ≈ 0.69 huntable). The resulting pkl replaces
+pattern-only classification immediately and improves with each retrain cycle.
+
+Run `python3 scripts/seed_model.py --dry-run` to preview corpus stats without
+training.
+
+## Migration from CSV (historical)
+
+The original training pipeline stored feedback in CSV files. That system was
+replaced by database-backed storage (2025-10-18). No migration script is
+needed for current installs — all feedback and annotations flow through the
+database automatically.
 
 ### Backward Compatibility
-- **CSV Files**: Still exist but not used for new training
+- **CSV Files**: No longer used for new training
 - **Evaluation Data**: `eval_set.csv` remains unchanged
-- **Original Training**: `combined_training_data.csv` used as baseline
+- **Bootstrap Baseline**: `models/seed_training_data.csv` (written by `seed_model.py`) serves as the initial corpus when no prior CSV baseline exists
 
 ## Benefits
 

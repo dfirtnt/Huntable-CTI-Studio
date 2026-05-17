@@ -520,8 +520,26 @@ docker exec -it cti_postgres psql -U cti_user -d cti_scraper -c "SELECT COUNT(*)
 
 # 2. Verify models
 ls -la models/
-python -c "import pickle; pickle.load(open('models/content_filter.pkl', 'rb'))"
+python3 -c "
+from src.utils.content_filter import ContentFilter
+cf = ContentFilter()
+print('Model loaded' if cf.load_model() else 'Model missing')
+"
 ```
+
+> **If `models/` is empty after restore** — the backup was taken from an instance
+> where the model file was also absent (e.g. a previous clean install). The
+> `ml_model_versions` table will contain version history, but the pkl artifact is
+> gone. Seed a new baseline model from the bundled fixtures:
+>
+> ```bash
+> python3 scripts/seed_model.py
+> docker-compose restart web
+> ```
+>
+> Then annotate articles and retrain via MLOps → Retrain to incorporate your
+> data. Version history from before the restore is preserved in the database and
+> will appear in the ML performance charts.
 
 ### Recovery Testing
 

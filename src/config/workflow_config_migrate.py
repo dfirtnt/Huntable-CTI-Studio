@@ -252,13 +252,15 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         "ProcTreeAttentionPreprocessorEnabled": _bool_val(proc_tree_pre, True),
     }
 
-    # Prompts: only canonical agent names (no ExtractAgentSettings; that lives under Execution)
+    # Prompts: only canonical agent names (no ExtractAgentSettings; that lives under Execution).
+    # ExtractAgent is also excluded: it is a model/provider fallback key only and carries no prompt.
     from src.config.workflow_config_schema import CANONICAL_PROMPT_AGENT_NAMES
 
+    _PROMPT_FREE_MIGRATE = {"ExtractAgentSettings", "ExtractAgent"}
     agent_prompts = raw.get("agent_prompts") or {}
     Prompts: dict[str, Any] = {}
     for name, val in agent_prompts.items():
-        if name == "ExtractAgentSettings":
+        if name in _PROMPT_FREE_MIGRATE:
             continue
         if name not in CANONICAL_PROMPT_AGENT_NAMES:
             continue

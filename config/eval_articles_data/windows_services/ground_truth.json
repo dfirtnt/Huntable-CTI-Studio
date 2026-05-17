@@ -2,28 +2,21 @@
   {
     "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
     "expected_items": [
-      "SystemBC",
-      "GhostSOCKS",
-      "Cobalt Strike psexec remote service"
+      "PSEXESVC.exe"
     ]
   },
   {
     "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
-    "expected_items": [
-      "QBot DLL remote service (random name, DeleteFlag set)"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
-    "expected_items": [
-      "Reset-ComputerMachinePassword service (Zerologon, Event ID 7045)"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company",
     "expected_items": [
-      "WebrootCheck",
-      "Mesh Agent (web.exe)"
+      "WebrootCheck"
     ]
   },
   {

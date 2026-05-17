@@ -37,6 +37,7 @@
         // Tracks whether the article has already been processed with the current active config.
         // Loaded async on page load; drives button label and force flag.
         let _articleProcessedWithCurrentConfig = false;
+        let _latestExecutionId = null;
 
         async function initWorkflowButtonState(articleId) {
             try {
@@ -44,6 +45,20 @@
                 if (resp.ok) {
                     const data = await resp.json();
                     _articleProcessedWithCurrentConfig = !!data.processed_with_current_config;
+                    _latestExecutionId = data.latest_execution_id || null;
+
+                    // Fallback: if the server predates the latest_execution_id field, resolve it
+                    // from the executions API so the "View last run" link always works.
+                    if (_articleProcessedWithCurrentConfig && !_latestExecutionId) {
+                        try {
+                            const execResp = await fetch(`/api/workflow/executions?article_id=${articleId}&status=completed&limit=1`);
+                            if (execResp.ok) {
+                                const execData = await execResp.json();
+                                const execs = execData.executions || [];
+                                if (execs.length > 0) _latestExecutionId = execs[0].id;
+                            }
+                        } catch (_) { /* non-fatal */ }
+                    }
                 }
             } catch (e) {
                 // Leave default (false = "Send to Workflow") on network error
@@ -54,13 +69,19 @@
         function updateWorkflowButtonLabel() {
             const btnText = document.getElementById('triggerWorkflowBtnText');
             const btn = document.getElementById('triggerWorkflowBtn');
+            const viewLastRunLink = document.getElementById('viewLastRunLink');
             if (!btnText || !btn) return;
             if (_articleProcessedWithCurrentConfig) {
                 btnText.textContent = 'Reprocess';
                 btn.title = 'Reprocess: bypasses idempotency gate and runs the pipeline even if this article was already processed with the current config. Use after changing prompts or model settings to get fresh output.';
+                if (viewLastRunLink && _latestExecutionId) {
+                    viewLastRunLink.href = `/workflow?open_execution=${_latestExecutionId}#executions`;
+                    viewLastRunLink.classList.remove('hidden');
+                }
             } else {
                 btnText.textContent = 'Send to Workflow';
                 btn.title = 'Send to Workflow: runs this article through the current agent config for the first time.';
+                if (viewLastRunLink) viewLastRunLink.classList.add('hidden');
             }
         }
 
@@ -382,15 +403,18 @@
                                     </span>
                                 {% endif %}
                             {% else %}
-                                <span class="article-help-anchor inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-help" tabindex="0" title="ML Hunt Score not yet calculated. Run chunk analysis to generate this score." aria-describedby="articleMlHuntScoreTooltip">
+                                <span id="mlHuntScoreAnchor" class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-pointer select-none" tabindex="0" onclick="toggleMlHuntScoreHelp(event)" onkeydown="if(event.key==='Enter'||event.key===' ')toggleMlHuntScoreHelp(event)" aria-haspopup="true" aria-controls="articleMlHuntScoreTooltip">
                                     TBD
-                                    <span id="articleMlHuntScoreTooltip" role="tooltip" class="article-help-bubble absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible whitespace-pre-line z-50 text-left shadow-lg">
-                                        <strong>ML Hunt Score: To Be Determined</strong><br><br>
-                                        This score requires chunk analysis to be run first.<br><br>
-                                        <strong>How to generate:</strong><br>
-                                        1. Scroll down to "Chunk Analysis" section and click "Run Full Analysis"<br>
-                                        2. Or run CLI: <code class="bg-gray-800 px-1 rounded text-xs">./run_cli.sh rescore-ml --article-id {{ article.id }}</code>
-                                    </span>
+                                    <svg class="w-3.5 h-3.5 flex-shrink-0 opacity-60" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                    </svg>
+                                </span>
+                                <span id="articleMlHuntScoreTooltip" role="tooltip" onclick="event.stopPropagation()" class="fixed px-3 py-2.5 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible z-[9999] text-left shadow-xl" style="white-space: normal; width: 18rem; transition: opacity 0.15s, visibility 0.15s;">
+                                    <strong>ML Hunt Score: To Be Determined</strong><br><br>
+                                    This score is calculated when the article runs through the agentic workflow.<br><br>
+                                    <strong>How to generate:</strong><br>
+                                    1. Click <strong>"Reprocess"</strong> (or "Send to Workflow") above — the ML score is stored automatically when the workflow completes.<br><br>
+                                    2. Or CLI (requires a prior workflow run):<br><code class="bg-gray-800 px-1 rounded text-xs">./run_cli.sh rescore-ml --article-id {{ article.id }}</code>
                                 </span>
                             {% endif %}
                         </span>
@@ -413,6 +437,11 @@
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
+
+                    <a id="viewLastRunLink" href="#" class="hidden inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors" title="Open the most recent execution of this article in the workflow view">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                        View last run
+                    </a>
 
                     <button onclick="showChunkDebugModal()" 
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -454,11 +483,9 @@
         
         <div id="keyword-matches-content" class="hidden mt-11">
             <div class="mb-4 space-y-3">
-                <p class="text-sm text-gray-600 dark:text-gray-300">
-                    Automatic keyword highlights use one precedence-aware match per span. If a term belongs to multiple automatic categories, the highest-priority category owns the rendered highlight.
-                </p>
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Automatic keyword highlights</span>
+                    <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-400 transition-colors" title="Overlapping keyword matches are split at every boundary. Each sub-span is won by the highest-priority category covering it (Perfect &gt; Good &gt; LOLBAS &gt; Intelligence &gt; Negative). On ties, the longer match wins. Adjacent sub-spans with the same winner are merged.">?</button>
                     {% for legend in keyword_resolution.automatic_legends %}
                     <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium text-gray-900 dark:text-gray-100 {{ legend.classes }}" title="{{ legend.title }}">
                         <span class="w-3 h-3 rounded border border-current/30 {{ legend.classes }}"></span>
@@ -9189,19 +9216,18 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     ${chunk.confidence && !isNaN(chunk.confidence) && chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
                 </div>
                 
-                <!-- Feedback Section (only show when ML model is available) -->
-                ${chunk.ml_details && !chunk.ml_details.error ? `
+                <!-- Feedback Section -->
                 <div class="mb-3 p-3 card">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-300">Was this ML classification correct?</span>
+                        <span class="text-sm font-medium text-gray-300">Was this classification correct?</span>
                         <div class="flex gap-2">
-                            <button onclick="submitChunkFeedback(${index}, true)" 
+                            <button onclick="submitChunkFeedback(${index}, true)"
                                     class="px-3 py-1 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                ✅ Correct - ${chunk.ml_details.prediction_label}
+                                ✅ Correct - ${chunk.ml_details && chunk.ml_details.prediction_label ? chunk.ml_details.prediction_label : (chunk.is_kept ? 'Huntable' : 'Not Huntable')}
                             </button>
-                            <button onclick="submitChunkFeedback(${index}, false)" 
+                            <button onclick="submitChunkFeedback(${index}, false)"
                                     class="px-3 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                ❌ Incorrect - ${chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable'}
+                                ❌ Incorrect - ${chunk.ml_details && chunk.ml_details.prediction_label ? (chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable') : (chunk.is_kept ? 'Not Huntable' : 'Huntable')}
                             </button>
                         </div>
                     </div>
@@ -9212,7 +9238,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         <!-- Previous feedback will be loaded here -->
                     </div>
                 </div>
-                ` : ''}
                 
                 <!-- Feature Details -->
                 <div class="mb-3">
@@ -10184,5 +10209,61 @@ ${JSON.stringify(rule.logsource, null, 2)}
     function toggleKeywordMatches() {
         toggleCollapsible('keyword-matches');
     }
+
+    // Poll for ML hunt score when TBD is shown
+    (function() {
+        const anchor = document.getElementById('mlHuntScoreAnchor');
+        if (!anchor) return;
+        const articleId = {{ article.id|default(0)|int }};
+        let pollInterval = null;
+
+        function updateMlScoreBadge(score) {
+            clearInterval(pollInterval);
+            const tooltip = document.getElementById('articleMlHuntScoreTooltip');
+            if (tooltip) tooltip.remove();
+            let cls, emoji;
+            if (score >= 80)      { cls = 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700';   emoji = '🤖'; }
+            else if (score >= 60) { cls = 'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700'; emoji = '🟡'; }
+            else if (score >= 40) { cls = 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700'; emoji = '🟠'; }
+            else                  { cls = 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700';                   emoji = '🔴'; }
+            const badge = document.createElement('span');
+            badge.className = `inline-flex items-center px-3 py-1 rounded-full text-sm font-bold ${cls}`;
+            badge.textContent = `${emoji} ${score.toFixed(1)}`;
+            anchor.replaceWith(badge);
+        }
+
+        async function pollForScore() {
+            try {
+                const resp = await fetch(`/api/articles/${articleId}`);
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const score = data.article_metadata && data.article_metadata.ml_hunt_score;
+                if (score !== null && score !== undefined) updateMlScoreBadge(parseFloat(score));
+            } catch (_) {}
+        }
+
+        pollInterval = setInterval(pollForScore, 10000);
+    })();
+
+    function toggleMlHuntScoreHelp(event) {
+        event.stopPropagation();
+        const tooltip = document.getElementById('articleMlHuntScoreTooltip');
+        const anchor = document.getElementById('mlHuntScoreAnchor');
+        if (!tooltip || !anchor) return;
+        if (tooltip.style.visibility === 'visible') {
+            tooltip.style.opacity = '0';
+            tooltip.style.visibility = 'hidden';
+            return;
+        }
+        const rect = anchor.getBoundingClientRect();
+        tooltip.style.top = (rect.bottom + 8) + 'px';
+        tooltip.style.right = (window.innerWidth - rect.right) + 'px';
+        tooltip.style.opacity = '1';
+        tooltip.style.visibility = 'visible';
+    }
+    document.addEventListener('click', function() {
+        const tooltip = document.getElementById('articleMlHuntScoreTooltip');
+        if (tooltip) { tooltip.style.opacity = '0'; tooltip.style.visibility = 'hidden'; }
+    });
 </script>
 {% endblock %}

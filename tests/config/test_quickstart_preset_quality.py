@@ -140,7 +140,7 @@ def test_quickstart_base_agent_temperatures_deterministic(preset_path: Path):
     assert not wrong, f"{preset_path.name}: Base agent temperatures must be 0.0. Non-zero values: {wrong}"
 
 
-_QA_PROMPT_REQUIRED_FIELDS = ("role", "evaluation_criteria", "instructions")
+_QA_PROMPT_REQUIRED_FIELDS = ("system", "evaluation_criteria", "instructions")
 
 
 @pytest.mark.parametrize("preset_path", _QUICKSTART_PRESETS, ids=lambda p: p.stem)
@@ -168,11 +168,11 @@ def test_quickstart_qa_prompts_complete(preset_path: Path):
             continue
 
         for field in _QA_PROMPT_REQUIRED_FIELDS:
-            if field == "role":
-                # Runtime accepts either 'role' or 'system' (mirrors llm_service._validate_qa_prompt_config)
-                value = parsed.get("role") or parsed.get("system")
+            if field == "system":
+                # Runtime accepts either 'system' or legacy 'role' (mirrors llm_service._validate_qa_prompt_config)
+                value = parsed.get("system") or parsed.get("role")
                 if not value:
-                    failures.append(f"{section}: QAPrompt.prompt missing or empty field 'role'/'system'")
+                    failures.append(f"{section}: QAPrompt.prompt missing or empty field 'system'/'role'")
                 continue
             value = parsed.get(field)
             if not value:

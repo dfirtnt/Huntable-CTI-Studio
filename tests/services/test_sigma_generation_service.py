@@ -10,6 +10,7 @@ from src.services.sigma_generation_service import (
     SigmaGenerationService,
     _build_observables_section,
     _extract_message_text,
+    _infer_observables_used,
     _is_reasoning_model,
 )
 from src.services.sigma_validator import ValidationResult
@@ -1443,3 +1444,207 @@ class TestSigmaSystemPromptPassthrough:
             "With no custom system prompt, caller should pass None to _call_provider_for_sigma "
             "so the internal default-substitution logic can run."
         )
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for _build_observables_section generic dict serialization
+# (fixes hardcoded process-lineage field names for non-process-lineage types)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildObservablesSectionGenericDictSerializer:
+    """_build_observables_section must use generic key=value serialization for
+    all dict-valued observables, not hardcoded parent/child/arguments fields."""
+
+    def test_windows_services_dict_serialized_with_real_content(self):
+        """windows_services value must produce readable key=value pairs, not empty parent/child."""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "windows_services",
+                    "value": {"service_name": "MalSvc", "binary_path": "C:\\evil.exe"},
+                }
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "service_name=MalSvc" in section
+        assert "binary_path=C:\\evil.exe" in section
+
+    def test_registry_artifacts_dict_serialized_with_real_content(self):
+        """registry_artifacts value must produce readable key=value pairs."""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "registry_artifacts",
+                    "value": {
+                        "key": "HKLM\\Software\\evil",
+                        "value_name": "socks5",
+                        "value_data": "powershell.exe -windowstyle hidden",
+                    },
+                }
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "key=HKLM\\Software\\evil" in section
+        assert "value_name=socks5" in section
+        assert "value_data=powershell.exe -windowstyle hidden" in section
+
+    def test_scheduled_tasks_dict_serialized_with_real_content(self):
+        """scheduled_tasks value must produce readable key=value pairs."""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "scheduled_tasks",
+                    "value": {"task_name": "\\Microsoft\\evil", "action": "cmd.exe /c evil.bat"},
+                }
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "task_name=\\Microsoft\\evil" in section
+        assert "action=cmd.exe /c evil.bat" in section
+
+    def test_none_values_skipped_in_dict_serialization(self):
+        """Keys with None values must be omitted from the serialized output."""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "windows_services",
+                    "value": {"service_name": "MySvc", "binary_path": None, "description": ""},
+                }
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "binary_path" not in section
+        assert "description" not in section
+        assert "service_name=MySvc" in section
+
+    def test_all_none_dict_values_shows_empty_marker(self):
+        """A dict whose every value is None or empty must produce '(empty)' not a blank line."""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "windows_services",
+                    "value": {"service_name": None, "binary_path": ""},
+                }
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "(empty)" in section
+
+    def test_process_lineage_dict_still_works_with_generic_serializer(self):
+        """process_lineage dicts must still produce readable output after switching to generic serializer."""
+        extraction_result = {
+            "observables": [
+                {
+                    "type": "process_lineage",
+                    "value": {"parent": "explorer.exe", "child": "powershell.exe", "arguments": "-enc abc"},
+                }
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "parent=explorer.exe" in section
+        assert "child=powershell.exe" in section
+        assert "arguments=-enc abc" in section
+
+    def test_mixed_scalar_and_dict_observables_in_same_section(self):
+        """Scalar and dict observables must both appear correctly in the same prompt section."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "cmd.exe /c whoami"},
+                {"type": "windows_services", "value": {"service_name": "EvilSvc", "binary_path": "C:\\evil.exe"}},
+            ]
+        }
+        section = _build_observables_section(extraction_result)
+        assert "[0] cmdline:" in section
+        assert "cmd.exe /c whoami" in section
+        assert "[1] windows_services:" in section
+        assert "service_name=EvilSvc" in section
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for _infer_observables_used token quality fixes
+# (filters 'none'/'redacted' stop-tokens; resolves _REDACTED prefix matches)
+# ---------------------------------------------------------------------------
+
+
+class TestInferObservablesUsedTokenQuality:
+    """_infer_observables_used must not match on 'none'/'redacted' stop-tokens
+    and must try the prefix portion of _REDACTED-suffixed values."""
+
+    def _make_rule(self, detection_content: str) -> str:
+        return (
+            "title: Test\nid: t1\ndescription: x\n"
+            "logsource:\n  category: process_creation\n  product: windows\n"
+            f"detection:\n  selection:\n    {detection_content}\n  condition: selection\nlevel: low\n"
+        )
+
+    def test_none_string_token_does_not_produce_false_match(self):
+        """An observable whose only token is 'none' must not match any rule."""
+        extraction_result = {
+            "observables": [
+                {"type": "windows_services", "value": {"service_name": None, "binary_path": None}},
+            ]
+        }
+        rule_yaml = self._make_rule("CommandLine|contains: powershell")
+        result = _infer_observables_used(rule_yaml, extraction_result)
+        assert result is None, "None-valued observable falsely matched via 'none' token"
+
+    def test_redacted_token_suffix_does_not_match_literally(self):
+        """The token '_redacted' on its own must be filtered as a stop-token."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "SomeApp_REDACTED"},
+            ]
+        }
+        # Detection block contains the literal word 'redacted' -- should not match
+        rule_yaml = self._make_rule("CommandLine|contains: redacted")
+        result = _infer_observables_used(rule_yaml, extraction_result)
+        assert result is None, "Token 'redacted' should be filtered as a stop-token"
+
+    def test_redacted_prefix_matches_in_detection_block(self):
+        """GoToResolve_REDACTED must try the prefix 'gotoresolve' for matching."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "GoToResolve_REDACTED"},
+            ]
+        }
+        rule_yaml = self._make_rule("CommandLine|contains: gotoresolve")
+        result = _infer_observables_used(rule_yaml, extraction_result)
+        assert result == [0], (
+            "GoToResolve_REDACTED prefix 'gotoresolve' should match in the detection block"
+        )
+
+    def test_redacted_prefix_too_short_not_used(self):
+        """A _REDACTED prefix shorter than 4 chars must not be used as a match token."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "cmd_REDACTED"},
+            ]
+        }
+        rule_yaml = self._make_rule("CommandLine|contains: cmd")
+        # 'cmd' is only 3 chars, below the 4-char threshold
+        result = _infer_observables_used(rule_yaml, extraction_result)
+        assert result is None
+
+    def test_valid_non_redacted_token_still_matches(self):
+        """Normal observable values must still match correctly after token filter changes."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "mimikatz sekurlsa"},
+            ]
+        }
+        # 'mimikatz' and 'sekurlsa' are both >=4 chars and appear in the detection block
+        rule_yaml = self._make_rule("CommandLine|contains: mimikatz")
+        result = _infer_observables_used(rule_yaml, extraction_result)
+        assert result == [0]
+
+    def test_null_token_stop_word_filtered(self):
+        """The token 'null' (common in serialized output) must be filtered as a stop-token."""
+        extraction_result = {
+            "observables": [
+                {"type": "cmdline", "value": "null"},
+            ]
+        }
+        rule_yaml = self._make_rule("CommandLine|contains: null")
+        result = _infer_observables_used(rule_yaml, extraction_result)
+        assert result is None

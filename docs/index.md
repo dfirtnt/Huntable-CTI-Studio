@@ -31,6 +31,7 @@ git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
 ./setup.sh --no-backups
 ./start.sh
+python3 scripts/seed_model.py  # required on first install or after a restore
 ```
 
 If prompted, you can run the MkDocs docs server in the background; logs go to `logs/mkdocs.log`.

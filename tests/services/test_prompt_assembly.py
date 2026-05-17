@@ -80,7 +80,7 @@ class TestTraceabilityBlockAllowlist:
                 title="Test Article",
                 url="https://example.com/test",
                 prompt_config={
-                    "role": "You are a test extractor.",
+                    "system": "You are a test extractor.",
                     "task": "Extract test artifacts.",
                     "instructions": "Output valid JSON.",
                     "json_example": '{"items":[],"count":0}',
@@ -211,7 +211,7 @@ class TestLegacyScaffold:
                 title="Malware Analysis Report",
                 url="https://example.com/report",
                 prompt_config={
-                    "role": "You are an extractor.",
+                    "system": "You are an extractor.",
                     "user_template": "IGNORED TEMPLATE: {title}",
                     "objective": "Extract commands.",
                     "instructions": "Output valid JSON.",
@@ -235,7 +235,7 @@ class TestLegacyScaffold:
                 title="Test",
                 url="https://example.com",
                 prompt_config={
-                    "role": "You are an extractor.",
+                    "system": "You are an extractor.",
                     "task": "Extract.",
                     "instructions": "Output JSON.",
                     "output_format": {"items": [], "count": 0},
@@ -274,7 +274,7 @@ class TestPresetUserPrefix:
                 title="Test",
                 url="https://example.com",
                 prompt_config={
-                    "role": "You are an extractor.",
+                    "system": "You are an extractor.",
                     "user": "Analyze the following threat intelligence article.",
                     "task": "Extract.",
                     "instructions": "Output JSON.",
@@ -394,7 +394,7 @@ class TestTaskKeyFallback:
                 title="Test",
                 url="https://example.com",
                 prompt_config={
-                    "role": "You are a test extractor.",
+                    "system": "You are a test extractor.",
                     "task": "Extract only Windows command-line literals for EDR use.",
                     "instructions": "Output valid JSON.",
                     "json_example": '{"items":[],"count":0}',
@@ -426,7 +426,7 @@ class TestTaskKeyFallback:
                 title="Test",
                 url="https://example.com",
                 prompt_config={
-                    "role": "You are a test extractor.",
+                    "system": "You are a test extractor.",
                     "objective": "Objective text (should win).",
                     "task": "Task text (should lose).",
                     "instructions": "Output valid JSON.",

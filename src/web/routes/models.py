@@ -166,6 +166,14 @@ async def api_model_retrain():
                 )
 
                 if result.returncode == 0:
+                    # Clear the cached ContentFilter singleton so the next request loads the retrained model
+                    try:
+                        from src.web.dependencies import get_content_filter
+
+                        get_content_filter.cache_clear()
+                    except Exception:
+                        pass
+
                     # Get the latest model version after successful retraining
                     try:
                         from src.database.async_manager import AsyncDatabaseManager

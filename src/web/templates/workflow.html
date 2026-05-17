@@ -2595,14 +2595,20 @@
           }
 
           if (typeof EXTRACT_SUB_AGENTS !== 'undefined' && EXTRACT_SUB_AGENTS.includes(agentName)) {
-            // Extraction sub-agents store a JSON object in the system textarea.
-            // Run the same hard-fail + warn-only checks as _validate_extraction_prompt_config
-            // in llm_service.py (extractor-standard.md).
+            // Extraction sub-agents accept two valid system-prompt shapes:
+            //   1. Full JSON envelope (role/task/json_example/instructions) -- validated below.
+            //   2. Plain role-persona string -- saveAgentPrompt2 will wrap it into the
+            //      existing envelope (see line ~10527). For this shape, JSON validation
+            //      does not apply; the non-empty check earlier in this function is sufficient.
             let parsed;
             try {
               parsed = JSON.parse(systemVal);
             } catch (e) {
-              issues.push({ level: 'error', msg: 'System prompt is not valid JSON. Cannot validate structure.' });
+              // Plain role text -- valid shape, skip envelope validation.
+              return issues;
+            }
+            // Defensive: a JSON-parsed scalar (e.g. a quoted string) is also plain-role.
+            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
               return issues;
             }
 
@@ -6115,10 +6121,10 @@ function parsePromptParts(rawPrompt) {
                         }
                     }
 
-                    system = templateObj.role || '';
+                    system = templateObj.system || templateObj.role || '';
                     user = templateObj.user_template || '';
                     templateData = {
-                        role: templateObj.role || '',
+                        role: templateObj.system || templateObj.role || '',
                         user_template: templateObj.user_template || '',
                         task: templateObj.task || templateObj.objective || '',
                         json_example: typeof templateObj.json_example === 'string' ? templateObj.json_example : JSON.stringify(templateObj.json_example || {}, null, 2),
@@ -6128,15 +6134,15 @@ function parsePromptParts(rawPrompt) {
                     // Legacy simple format
                     system = parsed.system || '';
                     user = parsed.user || parsed.prompt || '';
-                } else if (parsed.role || parsed.objective) {
-                    // Standard Extractor Contract: role/task/json_example/instructions (no user_template).
+                } else if (parsed.system || parsed.role || parsed.objective) {
+                    // Standard Extractor Contract: system/task/json_example/instructions (no user_template).
                     // Expose the full config JSON as the editable system content -- the backend
-                    // extracts role/task/instructions from this object at runtime.
+                    // extracts system/task/instructions from this object at runtime.
                     system = rawPrompt;
                     user = '';
                     isTemplateFormat = true;
                     templateData = {
-                        role: parsed.role || '',
+                        role: parsed.system || parsed.role || '',
                         user_template: '',
                         task: parsed.task || parsed.objective || '',
                         json_example: typeof parsed.json_example === 'string' ? parsed.json_example : JSON.stringify(parsed.json_example || {}, null, 2),
@@ -6394,21 +6400,22 @@ async function saveAgentPrompt(agentName) {
         let parsedSystem = null;
         try { parsedSystem = JSON.parse(systemVal); } catch (_) {}
         let merged;
-        if (parsedSystem && typeof parsedSystem === 'object' && 'role' in parsedSystem) {
-            // Full JSON config edited -- use as-is
+        if (parsedSystem && typeof parsedSystem === 'object' && ('system' in parsedSystem || 'role' in parsedSystem)) {
+            // Full JSON config edited -- use as-is, but normalize legacy role key.
             merged = { ...parsedSystem };
+            if (merged.role && !merged.system) { merged.system = merged.role; }
         } else {
-            // Plain role string -- preserve existing envelope fields
+            // Plain system persona string -- preserve existing envelope fields
             merged = {
                 ...parsed,
-                role: systemVal,
+                system: systemVal,
                 task: parsed.task || "",
                 json_example: parsed.json_example || "{}",
                 instructions: parsed.instructions || ""
             };
         }
         delete merged.user;
-        delete merged.system;
+        delete merged.role;  // remove legacy key from any spread of old DB records
         delete merged.prompt;
         delete merged.user_template;  // not read by backend; keep JSON clean
         combinedPrompt = JSON.stringify(merged);
@@ -6416,7 +6423,7 @@ async function saveAgentPrompt(agentName) {
     } else if (isQAAgent) {
         const merged = {
             ...parsed,
-            role: systemVal,
+            system: systemVal,
             objective: parsed.objective || "",
             evaluation_criteria: parsed.evaluation_criteria || [],
             instructions: parsed.instructions || "",
@@ -6425,7 +6432,7 @@ async function saveAgentPrompt(agentName) {
             output_format: parsed.output_format || {}
         };
         delete merged.user;
-        delete merged.system;
+        delete merged.role;  // remove legacy key from any spread of old DB records
         delete merged.prompt;
         delete merged.user_template;
         combinedPrompt = JSON.stringify(merged);
@@ -8667,7 +8674,6 @@ async function loadAgentPrompts() {
                 console.log('📝 CmdlineExtract prompt preview:', prompt.substring(0, 150));
                 try {
                     const parsed = JSON.parse(prompt);
-                    console.log('📝 CmdlineExtract System (role):', parsed.role?.substring(0, 50) || 'empty');
                     console.log('📝 CmdlineExtract User (user_template):', parsed.user_template?.substring(0, 50) || 'empty');
                 } catch (e) {
                     console.log('📝 CmdlineExtract prompt (not JSON):', prompt.substring(0, 100));
@@ -8736,7 +8742,6 @@ function renderAgentPrompts() {
                 if (promptData.prompt) {
                     try {
                         const parsed = JSON.parse(promptData.prompt);
-                        console.log(`🎨 ${subAgent.name} parsed System (role):`, parsed.role?.substring(0, 50) || 'empty');
                         console.log(`🎨 ${subAgent.name} parsed User (user_template):`, parsed.user_template?.substring(0, 50) || 'empty');
                     } catch (e) {
                         console.log(`🎨 ${subAgent.name} prompt (not JSON):`, promptData.prompt.substring(0, 100));
@@ -10524,21 +10529,22 @@ async function saveAgentPrompt2(agentName, overrides = {}) {
         let parsedSystem = null;
         try { parsedSystem = JSON.parse(systemVal); } catch (_) {}
         let merged;
-        if (parsedSystem && typeof parsedSystem === 'object' && 'role' in parsedSystem) {
-            // Full JSON config edited -- use as-is
+        if (parsedSystem && typeof parsedSystem === 'object' && ('system' in parsedSystem || 'role' in parsedSystem)) {
+            // Full JSON config edited -- use as-is, but normalize legacy role key.
             merged = { ...parsedSystem };
+            if (merged.role && !merged.system) { merged.system = merged.role; }
         } else {
-            // Plain role string -- preserve existing envelope fields
+            // Plain system persona string -- preserve existing envelope fields
             merged = {
                 ...parsed,
-                role: systemVal,
+                system: systemVal,
                 task: parsed.task || "",
                 json_example: parsed.json_example || "{}",
                 instructions: parsed.instructions || ""
             };
         }
         delete merged.user;
-        delete merged.system;
+        delete merged.role;  // remove legacy key from any spread of old DB records
         delete merged.prompt;
         delete merged.user_template;  // not read by backend; keep JSON clean
         combinedPrompt = JSON.stringify(merged);
@@ -10546,7 +10552,7 @@ async function saveAgentPrompt2(agentName, overrides = {}) {
     } else if (isQAAgent) {
         const merged = {
             ...parsed,
-            role: systemVal,
+            system: systemVal,
             objective: parsed.objective || "",
             evaluation_criteria: parsed.evaluation_criteria || [],
             instructions: parsed.instructions || "",
@@ -10555,7 +10561,7 @@ async function saveAgentPrompt2(agentName, overrides = {}) {
             output_format: parsed.output_format || {}
         };
         delete merged.user;
-        delete merged.system;
+        delete merged.role;  // remove legacy key from any spread of old DB records
         delete merged.prompt;
         delete merged.user_template;
         combinedPrompt = JSON.stringify(merged);
@@ -18210,6 +18216,20 @@ function initializeTabs() {
         switchTab('config');
     }
     initWorkflowConfigAgentAccordion();
+
+    // Auto-open a specific execution when arriving from an article's "View last run" link.
+    // The link encodes the execution ID as ?open_execution=<id> so we can deep-link into the modal.
+    var openExecId = new URLSearchParams(window.location.search).get('open_execution');
+    if (openExecId && /^\d+$/.test(openExecId)) {
+        switchTab('executions');
+        // Give the executions tab a moment to render before opening the modal.
+        setTimeout(function() {
+            if (typeof viewExecution === 'function') {
+                viewExecution(parseInt(openExecId, 10));
+            }
+        }, 400);
+    }
+
     // Prevent hash-driven scroll: we use hash only for tab state. Reset scroll so the page
     // opens at the top. Also set flag so loadConfig can scroll after it finishes (async).
     function scrollWorkflowToTop() {

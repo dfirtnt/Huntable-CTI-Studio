@@ -226,8 +226,17 @@ Response:
 
 ## ML Model Setup
 
-The ML model is **automatically trained during `./setup.sh`**. No manual
-configuration is required for initial setup.
+The ML model is **not trained automatically** on a fresh install or restore.
+Run the seed script once to create `models/content_filter.pkl` from the bundled
+eval article fixtures:
+
+```bash
+python3 scripts/seed_model.py
+# then restart the server so the new model is picked up
+```
+
+The seed model provides a usable baseline (F1 ≈ 0.69 on huntable content).
+It improves quickly as you annotate articles and retrain — see [Retraining](#retraining) below.
 
 ### Defining "Huntable" for Your Use Case
 
@@ -255,15 +264,11 @@ python3 scripts/retrain_with_feedback.py
 docker-compose restart web
 ```
 
-**From exported annotations:**
-```bash
-python3 scripts/export_highlights.py highlighted_text_classifications.csv
-python3 scripts/train_content_filter.py --data highlighted_text_classifications.csv
-```
+**From a manual CSV** (columns: `highlighted_text`, `classification`):
 
-**From manual CSV** (columns: `highlighted_text`, `classification`):
+Pass the CSV as the `--original` argument to `retrain_with_feedback.py`:
 ```bash
-python3 scripts/train_content_filter.py --data your_training_data.csv
+python3 scripts/retrain_with_feedback.py --original your_training_data.csv
 ```
 
 ### Verification
@@ -281,15 +286,15 @@ print('Model loaded' if cf.model else 'Model failed to load')
 
 ## Troubleshooting
 
-**Model not found:**
+**Model not found / "ML model not available" in UI:**
 ```
 Error: [Errno 2] No such file or directory: 'models/content_filter.pkl'
 ```
-Run `python3 scripts/train_content_filter.py` to train from default data, or
-`./setup.sh` to run full setup.
-
-**"ML model not available" in UI after setup:**
-Re-run: `python3 scripts/train_content_filter.py --data models/default_content_filter_training_data.csv`
+Seed the model from the bundled fixtures, then restart the server:
+```bash
+python3 scripts/seed_model.py
+docker-compose restart web
+```
 
 **Model fails to load:**
 - Check file exists: `ls models/content_filter.pkl`

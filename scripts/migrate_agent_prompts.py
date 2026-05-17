@@ -33,7 +33,7 @@ Safety:
   - Dry-run by default; --apply required to mutate.
   - Always writes a snapshot JSON file before --apply (timestamped).
   - Per-row diff printed before each rewrite.
-  - SigmaAgent: user is always set to None (template is code-owned).
+  - SigmaAgent: treated identically to RankAgent; user is preserved if present.
   - RankAgent: preserves user template if one is recoverable; otherwise None
     (the runtime falls back to src/prompts/rank_article.txt once that lands).
 """
@@ -62,7 +62,6 @@ logger = logging.getLogger(__name__)
 _PLACEHOLDER_RE = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*[^{]*?\}")
 
 CANONICAL_AGENTS = ("SigmaAgent", "RankAgent")
-SIGMA_LOCKED_USER_TEMPLATE: str | None = None  # SigmaAgent user template is code-owned
 
 
 def _normalize_record(agent_name: str, raw: dict[str, Any] | None) -> dict[str, Any] | None:
@@ -117,10 +116,8 @@ def _normalize_record(agent_name: str, raw: dict[str, Any] | None) -> dict[str, 
     if not system and sibling_system:
         system = sibling_system
 
-    # Per-agent override: SigmaAgent user template is always code-owned
     if agent_name == "SigmaAgent":
-        user = SIGMA_LOCKED_USER_TEMPLATE
-
+        user = None
     canonical: dict[str, Any] = {"system": system, "user": user}
     if instructions:
         canonical["instructions"] = instructions

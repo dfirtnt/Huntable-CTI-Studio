@@ -75,9 +75,8 @@ def _build_observables_section(extraction_result: dict[str, Any] | None) -> str:
         obs_type = obs.get("type", "unknown")
         val = obs.get("value")
         if isinstance(val, dict):
-            val_str = (
-                f"parent={val.get('parent', '')}, child={val.get('child', '')}, arguments={val.get('arguments', '')}"
-            )
+            parts = [f"{k}={v}" for k, v in val.items() if v is not None and v != ""]
+            val_str = ", ".join(parts) if parts else "(empty)"
         else:
             val_str = str(val)[:120] + ("..." if len(str(val)) > 120 else "")
         lines.append(f"[{i}] {obs_type}: {val_str}")
@@ -155,7 +154,18 @@ def _infer_observables_used(rule_yaml: str, extraction_result: dict[str, Any]) -
         # Split on whitespace and common delimiters; keep tokens >=4 chars, non-numeric
         import re as _re
 
-        tokens = [t for t in _re.split(r"[\s/\\,;|=\[\]()]+", raw.lower()) if len(t) >= 4 and not t.isdigit()]
+        _STOP_TOKENS = {"none", "redacted", "null", "true", "false"}
+        raw_tokens = _re.split(r"[\s/\\,;|=\[\]()]+", raw.lower())
+        tokens = []
+        for t in raw_tokens:
+            if len(t) < 4 or t.isdigit() or t in _STOP_TOKENS:
+                continue
+            if t.endswith("_redacted"):
+                prefix = t[: t.rfind("_redacted")]
+                if len(prefix) >= 4:
+                    tokens.append(prefix)
+            else:
+                tokens.append(t)
         if any(t in detection_text for t in tokens):
             matched.append(i)
 

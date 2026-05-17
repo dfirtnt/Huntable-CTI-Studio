@@ -399,9 +399,11 @@
                                         </span>
                                     {% endif %}
                                 {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 relative group cursor-help" 
-                                          title="ML Hunt Score not yet calculated. Run chunk analysis to generate this score.">
+                                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-pointer select-none" tabindex="0" onclick="showMlHuntHelp(event)" onkeydown="if(event.key==='Enter'||event.key===' ')showMlHuntHelp(event)">
                                         TBD
+                                        <svg class="w-3.5 h-3.5 flex-shrink-0 opacity-60" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                                        </svg>
                                     </span>
                                 {% endif %}
                             </span>
@@ -544,6 +546,14 @@
     </div>
 </div>
 
+<!-- Shared ML Hunt Score help popover -->
+<div id="mlHuntHelpPopover" onclick="event.stopPropagation()" class="fixed px-3 py-2.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible z-[9999] text-left shadow-xl" style="white-space: normal; width: 18rem; transition: opacity 0.15s, visibility 0.15s;">
+    <strong class="block mb-1">ML Hunt Score: To Be Determined</strong>
+    <span class="text-gray-300 block mb-2">This score is calculated when the article runs through the agentic workflow.</span>
+    <strong class="block mb-1 text-white">How to generate:</strong>
+    <span class="text-gray-300">Open this article and click <strong class="text-white">"Reprocess"</strong> (or "Send to Workflow") — the ML score is stored automatically when the workflow completes.</span>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -575,7 +585,31 @@
     });
 
     // Note: Removed auto-submit on typing to prevent focus loss while entering text.
-    
+
+    function showMlHuntHelp(event) {
+        event.stopPropagation();
+        const popover = document.getElementById('mlHuntHelpPopover');
+        if (!popover) return;
+        const anchor = event.currentTarget;
+        const isOpen = popover.style.visibility === 'visible' && popover._anchor === anchor;
+        const rect = anchor.getBoundingClientRect();
+        popover.style.top = (rect.bottom + 8) + 'px';
+        popover.style.right = (window.innerWidth - rect.right) + 'px';
+        popover._anchor = anchor;
+        if (isOpen) {
+            popover.style.opacity = '0';
+            popover.style.visibility = 'hidden';
+            popover._anchor = null;
+        } else {
+            popover.style.opacity = '1';
+            popover.style.visibility = 'visible';
+        }
+    }
+    document.addEventListener('click', function() {
+        const popover = document.getElementById('mlHuntHelpPopover');
+        if (popover) { popover.style.opacity = '0'; popover.style.visibility = 'hidden'; popover._anchor = null; }
+    });
+
     // Dynamic sorting functionality
     function applySorting() {
         const sortBy = document.getElementById('sort-by').value;
