@@ -197,7 +197,7 @@
         <!-- System Health -->
         <div class="diag-card health-neutral" id="cardSystemHealth">
             <h2 class="diag-card-title">System Health</h2>
-            <p class="diag-card-meta">Overall status · version</p>
+            <p class="diag-card-meta">Overall status · last check</p>
             <div id="overallHealthStatus" class="diag-muted text-sm">
                 Click "Run All Health Checks" to get system status
             </div>
@@ -602,7 +602,7 @@ async function updateOverallHealthStatus() {
     const content = document.getElementById('overallHealthStatus');
     const card = document.getElementById('cardSystemHealth');
     if (card) card.className = 'diag-card ' + (data.status === 'healthy' ? 'health-ok' : data.status === 'unhealthy' || data.status === 'error' ? 'health-bad' : 'health-neutral');
-    content.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+    content.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div class="diag-inner-panel">
             <div class="flex items-center gap-2">
                 <span class="text-xl">${getHealthIcon(data.status)}</span>
@@ -618,15 +618,6 @@ async function updateOverallHealthStatus() {
                 <div>
                     <div class="text-xs diag-muted">Last Check</div>
                     <div class="font-mono text-sm" style="color:var(--text-secondary);">${formatTimestamp(data.timestamp)}</div>
-                </div>
-            </div>
-        </div>
-        <div class="diag-inner-panel">
-            <div class="flex items-center gap-2">
-                <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"/></svg>
-                <div>
-                    <div class="text-xs diag-muted">Version</div>
-                    <div class="font-mono text-sm" style="color:var(--text-secondary);">${data.version || '1.0.0'}</div>
                 </div>
             </div>
         </div>

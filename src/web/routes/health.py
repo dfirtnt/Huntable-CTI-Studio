@@ -30,7 +30,6 @@ async def health_check() -> dict[str, Any]:
                 "sources": stats["total_sources"],
                 "articles": stats["total_articles"],
             },
-            "version": "4.0.0",
         }
     except Exception as exc:
         logger.error("Health check failed: %s", exc)
@@ -50,7 +49,6 @@ async def api_health_check() -> dict[str, Any]:
                 "sources": stats["total_sources"],
                 "articles": stats["total_articles"],
             },
-            "version": "4.0.0",
         }
     except Exception as exc:
         logger.error("API health check failed: %s", exc)
