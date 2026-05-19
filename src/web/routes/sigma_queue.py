@@ -822,8 +822,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"API key required. Provide X-{provider.capitalize()}-API-Key. "
-                    f"Provider: {provider}, Model: {model}"
+                    f"API key required. Provide X-{provider.capitalize()}-API-Key. Provider: {provider}, Model: {model}"
                 ),
             )
 
@@ -853,17 +852,13 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     try:
                         content_filter = ContentFilter()
                         hunt_score = (
-                            article.article_metadata.get("threat_hunting_score", 0)
-                            if article.article_metadata
-                            else 0
+                            article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
                         )
                         filter_result = content_filter.filter_content(
                             article.content, min_confidence=0.8, hunt_score=hunt_score, article_id=article.id
                         )
                         article_content = filter_result.filtered_content or article.content
-                        logger.info(
-                            f"Including filtered article content ({len(article_content)} chars) for enrichment"
-                        )
+                        logger.info(f"Including filtered article content ({len(article_content)} chars) for enrichment")
                     except Exception as e:
                         logger.warning(f"Failed to filter article content: {e}, using original content")
                         article_content = article.content
@@ -955,7 +950,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             ) from e
                         if "insufficient_quota" in err.lower():
                             raise HTTPException(
-                                status_code=402, detail="OpenAI quota exceeded. Please check your plan and billing details."
+                                status_code=402,
+                                detail="OpenAI quota exceeded. Please check your plan and billing details.",
                             ) from e
                         raise HTTPException(status_code=502, detail=err) from e
                 elif provider == "anthropic":
@@ -1072,9 +1068,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                         # Check if there's a finish_reason that might explain the empty response
                                         finish_reason = response_data["choices"][0].get("finish_reason", "unknown")
                                         if finish_reason != "stop":
-                                            logger.warning(
-                                                f"LMStudio finish_reason: {finish_reason} (expected 'stop')"
-                                            )
+                                            logger.warning(f"LMStudio finish_reason: {finish_reason} (expected 'stop')")
                                         if idx < len(lmstudio_urls) - 1:
                                             continue
                                         error_detail = (
@@ -1100,16 +1094,12 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 error_text = response.text[:500] if hasattr(response, "text") else str(response)
 
                                 if response.status_code == 404:
-                                    error_detail = (
-                                        f"LMStudio model '{model}' not found. Load the model in LMStudio."
-                                    )
+                                    error_detail = f"LMStudio model '{model}' not found. Load the model in LMStudio."
                                     if idx < len(lmstudio_urls) - 1:
                                         logger.warning(f"LMStudio 404 at {chat_url}, trying next URL...")
                                         continue
                                 elif response.status_code == 503:
-                                    error_detail = (
-                                        "LMStudio service unavailable. Please ensure LMStudio is running."
-                                    )
+                                    error_detail = "LMStudio service unavailable. Please ensure LMStudio is running."
                                     if idx < len(lmstudio_urls) - 1:
                                         logger.warning(f"LMStudio 503 at {chat_url}, trying next URL...")
                                         continue
@@ -1155,9 +1145,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
                     if not raw_response:
                         urls_tried = ", ".join(lmstudio_urls)
-                        error_detail = (
-                            f"Failed to connect to LMStudio. Tried: {urls_tried}. Last error: {last_error}"
-                        )
+                        error_detail = f"Failed to connect to LMStudio. Tried: {urls_tried}. Last error: {last_error}"
                         error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
                         raise HTTPException(status_code=503, detail=error_detail)
 

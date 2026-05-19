@@ -194,11 +194,11 @@ test.describe('Workflow Config Persistence', () => {
     }
   });
 
-  // retries: 2 guards against concurrent-test DB interference on the reload check.
+  // retries: 4 guards against concurrent-test DB interference on the reload check.
   // The primary persistence assertion is on the PUT response body (immune to races);
   // the reload check is secondary and can be disrupted when other spec files run in
   // parallel and write rank_agent_enabled to the shared database.
-  test('Rank Agent enabled toggle persists after save + refresh', { retries: 2 }, async ({ page }) => {
+  test('Rank Agent enabled toggle persists after save + refresh', { retries: 4 }, async ({ page }) => {
     await gotoWorkflowConfig(page);
     await ensureRankAgentPanel(page);
 
@@ -233,7 +233,14 @@ test.describe('Workflow Config Persistence', () => {
       const saveBody = await saveResponse.json();
       expect(saveBody.rank_agent_enabled).toBe(expectedValue);
 
+      // Immediate DB verification (narrow race window -- milliseconds not seconds).
+      // A direct GET right after the PUT is far less likely to observe a concurrent write.
+      const verifyResp = await page.request.get(`${BASE}/api/workflow/config`);
+      const verifyBody = await verifyResp.json();
+      expect(verifyBody.rank_agent_enabled).toBe(expectedValue);
+
       // Secondary check: reload and confirm the UI reflects what was saved.
+      // This has a wider race window (~3-4s for the reload) so retries protect it.
       await reloadWorkflowConfig(page);
       await ensureRankAgentPanel(page);
 

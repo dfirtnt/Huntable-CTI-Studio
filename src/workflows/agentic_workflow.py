@@ -522,7 +522,7 @@ def _is_agent_allowed(
     eval_match: set[str] = set()
     if raw_eval:
         canonical, lookup_values = build_subagent_lookup_values(raw_eval)
-        for v in (lookup_values or set()):
+        for v in lookup_values or set():
             if v is not None and str(v).strip():
                 eval_match.add(str(v).strip().lower())
         if canonical and canonical not in eval_match:
@@ -556,9 +556,7 @@ def _is_agent_allowed(
     return matches
 
 
-def _parse_agent_result(
-    agent_name: str, result_key: str, agent_result: dict
-) -> tuple[list, dict]:
+def _parse_agent_result(agent_name: str, result_key: str, agent_result: dict) -> tuple[list, dict]:
     """Parse an extraction agent's raw result into (items, subresult_entry).
 
     HuntQueriesExtract has custom normalization; all other agents share a
@@ -1572,7 +1570,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             for agent_name, result_key in sub_agents:
                 # Consolidated eval-blocking check (replaces three formerly-separate inline checks)
-                if not _is_agent_allowed(agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]):
+                if not _is_agent_allowed(
+                    agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]
+                ):
                     subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "blocked_by_eval_filter"}}
                     conversation_log.append(
                         {"agent": agent_name, "items_count": 0, "result": {"status": "blocked_by_eval_filter"}}
@@ -1909,7 +1909,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     execution.error_log["extract_agent"] = {}
                 execution.error_log["extract_agent"]["completed"] = True
                 execution.error_log["extract_agent"]["completed_at"] = datetime.now().isoformat()
-
 
                 flag_modified(execution, "error_log")
                 db_session.commit()
@@ -3014,14 +3013,13 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     try:
                         _sigma_rules = final_state.get("sigma_rules", []) or []
                         import json as _json
+
                         _rules_serialized = _json.dumps(_sigma_rules)
                         # OTel attribute values have a practical size ceiling; if the full
                         # rules payload would exceed ~32KB, store only titles+ids to avoid
                         # silent truncation of the trace output attribute.
                         if len(_rules_serialized) > 32768:
-                            _sigma_rules_out = [
-                                {"title": r.get("title"), "id": r.get("id")} for r in _sigma_rules
-                            ]
+                            _sigma_rules_out = [{"title": r.get("title"), "id": r.get("id")} for r in _sigma_rules]
                         else:
                             _sigma_rules_out = _sigma_rules
                         trace.update(
@@ -3056,9 +3054,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                             "queued_rules_count": len(final_state.get("queued_rules", [])),
                         }
                         if not _success:
-                            _completion_result["failure_reason"] = (
-                                _extractor_failure_reason or str(_top_level_error)
-                            )
+                            _completion_result["failure_reason"] = _extractor_failure_reason or str(_top_level_error)
                         log_workflow_step(
                             trace,
                             "workflow_completed",

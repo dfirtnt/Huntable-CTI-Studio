@@ -131,9 +131,7 @@ class TestSettingsTemplateUsesSharedMacro:
 
     def test_no_old_diagnosis_provider_id(self, settings_raw_text):
         """The old camelCase ID must not appear anywhere."""
-        assert "diagnosisProvider" not in settings_raw_text, (
-            "settings.html still references old 'diagnosisProvider' ID"
-        )
+        assert "diagnosisProvider" not in settings_raw_text, "settings.html still references old 'diagnosisProvider' ID"
 
     def test_no_old_diagnosis_change_function(self, settings_raw_text):
         """The old standalone function must be replaced."""

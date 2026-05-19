@@ -452,3 +452,46 @@ class TestApiSourceStats:
 
         # Only the article with score=80 is included
         assert result["avg_threat_hunting_score"] == 80.0
+
+
+# ---------------------------------------------------------------------------
+# Auth regression
+# ---------------------------------------------------------------------------
+
+
+def test_sources_endpoints_require_no_explicit_auth_depends():
+    """Regression: sources endpoints must not use explicit FastAPI Depends() auth guards.
+
+    The Settings page sends no X-API-Key header. If any handler grows a
+    Depends(SomeAuthCallable) default the endpoint will silently return 401.
+
+    Note: Depends() with no argument (dependency=None) is the FastAPI idiom for
+    class-based query-parameter injection (e.g. SourceFilter) and is allowed.
+    Only Depends instances with a non-None dependency are flagged.
+    """
+    import inspect
+
+    from fastapi.params import Depends
+
+    from src.web.routes import sources as sources_routes
+
+    handlers = [
+        sources_routes.api_sources_list,
+        sources_routes.api_sources_failing,
+        sources_routes.api_get_source,
+        sources_routes.api_toggle_source_status,
+        sources_routes.api_collect_from_source,
+        sources_routes.api_update_source_min_content_length,
+        sources_routes.api_update_source_lookback,
+        sources_routes.api_update_source_check_frequency,
+        sources_routes.api_source_stats,
+    ]
+    for handler in handlers:
+        sig = inspect.signature(handler)
+        for param in sig.parameters.values():
+            if isinstance(param.default, Depends) and param.default.dependency is not None:
+                raise AssertionError(
+                    f"{handler.__name__} uses Depends({param.default.dependency!r}) -- "
+                    "sources endpoints must not use explicit auth guards; "
+                    "the Settings page sends no X-API-Key header"
+                )

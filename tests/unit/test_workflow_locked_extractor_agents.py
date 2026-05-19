@@ -46,9 +46,7 @@ class TestLockedExtractorAgents:
         which parse_sigma_agent_prompt_data then had to special-case.
         """
         names = _names_in_block(LOCKED_EXTRACTOR_BLOCK)
-        assert "SigmaAgent" not in names, (
-            f"SigmaAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
-        )
+        assert "SigmaAgent" not in names, f"SigmaAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
 
     def test_actual_extraction_agents_remain(self):
         """The genuine extraction agents -- which DO use task/json_example -- must stay listed."""
@@ -74,9 +72,7 @@ class TestLockedExtractorAgents:
         envelope and silently drop the user's persona.
         """
         names = _names_in_block(LOCKED_EXTRACTOR_BLOCK)
-        assert "RankAgent" not in names, (
-            f"RankAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
-        )
+        assert "RankAgent" not in names, f"RankAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +89,7 @@ class TestLockedExtractorAgents:
 # ---------------------------------------------------------------------------
 
 # The rendering array starts immediately after the subresults guard block.
-_RENDER_SECTION = TEMPLATE[TEMPLATE.find("if (exec.extraction_result?.subresults)"):]
+_RENDER_SECTION = TEMPLATE[TEMPLATE.find("if (exec.extraction_result?.subresults)") :]
 _RENDER_ARRAY_MATCH = re.search(
     r"const subAgents\s*=\s*\[(\s*\{.+?)\s*\]\s*;",
     _RENDER_SECTION,
@@ -124,8 +120,7 @@ class TestSubAgentsRenderingArray:
     def test_exactly_six_entries(self):
         count = len(re.findall(r"\{\s*key:", _RENDER_ARRAY_BLOCK))
         assert count == 6, (
-            f"Expected 6 sub-agent rendering entries, found {count}. "
-            "Update this count when adding a new extractor."
+            f"Expected 6 sub-agent rendering entries, found {count}. Update this count when adding a new extractor."
         )
 
     @pytest.mark.parametrize("key,agent_name", _EXPECTED_RENDER_ENTRIES)
@@ -136,12 +131,9 @@ class TestSubAgentsRenderingArray:
             f"The {agent_name} card will not render in the execution detail modal."
         )
         assert f"name: '{agent_name}'" in _RENDER_ARRAY_BLOCK, (
-            f"Rendering array is missing agent name '{agent_name}'. "
-            f"The card for key '{key}' will not render correctly."
+            f"Rendering array is missing agent name '{agent_name}'. The card for key '{key}' will not render correctly."
         )
 
     def test_scheduled_tasks_is_last(self):
         """ScheduledTasksExtract must be order 6 (last) -- it was added after the other five."""
-        assert "order: 6" in _RENDER_ARRAY_BLOCK, (
-            "ScheduledTasksExtract must have order: 6 in the rendering array."
-        )
+        assert "order: 6" in _RENDER_ARRAY_BLOCK, "ScheduledTasksExtract must have order: 6 in the rendering array."

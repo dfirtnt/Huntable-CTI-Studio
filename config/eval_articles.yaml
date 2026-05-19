@@ -93,7 +93,7 @@ subagents:
     - url: "https://www.huntress.com/blog/cephalus-ransomware"
       expected_count: 0
     - url: "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/"
-      expected_count: 0
+      expected_count: 1
   hunt_queries:
     - url: "https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/"
       expected_count: 3

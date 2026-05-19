@@ -42,7 +42,7 @@ def test_zero_items_extracted_still_populates_item_metrics():
     """REGRESSION: when expected_items is set and the model returns 0 items,
     the eval record should still have matched_count=0, missed_count=N, extra_count=0
     rather than leaving them as None (which renders as 'count only' on the UI)."""
-    expected = ["nltest /dclist:", "whoami /groups", "net group \"domain admins\" /domain"]
+    expected = ["nltest /dclist:", "whoami /groups", 'net group "domain admins" /domain']
     eval_record = _make_eval_record(expected)
     # Simulate "agent ran, returned zero items": subresults has the agent key but
     # no items (or items is empty). _extract_actual_count returns 0 either way.
@@ -96,9 +96,7 @@ def test_no_expected_items_skips_item_scoring():
     eval_record = _make_eval_record([])  # empty expected_items
     eval_record.expected_items = None  # mimic missing ground truth
     eval_record.expected_count = 5
-    extraction_result = {
-        "subresults": {"cmdline": {"items": [{"value": "whoami /groups"}], "count": 1}}
-    }
+    extraction_result = {"subresults": {"cmdline": {"items": [{"value": "whoami /groups"}], "count": 1}}}
     execution = _make_execution(extraction_result)
     db_session = MagicMock()
 

@@ -43,7 +43,13 @@ AGENT_MACRO_PARAMS = {
     "huntqueriesextract": ("huntqueriesextract", "HuntQueriesExtract_provider", "HuntQueriesExtract_model", True, True),
     "registryextract": ("registryextract", "RegistryExtract_provider", "RegistryExtract_model", True, True),
     "servicesextract": ("servicesextract", "ServicesExtract_provider", "ServicesExtract_model", True, True),
-    "scheduledtasksextract": ("scheduledtasksextract", "ScheduledTasksExtract_provider", "ScheduledTasksExtract_model", True, True),
+    "scheduledtasksextract": (
+        "scheduledtasksextract",
+        "ScheduledTasksExtract_provider",
+        "ScheduledTasksExtract_model",
+        True,
+        True,
+    ),
 }
 
 # Canonical dark-gray select class that every provider/model input must carry.
@@ -92,9 +98,7 @@ class TestModelSelectorLayoutConsistency:
 
     @pytest.mark.parametrize("prefix", AGENT_PREFIXES)
     def test_provider_select_exists(self, rendered_blocks, prefix):
-        assert f'id="{prefix}-provider"' in rendered_blocks[prefix], (
-            f"Missing provider select for '{prefix}'"
-        )
+        assert f'id="{prefix}-provider"' in rendered_blocks[prefix], f"Missing provider select for '{prefix}'"
 
     @pytest.mark.parametrize("prefix", AGENT_PREFIXES)
     def test_side_by_side_grid_wraps_provider(self, rendered_blocks, prefix):
@@ -108,27 +112,20 @@ class TestModelSelectorLayoutConsistency:
         block = rendered_blocks[prefix]
         for provider in ("lmstudio", "openai", "anthropic"):
             needle = f'data-agent-prefix="{prefix}" data-provider="{provider}"'
-            assert needle in block, (
-                f"Selector '{prefix}' missing data-agent-prefix wrapper for provider '{provider}'"
-            )
+            assert needle in block, f"Selector '{prefix}' missing data-agent-prefix wrapper for provider '{provider}'"
 
     @pytest.mark.parametrize("prefix", AGENT_PREFIXES)
     def test_provider_and_model_labels_present(self, rendered_blocks, prefix):
         block = rendered_blocks[prefix]
-        label_matches = re.findall(
-            r'class="block text-\[10px\][^"]*">(Provider|Model)</label>', block
-        )
+        label_matches = re.findall(r'class="block text-\[10px\][^"]*">(Provider|Model)</label>', block)
         assert "Provider" in label_matches and "Model" in label_matches, (
-            f"Selector '{prefix}' is missing the 'Provider' and/or 'Model' column labels. "
-            f"Found: {label_matches}"
+            f"Selector '{prefix}' is missing the 'Provider' and/or 'Model' column labels. Found: {label_matches}"
         )
 
     @pytest.mark.parametrize("prefix", AGENT_PREFIXES)
     def test_provider_select_uses_dark_gray_style(self, rendered_blocks, prefix):
         block = rendered_blocks[prefix]
-        m = re.search(
-            rf'<select[^>]*id="{prefix}-provider"[^>]*class="([^"]+)"', block
-        )
+        m = re.search(rf'<select[^>]*id="{prefix}-provider"[^>]*class="([^"]+)"', block)
         assert m, f"Could not locate class on {prefix}-provider <select>"
         cls = m.group(1)
         for token in DARK_SELECT_TOKENS:
@@ -141,9 +138,7 @@ class TestModelSelectorLayoutConsistency:
         """Provider select must wire up onAgentProviderChange with the right prefix."""
         block = rendered_blocks[prefix]
         expected = f"onAgentProviderChange('{prefix}')"
-        assert expected in block, (
-            f"'{prefix}-provider' select missing onchange handler '{expected}'"
-        )
+        assert expected in block, f"'{prefix}-provider' select missing onchange handler '{expected}'"
 
     @pytest.mark.parametrize("prefix", AGENT_PREFIXES)
     def test_model_select_has_correct_id(self, rendered_blocks, prefix):
@@ -183,8 +178,12 @@ class TestExtractAgentFallbackOption:
     """Extract agents (not QA) must have the fallback model option."""
 
     EXTRACT_PREFIXES = [
-        "cmdlineextract", "proctreeextract", "huntqueriesextract",
-        "registryextract", "servicesextract", "scheduledtasksextract",
+        "cmdlineextract",
+        "proctreeextract",
+        "huntqueriesextract",
+        "registryextract",
+        "servicesextract",
+        "scheduledtasksextract",
     ]
     QA_PREFIXES = [
         "rankqa",

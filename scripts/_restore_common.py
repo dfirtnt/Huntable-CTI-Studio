@@ -16,15 +16,6 @@ revalidating existing rows. Subsequent INSERT/UPDATE statements are still
 checked, so the schema invariant is preserved going forward; only legacy bad
 rows are grandfathered in. They can be cleaned up later with ``DELETE`` plus
 ``ALTER TABLE ... VALIDATE CONSTRAINT ...``.
-
-Why deduplicate PRIMARY KEY constraints?
-========================================
-If a migration added an explicit ``ALTER TABLE ADD CONSTRAINT ... PRIMARY KEY``
-to a table that already had one declared inline, the dump can contain two
-``ADD CONSTRAINT ... PRIMARY KEY`` blocks for the same table.  PostgreSQL
-rejects the second with "multiple primary keys are not allowed".  We track
-constraint names and silently discard any duplicate PK definition together with
-its preceding ``ALTER TABLE`` line.
 """
 
 from __future__ import annotations
@@ -40,10 +31,25 @@ _FK_CONSTRAINT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Matches a single-line "ADD CONSTRAINT <name> PRIMARY KEY ..." statement.
-# Captures the constraint name so we can detect duplicates.
-_PK_CONSTRAINT_RE = re.compile(
-    r"^\s*ADD CONSTRAINT\s+(\S+)\s+PRIMARY KEY\b",
+# Matches a COPY header line: COPY [schema.]table (col, ...) FROM stdin;
+_COPY_START_RE = re.compile(
+    r"^COPY\s+(?:\w+\.)?(\w+)\s+\(([^)]+)\)\s+FROM\s+stdin;\s*$",
+    re.IGNORECASE,
+)
+
+# Matches the end-of-COPY sentinel.
+_COPY_END = "\\.\n"
+
+# Matches the "ALTER TABLE [ONLY] [schema.]table" header line emitted by pg_dump
+# for multi-line constraint additions.
+_ALTER_TABLE_RE = re.compile(
+    r"^ALTER TABLE\s+(?:ONLY\s+)?(?:\w+\.)?(\w+)\s*$",
+    re.IGNORECASE,
+)
+
+# Matches the continuation line "    ADD CONSTRAINT <name> PRIMARY KEY ..."
+_ADD_PK_RE = re.compile(
+    r"^\s+ADD CONSTRAINT\s+\S+\s+PRIMARY KEY\b",
     re.IGNORECASE,
 )
 
@@ -78,7 +84,8 @@ def filter_dump_lines(
     skip_db_lifecycle: bool = False,
     skip_unsupported_sets: bool = False,
     rewrite_fk_constraints: bool = True,
-    deduplicate_pk_constraints: bool = True,
+    dedup_primary_keys: bool = True,
+    dedup_copy_rows: bool = True,
 ) -> Iterator[str]:
     """Yield filtered SQL dump lines.
 
@@ -91,56 +98,137 @@ def filter_dump_lines(
             that older psql clients do not understand.
         rewrite_fk_constraints: Append ``NOT VALID`` to FK constraint
             additions so dangling references do not abort the restore.
-        deduplicate_pk_constraints: Suppress duplicate
-            ``ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY`` blocks.
-            ``pg_dump`` can emit two such blocks for the same table when a
-            migration added an explicit PK to a table that already had one
-            defined inline; PostgreSQL rejects the second with "multiple
-            primary keys are not allowed".
+        dedup_primary_keys: Skip duplicate ``ALTER TABLE ... ADD CONSTRAINT
+            ... PRIMARY KEY`` blocks for tables that already had one emitted.
+            Prevents "multiple primary keys for table" errors when a backup was
+            taken from a DB where a migration accidentally defined the PK twice.
+        dedup_copy_rows: Within each COPY block, drop rows whose ``id`` column
+            value has already been emitted for that table.  Prevents
+            ``could not create unique index`` errors when the source DB had
+            duplicate PK values (e.g. because the PK constraint was temporarily
+            absent during a migration).  Keeps the first occurrence of each id.
     """
-    seen_pk_constraints: set[str] = set()
-    # Buffer for the "ALTER TABLE [ONLY] …" line that immediately precedes an
-    # "ADD CONSTRAINT" line.  We hold it back so we can discard it together
-    # with a duplicate PK line without having already flushed it to the output.
-    pending_alter_table: str | None = None
+    # State for primary-key deduplication.  pg_dump always emits the ALTER TABLE
+    # header and ADD CONSTRAINT body on adjacent lines with no blank line between
+    # them, so a two-line look-ahead is sufficient.
+    tables_with_pk: set[str] = set()
+    pending_alter_table: str | None = None   # table name being buffered
+    pending_alter_line: str | None = None    # the actual ALTER TABLE line text
 
-    def _flush_pending() -> Iterator[str]:
-        nonlocal pending_alter_table
-        if pending_alter_table is not None:
-            line = rewrite_fk_to_not_valid(pending_alter_table) if rewrite_fk_constraints else pending_alter_table
-            pending_alter_table = None
-            yield line
+    # State for COPY-row deduplication.
+    in_copy: bool = False
+    copy_id_col: int | None = None          # 0-based index of the "id" column
+    copy_seen_ids: set[str] = set()         # id values emitted so far for this COPY block
 
     for line in lines:
         upper = line.upper()
-        if skip_db_lifecycle and any(cmd in upper for cmd in _SKIP_DB_LIFECYCLE):
-            yield from _flush_pending()
-            continue
-        if skip_unsupported_sets and any(s in line for s in _SKIP_UNSUPPORTED_SETS):
-            yield from _flush_pending()
-            continue
 
-        if deduplicate_pk_constraints:
-            # Buffer ALTER TABLE lines so we can drop them alongside a
-            # duplicate PK ADD CONSTRAINT on the very next line.
-            if line.startswith("ALTER TABLE"):
-                yield from _flush_pending()
-                pending_alter_table = line
+        # --- primary-key dedup state machine ---
+        if dedup_primary_keys:
+            alter_m = _ALTER_TABLE_RE.match(line)
+            if alter_m:
+                # Flush any previously buffered ALTER TABLE that was NOT followed
+                # by an ADD CONSTRAINT PRIMARY KEY (i.e. it's for a different
+                # kind of constraint — emit it now).
+                if pending_alter_line is not None:
+                    pending_alter_line = _apply_line_filters(
+                        pending_alter_line,
+                        skip_db_lifecycle,
+                        skip_unsupported_sets,
+                        rewrite_fk_constraints,
+                    )
+                    if pending_alter_line is not None:
+                        yield pending_alter_line
+                pending_alter_table = alter_m.group(1).lower()
+                pending_alter_line = line
+                continue  # hold this line until we see what follows
+
+            if pending_alter_table is not None:
+                if _ADD_PK_RE.match(line):
+                    table = pending_alter_table
+                    saved_alter_line = pending_alter_line
+                    pending_alter_table = None
+                    pending_alter_line = None
+                    if table in tables_with_pk:
+                        # Drop both the ALTER TABLE header and this ADD CONSTRAINT line.
+                        continue
+                    tables_with_pk.add(table)
+                    # Emit the buffered ALTER TABLE line, then fall through to emit this line.
+                    yield saved_alter_line  # type: ignore[arg-type]
+                    # Fall through to emit the current ADD CONSTRAINT line below.
+                else:
+                    # Not a PRIMARY KEY constraint -- flush the buffer and continue normally.
+                    buffered = pending_alter_line
+                    pending_alter_table = None
+                    pending_alter_line = None
+                    buffered = _apply_line_filters(
+                        buffered,  # type: ignore[arg-type]
+                        skip_db_lifecycle,
+                        skip_unsupported_sets,
+                        rewrite_fk_constraints,
+                    )
+                    if buffered is not None:
+                        yield buffered
+                    # Fall through to process the current line normally.
+
+        # --- COPY-row dedup state machine ---
+        if dedup_copy_rows:
+            if not in_copy:
+                copy_m = _COPY_START_RE.match(line)
+                if copy_m:
+                    in_copy = True
+                    cols = [c.strip() for c in copy_m.group(2).split(",")]
+                    copy_id_col = cols.index("id") if "id" in cols else None
+                    copy_seen_ids = set()
+                    yield line
+                    continue
+            else:
+                # Inside a COPY block.
+                if line == _COPY_END or line.rstrip("\n") == "\\.":
+                    in_copy = False
+                    copy_id_col = None
+                    copy_seen_ids = set()
+                    yield line
+                    continue
+                if copy_id_col is not None:
+                    fields = line.split("\t")
+                    if len(fields) > copy_id_col:
+                        row_id = fields[copy_id_col]
+                        if row_id in copy_seen_ids:
+                            continue  # duplicate row -- drop it
+                        copy_seen_ids.add(row_id)
+                yield line
                 continue
 
-            pk_match = _PK_CONSTRAINT_RE.match(line)
-            if pk_match:
-                constraint_name = pk_match.group(1)
-                if constraint_name in seen_pk_constraints:
-                    # Duplicate: discard the buffered ALTER TABLE and this line.
-                    pending_alter_table = None
-                    continue
-                seen_pk_constraints.add(constraint_name)
+        # --- standard filters ---
+        filtered = _apply_line_filters(line, skip_db_lifecycle, skip_unsupported_sets, rewrite_fk_constraints)
+        if filtered is not None:
+            yield filtered
 
-        yield from _flush_pending()
+    # Flush any trailing buffered ALTER TABLE line (edge case: last statement in dump).
+    if dedup_primary_keys and pending_alter_line is not None:
+        filtered = _apply_line_filters(
+            pending_alter_line,
+            skip_db_lifecycle,
+            skip_unsupported_sets,
+            rewrite_fk_constraints,
+        )
+        if filtered is not None:
+            yield filtered
 
-        if rewrite_fk_constraints:
-            line = rewrite_fk_to_not_valid(line)
-        yield line
 
-    yield from _flush_pending()
+def _apply_line_filters(
+    line: str,
+    skip_db_lifecycle: bool,
+    skip_unsupported_sets: bool,
+    rewrite_fk_constraints: bool,
+) -> str | None:
+    """Apply the standard per-line filters; return None if the line should be dropped."""
+    upper = line.upper()
+    if skip_db_lifecycle and any(cmd in upper for cmd in _SKIP_DB_LIFECYCLE):
+        return None
+    if skip_unsupported_sets and any(s in line for s in _SKIP_UNSUPPORTED_SETS):
+        return None
+    if rewrite_fk_constraints:
+        line = rewrite_fk_to_not_valid(line)
+    return line

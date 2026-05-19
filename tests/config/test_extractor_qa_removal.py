@@ -74,7 +74,13 @@ class TestSchemaQAContract:
             },
             "Agents": {
                 "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-                "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+                "RankAgentQA": {
+                    "Provider": "openai",
+                    "Model": "gpt-4",
+                    "Temperature": 0.0,
+                    "TopP": 0.9,
+                    "Enabled": True,
+                },
                 "CmdLineQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             },
             "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
@@ -115,10 +121,22 @@ class TestMigrateStripsExtractorQAAgents:
             "RankAgentQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "CmdLineQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "ProcTreeQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "HuntQueriesQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "HuntQueriesQA": {
+                "Provider": "openai",
+                "Model": "gpt-4o",
+                "Temperature": 0.0,
+                "TopP": 0.9,
+                "Enabled": True,
+            },
             "RegistryQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "ServicesQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "ScheduledTasksQA": {"Provider": "openai", "Model": "gpt-4o", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
+            "ScheduledTasksQA": {
+                "Provider": "openai",
+                "Model": "gpt-4o",
+                "Temperature": 0.0,
+                "TopP": 0.9,
+                "Enabled": True,
+            },
         },
         "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
         "QA": {
@@ -159,8 +177,14 @@ class TestMigrateStripsExtractorQAAgents:
     def test_extractor_qa_enabled_flags_stripped(self):
         out = self._normalize()
         enabled = out.get("QA", {}).get("Enabled", {})
-        for extractor in ("CmdlineExtract", "ProcTreeExtract", "HuntQueriesExtract",
-                          "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"):
+        for extractor in (
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+            "ScheduledTasksExtract",
+        ):
             assert extractor not in enabled, f"QA.Enabled[{extractor}] should be stripped"
 
     def test_extractor_qa_prompts_stripped(self):
@@ -236,7 +260,7 @@ class TestSubAgentsTupleArity:
         # Extract all tuple-like strings from the sub_agents block.
         anchor = '"CmdlineExtract", "cmdline"'
         assert anchor in source, (
-            "Expected sub_agents entry '(\"CmdlineExtract\", \"cmdline\")' not found. "
+            'Expected sub_agents entry \'("CmdlineExtract", "cmdline")\' not found. '
             "Update this test if the sub_agents format changed."
         )
         # Verify the 3-tuple form is absent

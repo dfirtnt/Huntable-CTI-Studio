@@ -38,7 +38,7 @@ Planetary moons recognized by the International Astronomical Union (IAU), honori
 ### Available Planetary Moon Names
 
 Fresh candidates for future major releases (not yet used):
-Triton, Europa, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbriel, Dione, Rhea, Tethys, Mimas, Hyperion, Iapetus, Phoebe
+Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbriel, Dione, Rhea, Tethys, Mimas, Hyperion, Iapetus, Phoebe
 
 ### Used Names
 

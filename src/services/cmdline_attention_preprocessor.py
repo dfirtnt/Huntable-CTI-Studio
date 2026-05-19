@@ -411,8 +411,7 @@ def _extract_windowed_snippets(
 
     # Compute raw windows, merge overlapping ranges (sort by start, linear merge pass)
     raw: list[tuple[int, int]] = sorted(
-        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS))
-        for start, end in positions
+        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS)) for start, end in positions
     )
     merged: list[tuple[int, int]] = []
     for ws, we in raw:

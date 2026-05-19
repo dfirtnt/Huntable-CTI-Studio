@@ -76,9 +76,7 @@ class TestSigmaEnrichAPI:
             from fastapi import HTTPException
 
             with pytest.raises(HTTPException) as exc_info:
-                await enrich_rule(
-                    mock_request, queue_id=999999, enrich_request=EnrichRuleRequest(instruction="test")
-                )
+                await enrich_rule(mock_request, queue_id=999999, enrich_request=EnrichRuleRequest(instruction="test"))
 
             # Should return 404 if rule doesn't exist
             assert exc_info.value.status_code == 404

@@ -100,6 +100,8 @@ Do NOT extract:
   "ran through", "dropped").
 - Script filenames without an explicitly-named interpreter .exe.
 - Injection / hollowing / DLL loading / service registration / scheduled task creation as "process creation".
+- Shortcut files (.lnk). Windows .lnk shortcut files are NOT process images and are
+  NEVER valid as parents or children in process creation pairs.
 - Process names reconstructed from command-line examples where lineage is not stated.
 - Pairs derived from code listings, shell commands, or script bodies rather than narrative.
 - Pairs derived from diagrams, flowcharts, attack-chain graphics, or image captions
@@ -148,6 +150,9 @@ If a pair is technically present but has no detection engineering value, SKIP.
 - Same child with different parents = multiple items (one per parent).
 - Multi-step chain "A.exe spawned B.exe, which launched C.exe" = two items: (A,B) and (B,C).
   Do NOT infer (A,C).
+- Cross-chain deduplication: if the same (parent_image, child_image) pair appears as a hop
+  in multiple chains in the article, emit it ONCE. source_evidence references the first occurrence.
+- Self-referential hops where parent_image == child_image are NOT process creation. SKIP.
 
 ## EDGE CASES
 
@@ -159,6 +164,13 @@ If a pair is technically present but has no detection engineering value, SKIP.
 - Built-in normalization: "powershell spawned whoami" -> (powershell.exe, whoami.exe).
 - Parent = cmd.exe: SKIP entirely.
 - Injection: "malware.exe injected into explorer.exe" -> SKIP (not process creation).
+
+- Arrow-notation chain (no per-hop verb): "wsusservice.exe -> cmd.exe -> cmd.exe -> powershell.exe"
+  Arrow notation is valid creation verb evidence. Process each adjacent pair independently:
+  (wsusservice.exe, cmd.exe) -- EXTRACT (cmd.exe is the child here, not the parent)
+  (cmd.exe, cmd.exe) -- SKIP (parent is cmd.exe, blanket omission; also a self-referential hop)
+  (cmd.exe, powershell.exe) -- SKIP (parent is cmd.exe, blanket omission)
+  Apply all standard exclusion rules to each hop independently.
 
 ## VERIFICATION CHECKLIST
 
@@ -172,6 +184,8 @@ Apply to EVERY candidate before including it:
 - [ ] Is parent NOT cmd.exe after normalization?
 - [ ] Is there zero ambiguity?
 - [ ] Are all four traceability fields populated (value, source_evidence, extraction_justification, confidence_score)?
+- [ ] If source is an arrow-notation chain, is each adjacent pair evaluated as a separate candidate?
+- [ ] Is this a self-referential hop (parent == child)? (If yes: SKIP)
 
 ---
 

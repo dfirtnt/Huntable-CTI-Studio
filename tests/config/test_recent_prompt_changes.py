@@ -139,6 +139,7 @@ class TestQuickstartPresetCompliance:
         assert any(item.get("type") == "sigma" for item in example.get("queries", []))
         assert example.get("count") == len(example.get("queries", []))
 
+
 # ===========================================================================
 # D. Seed contract keys for newly rewritten agents
 # ===========================================================================
@@ -232,9 +233,7 @@ class TestProcTreeExtractHardening:
 
     def test_schtasks_in_verification_checklist(self, role_text):
         """The verification checklist must include the schtasks.exe check."""
-        assert "schtasks" in role_text, (
-            "ProcTreeExtract checklist must include the schtasks.exe parent check."
-        )
+        assert "schtasks" in role_text, "ProcTreeExtract checklist must include the schtasks.exe parent check."
 
     def test_instructions_final_reminder_references_exe(self, instructions_text):
         """The FINAL REMINDER block must reinforce the .exe rule."""

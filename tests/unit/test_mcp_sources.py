@@ -18,9 +18,17 @@ def _make_tools(db_mock):
     return {t.name: t for t in mcp._tool_manager.list_tools()}
 
 
-def _make_source(name="SANS ISC", id=1, url="https://isc.sans.edu", rss_url=None,
-                 total_articles=120, active=True, last_check=None,
-                 consecutive_failures=0, average_response_time=1.4):
+def _make_source(
+    name="SANS ISC",
+    id=1,
+    url="https://isc.sans.edu",
+    rss_url=None,
+    total_articles=120,
+    active=True,
+    last_check=None,
+    consecutive_failures=0,
+    average_response_time=1.4,
+):
     src = MagicMock()
     src.name = name
     src.id = id
@@ -58,9 +66,15 @@ def _make_sigma_stats(total=2000, embedded=1800, coverage=90.0, pending=200):
 class TestListSources:
     @pytest.mark.asyncio
     async def test_returns_formatted_source_list(self):
-        src = _make_source(name="Bleeping Computer", id=3, url="https://bleepingcomputer.com",
-                           total_articles=800, active=True, consecutive_failures=0,
-                           average_response_time=0.8)
+        src = _make_source(
+            name="Bleeping Computer",
+            id=3,
+            url="https://bleepingcomputer.com",
+            total_articles=800,
+            active=True,
+            consecutive_failures=0,
+            average_response_time=0.8,
+        )
         db = AsyncMock()
         db.list_sources.return_value = [src]
         fn = _make_tools(db)["list_sources"].fn
@@ -205,7 +219,9 @@ class TestGetStats:
     async def test_sigma_no_embeddings_shows_index_embeddings_hint(self):
         db = AsyncMock()
         db.get_article_embedding_stats.return_value = _make_article_stats()
-        db.get_sigma_rule_embedding_stats.return_value = _make_sigma_stats(total=100, embedded=0, coverage=0.0, pending=100)
+        db.get_sigma_rule_embedding_stats.return_value = _make_sigma_stats(
+            total=100, embedded=0, coverage=0.0, pending=100
+        )
         db.list_sources.return_value = []
         fn = _make_tools(db)["get_stats"].fn
 

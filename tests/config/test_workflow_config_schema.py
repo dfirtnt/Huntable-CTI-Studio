@@ -343,7 +343,6 @@ def test_missing_rankagentqa_prompt_raises():
         WorkflowConfigV2.model_validate(raw)
 
 
-
 def test_missing_required_qa_agent_raises():
     """Missing required QA agent for RankAgent raises ValidationError."""
     agents = {

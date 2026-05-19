@@ -510,8 +510,9 @@ test.describe('Sigma Queue UI', () => {
     await page.selectOption('#queueStatusFilter', 'approved');
     await page.waitForTimeout(800);
 
-    // Filter by queueId to avoid matching orphaned rows from previous runs
-    const row = page.locator('#queueTableBody tr').filter({ hasText: String(queueId) });
+    // Use the row's specific ID to avoid strict-mode violations from rows whose
+    // title text happens to contain the queue ID as a substring.
+    const row = page.locator(`#queue-row-${queueId}`);
     await expect(row).toBeVisible({ timeout: 10000 });
 
     // Approved rows should NOT have Approve/Reject buttons (only Preview)
