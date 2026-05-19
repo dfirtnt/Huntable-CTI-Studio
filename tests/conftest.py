@@ -228,8 +228,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-
-
 @pytest.fixture(scope="session")
 def test_environment_config():
     """Provide test environment configuration."""

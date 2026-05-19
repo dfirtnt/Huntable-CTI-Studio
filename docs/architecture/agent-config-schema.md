@@ -13,7 +13,7 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
   - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, sub-agents, QA agents, OSDetectionFallback).
   - **Embeddings**: OsDetection and Sigma (moved out of `agent_models`).
   - **QA**: Enabled (per-agent) and MaxRetries.
-  - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled. (OS Detection fallback and Rank Agent enablement are controlled via `Agents.OSDetectionFallback.Enabled` and `Agents.RankAgent.Enabled` respectively.)
+  - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (OS Detection fallback and Rank Agent enablement are controlled via `Agents.OSDetectionFallback.Enabled` and `Agents.RankAgent.Enabled` respectively.)
   - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
 - **Naming normalization**: The canonical name is `CmdLineQA`. Legacy configs using `CmdlineQA` are automatically migrated.

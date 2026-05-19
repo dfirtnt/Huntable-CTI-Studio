@@ -236,6 +236,5 @@ def test_backup_endpoints_require_no_admin_auth():
         sig = inspect.signature(handler)
         for param in sig.parameters.values():
             assert not isinstance(param.default, Depends), (
-                f"{handler.__name__} must not use FastAPI Depends() -- "
-                "the Settings page does not authenticate"
+                f"{handler.__name__} must not use FastAPI Depends() -- the Settings page does not authenticate"
             )

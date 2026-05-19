@@ -283,7 +283,6 @@ API Endpoints:
 │                 │
 │ • check_all_sources│
 │ • check_source  │
-│ • heal_source   │
 │ • cleanup_old_data│
 └─────────┬───────┘
           │
@@ -292,7 +291,6 @@ API Endpoints:
 │ Task Execution  │
 │                 │
 │ • Source Health │
-│ • Auto-Healing  │
 │ • Content Collection│
 │ • Data Cleanup  │
 └─────────┬───────┘

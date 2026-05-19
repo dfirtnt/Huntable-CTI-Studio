@@ -41,7 +41,6 @@ def test_display_names_are_non_empty_strings():
     assert not bad, f"Blank or non-string display names for: {bad}"
 
 
-
 def test_main_agents_all_covered():
     for name in AGENT_NAMES_MAIN:
         assert name in AGENT_DISPLAY_NAMES, f"Main agent {name!r} missing from AGENT_DISPLAY_NAMES"

@@ -92,21 +92,18 @@ def test_replace_cron_returns_success_when_cron_unavailable(monkeypatch):
     assert result["jobs"] == []
 
 
-def test_replace_cron_requires_no_admin_auth():
-    """Regression: PUT /api/cron must not require admin auth.
+def test_cron_endpoints_require_no_admin_auth():
+    """Regression: cron endpoints must not have FastAPI Depends() defaults.
 
-    The Settings page Save button has no mechanism to supply X-API-Key.
-    If RequireAdminAuth is re-added to this handler the endpoint will
-    return 401 for every save, breaking the cron editor save silently.
+    The Settings page sends no X-API-Key header. If either cron handler
+    grows a Depends(...) default the endpoint will silently return 401
+    and break the cron editor save.
     """
-    try:
-        from src.web.auth import RequireAdminAuth
-    except ImportError:
-        # auth module removed -- RequireAdminAuth cannot be used, check is moot
-        return
+    from fastapi.params import Depends
 
-    sig = inspect.signature(cron_routes.api_replace_cron)
-    for param in sig.parameters.values():
-        assert param.default is not RequireAdminAuth, (
-            "api_replace_cron must not use RequireAdminAuth -- the Settings page sends no X-API-Key header"
-        )
+    for handler in (cron_routes.api_get_cron, cron_routes.api_replace_cron):
+        sig = inspect.signature(handler)
+        for param in sig.parameters.values():
+            assert not isinstance(param.default, Depends), (
+                f"{handler.__name__} must not use FastAPI Depends() -- the Settings page does not authenticate"
+            )

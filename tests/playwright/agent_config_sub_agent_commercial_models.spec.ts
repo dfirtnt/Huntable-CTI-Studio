@@ -66,6 +66,12 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
     const providerSelect = page.locator('#cmdlineextract-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
+
     await providerSelect.selectOption('openai');
     await page.waitForTimeout(2000);
 
@@ -128,6 +134,12 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
     const providerSelect = page.locator('#rankqa-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
 
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
+
     await providerSelect.selectOption('openai');
     await page.waitForTimeout(2000);
 
@@ -160,6 +172,12 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
 
     const providerSelect = page.locator('#cmdlineextract-provider');
     await providerSelect.waitFor({ state: 'visible', timeout: 10000 });
+
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+      return;
+    }
 
     await providerSelect.selectOption('openai');
     await page.waitForTimeout(2000);
@@ -220,6 +238,12 @@ test.describe('Sub-agent commercial model inputs have onchange handler', () => {
 
     if (mainAgentHasSelect === null || !mainAgentHasSelect) {
       test.skip(true, 'Commercial model catalog not loaded in this environment');
+      return;
+    }
+
+    const hasOpenAI = await providerSelect.locator('option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
       return;
     }
 

@@ -27,6 +27,7 @@ pytestmark = [pytest.mark.api]
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_eval_record(
     url,
     version,
@@ -218,9 +219,7 @@ async def test_compare_basic_improvement():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     assert result["version_a"] == 10
     assert result["version_b"] == 11
@@ -251,9 +250,7 @@ async def test_compare_regression():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # A: score=0, B: score=-2 -> improvement = 0 - 2 = -2
@@ -276,9 +273,7 @@ async def test_compare_article_only_in_one_version():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     assert article["improvement"] is None
@@ -310,9 +305,7 @@ async def test_compare_sort_biggest_change_first():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     improvements = [a["improvement"] for a in result["articles"]]
     # url1 (imp=4) before url2 (imp=1), url3 (imp=None) last
@@ -345,9 +338,7 @@ async def test_compare_aggregate_perfect_matches():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     assert result["aggregate_a"]["perfect_matches"] == 1
     assert result["aggregate_a"]["perfect_match_percentage"] == 50.0
@@ -372,9 +363,7 @@ async def test_compare_preset_expected_overrides_record_expected():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # A: actual=3, preset_expected=3, score=0
@@ -412,7 +401,9 @@ def _va_ctx(db_manager):
 
     stack = ExitStack()
     stack.enter_context(patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager))
-    stack.enter_context(patch(*_VERSION_ARTICLES_PATCHES["resolve"][0:1], return_value=_VERSION_ARTICLES_PATCHES["resolve"][1]))
+    stack.enter_context(
+        patch(*_VERSION_ARTICLES_PATCHES["resolve"][0:1], return_value=_VERSION_ARTICLES_PATCHES["resolve"][1])
+    )
     stack.enter_context(patch(_VERSION_ARTICLES_PATCHES["excluded"][0], new=_VERSION_ARTICLES_PATCHES["excluded"][1]))
     return stack
 
@@ -428,9 +419,7 @@ async def test_version_articles_basic_returns_urls():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=42
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=42)
 
     assert result["config_version"] == 42
     assert result["count"] == 2
@@ -447,9 +436,7 @@ async def test_version_articles_empty_version_returns_empty():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=99
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=99)
 
     assert result["urls"] == []
     assert result["count"] == 0
@@ -466,9 +453,7 @@ async def test_version_articles_skips_none_urls():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=5
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=5)
 
     assert result["count"] == 2
     assert None not in result["urls"]
@@ -484,9 +469,7 @@ async def test_version_articles_response_has_required_keys():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=7
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=7)
 
     assert "config_version" in result
     assert "urls" in result
@@ -504,8 +487,6 @@ async def test_version_articles_count_matches_urls_length():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=20
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=20)
 
     assert result["count"] == len(result["urls"])

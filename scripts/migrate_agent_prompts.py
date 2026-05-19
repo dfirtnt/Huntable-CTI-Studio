@@ -116,8 +116,6 @@ def _normalize_record(agent_name: str, raw: dict[str, Any] | None) -> dict[str, 
     if not system and sibling_system:
         system = sibling_system
 
-    if agent_name == "SigmaAgent":
-        user = None
     canonical: dict[str, Any] = {"system": system, "user": user}
     if instructions:
         canonical["instructions"] = instructions

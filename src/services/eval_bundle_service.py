@@ -218,14 +218,12 @@ class EvalBundleService:
                 if subagent_eval.missed_count is not None:
                     workflow_meta["missed_count"] = subagent_eval.missed_count
                     workflow_meta["missed_items"] = [
-                        i for i in (subagent_eval.expected_items or [])
-                        if i not in (subagent_eval.actual_items or [])
+                        i for i in (subagent_eval.expected_items or []) if i not in (subagent_eval.actual_items or [])
                     ]
                 if subagent_eval.extra_count is not None:
                     workflow_meta["extra_count"] = subagent_eval.extra_count
                     workflow_meta["extra_items"] = [
-                        i for i in (subagent_eval.actual_items or [])
-                        if i not in (subagent_eval.expected_items or [])
+                        i for i in (subagent_eval.actual_items or []) if i not in (subagent_eval.expected_items or [])
                     ]
 
         if expected_count is not None:
@@ -286,9 +284,7 @@ class EvalBundleService:
         # INVARIANT: messages==[] AND status==completed is illegal — mark as infra_failed
         llm_messages = llm_request.get("messages") if isinstance(llm_request, dict) else []
         exec_status = execution_context.get("status", "") if isinstance(execution_context, dict) else ""
-        if (
-            not llm_messages
-        ) and exec_status == "completed":
+        if (not llm_messages) and exec_status == "completed":
             warnings.append("ILLEGAL_STATE_MESSAGES_EMPTY_BUT_COMPLETED")
             execution_context["infra_failed"] = True
             execution_context["infra_failed_reason"] = "messages empty but execution marked completed"

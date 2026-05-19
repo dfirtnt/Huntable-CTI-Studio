@@ -151,6 +151,40 @@ class DatabaseRestore:
             print(f"⚠️  Warning: Could not create snapshot: {e}")
             return None
 
+    # App containers that run create_tables() on startup — must be stopped before
+    # the restore so they don't race-create the schema on the fresh empty DB.
+    APP_CONTAINERS = ["cti_web", "cti_worker", "cti_workflow_worker", "cti_scheduler"]
+
+    def _stop_app_containers(self) -> list[str]:
+        """Stop running app containers; return list of containers that were stopped."""
+        stopped = []
+        for name in self.APP_CONTAINERS:
+            result = subprocess.run(
+                ["docker", "stop", name],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                stopped.append(name)
+                print(f"  Stopped {name}")
+            else:
+                # Container may not exist or already stopped — that's fine.
+                pass
+        return stopped
+
+    def _start_app_containers(self, containers: list[str]) -> None:
+        """Restart the containers that were stopped before the restore."""
+        for name in containers:
+            result = subprocess.run(
+                ["docker", "start", name],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                print(f"  Started {name}")
+            else:
+                print(f"  Warning: could not start {name}: {result.stderr.strip()}")
+
     def restore_database(self, backup_path: Path, force: bool = False) -> bool:
         """Restore database from backup file."""
         if not self.check_prerequisites():
@@ -163,6 +197,11 @@ class DatabaseRestore:
         snapshot_path = None
         if not force:
             snapshot_path = self.create_database_snapshot()
+
+        # Stop app containers so their startup create_tables() cannot race-create
+        # the schema on the fresh empty database while the restore SQL is running.
+        print("⏸️  Pausing app containers...")
+        stopped_containers = self._stop_app_containers()
 
         try:
             # Extract SQL content to temporary file
@@ -339,6 +378,11 @@ class DatabaseRestore:
             return False
 
         finally:
+            # Restart any app containers that were stopped before the restore.
+            if stopped_containers:
+                print("▶️  Restarting app containers...")
+                self._start_app_containers(stopped_containers)
+
             # Cleanup temporary files
             try:
                 temp_sql_path.unlink(missing_ok=True)

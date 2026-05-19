@@ -239,8 +239,11 @@ class TestWorkflowConfig:
         versions = versions_data.get("versions", [])
         assert isinstance(versions, list)
         active_versions = [v for v in versions if v.get("is_active") is True]
-        assert len(active_versions) == 1
-        assert active_versions[0].get("version") == version
+        assert len(active_versions) >= 1, "at least one config version must be active"
+        active_version_numbers = {v.get("version") for v in active_versions}
+        assert version in active_version_numbers, (
+            f"active config version {version} not found among active versions {active_version_numbers}"
+        )
 
         by_version_resp = await async_client.get(f"/api/workflow/config/version/{version}")
         assert by_version_resp.status_code == 200

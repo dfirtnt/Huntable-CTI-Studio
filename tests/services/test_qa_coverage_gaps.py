@@ -108,5 +108,3 @@ class TestEvalBundleStructuredExtractors:
         assert "execution_context" in bundle
         assert "integrity" in bundle
         assert bundle.get("infra_failed") is not True
-
-

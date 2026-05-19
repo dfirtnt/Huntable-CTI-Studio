@@ -2,8 +2,8 @@
   {
     "url": "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
     "expected_items": [
-      "OneNote.exe -> cmd.exe -> powershell.exe -> rundll32.exe",
-      "rundll32.exe -> regsvr32.exe"
+      "OneNote.exe -> cmd.exe",
+      "rundll32 (IcedID) -> regsvr32 (Cobalt Strike DLL)"
     ]
   },
   {
@@ -25,8 +25,8 @@
   {
     "url": "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability",
     "expected_items": [
-      "wsusservice.exe -> cmd.exe -> cmd.exe -> powershell.exe",
-      "w3wp.exe -> cmd.exe -> cmd.exe -> powershell.exe"
+      "wsusservice.exe -> cmd.exe",
+      "w3wp.exe -> cmd.exe"
     ]
   },
   {
@@ -41,13 +41,15 @@
   },
   {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
-    "expected_items": []
+    "expected_items": [
+      "w3wp.exe -> schtasks.exe"
+    ]
   },
   {
     "url": "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/",
     "expected_items": [
-      "EarthTime.exe -> cmd.exe -> MSBuild.exe",
-      "MSBuild.exe -> ccs.exe"
+      "EarthTime.exe -> cmd.exe",
+      "MSBuild.exe -> ccs.exe (Betruger)"
     ]
   }
 ]

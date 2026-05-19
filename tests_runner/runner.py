@@ -32,12 +32,15 @@ from tests_runner.tui import Glyph, _RunnerTUI  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
+
 # Thin wrappers to preserve internal call signatures
 def _load_dotenv() -> None:
     _load_dotenv_raw(project_root)
 
+
 def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_raw()
+
 
 # Enhanced debugging (best-effort; optional test utilities)
 try:
@@ -51,6 +54,7 @@ try:
         start_performance_monitoring,
         stop_performance_monitoring,
     )
+
     DEBUGGING_AVAILABLE = True
 except ImportError:
     DEBUGGING_AVAILABLE = False
@@ -1235,16 +1239,10 @@ class RunTestRunner:
                                 # Only announce categories in the declared groups so
                                 # marker-based runs don't overflow the progress bar denominator.
                                 pytest_groups_set = set(pytest_groups) if pytest_groups else set()
-                                if (
-                                    detected
-                                    and detected not in categories_seen
-                                    and detected in pytest_groups_set
-                                ):
+                                if detected and detected not in categories_seen and detected in pytest_groups_set:
                                     categories_seen.add(detected)
                                     elapsed = time.time() - pytest_start_time
-                                    progress_chars = [
-                                        "=" if c in categories_seen else " " for c in pytest_groups
-                                    ]
+                                    progress_chars = ["=" if c in categories_seen else " " for c in pytest_groups]
                                     n, total = len(categories_seen), len(pytest_groups)
                                     if tui.is_active:
                                         tui.on_category(categories_seen, test_count)
@@ -1257,7 +1255,12 @@ class RunTestRunner:
                             except (IndexError, AttributeError):
                                 pass
 
-                        if not tui.is_active and time.time() - last_progress_update > 3.0 and show_progress and sys.stdout.isatty():
+                        if (
+                            not tui.is_active
+                            and time.time() - last_progress_update > 3.0
+                            and show_progress
+                            and sys.stdout.isatty()
+                        ):
                             elapsed = time.time() - pytest_start_time
                             progress_chars = ["=" if c in categories_seen else " " for c in pytest_groups]
                             print(
@@ -1268,9 +1271,7 @@ class RunTestRunner:
                             )
                             last_progress_update = time.time()
 
-                    returncode = process.wait(
-                        timeout=self._remaining_timeout(pytest_start_time)
-                    )
+                    returncode = process.wait(timeout=self._remaining_timeout(pytest_start_time))
                     reader.join(timeout=5.0)
 
                     stdout_text = "".join(output_lines)
@@ -1359,7 +1360,9 @@ class RunTestRunner:
                     last_run = project_root / "tests" / "test-results" / ".last-run.json"
                     if not last_run.is_file():
                         print("\n" + "=" * 80)
-                        print(f"{Glyph.WARN}  --playwright-last-failed requires a previous Playwright run with failures.")
+                        print(
+                            f"{Glyph.WARN}  --playwright-last-failed requires a previous Playwright run with failures."
+                        )
                         print(
                             "   Run './run_tests.py ui' first (let Playwright complete), "
                             "then rerun with --playwright-last-failed."
@@ -1439,9 +1442,7 @@ class RunTestRunner:
                                 print(msg, end="", flush=True)
                                 pw_last_update = time.time()
 
-                        returncode = process.wait(
-                            timeout=self._remaining_timeout(playwright_start_time)
-                        )
+                        returncode = process.wait(timeout=self._remaining_timeout(playwright_start_time))
                         pw_reader.join(timeout=5.0)
 
                         stdout_text = "".join(pw_output_lines)
@@ -2045,5 +2046,3 @@ class RunTestRunner:
         print("  - Test environment guards prevent production DB access")
         print("  - Stateful tests require test containers (auto-started if needed)")
         print("  - See docs/TESTING_STRATEGY.md for details")
-
-

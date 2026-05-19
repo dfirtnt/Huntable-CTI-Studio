@@ -78,10 +78,8 @@ _INSTRUCTIONS_WARN_ONLY: list[tuple[str, str]] = [
 ]
 
 
-
 class PromptConfigValidationError(ValueError):
     """Raised when prompt config violates hard-fail contract requirements."""
-
 
 
 def _validate_extraction_prompt_config(agent_name: str, prompt_config: dict[str, Any]) -> None:
@@ -231,10 +229,7 @@ def _parse_rank_prompt(prompt_template: str) -> tuple[str, str | None]:
         if isinstance(parsed_prompt, dict):
             is_json_prompt = True
             user_template = (
-                parsed_prompt.get("user")
-                or parsed_prompt.get("user_template")
-                or parsed_prompt.get("prompt")
-                or ""
+                parsed_prompt.get("user") or parsed_prompt.get("user_template") or parsed_prompt.get("prompt") or ""
             )
             system_override = parsed_prompt.get("system") or parsed_prompt.get("role") or None
             if user_template:
@@ -379,9 +374,8 @@ class LLMService:
         lmstudio_db = self._load_lmstudio_settings()
 
         # Default model: AppSettings DB > env > hardcoded default
-        default_model = (
-            lmstudio_db.get("LMSTUDIO_MODEL")
-            or os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
+        default_model = lmstudio_db.get("LMSTUDIO_MODEL") or os.getenv(
+            "LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3"
         )
         self.lmstudio_model = default_model  # Keep for backward compatibility
         # Prefer AppSettings, fall back to env; if a key exists, default enable unless explicitly false
@@ -539,9 +533,7 @@ class LLMService:
 
             db_manager = DatabaseManager()
             db_session = db_manager.get_session()
-            for row in db_session.query(AppSettingsTable).filter(
-                AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)
-            ):
+            for row in db_session.query(AppSettingsTable).filter(AppSettingsTable.key.in_(LMSTUDIO_APPSETTING_KEYS)):
                 if row.value is not None and row.value.strip():
                     settings[row.key] = row.value.strip()
         except Exception as exc:
@@ -2103,9 +2095,7 @@ class LLMService:
         Returns:
             Dict with extraction results
         """
-        logger.info(
-            f"Running extraction agent {agent_name} (provider={provider}, model_name={model_name})"
-        )
+        logger.info(f"Running extraction agent {agent_name} (provider={provider}, model_name={model_name})")
 
         # Validate content is not empty
         if not content or len(content.strip()) == 0:
@@ -2265,9 +2255,7 @@ class LLMService:
                     snippets = preprocess_result.get("high_likelihood_snippets", [])
                     snippet_count = len(snippets)
                     full_article = preprocess_result.get("full_article", content)
-                    logger.debug(
-                        f"ProcTree attention preprocessor enabled: True. Snippets found: {snippet_count}"
-                    )
+                    logger.debug(f"ProcTree attention preprocessor enabled: True. Snippets found: {snippet_count}")
 
                     # Cheap mechanical invariant: byte-preserving preprocessor must not alter newline count
                     orig_nl = content.count("\n")

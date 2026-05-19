@@ -122,7 +122,7 @@ class RunnerTUI:
         from rich.panel import Panel
         from rich.text import Text
 
-        log_text = Text("\n".join(self._log_lines[-self.MAX_LOG_LINES:]))
+        log_text = Text("\n".join(self._log_lines[-self.MAX_LOG_LINES :]))
         log_panel = Panel(log_text, title="pytest output", border_style="dim")
 
         elapsed = time.time() - self._start_time
@@ -134,11 +134,7 @@ class RunnerTUI:
             if n_total
             else "[?]"
         )
-        status_line = (
-            f"Categories: {bar} {n_seen}/{n_total} | "
-            f"tests: {self._test_count} | "
-            f"elapsed: {m:02d}:{s:02d}"
-        )
+        status_line = f"Categories: {bar} {n_seen}/{n_total} | tests: {self._test_count} | elapsed: {m:02d}:{s:02d}"
         footer = Panel(Text(status_line, style="bold"), border_style="blue")
         return Group(log_panel, footer)
 

@@ -98,6 +98,7 @@ from tests_runner.env import strip_cloud_llm_keys as _strip_cloud_llm_keys_fn
 def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_fn()
 
+
 def _load_dotenv() -> None:
     _load_dotenv_fn(project_root)
 
@@ -137,14 +138,15 @@ from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType  # 
 
 
 
+
 def _in_ci() -> bool:
     """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
     return _in_ci_fn()
 
 
-from tests_runner.runner import RunTestRunner  # noqa: E402
 from tests_runner.cli import main  # noqa: E402
 
 if __name__ == "__main__":
     import asyncio
+
     raise SystemExit(asyncio.run(main()))
