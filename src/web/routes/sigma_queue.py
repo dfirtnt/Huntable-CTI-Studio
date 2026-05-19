@@ -219,6 +219,15 @@ class RuleYamlUpdateRequest(BaseModel):
     rule_yaml: str
 
 
+class BulkActionRequest(BaseModel):
+    """Request model for bulk queue operations."""
+
+    ids: list[int]
+    action: str  # "approve", "reject", "delete", "set_status"
+    status: str | None = None  # used when action == "set_status"
+    review_notes: str | None = None
+
+
 DEFAULT_SIGMA_ENRICHMENT_TOGGLES: dict[str, bool] = {f"d{i}": True for i in range(1, 8)}
 DEFAULT_SIGMA_ENRICHMENT_AUTHOR = "Huntable CTI Studio User"
 
@@ -578,6 +587,78 @@ async def reject_queued_rule(request: Request, queue_id: int):
         raise
     except Exception as e:
         logger.error(f"Error rejecting queued rule: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.delete("/{queue_id}")
+def delete_queued_rule(queue_id: int):
+    """Hard-delete a single queued rule."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            if not rule:
+                raise HTTPException(status_code=404, detail="Queued rule not found")
+            db_session.delete(rule)
+            db_session.commit()
+            return {"success": True, "message": f"Rule {queue_id} deleted"}
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting queued rule: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/bulk")
+def bulk_action_queued_rules(bulk: BulkActionRequest):
+    """Perform a bulk action (approve / reject / delete / set_status) on multiple queue items."""
+    if not bulk.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    valid_actions = {"approve", "reject", "delete", "set_status"}
+    if bulk.action not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of: {', '.join(valid_actions)}")
+    if bulk.action == "set_status" and not bulk.status:
+        raise HTTPException(status_code=400, detail="status is required for set_status action")
+
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            rules = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id.in_(bulk.ids)).all()
+            found_ids = {r.id for r in rules}
+            missing = [i for i in bulk.ids if i not in found_ids]
+
+            if bulk.action == "delete":
+                for rule in rules:
+                    db_session.delete(rule)
+            else:
+                target_status = (
+                    "approved" if bulk.action == "approve"
+                    else "rejected" if bulk.action == "reject"
+                    else bulk.status
+                )
+                now = datetime.now()
+                for rule in rules:
+                    rule.status = target_status
+                    rule.reviewed_at = now
+                    rule.reviewed_by = "system"
+                    if bulk.review_notes is not None:
+                        rule.review_notes = bulk.review_notes
+
+            db_session.commit()
+            result = {"success": True, "updated": len(rules), "action": bulk.action}
+            if missing:
+                result["missing_ids"] = missing
+            return result
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error performing bulk action on queued rules: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
