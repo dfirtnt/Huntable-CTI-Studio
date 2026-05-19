@@ -1174,6 +1174,8 @@
 .q-badge.rejected::before { background: var(--action-danger); box-shadow: 0 0 6px var(--action-danger); }
 .q-badge.submitted { color: var(--purple-light); }
 .q-badge.submitted::before { background: var(--purple-primary); box-shadow: 0 0 6px var(--purple-primary); }
+.q-badge.needs_review { color: var(--badge-yellow-text); }
+.q-badge.needs_review::before { background: #eab308; box-shadow: 0 0 6px #eab308; }
 
 /* Action links */
 .q-actions-cell {
@@ -2925,7 +2927,7 @@
     </div>
 
     <!-- Enrich system prompt expanded overlay -->
-    <div id="enrich-expanded-overlay" role="dialog" aria-modal="true" aria-label="Enrich system prompt editor" tabindex="-1" onclick="if(event.target===this)closeEnrichExpanded()" onkeydown="if(event.key==='Escape')closeEnrichExpanded()">
+    <div id="enrich-expanded-overlay" role="dialog" aria-modal="true" aria-label="Enrich system prompt editor" tabindex="-1" onclick="if(event.target===this)closeEnrichExpanded()">
       <div id="enrich-expanded-panel">
         <div class="prompt-exp-header">
           <div class="flex items-center gap-3">
@@ -3154,6 +3156,7 @@
                 <option value="approved">Approved</option>
                 <option value="rejected">Rejected</option>
                 <option value="submitted">Submitted</option>
+                <option value="needs_review">Needs Review</option>
             </select>
         </div>
 
@@ -3480,7 +3483,7 @@ STYLE AND FORMATTING RULES (SIGMA YAML)
 
 END SYSTEM PROMPT</textarea>
                     </div>
-                    <div>
+                    <div id="enrichOriginalSection">
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Original Rule:
                         </label>
@@ -3506,11 +3509,11 @@ END SYSTEM PROMPT</textarea>
                             <div class="grid grid-cols-2 gap-4">
                                 <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-gray-50 dark:bg-gray-900">
                                     <h6 class="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2" id="enrichLeftLabel">Original Rule</h6>
-                                    <pre id="enrichOriginalComparison" class="text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto" style="background: var(--panel-bg-0); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07);"></pre>
+                                    <pre id="enrichOriginalComparison" class="text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap font-mono resize-y min-h-[8rem] max-h-[80vh] overflow-y-auto" style="background: var(--panel-bg-0); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07);"></pre>
                                 </div>
                                 <div class="border border-gray-300 dark:border-gray-600 rounded-md p-3 bg-green-50 dark:bg-green-900/20">
                                     <h6 class="text-xs font-bold text-green-700 dark:text-green-300 mb-2" id="enrichRightLabel">Enriched Rule</h6>
-                                    <pre id="enrichedComparison" class="text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap font-mono max-h-96 overflow-y-auto" style="background: var(--panel-bg-0); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07);"></pre>
+                                    <pre id="enrichedComparison" class="text-xs p-2 rounded overflow-x-auto whitespace-pre-wrap font-mono resize-y min-h-[8rem] max-h-[80vh] overflow-y-auto" style="background: var(--panel-bg-0); color: var(--text-secondary); border: 1px solid rgba(255,255,255,0.07);"></pre>
                                 </div>
                             </div>
                         </div>
@@ -13713,9 +13716,9 @@ let queueTotal = 0;
 let queueLimit = 50;
 
 function getQueueStatusBadge(status) {
-    const known = ['pending', 'approved', 'rejected', 'submitted'];
+    const known = ['pending', 'approved', 'rejected', 'submitted', 'needs_review'];
     const cls = known.includes(status) ? status : '';
-    const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown';
+    const label = status ? status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Unknown';
     return `<span class="q-badge ${cls}">${label}</span>`;
 }
 
@@ -13865,7 +13868,7 @@ function renderQueue() {
                     ${formatLocalDateTime(rule.created_at)}
                 </td>
                 <td><div class="q-actions-cell">
-                    <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${rule.status === 'pending' ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>` : ''}
+                    <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${(rule.status === 'pending' || rule.status === 'needs_review') ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>` : ''}
                 </div></td>
             </tr>
         `;
@@ -13967,35 +13970,32 @@ async function seedValidateAgentLabel() {
     label.title = `SigmaAgent provider: ${provider}, model: ${model || '(default)'}`;
 }
 
+const OBS_TYPE_ORDER = ['cmdline', 'process_lineage', 'hunt_queries', 'registry_artifacts', 'windows_services', 'scheduled_tasks'];
 function filterObservablesForRule(rule, observablesData) {
     if (!observablesData?.observables) return observablesData;
     var indices = (rule.rule_metadata && rule.rule_metadata.observables_used) || null;
-    if (!indices || !Array.isArray(indices) || indices.length === 0) return { observables: { cmdline: [], process_lineage: [], hunt_queries: [] } };
-    var flat = [].concat(
-        observablesData.observables.cmdline || [],
-        observablesData.observables.process_lineage || [],
-        observablesData.observables.hunt_queries || []
-    );
+    const emptyObs = Object.fromEntries(OBS_TYPE_ORDER.map(t => [t, []]));
+    if (!indices || !Array.isArray(indices) || indices.length === 0) return { observables: emptyObs };
+    var flat = [].concat(...OBS_TYPE_ORDER.map(t => observablesData.observables[t] || []));
     var keep = {};
     indices.forEach(function(i) { if (i >= 0 && i < flat.length) keep[i] = true; });
-    var cmdLen = (observablesData.observables.cmdline || []).length;
-    var procLen = (observablesData.observables.process_lineage || []).length;
-    return {
-        observables: {
-            cmdline: (observablesData.observables.cmdline || []).filter(function(_, idx) { return keep[idx]; }),
-            process_lineage: (observablesData.observables.process_lineage || []).filter(function(_, idx) { return keep[cmdLen + idx]; }),
-            hunt_queries: (observablesData.observables.hunt_queries || []).filter(function(_, idx) { return keep[cmdLen + procLen + idx]; })
-        }
-    };
+    var offset = 0;
+    var result = {};
+    OBS_TYPE_ORDER.forEach(function(t) {
+        var bucket = observablesData.observables[t] || [];
+        result[t] = bucket.filter(function(_, idx) { return keep[offset + idx]; });
+        offset += bucket.length;
+    });
+    return { observables: result };
 }
 
 function observablesUsedSection(rule, observablesData) {
     const filtered = filterObservablesForRule(rule, observablesData);
     if (!filtered || !filtered.observables) return '';
     const obs = filtered.observables;
-    const total = (obs.cmdline?.length || 0) + (obs.process_lineage?.length || 0) + (obs.hunt_queries?.length || 0);
+    const total = OBS_TYPE_ORDER.reduce((sum, t) => sum + (obs[t]?.length || 0), 0);
     if (total === 0) return '<div class="mt-4"><details open class="border border-gray-600 rounded-lg"><summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Observables Used</summary><p class="px-3 pb-3 text-gray-400 text-sm">No observables for this execution.</p></details></div>';
-    const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries' };
+    const typeLabels = { cmdline: 'Command-line', process_lineage: 'Process Tree', hunt_queries: 'Hunt Queries', registry_artifacts: 'Registry Artifacts', windows_services: 'Windows Services', scheduled_tasks: 'Scheduled Tasks' };
     function confidenceBadge(score) {
         if (score == null) return '<span class="text-gray-500 text-xs">N/A</span>';
         const pct = Math.round(Number(score) * 100);
@@ -15226,6 +15226,7 @@ END SYSTEM PROMPT`;
     if (_vr) { _vr.style.display = 'none'; _vr.textContent = ''; }
 
     document.getElementById('enrichResult').classList.add('hidden');
+    document.getElementById('enrichOriginalSection')?.classList.remove('hidden');
     document.getElementById('enrichError').classList.add('hidden');
     document.getElementById('applyEnrichBtn').classList.add('hidden');
     document.getElementById('enrichFurtherBtn').classList.add('hidden');
@@ -15353,6 +15354,15 @@ async function saveEnrichSystemPromptEdit() {
     await saveEnrichmentPrompt();
 }
 
+// Bespoke overlay (outside ModalManager): close on Escape regardless of focus
+// location. An inline onkeydown on the div only fires while focus is inside the
+// overlay; a document-level listener mirrors how ModalManager handles Escape.
+function _enrichExpEscHandler(e) {
+    if (e.key === 'Escape') {
+        closeEnrichExpanded();
+    }
+}
+
 function openEnrichExpanded() {
     const ta = document.getElementById('enrichSystemPrompt');
     const expTA = document.getElementById('enrich-exp-system');
@@ -15371,6 +15381,8 @@ function openEnrichExpanded() {
     const overlay = document.getElementById('enrich-expanded-overlay');
     overlay.classList.add('visible');
     overlay.focus();
+    document.removeEventListener('keydown', _enrichExpEscHandler);
+    document.addEventListener('keydown', _enrichExpEscHandler);
 }
 
 function editEnrichExpanded() {
@@ -15404,6 +15416,7 @@ async function saveEnrichExpanded() {
 }
 
 function closeEnrichExpanded() {
+    document.removeEventListener('keydown', _enrichExpEscHandler);
     document.getElementById('enrich-expanded-overlay').classList.remove('visible');
     document.getElementById('enrichModal').classList.remove('hidden');
 }
@@ -15720,7 +15733,12 @@ async function loadPresetById(presetId, opts = {}) {
         } else {
             document.getElementById('enrichInstruction').value = '';
         }
-        
+        // The textarea is the source of truth but is hidden in view mode; the
+        // visible #enrichSystemPromptDisplay div must be refreshed or the preset's
+        // system prompt stays invisible (and an Edit->Cancel would discard it).
+        _syncEnrichDisplay();
+        _enrichSPViewMode();
+
         localStorage.setItem('enrichmentLastPresetId', String(id));
         
         if (!silent) {
@@ -16124,7 +16142,10 @@ async function enrichRule() {
             
             // Show result section first
             enrichResult.classList.remove('hidden');
-            
+            // The original rule now lives inside the comparison view, so hide the
+            // standalone input block to avoid showing it twice.
+            document.getElementById('enrichOriginalSection')?.classList.add('hidden');
+
             // Force a reflow to ensure DOM is updated
             enrichResult.offsetHeight;
             

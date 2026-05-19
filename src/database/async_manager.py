@@ -48,13 +48,13 @@ from src.models.annotation import (
     ArticleAnnotationUpdate,
 )
 from src.models.article import Article, ArticleCreate, ArticleListFilter, ArticleUpdate
+from src.models.source import (
+    INTERNAL_SOURCE_IDENTIFIERS as _INTERNAL_SOURCE_IDENTIFIERS,
+)
 from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
 from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
-
-# Sources excluded from user-facing counts (internal/synthetic feeds).
-_INTERNAL_SOURCE_IDENTIFIERS = ("manual", "eval_articles")
 
 
 class AsyncDatabaseManager:
@@ -153,6 +153,8 @@ class AsyncDatabaseManager:
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
+                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
                 ]:
                     await conn.execute(text(col_ddl))
             logger.info("Database tables created successfully")

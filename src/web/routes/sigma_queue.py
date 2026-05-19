@@ -182,6 +182,8 @@ class QueuedRuleResponse(BaseModel):
     rule_metadata: dict[str, Any] | None
     similarity_scores: list[dict[str, Any]] | None
     max_similarity: float | None
+    behavioral_matches_found: int | None = None
+    total_candidates_evaluated: int | None = None
     status: str
     reviewed_by: str | None
     review_notes: str | None
@@ -403,9 +405,11 @@ def list_queued_rules(
                 # Get article title
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
 
-                # Calculate max_similarity on-the-fly if missing
+                # Recompute on-the-fly only for legacy/never-scored rows. A row with
+                # evidence columns set but max_similarity=None is *inconclusive*
+                # (todo 001, C1) -- recomputing would just thrash back to None.
                 max_similarity = rule.max_similarity
-                if max_similarity is None:
+                if max_similarity is None and rule.behavioral_matches_found is None:
                     try:
                         # Lazy initialize matching service
                         if matching_service is None:
@@ -461,6 +465,8 @@ def list_queued_rules(
                         rule_metadata=rule.rule_metadata,
                         similarity_scores=rule.similarity_scores,
                         max_similarity=max_similarity,
+                        behavioral_matches_found=rule.behavioral_matches_found,
+                        total_candidates_evaluated=rule.total_candidates_evaluated,
                         status=rule.status,
                         reviewed_by=rule.reviewed_by,
                         review_notes=rule.review_notes,
@@ -2187,10 +2193,13 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             match_canonical_class = match_result.get("canonical_class")
             match_logsource_key = match_result.get("logsource_key", "") or ""
 
-            # Calculate max similarity
-            max_similarity = (
-                max([m.get("similarity", 0.0) for m in similar_matches], default=0.0) if similar_matches else 0.0
-            )
+            # Single source of truth (todo 001, C1+C2): an inconclusive comparator
+            # (candidates evaluated, 0 behavioral matches) yields None, never a
+            # fake 0.0 that masquerades as a confident novelty score.
+            from src.workflows.agentic_workflow import summarize_rule_novelty
+
+            _summary = summarize_rule_novelty(match_result)
+            max_similarity = _summary["max_similarity"]  # None when inconclusive
 
             # When no matches, attach diagnostic so UI can explain (e.g. repo not synced or no rules for this logsource)
             diagnostic = None
@@ -2242,10 +2251,22 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
                 if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
             ]
 
-            # Update the queued rule's max_similarity if it's None or different
-            if rule.max_similarity is None or abs(rule.max_similarity - max_similarity) > 0.001:
-                rule.max_similarity = max_similarity
+            # Persist evidence columns so the on-the-fly recompute guard (above)
+            # treats this row as scored; route inconclusive pending rows to needs_review.
+            new_max = _summary["max_similarity"]
+            new_behav = _summary["behavioral_matches_found"]
+            new_total = _summary["total_candidates_evaluated"]
+            if (
+                rule.max_similarity != new_max
+                or rule.behavioral_matches_found != new_behav
+                or rule.total_candidates_evaluated != new_total
+            ):
+                rule.max_similarity = new_max
+                rule.behavioral_matches_found = new_behav
+                rule.total_candidates_evaluated = new_total
                 rule.similarity_scores = to_store
+                if _summary["comparator_inconclusive"] and rule.status == "pending":
+                    rule.status = "needs_review"
                 try:
                     db_session.commit()
                 except Exception as commit_err:

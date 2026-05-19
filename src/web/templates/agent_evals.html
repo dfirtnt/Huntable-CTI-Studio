@@ -1091,7 +1091,7 @@ let _diagnosisCountsCache = null;
 async function applyDiagnosisCounts() {
     try {
         if (_diagnosisCountsCache === null) {
-            const resp = await fetch('/api/evals/diagnosis-counts');
+            const resp = await fetch('/api/evaluations/evals/diagnosis-counts');
             if (!resp.ok) return;
             _diagnosisCountsCache = await resp.json(); // {execution_id: count}
         }

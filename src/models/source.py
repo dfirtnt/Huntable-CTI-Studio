@@ -1,9 +1,14 @@
 """Pydantic models for Source entities."""
 
+from collections.abc import Iterable
 from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel
+
+# Synthetic/internal feeds that are not real ingestion sources. Excluded from
+# every source count so the dashboard and Sources page report the same numbers.
+INTERNAL_SOURCE_IDENTIFIERS: tuple[str, ...] = ("manual", "eval_articles")
 
 
 class SourceConfig(BaseModel):
@@ -86,3 +91,50 @@ class SourceHealth(BaseModel):
     total_articles: int
 
     model_config = {"from_attributes": True}
+
+
+class SourceCounts(BaseModel):
+    """Canonical source tallies shared by every UI surface."""
+
+    active: int = 0
+    inactive: int = 0
+    failing: int = 0
+    total: int = 0
+
+
+def _attr(source: Any, key: str, default: Any = None) -> Any:
+    if isinstance(source, dict):
+        return source.get(key, default)
+    return getattr(source, key, default)
+
+
+def is_internal_source(source: Any) -> bool:
+    """True for synthetic feeds (``manual``, ``eval_articles``) by identifier."""
+    return (_attr(source, "identifier", "") or "") in INTERNAL_SOURCE_IDENTIFIERS
+
+
+def summarize_sources(sources: Iterable[Any] | None) -> SourceCounts:
+    """Canonical active/inactive/failing/total tally.
+
+    De-duplicates by id and excludes internal feeds so the dashboard widget
+    and the Sources page stat chips can never disagree.
+    """
+    counts = SourceCounts()
+    seen: set[Any] = set()
+    for source in sources or []:
+        sid = _attr(source, "id")
+        if sid is not None:
+            if sid in seen:
+                continue
+            seen.add(sid)
+        if is_internal_source(source):
+            continue
+        counts.total += 1
+        if _attr(source, "active", True):
+            counts.active += 1
+        else:
+            counts.inactive += 1
+        failures = _attr(source, "consecutive_failures", 0) or 0
+        if failures > 0:
+            counts.failing += 1
+    return counts

@@ -11,6 +11,7 @@ from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import text as sa_text
 
 from src.database.async_manager import async_db_manager
+from src.models.source import summarize_sources
 from src.web.dependencies import logger
 
 router = APIRouter(prefix="/api/analytics", tags=["Analytics"])
@@ -34,7 +35,7 @@ async def api_scraper_overview():
 
         # Get active sources count
         sources = await async_db_manager.list_sources()
-        active_sources = len([s for s in sources if getattr(s, "active", True)])
+        active_sources = summarize_sources(sources).active
 
         # Real metrics from source_checks (last 7 days)
         avg_response_time = 0
