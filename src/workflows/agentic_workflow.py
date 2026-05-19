@@ -143,7 +143,7 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     return True, reason
 
 
-def summarize_rule_novelty(match_result: dict) -> dict:
+def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     """Classify one rule's novelty comparison for the review queue (todo 001, C1+C2).
 
     Distinguishes a *scored* low/zero result from an *inconclusive* one: the

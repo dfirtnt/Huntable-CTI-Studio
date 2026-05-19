@@ -43,7 +43,7 @@ subagents:
     - url: "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/"
       expected_count: 0
     - url: "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793"
-      expected_count: 0
+      expected_count: 1
     - url: "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/"
       expected_count: 2
   windows_services:
