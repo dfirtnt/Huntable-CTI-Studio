@@ -248,3 +248,104 @@ class TestObservableTypeCoverage:
         )
         assert len(result.observables["registry_artifacts"]) == 1
         assert len(result.observables["cmdline"]) == 0
+
+
+# ---------------------------------------------------------------------------
+# Cross-layer canonical-order contract
+#
+# A SIGMA rule's observables_used indices are 0-based offsets into the flat
+# extraction_result["observables"] list, which the supervisor builds in
+# canonical sub-agent order (agentic_workflow.py:1288 + :1355). Every frontend
+# consumer must reflatten by the SAME canonical OBS_TYPE_ORDER, or rule
+# provenance gets mis-attributed -- the silent recurrence pattern behind
+# be80168c, 8415f5bc, and the workflow.html observablesUsedSection twin.
+#
+# These tests pin the contract at both ends. A reorder anywhere -- schema,
+# backend, or any of the three templates -- trips a single named failure
+# pointing directly at the drifted file. This is the tripwire the
+# 18 backend tests above could not provide because they exercise
+# _build_observables_response with a hand-built envelope, never the
+# producer's ordering nor the template-duplicated consumers.
+# ---------------------------------------------------------------------------
+
+
+CANONICAL_AGENT_NAMES_SUB = [
+    "CmdlineExtract",
+    "ProcTreeExtract",
+    "HuntQueriesExtract",
+    "RegistryExtract",
+    "ServicesExtract",
+    "ScheduledTasksExtract",
+]
+
+CANONICAL_CATEGORIES = [
+    "cmdline",
+    "process_lineage",
+    "hunt_queries",
+    "registry_artifacts",
+    "windows_services",
+    "scheduled_tasks",
+]
+
+# Every template that flattens/unflattens the per-rule observables list.
+# Adding a fourth must add it here -- silence on a new file is the failure
+# mode this contract is designed to prevent.
+OBS_TYPE_ORDER_TEMPLATES = [
+    "src/web/templates/workflow.html",
+    "src/web/templates/workflow_executions.html",
+    "src/web/templates/sigma_queue.html",
+]
+
+
+class TestCanonicalObservableOrderContract:
+    """Pin the canonical sub-agent / observable-category ordering at the
+    schema (producer) AND every template (consumer) that depends on it."""
+
+    def test_agent_names_sub_matches_canonical_order(self):
+        """Schema tripwire. observables_used indices are numbered by
+        enumerating extraction_result["observables"], which the supervisor
+        builds in AGENT_NAMES_SUB order. Reordering this list silently
+        mis-attributes every rule's provenance going forward."""
+        from src.config.workflow_config_schema import AGENT_NAMES_SUB
+
+        assert list(AGENT_NAMES_SUB) == CANONICAL_AGENT_NAMES_SUB, (
+            "AGENT_NAMES_SUB drift would silently change observables_used "
+            "index numbering for every new execution. If reordering is "
+            "intentional, also update CANONICAL_CATEGORIES + every template's "
+            "OBS_TYPE_ORDER in lockstep."
+        )
+
+    @pytest.mark.parametrize("rel_path", OBS_TYPE_ORDER_TEMPLATES)
+    def test_frontend_obs_type_order_matches_canonical(self, rel_path):
+        """Template tripwire. Each template flattens/unflattens observables
+        using its own OBS_TYPE_ORDER. Three separate recurrences of the same
+        bug class (cmdline+proc+hunt only) traced to ONE template drifting
+        while the others were fixed -- this asserts every occurrence in every
+        listed template equals the canonical sequence, so the next drift fails
+        loudly and names the file."""
+        import re
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[2]
+        path = repo_root / rel_path
+        assert path.exists(), f"template missing: {rel_path}"
+        content = path.read_text()
+
+        matches = re.findall(r"OBS_TYPE_ORDER\s*=\s*\[([^\]]+)\]", content)
+        assert matches, (
+            f"{rel_path} has no OBS_TYPE_ORDER declaration. Every template "
+            f"that groups observables by type is required to declare it so "
+            f"this contract test can verify it."
+        )
+
+        for i, body in enumerate(matches):
+            parsed = [
+                item.strip().strip("'").strip('"')
+                for item in body.split(",")
+                if item.strip()
+            ]
+            assert parsed == CANONICAL_CATEGORIES, (
+                f"{rel_path} OBS_TYPE_ORDER occurrence #{i} is not canonical.\n"
+                f"  expected: {CANONICAL_CATEGORIES}\n"
+                f"  got:      {parsed}"
+            )
