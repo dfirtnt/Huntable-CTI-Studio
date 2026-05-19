@@ -1,5 +1,7 @@
 # run_tests.py Improvements - Development Spec
 
+_Last updated: 2026-05-16_
+
 Status: Proposed
 Owner: Andrew
 Source: review + QA pass on `run_tests.py` (commit at HEAD when this spec was written)

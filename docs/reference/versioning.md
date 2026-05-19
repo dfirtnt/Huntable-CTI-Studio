@@ -46,14 +46,14 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Callisto (v5.0 - v5.3)
 - Ganymede (v5.2)
 - Io (v6.0 - v6.2)
+- Europa (v7.0)
 
 ## Version History
 
 ### v7.0.0 "Europa" (2026-05-12)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.0.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons and the sixth-largest moon in the solar system; prime candidate for extraterrestrial life due to its subsurface liquid ocean
+- **Significance**: Major refactor removing all per-extractor QA sub-agents, full extractor agent v2 contract standard upgrade, SigmaGenerate as a first-class prompt contract, and AI-powered eval bundle diagnosis
+- **Features**: Per-extractor QA agents removed (CmdlineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA); all 6 extractor seed prompts upgraded to v2 contract standard (fail-closed confidence gating, traceability fields); SigmaGenerate prompt contract with per-model-class overlays; ProcTree attention preprocessor (parallel to CmdlineExtract); AI-powered eval diagnosis via EvalDiagnosisService; item-level CmdlineExtract scoring; eval bundle slim mode (~60% token reduction); diagnosis run history; gpt-4.1-nano and o3 added to OpenAI allowlist; admin API key auth removed from all backup/cron/source endpoints; RegistryExtract schema consolidated to single `key` field
 
 ### v6.2.1 "Io" (2026-05-02)
 - **Named After**: Io, innermost of Jupiter's four Galilean moons; most volcanically active body in the solar system
@@ -101,3 +101,5 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
+
+_Last updated: 2026-05-16_
