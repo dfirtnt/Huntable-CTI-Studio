@@ -44,7 +44,7 @@
                 </svg>
             </span>
         </div>
-        <div id="filters-content" class="hidden mt-6" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range or filters.title_only else 'false' }}">
+        <div id="filters-content" class="hidden mt-6" data-filters-active="{{ 'true' if filters.search or filters.source or filters.threat_hunting_range or filters.title_only else 'false' }}">
         <form method="GET">
             
             <!-- Sorting Controls Row -->
@@ -58,7 +58,6 @@
                         <option value="title" {% if filters.sort_by == 'title' %}selected{% endif %}>Title</option>
                         <option value="source_id" {% if filters.sort_by == 'source_id' %}selected{% endif %}>Source</option>
                         <option value="threat_hunting_score" {% if filters.sort_by == 'threat_hunting_score' %}selected{% endif %}>RegexHuntScore</option>
-                        <option value="ml_hunt_score" {% if filters.sort_by == 'ml_hunt_score' %}selected{% endif %}>MLHuntScore</option>
                         <option value="annotation_count" {% if filters.sort_by == 'annotation_count' %}selected{% endif %}>Annotation Count</option>
                         <option value="word_count" {% if filters.sort_by == 'word_count' %}selected{% endif %}>Word Count</option>
                         <option value="id" {% if filters.sort_by == 'id' %}selected{% endif %}>Article ID</option>
@@ -205,21 +204,6 @@
                 </select>
             </div>
 
-            <!-- MLHuntScore Range -->
-            <div>
-                <label for="ml_hunt_range" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">MLHunt Score</label>
-                <select name="ml_hunt_range" id="ml_hunt_range" 
-                        class="w-full px-3 py-2 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500" style="background-color: var(--color-bg-panel); border-color: var(--color-border); color: var(--color-text-primary);">
-                    <option value="">All Scores</option>
-                    <option value="80-100" {% if filters.ml_hunt_range == "80-100" %}selected{% endif %}>Excellent (80-100)</option>
-                    <option value="60-79" {% if filters.ml_hunt_range == "60-79" %}selected{% endif %}>Good (60-79)</option>
-                    <option value="40-59" {% if filters.ml_hunt_range == "40-59" %}selected{% endif %}>Fair (40-59)</option>
-                    <option value="20-39" {% if filters.ml_hunt_range == "20-39" %}selected{% endif %}>Poor (20-39)</option>
-                    <option value="0-19" {% if filters.ml_hunt_range == "0-19" %}selected{% endif %}>Very Poor (0-19)</option>
-                    <option value="30-100" {% if filters.ml_hunt_range == "30-100" %}selected{% endif %}>Good & Above (30+)</option>
-                    <option value="60-100" {% if filters.ml_hunt_range == "60-100" %}selected{% endif %}>High Quality (60+)</option>
-                </select>
-            </div>
             </div>
         </form>
 
@@ -247,14 +231,13 @@
         </div>
 
         <!-- Filter Summary -->
-        {% if filters.search or filters.source or filters.threat_hunting_range or filters.ml_hunt_range %}
+        {% if filters.search or filters.source or filters.threat_hunting_range %}
         <div class="mt-4 p-3 rounded-md" style="background-color: var(--color-bg-panel); border: 1px solid var(--color-border);">
             <p class="text-sm" style="color: var(--color-text-secondary);">
                 <strong>Active Filters:</strong>
                 {% if filters.search %}Search: "{{ filters.search }}"{% endif %}
                 {% if filters.source %}Source: {{ filters.source }}{% endif %}
                 {% if filters.threat_hunting_range %}RegexHuntScore: {{ filters.threat_hunting_range }}{% endif %}
-                {% if filters.ml_hunt_range %}MLHunt Score: {{ filters.ml_hunt_range }}{% endif %}
                 <a href="/articles" class="ml-2 underline" style="color: var(--color-info);">Clear all</a>
             </p>
         </div>
@@ -378,35 +361,6 @@
                                 {% endif %}
                             </span>
                             {% endif %}
-                            <span>MLHuntScore: 
-                                {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
-                                    {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
-                                    {% if ml_score >= 80 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-success-bg); color: var(--color-success); border-color: var(--color-success);">
-                                            🟢 {{ "%.1f"|format(ml_score) }}
-                                        </span>
-                                    {% elif ml_score >= 60 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
-                                            🟡 {{ "%.1f"|format(ml_score) }}
-                                        </span>
-                                    {% elif ml_score >= 40 %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-warning-bg); color: var(--color-warning); border-color: var(--color-warning);">
-                                            🟠 {{ "%.1f"|format(ml_score) }}
-                                        </span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold border" style="background-color: var(--color-error-bg); color: var(--color-error); border-color: var(--color-error);">
-                                            🔴 {{ "%.1f"|format(ml_score) }}
-                                        </span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-pointer select-none" tabindex="0" onclick="showMlHuntHelp(event)" onkeydown="if(event.key==='Enter'||event.key===' ')showMlHuntHelp(event)">
-                                        TBD
-                                        <svg class="w-3.5 h-3.5 flex-shrink-0 opacity-60" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
-                                        </svg>
-                                    </span>
-                                {% endif %}
-                            </span>
                             {% if article.article_metadata and article.article_metadata.get('annotation_count') is not none %}
                             <span>Annotations: 
                                 {% set annotation_count = article.article_metadata.get('annotation_count', 0) %}
@@ -510,7 +464,7 @@
                 </div>
                 <div class="flex items-center space-x-2">
                     {% if pagination.page > 1 %}
-                    <a href="?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.sort_by %}&sort_by={{ filters.sort_by }}{% endif %}{% if filters.sort_order %}&sort_order={{ filters.sort_order }}{% endif %}{% if filters.threat_hunting_range %}&threat_hunting_range={{ filters.threat_hunting_range }}{% endif %}{% if filters.ml_hunt_range %}&ml_hunt_range={{ filters.ml_hunt_range }}{% endif %}{% if filters.title_only %}&title_only={{ filters.title_only }}{% endif %}"
+                    <a href="?page={{ pagination.page - 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.sort_by %}&sort_by={{ filters.sort_by }}{% endif %}{% if filters.sort_order %}&sort_order={{ filters.sort_order }}{% endif %}{% if filters.threat_hunting_range %}&threat_hunting_range={{ filters.threat_hunting_range }}{% endif %}{% if filters.title_only %}&title_only={{ filters.title_only }}{% endif %}"
                        class="px-3 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Previous
                     </a>
@@ -522,7 +476,7 @@
                             {{ page_num }}
                         </span>
                         {% elif page_num <= 3 or page_num > pagination.total_pages - 3 or (page_num >= pagination.page - 1 and page_num <= pagination.page + 1) %}
-                        <a href="?page={{ page_num }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.sort_by %}&sort_by={{ filters.sort_by }}{% endif %}{% if filters.sort_order %}&sort_order={{ filters.sort_order }}{% endif %}{% if filters.threat_hunting_range %}&threat_hunting_range={{ filters.threat_hunting_range }}{% endif %}{% if filters.ml_hunt_range %}&ml_hunt_range={{ filters.ml_hunt_range }}{% endif %}{% if filters.title_only %}&title_only={{ filters.title_only }}{% endif %}"
+                        <a href="?page={{ page_num }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.sort_by %}&sort_by={{ filters.sort_by }}{% endif %}{% if filters.sort_order %}&sort_order={{ filters.sort_order }}{% endif %}{% if filters.threat_hunting_range %}&threat_hunting_range={{ filters.threat_hunting_range }}{% endif %}{% if filters.title_only %}&title_only={{ filters.title_only }}{% endif %}"
                            class="px-3 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                             {{ page_num }}
                         </a>
@@ -534,7 +488,7 @@
                     {% endfor %}
 
                     {% if pagination.page < pagination.total_pages %}
-                    <a href="?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.sort_by %}&sort_by={{ filters.sort_by }}{% endif %}{% if filters.sort_order %}&sort_order={{ filters.sort_order }}{% endif %}{% if filters.threat_hunting_range %}&threat_hunting_range={{ filters.threat_hunting_range }}{% endif %}{% if filters.ml_hunt_range %}&ml_hunt_range={{ filters.ml_hunt_range }}{% endif %}{% if filters.title_only %}&title_only={{ filters.title_only }}{% endif %}"
+                    <a href="?page={{ pagination.page + 1 }}&per_page={{ pagination.per_page }}{% if filters.search %}&search={{ filters.search }}{% endif %}{% if filters.source %}&source={{ filters.source }}{% endif %}{% if filters.sort_by %}&sort_by={{ filters.sort_by }}{% endif %}{% if filters.sort_order %}&sort_order={{ filters.sort_order }}{% endif %}{% if filters.threat_hunting_range %}&threat_hunting_range={{ filters.threat_hunting_range }}{% endif %}{% if filters.title_only %}&title_only={{ filters.title_only }}{% endif %}"
                        class="px-3 py-2 border border-gray-600 rounded-lg text-sm font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900">
                         Next
                     </a>
@@ -546,13 +500,6 @@
     </div>
 </div>
 
-<!-- Shared ML Hunt Score help popover -->
-<div id="mlHuntHelpPopover" onclick="event.stopPropagation()" class="fixed px-3 py-2.5 bg-gray-900 text-white text-xs rounded-lg opacity-0 invisible z-[9999] text-left shadow-xl" style="white-space: normal; width: 18rem; transition: opacity 0.15s, visibility 0.15s;">
-    <strong class="block mb-1">ML Hunt Score: To Be Determined</strong>
-    <span class="text-gray-300 block mb-2">This score is calculated when the article runs through the agentic workflow.</span>
-    <strong class="block mb-1 text-white">How to generate:</strong>
-    <span class="text-gray-300">Open this article and click <strong class="text-white">"Reprocess"</strong> (or "Send to Workflow") — the ML score is stored automatically when the workflow completes.</span>
-</div>
 
 {% endblock %}
 
@@ -586,29 +533,6 @@
 
     // Note: Removed auto-submit on typing to prevent focus loss while entering text.
 
-    function showMlHuntHelp(event) {
-        event.stopPropagation();
-        const popover = document.getElementById('mlHuntHelpPopover');
-        if (!popover) return;
-        const anchor = event.currentTarget;
-        const isOpen = popover.style.visibility === 'visible' && popover._anchor === anchor;
-        const rect = anchor.getBoundingClientRect();
-        popover.style.top = (rect.bottom + 8) + 'px';
-        popover.style.right = (window.innerWidth - rect.right) + 'px';
-        popover._anchor = anchor;
-        if (isOpen) {
-            popover.style.opacity = '0';
-            popover.style.visibility = 'hidden';
-            popover._anchor = null;
-        } else {
-            popover.style.opacity = '1';
-            popover.style.visibility = 'visible';
-        }
-    }
-    document.addEventListener('click', function() {
-        const popover = document.getElementById('mlHuntHelpPopover');
-        if (popover) { popover.style.opacity = '0'; popover.style.visibility = 'hidden'; popover._anchor = null; }
-    });
 
     // Dynamic sorting functionality
     function applySorting() {
@@ -635,7 +559,6 @@
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
             threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
-            ml_hunt_range: document.getElementById('ml_hunt_range')?.value || '',
             per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
@@ -691,7 +614,6 @@
             search: document.getElementById('search')?.value || '',
             source: document.getElementById('source')?.value || '',
             threat_hunting_range: document.getElementById('threat_hunting_range')?.value || '',
-            ml_hunt_range: document.getElementById('ml_hunt_range')?.value || '',
             per_page: document.getElementById('per_page')?.value || '100',
             sort_by: document.getElementById('sort-by')?.value || 'published_at',
             sort_order: document.getElementById('sort-order')?.value || 'desc',
@@ -730,9 +652,6 @@
                 }
                 if (settings.threat_hunting_range && document.getElementById('threat_hunting_range')) {
                     document.getElementById('threat_hunting_range').value = settings.threat_hunting_range;
-                }
-                if (settings.ml_hunt_range && document.getElementById('ml_hunt_range')) {
-                    document.getElementById('ml_hunt_range').value = settings.ml_hunt_range;
                 }
                 if (settings.per_page && document.getElementById('per_page')) {
                     document.getElementById('per_page').value = settings.per_page;
@@ -804,7 +723,7 @@
         updateDefaultFiltersIndicator();
         
         // Save settings when form elements change
-    const formElements = ['search', 'source', 'threat_hunting_range', 'ml_hunt_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
+    const formElements = ['search', 'source', 'threat_hunting_range', 'per_page', 'sort-by', 'sort-order', 'title-only'];
         formElements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {

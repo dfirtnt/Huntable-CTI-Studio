@@ -317,7 +317,6 @@ async def articles_list(
     source: str | None = None,
     source_id: int | None = None,
     threat_hunting_range: str | None = None,
-    ml_hunt_range: str | None = None,
     per_page: int | None = 100,
     page: int | None = 1,
     sort_by: str = "published_at",
@@ -332,7 +331,7 @@ async def articles_list(
         page = max(1, page or 1)
 
         # Server-side pagination when no search and no score-range filters (fast path)
-        if not search and not threat_hunting_range and not ml_hunt_range:
+        if not search and not threat_hunting_range:
             if source and source.isdigit():
                 source_id = source_id or int(source)
             article_filter = SimpleFilter(
@@ -362,7 +361,6 @@ async def articles_list(
                 "source": source or "",
                 "source_id": source_id,
                 "threat_hunting_range": "",
-                "ml_hunt_range": "",
                 "sort_by": sort_by,
                 "sort_order": sort_order,
                 "title_only": title_only,
@@ -426,34 +424,11 @@ async def articles_list(
             except (ValueError, TypeError):
                 pass
 
-        if ml_hunt_range:
-            try:
-                if "-" in ml_hunt_range:
-                    min_score, max_score = map(float, ml_hunt_range.split("-"))
-                    filtered_articles = [
-                        article
-                        for article in filtered_articles
-                        if article.article_metadata
-                        and article.article_metadata.get("ml_hunt_score") is not None
-                        and min_score <= article.article_metadata.get("ml_hunt_score", 0) <= max_score
-                    ]
-            except (ValueError, TypeError):
-                pass
-
         if sort_by == "threat_hunting_score":
             filtered_articles.sort(
                 key=lambda x: (
                     float(x.article_metadata.get("threat_hunting_score", 0))
                     if x.article_metadata and x.article_metadata.get("threat_hunting_score")
-                    else 0
-                ),
-                reverse=(sort_order == "desc"),
-            )
-        elif sort_by == "ml_hunt_score":
-            filtered_articles.sort(
-                key=lambda x: (
-                    float(x.article_metadata.get("ml_hunt_score", 0))
-                    if x.article_metadata and x.article_metadata.get("ml_hunt_score") is not None
                     else 0
                 ),
                 reverse=(sort_order == "desc"),
@@ -526,7 +501,6 @@ async def articles_list(
             "source": source or "",
             "source_id": source_id,
             "threat_hunting_range": threat_hunting_range or "",
-            "ml_hunt_range": ml_hunt_range or "",
             "sort_by": sort_by,
             "sort_order": sort_order,
             "title_only": title_only,

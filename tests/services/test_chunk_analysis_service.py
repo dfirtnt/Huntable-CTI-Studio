@@ -90,3 +90,28 @@ class TestChunkAnalysisService:
         )
 
         assert stored_count == 0  # Should skip duplicate
+
+    def test_ml_hunt_score_methods_removed(self, service):
+        """Verify the deprecated ML hunt score methods no longer exist."""
+        assert not hasattr(service, "calculate_ml_hunt_score"), (
+            "calculate_ml_hunt_score was removed; re-adding it revives the deprecated score surface"
+        )
+        assert not hasattr(service, "update_article_ml_hunt_score"), (
+            "update_article_ml_hunt_score was removed; re-adding it revives the deprecated score surface"
+        )
+
+    def test_store_chunk_analysis_does_not_write_ml_hunt_score(self, service, mock_db_session, sample_article):
+        """Verify store_chunk_analysis no longer updates ml_hunt_score in article metadata."""
+        mock_query = Mock()
+        mock_query.filter.return_value.first.side_effect = [sample_article, None]
+        mock_db_session.query.return_value = mock_query
+
+        chunks = [(0, 100, "PowerShell command execution")]
+        ml_predictions = [(True, 0.85)]
+
+        service.store_chunk_analysis(
+            article_id=1, chunks=chunks, ml_predictions=ml_predictions, model_version="v1"
+        )
+
+        # article_metadata must not contain ml_hunt_score — that surface is retired
+        assert "ml_hunt_score" not in sample_article.article_metadata
