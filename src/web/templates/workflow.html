@@ -1224,6 +1224,119 @@
   background: rgba(239, 68, 68, 0.12);
 }
 
+.q-action.delete {
+  color: var(--text-muted-slate);
+  opacity: 0.7;
+}
+.q-action.delete:hover {
+  color: var(--action-danger);
+  opacity: 1;
+  background: rgba(239, 68, 68, 0.10);
+}
+
+/* Row checkbox */
+.q-row-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--purple-primary);
+  flex-shrink: 0;
+}
+
+.q-checkbox-cell {
+  width: 36px;
+  padding: 0 8px 0 14px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+tr.q-row-selected td {
+  background: rgba(139, 92, 246, 0.08);
+}
+
+/* Bulk action bar */
+.q-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--panel-bg-3);
+  border: 1px solid var(--purple-border-25);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  animation: fadeIn 0.1s ease;
+}
+.q-bulk-bar.hidden { display: none; }
+
+.q-bulk-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  min-width: 64px;
+}
+
+.q-bulk-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--purple-border-25);
+}
+
+.q-bulk-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  border: 1px solid transparent;
+}
+.q-bulk-btn.approve {
+  color: var(--action-success-light);
+  border-color: rgba(34, 197, 94, 0.25);
+  background: rgba(34, 197, 94, 0.08);
+}
+.q-bulk-btn.approve:hover {
+  background: rgba(34, 197, 94, 0.18);
+}
+.q-bulk-btn.reject {
+  color: var(--action-danger);
+  border-color: rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.08);
+}
+.q-bulk-btn.reject:hover {
+  background: rgba(239, 68, 68, 0.18);
+}
+.q-bulk-btn.delete {
+  color: var(--text-muted-slate);
+  border-color: var(--purple-border-15);
+  background: transparent;
+}
+.q-bulk-btn.delete:hover {
+  color: var(--action-danger);
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.q-bulk-clear {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted-slate);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: color 0.12s;
+}
+.q-bulk-clear:hover { color: var(--text-primary); }
+
 /* ═══════════════════════════════════════════════════════════════════════════
    EXECUTIONS TAB — Extensions to Tactical Console
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -3160,6 +3273,22 @@
             </select>
         </div>
 
+        <!-- Bulk Action Bar -->
+        <div id="queueBulkBar" class="q-bulk-bar hidden">
+            <span id="queueBulkCount" class="q-bulk-count">0 selected</span>
+            <div class="q-bulk-divider"></div>
+            <button onclick="bulkApprove()" class="q-bulk-btn approve">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Approve
+            </button>
+            <button onclick="bulkReject()" class="q-bulk-btn reject">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Reject
+            </button>
+            <button onclick="bulkDelete()" class="q-bulk-btn delete">
+                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>Delete
+            </button>
+            <button onclick="clearQueueSelection()" class="q-bulk-clear">Clear selection</button>
+        </div>
+
         <!-- Queue Statistics -->
         <div id="queueStats" class="q-stats-grid">
             <div class="q-stat-card pending" data-filter-status="pending" role="button" tabindex="0" onclick="setQueueStatusFilter('pending')" onkeydown="if(event.key==='Enter'||event.key===' ')setQueueStatusFilter('pending')" title="Filter by Pending Review">
@@ -3184,6 +3313,7 @@
         <div class="q-table-wrap">
             <table class="q-table" id="sigmaQueueTable">
                 <colgroup>
+                    <col id="scol-checkbox" style="width:36px">
                     <col id="scol-indicator">
                     <col id="scol-id">
                     <col id="scol-article">
@@ -3197,6 +3327,9 @@
                 </colgroup>
                 <thead>
                     <tr>
+                        <th class="q-checkbox-cell">
+                            <input type="checkbox" id="queueSelectAll" class="q-row-checkbox" onchange="toggleAllQueueRows(this.checked)" title="Select all on this page">
+                        </th>
                         <th class="q-status-indicator-header" aria-hidden="true"></th>
                         <th style="padding-left:24px;position:relative" class="q-sortable sq-resizable" data-sort-key="id" data-scol="scol-id">ID <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
                         <th style="position:relative" class="q-sortable sq-resizable" data-sort-key="article_title" data-scol="scol-article">Article <span class="q-sort-ind"></span><div class="sq-resize-handle"></div></th>
@@ -3211,7 +3344,7 @@
                 </thead>
                 <tbody id="queueTableBody">
                     <tr>
-                        <td colspan="10" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
+                        <td colspan="11" style="padding:24px;text-align:center;color:var(--text-muted-slate)">Loading...</td>
                     </tr>
                 </tbody>
             </table>
@@ -13714,6 +13847,109 @@ let pendingPreviewId = null; // Track previewId from URL while data loads
 let queuePage = 1;
 let queueTotal = 0;
 let queueLimit = 50;
+let queueSelectedIds = new Set();
+
+// ── Bulk selection helpers ───────────────────────────────────────────────────
+
+function toggleQueueRow(id, checked) {
+    if (checked) queueSelectedIds.add(id); else queueSelectedIds.delete(id);
+    const row = document.getElementById('queue-row-' + id);
+    if (row) row.classList.toggle('q-row-selected', checked);
+    _syncQueueSelectAll();
+    _updateQueueBulkBar();
+}
+
+function toggleAllQueueRows(checked) {
+    _qSortedQueue().forEach(r => { if (checked) queueSelectedIds.add(r.id); else queueSelectedIds.delete(r.id); });
+    renderQueue();
+}
+
+function _syncQueueSelectAll() {
+    const cb = document.getElementById('queueSelectAll');
+    if (!cb) return;
+    const pageIds = _qSortedQueue().map(r => r.id);
+    const allChecked = pageIds.length > 0 && pageIds.every(id => queueSelectedIds.has(id));
+    const someChecked = pageIds.some(id => queueSelectedIds.has(id));
+    cb.checked = allChecked;
+    cb.indeterminate = !allChecked && someChecked;
+}
+
+function _updateQueueBulkBar() {
+    const bar = document.getElementById('queueBulkBar');
+    const counter = document.getElementById('queueBulkCount');
+    if (!bar || !counter) return;
+    const n = queueSelectedIds.size;
+    bar.classList.toggle('hidden', n === 0);
+    counter.textContent = n + ' selected';
+}
+
+function clearQueueSelection() {
+    queueSelectedIds.clear();
+    renderQueue();
+}
+
+async function bulkApprove() {
+    const ids = [...queueSelectedIds];
+    if (!ids.length) return;
+    if (!confirm('Approve ' + ids.length + ' rule(s)?')) return;
+    await _sendQueueBulkAction({ ids, action: 'approve' });
+}
+
+async function bulkReject() {
+    const ids = [...queueSelectedIds];
+    if (!ids.length) return;
+    const notes = prompt('Rejection reason for ' + ids.length + ' rule(s) (optional):');
+    if (notes === null) return;
+    await _sendQueueBulkAction({ ids, action: 'reject', review_notes: notes || null });
+}
+
+async function bulkDelete() {
+    const ids = [...queueSelectedIds];
+    if (!ids.length) return;
+    if (!confirm('Permanently delete ' + ids.length + ' rule(s)? This cannot be undone.')) return;
+    await _sendQueueBulkAction({ ids, action: 'delete' });
+}
+
+async function _sendQueueBulkAction(payload) {
+    try {
+        const res = await fetch('/api/sigma-queue/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (res.ok) {
+            const result = await res.json();
+            const label = payload.action === 'delete' ? 'Deleted' : payload.action === 'approve' ? 'Approved' : 'Rejected';
+            showNotification(label + ' ' + result.updated + ' rule(s)', 'success');
+            queueSelectedIds.clear();
+            await loadQueue();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showNotification('Bulk action failed: ' + (err.detail || 'Unknown error'), 'error');
+        }
+    } catch (e) {
+        showNotification('Bulk action error: ' + e.message, 'error');
+    }
+}
+
+async function deleteQueueRule(ruleId) {
+    if (!confirm('Delete this rule? This cannot be undone.')) return;
+    try {
+        const res = await fetch('/api/sigma-queue/' + ruleId, { method: 'DELETE' });
+        if (res.ok) {
+            showNotification('Rule deleted', 'success');
+            queueSelectedIds.delete(ruleId);
+            await loadQueue();
+        } else {
+            const err = await res.json().catch(() => ({}));
+            showNotification('Delete failed: ' + (err.detail || 'Unknown error'), 'error');
+        }
+    } catch (e) {
+        showNotification('Delete error: ' + e.message, 'error');
+    }
+}
+
+// ── End bulk selection ───────────────────────────────────────────────────────
 
 function getQueueStatusBadge(status) {
     const known = ['pending', 'approved', 'rejected', 'submitted', 'needs_review'];
@@ -13834,20 +14070,29 @@ function renderQueue() {
     _updateQSortIndicators();
     
     if (queue.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" class="px-6 py-4 text-center text-gray-500">No queued rules found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="padding:24px;text-align:center;color:var(--text-muted-slate)">No queued rules found</td></tr>';
         // Check if we need to trigger preview from URL parameter even with empty queue
         checkAndTriggerPreview();
         return;
     }
-    
+
     /* Pre-existing innerHTML pattern -- all values from own DB, not user input. */
     tbody.innerHTML = _qSortedQueue().map(rule => {
         const metadata = rule.rule_metadata || {};
         const title = metadata.title || 'Untitled Rule';
         const observablesUsedCount = getObservablesUsedCount(rule);
+        const isSelected = queueSelectedIds.has(rule.id);
+        const rowClass = isSelected ? ' class="q-row-selected"' : '';
+        const checked = isSelected ? ' checked' : '';
+        const canActOn = (rule.status === 'pending' || rule.status === 'needs_review');
+        const inlineActions = canActOn
+            ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>`
+            : '';
+        const deleteIcon = `<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>`;
 
         return `
-            <tr id="queue-row-${rule.id}" data-status="${rule.status || ''}">
+            <tr id="queue-row-${rule.id}" data-status="${rule.status || ''}"${rowClass}>
+                <td class="q-checkbox-cell"><input type="checkbox" class="q-row-checkbox"${checked} onchange="toggleQueueRow(${rule.id}, this.checked)"></td>
                 <td class="q-status-indicator-cell" aria-hidden="true"></td>
                 <td class="q-cell-id" style="padding-left:24px">${rule.id}</td>
                 <td class="q-cell-article">
@@ -13864,16 +14109,16 @@ function renderQueue() {
                     ${typeof rule.max_similarity === 'number' ? (rule.max_similarity * 100).toFixed(1) + '%' : '-'}
                 </td>
                 <td>${getQueueStatusBadge(rule.status)}</td>
-                <td class="q-cell-date">
-                    ${formatLocalDateTime(rule.created_at)}
-                </td>
+                <td class="q-cell-date">${formatLocalDateTime(rule.created_at)}</td>
                 <td><div class="q-actions-cell">
-                    <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${(rule.status === 'pending' || rule.status === 'needs_review') ? `<button onclick="approveRule(${rule.id})" class="q-action approve">Approve</button><button onclick="rejectRule(${rule.id})" class="q-action reject">Reject</button>` : ''}
+                    <button onclick="previewRule(${rule.id})" class="q-action preview">Preview</button>${inlineActions}<button onclick="deleteQueueRule(${rule.id})" class="q-action delete" title="Delete">${deleteIcon}</button>
                 </div></td>
             </tr>
         `;
     }).join('');
-    
+
+    _syncQueueSelectAll();
+    _updateQueueBulkBar();
     // Check if we need to trigger preview from URL parameter after rendering
     checkAndTriggerPreview();
 }
