@@ -1816,16 +1816,21 @@ function renderSubagentResults(results) {
         const isClickable = result.status === 'completed' && result.execution_id;
         const clickClass = isClickable ? 'cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors' : '';
         const onClickAttr = isClickable ? `onclick="showCommandlines(${result.execution_id}, '${result.url.replace(/'/g, "\\'")}', ${actualCount !== '-' ? actualCount : 0})"` : '';
+        const execIdAttr = result.execution_id ? `data-exec-id="${result.execution_id}"` : '';
         
         html += '<tr>';
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white">${articleIdCell}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white font-medium">${expectedCount}</td>`;
         html += `<td class="px-4 py-3 text-sm text-gray-900 dark:text-white ${clickClass}" ${onClickAttr}>${actualCount}</td>`;
-        html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr}>`;
+        html += `<td class="px-4 py-3 text-sm ${clickClass}" ${onClickAttr} ${execIdAttr}>`;
         html += `<div class="flex items-center gap-2">`;
         html += `<span class="font-medium">${actualCount !== '-' ? `${actualCount} (${scoreDisplay})` : '-'}</span>`;
         if (scoreBadge) {
             html += `<span class="status-badge ${scoreClass}">${scoreBadge}</span>`;
+        }
+        // Placeholder span filled by applyDiagnosisCounts() after table renders
+        if (result.execution_id) {
+            html += `<span class="dx-badge" style="display:none;"></span>`;
         }
         html += `</div></td>`;
         html += `<td class="px-4 py-3 text-sm">`;
@@ -1848,6 +1853,7 @@ function renderSubagentResults(results) {
 
     html += '</tbody></table>';
     resultsTable.innerHTML = html;
+    applyDiagnosisCounts(); // add [dx N] badges to cells that have saved diagnoses
 }
 
 // Chart instance for MAE chart
