@@ -416,3 +416,152 @@ test.describe('Execution Detail - ScheduledTasksExtract card regression', () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression: Observable Traceability panel must count all six observable
+// types, not just cmdline/process_lineage/hunt_queries.
+//
+// Root cause (recurred 3x): the be80168c fix expanded the traceability panel
+// to all six types in workflow_executions.html and sigma_queue.html but never
+// touched workflow.html — the template the /workflow#executions modal actually
+// uses. Its traceabilitySection() computed totalObs over only the original
+// three types, so an execution whose observables were ENTIRELY
+// registry_artifacts / windows_services / scheduled_tasks summed to
+// totalObs === 0 and rendered "Traceability unavailable (legacy execution or
+// no observables)" even though the /observables API returned them correctly.
+//
+// The 18 backend tests in test_observable_traceability_regressions.py exercise
+// _build_observables_response directly and CANNOT catch this template drift —
+// hence the recurrence. These tests mock /observables and assert the rendered
+// panel, which is the only layer that regresses.
+// ---------------------------------------------------------------------------
+
+async function openExecutionWithObservables(page: any, execData: object, observablesPayload: object) {
+  await page.route(`**/api/workflow/executions/99999`, (route: any) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(execData) })
+  );
+  await page.route(`**/api/workflow/executions/99999/observables`, (route: any) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(observablesPayload) })
+  );
+  await page.route(/\/api\/workflow\/executions\?/, (route: any) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ executions: [], total: 0 }) })
+  );
+  await page.route(`**/api/workflow/config`, (route: any) =>
+    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ agent_models: {}, ranking_threshold: 6.0 }) })
+  );
+  await page.goto(`${BASE}/workflow#executions`);
+  await page.waitForLoadState('networkidle');
+  await page.waitForFunction(
+    () => typeof (window as any).viewExecution === 'function',
+    { timeout: 5000 }
+  );
+  try {
+    await page.evaluate(() => (window as any).viewExecution(99999));
+  } catch (e) {
+    if (!String(e).includes('Execution context was destroyed')) throw e;
+    await page.waitForLoadState('networkidle');
+    await page.waitForFunction(() => typeof (window as any).viewExecution === 'function', { timeout: 5000 });
+    await page.evaluate(() => (window as any).viewExecution(99999));
+  }
+  await page.waitForSelector('#executionModal:not(.hidden)', { timeout: 5000 });
+}
+
+// Mirrors execution 2615 from the bug report: observables are ENTIRELY in the
+// three types that the broken workflow.html panel never counted, plus a
+// scheduled_tasks item to lock the third regressed type in one assertion.
+const REGRESSED_TYPES_OBSERVABLES = {
+  execution_id: 99999,
+  observables: {
+    cmdline: [],
+    process_lineage: [],
+    hunt_queries: [],
+    registry_artifacts: [
+      {
+        observable_value: 'HKLM\\System\\CurrentControlSet\\Control\\Lsa',
+        observable_type: 'registry_artifacts',
+        source_evidence: 'REGRESSION-MARKER-2615 reg add HKLM Lsa /v DisableRestrictedAdmin',
+        extraction_justification: 'Hive-rooted registry modification observable via Sysmon EID 13.',
+        confidence_score: 0.95,
+        subagent_name: 'Registry Extractor',
+        model_version: 'test/model-x',
+        extraction_timestamp: '2026-05-18T14:54:41Z',
+      },
+      {
+        observable_value: 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\WDigest',
+        observable_type: 'registry_artifacts',
+        source_evidence: 'reg add WDigest /v UseLogonCredential /t REG_DWORD /d 1 /f',
+        extraction_justification: 'Forces plaintext credential storage.',
+        confidence_score: 0.9,
+        subagent_name: 'Registry Extractor',
+        model_version: 'test/model-x',
+        extraction_timestamp: '2026-05-18T14:54:41Z',
+      },
+    ],
+    windows_services: [
+      {
+        observable_value: 'WebrootCheck',
+        observable_type: 'windows_services',
+        source_evidence: 'created a service titled WebrootCheck running cmd.exe /c c:\\temp\\1.bat',
+        extraction_justification: 'Service creation for persistence.',
+        confidence_score: 0.96,
+        subagent_name: 'Windows Services Extractor',
+        model_version: 'test/model-x',
+        extraction_timestamp: '2026-05-18T14:54:41Z',
+      },
+    ],
+    scheduled_tasks: [
+      {
+        observable_value: 'EvilTask',
+        observable_type: 'scheduled_tasks',
+        source_evidence: 'schtasks /create /tn EvilTask /tr c:\\temp\\evil.exe',
+        extraction_justification: 'Persistence via scheduled task.',
+        confidence_score: 0.88,
+        subagent_name: 'Scheduled Tasks Extractor',
+        model_version: 'test/model-x',
+        extraction_timestamp: '2026-05-18T14:54:41Z',
+      },
+    ],
+  },
+};
+
+const ALL_EMPTY_OBSERVABLES = {
+  execution_id: 99999,
+  observables: {
+    cmdline: [], process_lineage: [], hunt_queries: [],
+    registry_artifacts: [], windows_services: [], scheduled_tasks: [],
+  },
+};
+
+test.describe('Execution Detail - Observable Traceability type coverage regression', () => {
+  test('panel renders registry/services/scheduled observables (does NOT show "Traceability unavailable")', async ({ page }) => {
+    await openExecutionWithObservables(page, BASE_EXEC, REGRESSED_TYPES_OBSERVABLES);
+
+    const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
+    await extractionTab.click();
+
+    const trace = page.locator('.observable-traceability');
+    await expect(trace).toBeVisible({ timeout: 3000 });
+
+    // The exact regression symptom from the bug report — must be ABSENT.
+    await expect(trace).not.toContainText('Traceability unavailable (legacy execution or no observables)');
+
+    // All three previously-uncounted types must surface with correct counts.
+    await expect(trace).toContainText('Registry Artifacts (2)');
+    await expect(trace).toContainText('Windows Services (1)');
+    await expect(trace).toContainText('Scheduled Tasks (1)');
+
+    // Traceability detail fields (source_evidence) must render, not just headers.
+    await expect(trace).toContainText('REGRESSION-MARKER-2615');
+  });
+
+  test('panel still shows "Traceability unavailable" when all six types are empty (boundary guard)', async ({ page }) => {
+    await openExecutionWithObservables(page, BASE_EXEC, ALL_EMPTY_OBSERVABLES);
+
+    const extractionTab = page.locator('#exec-tab-strip button.exec-tab').filter({ hasText: 'Extraction' });
+    await extractionTab.click();
+
+    const trace = page.locator('.observable-traceability');
+    await expect(trace).toBeVisible({ timeout: 3000 });
+    await expect(trace).toContainText('Traceability unavailable (legacy execution or no observables)');
+  });
+});
