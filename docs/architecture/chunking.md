@@ -45,4 +45,4 @@ Aggregates in article metadata:
 - The **filtered content** produced by removing non-huntable chunks is what both agents actually receive; the full raw article is not used.
 - Training examples produced by `prepare_articles_for_finetuning.py` also use filtered content by default (same junk filter as extraction); the original full content is stored alongside as a reference field but is not the training input.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_

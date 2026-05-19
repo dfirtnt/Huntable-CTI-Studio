@@ -127,4 +127,4 @@ Stack shutdown (optional):
 docker-compose down
 ```
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_
