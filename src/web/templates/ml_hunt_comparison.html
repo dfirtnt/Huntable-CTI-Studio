@@ -319,7 +319,7 @@
         </div>
         <div id="eligibleArticlesCard" class="kpi-card kpi-card--tooltip kpi-green mlops-rise mlops-rise-5">
             <div class="flex items-center justify-between">
-                <div class="kpi-label mb-0">Eligible Articles</div>
+                <div class="kpi-label mb-0">Chunk Analysis Queue</div>
                 <div class="relative group">
                     <button id="eligibleArticlesHelpButton" type="button" class="kpi-help-button focus:outline-none" aria-label="Eligible articles help" aria-describedby="eligibleArticlesHelpTooltip">
                         <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
@@ -1021,7 +1021,7 @@
                 
                 if (data.success) {
                     const countText = data.count === 0 
-                        ? 'No eligible articles found' 
+                        ? 'All eligible articles processed'
                         : `${data.count} article${data.count === 1 ? '' : 's'} eligible for processing`;
                     countElement.textContent = countText;
                     
@@ -1164,7 +1164,7 @@
                     if (data.success) {
                         // Check if processing was successful (even if 0 articles processed)
                         if (data.results && data.results.total_eligible === 0) {
-                            countElement.textContent = `✅ No eligible articles to process`;
+                            countElement.textContent = `✅ All eligible articles processed`;
                             btn.textContent = 'No Articles to Process';
                             btn.classList.remove('bg-blue-600', 'hover:bg-blue-700');
                             btn.classList.add('bg-gray-600', 'hover:bg-gray-700');
