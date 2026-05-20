@@ -3,6 +3,26 @@ Sigma Matching Service
 
 Performs semantic search to match articles and chunks to Sigma detection rules.
 Uses pgvector for efficient similarity search on embeddings.
+
+## Embedding paths in this module
+
+There are TWO distinct uses of embeddings here — do not conflate them:
+
+1. **Article → Sigma rule matching** (``match_article_to_sigma_rules``,
+   ``match_chunks_to_sigma_rules``): embeds article text with
+   ``intfloat/e5-base-v2`` and runs a pgvector cosine-similarity search
+   against stored rule embeddings.  This is the RAG / article-matching path.
+
+2. **Sigma → Sigma deduplication** (``assess_rule_novelty``, formerly
+   ``compare_proposed_rule_to_embeddings``): does **NOT** use embeddings or
+   pgvector at all.  Candidate retrieval is a plain SQL filter on
+   ``canonical_class`` (falling back to ``logsource_key``).  Scoring uses the
+   deterministic Jaccard × Containment − Filter formula implemented in
+   ``SigmaNoveltyService``.
+
+A common AI-agent mistake is to read the module docstring or the
+``sigma_embedding_client`` property and incorrectly conclude that the Sigma
+deduplication pipeline uses cosine similarity.  It does not.
 """
 
 import json
@@ -474,14 +494,22 @@ class SigmaMatchingService:
             logger.error(f"Error getting coverage summary for article {article_id}: {e}")
             return {"covered": 0, "extend": 0, "new": 0, "total": 0}
 
-    def compare_proposed_rule_to_embeddings(
+    def assess_rule_novelty(
         self, proposed_rule: dict[str, Any], threshold: float = 0.0
     ) -> dict[str, Any]:
         """
-        Compare proposed Sigma rule to existing Sigma rules using behavioral novelty assessment.
+        Assess the novelty of a proposed Sigma rule against the existing corpus.
 
-        This method now delegates to the novelty service for behavioral comparison.
-        Returns matches plus metadata for empty-state differentiation.
+        Phase 1 — candidate retrieval: plain SQL filter on ``canonical_class``
+        (fallback: ``logsource_key`` + top-K limit).  No embeddings, no pgvector.
+
+        Phase 2 — behavioral scoring: deterministic
+        ``similarity = (Jaccard × Containment) − Filter`` formula via
+        ``SigmaNoveltyService``.
+
+        Note: this method was previously named ``compare_proposed_rule_to_embeddings``.
+        That name was misleading because the Sigma-dedup path does not use embeddings.
+        The old name is preserved as a deprecated alias below.
 
         Args:
             proposed_rule: The proposed Sigma rule to compare.
@@ -613,6 +641,21 @@ class SigmaMatchingService:
                 "logsource_key": "",
                 "canonical_class": None,
             }
+
+    def compare_proposed_rule_to_embeddings(
+        self, proposed_rule: dict[str, Any], threshold: float = 0.0
+    ) -> dict[str, Any]:
+        """Deprecated alias for ``assess_rule_novelty``.
+
+        The original name was misleading: the Sigma deduplication pipeline does
+        NOT use embeddings or pgvector.  Candidate retrieval uses SQL filtering
+        on ``canonical_class`` / ``logsource_key``; scoring uses the
+        Jaccard × Containment − Filter formula.
+
+        Kept for backward compatibility with existing call sites and tests.
+        New code should call ``assess_rule_novelty`` directly.
+        """
+        return self.assess_rule_novelty(proposed_rule=proposed_rule, threshold=threshold)
 
     def _calculate_weighted_similarity(
         self, title_sim: float, desc_sim: float, tags_sim: float, signature_sim: float

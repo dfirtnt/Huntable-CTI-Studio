@@ -88,6 +88,37 @@ Do NOT treat high-level counts, inventories, or generated endpoint summaries as 
 
 ---
 
+## Known AI-Agent Misconceptions
+
+These are factual errors that AI agents have repeatedly made in this codebase.
+Verify against the sources listed before stating anything about these topics.
+
+### Sigma deduplication does NOT use pgvector or cosine similarity
+
+**The wrong conclusion agents reach:** "Phase 1 of the Sigma similarity search uses
+pgvector with cosine similarity and the intfloat/e5-base-v2 model (768 dimensions)."
+
+**Why agents reach it:** `sigma_matching_service.py` instantiates an
+`EmbeddingService(model_name="intfloat/e5-base-v2")` and the module docstring
+originally said "Uses pgvector for efficient similarity search on embeddings."
+
+**What is actually true:**
+
+- `sigma_matching_service.py` has **two independent paths**:
+  1. Article → Sigma rule matching (`match_article_to_sigma_rules`, `match_chunks_to_sigma_rules`):
+     uses pgvector cosine similarity.  This is the RAG path.
+  2. Sigma → Sigma deduplication (`assess_rule_novelty`, legacy alias
+     `compare_proposed_rule_to_embeddings`): does **not** use embeddings.
+     Candidate retrieval is a plain SQL `WHERE canonical_class = ?` filter
+     (fallback: `WHERE logsource_key = ?` + LIMIT).  Scoring uses the
+     deterministic `similarity = (Jaccard × Containment) − Filter` formula
+     in `SigmaNoveltyService`.
+
+**Verify with:** `src/services/sigma_novelty_service.py::retrieve_candidates`
+and `src/services/sigma_matching_service.py::assess_rule_novelty`.
+
+---
+
 ## Core Principles
 
 - Determinism over creativity
