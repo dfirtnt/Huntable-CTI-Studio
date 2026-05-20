@@ -367,4 +367,4 @@ Thank you to all contributors who have helped make Huntable CTI Studio better! Y
 
 ---
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-20_
