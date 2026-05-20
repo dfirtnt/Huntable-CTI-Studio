@@ -43,6 +43,7 @@ from src.utils.langfuse_client import (
 )
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.workflows.status_utils import (
+    TERMINATION_REASON_JUNK_FILTER,
     TERMINATION_REASON_NO_SIGMA_RULES,
     TERMINATION_REASON_NON_WINDOWS_OS,
     TERMINATION_REASON_RANK_THRESHOLD,
@@ -864,9 +865,39 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 }
                 db_session.commit()
 
+            # Terminate early when no chunks survived the filter
+            if not filter_result.is_huntable:
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Junk filter: no huntable content "
+                    f"(confidence={filter_result.confidence:.2f}, threshold={junk_filter_threshold}). Terminating."
+                )
+                termination_details = {
+                    "confidence": filter_result.confidence,
+                    "threshold": junk_filter_threshold,
+                    "original_length": len(article.content),
+                }
+                if execution:
+                    mark_execution_completed(
+                        execution,
+                        step="junk_filter",
+                        db_session=db_session,
+                        reason=TERMINATION_REASON_JUNK_FILTER,
+                        details=termination_details,
+                        commit=True,
+                    )
+                return {
+                    **state,
+                    "filtered_content": "",
+                    "junk_filter_result": execution.junk_filter_result if execution else None,
+                    "current_step": "junk_filter",
+                    "status": "completed",
+                    "termination_reason": TERMINATION_REASON_JUNK_FILTER,
+                    "termination_details": termination_details,
+                }
+
             return {
                 **state,
-                "filtered_content": filter_result.filtered_content or article.content,
+                "filtered_content": filter_result.filtered_content,
                 "junk_filter_result": execution.junk_filter_result if execution else None,
                 "current_step": "junk_filter",
                 "status": state.get("status", "running"),
@@ -2554,6 +2585,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
         return "end"
 
+    def check_should_continue_after_junk_filter(state: WorkflowState) -> str:
+        """Gate the pipeline on junk filter result. Routes to END when no huntable content."""
+        if state.get("termination_reason") == TERMINATION_REASON_JUNK_FILTER:
+            return "end"
+        return check_rank_agent_enabled(state)
+
     def check_rank_agent_enabled(state: WorkflowState) -> str:
         """Check if rank agent is enabled and route accordingly.
 
@@ -2668,8 +2705,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     )
     workflow.add_conditional_edges(
         "junk_filter",
-        check_rank_agent_enabled,
-        {"rank_article": "rank_article", "rank_agent_bypass": "rank_agent_bypass"},
+        check_should_continue_after_junk_filter,
+        {"rank_article": "rank_article", "rank_agent_bypass": "rank_agent_bypass", "end": END},
     )
     workflow.add_conditional_edges(
         "rank_article", check_should_continue_after_rank, {"extract_agent": "extract_agent", "end": END}

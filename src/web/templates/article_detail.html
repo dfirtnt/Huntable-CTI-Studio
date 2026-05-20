@@ -6772,7 +6772,8 @@ Please provide a detailed analysis based on the article content and the user's s
             
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.detail || 'OS detection failed');
+                const detail = errorData.detail;
+                throw new Error((detail && typeof detail === 'object' ? detail.message : detail) || 'OS detection failed');
             }
             
             const result = await response.json();

@@ -1879,7 +1879,17 @@ async def api_detect_os(article_id: int, request: Request):
                 hunt_score=hunt_score,
                 article_id=article.id,
             )
-            content_to_analyze = filter_result.filtered_content or article.content
+            if not filter_result.is_huntable:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "error": "no_huntable_content",
+                        "message": "Article contains no huntable content above the confidence threshold.",
+                        "threshold": junk_filter_threshold,
+                        "confidence": filter_result.confidence,
+                    },
+                )
+            content_to_analyze = filter_result.filtered_content
             filtering_metadata = {
                 "enabled": True,
                 "threshold": junk_filter_threshold,

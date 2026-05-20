@@ -11874,7 +11874,8 @@ function getTerminationBadge(reason) {
     if (!reason) return '';
     const labels = {
         'rank_below_threshold': 'Below Threshold',
-        'no_sigma_rules_generated': 'No SIGMA Rules'
+        'no_sigma_rules_generated': 'No SIGMA Rules',
+        'no_huntable_content': 'Junk Filtered'
     };
     const label = labels[reason] || reason;
     return `<span class="q-badge-term">${label}</span>`;
@@ -11893,6 +11894,13 @@ function describeTermination(reason, details) {
         }
         case 'no_sigma_rules_generated': {
             return 'Completed without generating SIGMA rules';
+        }
+        case 'no_huntable_content': {
+            const confidence = typeof payload.confidence === 'number' ? (payload.confidence * 100).toFixed(0) : null;
+            const threshold = typeof payload.threshold === 'number' ? (payload.threshold * 100).toFixed(0) : null;
+            return confidence !== null && threshold !== null
+                ? `Stopped at junk filter — no chunks met the ${threshold}% confidence threshold (best: ${confidence}%)`
+                : 'Stopped at junk filter — no huntable content found';
         }
         default:
             return reason;
