@@ -184,6 +184,9 @@ The annotation interface ensures evaluation data matches production chunking:
 > **Note**: The standalone content filtering threshold defaults to 0.7. The
 > agentic workflow's Junk Filter step uses a separate threshold defaulting to
 > 0.8, configurable via `junk_filter_threshold` in workflow configuration.
+> When no chunks survive the filter (`is_huntable=False`), the pipeline
+> terminates immediately with status `no_huntable_content` — no LLM calls
+> are made.
 
 ### Environment Variables
 

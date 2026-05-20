@@ -507,10 +507,6 @@ class SigmaMatchingService:
         ``similarity = (Jaccard × Containment) − Filter`` formula via
         ``SigmaNoveltyService``.
 
-        Note: this method was previously named ``compare_proposed_rule_to_embeddings``.
-        That name was misleading because the Sigma-dedup path does not use embeddings.
-        The old name is preserved as a deprecated alias below.
-
         Args:
             proposed_rule: The proposed Sigma rule to compare.
             threshold: Minimum similarity score (0-1, default 0.0 = no filtering).
