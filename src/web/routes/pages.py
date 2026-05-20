@@ -59,7 +59,6 @@ def _extract_ioc_values(article_metadata: dict | None, limit: int = 6) -> list[s
                 candidates.append(str(ioc))
 
     add_payload(article_metadata.get("extracted_iocs"))
-    add_payload(article_metadata.get("extracted_iocs_ctibert"))
 
     return _compact_unique(candidates, limit=limit)
 
