@@ -84,7 +84,7 @@ def filter_dump_lines(
     skip_db_lifecycle: bool = False,
     skip_unsupported_sets: bool = False,
     rewrite_fk_constraints: bool = True,
-    deduplicate_pk_constraints: bool = True,
+    dedup_primary_keys: bool = True,
     dedup_copy_rows: bool = True,
 ) -> Iterator[str]:
     """Yield filtered SQL dump lines.
@@ -98,7 +98,7 @@ def filter_dump_lines(
             that older psql clients do not understand.
         rewrite_fk_constraints: Append ``NOT VALID`` to FK constraint
             additions so dangling references do not abort the restore.
-        deduplicate_pk_constraints: Skip duplicate ``ALTER TABLE ... ADD CONSTRAINT
+        dedup_primary_keys: Skip duplicate ``ALTER TABLE ... ADD CONSTRAINT
             ... PRIMARY KEY`` blocks for tables that already had one emitted.
             Prevents "multiple primary keys for table" errors when a backup was
             taken from a DB where a migration accidentally defined the PK twice.
@@ -124,7 +124,7 @@ def filter_dump_lines(
         upper = line.upper()
 
         # --- primary-key dedup state machine ---
-        if deduplicate_pk_constraints:
+        if dedup_primary_keys:
             alter_m = _ALTER_TABLE_RE.match(line)
             if alter_m:
                 # Flush any previously buffered ALTER TABLE that was NOT followed
@@ -206,7 +206,7 @@ def filter_dump_lines(
             yield filtered
 
     # Flush any trailing buffered ALTER TABLE line (edge case: last statement in dump).
-    if deduplicate_pk_constraints and pending_alter_line is not None:
+    if dedup_primary_keys and pending_alter_line is not None:
         filtered = _apply_line_filters(
             pending_alter_line,
             skip_db_lifecycle,

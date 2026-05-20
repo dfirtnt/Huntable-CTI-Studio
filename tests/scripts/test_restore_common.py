@@ -91,7 +91,7 @@ def test_distinct_pk_constraints_both_kept():
 
 def test_deduplicate_disabled_passes_both_pk_lines():
     lines = (_FIRST_PK_BLOCK + _SECOND_PK_BLOCK).splitlines(keepends=True)
-    result = _run(lines, deduplicate_pk_constraints=False)
+    result = _run(lines, dedup_primary_keys=False)
     pk_lines = [l for l in result if "ADD CONSTRAINT content_hashes_pkey PRIMARY KEY" in l]
     assert len(pk_lines) == 2
 
@@ -111,7 +111,7 @@ def test_fk_rewrite_and_pk_dedup_coexist():
         "    ADD CONSTRAINT content_hashes_article_id_fkey FOREIGN KEY (article_id) REFERENCES articles(id);\n"
     )
     lines = (pk_block + fk_block).splitlines(keepends=True)
-    result = _run(lines, rewrite_fk_constraints=True, deduplicate_pk_constraints=True)
+    result = _run(lines, rewrite_fk_constraints=True, dedup_primary_keys=True)
 
     pk_lines = [l for l in result if "PRIMARY KEY" in l]
     fk_lines = [l for l in result if "FOREIGN KEY" in l]
