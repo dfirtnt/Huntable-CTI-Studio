@@ -365,7 +365,9 @@ class TestDeadCodeRemoval:
 
     def _get_source(self):
         import inspect
+
         import src.workflows.agentic_workflow as wf
+
         return inspect.getsource(wf)
 
     def test_rag_service_not_imported(self):
