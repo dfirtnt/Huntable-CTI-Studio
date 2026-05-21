@@ -222,10 +222,7 @@ _SUBAGENT_TO_AGENT = {
 def _actual_count_from_agent_result(subagent_name: str, agent_result: dict) -> int | None:
     """Derive observable count from run_extraction_agent result for a single subagent."""
     if subagent_name == "hunt_queries":
-        # Prefer unified `count`; accept legacy `query_count` from cached/in-flight results.
         n = agent_result.get("count")
-        if n is None:
-            n = agent_result.get("query_count")
         if n is not None:
             return int(n)
         q = agent_result.get("queries") or agent_result.get("items", [])

@@ -34,19 +34,13 @@ def test_bool_from_value_characterization(value, expected):
 
 
 def test_extract_actual_count_hunt_queries_variants():
-    # Unified contract: prefer `count` (current envelope) over legacy `query_count` alias.
     subresults = {
         "hunt_queries": {
             "queries": ["q1", "q2"],
             "count": 9,
-            "query_count": 3,
         }
     }
     assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 9
-
-    # Legacy fallback: cached/in-flight executions may still emit only `query_count`.
-    subresults_legacy_only = {"hunt_queries": {"queries": ["q1", "q2"], "query_count": 3}}
-    assert _extract_actual_count("hunt_queries", subresults_legacy_only, execution_id=1) == 3
 
     subresults_without_query_count = {"hunt_queries": {"count": 7, "queries": ["q1", "q2"]}}
     assert _extract_actual_count("hunt_queries", subresults_without_query_count, execution_id=1) == 7
@@ -121,12 +115,6 @@ def test_hunt_queries_envelope_canonical_count_wins_over_legacy_alias():
     assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 2
 
 
-def test_hunt_queries_envelope_legacy_only_still_readable():
-    """Regression: cached executions written before convergence carry only `query_count`.
-    Reads must still succeed -- this is the whole reason we keep the alias for a release."""
-    subresults = {"hunt_queries": {"queries": ["a"], "query_count": 1}}
-    assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 1
-
 
 def test_hunt_queries_prompt_envelope_uses_count_not_query_count():
     """Regression: the prompt's json_example must declare `count`, not `query_count`.
@@ -170,7 +158,7 @@ class TestParseAgentResult:
         assert items[0]["type"] == "KQL"
         assert items[0]["query"] == "process | where"
         assert items[0]["context"] == "endpoint"
-        assert entry["query_count"] == 1
+        assert entry["count"] == 1
         assert entry["queries"] is items
 
     def test_hunt_queries_preserves_canonical_field_names(self):
@@ -185,17 +173,11 @@ class TestParseAgentResult:
         assert items[0]["type"] == "sigma"
         assert items[0]["query"] == "title: Test"
 
-    def test_hunt_queries_legacy_query_count_fallback(self):
-        """When `count` is absent, falls back to `query_count`."""
-        raw = {"queries": [{"type": "kql", "query": "q1", "context": ""}], "query_count": 5}
-        items, entry = _parse_agent_result("HuntQueriesExtract", "hunt_queries", raw)
-        assert entry["query_count"] == 5
-
     def test_hunt_queries_count_defaults_to_len(self):
         """When both count fields are absent, defaults to len(queries)."""
         raw = {"queries": [{"type": "a", "query": "b", "context": "c"}]}
         items, entry = _parse_agent_result("HuntQueriesExtract", "hunt_queries", raw)
-        assert entry["query_count"] == 1
+        assert entry["count"] == 1
 
     def test_standard_agent_uses_result_key(self):
         """Standard agents look up items by result_key first."""

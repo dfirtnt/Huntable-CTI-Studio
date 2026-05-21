@@ -343,11 +343,6 @@ class TestActualCountFallback:
         subresults = {"hunt_queries": {"query_count": 7, "count": 3, "queries": [1]}}
         assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 3
 
-    def test_hunt_queries_falls_back_to_query_count(self):
-        """hunt_queries falls back to legacy `query_count` when `count` is missing (cached executions)."""
-        subresults = {"hunt_queries": {"query_count": 4, "queries": [1, 2]}}
-        assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 4
-
     def test_hunt_queries_falls_back_to_len_queries(self):
         """hunt_queries falls back to len(queries) when both count fields are missing."""
         subresults = {"hunt_queries": {"queries": ["q1", "q2", "q3"]}}
