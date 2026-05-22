@@ -609,7 +609,7 @@ API/Playwright cover config and trigger endpoint; manual check stresses “see e
 | Step | Action | Pass condition |
 |------|--------|----------------|
 | 9.1 | Open **PDF Upload** (`/pdf-upload`) | Page and upload control visible |
-| 9.2 | Open **ML Hunt Comparison** (`/ml-hunt-comparison`) | Page loads; key controls or “no data” state visible |
+| 9.2 | Open **ML Model Performance** (`/ml-model-performance`) | Page loads; key controls or “no data” state visible |
 
 ---
 

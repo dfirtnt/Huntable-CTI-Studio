@@ -350,10 +350,6 @@ Processes articles with `hunt_score > 50` to populate chunk analysis data for th
 | `GET` | `/api/ml-model-performance/summary` | Dashboard summary statistics |
 | `GET` | `/api/ml-model-performance/stats` | Detailed comparison statistics |
 
-### Legacy router (`/api/ml-hunt-comparison/*`)
-
-`/api/ml-hunt-comparison/summary`, `/api/ml-hunt-comparison/stats`, `/api/ml-hunt-comparison/results`, `/api/ml-hunt-comparison/model-versions` — still live; prefer `/api/ml-model-performance/*` equivalents for new integrations.
-
 ---
 
 ## Configuration
