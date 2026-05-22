@@ -84,8 +84,8 @@ def _run(cmd: list[str], capture: bool = True) -> str:
 
 def _preflight() -> None:
     branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-    if branch != "dev-europa":
-        _die(f"must be on dev-europa (currently on {branch!r})")
+    if not branch.startswith("dev-europa"):
+        _die(f"must be on a dev-europa branch (currently on {branch!r})")
 
     status = _run(["git", "status", "--porcelain"])
     if status:
@@ -94,13 +94,13 @@ def _preflight() -> None:
             f"changes before cutting a release. Current status:\n{status}"
         )
 
-    # Fetch just origin/dev-europa so we can compare without side effects on refs.
-    _run(["git", "fetch", "origin", "dev-europa"])
+    # Fetch the current dev-europa branch so we can compare without side effects on refs.
+    _run(["git", "fetch", "origin", branch])
     local = _run(["git", "rev-parse", "HEAD"])
     remote = _run(["git", "rev-parse", "FETCH_HEAD"])
     if local != remote:
         _die(
-            "dev-europa is not in sync with origin/dev-europa. Pull or push before "
+            f"{branch} is not in sync with origin/{branch}. Pull or push before "
             "cutting a release."
         )
 
@@ -279,6 +279,7 @@ def main() -> int:
     if not DATE_RE.match(args.date):
         _die(f"invalid --date {args.date!r}; expected YYYY-MM-DD")
 
+    current_branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]) if not args.skip_git else "dev-europa"
     if not args.skip_git:
         _preflight()
 
@@ -302,8 +303,8 @@ def main() -> int:
 
     print("release-cut: DONE. Next steps:")
     print("  scripts/release_unlock.sh")
-    print("  git push origin dev-europa")
-    print("  # open PR: dev-europa -> main; merge after CI green")
+    print(f"  git push origin {current_branch}")
+    print(f"  # open PR: {current_branch} -> main; merge after CI green")
     print(f"  git push origin {tag}")
     print("  scripts/release_lock.sh")
     return 0
