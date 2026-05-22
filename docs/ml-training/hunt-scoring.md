@@ -1,38 +1,35 @@
 # Hunt Scoring
 
-## ML-Based Hunt Scoring
 
 ## ML-Based Hunt Scoring System
 
-## Overview
-
-The ML Hunt Score is a second hunt score for articles based solely on RandomForest ML ranking of chunks. This complements the existing keyword-based `threat_hunting_score` (0-100) with a machine learning perspective.
+The `ml_hunt_score` is an article-level score produced by a RandomForest classifier operating on text chunks. It complements the keyword-based `threat_hunting_score` (0-100) with a model-trained perspective.
 
 ## How It Works
 
-1. **Chunk Analysis**: Articles are split into chunks (default: 1000 chars, 200 overlap)
-2. **ML Prediction**: Each chunk is classified by RandomForest as "Huntable" or "Not Huntable" with a confidence score (0-1)
-3. **Score Aggregation**: Chunk-level predictions are aggregated into an article-level score (0-100)
+1. **Chunk analysis**: Articles are split into chunks (default: 1000 chars, 200-char overlap).
+2. **ML prediction**: The RandomForest classifier labels each chunk "Huntable" or "Not Huntable" with a confidence score (0-1).
+3. **Score aggregation**: Chunk-level predictions aggregate into an article-level score (0-100).
 
 ## Metric Options
 
-### 1. `weighted_average` (Recommended) ⭐
+### 1. `weighted_average` (Recommended)
 
 **Formula**: `average(ml_confidence for huntable chunks) * 100`
 
-**Description**: Average confidence of chunks where ML predicts "Huntable"
+Average confidence across chunks where ML predicts "Huntable."
 
 **Pros**:
-- Simple and interpretable
-- Focuses on quality (confidence) of huntable content
+- Simple to interpret
+- Focuses on confidence quality, not chunk count
 - Not affected by article length
-- Handles edge cases gracefully (returns 0 if no huntable chunks)
+- Returns 0 if no huntable chunks
 
 **Cons**:
-- Doesn't account for proportion of huntable chunks
-- Single high-confidence chunk can inflate score
+- Ignores the proportion of huntable chunks
+- A single high-confidence chunk can inflate the score
 
-**Use Case**: Best for identifying articles with high-quality huntable content
+**Use case**: Identifying articles with high-quality huntable content.
 
 ---
 
@@ -40,18 +37,17 @@ The ML Hunt Score is a second hunt score for articles based solely on RandomFore
 
 **Formula**: `(huntable_chunks / total_chunks) * average_confidence * 100`
 
-**Description**: Combines proportion of huntable chunks with average confidence
+Combines the proportion of huntable chunks with average confidence.
 
 **Pros**:
 - Balances quantity and quality
 - Rewards articles with more huntable content
-- More nuanced than simple average
 
 **Cons**:
-- Can be misleading if article has many low-confidence huntable chunks
-- More complex to interpret
+- Can mislead when an article has many low-confidence huntable chunks
+- Harder to interpret than a simple average
 
-**Use Case**: Best when you want to reward articles with substantial huntable content
+**Use case**: When rewarding articles with substantial huntable coverage matters.
 
 ---
 
@@ -59,17 +55,17 @@ The ML Hunt Score is a second hunt score for articles based solely on RandomFore
 
 **Formula**: `sum(ml_confidence for huntable chunks) / total_chunks * 100`
 
-**Description**: Sum of all huntable confidences, normalized by total chunks
+Sum of huntable confidences, normalized by total chunk count.
 
 **Pros**:
-- Accounts for both number and confidence of huntable chunks
-- Normalized by total chunks prevents length bias
+- Accounts for both count and confidence
+- Normalization prevents length bias
 
 **Cons**:
-- Can be low even with high-quality chunks if article is long
+- Can be low even with high-quality chunks if the article is long
 - Less intuitive than other metrics
 
-**Use Case**: Best when you want to penalize long articles with sparse huntable content
+**Use case**: Penalizing long articles with sparse huntable content.
 
 ---
 
@@ -77,18 +73,17 @@ The ML Hunt Score is a second hunt score for articles based solely on RandomFore
 
 **Formula**: `75th_percentile(ml_confidence for huntable chunks) * 100`
 
-**Description**: Uses 75th percentile confidence to reduce outlier impact
+Uses the 75th percentile confidence to reduce outlier impact.
 
 **Pros**:
 - Robust to outliers
-- Focuses on typical quality rather than extremes
-- Good for filtering noise
+- Reflects typical quality rather than extremes
 
 **Cons**:
 - Ignores lower-confidence chunks
 - May miss articles with consistent moderate confidence
 
-**Use Case**: Best when you want to filter out outliers and focus on typical quality
+**Use case**: Filtering noise and focusing on typical prediction quality.
 
 ---
 
@@ -96,30 +91,30 @@ The ML Hunt Score is a second hunt score for articles based solely on RandomFore
 
 **Formula**: `sum(confidences > 0.5) / count(confidences > 0.5) * 100`
 
-**Description**: Original proposal - average confidence of chunks above 50% threshold
+Average confidence of chunks above a 50% threshold.
 
 **Pros**:
 - Filters low-confidence predictions
-- Simple threshold-based approach
+- Threshold-based logic is simple to reason about
 
 **Cons**:
-- **Division by zero risk** if no chunks exceed threshold
-- Ignores chunks just below threshold
-- Doesn't use `ml_prediction` field (only confidence threshold)
+- **Division-by-zero risk** if no chunks exceed the threshold
+- Ignores chunks just below the cutoff
+- Bypasses the `ml_prediction` field; relies on confidence threshold only
 
-**Use Case**: When you want to focus only on high-confidence predictions
+**Use case**: When only high-confidence predictions matter.
 
 ---
 
 ## Recommendation
 
-**Use `weighted_average` as the default metric** because:
+Use `weighted_average` as the default metric:
 
-1. ✅ **Interpretable**: "Average confidence of huntable chunks" is easy to understand
-2. ✅ **Robust**: Handles edge cases (no huntable chunks → 0)
-3. ✅ **Quality-focused**: Emphasizes confidence over quantity
-4. ✅ **Consistent**: Not affected by article length variations
-5. ✅ **Uses ML prediction**: Properly filters by `ml_prediction=True` rather than arbitrary threshold
+1. **Interpretable**: "Average confidence of huntable chunks" needs no further explanation.
+2. **Robust**: No huntable chunks returns 0 cleanly.
+3. **Quality-focused**: Weights confidence over quantity.
+4. **Consistent**: Article length does not affect the result.
+5. **Correct field usage**: Filters by `ml_prediction=True`, not an arbitrary threshold.
 
 ## Implementation
 
@@ -145,352 +140,286 @@ ML hunt scores are stored in `article_metadata`:
 
 ### Automatic Calculation
 
-ML hunt scores are automatically calculated when:
-- Chunk analysis results are stored (via `ChunkAnalysisService.store_chunk_analysis()`)
-- Only for articles with `threat_hunting_score > 50` (same threshold as chunk storage)
+ML hunt scores calculate automatically when:
+- Chunk analysis results are stored via `ChunkAnalysisService.store_chunk_analysis()`
+- The article's `threat_hunting_score` exceeds 50 (same threshold as chunk storage)
 
-### Manual Recalculation
+### Recalculation
 
-Use the CLI command to recalculate scores:
+No CLI command recomputes `ml_hunt_score` directly. The score recalculates whenever chunk analysis is re-stored for an article. Trigger that by:
 
-```bash
-# Recalculate for all articles
-./run_cli.sh rescore-ml
+- **Backfill** — run **Process All Eligible Articles** on the ML vs Hunt Comparison Dashboard, or call `POST /api/ml-model-performance/backfill`. This re-analyzes every article with `hunt_score > 50`.
+- **Re-run extraction** — re-extracting an article regenerates its chunk predictions and the aggregate `ml_hunt_score`.
 
-# Recalculate for specific article
-./run_cli.sh rescore-ml --article-id 1234
+The aggregation metric is fixed in the scoring code; it is not selectable per run.
 
-# Use different metric
-./run_cli.sh rescore-ml --metric proportion_weighted
 
-# Force recalculation (overwrite existing scores)
-./run_cli.sh rescore-ml --force
-
-# Dry run (see what would be calculated)
-./run_cli.sh rescore-ml --dry-run
-```
 
 ## Comparison with Keyword-Based Score
 
-| Aspect | Keyword Score (`threat_hunting_score`) | ML Score (`ml_hunt_score`) |
+| Aspect | Keyword score (`threat_hunting_score`) | ML score (`ml_hunt_score`) |
 |--------|----------------------------------------|----------------------------|
-<!-- AUDIT: Accuracy -- "~1003 perfect discriminators" was wrong. Verified count from src/utils/content.py: 92 perfect_discriminators, ~476 total keywords across all categories (perfect + good + lolbas + intelligence). -->
-| **Method** | Pattern matching (~92 perfect discriminators; ~476 total keywords) | RandomForest ML classification |
+| **Method** | Pattern matching (~92 perfect discriminators; ~476 total keywords) | RandomForest classification |
 | **Granularity** | Article-level | Chunk-level aggregation |
 | **Range** | 0-100 | 0-100 |
-| **Speed** | Fast (regex matching) | Slower (ML inference) |
+| **Speed** | Fast (regex) | Slower (ML inference) |
 | **Training** | Rule-based | Trained on user feedback |
-| **Use Case** | Initial filtering | Quality assessment |
+| **Use case** | Initial filtering | Quality assessment |
 
 ## Best Practices
 
-1. **Use both scores**: Keyword score for fast filtering, ML score for quality assessment
-2. **Monitor correlation**: Track how ML scores correlate with keyword scores
-3. **Retrain model**: Update ML model periodically with new feedback data
-4. **Metric selection**: Start with `weighted_average`, experiment with others if needed
-5. **Threshold tuning**: Adjust thresholds based on your use case (e.g., workflow triggers)
+1. **Use both scores**: keyword score for fast filtering, ML score for quality assessment.
+2. **Monitor correlation**: track how ML scores correlate with keyword scores over time.
+3. **Retrain regularly**: update the model as new feedback accumulates.
+4. **Start with `weighted_average`**: switch metrics only if you have a concrete reason.
+5. **Tune thresholds**: adjust workflow trigger thresholds based on observed score distributions.
 
 ## Troubleshooting
 
 ### No ML Hunt Score
 
-**Symptom**: `ml_hunt_score` is missing from article metadata
+**Symptom**: `ml_hunt_score` missing from article metadata.
 
 **Causes**:
 - Article has no chunk analysis results (requires `threat_hunting_score > 50`)
-- Chunk analysis hasn't been run yet
+- Chunk analysis has not been run yet
 - All chunks predicted as "Not Huntable"
 
-**Solution**: Run chunk analysis first, then recalculate ML scores
+**Resolution**: Run chunk analysis first, then recalculate ML scores.
 
-### Score Seems Too Low/High
+### Score Seems Too Low or Too High
 
-**Symptom**: ML scores don't match expectations
+**Symptom**: ML scores do not match expectations.
 
 **Causes**:
-- Metric selection (try different metrics)
-- Model version differences
-- Chunk size/overlap settings
+- Metric selection may not suit the content type
+- Model version mismatch between chunks and current model
+- Chunk size or overlap settings differ from training
 
-**Solution**: 
-- Try different metrics: `--metric proportion_weighted`
-- Check chunk analysis details in metadata
-- Verify model version consistency
-
-## Future Enhancements
-
-- [ ] Weighted metrics (e.g., higher weight for chunks with perfect discriminators)
-- [ ] Time-decay (recent chunks weighted more)
-- [ ] Chunk position weighting (title/headings weighted more)
-- [ ] Ensemble scoring (combine multiple metrics)
+**Resolution**:
+- Try a different metric: `--metric proportion_weighted`
+- Inspect chunk analysis details in the article's metadata
+- Verify model version consistency across chunk records
 
 ---
 
-## ML vs Hunt Score Comparison
+## ML vs Hunt Comparison Dashboard
 
-## ML vs Hunt Comparison Dashboard Guide
 
-## Overview
-
-The ML vs Hunt Comparison Dashboard is a comprehensive analytics interface that provides detailed analysis of machine learning model performance compared to the Hunt scoring system. This dashboard enables data-driven model improvements and performance monitoring.
-
-## Table of Contents
-
-- [Features](#features)
-- [Getting Started](#getting-started)
-- [Time Series Analysis](#time-series-analysis)
-- [Model Retraining](#model-retraining)
-- [Model Evaluation](#model-evaluation)
-- [Performance Visualization](#performance-visualization)
-- [Backfill Processing](#backfill-processing)
-- [API Endpoints](#api-endpoints)
-- [Troubleshooting](#troubleshooting)
-
-## Features
-
-### 📊 Classification Trends Chart
-- **Time series visualization** showing how ML and Hunt predictions align across model versions
-- **Four categories tracked**: Agreement, ML-only, Hunt-only, and Neither
-- **Percentage-based metrics** for better trend analysis
-- **Interactive tooltips** with training dates and accuracy metrics
-
-### 🔄 Model Retraining Panel
-- **Feedback tracking** to prevent duplicate training on the same data
-- **Automatic feedback marking** after retraining completes
-- **Visual feedback** for button states (disabled when no feedback available)
-- **Progress tracking** during retraining process
-
-### 🧪 Model Evaluation
-- **Test set evaluation** on 160 annotated chunks from article_annotations table
-- **Comprehensive metrics**: accuracy, precision, recall, F1 scores
-- **Confusion matrix** visualization
-- **Misclassified chunk analysis** with examples
-
-### 📈 Performance Visualization
-- **Radar chart** with 4 focused metrics (Accuracy, Precision, Recall, F1 for Huntable)
-- **Accuracy trends** over model versions
-- **Real-time data updates**
-- **Export capabilities** for further analysis
-
-## Getting Started
+The ML vs Hunt Comparison Dashboard compares RandomForest predictions against the keyword hunt score across model versions. Use it to monitor model drift, trigger retraining, run evaluations, and process backfill.
 
 ### Accessing the Dashboard
-1. Navigate to the main menu
-2. Click on "ML vs Hunt Comparison"
-3. The dashboard will load with current model statistics
 
-### Initial Data Loading
-- **Total Model Versions**: Number of trained model versions
-<!-- AUDIT: Accuracy -- Hardcoded "currently 11,644" is a snapshot value; dashboard shows live count. Removed. -->
-- **Total Chunk Analyses**: Total number of chunk analyses performed (live count shown in dashboard)
-- **Average Accuracy**: Average accuracy across all model versions
-- **Last Updated**: Date of last model training or evaluation
+1. Open the main menu.
+2. Click **ML vs Hunt Comparison**.
+3. The dashboard loads with current model statistics.
 
-## Time Series Analysis
+---
 
-### Understanding the Chart
-The Classification Trends chart shows how the relationship between ML predictions and Hunt scoring has evolved across different model versions.
+## Classification Trends Chart
 
-**Categories Explained:**
-- **Agreement (Both Huntable)**: Both ML and Hunt systems classify content as huntable
-- **ML Only (ML Huntable)**: Only ML system classifies as huntable
-- **Hunt Only (Hunt Huntable)**: Only Hunt system classifies as huntable  
-- **Neither (Not Huntable)**: Both systems classify as not huntable
+A time series showing how ML and hunt score predictions align across model versions.
 
-### Chart Features
-- **Y-axis**: Percentage of chunks (0-100%)
-- **X-axis**: Model versions (v0, v1, v2, etc.)
-- **Interactive tooltips**: Hover over data points for detailed information
-- **Logarithmic scale**: Better visibility of different value ranges
+**Four tracked categories:**
 
-### Interpreting Trends
-- **Increasing Agreement**: Model is learning to align with Hunt scoring
-- **Decreasing ML Only**: Model is becoming more conservative
-- **Stable Neither**: Consistent filtering of non-huntable content
+| Category | Definition |
+|---|---|
+| Agreement (Both Huntable) | Both ML and Hunt classify the chunk as huntable |
+| ML Only | Only ML classifies as huntable |
+| Hunt Only | Only Hunt classifies as huntable |
+| Neither | Both systems classify as not huntable |
 
-## Model Retraining (Cumulative Learning)
+**Reading the chart:**
+- Y-axis: percentage of chunks (0-100%)
+- X-axis: model versions (v0, v1, v2, ...)
+- Increasing Agreement: model is converging with hunt scoring
+- Decreasing ML Only: model is becoming more conservative
+- Stable Neither: consistent filtering of non-huntable content
 
-### How Retraining Works
-**Important**: The retraining system uses **cumulative learning** - each retraining session builds upon ALL previous data:
+---
 
-1. **Original Training Data** (baseline model)
-2. **ALL Previous Feedback** (from all previous retraining sessions)
-3. **ALL Previous Annotations** (from all previous retraining sessions)
-4. **New Feedback/Annotations** (since last retraining)
+## Model Retraining
+
+### How It Works
+
+Retraining is cumulative: each session builds on all prior data.
+
+1. Original training data (baseline model)
+2. All previous feedback (from every prior retraining session)
+3. All previous annotations (from every prior retraining session)
+4. New feedback and annotations (since last retraining)
 
 ### Prerequisites
-- **User feedback required**: Must have feedback from chunk debugging corrections
-- **Minimum feedback**: System tracks available feedback count
-- **Feedback source**: Corrections made during chunk debugging interface
 
-### Retraining Process
-1. **Check Feedback Count**: Ensure sufficient feedback is available
-2. **Click "Retrain Model"**: Button is disabled if no feedback available
-3. **Monitor Progress**: Progress bar shows retraining status
-4. **Review Results**: New model version and performance metrics displayed
+- User feedback collected via the chunk debugging interface
+- At least one unused feedback or annotation sample (the Retrain button disables if the count is zero)
 
-### Cumulative Learning Benefits
-- **No Data Loss**: All previous feedback is preserved and reused
-- **Progressive Improvement**: Model accuracy improves with each retraining
-- **Stable Learning**: No catastrophic forgetting of previous knowledge
-- **Small Batch Friendly**: Even small amounts of new feedback improve the model
-- **Efficient Training**: All user corrections contribute to model improvement
+### Retraining Steps
 
-### Feedback Tracking
-- **Automatic marking**: New feedback is marked as "used" after retraining
-- **Preservation**: Previously used feedback remains in the training dataset
-- **Cumulative dataset**: Each retraining uses original + all previous + new data
-- **Duplicate prevention**: Same feedback cannot be used twice
-- **Source tracking**: Feedback comes from chunk debugging corrections
-- **Count accuracy**: Real-time feedback count updates
+1. Check the **Available feedback** count in the retraining panel.
+2. Click **Retrain Model**.
+3. Monitor the progress bar.
+4. Review the new model version and performance metrics.
+
+After retraining, new feedback is marked "used." Previously used feedback stays in the training dataset and is reused in subsequent sessions.
+
+---
 
 ## Model Evaluation
 
-### Evaluation Process
-1. **Click "Evaluate Current Model"**: Starts evaluation on test set
-2. **Monitor Progress**: Progress bar shows evaluation status
-3. **Review Results**: Comprehensive metrics displayed
+### Running an Evaluation
 
-### Metrics Explained
-- **Accuracy**: Overall percentage of correct predictions
-- **Precision (Huntable)**: Of predicted huntable, how many were actually huntable
-- **Recall (Huntable)**: Of actually huntable, how many were predicted huntable
-- **F1 Score (Huntable)**: Harmonic mean of precision and recall
-- **Confusion Matrix**: Detailed breakdown of true/false positives/negatives
+1. Click **Evaluate Current Model**.
+2. Monitor the progress bar.
+3. Review results in the metrics panel.
 
-### Test Set Details
-- **Size**: 160 annotated chunks
-- **Source**: article_annotations table
-- **Quality**: Manually annotated by users
-- **Coverage**: Representative sample of content types
+### Metrics
+
+| Metric | Definition |
+|---|---|
+| Accuracy | Overall percentage of correct predictions |
+| Precision (Huntable) | Of predicted huntable: fraction that were actually huntable |
+| Recall (Huntable) | Of actually huntable: fraction that were predicted huntable |
+| F1 Score (Huntable) | Harmonic mean of precision and recall |
+| Confusion Matrix | Breakdown of true/false positives and negatives |
+
+### Test Set
+
+- **Size**: 240 annotated chunks
+- **Source**: `article_annotations` table; exported to `outputs/evaluation_data/eval_set.csv`
+- **Labeling**: manually annotated by users
+
+---
 
 ## Performance Visualization
 
 ### Radar Chart
-The radar chart shows 4 key metrics for the latest evaluated model version:
-- **Accuracy**: Overall model performance
-- **Precision (Huntable)**: How good at identifying huntable content
-- **Recall (Huntable)**: How much huntable content is caught
-- **F1 (Huntable)**: Balanced metric for huntable detection
+
+Displays 4 metrics for the latest evaluated model version: Accuracy, Precision (Huntable), Recall (Huntable), F1 (Huntable).
 
 ### Accuracy Trends Chart
-- **Line chart** showing accuracy progression across model versions
-- **Y-axis**: Accuracy percentage (0-100%)
-- **X-axis**: Model versions
-- **Trend analysis**: Shows model improvement over time
+
+Line chart showing accuracy progression across model versions. Use this to confirm that retraining is improving the model, not degrading it.
+
+---
 
 ## Backfill Processing
 
-### Purpose
-Process articles with high hunt scores to populate comparison data for analysis.
+Processes articles with `hunt_score > 50` to populate chunk analysis data for the comparison dashboard.
 
-### Process
-1. **Check Eligible Count**: See how many articles are eligible for processing
-2. **Click "Process All Eligible Articles"**: Starts backfill processing
-3. **Monitor Progress**: Progress bar shows processing status
-4. **Review Results**: Summary of processed articles
+### Steps
+
+1. Check the **Eligible count** in the backfill panel.
+2. Click **Process All Eligible Articles**.
+3. Monitor the progress bar.
+4. Review the processing summary.
 
 ### Eligibility Criteria
-- **Hunt Score**: Articles must have hunt_score > 50
-- **Not Processed**: Articles not already processed for chunk analysis
-- **Content Quality**: Articles must meet quality thresholds
+
+- `hunt_score > 50` (default threshold)
+- Not already processed for chunk analysis
+- Passes quality thresholds
+
+---
 
 ## API Endpoints
 
-### Model Management
-- `GET /api/model/versions` - List all model versions with performance metrics
-- `GET /api/model/classification-timeline` - Get classification trends data
-- `POST /api/model/retrain` - Trigger model retraining
-- `POST /api/model/evaluate` - Evaluate current model on test set
+
+### Model Management (`/api/model/*`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/model/versions` | List all model versions with performance metrics |
+| `GET` | `/api/model/classification-timeline` | Classification trends data for the time series chart |
+| `POST` | `/api/model/retrain` | Trigger model retraining |
+| `POST` | `/api/model/evaluate` | Evaluate current model on the test set |
 
 ### Feedback Management
-- `GET /api/model/feedback-count` - Get count of available feedback samples
-- `POST /api/feedback/chunk-classification` - Submit user feedback
 
-### Data Processing
-- `GET /api/ml-hunt-comparison/eligible-count` - Get count of eligible articles
-- `POST /api/ml-hunt-comparison/backfill` - Process eligible articles
-- `GET /api/ml-hunt-comparison/summary` - Get dashboard summary statistics
-- `GET /api/ml-hunt-comparison/stats` - Get detailed comparison statistics
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/model/feedback-count` | Count of available feedback and annotation samples |
+| `POST` | `/api/feedback/chunk-classification` | Submit user feedback for a chunk |
+
+### Data Processing — Canonical router (`/api/ml-model-performance/*`)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/ml-model-performance/eligible-count` | Count of articles eligible for chunk analysis |
+| `POST` | `/api/ml-model-performance/backfill` | Process eligible articles |
+| `GET` | `/api/ml-model-performance/summary` | Dashboard summary statistics |
+| `GET` | `/api/ml-model-performance/stats` | Detailed comparison statistics |
+
+### Legacy router (`/api/ml-hunt-comparison/*`)
+
+`/api/ml-hunt-comparison/summary`, `/api/ml-hunt-comparison/stats`, `/api/ml-hunt-comparison/results`, `/api/ml-hunt-comparison/model-versions` — still live; prefer `/api/ml-model-performance/*` equivalents for new integrations.
+
+---
 
 ## Configuration
 
 ### Content Filter Settings
-The dashboard metrics are influenced by three key content filter settings:
 
-1. **min_confidence: 0.7** (70% confidence threshold)
-   - Only chunks with ML confidence ≥ 70% are considered "huntable"
-   - Primary filter for chunk-level decisions
+Three settings influence dashboard metrics:
 
-2. **quality_threshold: 0.5** (50% quality threshold)
-   - Articles must pass quality checks to be processed
-   - Filters out low-quality content before chunking
-
-3. **cost_threshold: 0.1** (10% cost threshold)
-   - Articles with estimated processing costs > 10% are filtered out
-   - Prevents expensive articles from being processed
+| Setting | Default | Effect |
+|---------|---------|--------|
+| `min_confidence` | `0.7` (70%) | Chunks below this confidence threshold are not considered huntable |
+| `quality_threshold` | `0.5` (50%) | Articles below this quality score are not chunked |
+| `cost_threshold` | `0.1` (10%) | Articles with estimated processing cost above this value are skipped |
 
 ### Data Scope
-- **Hunt Score Filter**: Only articles with hunt_score > 50 are included
-- **Confidence Filter**: Only chunks with ML confidence ≥ 70% are analyzed
-- **Quality Filter**: Only high-quality articles are processed
 
-## Troubleshooting
-
-### Common Issues
-
-#### "Retrain Model" Button Disabled
-- **Cause**: No user feedback available for retraining
-- **Solution**: Provide feedback through chunk debugging interface
-- **Check**: Look at "Available feedback" count in retraining panel
-
-#### Chart Not Loading
-- **Cause**: JavaScript errors or missing data
-- **Solution**: Refresh page and check browser console
-- **Check**: Ensure all containers are running properly
-
-#### Evaluation Fails
-- **Cause**: Missing test data or model issues
-- **Solution**: Check that article_annotations table has data
-- **Check**: Verify model files are present
-
-#### Backfill Processing Fails
-- **Cause**: No eligible articles or processing errors
-- **Solution**: Check eligible count and review error messages
-- **Check**: Ensure articles have hunt_score > 50
-
-### Performance Tips
-- **Large datasets**: Charts may take time to load with large amounts of data
-- **Browser cache**: Clear cache if charts display incorrectly
-- **Network issues**: Check API endpoint responses in browser developer tools
-
-### Data Accuracy
-- **Real-time updates**: Data is updated in real-time from database
-- **No artificial limits**: All data is included (no 10,000 limit)
-- **Accurate counts**: Statistics reflect actual database contents
-
-## Best Practices
-
-### Model Retraining
-- **Regular evaluation**: Evaluate model before retraining
-- **Sufficient feedback**: Ensure adequate feedback before retraining
-- **Monitor trends**: Watch classification trends for improvement
-- **Document changes**: Note what changes were made between versions
-
-### Performance Monitoring
-- **Regular checks**: Monitor dashboard weekly for trends
-- **Anomaly detection**: Watch for sudden changes in metrics
-- **Feedback quality**: Ensure high-quality feedback for training
-- **Data consistency**: Verify data accuracy and completeness
-
-### Usage Guidelines
-- **Access frequency**: Dashboard can be accessed as needed
-- **Data interpretation**: Understand what metrics mean for your use case
-- **Action planning**: Use insights to plan model improvements
-- **Documentation**: Keep records of model performance over time
-
+- Only articles with `hunt_score > 50` are eligible for chunk analysis.
+- Only chunks with ML confidence ≥ 70% are counted as huntable.
 
 ---
 
-_Last updated: 2026-05-15_
-_Last reviewed: 2026-05-03_
+## Troubleshooting
+
+### "Retrain Model" Button Disabled
+
+**Cause**: No unused feedback or annotation samples available.
+**Resolution**: Provide feedback via the chunk debugging interface, then check the "Available feedback" count.
+
+### Chart Not Loading
+
+**Cause**: JavaScript error or no data for the selected model version.
+**Resolution**: Refresh the page and check the browser console for errors. Verify all containers are running.
+
+### Evaluation Fails
+
+**Cause**: Missing test data or model file not found.
+**Resolution**: Confirm that `article_annotations` has data and that `outputs/evaluation_data/eval_set.csv` exists. Verify model artifact files are present.
+
+### Backfill Processing Fails
+
+**Cause**: No eligible articles or runtime error during processing.
+**Resolution**: Check the eligible count. Review server logs for the specific error. Confirm articles have `hunt_score > 50`.
+
+### Performance
+
+- Charts with large datasets may take several seconds to render.
+- Clear the browser cache if charts display stale or broken data.
+- Inspect API responses in browser developer tools if data looks wrong.
+
+---
+
+## Best Practices
+
+### Before Retraining
+
+- Run an evaluation to record the current model's baseline metrics.
+- Confirm there is sufficient new feedback (visible in the retraining panel).
+- Watch classification trends for drift before triggering retraining.
+
+### Monitoring
+
+- Check the dashboard weekly for metric trends.
+- Watch for sudden shifts in Agreement or ML Only categories — these signal distribution changes.
+- Prioritize high-quality, representative feedback over volume.
+
+---
+
+_Last updated: 2026-05-21_
+_Last reviewed: 2026-05-22_
