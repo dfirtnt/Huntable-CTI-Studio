@@ -347,10 +347,11 @@ class TestArticlesPagination:
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
-        # Change per-page
+        # Change per-page — wrap in expect_navigation so we wait for the
+        # form-submit navigation triggered by the select, not the pre-existing load state.
         per_page = page.locator("#per_page")
-        per_page.select_option("50")
-        page.wait_for_load_state("load")
+        with page.expect_navigation(wait_until="load", timeout=10000):
+            per_page.select_option("50")
 
         # Verify URL contains per_page parameter
         expect(page).to_have_url(re.compile(r".*per_page=50.*"))

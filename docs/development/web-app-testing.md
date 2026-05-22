@@ -556,8 +556,7 @@ npm run test:pw tests/playwright/agent_config_save_button.spec.ts
 Or via pytest (which wraps the TypeScript tests):
 ```bash
 # Run workflow tabs test via pytest
-<!-- AUDIT: Accuracy -- test_workflow_tabs_ui.py path: verify this file still exists before running [VERIFY LINK] -->
-pytest tests/ui/test_workflow_tabs_ui.py -v
+pytest tests/ui/test_workflow_comprehensive_ui.py -v
 ```
 
 ### Advanced Commands
