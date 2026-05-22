@@ -272,3 +272,4 @@ Workshop/.worktrees/
 /playwright/.cache/
 /playwright/.auth/
 .setup_complete
+*.pptx
