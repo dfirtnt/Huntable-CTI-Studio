@@ -1106,7 +1106,18 @@ class ContentFilter:
             return self._pattern_based_classification(text, hunt_score)
 
     def _pattern_based_classification(self, text: str, hunt_score: float | None = None) -> tuple[bool, float]:
-        """Pattern-based classification using Hunt Scoring system results."""
+        """Degraded-mode fallback when the ML model is unavailable or raises.
+
+        Called from predict_huntability in two situations:
+        1. sklearn not importable or self.model is None (e.g. test environments
+           without the trained pkl, or failed load_model() calls).
+        2. The ML prediction path raises an unexpected exception — ensures
+           the pipeline never hard-fails due to an ML bug.
+
+        Uses ThreatHuntingScorer keyword signals as a coarser substitute.
+        Accuracy is lower than the trained RandomForest; this path should
+        never fire in a normally-running production instance.
+        """
         from .content import ThreatHuntingScorer
 
         # Use Hunt Scoring system as the source of truth
