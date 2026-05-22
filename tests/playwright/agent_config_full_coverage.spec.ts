@@ -28,7 +28,7 @@ async function gotoWorkflowConfig(page: Page) {
 
 const PANEL_STEP_MAP: Record<string, string[]> = {
   'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
-  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'rank-agent-configs-panel': ['s2'],
   'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
   'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
   'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],
@@ -48,7 +48,6 @@ async function expandPanel(page: Page, panelId: string) {
 }
 
 async function expandAgentPanels(page: Page) {
-  await expandPanel(page, 'qa-settings-panel');
   await expandPanel(page, 'os-detection-panel');
   await expandPanel(page, 'rank-agent-configs-panel');
   await expandPanel(page, 'extract-agent-panel');
@@ -58,39 +57,19 @@ async function expandAgentPanels(page: Page) {
   await expandPanel(page, 'sigma-agent-panel');
 }
 
-async function ensureQATogglesEnabled(page: Page) {
-  await page.evaluate(() => {
-    const ids = ['qa-rankagent', 'qa-cmdlineextract', 'qa-proctreeextract', 'qa-huntqueriesextract'];
-    ids.forEach(id => {
-      const el = document.getElementById(id) as HTMLInputElement | null;
-      if (el && !el.checked) {
-        el.checked = true;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-  });
-  await page.waitForTimeout(500);
-}
-
 test.describe('Agent Config Full Coverage (10+ agents)', () => {
   test.beforeEach(async ({ page }) => {
     await gotoWorkflowConfig(page);
     await expandAgentPanels(page);
-    await ensureQATogglesEnabled(page);
   });
 
-  test('Enable/disable toggles are visible (9 agents)', async ({ page }) => {
+  test('Enable/disable toggles are visible (5 agents)', async ({ page }) => {
     const toggles = [
       '#rank-agent-enabled',
       '#toggle-cmdlineextract-enabled',
       '#toggle-proctreeextract-enabled',
       '#toggle-huntqueriesextract-enabled',
-      '#qa-rankagent',
-      '#qa-cmdlineextract',
-      '#qa-proctreeextract',
-      '#qa-huntqueriesextract',
       '#sigma-fallback-enabled',
-      // osdetectionagent-fallback-enabled removed: OS Detection uses embedding similarity, no LLM fallback toggle
     ];
 
     for (const selector of toggles) {

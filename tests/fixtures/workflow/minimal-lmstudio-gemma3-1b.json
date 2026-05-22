@@ -34,8 +34,6 @@
       "instructions": ""
     }
   },
-  "qa_enabled": {},
-  "qa_max_retries": 1,
   "sigma_fallback_enabled": false,
   "osdetection_fallback_enabled": false,
   "rank_agent_enabled": false,

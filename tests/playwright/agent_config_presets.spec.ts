@@ -54,10 +54,8 @@ test.describe('Agent Config Presets', () => {
       expect(preset).toHaveProperty('version');
       expect(preset).toHaveProperty('thresholds');
       expect(preset).toHaveProperty('agent_models');
-      expect(preset).toHaveProperty('qa_enabled');
       expect(preset).toHaveProperty('sigma_fallback_enabled');
       expect(preset).toHaveProperty('rank_agent_enabled');
-      expect(preset).toHaveProperty('qa_max_retries');
       expect(preset).toHaveProperty('extract_agent_settings');
       expect(preset).toHaveProperty('agent_prompts');
 
@@ -87,12 +85,8 @@ test.describe('Agent Config Presets', () => {
         RankAgent: 'test-model',
         RankAgent_provider: 'lmstudio'
       },
-      qa_enabled: {
-        RankAgent: true
-      },
       sigma_fallback_enabled: true,
       rank_agent_enabled: true,
-      qa_max_retries: 2,
       extract_agent_settings: {
         disabled_agents: ['CmdlineExtract']
       },
@@ -190,10 +184,8 @@ test.describe('Agent Config Presets', () => {
         similarity_threshold: 0.5
       },
       agent_models: {},
-      qa_enabled: {},
       sigma_fallback_enabled: false,
       rank_agent_enabled: true,
-      qa_max_retries: 5,
       extract_agent_settings: {
         disabled_agents: []
       },
@@ -452,7 +444,7 @@ test.describe('Agent Config Presets', () => {
 
 const PANEL_STEP_MAP: Record<string, string[]> = {
   'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
-  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'rank-agent-configs-panel': ['s2'],
   'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
   'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
   'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],

@@ -126,7 +126,7 @@ test.describe('Agent Config Temperature/Top_P Parameters', () => {
 
 const PANEL_STEP_MAP: Record<string, string[]> = {
   'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
-  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'rank-agent-configs-panel': ['s2'],
   'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
   'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
   'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],
