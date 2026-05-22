@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.1.0 "Europa"] - 2026-05-22
 ### Fixed
 - **Test runner summary table showed FAILED for test types with zero test failures** (2026-05-22): `_print_combined_summary` in `tests_runner/cli.py` derived per-type status from the subprocess exit code (`passed` bool), so a type that ran 1 test, passed it, but exited non-zero (e.g. fixture teardown crash or asyncio warning) displayed red FAILED while showing `0` in the Failed column — a contradictory and misleading table. Status is now count-driven: `f > 0` → FAILED, `p > 0 or passed` → PASSED, otherwise → YELLOW ERROR (nothing ran, process failed). The overall row uses matching `any_test_failures` / `any_process_errors` booleans.
 - **`_UrlAwarePage.goto` skipped navigations when only the query string changed** (2026-05-22): The URL deduplication guard in `tests/ui/conftest.py` compared scheme, netloc, and path but ignored the query string. Clicking a filter that changed `?source=X` to `?source=Y` returned `None` without navigating, causing subsequent `expect(page).to_have_url` assertions to fail non-deterministically. Added `current.query == target.query` to the early-return guard.
