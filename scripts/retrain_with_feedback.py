@@ -330,7 +330,7 @@ def retrain_model_with_feedback(
 
     # Train the model
     print("\n🤖 Training ML model...")
-    filter_system = ContentFilter(model_path=current_model_path)
+    filter_system = ContentFilter(model_path=current_model_path, feature_version="v3")
 
     training_result = filter_system.train_model(output_file)
 
@@ -381,6 +381,7 @@ def retrain_model_with_feedback(
             # Set the compared_with_version field for the new version
             if old_version_id and new_version_id:
                 try:
+
                     async def update_comparison_reference():
                         from sqlalchemy import update
 
@@ -473,6 +474,7 @@ def retrain_model_with_feedback(
 
             # Save evaluation metrics to the model version
             try:
+
                 async def save_eval_metrics():
                     db = AsyncDatabaseManager(pool_size=2, max_overflow=0)
                     try:

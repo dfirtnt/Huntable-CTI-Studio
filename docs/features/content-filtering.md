@@ -14,12 +14,13 @@ The system uses a hybrid approach combining:
 2. **Pattern-based filters** — fast, deterministic matching against huntable
    and not-huntable pattern sets
 3. **ML classification** — RandomForest trained on annotated chunk samples,
-   using 27 features per chunk
+   using 20 features per chunk (v3 extractor; see Feature Extractor Versions
+   below)
 
 ```
 Article Content
       |
-Chunking (1000 chars, 200 overlap)
+Chunking (1000 chars, 200 overlap) — overlap-only tail chunks suppressed
       |
 Hunt Scoring + Pattern Analysis + ML Classification
       |
@@ -49,11 +50,15 @@ Each chunk is analyzed against:
 
 ### Step 3: ML Classification
 
-The ML model extracts 27 base features and classifies each chunk. Chunks are
-kept when:
+The ML model extracts 20 features (v3 extractor) and classifies each chunk.
+Chunks are kept when:
 - They contain a perfect discriminator (always preserved), or
 - ML confidence exceeds the configured threshold (default 0.7), or
 - Pattern match analysis indicates huntable content
+
+The `feature_version` used at inference is auto-detected from a JSON sidecar
+at `<model_path>.meta.json`. Models trained before sidecars existed fall back
+to v1 (the historic default). The active model in production is v3.
 
 ### Step 4: Content Reconstruction
 
@@ -93,19 +98,35 @@ Educational and marketing content: `what is`, `how to`, `best practices`,
 ## Machine Learning Model
 
 **Algorithm:** RandomForestClassifier  
-**Features:** 27 per chunk in the fitted model (31 in debug output only)  
-**Model path:** `models/content_filter.pkl`
+**Features:** 20 per chunk (v3 extractor — see below)  
+**Model path:** `models/content_filter.pkl`  
+**Featurizer metadata:** `models/content_filter.pkl.meta.json`
 
-### Feature Categories
+### Feature Extractor Versions
+
+Three extractor versions exist; the active one is determined at training time
+and recorded in the sidecar at `<model_path>.meta.json` so `load_model()` can
+re-align `feature_version` correctly when the pkl is loaded later.
+
+| Version | Count | Status | Notes |
+|---|---|---|---|
+| **v3** | **20** | **Production (2026-05-21+)** | Aligned with ExtractAgent sub-agent contracts: cmdline, registry, proc-tree, services, scheduled-tasks, hunt-queries. Adds explicit negative detectors (YARA, Suricata, beacon configs, atomic-IOC density, educational/hypothetical phrases, MITRE-only TTP tables). Drops standalone `ip_count`/`url_count` (they were misleading neutral signals) and length-leakage features (`sentence_count`, `avg_word_length`). |
+| v2 | 19 | Legacy | Cleanup of v1: dropped length leakage and train/serve skew. Still missing structural detectors for SIGMA/YARA bodies and registry paths. |
+| v1 | 27 | Legacy | Original featurizer. Has length-leakage features and treats atomic IOCs as positive signals. Used by pre-2026-05-21 model versions. |
+
+To opt a script into a specific version, pass `feature_version="v3"` when
+constructing `ContentFilter` (see `scripts/seed_model.py` and
+`scripts/retrain_with_feedback.py`). At inference time, the sidecar overrides
+the constructor default to match the on-disk model.
+
+### v3 Feature Categories (current)
 
 | Category | Features |
 |---|---|
-| Pattern-based | `huntable_pattern_count`, `not_huntable_pattern_count`, `huntable_pattern_ratio`, `not_huntable_pattern_ratio` |
-| Text characteristics | `char_count`, `word_count`, `sentence_count`, `avg_word_length` |
-| Technical content | `command_count`, `url_count`, `ip_count`, `file_path_count`, `process_count`, `cve_count`, `technical_term_count` |
-| Quality indicators | `marketing_term_count`, `acknowledgment_count`, `marketing_term_ratio`, `technical_term_ratio` |
-| Structural | `has_code_blocks`, `has_commands`, `has_urls`, `has_file_paths` |
-| Hunt score bins | `hunt_score`, `hunt_score_high`, `hunt_score_medium`, `hunt_score_low` — populated only when callers pass `hunt_score` into `extract_features()`; the current training path does not supply this value, so the fitted model does not learn from these bins |
+| Extractor signals (positive) | `cmdline_artifact_count`, `registry_hive_path_count`, `process_lineage_count`, `service_artifact_count`, `scheduled_task_count`, `hunt_query_count` |
+| Negative content | `yara_rule_indicator`, `suricata_rule_indicator`, `beacon_config_indicator`, `hash_count`, `atomic_ioc_density`, `educational_phrase_count`, `mitre_ttp_only_density`, `marketing_term_count` |
+| Discriminators | `perfect_pattern_count` (noisy 2-char matches stripped), `attacker_placed_path_count`, `technical_term_count`, `has_code_blocks` |
+| Aggregates | `cmdline_density`, `extractor_signal_strength` |
 
 ## Chunk Debugger
 
@@ -238,8 +259,10 @@ python3 scripts/seed_model.py
 # then restart the server so the new model is picked up
 ```
 
-The seed model provides a usable baseline (F1 ≈ 0.69 on huntable content).
-It improves quickly as you annotate articles and retrain — see [Retraining](#retraining) below.
+The seed model provides a usable baseline. With the v3 extractor and a
+balanced ~1,000-row training set, F1 on Huntable lands around 0.89 on the
+240-row curated eval set; the prior v1 baseline was F1 ≈ 0.69.
+It improves further as you annotate articles and retrain — see [Retraining](#retraining) below.
 
 ### Defining "Huntable" for Your Use Case
 

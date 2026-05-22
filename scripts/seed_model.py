@@ -12,6 +12,7 @@ Usage:
     python scripts/seed_model.py --dry-run          # show corpus stats, skip training
     python scripts/seed_model.py --no-register      # skip DB version registration
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,10 +38,9 @@ OVERLAP = 200
 def load_fixture_categories() -> list[dict]:
     """Load articles + ground truth from every fixture category."""
     categories = sorted(
-        d for d in FIXTURES_DIR.iterdir()
-        if d.is_dir()
-        and (d / "articles.json").exists()
-        and (d / "ground_truth.json").exists()
+        d
+        for d in FIXTURES_DIR.iterdir()
+        if d.is_dir() and (d / "articles.json").exists() and (d / "ground_truth.json").exists()
     )
     if not categories:
         print(f"❌  No fixture categories found under {FIXTURES_DIR}")
@@ -52,8 +52,7 @@ def load_fixture_categories() -> list[dict]:
         ground_truths = json.loads((cat_dir / "ground_truth.json").read_text())
 
         gt_by_url: dict[str, list[str]] = {
-            g["url"]: [item.lower() for item in g.get("expected_items", [])]
-            for g in ground_truths
+            g["url"]: [item.lower() for item in g.get("expected_items", [])] for g in ground_truths
         }
 
         for article in articles:
@@ -61,12 +60,14 @@ def load_fixture_categories() -> list[dict]:
             content = article.get("content", "").strip()
             if not content:
                 continue
-            result.append({
-                "category": cat_dir.name,
-                "url": url,
-                "content": content,
-                "expected_items": gt_by_url.get(url, []),
-            })
+            result.append(
+                {
+                    "category": cat_dir.name,
+                    "url": url,
+                    "content": content,
+                    "expected_items": gt_by_url.get(url, []),
+                }
+            )
 
         print(f"  {cat_dir.name}: {len(articles)} articles")
 
@@ -119,7 +120,7 @@ def build_training_dataframe(fixture_articles: list[dict], cf: ContentFilter) ->
     print(f"    Huntable (chunks):  {chunk_huntable:>5}")
     print(f"    Huntable (direct):  {direct_huntable:>5}  ← expected_items added verbatim")
     print(f"    Not Huntable:       {chunk_not_huntable:>5}")
-    print(f"    Total huntable:     {total_huntable:>5} ({total_huntable/total*100:.1f}%)")
+    print(f"    Total huntable:     {total_huntable:>5} ({total_huntable / total * 100:.1f}%)")
 
     return pd.DataFrame(rows)
 
@@ -174,7 +175,7 @@ def main() -> None:
     fixture_articles = load_fixture_categories()
 
     print("\n🔪  Chunking articles and labelling from ground truth...")
-    cf = ContentFilter(model_path=model_path)
+    cf = ContentFilter(model_path=model_path, feature_version="v3")
     df = build_training_dataframe(fixture_articles, cf)
 
     if df.empty:
@@ -191,6 +192,13 @@ def main() -> None:
     df.to_csv(corpus_path, index=False)
     print(f"\n💾  Corpus saved → {corpus_path}")
 
+    # Also populate the combined_training_data path that retrain_with_feedback.py
+    # reads as its baseline so the first retrain uses normal-path (not seed-fallback).
+    combined_path = ROOT / "outputs" / "training_data" / "combined_training_data.csv"
+    combined_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(combined_path, index=False)
+    print(f"💾  Combined training data saved → {combined_path}")
+
     print("\n🤖  Training RandomForest classifier...")
     training_result = cf.train_model(str(corpus_path))
 
@@ -200,8 +208,10 @@ def main() -> None:
         sys.exit(1)
 
     print(f"✅  Model trained  accuracy={training_result.get('accuracy', 0):.3f}")
-    print(f"    F1 (huntable)={training_result.get('f1_score_huntable', 0):.3f}  "
-          f"recall={training_result.get('recall_huntable', 0):.3f}")
+    print(
+        f"    F1 (huntable)={training_result.get('f1_score_huntable', 0):.3f}  "
+        f"recall={training_result.get('recall_huntable', 0):.3f}"
+    )
     print(f"    Saved → {model_path}")
 
     if not args.no_register:

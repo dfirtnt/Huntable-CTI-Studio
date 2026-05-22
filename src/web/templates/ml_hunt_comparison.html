@@ -384,7 +384,7 @@
                         <span id="retrainingStatus" class="font-semibold" style="font-family: 'JetBrains Mono', monospace; color: var(--text-primary);">v24 (79.4% accuracy)</span>
                     </div>
                     <div class="text-xs mt-1.5" style="color: var(--text-muted-slate);">
-                        Training data: <span id="feedbackCount" style="color: var(--text-secondary);">-</span> samples
+                        New since last retrain: <span id="feedbackCount" style="color: var(--text-secondary);">-</span> samples
                         <span id="feedbackBreakdown" class="ml-1.5"></span>
                     </div>
                     <div id="totalDataBreakdown" class="text-xs mt-0.5" style="color: var(--text-muted);"></div>
@@ -522,7 +522,7 @@
         <div class="mlops-panel-body">
             <!-- Chart subtitle -->
             <div class="text-center mb-2">
-                <span class="text-xs" style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em;">Model Performance on Test Set (160 chunks)</span>
+                <span id="model-perf-chart-subtitle" class="text-xs" style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.03em;">Model Performance on Test Set</span>
             </div>
             <!-- Legend -->
             <div class="flex justify-center items-center gap-5 mb-4 py-1.5">
@@ -649,11 +649,23 @@
         async function loadInitialData() {
             try {
                 // Load summary
-                const summaryResponse = await fetch('/api/ml-model-performance/summary');
+                const summaryResponse = await fetch('/api/ml-model-performance/summary', { cache: 'no-store' });
                 const summaryData = await summaryResponse.json();
                 if (summaryData.success) {
                     currentData.summary = summaryData.summary;
                     updateSummaryStats();
+
+                    // Update chart subtitle with live eval-set size (fixes the
+                    // stale "160 chunks" hardcoded label when the eval set is
+                    // swapped out under the model). Falls back to no count
+                    // when the summary did not include eval_set_size.
+                    const subtitleEl = document.getElementById('model-perf-chart-subtitle');
+                    if (subtitleEl) {
+                        const size = summaryData.summary.eval_set_size;
+                        subtitleEl.textContent = size
+                            ? `Model Performance on Test Set (${size} chunks)`
+                            : 'Model Performance on Test Set';
+                    }
                 }
 
                 // Load stats
@@ -663,15 +675,17 @@
                     currentData.stats = statsData.stats;
             }
             
-            // Load model versions for evaluation metrics
-            const versionsResponse = await fetch('/api/model/versions');
+            // Load model versions for evaluation metrics.
+            // cache: 'no-store' prevents the browser returning a stale
+            // response after a retrain adds a new version.
+            const versionsResponse = await fetch('/api/model/versions', { cache: 'no-store' });
             const versionsData = await versionsResponse.json();
             if (versionsData.success) {
                 currentData.modelVersions = versionsData.versions;
             }
 
             // Load classification timeline
-            const timelineResponse = await fetch('/api/model/classification-timeline');
+            const timelineResponse = await fetch('/api/model/classification-timeline', { cache: 'no-store' });
             const timelineData = await timelineResponse.json();
             if (timelineData.success) {
                 currentData.timeline = timelineData.timeline;
@@ -1545,10 +1559,14 @@
                     btn.disabled = false;
                     btn.textContent = 'Retrain Model';
                     
-                    // Reload data
+                    // Reload data — use a short delay so the DB write is
+                    // visible, then refresh everything that changed:
+                    // chart, KPI cards, active-model text, version history.
                     setTimeout(() => {
                         loadInitialData();
-                    }, 1000);
+                        refreshRetrainingStatus();
+                        refreshModelVersionHistory();
+                    }, 1500);
                     
                 } else if (status.status === 'error') {
                     clearInterval(pollInterval);

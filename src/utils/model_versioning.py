@@ -24,10 +24,34 @@ logger = logging.getLogger(__name__)
 class MLModelVersionManager:
     """Manages ML model versions and performance comparisons."""
 
-    ALLOWED_MODEL_DIRS = ("models", "/app/models")
+    ALLOWED_MODEL_DIRS = ("models", "/app/models", "backups/models", "/app/backups/models")
+    BACKUP_MODELS_DIR = "backups/models"
 
     def __init__(self, db_manager: AsyncDatabaseManager):
         self.db_manager = db_manager
+
+    @staticmethod
+    def _resolve_artifact_path(primary_path: str | None) -> str | None:
+        """
+        Return a usable artifact path for rollback, or None if unavailable.
+
+        Checks the DB-recorded primary path first.  If the file is missing
+        (e.g. after a models/ directory wipe), falls back to the mirrored
+        copy under backups/models/ using the same filename.
+        """
+        if primary_path and os.path.exists(primary_path):
+            return primary_path
+        if primary_path:
+            filename = os.path.basename(primary_path)
+            backup_path = os.path.join(MLModelVersionManager.BACKUP_MODELS_DIR, filename)
+            if os.path.exists(backup_path):
+                logger.warning(
+                    "Primary artifact '%s' missing — falling back to backup at '%s'",
+                    primary_path,
+                    backup_path,
+                )
+                return backup_path
+        return None
 
     @staticmethod
     def _validate_model_path(path: str) -> str:
@@ -338,7 +362,12 @@ class MLModelVersionManager:
         try:
             from src.utils.content_filter import ContentFilter
 
-            # Load both models
+            # Load both models. load_model() reads each pkl's .meta.json sidecar
+            # to auto-set the correct feature_version, so a v1-era pkl will be
+            # featurized with extract_features() while a v3 pkl uses
+            # extract_features_v3(). Without the sidecar fix, both filters
+            # would default to v3 and produce shape-mismatch errors on any
+            # pre-2026-05-21 model.
             old_filter = ContentFilter(model_path=old_model_path)
             new_filter = ContentFilter(model_path=new_model_path)
 
@@ -433,10 +462,11 @@ class MLModelVersionManager:
         if not version:
             raise ValueError(f"Model version {version_id} not found")
 
-        versioned_path = version.model_file_path
-        if not versioned_path or not os.path.exists(versioned_path):
+        versioned_path = self._resolve_artifact_path(version.model_file_path)
+        if not versioned_path:
             raise FileNotFoundError(
-                f"No artifact for model version {version.version_number} at '{versioned_path}'. "
+                f"No artifact for model version {version.version_number} at "
+                f"'{version.model_file_path}' (checked primary and backups/models/). "
                 "Only versions trained after rollback support was added can be restored."
             )
 
