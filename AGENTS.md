@@ -91,7 +91,12 @@ Dead code: `uv run vulture src scripts vulture_whitelist.py --min-confidence 80`
 - **ASCII only** in source files, config, shell scripts, and commit messages.
   No Unicode ellipsis, em-dash, curly quotes. Hazards in shell under `set -u`.
 - **Always pin package versions** (`==` not `>=`). CI enforces via `lint.yml`.
-  `pyproject.toml` security-floor transitive pins (`>=`) are the only exception.
+  Exception: transitive security pins where `==` would cause solver conflicts because the
+  package is shared across multiple direct deps (e.g. `langchain-core` — pulled by
+  langgraph, langfuse, and langchain simultaneously). Use `>=` only for those cases;
+  all other CVE fixes must use `==`. `uv.lock` SHA-256 hashes provide supply-chain
+  protection for the actual installed version in all cases — the attack window for `>=`
+  pins is specifically `uv lock` re-runs, not normal `uv sync` installs.
 
 ---
 
