@@ -9148,12 +9148,6 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                 <div class="text-xs text-gray-500 dark:text-gray-400">
                                     User scaffold is locked in runtime and is no longer editable from the UI.
                                 </div>
-                                ${isLockedCanonicalPrompt(agentName) && promptParts.user ? `
-                                    <div class="mt-2">
-                                        <div class="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">Active generation template:</div>
-                                        <div class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-64 overflow-y-auto leading-relaxed text-gray-800 dark:text-gray-200">${escapeHtml(promptParts.user)}</div>
-                                    </div>
-                                ` : ''}
                             </div>
                         ` : `
                             <div class="border-l-4 border-green-500 pl-4">
