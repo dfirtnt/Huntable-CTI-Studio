@@ -99,10 +99,7 @@ def _preflight() -> None:
     local = _run(["git", "rev-parse", "HEAD"])
     remote = _run(["git", "rev-parse", "FETCH_HEAD"])
     if local != remote:
-        _die(
-            f"{branch} is not in sync with origin/{branch}. Pull or push before "
-            "cutting a release."
-        )
+        _die(f"{branch} is not in sync with origin/{branch}. Pull or push before cutting a release.")
 
 
 def _bump_pyproject(version: str) -> tuple[Path, str]:
@@ -118,7 +115,7 @@ def _bump_pyproject(version: str) -> tuple[Path, str]:
     )
     new, count = pattern.subn(f'\\1"{version}"', original, count=1)
     if count != 1:
-        _die("could not find a single `version = \"...\"` line in pyproject.toml")
+        _die('could not find a single `version = "..."` line in pyproject.toml')
     return path, new
 
 
@@ -133,10 +130,7 @@ def _roll_changelog(version: str, codename: str, date: str) -> tuple[Path, str]:
         re.MULTILINE,
     )
     if existing:
-        _die(
-            f"docs/CHANGELOG.md already has a section for {version}; "
-            "refusing to double-cut."
-        )
+        _die(f"docs/CHANGELOG.md already has a section for {version}; refusing to double-cut.")
 
     # Find the first `## [Unreleased]` heading (the live one at the top).
     heading_re = re.compile(r"^##\s+\[Unreleased\]\s*$", re.MULTILINE)
@@ -205,10 +199,7 @@ def _update_readme(version: str, codename: str) -> tuple[Path, str]:
     replacement = f'**Huntable CTI Studio v{version} "{codename}"**'
     new, count = pattern.subn(replacement, original, count=1)
     if count != 1:
-        _die(
-            "could not locate the `**Huntable CTI Studio vX.Y.Z \"Codename\"**` "
-            "line in README.md"
-        )
+        _die('could not locate the `**Huntable CTI Studio vX.Y.Z "Codename"**` line in README.md')
     return path, new
 
 
@@ -228,8 +219,7 @@ def _run_verifier(tag: str) -> None:
     )
     if result.returncode != 0:
         _die(
-            f"verify_release_tag.py rejected {tag}. Edits are on disk; "
-            "`git diff` to review, `git restore` to back out."
+            f"verify_release_tag.py rejected {tag}. Edits are on disk; `git diff` to review, `git restore` to back out."
         )
 
 
@@ -242,7 +232,7 @@ def _commit_and_tag(version: str, codename: str, summary: str, edited_paths: lis
 
     sha = _run(["git", "rev-parse", "HEAD"])
     tag = f"v{version}"
-    tag_msg = f'{codename} ({version[: version.rindex(".")]} line) -- {summary}'
+    tag_msg = f"{codename} ({version[: version.rindex('.')]} line) -- {summary}"
     _run(["git", "tag", "-a", tag, "-m", tag_msg])
 
     print(f"release-cut: committed as {sha[:12]} and tagged {tag}")
@@ -272,10 +262,7 @@ def main() -> int:
     if not VERSION_RE.match(args.version):
         _die(f"invalid version {args.version!r}; expected MAJOR.MINOR.PATCH")
     if not CODENAME_RE.match(args.codename):
-        _die(
-            f"invalid codename {args.codename!r}; expected a single "
-            "capitalized word (e.g. Triton, Ganymede)"
-        )
+        _die(f"invalid codename {args.codename!r}; expected a single capitalized word (e.g. Triton, Ganymede)")
     if not DATE_RE.match(args.date):
         _die(f"invalid --date {args.date!r}; expected YYYY-MM-DD")
 
