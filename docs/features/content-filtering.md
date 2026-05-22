@@ -188,7 +188,6 @@ The annotation interface ensures evaluation data matches production chunking:
 
 - **Auto 1000** button expands selections to 1000 characters with smart
   sentence/word boundary detection
-- **Manual adjustment controls**: -200, -100, -50, +50, +100, +200 chars
 - **Live character counter** with color-coded guidance (green 950-1000,
   yellow < 800, blue 800-950, red > 1000)
 - Annotations are stored in `article_annotations` and exported via

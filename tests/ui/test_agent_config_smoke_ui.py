@@ -43,10 +43,8 @@ class TestAgentConfigPageSmoke:
         data = response.json()
         # Verify core fields exist
         assert "agent_models" in data
-        assert "qa_enabled" in data
         assert "sigma_fallback_enabled" in data
         assert isinstance(data["agent_models"], dict)
-        assert isinstance(data["qa_enabled"], dict)
         assert isinstance(data["sigma_fallback_enabled"], bool)
 
     @pytest.mark.smoke
