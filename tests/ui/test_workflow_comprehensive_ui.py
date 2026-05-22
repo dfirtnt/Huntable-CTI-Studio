@@ -1179,8 +1179,7 @@ class TestWorkflowEnrichModalUI:
         page.wait_for_timeout(400)
 
         preset_prompt = (
-            "PRESET SYSTEM PROMPT -- return a JSON object with status "
-            "pass|needs_revision|fail and updated_sigma_yaml."
+            "PRESET SYSTEM PROMPT -- return a JSON object with status pass|needs_revision|fail and updated_sigma_yaml."
         )
 
         def handle_preset(route):

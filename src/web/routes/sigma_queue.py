@@ -636,9 +636,7 @@ def bulk_action_queued_rules(bulk: BulkActionRequest):
                     db_session.delete(rule)
             else:
                 target_status = (
-                    "approved" if bulk.action == "approve"
-                    else "rejected" if bulk.action == "reject"
-                    else bulk.status
+                    "approved" if bulk.action == "approve" else "rejected" if bulk.action == "reject" else bulk.status
                 )
                 now = datetime.now()
                 for rule in rules:

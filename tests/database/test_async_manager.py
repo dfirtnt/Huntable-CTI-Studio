@@ -415,11 +415,22 @@ class TestAsyncDatabaseManager:
 
         now = datetime.now()
         fake_db_row = SimpleNamespace(
-            id=1, identifier="test-src", name="Test", url="https://t.co",
-            rss_url=None, check_frequency=3600, lookback_days=180,
-            active=True, config={}, last_check=None, last_success=None,
-            consecutive_failures=0, total_articles=0, average_response_time=0.0,
-            created_at=now, updated_at=now,
+            id=1,
+            identifier="test-src",
+            name="Test",
+            url="https://t.co",
+            rss_url=None,
+            check_frequency=3600,
+            lookback_days=180,
+            active=True,
+            config={},
+            last_check=None,
+            last_success=None,
+            consecutive_failures=0,
+            total_articles=0,
+            average_response_time=0.0,
+            created_at=now,
+            updated_at=now,
         )
 
         mock_execute_result = Mock()

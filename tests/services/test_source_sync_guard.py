@@ -7,12 +7,11 @@ by treating every YAML source as new.
 
 from __future__ import annotations
 
-import logging
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.models.source import Source, SourceCreate, SourceConfig
+from src.models.source import Source, SourceConfig, SourceCreate
 from src.services.source_sync import SourceSyncService
 
 pytestmark = pytest.mark.unit
@@ -30,6 +29,7 @@ def _make_source_create(identifier: str = "test-source") -> SourceCreate:
 
 def _make_existing_source(identifier: str = "test-source") -> Source:
     from datetime import datetime
+
     now = datetime.now()
     return Source(
         id=1,

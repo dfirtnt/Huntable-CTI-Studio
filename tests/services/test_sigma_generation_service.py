@@ -1610,9 +1610,7 @@ class TestInferObservablesUsedTokenQuality:
         }
         rule_yaml = self._make_rule("CommandLine|contains: gotoresolve")
         result = _infer_observables_used(rule_yaml, extraction_result)
-        assert result == [0], (
-            "GoToResolve_REDACTED prefix 'gotoresolve' should match in the detection block"
-        )
+        assert result == [0], "GoToResolve_REDACTED prefix 'gotoresolve' should match in the detection block"
 
     def test_redacted_prefix_too_short_not_used(self):
         """A _REDACTED prefix shorter than 4 chars must not be used as a match token."""

@@ -339,11 +339,7 @@ class TestCanonicalObservableOrderContract:
         )
 
         for i, body in enumerate(matches):
-            parsed = [
-                item.strip().strip("'").strip('"')
-                for item in body.split(",")
-                if item.strip()
-            ]
+            parsed = [item.strip().strip("'").strip('"') for item in body.split(",") if item.strip()]
             assert parsed == CANONICAL_CATEGORIES, (
                 f"{rel_path} OBS_TYPE_ORDER occurrence #{i} is not canonical.\n"
                 f"  expected: {CANONICAL_CATEGORIES}\n"
@@ -384,10 +380,7 @@ class TestCanonicalObservableOrderContract:
                     continue
                 if not isinstance(node.value, ast.Dict):
                     continue
-                keys = [
-                    k.value for k in node.value.keys
-                    if isinstance(k, ast.Constant) and isinstance(k.value, str)
-                ]
+                keys = [k.value for k in node.value.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)]
                 if set(keys) == canonical_set:
                     found_keys = keys
                     break

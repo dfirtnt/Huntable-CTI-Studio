@@ -198,9 +198,7 @@ _SIGMA_LEGACY_SHAPES = [
     },
     # Shape 2: extraction-agent envelope
     {
-        "prompt": json.dumps(
-            {"role": "PERSONA", "task": "", "json_example": "{}", "instructions": ""}
-        ),
+        "prompt": json.dumps({"role": "PERSONA", "task": "", "json_example": "{}", "instructions": ""}),
         "instructions": "outer",
     },
     # Shape 3: legacy {system, user}
@@ -224,9 +222,7 @@ _RANK_LEGACY_SHAPES = [
     },
     # Shape 2: extraction-agent envelope
     {
-        "prompt": json.dumps(
-            {"role": "RANK_PERSONA", "task": "", "json_example": "{}", "instructions": ""}
-        ),
+        "prompt": json.dumps({"role": "RANK_PERSONA", "task": "", "json_example": "{}", "instructions": ""}),
         "instructions": "",
     },
     # Shape 3: legacy {system, user}

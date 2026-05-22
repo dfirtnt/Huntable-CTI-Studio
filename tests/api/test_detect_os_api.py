@@ -7,7 +7,7 @@ content to LLMs.
 
 import json
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -85,7 +85,9 @@ def _base_patches(filter_result, article=None):
         "src.web.routes.ai.async_db_manager.get_article": AsyncMock(return_value=article),
         "src.database.manager.DatabaseManager": Mock(return_value=mock_db_manager),
         "src.services.workflow_trigger_service.WorkflowTriggerService": Mock(return_value=mock_trigger_service),
-        "src.utils.content_filter.ContentFilter": Mock(return_value=Mock(filter_content=Mock(return_value=filter_result))),
+        "src.utils.content_filter.ContentFilter": Mock(
+            return_value=Mock(filter_content=Mock(return_value=filter_result))
+        ),
     }
 
 
@@ -104,9 +106,15 @@ class TestDetectOsJunkFilterGate:
         patches = _base_patches(filter_result)
 
         with (
-            patch("src.web.routes.ai.async_db_manager.get_article", patches["src.web.routes.ai.async_db_manager.get_article"]),
+            patch(
+                "src.web.routes.ai.async_db_manager.get_article",
+                patches["src.web.routes.ai.async_db_manager.get_article"],
+            ),
             patch("src.database.manager.DatabaseManager", patches["src.database.manager.DatabaseManager"]),
-            patch("src.services.workflow_trigger_service.WorkflowTriggerService", patches["src.services.workflow_trigger_service.WorkflowTriggerService"]),
+            patch(
+                "src.services.workflow_trigger_service.WorkflowTriggerService",
+                patches["src.services.workflow_trigger_service.WorkflowTriggerService"],
+            ),
             patch("src.utils.content_filter.ContentFilter", patches["src.utils.content_filter.ContentFilter"]),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -126,9 +134,15 @@ class TestDetectOsJunkFilterGate:
         patches = _base_patches(filter_result)
 
         with (
-            patch("src.web.routes.ai.async_db_manager.get_article", patches["src.web.routes.ai.async_db_manager.get_article"]),
+            patch(
+                "src.web.routes.ai.async_db_manager.get_article",
+                patches["src.web.routes.ai.async_db_manager.get_article"],
+            ),
             patch("src.database.manager.DatabaseManager", patches["src.database.manager.DatabaseManager"]),
-            patch("src.services.workflow_trigger_service.WorkflowTriggerService", patches["src.services.workflow_trigger_service.WorkflowTriggerService"]),
+            patch(
+                "src.services.workflow_trigger_service.WorkflowTriggerService",
+                patches["src.services.workflow_trigger_service.WorkflowTriggerService"],
+            ),
             patch("src.utils.content_filter.ContentFilter", patches["src.utils.content_filter.ContentFilter"]),
         ):
             with pytest.raises(HTTPException) as exc_info:
@@ -145,9 +159,15 @@ class TestDetectOsJunkFilterGate:
         mock_os_service_cls = Mock()
 
         with (
-            patch("src.web.routes.ai.async_db_manager.get_article", patches["src.web.routes.ai.async_db_manager.get_article"]),
+            patch(
+                "src.web.routes.ai.async_db_manager.get_article",
+                patches["src.web.routes.ai.async_db_manager.get_article"],
+            ),
             patch("src.database.manager.DatabaseManager", patches["src.database.manager.DatabaseManager"]),
-            patch("src.services.workflow_trigger_service.WorkflowTriggerService", patches["src.services.workflow_trigger_service.WorkflowTriggerService"]),
+            patch(
+                "src.services.workflow_trigger_service.WorkflowTriggerService",
+                patches["src.services.workflow_trigger_service.WorkflowTriggerService"],
+            ),
             patch("src.utils.content_filter.ContentFilter", patches["src.utils.content_filter.ContentFilter"]),
             patch("src.services.os_detection_service.OSDetectionService", mock_os_service_cls),
         ):
@@ -164,12 +184,26 @@ class TestDetectOsJunkFilterGate:
         mock_content_filter_cls = Mock()  # separate instance to verify not called
 
         mock_os_service = Mock()
-        mock_os_service.detect_os = AsyncMock(return_value={"operating_system": "Windows", "method": "embedding", "confidence": "high", "similarities": {}, "max_similarity": 0.9})
+        mock_os_service.detect_os = AsyncMock(
+            return_value={
+                "operating_system": "Windows",
+                "method": "embedding",
+                "confidence": "high",
+                "similarities": {},
+                "max_similarity": 0.9,
+            }
+        )
 
         with (
-            patch("src.web.routes.ai.async_db_manager.get_article", patches["src.web.routes.ai.async_db_manager.get_article"]),
+            patch(
+                "src.web.routes.ai.async_db_manager.get_article",
+                patches["src.web.routes.ai.async_db_manager.get_article"],
+            ),
             patch("src.database.manager.DatabaseManager", patches["src.database.manager.DatabaseManager"]),
-            patch("src.services.workflow_trigger_service.WorkflowTriggerService", patches["src.services.workflow_trigger_service.WorkflowTriggerService"]),
+            patch(
+                "src.services.workflow_trigger_service.WorkflowTriggerService",
+                patches["src.services.workflow_trigger_service.WorkflowTriggerService"],
+            ),
             patch("src.utils.content_filter.ContentFilter", mock_content_filter_cls),
             patch("src.services.os_detection_service.OSDetectionService", Mock(return_value=mock_os_service)),
         ):
@@ -188,9 +222,15 @@ class TestDetectOsJunkFilterGate:
         patches = _base_patches(filter_result)
 
         with (
-            patch("src.web.routes.ai.async_db_manager.get_article", patches["src.web.routes.ai.async_db_manager.get_article"]),
+            patch(
+                "src.web.routes.ai.async_db_manager.get_article",
+                patches["src.web.routes.ai.async_db_manager.get_article"],
+            ),
             patch("src.database.manager.DatabaseManager", patches["src.database.manager.DatabaseManager"]),
-            patch("src.services.workflow_trigger_service.WorkflowTriggerService", patches["src.services.workflow_trigger_service.WorkflowTriggerService"]),
+            patch(
+                "src.services.workflow_trigger_service.WorkflowTriggerService",
+                patches["src.services.workflow_trigger_service.WorkflowTriggerService"],
+            ),
             patch("src.utils.content_filter.ContentFilter", mock_content_filter_cls),
         ):
             with pytest.raises(HTTPException):

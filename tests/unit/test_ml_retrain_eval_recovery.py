@@ -55,6 +55,7 @@ _SAMPLE_METRICS = {
 # Replicate the recovery block from run_retrain() for isolated testing
 # ---------------------------------------------------------------------------
 
+
 def _run_recovery_logic(latest_version, mock_cf, mock_evaluator, mock_run_sync, mock_logger):
     """Mirror the recovery block from src/web/routes/models.py run_retrain()."""
     recovery_attempted = False
@@ -86,14 +87,10 @@ def _run_recovery_logic(latest_version, mock_cf, mock_evaluator, mock_run_sync, 
                 )
             else:
                 mock_logger.error(
-                    f"[retrain] Recovery save_evaluation_metrics returned False "
-                    f"for v{latest_version.version_number}"
+                    f"[retrain] Recovery save_evaluation_metrics returned False for v{latest_version.version_number}"
                 )
         except Exception as eval_err:
-            mock_logger.error(
-                f"[retrain] Recovery evaluator failed for "
-                f"v{latest_version.version_number}: {eval_err}"
-            )
+            mock_logger.error(f"[retrain] Recovery evaluator failed for v{latest_version.version_number}: {eval_err}")
 
     return recovery_attempted
 
@@ -196,26 +193,31 @@ class TestRouteCodeContainsRecovery:
 # TestArtifactResolution — contracts for _resolve_artifact_path()
 # ---------------------------------------------------------------------------
 
+
 class TestArtifactResolution:
     """Guard _resolve_artifact_path() fallback behaviour in model_versioning.py."""
 
     def test_returns_primary_when_it_exists(self, tmp_path):
         from src.utils.model_versioning import MLModelVersionManager
+
         p = tmp_path / "content_filter_v99.pkl"
         p.write_bytes(b"fake")
         assert MLModelVersionManager._resolve_artifact_path(str(p)) == str(p)
 
     def test_returns_none_when_neither_path_exists(self, tmp_path):
         from src.utils.model_versioning import MLModelVersionManager
+
         missing = str(tmp_path / "content_filter_v99.pkl")
         assert MLModelVersionManager._resolve_artifact_path(missing) is None
 
     def test_returns_none_for_none_input(self):
         from src.utils.model_versioning import MLModelVersionManager
+
         assert MLModelVersionManager._resolve_artifact_path(None) is None
 
     def test_falls_back_to_backup_when_primary_missing(self, tmp_path, monkeypatch):
         from src.utils.model_versioning import MLModelVersionManager
+
         # Simulate: primary gone, backup present
         backup_dir = tmp_path / "backups" / "models"
         backup_dir.mkdir(parents=True)
@@ -229,6 +231,7 @@ class TestArtifactResolution:
 
     def test_primary_preferred_over_backup_when_both_exist(self, tmp_path, monkeypatch):
         from src.utils.model_versioning import MLModelVersionManager
+
         primary_file = tmp_path / "content_filter_v99.pkl"
         primary_file.write_bytes(b"primary")
         backup_dir = tmp_path / "backups"
@@ -241,11 +244,13 @@ class TestArtifactResolution:
 
     def test_backup_dir_constant_present_in_class(self):
         from src.utils.model_versioning import MLModelVersionManager
+
         assert hasattr(MLModelVersionManager, "BACKUP_MODELS_DIR")
         assert "backups" in MLModelVersionManager.BACKUP_MODELS_DIR
 
     def test_backup_dir_in_allowed_model_dirs(self):
         from src.utils.model_versioning import MLModelVersionManager
+
         allowed = " ".join(MLModelVersionManager.ALLOWED_MODEL_DIRS)
         assert "backups" in allowed, (
             "backups/models must be in ALLOWED_MODEL_DIRS or _validate_model_path "

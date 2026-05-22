@@ -6,10 +6,9 @@ the fresh empty DB -- which would leave every table with a primary key already
 defined before the restore SQL's ADD CONSTRAINT lines run.
 """
 
-import subprocess
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 

@@ -29,9 +29,7 @@ from pathlib import Path
 
 import pytest
 
-AGENT_EVALS_TEMPLATE = (
-    Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "agent_evals.html"
-)
+AGENT_EVALS_TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "agent_evals.html"
 
 DX_BADGE_PLACEHOLDER = '<span class="dx-badge" style="display:none;"></span>'
 EXEC_ID_GUARD = "if (result.execution_id)"
@@ -92,12 +90,9 @@ class TestDiagnosisBadgeRenderParity:
         write_idx = matrix_body.find(HTML_WRITE_NEEDLE)
         apply_idx = matrix_body.find(APPLY_CALL)
         assert write_idx != -1 and apply_idx != -1, (
-            "matrix path must perform the results-table HTML write and call "
-            "applyDiagnosisCounts()"
+            "matrix path must perform the results-table HTML write and call applyDiagnosisCounts()"
         )
-        assert write_idx < apply_idx, (
-            "applyDiagnosisCounts() must run AFTER the results-table HTML is written"
-        )
+        assert write_idx < apply_idx, "applyDiagnosisCounts() must run AFTER the results-table HTML is written"
 
     # -- flat-list path: RED before the fix, GREEN after ---------------------
 
@@ -105,16 +100,14 @@ class TestDiagnosisBadgeRenderParity:
         """Flat-list clickable cell must carry data-exec-id so
         applyDiagnosisCounts()'s ``td[data-exec-id]`` selector can find it."""
         assert "data-exec-id" in flat_list_body, (
-            "flat-list path (renderSubagentResults) is missing the data-exec-id "
-            "attribute on its clickable result cell"
+            "flat-list path (renderSubagentResults) is missing the data-exec-id attribute on its clickable result cell"
         )
 
     def test_flat_list_path_has_guarded_dx_badge_placeholder(self, flat_list_body: str) -> None:
         """Flat-list cell must emit the hidden .dx-badge placeholder, guarded by
         result.execution_id, exactly as the matrix path does."""
         assert DX_BADGE_PLACEHOLDER in flat_list_body, (
-            "flat-list path (renderSubagentResults) is missing the hidden "
-            ".dx-badge placeholder span"
+            "flat-list path (renderSubagentResults) is missing the hidden .dx-badge placeholder span"
         )
         guard_idx = flat_list_body.find(EXEC_ID_GUARD)
         badge_idx = flat_list_body.find(DX_BADGE_PLACEHOLDER)
@@ -122,20 +115,14 @@ class TestDiagnosisBadgeRenderParity:
             "the .dx-badge placeholder must be guarded by `if (result.execution_id)`"
         )
 
-    def test_flat_list_path_calls_apply_diagnosis_counts_after_write(
-        self, flat_list_body: str
-    ) -> None:
+    def test_flat_list_path_calls_apply_diagnosis_counts_after_write(self, flat_list_body: str) -> None:
         """applyDiagnosisCounts() must be invoked after the flat-list path
         writes the results-table HTML, mirroring the matrix path."""
         write_idx = flat_list_body.find(HTML_WRITE_NEEDLE)
         apply_idx = flat_list_body.find(APPLY_CALL)
         assert write_idx != -1, "flat-list path must perform the results-table HTML write"
-        assert apply_idx != -1, (
-            "flat-list path (renderSubagentResults) never calls applyDiagnosisCounts()"
-        )
-        assert write_idx < apply_idx, (
-            "applyDiagnosisCounts() must run AFTER the results-table HTML write"
-        )
+        assert apply_idx != -1, "flat-list path (renderSubagentResults) never calls applyDiagnosisCounts()"
+        assert write_idx < apply_idx, "applyDiagnosisCounts() must run AFTER the results-table HTML write"
 
     def test_flat_list_does_not_double_stamp(self, flat_list_body: str) -> None:
         """Exactly one cell per row carries the badge wiring. The flat-list has

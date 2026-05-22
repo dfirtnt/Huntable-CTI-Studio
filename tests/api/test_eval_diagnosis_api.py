@@ -533,9 +533,7 @@ async def test_diagnosis_counts_single_file_real_filename(tmp_path):
 async def test_diagnosis_counts_aggregates_multiple_runs_same_execution(tmp_path):
     """Multiple diagnosis runs for one execution -> aggregated count (drives '[dx N]')."""
     for short in ("aaa", "bbb", "ccc"):
-        (tmp_path / f"42_CmdlineExtract_{short}.json").write_text(
-            json.dumps({"diagnosis_id": short})
-        )
+        (tmp_path / f"42_CmdlineExtract_{short}.json").write_text(json.dumps({"diagnosis_id": short}))
     with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
         result = await get_diagnosis_counts()
     assert result == {42: 3}
@@ -569,6 +567,7 @@ async def test_diagnosis_counts_ignores_non_numeric_and_malformed_names(tmp_path
 # Frontend <-> backend URL contract
 # ---------------------------------------------------------------------------
 
+
 def test_agent_evals_diagnosis_count_badge_url_is_a_registered_route():
     """The diagnosis-count badge fetch URL in agent_evals.html must be a path
     the FastAPI app actually serves.
@@ -585,9 +584,7 @@ def test_agent_evals_diagnosis_count_badge_url_is_a_registered_route():
     template = repo_root / "src" / "web" / "templates" / "agent_evals.html"
     html = template.read_text(encoding="utf-8")
 
-    match = re.search(
-        r"""fetch\(\s*['"`]([^'"`]*diagnosis-counts[^'"`]*)['"`]""", html
-    )
+    match = re.search(r"""fetch\(\s*['"`]([^'"`]*diagnosis-counts[^'"`]*)['"`]""", html)
     assert match, "Could not find the diagnosis-counts fetch() call in agent_evals.html"
     fetched_url = match.group(1)
 

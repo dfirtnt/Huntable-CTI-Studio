@@ -230,9 +230,7 @@ class WorkflowConfigV2(BaseModel):
                 raise ValueError(f"Missing prompt block for agent {name}")
         for name in prompts:
             if name in _PROMPT_FREE:
-                raise ValueError(
-                    f"Prompts block must not contain '{name}': it is a model/provider fallback key only."
-                )
+                raise ValueError(f"Prompts block must not contain '{name}': it is a model/provider fallback key only.")
         return self
 
     def flatten_for_llm_service(self) -> dict[str, Any]:

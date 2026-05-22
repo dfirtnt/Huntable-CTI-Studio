@@ -48,6 +48,7 @@ def retrain_script():
 # Replicate the 4-line fallback block for isolated scenario testing
 # ---------------------------------------------------------------------------
 
+
 def _resolve(original_file: str, seed_fallback: str) -> tuple[str, bool]:
     """Mirror the exact cascade logic from retrain_with_feedback.py."""
     if not os.path.exists(original_file) and os.path.exists(seed_fallback):
@@ -94,6 +95,7 @@ class TestFallbackCascade:
 # seed_model.py ↔ retrain_with_feedback.py path contract
 # ---------------------------------------------------------------------------
 
+
 class TestCombinedPathContract:
     def test_seed_writes_to_same_path_retrain_reads_from(self, retrain_script) -> None:
         """If these paths diverge, every retrain silently falls into fallback mode."""
@@ -104,8 +106,7 @@ class TestCombinedPathContract:
         retrain_reads_from = (REPO_ROOT / default_param).resolve()
 
         assert seed_writes_to == retrain_reads_from, (
-            f"seed_model writes to {seed_writes_to} but "
-            f"retrain_with_feedback reads from {retrain_reads_from}"
+            f"seed_model writes to {seed_writes_to} but retrain_with_feedback reads from {retrain_reads_from}"
         )
 
     def test_seed_script_writes_combined_path(self) -> None:
@@ -127,6 +128,7 @@ class TestCombinedPathContract:
 # Quality gate contracts
 # ---------------------------------------------------------------------------
 
+
 class TestQualityGateConstants:
     """Guard the quality-gate thresholds in retrain_with_feedback.py."""
 
@@ -140,6 +142,7 @@ class TestQualityGateConstants:
 
     def test_recall_threshold_at_least_0_25(self, retrain_script) -> None:
         import re
+
         source = RETRAIN_PATH.read_text()
         m = re.search(r"MIN_RECALL_HUNTABLE\s*=\s*([0-9.]+)", source)
         assert m, "MIN_RECALL_HUNTABLE not found"
@@ -147,6 +150,7 @@ class TestQualityGateConstants:
 
     def test_f1_threshold_at_least_0_25(self, retrain_script) -> None:
         import re
+
         source = RETRAIN_PATH.read_text()
         m = re.search(r"MIN_F1_HUNTABLE\s*=\s*([0-9.]+)", source)
         assert m, "MIN_F1_HUNTABLE not found"
@@ -154,9 +158,7 @@ class TestQualityGateConstants:
 
     def test_rejection_prints_retrain_rejected(self, retrain_script) -> None:
         source = RETRAIN_PATH.read_text()
-        assert "RETRAIN REJECTED" in source, (
-            "Quality gate must print 'RETRAIN REJECTED' so the route can surface it"
-        )
+        assert "RETRAIN REJECTED" in source, "Quality gate must print 'RETRAIN REJECTED' so the route can surface it"
 
     def test_staging_path_used_for_training(self, retrain_script) -> None:
         source = RETRAIN_PATH.read_text()
@@ -171,9 +173,7 @@ class TestQualityGateConstants:
         promote_pos = source.find("Staged model promoted to live")
         assert gate_pos != -1, "Quality gate rejection message not found"
         assert promote_pos != -1, "Promotion message not found"
-        assert gate_pos < promote_pos, (
-            "Quality gate check must appear before the staging→live copy in source"
-        )
+        assert gate_pos < promote_pos, "Quality gate check must appear before the staging→live copy in source"
 
     def test_gate_only_applied_for_curated_eval(self, retrain_script) -> None:
         source = RETRAIN_PATH.read_text()

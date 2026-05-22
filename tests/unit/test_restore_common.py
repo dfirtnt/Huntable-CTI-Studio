@@ -10,7 +10,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
 
 from _restore_common import filter_dump_lines, rewrite_fk_to_not_valid  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # rewrite_fk_to_not_valid
 # ---------------------------------------------------------------------------
@@ -180,13 +179,7 @@ def test_copy_dedup_combined_with_pk_dedup():
 
 def test_copy_dedup_triple_duplicate_keeps_only_first():
     """Three rows with the same id -- only the first survives."""
-    block = (
-        "COPY public.articles (id, title) FROM stdin;\n"
-        "5\tOriginal\n"
-        "5\tDup 1\n"
-        "5\tDup 2\n"
-        "\\.\n"
-    )
+    block = "COPY public.articles (id, title) FROM stdin;\n5\tOriginal\n5\tDup 1\n5\tDup 2\n\\.\n"
     result = _run(block, dedup_copy_rows=True)
     assert result.count("5\t") == 1
     assert "Original" in result
@@ -219,10 +212,7 @@ def test_pk_dedup_trailing_alter_table_flushed():
 
 def test_pk_dedup_alter_table_followed_by_non_constraint():
     """ALTER TABLE followed by a non-ADD-CONSTRAINT line flushes the buffer normally."""
-    sql = (
-        "ALTER TABLE ONLY public.articles\n"
-        "    ALTER COLUMN id SET DEFAULT nextval('articles_id_seq');\n"
-    )
+    sql = "ALTER TABLE ONLY public.articles\n    ALTER COLUMN id SET DEFAULT nextval('articles_id_seq');\n"
     result = _run(sql, dedup_primary_keys=True)
     assert "ALTER TABLE ONLY public.articles" in result
     assert "ALTER COLUMN id SET DEFAULT" in result

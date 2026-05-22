@@ -109,9 +109,7 @@ class TestChunkAnalysisService:
         chunks = [(0, 100, "PowerShell command execution")]
         ml_predictions = [(True, 0.85)]
 
-        service.store_chunk_analysis(
-            article_id=1, chunks=chunks, ml_predictions=ml_predictions, model_version="v1"
-        )
+        service.store_chunk_analysis(article_id=1, chunks=chunks, ml_predictions=ml_predictions, model_version="v1")
 
         # article_metadata must not contain ml_hunt_score — that surface is retired
         assert "ml_hunt_score" not in sample_article.article_metadata

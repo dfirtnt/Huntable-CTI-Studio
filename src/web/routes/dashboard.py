@@ -19,9 +19,7 @@ router = APIRouter(tags=["Dashboard"])
 def _compute_ingestion_health(sources):
     """Score ingestion health using failure severity instead of raw active/total ratio."""
     monitored_sources = [
-        source
-        for source in sources
-        if getattr(source, "active", True) and not is_internal_source(source)
+        source for source in sources if getattr(source, "active", True) and not is_internal_source(source)
     ]
 
     total_monitored = len(monitored_sources)

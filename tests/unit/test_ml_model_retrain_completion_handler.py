@@ -24,10 +24,7 @@ import pytest
 
 pytestmark = [pytest.mark.unit, pytest.mark.regression]
 
-TEMPLATE = (
-    Path(__file__).resolve().parents[2]
-    / "src" / "web" / "templates" / "ml_hunt_comparison.html"
-)
+TEMPLATE = Path(__file__).resolve().parents[2] / "src" / "web" / "templates" / "ml_hunt_comparison.html"
 
 
 @pytest.fixture(scope="module")
@@ -52,6 +49,7 @@ def _completion_block(html: str) -> str:
 # ---------------------------------------------------------------------------
 # Completion handler: required function calls
 # ---------------------------------------------------------------------------
+
 
 class TestCompletionHandlerCalls:
     @pytest.fixture(scope="class")
@@ -80,30 +78,32 @@ class TestCompletionHandlerCalls:
             re.DOTALL,
         )
         assert match, "setTimeout not found in complete branch"
-        assert int(match.group(1)) == 1500, (
-            f"Delay is {match.group(1)}ms; expected 1500ms to let DB write settle"
-        )
+        assert int(match.group(1)) == 1500, f"Delay is {match.group(1)}ms; expected 1500ms to let DB write settle"
 
 
 # ---------------------------------------------------------------------------
 # cache: 'no-store' on data-fetching calls
 # ---------------------------------------------------------------------------
 
+
 class TestNoCacheHeaders:
     def test_summary_fetch_no_store(self, html: str) -> None:
         assert re.search(
             r"fetch\s*\(\s*['\"][^'\"]*ml-model-performance/summary['\"].*?no-store",
-            html, re.DOTALL,
+            html,
+            re.DOTALL,
         ), "/api/ml-model-performance/summary must include { cache: 'no-store' }"
 
     def test_versions_fetch_no_store(self, html: str) -> None:
         assert re.search(
             r"fetch\s*\(\s*['\"][^'\"]*model/versions['\"].*?no-store",
-            html, re.DOTALL,
+            html,
+            re.DOTALL,
         ), "/api/model/versions must include { cache: 'no-store' }"
 
     def test_timeline_fetch_no_store(self, html: str) -> None:
         assert re.search(
             r"fetch\s*\(\s*['\"][^'\"]*classification-timeline['\"].*?no-store",
-            html, re.DOTALL,
+            html,
+            re.DOTALL,
         ), "/api/model/classification-timeline must include { cache: 'no-store' }"

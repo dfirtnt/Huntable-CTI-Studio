@@ -494,9 +494,7 @@ class SigmaMatchingService:
             logger.error(f"Error getting coverage summary for article {article_id}: {e}")
             return {"covered": 0, "extend": 0, "new": 0, "total": 0}
 
-    def assess_rule_novelty(
-        self, proposed_rule: dict[str, Any], threshold: float = 0.0
-    ) -> dict[str, Any]:
+    def assess_rule_novelty(self, proposed_rule: dict[str, Any], threshold: float = 0.0) -> dict[str, Any]:
         """
         Assess the novelty of a proposed Sigma rule against the existing corpus.
 

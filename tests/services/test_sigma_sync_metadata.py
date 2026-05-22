@@ -1,5 +1,6 @@
 """Tests for SigmaSyncService.index_metadata() — metadata phase only, no embeddings."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest

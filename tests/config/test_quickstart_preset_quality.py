@@ -228,7 +228,6 @@ def test_quickstart_canonical_agent_prompts_survive_to_legacy_roundtrip(preset_p
                 "(the 'Active generation template:' display will be blank after import)"
             )
 
-    assert not failures, (
-        f"{preset_path.name} lost canonical agent prompts in to-legacy conversion:\n"
-        + "\n".join(f"  - {f}" for f in failures)
+    assert not failures, f"{preset_path.name} lost canonical agent prompts in to-legacy conversion:\n" + "\n".join(
+        f"  - {f}" for f in failures
     )

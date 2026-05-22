@@ -45,7 +45,7 @@ def script():
 # Helpers
 # ---------------------------------------------------------------------------
 
-_LONG = "A" * 250   # passes default min_length=200
+_LONG = "A" * 250  # passes default min_length=200
 _SHORT = "A" * 100  # fails default min_length=200
 
 
@@ -62,6 +62,7 @@ def _row(text: str, classification: str, record_number: str = "1", source: str =
 # ---------------------------------------------------------------------------
 # Label mapping
 # ---------------------------------------------------------------------------
+
 
 class TestLabelMapping:
     def test_huntable_maps_to_lowercase_huntable(self, script) -> None:
@@ -101,6 +102,7 @@ class TestLabelMapping:
 # Length filter
 # ---------------------------------------------------------------------------
 
+
 class TestLengthFilter:
     def test_row_exactly_at_min_length_is_kept(self, script) -> None:
         kept, dropped = script.build_eval_rows([_row("B" * 200, "Huntable")], min_length=200)
@@ -124,6 +126,7 @@ class TestLengthFilter:
 # ---------------------------------------------------------------------------
 # Output schema
 # ---------------------------------------------------------------------------
+
 
 class TestOutputSchema:
     def test_output_fields_contains_model_evaluator_required_columns(self, script) -> None:
@@ -151,8 +154,8 @@ class TestOutputSchema:
         rows = [
             _row(_LONG, "Huntable"),
             _row(_LONG, "Not Huntable"),
-            _row(_SHORT, "Huntable"),    # dropped by length
-            _row(_LONG, "BadLabel"),     # dropped by label
+            _row(_SHORT, "Huntable"),  # dropped by length
+            _row(_LONG, "BadLabel"),  # dropped by label
         ]
         kept, _ = script.build_eval_rows(rows, min_length=200)
         labels = {r["label"] for r in kept}
@@ -162,8 +165,8 @@ class TestOutputSchema:
         rows = [
             _row(_LONG, "Huntable"),
             _row(_LONG, "Not Huntable"),
-            _row(_SHORT, "Huntable"),   # dropped: short
-            _row(_LONG, "JUNK"),        # dropped: unknown label
+            _row(_SHORT, "Huntable"),  # dropped: short
+            _row(_LONG, "JUNK"),  # dropped: unknown label
         ]
         kept, dropped = script.build_eval_rows(rows, min_length=200)
         assert len(kept) == 2 and len(dropped) == 2
@@ -172,6 +175,7 @@ class TestOutputSchema:
 # ---------------------------------------------------------------------------
 # CSV write round-trip: output must satisfy ModelEvaluator column contract
 # ---------------------------------------------------------------------------
+
 
 class TestCsvWriteRoundTrip:
     def test_written_csv_has_required_columns(self, script, tmp_path) -> None:
@@ -183,6 +187,7 @@ class TestCsvWriteRoundTrip:
             csv.DictWriter(f, fieldnames=script.OUTPUT_FIELDS).writerows(kept)
 
         import pandas as pd
+
         df = pd.read_csv(out)
         for col in ["annotation_id", "chunk_text", "label"]:
             assert col in df.columns
@@ -197,5 +202,6 @@ class TestCsvWriteRoundTrip:
             writer.writerows(kept)
 
         import pandas as pd
+
         df = pd.read_csv(out)
         assert set(df["label"].unique()) <= {"huntable", "not_huntable"}

@@ -30,15 +30,15 @@ _is_empty_scores = backfill_mod._is_empty_scores
 @pytest.mark.parametrize(
     "value",
     [
-        None,            # NULL similarity_scores
-        [],              # JSONB [] -> Python list
-        (),              # defensive: tuple
-        {},              # defensive: dict
-        "",              # rendered empty text
-        "   ",           # whitespace-only text
-        "[]",            # rendered empty JSON array (the common DB form)
-        "null",          # rendered JSON null
-        "  []  ",        # padded
+        None,  # NULL similarity_scores
+        [],  # JSONB [] -> Python list
+        (),  # defensive: tuple
+        {},  # defensive: dict
+        "",  # rendered empty text
+        "   ",  # whitespace-only text
+        "[]",  # rendered empty JSON array (the common DB form)
+        "null",  # rendered JSON null
+        "  []  ",  # padded
     ],
 )
 def test_empty_signatures_are_relabel_candidates(value):
@@ -50,12 +50,12 @@ def test_empty_signatures_are_relabel_candidates(value):
 @pytest.mark.parametrize(
     "value",
     [
-        [{"rule_id": "abc", "similarity": 0.42}],   # genuinely-scored: HAS stored matches
+        [{"rule_id": "abc", "similarity": 0.42}],  # genuinely-scored: HAS stored matches
         [1],
         {"a": 1},
-        '[{"rule_id":"abc"}]',                        # non-empty rendered JSON
-        "[ ]",                                        # not the exact DB form -> conservatively excluded
-        0,                                            # numeric, not "empty scores"
+        '[{"rule_id":"abc"}]',  # non-empty rendered JSON
+        "[ ]",  # not the exact DB form -> conservatively excluded
+        0,  # numeric, not "empty scores"
         0.0,
     ],
 )

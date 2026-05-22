@@ -115,22 +115,30 @@ def test_launcher_handshake_from_clean_env_and_foreign_cwd(tmp_path):
     env = dict(os.environ)
     env.pop("VIRTUAL_ENV", None)
     env["PATH"] = os.pathsep.join(
-        p for p in env.get("PATH", "").split(os.pathsep)
-        if "/.venv/" not in p and "/venv/" not in p
+        p for p in env.get("PATH", "").split(os.pathsep) if "/.venv/" not in p and "/venv/" not in p
     )
 
-    handshake = "\n".join([
-        json.dumps({
-            "jsonrpc": "2.0", "id": 1, "method": "initialize",
-            "params": {
-                "protocolVersion": "2024-11-05",
-                "capabilities": {},
-                "clientInfo": {"name": "pytest-regression", "version": "0"},
-            },
-        }),
-        json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}),
-        json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
-    ]) + "\n"
+    handshake = (
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 1,
+                        "method": "initialize",
+                        "params": {
+                            "protocolVersion": "2024-11-05",
+                            "capabilities": {},
+                            "clientInfo": {"name": "pytest-regression", "version": "0"},
+                        },
+                    }
+                ),
+                json.dumps({"jsonrpc": "2.0", "method": "notifications/initialized"}),
+                json.dumps({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}),
+            ]
+        )
+        + "\n"
+    )
 
     proc = subprocess.Popen(
         ["bash", str(LAUNCHER)],
