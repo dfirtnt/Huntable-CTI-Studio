@@ -252,6 +252,17 @@ class TestSigmaEnrichUI:
 
         self._open_preview_then_enrich(page)
 
+        # Belt-and-suspenders: inject the key into localStorage so the
+        # enrichRule() localStorage fallback also has a valid key in case
+        # the /api/settings route mock does not match in this environment.
+        page.evaluate(
+            "() => {"
+            "  const s = JSON.parse(localStorage.getItem('ctiScraperSettings') || '{}');"
+            "  s.workflowOpenaiApiKey = 'ci-test-key';"
+            "  localStorage.setItem('ctiScraperSettings', JSON.stringify(s));"
+            "}"
+        )
+
         enrich_rule_button = page.locator("#enrichBtn")
         enrich_rule_button.click()
 
