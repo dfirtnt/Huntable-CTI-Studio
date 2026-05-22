@@ -691,12 +691,7 @@ async def api_model_rollback(version_id: int = Path(..., gt=0)):
     if version.is_current:
         return {"success": False, "message": f"Version {version.version_number} is already the active model"}
 
-    import os
-
-    _primary = version.model_file_path
-    _backup = os.path.join("backups/models", os.path.basename(_primary)) if _primary else None
-    _resolved = next((p for p in (_primary, _backup) if p and os.path.exists(p)), None)
-    if not _resolved:
+    if not MLModelVersionManager._resolve_artifact_path(version.model_file_path):
         raise HTTPException(
             status_code=422,
             detail=(
