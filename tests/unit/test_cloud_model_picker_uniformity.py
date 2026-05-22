@@ -101,6 +101,7 @@ class TestLoadCatalogFilterPipeline:
     @pytest.fixture(scope="class")
     def loaded(self) -> dict:
         from src.services.provider_model_catalog import load_catalog
+
         return load_catalog()
 
     def test_openai_non_empty_after_filters(self, loaded):
@@ -191,8 +192,7 @@ class TestAllPickersUseSharedMacro:
     def test_macro_import_present(self, tmpl_name):
         src = (TEMPLATE_DIR / tmpl_name).read_text()
         assert "provider_model_macros.html" in src, (
-            f"{tmpl_name} calls provider_model_grid but does not import "
-            f"components/provider_model_macros.html"
+            f"{tmpl_name} calls provider_model_grid but does not import components/provider_model_macros.html"
         )
 
     @pytest.mark.parametrize("tmpl_name", sorted(MACRO_USING_TEMPLATES))
@@ -208,9 +208,7 @@ class TestAllPickersUseSharedMacro:
         bare <select> with name matching the agent_models[] pattern for providers.
         This catches a new template that reimplements the picker without the macro.
         """
-        agent_model_select = re.compile(
-            r'<select[^>]+name=["\']agent_models\[[^\]]*_provider\]["\']', re.IGNORECASE
-        )
+        agent_model_select = re.compile(r'<select[^>]+name=["\']agent_models\[[^\]]*_provider\]["\']', re.IGNORECASE)
         violations = []
         for tmpl_path in PAGE_TEMPLATES:
             if tmpl_path.name in MACRO_USING_TEMPLATES:
@@ -245,9 +243,7 @@ class TestWorkflowCloudInputType:
     def test_workflow_does_not_pass_use_select_true(self, workflow_src):
         """None of the workflow.html macro calls should pass use_select=true."""
         # Find every provider_model_grid call and check none has use_select=true.
-        calls = re.findall(
-            r"provider_model_grid\([^)]+\)", workflow_src, re.DOTALL
-        )
+        calls = re.findall(r"provider_model_grid\([^)]+\)", workflow_src, re.DOTALL)
         for call in calls:
             assert "use_select=true" not in call, (
                 f"workflow.html macro call passes use_select=true -- "
@@ -259,9 +255,7 @@ class TestWorkflowCloudInputType:
         src = (TEMPLATE_DIR / "settings.html").read_text()
         assert "provider_model_grid('diagnosis'" in src
         # Extract the diagnosis call and verify use_select=true is present.
-        m = re.search(
-            r"provider_model_grid\('diagnosis'[^)]+\)", src, re.DOTALL
-        )
+        m = re.search(r"provider_model_grid\('diagnosis'[^)]+\)", src, re.DOTALL)
         assert m, "Could not locate provider_model_grid('diagnosis'...) call in settings.html"
         assert "use_select=true" in m.group(0), (
             "settings.html diagnosis picker must pass use_select=true so cloud fields "

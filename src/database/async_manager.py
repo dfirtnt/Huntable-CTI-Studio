@@ -24,6 +24,7 @@ from sqlalchemy import (
     text,
     update,
 )
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -47,13 +48,13 @@ from src.models.annotation import (
     ArticleAnnotationUpdate,
 )
 from src.models.article import Article, ArticleCreate, ArticleListFilter, ArticleUpdate
+from src.models.source import (
+    INTERNAL_SOURCE_IDENTIFIERS as _INTERNAL_SOURCE_IDENTIFIERS,
+)
 from src.models.source import Source, SourceCreate, SourceFilter, SourceUpdate
 from src.services.deduplication import AsyncDeduplicationService
 
 logger = logging.getLogger(__name__)
-
-# Sources excluded from user-facing counts (internal/synthetic feeds).
-_INTERNAL_SOURCE_IDENTIFIERS = ("manual", "eval_articles")
 
 
 class AsyncDatabaseManager:
@@ -152,48 +153,10 @@ class AsyncDatabaseManager:
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
+                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
                 ]:
                     await conn.execute(text(col_ddl))
-                # Add primary keys to tables that pre-date PK enforcement.
-                # Each statement is a no-op if the constraint already exists.
-                # Will raise if duplicate IDs are still present -- that requires
-                # a data cleanup before the next startup.
-                for pk_ddl in [
-                    """
-                    DO $$ BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'sources' AND constraint_type = 'PRIMARY KEY'
-                        AND table_schema = 'public'
-                      ) THEN
-                        ALTER TABLE sources ADD PRIMARY KEY (id);
-                      END IF;
-                    END $$
-                    """,
-                    """
-                    DO $$ BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'subagent_evaluations' AND constraint_type = 'PRIMARY KEY'
-                        AND table_schema = 'public'
-                      ) THEN
-                        ALTER TABLE subagent_evaluations ADD PRIMARY KEY (id);
-                      END IF;
-                    END $$
-                    """,
-                    """
-                    DO $$ BEGIN
-                      IF NOT EXISTS (
-                        SELECT 1 FROM information_schema.table_constraints
-                        WHERE table_name = 'content_hashes' AND constraint_type = 'PRIMARY KEY'
-                        AND table_schema = 'public'
-                      ) THEN
-                        ALTER TABLE content_hashes ADD PRIMARY KEY (id);
-                      END IF;
-                    END $$
-                    """,
-                ]:
-                    await conn.execute(text(pk_ddl))
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
@@ -363,42 +326,37 @@ class AsyncDatabaseManager:
 
     async def list_sources(self, filter_params: SourceFilter | None = None) -> list[Source]:
         """List all sources with optional filtering."""
-        try:
-            async with self.get_session() as session:
-                query = select(SourceTable)
+        async with self.get_session() as session:
+            query = select(SourceTable)
 
-                if filter_params:
-                    # SourceFilter is intentionally minimal in the current schema (active, identifier).
-                    # Be defensive to avoid AttributeError when legacy/non-model filter objects are used.
-                    active = getattr(filter_params, "active", None)
-                    if active is not None:
-                        query = query.where(SourceTable.active == active)
+            if filter_params:
+                # SourceFilter is intentionally minimal in the current schema (active, identifier).
+                # Be defensive to avoid AttributeError when legacy/non-model filter objects are used.
+                active = getattr(filter_params, "active", None)
+                if active is not None:
+                    query = query.where(SourceTable.active == active)
 
-                    # Prefer the current field name `identifier`.
-                    identifier = getattr(filter_params, "identifier", None)
-                    if identifier:
-                        query = query.where(SourceTable.identifier.contains(identifier))
+                # Prefer the current field name `identifier`.
+                identifier = getattr(filter_params, "identifier", None)
+                if identifier:
+                    query = query.where(SourceTable.identifier.contains(identifier))
 
-                    # Backward-compatible legacy aliases (if present).
-                    identifier_contains = getattr(filter_params, "identifier_contains", None)
-                    if identifier_contains:
-                        query = query.where(SourceTable.identifier.contains(identifier_contains))
+                # Backward-compatible legacy aliases (if present).
+                identifier_contains = getattr(filter_params, "identifier_contains", None)
+                if identifier_contains:
+                    query = query.where(SourceTable.identifier.contains(identifier_contains))
 
-                    name_contains = getattr(filter_params, "name_contains", None)
-                    if name_contains:
-                        query = query.where(SourceTable.name.contains(name_contains))
+                name_contains = getattr(filter_params, "name_contains", None)
+                if name_contains:
+                    query = query.where(SourceTable.name.contains(name_contains))
 
-                query = query.order_by(SourceTable.name)
-                result = await session.execute(query)
-                # SQLAlchemy 2.x: scalars().all() can return duplicate ORM objects when
-                # relationships are loaded; unique() deduplicates by primary key.
-                db_sources = result.unique().scalars().all()
+            query = query.order_by(SourceTable.name)
+            result = await session.execute(query)
+            # SQLAlchemy 2.x: scalars().all() can return duplicate ORM objects when
+            # relationships are loaded; unique() deduplicates by primary key.
+            db_sources = result.unique().scalars().all()
 
-                return [self._db_source_to_model(db_source) for db_source in db_sources]
-
-        except Exception as e:
-            logger.error(f"Failed to list sources: {e}")
-            return []
+            return [self._db_source_to_model(db_source) for db_source in db_sources]
 
     async def list_source_identifiers(self) -> set[str]:
         """Return set of all source identifiers."""
@@ -436,32 +394,51 @@ class AsyncDatabaseManager:
             return updated
 
     async def create_source(self, source_data: SourceCreate) -> Source | None:
-        """Create a new source."""
+        """Insert a source, updating config fields if the identifier already exists."""
         try:
-            async with self.get_session() as session:
-                # Convert SourceCreate to SourceTable
-                db_source = SourceTable(
-                    identifier=source_data.identifier,
-                    name=source_data.name,
-                    url=source_data.url,
-                    rss_url=source_data.rss_url,
-                    check_frequency=source_data.config.check_frequency if source_data.config else 14400,
-                    lookback_days=source_data.config.lookback_days if source_data.config else 180,
-                    active=source_data.active,
-                    config=source_data.config.model_dump(exclude_none=True) if source_data.config else {},
-                    consecutive_failures=0,
-                    total_articles=0,
-                    average_response_time=0.0,
-                    created_at=datetime.now(),
-                    updated_at=datetime.now(),
+            now = datetime.now()
+            values = {
+                "identifier": source_data.identifier,
+                "name": source_data.name,
+                "url": source_data.url,
+                "rss_url": source_data.rss_url,
+                "check_frequency": source_data.config.check_frequency if source_data.config else 14400,
+                "lookback_days": source_data.config.lookback_days if source_data.config else 180,
+                "active": source_data.active,
+                "config": source_data.config.model_dump(exclude_none=True) if source_data.config else {},
+                "consecutive_failures": 0,
+                "total_articles": 0,
+                "average_response_time": 0.0,
+                "created_at": now,
+                "updated_at": now,
+            }
+
+            stmt = (
+                pg_insert(SourceTable)
+                .values(**values)
+                .on_conflict_do_update(
+                    index_elements=["identifier"],
+                    set_={
+                        "name": values["name"],
+                        "url": values["url"],
+                        "rss_url": values["rss_url"],
+                        "check_frequency": values["check_frequency"],
+                        "lookback_days": values["lookback_days"],
+                        "active": values["active"],
+                        "config": values["config"],
+                        "updated_at": values["updated_at"],
+                    },
                 )
+                .returning(SourceTable)
+            )
 
-                session.add(db_source)
+            async with self.get_session() as session:
+                result = await session.execute(stmt)
                 await session.commit()
-                await session.refresh(db_source)
+                db_source = result.scalar_one()
 
-                logger.info(f"Created source: {source_data.name}")
-                return self._db_source_to_model(db_source)
+            logger.info(f"Created/updated source: {source_data.name}")
+            return self._db_source_to_model(db_source)
 
         except Exception as e:
             logger.error(f"Failed to create source: {e}")
@@ -775,23 +752,6 @@ class AsyncDatabaseManager:
                             query = query.order_by(desc(threat_score_expr))
                         else:
                             query = query.order_by(threat_score_expr)
-                    elif article_filter.sort_by == "ml_hunt_score":
-                        # Special handling for ml_hunt_score which is stored in metadata
-                        # Handle null values by using COALESCE to provide a default value
-                        ml_hunt_score_expr = func.cast(
-                            func.coalesce(
-                                func.cast(
-                                    ArticleTable.article_metadata["ml_hunt_score"],
-                                    String,
-                                ),
-                                "0",
-                            ),
-                            Numeric,
-                        )
-                        if article_filter.sort_order == "desc":
-                            query = query.order_by(desc(ml_hunt_score_expr))
-                        else:
-                            query = query.order_by(ml_hunt_score_expr)
                     elif article_filter.sort_by == "annotation_count":
                         # Sort by annotation count (simplified - no annotation count available)
                         # Default to threat_hunting_score sorting

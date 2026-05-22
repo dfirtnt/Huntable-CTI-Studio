@@ -109,12 +109,127 @@ class ContentFilter:
     before sending to GPT-4o, reducing costs by filtering out irrelevant content.
     """
 
-    def __init__(self, config: FilterConfig | None = None, model_path: str | None = None):
+    # Expanded vocabularies for v2 feature extraction.  These replace the
+    # 5-8 hardcoded terms in the v1 vocab features that were over-fit to
+    # specific training articles.
+    V2_TECHNICAL_TERMS = (
+        # Original v1 terms
+        "dll",
+        "exe",
+        "payload",
+        "backdoor",
+        "shell",
+        "exploit",
+        "vulnerability",
+        "malware",
+        # Tradecraft
+        "persistence",
+        "privilege escalation",
+        "privesc",
+        "lateral movement",
+        "exfiltration",
+        "ransomware",
+        "dropper",
+        "loader",
+        "downloader",
+        "stager",
+        "implant",
+        "rootkit",
+        "keylogger",
+        "trojan",
+        "worm",
+        # C2 / network
+        "beacon",
+        "c2",
+        "command and control",
+        "callback",
+        "reverse shell",
+        # System artifacts
+        "registry key",
+        "scheduled task",
+        "mutex",
+        "process injection",
+        "dll injection",
+        # Credentials
+        "lsass",
+        "mimikatz",
+        "kerberos",
+        "ntlm",
+        "credential dump",
+        # Indicators
+        "ioc",
+        "indicator of compromise",
+        "ttp",
+        "observable",
+        # Cryptographic / forensic
+        "sha256",
+        "sha1",
+        "md5",
+        "base64",
+        "obfuscat",
+        "encoded payload",
+        # Threat actor language
+        "apt",
+        "threat actor",
+        "intrusion",
+        "compromise",
+    )
+
+    V2_MARKETING_TERMS = (
+        # Original v1 terms
+        "demo",
+        "free trial",
+        "book a demo",
+        "managed service",
+        "platform",
+        # Lead-capture CTAs
+        "webinar",
+        "white paper",
+        "ebook",
+        "sign up",
+        "subscribe",
+        "newsletter",
+        "contact sales",
+        "schedule a call",
+        "request a demo",
+        "talk to sales",
+        # Soft asks
+        "learn more",
+        "read more",
+        "download now",
+        "try free",
+        "get started",
+        # Corporate-speak (high precision NH markers)
+        "leverage",
+        "empower",
+        "streamline",
+        "transform your",
+        "accelerate your",
+        "our solution",
+        "our platform",
+        "our offering",
+        "our team",
+        "our customers",
+        # Marketing collateral
+        "case study",
+        "testimonial",
+        "success story",
+    )
+
+    def __init__(
+        self,
+        config: FilterConfig | None = None,
+        model_path: str | None = None,
+        feature_version: str = "v3",
+    ):
         self.config = config or FilterConfig()
         self.model = None
         self.vectorizer = None
         self.pattern_rules = self._load_pattern_rules()
         self.model_path = model_path or "models/content_filter.pkl"
+        # Which feature extractor train/predict should use.  Must match between
+        # training and inference — the random forest's feature index is positional.
+        self.feature_version = feature_version
 
         # Statistics tracking
         self._total_processed = 0
@@ -305,6 +420,393 @@ class ContentFilter:
 
         return features
 
+    def extract_features_v2(self, text: str) -> dict[str, float]:
+        """
+        Cleaned-up feature extractor — 19 features, no train/serve skew.
+
+        Differences from v1 (extract_features):
+
+        DROPPED — length leakage:
+          - char_count, word_count (used as length classifier in the bad seed corpus)
+        DROPPED — redundant booleans (RF doesn't gain from threshold-of-continuous):
+          - has_urls, has_file_paths, has_commands (literal Command:/Cleartext: anyway)
+        DROPPED — redundant bins of a continuous variable:
+          - hunt_score_high, hunt_score_medium, hunt_score_low
+        DROPPED — train/serve skew + scope creep:
+          - hunt_score (was None at training, real value at inference — classic bug)
+        DROPPED — noise feature:
+          - acknowledgment_count (matched "contact" which fires on legit huntable text)
+
+        PROMOTED from gated v1.include_new_features:
+          - perfect_pattern_count + ratio  (high-quality discriminators)
+          - other_huntable_pattern_count + ratio
+          (replaces deprecated huntable_pattern_count which mixed both)
+
+        FIXED:
+          - file_path_count regex no longer double-counts URL paths
+          - process_count generalized from 4 hardcoded executables to any .exe
+          - command_count broadened
+        EXPANDED:
+          - technical_term vocab: 8 → ~50 terms (V2_TECHNICAL_TERMS)
+          - marketing_term vocab: 5 → ~30 phrases (V2_MARKETING_TERMS)
+
+        Total: 19 features (down from 27).  Trained and inferred against
+        identical extractor — no source-vs-default branching.
+        """
+        text_lower = text.lower()
+        word_count = len(text.split())
+
+        # Pattern matching
+        perfect_pattern_count = sum(
+            1
+            for pattern in self.pattern_rules.get("perfect_patterns", [])
+            if re.search(pattern, text_lower, re.IGNORECASE)
+        )
+        other_huntable_pattern_count = sum(
+            1
+            for pattern in self.pattern_rules.get("other_huntable_patterns", [])
+            if re.search(pattern, text_lower, re.IGNORECASE)
+        )
+        not_huntable_pattern_count = sum(
+            1
+            for pattern in self.pattern_rules.get("not_huntable_patterns", [])
+            if re.search(pattern, text_lower, re.IGNORECASE)
+        )
+
+        # Vocabulary matching (expanded from v1's hardcoded short lists)
+        technical_term_count = sum(1 for term in self.V2_TECHNICAL_TERMS if term in text_lower)
+        marketing_term_count = sum(1 for term in self.V2_MARKETING_TERMS if term in text_lower)
+
+        # Technical indicators — generalized regexes
+        url_count = len(re.findall(r"https?://[^\s]+", text))
+        # File paths: Windows drive letters OR unix-style absolute paths NOT inside a URL.
+        # Strip URLs from the text first so /foo/bar in https://example.com/foo/bar doesn't count.
+        text_without_urls = re.sub(r"https?://[^\s]+", "", text)
+        file_path_count = len(re.findall(r"[A-Za-z]:\\\\[^\s]+|(?<![:\w])/[A-Za-z][\w/.-]+", text_without_urls))
+        ip_count = len(re.findall(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b", text))
+        cve_count = len(re.findall(r"CVE-\d{4}-\d+", text_lower))
+        # Generalized: any .exe (was hardcoded to 4 specific executables in v1)
+        process_count = len(re.findall(r"\b[\w.-]+\.exe\b", text_lower))
+        # Broadened LOLBAS-style command surface
+        command_count = len(
+            re.findall(
+                r"\b(powershell|pwsh|cmd|bash|sh|zsh|ssh|curl|wget|invoke-|"
+                r"rundll32|regsvr32|wmic|certutil|bitsadmin|schtasks|mshta)\b",
+                text_lower,
+            )
+        )
+
+        # Density-independent shape features
+        sentence_count = count_sentences(text)
+        words = text.split()
+        avg_word_length = float(np.mean([len(w) for w in words])) if words else 0.0
+
+        # Structural
+        has_code_blocks = 1.0 if re.search(r"```|`[^`]+`", text) else 0.0
+
+        features = {
+            # Pattern features
+            "perfect_pattern_count": float(perfect_pattern_count),
+            "other_huntable_pattern_count": float(other_huntable_pattern_count),
+            "not_huntable_pattern_count": float(not_huntable_pattern_count),
+            # Vocabulary
+            "technical_term_count": float(technical_term_count),
+            "marketing_term_count": float(marketing_term_count),
+            # Technical indicators
+            "url_count": float(url_count),
+            "file_path_count": float(file_path_count),
+            "ip_count": float(ip_count),
+            "cve_count": float(cve_count),
+            "process_count": float(process_count),
+            "command_count": float(command_count),
+            # Shape
+            "sentence_count": float(sentence_count),
+            "avg_word_length": avg_word_length,
+            "has_code_blocks": has_code_blocks,
+        }
+
+        # Ratios (per-word density — length-invariant)
+        if word_count > 0:
+            features["perfect_pattern_ratio"] = perfect_pattern_count / word_count
+            features["other_huntable_pattern_ratio"] = other_huntable_pattern_count / word_count
+            features["not_huntable_pattern_ratio"] = not_huntable_pattern_count / word_count
+            features["technical_term_ratio"] = technical_term_count / word_count
+            features["marketing_term_ratio"] = marketing_term_count / word_count
+        else:
+            features["perfect_pattern_ratio"] = 0.0
+            features["other_huntable_pattern_ratio"] = 0.0
+            features["not_huntable_pattern_ratio"] = 0.0
+            features["technical_term_ratio"] = 0.0
+            features["marketing_term_ratio"] = 0.0
+
+        return features
+
+    # ------------------------------------------------------------------
+    # v3 feature extractor
+    # ------------------------------------------------------------------
+    # Designed 2026-05-21 after a calibration session with the human reviewer.
+    # Features are aligned with the 6 ExtractAgent sub-agent contracts
+    # (CmdlineExtract, RegistryExtract, ProcTreeExtract, ServicesExtract,
+    # ScheduledTasksExtract, HuntQueriesExtract) and the rank-agent.md
+    # huntability definition. Each feature approximates "would an extractor
+    # emit an artifact from this chunk?" or "is this chunk a documented
+    # exclusion category?".
+    #
+    # Differences from v2:
+    # - DROPPED ip_count and url_count as standalone positive features --
+    #   they were misleading (atomic IOCs are negative signals, not neutral).
+    # - DROPPED sentence_count and avg_word_length -- length-leakage risk
+    #   reintroduced in v2 even though v2 was supposed to fix it.
+    # - ADDED hive-rooted registry path detection (top huntable signal that
+    #   was completely missing from v1/v2).
+    # - ADDED structural detectors for SIGMA rule bodies, YARA rule bodies,
+    #   Suricata rule bodies, and Cobalt Strike beacon configs (the four
+    #   most common false-positive sources for keyword-based classifiers).
+    # - ADDED hash_count and atomic_ioc_density as explicit negative signals.
+    # - ADDED attacker-placed path detection (C:\Users\Public\,
+    #   C:\ProgramData\<custom>\) distinct from generic Windows paths.
+    # - ADDED educational/hypothetical phrase counter ("could be used",
+    #   "is used to", "defenders should") that signals NH content.
+    # - ADDED mitre_ttp_only_density that fires on TTP tables without
+    #   accompanying commands.
+    # - REFINED perfect_pattern_count to strip noisy two-char matches
+    #   (MZ, C:\, D:\) that fired on base64 blobs and beacon configs.
+
+    V3_EDUCATIONAL_PHRASES = (
+        "could be used",
+        "may employ",
+        "is used to",
+        "is used for",
+        "can be used",
+        "attackers could",
+        "attackers may",
+        "threat actors could",
+        "threat actors may",
+        "defenders should",
+        "defenders can",
+        "best practice",
+        "we recommend",
+        "it is recommended",
+        "it is possible to",
+        "how to",
+        "what is",
+        "in this post",
+        "in this blog",
+        "we will demonstrate",
+        "throughout this blog",
+    )
+
+    V3_BEACON_CONFIG_KEYS = (
+        "beacontype",
+        "beacon type",
+        "sleeptime",
+        "sleep_time",
+        "jitter",
+        "maxgetsize",
+        "spawnto",
+        "spawn to",
+        "polling",
+        "maxdns",
+        "watermark",
+        "license_id",
+        "kill_date",
+        "cfg_caution",
+    )
+
+    V3_NOISY_PERFECT_DISCRIMINATORS = frozenset({"MZ", "C:\\", "D:\\"})
+
+    # Pre-compiled regexes (class-level so they cost nothing per call)
+    _V3_REGISTRY_HIVE = re.compile(
+        r"\b(HKLM|HKCU|HKU|HKCR|HKCC|"
+        r"HKEY_LOCAL_MACHINE|HKEY_CURRENT_USER|HKEY_USERS|"
+        r"HKEY_CLASSES_ROOT|HKEY_CURRENT_CONFIG)\\[\w\\\s\.\$\-]+",
+        re.IGNORECASE,
+    )
+    _V3_LINEAGE = re.compile(
+        r"(→|->|"
+        r"\bspawned by\b|\bspawned\b|"
+        r"\bparent process\b|\bchild process\b|\bparent\s+of\b|"
+        r"\b[\w.-]+\.exe\s+(spawning|launches|creates|loads|invokes)\s+[\w.-]+\.exe\b)",
+        re.IGNORECASE,
+    )
+    _V3_SERVICE = re.compile(
+        r"\bsc(\.exe)?\s+(create|delete|config|start|stop|description)\b|"
+        r"\bNew-Service\b|\bSet-Service\b|\bStop-Service\b|"
+        r"\bRemove-Service\b|\bStart-Service\b",
+        re.IGNORECASE,
+    )
+    _V3_SCHEDULED_TASK = re.compile(
+        r"\bschtasks(\.exe)?\s*/(create|change|delete|run|query)\b|"
+        r"\bRegister-ScheduledTask\b|\bNew-ScheduledTask\b|"
+        r"\bUnregister-ScheduledTask\b|"
+        r"<Triggers>|<Actions>|<Principals>",
+        re.IGNORECASE,
+    )
+    _V3_YARA_RULE = re.compile(
+        r"\brule\s+\w+\s*\{[^}]*strings\s*:",
+        re.IGNORECASE | re.DOTALL,
+    )
+    _V3_YARA_STRINGS = re.compile(
+        r"\$[a-z]\d+\s*=\s*\"[^\"]+\"\s+fullword\s+ascii|"
+        r"condition\s*:\s*uint",
+        re.IGNORECASE,
+    )
+    _V3_SURICATA = re.compile(
+        r"\balert\s+(tcp|http|tls|udp|ip|dns|smtp|ftp|ssh)\s+.*\bmsg\s*:|"
+        r"\b(ET\s+(MALWARE|POLICY|SCAN|HUNTING|INFO|TROJAN)\s+\w+)",
+        re.IGNORECASE,
+    )
+    _V3_CMDLINE = re.compile(
+        r"\b[\w.-]+\.exe\s+[/\-][\w/\\-]+|"
+        r"\bpowershell(\.exe)?\s+[-]\w|"
+        r"\bcmd(\.exe)?\s+/[ck]\b|"
+        r"\b(reg|sc|net|wmic|certutil|bitsadmin|schtasks|mshta|rundll32|regsvr32)\.?(exe)?\s+\w",
+        re.IGNORECASE,
+    )
+    _V3_ATTACKER_PATH = re.compile(
+        r"C:\\Users\\Public\\[\w\\\.]+|"
+        r"C:\\ProgramData\\[A-Z][a-zA-Z0-9]{2,}\\[\w\\\.]+|"
+        r"C:\\Windows\\Temp\\[\w\\\.]+|"
+        r"%PUBLIC%\\[\w\\\.]+|"
+        r"%PROGRAMDATA%\\[\w\\\.]+|"
+        r"%TEMP%\\[\w\\\.]+|"
+        r"%AppData%\\[A-Z][a-zA-Z]{2,}|"
+        r"/tmp/[\w\.-]+|"
+        r"~/Library/LaunchAgents/[\w\.-]+",
+        re.IGNORECASE,
+    )
+    _V3_MITRE = re.compile(r"\bT\d{4}(\.\d{1,3})?\b")
+    _V3_HASH = re.compile(
+        r"\b[a-f0-9]{32}\b|\b[a-f0-9]{40}\b|\b[a-f0-9]{64}\b",
+        re.IGNORECASE,
+    )
+    _V3_IPV4 = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
+    _V3_DEFANGED_DOMAIN = re.compile(r"\b[\w-]+\[\.\][\w.-]+\b")
+    # Beacon-config key detector — built from V3_BEACON_CONFIG_KEYS so the
+    # vocabulary is the single source of truth, but compiled once at class
+    # definition time rather than inside extract_features_v3().
+    _V3_BEACON_CONFIG = re.compile(
+        r"\b(beacontype|beacon type|sleeptime|sleep_time|jitter|maxgetsize|"
+        r"spawnto|spawn to|polling|maxdns|watermark|license_id|kill_date|cfg_caution)\b",
+        re.IGNORECASE,
+    )
+
+    _V3_SIGMA_MARKERS = (
+        "title:",
+        "logsource:",
+        "detection:",
+        "selection:",
+        "condition:",
+        "falsepositives:",
+    )
+    _V3_KQL_MARKERS = (
+        "| where ",
+        "| project ",
+        "| summarize ",
+        "| extend ",
+        "| join ",
+        "deviceprocessevents",
+        "devicenetworkevents",
+        "devicefileevents",
+        "securityevent",
+        "eventcode=",
+        "source=",
+        "index=",
+        "event_simplename",
+    )
+
+    def extract_features_v3(self, text: str) -> dict[str, float]:
+        """
+        20-feature extractor aligned with ExtractAgent sub-agent contracts.
+
+        See class-level commentary for design rationale. The feature order
+        below is the contract -- positional, used by the RF feature_importances.
+        """
+        from .content import HUNT_SCORING_KEYWORDS
+
+        text_lower = text.lower()
+        words = text.split()
+        word_count = max(len(words), 1)
+
+        # Extractor signals (positive)
+        cmdline_count = len(self._V3_CMDLINE.findall(text))
+        registry_count = len(self._V3_REGISTRY_HIVE.findall(text))
+        lineage_count = len(self._V3_LINEAGE.findall(text))
+        service_count = len(self._V3_SERVICE.findall(text))
+        scheduled_task_count = len(self._V3_SCHEDULED_TASK.findall(text))
+
+        sigma_markers = sum(1 for m in self._V3_SIGMA_MARKERS if m in text_lower)
+        kql_markers = sum(1 for m in self._V3_KQL_MARKERS if m in text_lower)
+        hunt_query_count = sigma_markers + kql_markers
+
+        extractor_signal_strength = (
+            cmdline_count + registry_count + lineage_count + service_count + scheduled_task_count + hunt_query_count
+        )
+
+        # Negative content indicators
+        yara_indicator = (
+            1.0 if (self._V3_YARA_RULE.search(text) or len(self._V3_YARA_STRINGS.findall(text)) >= 2) else 0.0
+        )
+        suricata_indicator = 1.0 if self._V3_SURICATA.search(text) else 0.0
+
+        beacon_config_count = len(self._V3_BEACON_CONFIG.findall(text))
+        beacon_config_indicator = 1.0 if beacon_config_count >= 3 else 0.0
+
+        hash_count = len(self._V3_HASH.findall(text))
+        ipv4_count = len(self._V3_IPV4.findall(text))
+        defanged_count = len(self._V3_DEFANGED_DOMAIN.findall(text))
+        atomic_ioc_density = (hash_count + ipv4_count + defanged_count) / word_count
+
+        educational_count = sum(1 for p in self.V3_EDUCATIONAL_PHRASES if p in text_lower)
+
+        mitre_count = len(self._V3_MITRE.findall(text))
+        # MITRE-only density: fires only when no cmdline artifacts (pure TTP table)
+        mitre_ttp_only_density = (mitre_count / word_count) if cmdline_count == 0 else 0.0
+
+        marketing_count = sum(1 for t in self.V2_MARKETING_TERMS if t in text_lower)
+
+        # Discriminators
+        perfect_patterns = HUNT_SCORING_KEYWORDS.get("perfect_discriminators", [])
+        perfect_pattern_count = sum(
+            1
+            for p in perfect_patterns
+            if p not in self.V3_NOISY_PERFECT_DISCRIMINATORS and re.search(re.escape(p), text, re.IGNORECASE)
+        )
+
+        attacker_path_count = len(self._V3_ATTACKER_PATH.findall(text))
+        technical_term_count = sum(1 for t in self.V2_TECHNICAL_TERMS if t in text_lower)
+        has_code_blocks = 1.0 if re.search(r"```|`[^`]+`", text) else 0.0
+
+        # Density / aggregates
+        cmdline_density = cmdline_count / word_count
+
+        return {
+            # Extractor signals (6)
+            "cmdline_artifact_count": float(cmdline_count),
+            "registry_hive_path_count": float(registry_count),
+            "process_lineage_count": float(lineage_count),
+            "service_artifact_count": float(service_count),
+            "scheduled_task_count": float(scheduled_task_count),
+            "hunt_query_count": float(hunt_query_count),
+            # Negative content (8)
+            "yara_rule_indicator": yara_indicator,
+            "suricata_rule_indicator": suricata_indicator,
+            "beacon_config_indicator": beacon_config_indicator,
+            "hash_count": float(hash_count),
+            "atomic_ioc_density": atomic_ioc_density,
+            "educational_phrase_count": float(educational_count),
+            "mitre_ttp_only_density": mitre_ttp_only_density,
+            "marketing_term_count": float(marketing_count),
+            # Discriminators (4)
+            "perfect_pattern_count": float(perfect_pattern_count),
+            "attacker_placed_path_count": float(attacker_path_count),
+            "technical_term_count": float(technical_term_count),
+            "has_code_blocks": has_code_blocks,
+            # Density / aggregates (2)
+            "cmdline_density": cmdline_density,
+            "extractor_signal_strength": float(extractor_signal_strength),
+        }
+
     def chunk_content(self, content: str, chunk_size: int = 1000, overlap: int = 200) -> list[tuple[int, int, str]]:
         """
         Split content into overlapping chunks for analysis.
@@ -331,6 +833,17 @@ class ContentFilter:
                 sentence_end = find_sentence_boundaries(content, start, end)
                 if sentence_end is not None:
                     end = sentence_end
+
+            # Skip "overlap-only" chunks: when find_sentence_boundaries returns
+            # the same boundary that ended the previous chunk, we'd emit a chunk
+            # whose end equals chunks[-1][1] — meaning every character is already
+            # present in the previous chunk's tail (no new content). This was
+            # producing spurious 200-char chunks (== overlap size) at section
+            # boundaries that have no model value. Advance past the duplicate
+            # boundary and continue the main loop.
+            if chunks and end <= chunks[-1][1]:
+                start = chunks[-1][1]
+                continue
 
             chunk_text = content[start:end].strip()
             if chunk_text:
@@ -374,7 +887,12 @@ class ContentFilter:
             y = []
 
             for _, row in df.iterrows():
-                features = self.extract_features(row["highlighted_text"])
+                if self.feature_version == "v3":
+                    features = self.extract_features_v3(row["highlighted_text"])
+                elif self.feature_version == "v2":
+                    features = self.extract_features_v2(row["highlighted_text"])
+                else:
+                    features = self.extract_features(row["highlighted_text"])
                 X.append(list(features.values()))
                 y.append(1 if row["classification"] == "Huntable" else 0)
 
@@ -414,6 +932,13 @@ class ContentFilter:
             Path(self.model_path).parent.mkdir(parents=True, exist_ok=True)
             joblib.dump(self.model, self.model_path)
 
+            # Persist feature_version sidecar so load_model() can auto-set the
+            # right featurizer. Without this, the pkl on disk has no record of
+            # which extract_features_* method it was trained with — every
+            # version bump risks a silent train/serve skew (see 2026-05-21
+            # post-mortem: "ML processing failed" was caused by exactly this).
+            self._write_model_meta(self.feature_version)
+
             # Return comprehensive metrics dictionary
             return {
                 "success": True,
@@ -445,6 +970,46 @@ class ContentFilter:
             logger.error(f"Error training model: {e}")
             return {"success": False, "error": str(e)}
 
+    def _meta_path(self) -> str:
+        """Return the sidecar metadata path for the current model_path."""
+        return f"{self.model_path}.meta.json"
+
+    def _write_model_meta(self, feature_version: str) -> None:
+        """Write a small JSON sidecar recording which featurizer trained this pkl.
+
+        Format: {"feature_version": "v3", "saved_at": "2026-05-21T..."}.
+        Errors are logged but not raised — the pkl is the source of truth; the
+        sidecar is a guard against train/serve skew.
+        """
+        import json
+        from datetime import datetime
+
+        try:
+            with open(self._meta_path(), "w", encoding="utf-8") as f:
+                json.dump(
+                    {
+                        "feature_version": feature_version,
+                        "saved_at": datetime.utcnow().isoformat() + "Z",
+                    },
+                    f,
+                )
+        except OSError as exc:
+            logger.warning(f"Could not write model meta sidecar: {exc}")
+
+    def _read_model_meta(self) -> dict | None:
+        """Read the sidecar JSON; return None if absent or invalid."""
+        import json
+
+        path = self._meta_path()
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return None
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning(f"Could not read model meta sidecar {path}: {exc}")
+            return None
+
     def load_model(self) -> bool:
         """Load pre-trained model."""
         if not SKLEARN_AVAILABLE:
@@ -459,6 +1024,30 @@ class ContentFilter:
 
             self.model = joblib.load(self.model_path)
 
+            # Auto-align feature_version with what the pkl was trained on.
+            # Sidecar absent => legacy pkl from before sidecars existed =>
+            # default to "v1" (the historic default at training time), NOT
+            # the current __init__ default. This prevents the v3-default-vs-
+            # v1-pkl shape mismatch that surfaced as "ML processing failed".
+            meta = self._read_model_meta()
+            if meta and isinstance(meta.get("feature_version"), str):
+                resolved = meta["feature_version"]
+                if resolved != self.feature_version:
+                    logger.info(
+                        f"Switching feature_version from {self.feature_version!r} "
+                        f"to {resolved!r} per model sidecar at {self._meta_path()}"
+                    )
+                self.feature_version = resolved
+            else:
+                # Legacy pkl with no sidecar: assume v1 to match historic training default
+                if self.feature_version != "v1":
+                    logger.warning(
+                        f"No meta sidecar at {self._meta_path()} for model "
+                        f"{self.model_path}. Assuming legacy v1 featurizer. "
+                        f"Train a fresh model to populate metadata."
+                    )
+                self.feature_version = "v1"
+
             # Set model version based on file modification time
             if os.path.exists(self.model_path):
                 mtime = os.path.getmtime(self.model_path)
@@ -467,7 +1056,7 @@ class ContentFilter:
             else:
                 self.model_version = "unknown"
 
-            logger.info(f"Loaded model version: {self.model_version}")
+            logger.info(f"Loaded model version: {self.model_version} (featurizer: {self.feature_version})")
             return True
         except Exception as e:
             logger.error(f"Error loading model: {e}")
@@ -491,7 +1080,12 @@ class ContentFilter:
 
         try:
             # Use backward compatibility by default (27 features)
-            features = self.extract_features(text, hunt_score, include_new_features=False)
+            if self.feature_version == "v3":
+                features = self.extract_features_v3(text)
+            elif self.feature_version == "v2":
+                features = self.extract_features_v2(text)
+            else:
+                features = self.extract_features(text, hunt_score, include_new_features=False)
             feature_vector = np.array(list(features.values())).reshape(1, -1)
 
             # Get prediction and probability

@@ -55,6 +55,7 @@ def _is_throttle_string(text: str) -> bool:
         return False
     return bool(_THROTTLE_PATTERNS.search(text))
 
+
 # Matches LMStudio context-exceeded messages and the context_length_exceeded flag on raw subagent results.
 _CONTEXT_OVERFLOW_PATTERNS = re.compile(
     r"context.{0,15}(size|length|window).{0,15}exceeded|context_length_exceeded",
@@ -975,9 +976,7 @@ def resolve_articles_by_urls(urls: list[str]) -> dict[str, int]:
                 if normalized == url:
                     continue
                 row = (
-                    db_session.query(ArticleTable.id)
-                    .filter(ArticleTable.canonical_url.like(f"{normalized}%"))
-                    .first()
+                    db_session.query(ArticleTable.id).filter(ArticleTable.canonical_url.like(f"{normalized}%")).first()
                 )
                 if row:
                     result[url] = row[0]
@@ -1823,7 +1822,9 @@ async def get_subagent_eval_aggregate(
                 failed_records = [r for r in records if r.status == "failed"]
                 pending_records = [r for r in records if r.status == "pending"]
                 throttled_count = sum(1 for r in records if r.workflow_execution_id in throttled_execution_ids)
-                quota_exceeded_count = sum(1 for r in records if r.workflow_execution_id in quota_exceeded_execution_ids)
+                quota_exceeded_count = sum(
+                    1 for r in records if r.workflow_execution_id in quota_exceeded_execution_ids
+                )
 
                 if not completed_records:
                     aggregates.append(
@@ -1879,10 +1880,9 @@ async def get_subagent_eval_aggregate(
                 # Item-level macro precision/recall (only over articles that have item-level
                 # scoring -- i.e. expected_items was set and matched_count was populated).
                 scored_records = [
-                    r for r in completed_records
-                    if r.matched_count is not None
-                    and r.missed_count is not None
-                    and r.extra_count is not None
+                    r
+                    for r in completed_records
+                    if r.matched_count is not None and r.missed_count is not None and r.extra_count is not None
                 ]
                 if scored_records:
                     per_article_precision = []
@@ -2004,10 +2004,7 @@ async def get_subagent_eval_models(
             )
             return {
                 "subagent": subagent,
-                "models": [
-                    {"name": name, "config_count": count}
-                    for name, count in sorted_models
-                ],
+                "models": [{"name": name, "config_count": count} for name, count in sorted_models],
             }
         finally:
             db_session.close()
@@ -2046,9 +2043,7 @@ async def get_subagent_eval_compare(
             query = db_session.query(SubagentEvaluationTable)
             if lookup_values:
                 query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
-            query = query.filter(
-                SubagentEvaluationTable.workflow_config_version.in_([version_a, version_b])
-            )
+            query = query.filter(SubagentEvaluationTable.workflow_config_version.in_([version_a, version_b]))
             all_records = query.order_by(
                 SubagentEvaluationTable.workflow_config_version.desc(),
                 SubagentEvaluationTable.created_at.desc(),
@@ -2063,9 +2058,7 @@ async def get_subagent_eval_compare(
             id_to_title: dict[int, str] = {}
             if article_ids:
                 title_rows = (
-                    db_session.query(ArticleTable.id, ArticleTable.title)
-                    .filter(ArticleTable.id.in_(article_ids))
-                    .all()
+                    db_session.query(ArticleTable.id, ArticleTable.title).filter(ArticleTable.id.in_(article_ids)).all()
                 )
                 id_to_title = {r[0]: (r[1] or "") for r in title_rows}
 
@@ -2103,9 +2096,7 @@ async def get_subagent_eval_compare(
                     latest[key] = record
                 else:
                     existing = latest[key]
-                    if record.created_at and (
-                        existing.created_at is None or record.created_at > existing.created_at
-                    ):
+                    if record.created_at and (existing.created_at is None or record.created_at > existing.created_at):
                         latest[key] = record
 
             # Collect all unique URLs seen in either version
@@ -2130,9 +2121,7 @@ async def get_subagent_eval_compare(
                 }
 
             def _compute_aggregate(records: list[SubagentEvaluationTable], version: int) -> dict:
-                completed = [
-                    r for r in records if r.status == "completed" and r.actual_count is not None
-                ]
+                completed = [r for r in records if r.status == "completed" and r.actual_count is not None]
                 if not completed:
                     return {
                         "config_version": version,
@@ -2211,10 +2200,12 @@ async def get_subagent_eval_compare(
                 )
 
             # Sort: biggest changes first (most improved or most regressed), nulls at end
-            articles.sort(key=lambda a: (
-                a["improvement"] is None,
-                -abs(a["improvement"]) if a["improvement"] is not None else 0,
-            ))
+            articles.sort(
+                key=lambda a: (
+                    a["improvement"] is None,
+                    -abs(a["improvement"]) if a["improvement"] is not None else 0,
+                )
+            )
 
             return {
                 "subagent": canonical_subagent,
@@ -2489,9 +2480,7 @@ async def diagnose_eval_bundle(
                 from sqlalchemy import select
 
                 settings_result = db_session.execute(
-                    select(AppSettingsTable).where(
-                        AppSettingsTable.key.in_(["DIAGNOSIS_PROVIDER", "DIAGNOSIS_MODEL"])
-                    )
+                    select(AppSettingsTable).where(AppSettingsTable.key.in_(["DIAGNOSIS_PROVIDER", "DIAGNOSIS_MODEL"]))
                 )
                 settings_map = {s.key: s.value for s in settings_result.scalars().all()}
                 if settings_map.get("DIAGNOSIS_PROVIDER"):
@@ -2704,9 +2693,7 @@ async def export_bundles_by_config_version(
                     manifest = {
                         "description": "Shared prompts extracted from slim bundles. "
                         "Each bundle references these by SHA256 prefix.",
-                        "prompts": {
-                            sha[:12]: {"sha256": sha, "text": text} for sha, text in shared_prompts.items()
-                        },
+                        "prompts": {sha[:12]: {"sha256": sha, "text": text} for sha, text in shared_prompts.items()},
                     }
                     zf.writestr("_prompts.json", json.dumps(manifest, indent=2, ensure_ascii=False))
 

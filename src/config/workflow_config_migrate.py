@@ -79,7 +79,15 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
 
     agents = dict(out.get("Agents") or {})
     # Remove deprecated extractor QA agents
-    _EXTRACTOR_QA_AGENTS = {"CmdLineQA", "CmdlineQA", "ProcTreeQA", "HuntQueriesQA", "RegistryQA", "ServicesQA", "ScheduledTasksQA"}
+    _EXTRACTOR_QA_AGENTS = {
+        "CmdLineQA",
+        "CmdlineQA",
+        "ProcTreeQA",
+        "HuntQueriesQA",
+        "RegistryQA",
+        "ServicesQA",
+        "ScheduledTasksQA",
+    }
     for _qa in _EXTRACTOR_QA_AGENTS:
         agents.pop(_qa, None)
     if "RankAgent" in agents and rank_en is not None:
@@ -94,8 +102,16 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     out["Agents"] = agents
 
     # QA.Enabled: remove stale keys (OSDetection removed; extractor QA agents deprecated)
-    _STALE_QA_KEYS = {"OSDetectionAgent", "OSDetectionFallback", "CmdlineExtract", "ProcTreeExtract",
-                      "HuntQueriesExtract", "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"}
+    _STALE_QA_KEYS = {
+        "OSDetectionAgent",
+        "OSDetectionFallback",
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
+    }
     qa = dict(out.get("QA") or {})
     enabled = dict(qa.get("Enabled") or {})
     for _k in _STALE_QA_KEYS:
@@ -208,8 +224,16 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
     qa_max = raw.get("qa_max_retries")
     if qa_max is not None:
         deprecated_used.append("qa_max_retries")
-    _STALE_QA_ENABLED_KEYS = {"OSDetectionAgent", "OSDetectionFallback", "CmdlineExtract", "ProcTreeExtract",
-                               "HuntQueriesExtract", "RegistryExtract", "ServicesExtract", "ScheduledTasksExtract"}
+    _STALE_QA_ENABLED_KEYS = {
+        "OSDetectionAgent",
+        "OSDetectionFallback",
+        "CmdlineExtract",
+        "ProcTreeExtract",
+        "HuntQueriesExtract",
+        "RegistryExtract",
+        "ServicesExtract",
+        "ScheduledTasksExtract",
+    }
     qa_enabled_normalized: dict[str, bool] = {}
     for k, v in qa_enabled.items():
         if k in _STALE_QA_ENABLED_KEYS:
@@ -252,13 +276,15 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         "ProcTreeAttentionPreprocessorEnabled": _bool_val(proc_tree_pre, True),
     }
 
-    # Prompts: only canonical agent names (no ExtractAgentSettings; that lives under Execution)
+    # Prompts: only canonical agent names (no ExtractAgentSettings; that lives under Execution).
+    # ExtractAgent is also excluded: it is a model/provider fallback key only and carries no prompt.
     from src.config.workflow_config_schema import CANONICAL_PROMPT_AGENT_NAMES
 
+    _PROMPT_FREE_MIGRATE = {"ExtractAgentSettings", "ExtractAgent"}
     agent_prompts = raw.get("agent_prompts") or {}
     Prompts: dict[str, Any] = {}
     for name, val in agent_prompts.items():
-        if name == "ExtractAgentSettings":
+        if name in _PROMPT_FREE_MIGRATE:
             continue
         if name not in CANONICAL_PROMPT_AGENT_NAMES:
             continue

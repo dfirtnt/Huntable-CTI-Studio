@@ -97,3 +97,55 @@ async def test_list_sources_accepts_legacy_alias_fields():
 
     assert len(result) == 1
     assert result[0].name == "Beta Source"
+
+
+class _ErrorSession:
+    """Session that always raises on execute — simulates a transient DB error."""
+
+    async def execute(self, _query):
+        raise RuntimeError("simulated DB connection error")
+
+
+def _make_error_manager():
+    """Manager whose session raises on every execute call."""
+    mgr = AsyncDatabaseManager.__new__(AsyncDatabaseManager)
+
+    @asynccontextmanager
+    async def _fake_get_session():
+        yield _ErrorSession()
+
+    mgr.get_session = _fake_get_session
+    mgr._db_source_to_model = lambda row: row
+    return mgr
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_list_sources_propagates_db_error():
+    """DB errors must propagate — list_sources must NOT silently return [].
+
+    Regression for the bug that caused duplicate sources: when list_sources()
+    swallowed exceptions and returned [], _sync_to_db treated every YAML source
+    as new and created duplicates in a single batch.
+    """
+    mgr = _make_error_manager()
+
+    with pytest.raises(RuntimeError, match="simulated DB connection error"):
+        await mgr.list_sources()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_list_sources_no_filter_returns_all_sources():
+    """list_sources() with no filter returns all rows from the session."""
+    rows = [
+        _build_fake_source("alpha", "Alpha", True),
+        _build_fake_source("beta", "Beta", False),
+    ]
+    mgr = _make_manager(rows)
+
+    result = await mgr.list_sources()
+
+    assert len(result) == 2
+    identifiers = {r.identifier for r in result}
+    assert identifiers == {"alpha", "beta"}

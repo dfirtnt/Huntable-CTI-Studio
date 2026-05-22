@@ -68,7 +68,7 @@ class QAAgentService:
             if not qa_system_prompt:
                 raise ValueError(
                     f"QA prompt for {agent_name} resolved to an empty system message. "
-                    "Ensure the prompt config contains a non-empty 'role' or 'system' key."
+                    "Ensure the prompt config contains a non-empty 'system' key (or legacy 'role')."
                 )
 
             # Build evaluation input
@@ -234,7 +234,7 @@ Please provide your evaluation in the following JSON format:
     def _get_default_qa_prompt(self) -> dict[str, Any]:
         """Get default QA prompt structure."""
         return {
-            "role": "You are a quality assurance agent responsible for evaluating LLM agent outputs for compliance, accuracy, and fidelity to source materials.",
+            "system": "You are a quality assurance agent responsible for evaluating LLM agent outputs for compliance, accuracy, and fidelity to source materials.",
             "objective": "For each task, verify that the evaluated agent's output strictly adheres to its original instructions and is fully supported by the source article content. Identify all deviations, omissions, hallucinations, or format violations.",
             "evaluation_criteria": [
                 "[PASS] Does the output fully comply with the original prompt's rules and constraints?",

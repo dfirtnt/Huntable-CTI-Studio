@@ -113,9 +113,13 @@ A zero exit code confirms the stack and core health endpoints are working.
 
 For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP server exposes article search, full article fetch, Sigma search, sources, workflow executions, and the Sigma review queue. It uses the same database as the web app. Tool listing and parameters: [MCP tools reference](reference/mcp-tools.md).
 
+The repo ships a committed `.mcp.json` registering the server via `scripts/run_mcp_server.sh`; clients that read project `.mcp.json` (Claude Code in this repo) need no setup — just approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command.
+
+To run it by hand, use the **project venv** — MCP clients do not inherit an activated venv, so bare `python3 run_mcp.py` fails with `ModuleNotFoundError: No module named 'mcp'`:
+
 ```bash
-python3 run_mcp.py
-# or: python3 -m src.huntable_mcp
+.venv/bin/python run_mcp.py        # or: source .venv/bin/activate first
+bash scripts/run_mcp_server.sh     # same launcher the .mcp.json uses
 ```
 
 Stack shutdown (optional):
@@ -123,4 +127,4 @@ Stack shutdown (optional):
 docker-compose down
 ```
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_

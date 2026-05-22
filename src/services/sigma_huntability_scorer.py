@@ -117,7 +117,6 @@ class SigmaHuntabilityScorer:
 
     def _score_commandline_specificity(self, detection: dict) -> float:
         """Score command-line specificity (0-1)."""
-        score = 0.0
 
         # Check for CommandLine field
         has_commandline = False

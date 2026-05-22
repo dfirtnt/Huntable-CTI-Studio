@@ -568,6 +568,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Perform OCR on a specific image
+    // Leptonica (Tesseract WASM) rejects SVG/AVIF/WebP; canvas normalizes to PNG.
+    function normalizeDataUrlToPng(dataUrl) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                canvas.getContext('2d').drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => reject(new Error('Image could not be decoded by the browser (unsupported or corrupted format)'));
+            img.src = dataUrl;
+        });
+    }
+
     async function performOCR(imageId) {
         const image = extractedImages.find(img => img.id === imageId);
         if (!image) return;
@@ -602,6 +618,12 @@ document.addEventListener('DOMContentLoaded', function() {
             } catch (fetchErr) {
                 throw new Error('Image fetch failed - ' + fetchErr.message);
             }
+
+            // Leptonica (Tesseract's WASM image decoder) cannot handle SVG, AVIF,
+            // or other non-raster formats. Render through canvas to get clean PNG.
+            statusEl.textContent = 'Converting image...';
+            imageData = await normalizeDataUrlToPng(imageData);
+
             statusEl.textContent = 'Image fetched, starting OCR...';
 
             // Perform OCR using locally-vendored Tesseract files to satisfy
@@ -661,7 +683,7 @@ document.addEventListener('DOMContentLoaded', function() {
         statusEl.style.color = '#2a4365';
 
         try {
-            const imageData = await new Promise((resolve, reject) => {
+            let imageData = await new Promise((resolve, reject) => {
                 chrome.runtime.sendMessage(
                     { action: 'fetchImageAsDataURL', data: { src: image.src } },
                     (resp) => {
@@ -671,6 +693,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 );
             });
+
+            // OpenAI/Anthropic vision APIs reject SVG and other non-raster formats.
+            statusEl.textContent = 'Converting image...';
+            imageData = await normalizeDataUrlToPng(imageData);
 
             statusEl.textContent = 'Calling Vision LLM...';
             showStatus('Calling Vision LLM...', 'loading');

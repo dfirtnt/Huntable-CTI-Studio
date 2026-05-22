@@ -58,16 +58,11 @@ def test_ground_truth_entry_schema(subagent):
         assert entry["url"].startswith("http"), f"{subagent}[{i}]: url looks malformed"
         assert "expected_items" in entry, f"{subagent}[{i}]: missing 'expected_items'"
         assert isinstance(entry["expected_items"], list), (
-            f"{subagent}[{i}]: 'expected_items' must be a list, got "
-            f"{type(entry['expected_items'])}"
+            f"{subagent}[{i}]: 'expected_items' must be a list, got {type(entry['expected_items'])}"
         )
         for j, item in enumerate(entry["expected_items"]):
-            assert isinstance(item, str), (
-                f"{subagent}[{i}].expected_items[{j}]: items must be strings"
-            )
-            assert item.strip(), (
-                f"{subagent}[{i}].expected_items[{j}]: item is blank"
-            )
+            assert isinstance(item, str), f"{subagent}[{i}].expected_items[{j}]: items must be strings"
+            assert item.strip(), f"{subagent}[{i}].expected_items[{j}]: item is blank"
 
 
 @pytest.mark.parametrize("subagent", SUBAGENTS)
@@ -81,9 +76,7 @@ def test_ground_truth_urls_exist_in_articles(subagent):
     art_data = _load_articles(subagent)
     article_urls = {a["url"] for a in art_data}
     orphans = [e["url"] for e in gt_data if e["url"] not in article_urls]
-    assert not orphans, (
-        f"{subagent}: ground_truth.json has URLs not in articles.json: {orphans}"
-    )
+    assert not orphans, f"{subagent}: ground_truth.json has URLs not in articles.json: {orphans}"
 
 
 @pytest.mark.parametrize("subagent", SUBAGENTS)
@@ -98,10 +91,7 @@ def test_ground_truth_covers_all_articles(subagent):
     art_data = _load_articles(subagent)
     gt_urls = {e["url"] for e in gt_data}
     unannotated = [a["url"] for a in art_data if a["url"] not in gt_urls]
-    assert not unannotated, (
-        f"{subagent}: articles.json has URLs without a ground_truth.json entry: "
-        f"{unannotated}"
-    )
+    assert not unannotated, f"{subagent}: articles.json has URLs without a ground_truth.json entry: {unannotated}"
 
 
 @pytest.mark.parametrize("subagent", SUBAGENTS)
@@ -129,6 +119,4 @@ def test_ground_truth_ascii_only(subagent):
                 item.encode("ascii")
             except UnicodeEncodeError:
                 violations.append((entry["url"], repr(item)))
-    assert not violations, (
-        f"{subagent}: non-ASCII characters found in expected_items: {violations}"
-    )
+    assert not violations, f"{subagent}: non-ASCII characters found in expected_items: {violations}"

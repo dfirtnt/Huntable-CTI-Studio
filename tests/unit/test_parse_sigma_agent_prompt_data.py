@@ -1,18 +1,28 @@
 """Tests for src.utils.prompt_loader.parse_sigma_agent_prompt_data and parse_sigma_repair_prompt_data.
 
-SigmaAgent's DB prompt has four historical shapes the parser must handle:
+SigmaAgent's DB prompt has several historical shapes the parser must handle:
   1. Locked scaffold JSON:    {"role": ..., "user_template": ...}
   2. Extraction-agent JSON:   {"role": ..., "task": ..., "json_example": ..., "instructions": ...}
   3. Legacy simple JSON:      {"system": ..., "user": ...}
   4. Legacy raw text:         template text with {title}/{content} placeholders
+  5. Canonical outer dict:    {"system": ..., "user": ...}  (keys at outer level, no "prompt" key)
 
 Plus the legacy sibling ``system_prompt`` key that pre-dated the locked format.
 
-Shape 2 is the active save format: the UI treats SigmaAgent as a locked extractor
-(LOCKED_EXTRACTOR_AGENTS includes 'SigmaAgent'), so saveAgentPrompt2() packages the
-system persona into "role" and adds empty "task"/"json_example"/"instructions" keys.
-The parser must extract "role" as the system prompt and return template=None so the
-file-based user scaffold (sigma_generate_multi.txt) continues to be used.
+Shape 5 is the active save format: SigmaAgent is in LOCKED_CANONICAL_AGENTS (not
+LOCKED_EXTRACTOR_AGENTS), so saveAgentPrompt2() writes {"system": <persona>, "user": ""}
+as a canonical outer dict. The parser returns (template=None, system=<persona>) so the
+file-based user scaffold (sigma_generate_multi.txt) is used for the user message.
+
+Shape 2 is a legacy/backward-compat shape produced when SigmaAgent was mistakenly
+included in LOCKED_EXTRACTOR_AGENTS. The parser handles it for DB records created
+before that was corrected.
+
+Shape 4 is used by quickstart preset prompts: the full generation template (with
+{title}/{content}/{observables_section} placeholders) is stored as raw text in the
+legacy {prompt: "..."} envelope. parsePromptParts() routes it to promptParts.user
+(not system), and renderSinglePrompt displays it as the 'Active generation template:'
+in the amber locked-scaffold section.
 """
 
 import json
@@ -139,17 +149,13 @@ class TestParseSigmaAgentPromptData:
 
     def test_canonical_shape_extracts_system_and_user(self):
         """Post-migration canonical shape: {system, user} read directly."""
-        template, system = parse_sigma_agent_prompt_data(
-            {"system": "PERSONA_CANONICAL", "user": "tmpl {title}"}
-        )
+        template, system = parse_sigma_agent_prompt_data({"system": "PERSONA_CANONICAL", "user": "tmpl {title}"})
         assert template == "tmpl {title}"
         assert system == "PERSONA_CANONICAL"
 
     def test_canonical_shape_with_user_null(self):
         """SigmaAgent's canonical record always has user=null (template is code-owned)."""
-        template, system = parse_sigma_agent_prompt_data(
-            {"system": "PERSONA_CANONICAL", "user": None}
-        )
+        template, system = parse_sigma_agent_prompt_data({"system": "PERSONA_CANONICAL", "user": None})
         assert template is None
         assert system == "PERSONA_CANONICAL"
 
@@ -161,9 +167,7 @@ class TestParseSigmaAgentPromptData:
 
     def test_canonical_shape_with_instructions_passthrough_ignored(self):
         """Optional instructions field doesn't break canonical detection."""
-        template, system = parse_sigma_agent_prompt_data(
-            {"system": "PERSONA", "user": None, "instructions": "extra"}
-        )
+        template, system = parse_sigma_agent_prompt_data({"system": "PERSONA", "user": None, "instructions": "extra"})
         assert template is None
         assert system == "PERSONA"
 
@@ -174,9 +178,7 @@ class TestParseSigmaAgentPromptData:
         (LOCKED_CANONICAL_AGENTS). The parser must not forward '' as a template or
         the file-based sigma_generate_multi.txt scaffold would be skipped.
         """
-        template, system = parse_sigma_agent_prompt_data(
-            {"system": "PERSONA", "user": ""}
-        )
+        template, system = parse_sigma_agent_prompt_data({"system": "PERSONA", "user": ""})
         assert template is None
         assert system == "PERSONA"
 

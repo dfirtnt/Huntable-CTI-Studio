@@ -243,9 +243,7 @@ class EvalDiagnosisService:
             {"role": "user", "content": user_content},
         ]
 
-    def _parse_diagnosis_response(
-        self, raw_text: str, finish_reason: str = "unknown"
-    ) -> dict[str, Any]:
+    def _parse_diagnosis_response(self, raw_text: str, finish_reason: str = "unknown") -> dict[str, Any]:
         """Parse the LLM JSON response with fallback strategies."""
         truncated = finish_reason == "length"
 

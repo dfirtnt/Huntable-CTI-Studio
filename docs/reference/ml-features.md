@@ -1,497 +1,286 @@
 # ML Model Feature Definitions
 
-Detailed definitions of all parameters used in the content filter ML model, including how each feature is accurately identified.
+Definitions for all 20 features used by the v3 content-filter model (`extract_features_v3()` in `src/utils/content_filter.py`). v1 (27 features) and v2 (19 features) are legacy; do not use as reference for the current model.
+
 
 ## Overview
 
-The content filter uses a **RandomForestClassifier** with a fixed 27-feature base vector in training and production inference. The extractor can emit 4 additional hunt_score-derived debug fields, but the current training path does not populate them, so they are not learned by the shipped model. Features are **NOT weighted equally** - the model learns feature importances from the training data, but only for the columns actually passed into `fit()`.
+The content filter runs a **RandomForestClassifier** trained and inferred against a fixed 20-feature vector produced by `extract_features_v3()`. Features are positional — the RF's `feature_importances_` array maps 1:1 to the dict returned by `extract_features_v3()` in declaration order.
+
+**Feature version auto-detection:** `load_model()` reads `<model_path>.meta.json` and sets `feature_version` automatically. Do not pass `feature_version` manually at inference unless you are testing a specific version.
+
+**Eval metrics (v3):** F1 ≈ 0.89 on a 240-row curated eval set (Huntable corpus).
+
+
+**Legacy versions:**
+- v1 (`extract_features()`) — 27 features; deprecated; legacy pkl files with no `.meta.json` sidecar default to v1.
+- v2 (`extract_features_v2()`) — 19 features; intermediate cleanup; not in active use.
 
 ---
 
-## Pattern-Based Features
+## v3 Feature Reference
 
-### `huntable_pattern_count`
-**Definition:** Total count of huntable pattern matches in the text chunk.
+Features are grouped by role. Within each group, the declaration order in `extract_features_v3()` is the contract.
 
-**How it's identified:**
-- Searches text (case-insensitive) against a combined list of:
-  - **Perfect discriminators** (103 patterns): Keywords that appear exclusively in high-quality threat hunting content
-  - **Good discriminators**: Supporting technical keywords
-  - **LOLBAS executables**: Living Off the Land Binaries and Scripts
-  - **Intelligence indicators**: Core threat intelligence keywords
-- Uses regex matching with word boundaries to prevent false positives
-- Patterns are loaded from `HUNT_SCORING_KEYWORDS` dictionary
+### Extractor Signals (positive indicators)
 
-**Accuracy:** High - Uses validated keyword lists from analysis of 319 historically labeled training samples (97 high-signal, 222 low-signal). Note: article-level "chosen/rejected" classification is removed from the UI and should not be relied upon.
+These six features ask "would an ExtractAgent sub-agent emit an artifact from this chunk?" Higher values push the chunk toward Huntable.
+
+---
+
+#### `cmdline_artifact_count`
+
+Count of command-line invocation patterns.
+
+**Detection:** `_V3_CMDLINE` regex — matches `<exe> /<flag>`, `powershell -<flag>`, `cmd /c`, and common LOLBAS tools (`reg`, `sc`, `net`, `wmic`, `certutil`, `bitsadmin`, `schtasks`, `mshta`, `rundll32`, `regsvr32`) followed by an argument.
 
 **Examples:**
-- Perfect: `rundll32.exe`, `msiexec.exe`, `powershell.exe`, `hklm`, `.lnk`
-- Good: `EventCode`, `KQL`, `parent-child`
-- LOLBAS: `certutil.exe`, `schtasks.exe`, `wmic.exe`
+- `powershell.exe -EncodedCommand AAAA==`
+- `schtasks.exe /create /tn Updater`
+- `reg add HKLM\...\Run /v evil`
 
 ---
 
-### `not_huntable_pattern_count`
-**Definition:** Count of negative indicator patterns that suggest non-huntable content.
+#### `registry_hive_path_count`
 
-**How it's identified:**
-- Searches for marketing, educational, or acknowledgment patterns
-- Patterns include: `demo`, `free trial`, `book a demo`, `managed service`, `platform`, `acknowledgement`, `gratitude`, `thank you`, `contact`
-- Case-insensitive regex matching
+Count of hive-rooted registry path references.
 
-**Accuracy:** High - Identifies common marketing/PR language patterns
+**Detection:** `_V3_REGISTRY_HIVE` regex — matches `HKLM\`, `HKCU\`, `HKU\`, `HKCR\`, `HKCC\`, and their long-form equivalents, followed by at least one path component.
+
+**Why this matters:** A hive-rooted path with subkeys is a strong positive signal unique to tradecraft documentation and hunt queries. Generic registry-key text (just "HKLM") is not sufficient.
 
 ---
 
-### `perfect_pattern_count` (New Feature)
-**Definition:** Count of perfect discriminator matches only (subset of huntable patterns).
+#### `process_lineage_count`
 
-**How it's identified:**
-- Searches against **103 perfect discriminators** only
-- These are keywords that had **100% precision** in training data analysis
-- Includes Windows executables, registry paths, PowerShell techniques, EDR query syntax
+Count of parent-child process relationship indicators.
 
-**Accuracy:** Very High - Perfect discriminators have 100% precision (0% false positives in training data)
-
-**Examples:**
-- `rundll32.exe`, `comspec`, `msiexec.exe`, `wmic.exe`
-- `hklm`, `appdata`, `programdata`, `powershell.exe`
-- `.lnk`, `D:\`, `.iso`, `MZ`
-- `svchost.exe`, `lsass.exe`, `WINDIR`, `wintmp`
-- KQL tables: `DeviceProcessEvents`, `DeviceNetworkEvents`
-- Falcon EDR fields: `ProcessRollup2`, `event_simpleName`
+**Detection:** `_V3_LINEAGE` regex — matches Unicode arrows (`→`), ASCII arrows (`->`), phrases like `spawned by`, `parent process`, `child process`, and patterns of the form `<exe.exe> spawning <exe.exe>`.
 
 ---
 
-### `other_huntable_pattern_count` (New Feature)
-**Definition:** Count of huntable patterns excluding perfect discriminators.
+#### `service_artifact_count`
 
-**How it's identified:**
-- Good discriminators + LOLBAS executables + Intelligence indicators
-- Excludes patterns already counted in perfect discriminators
+Count of Windows service manipulation patterns.
 
-**Accuracy:** High - Supporting technical content indicators
+**Detection:** `_V3_SERVICE` regex — matches `sc.exe create|delete|config|start|stop|description` and PowerShell service cmdlets (`New-Service`, `Set-Service`, `Stop-Service`, `Remove-Service`, `Start-Service`).
 
 ---
 
-### `huntable_pattern_ratio`
-**Definition:** Ratio of huntable patterns to total word count.
+#### `scheduled_task_count`
 
-**Calculation:** `huntable_pattern_count / word_count`
+Count of scheduled task creation/manipulation patterns.
 
-**Purpose:** Normalizes pattern count by text length to compare chunks of different sizes.
-
----
-
-### `not_huntable_pattern_ratio`
-**Definition:** Ratio of negative indicators to total word count.
-
-**Calculation:** `not_huntable_pattern_count / word_count`
-
-**Purpose:** Identifies marketing/PR content density.
+**Detection:** `_V3_SCHEDULED_TASK` regex — matches `schtasks.exe /create|change|delete|run|query`, PowerShell task cmdlets (`Register-ScheduledTask`, `New-ScheduledTask`, `Unregister-ScheduledTask`), and XML task definition markers (`<Triggers>`, `<Actions>`, `<Principals>`).
 
 ---
 
-### `perfect_pattern_ratio` (New Feature)
-**Definition:** Ratio of perfect discriminators to total word count.
+#### `hunt_query_count`
 
-**Calculation:** `perfect_pattern_count / word_count`
+Count of hunt-query language markers (Sigma YAML or KQL/SPL pipe expressions).
 
-**Purpose:** Measures technical depth density.
-
----
-
-### `other_huntable_pattern_ratio` (New Feature)
-**Definition:** Ratio of other huntable patterns to total word count.
-
-**Calculation:** `other_huntable_pattern_count / word_count`
+**Detection:** Sum of two sub-counts:
+- **Sigma markers:** any of `title:`, `logsource:`, `detection:`, `selection:`, `condition:`, `falsepositives:` found in the lowercased text.
+- **KQL/SPL markers:** any of `| where`, `| project`, `| summarize`, `| extend`, `| join`, table names (`deviceprocessevents`, `devicenetworkevents`, `devicefileevents`, `securityevent`), or field/keyword patterns (`eventcode=`, `source=`, `index=`, `event_simplename`).
 
 ---
 
-## Text Characteristics
+### Negative Content Indicators
 
-### `char_count`
-**Definition:** Total character count in the text chunk.
-
-**How it's identified:**
-- Direct: `len(text)`
-- Includes all characters (spaces, punctuation, etc.)
-
-**Accuracy:** Exact
+These eight features fire on content that superficially looks technical but is explicitly excluded from ExtractAgent scope: rule formats, atomic IOC lists, educational prose, and marketing copy.
 
 ---
 
-### `word_count`
-**Definition:** Total word count in the text chunk.
+#### `yara_rule_indicator`
 
-**How it's identified:**
-- Direct: `len(text.split())`
-- Splits on whitespace
+Binary (0.0 / 1.0). Fires when the chunk contains a YARA rule body.
 
-**Accuracy:** High - Simple whitespace splitting (may miscount hyphenated words)
+**Detection:** Two paths — either `_V3_YARA_RULE` matches a `rule <name> { strings:` block, or `_V3_YARA_STRINGS` finds two or more `$x = "..." fullword ascii` / `condition: uint` patterns.
 
 ---
 
-### `sentence_count`
-**Definition:** Number of sentences in the text chunk.
+#### `suricata_rule_indicator`
 
-**How it's identified:**
-- Uses `count_sentences()` function from `sentence_splitter` module
-- Uses SpaCy sentence boundary detection for accuracy
-- Handles abbreviations and decimal numbers correctly
+Binary (0.0 / 1.0). Fires when the chunk contains a Suricata/Snort rule signature.
 
-**Accuracy:** High - Uses NLP sentence boundary detection
+**Detection:** `_V3_SURICATA` regex — matches `alert <proto> ... msg:` and Emerging Threats signature identifiers (`ET MALWARE`, `ET POLICY`, `ET SCAN`, etc.).
 
 ---
 
-### `avg_word_length`
-**Definition:** Average length of words in the chunk.
+#### `beacon_config_indicator`
 
-**How it's identified:**
-- Calculation: `mean([len(word) for word in text.split()])`
-- Uses NumPy for calculation
+Binary (0.0 / 1.0). Fires when the chunk contains three or more Cobalt Strike beacon configuration keys.
 
-**Accuracy:** High - Simple statistical measure
-
-**Purpose:** Longer words may indicate technical terminology.
+**Detection:** `_V3_BEACON_CONFIG` regex over keys from `V3_BEACON_CONFIG_KEYS`: `beacontype`, `sleeptime`, `jitter`, `maxgetsize`, `spawnto`, `polling`, `maxdns`, `watermark`, `license_id`, `kill_date`, `cfg_caution`. Threshold is ≥ 3 matches.
 
 ---
 
-## Technical Content Indicators
+#### `hash_count`
 
-### `command_count`
-**Definition:** Count of command execution patterns.
+Count of cryptographic hash strings (MD5, SHA-1, SHA-256).
 
-**How it's identified:**
-- Regex pattern: `r"\b(powershell|cmd|bash|ssh|curl|wget|invoke)\b"`
-- Case-insensitive word boundary matching
-- Matches common command-line tools and execution keywords
+**Detection:** `_V3_HASH` regex — matches 32-, 40-, and 64-character lowercase hex strings with word boundaries.
 
-**Accuracy:** High - Specific command keywords with word boundaries
-
-**Examples:**
-- `powershell`, `cmd`, `bash`, `ssh`, `curl`, `wget`, `invoke`
+**Note:** Hash-heavy chunks are atomic IOC lists, not hunt content. This is a negative signal.
 
 ---
 
-### `url_count`
-**Definition:** Count of HTTP/HTTPS URLs in the text.
+#### `atomic_ioc_density`
 
-**How it's identified:**
-- Regex pattern: `r"http[s]?://[^\s]+"`
-- Matches `http://` or `https://` followed by non-whitespace characters
+Density of atomic IOC tokens per word: `(hash_count + ipv4_count + defanged_domain_count) / word_count`.
 
-**Accuracy:** Very High - Standard URL pattern matching
+**Sub-detectors:**
+- `_V3_IPV4` — IPv4 address pattern (`\d{1,3}.\d{1,3}.\d{1,3}.\d{1,3}`)
+- `_V3_DEFANGED_DOMAIN` — defanged domain notation (`word[.]tld`)
 
----
-
-### `ip_count`
-**Definition:** Count of IPv4 addresses in the text.
-
-**How it's identified:**
-- Regex pattern: `r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b"`
-- Matches 1-3 digit groups separated by dots with word boundaries
-- **Note:** Does not validate IP ranges (e.g., 999.999.999.999 would match)
-
-**Accuracy:** Medium-High - May have false positives for non-IP numbers (e.g., version numbers)
-
-**Limitation:** Does not validate that numbers are in valid IP range (0-255)
+High density indicates an IOC table or feed output rather than hunt-ready content.
 
 ---
 
-### `file_path_count`
-**Definition:** Count of file system paths in the text.
+#### `educational_phrase_count`
 
-**How it's identified:**
-- Regex pattern: `r"[A-Za-z]:\\\\[^\s]+|/[^\s]+"`
-- Matches:
-  - Windows paths: `C:\path\to\file` (drive letter + backslashes)
-  - Unix paths: `/path/to/file` (leading slash)
+Count of hedging or explanatory phrases that signal non-operational, educational content.
 
-**Accuracy:** High - Common path patterns
-
-**Examples:**
-- `C:\Windows\System32\cmd.exe`
-- `/usr/bin/bash`
-- `D:\temp\file.txt`
+**Detection:** Substring match over `V3_EDUCATIONAL_PHRASES`. Includes: `could be used`, `may employ`, `is used to`, `can be used`, `attackers could`, `threat actors may`, `defenders should`, `best practice`, `we recommend`, `how to`, `what is`, `in this blog`, `we will demonstrate`, `throughout this blog`, and similar.
 
 ---
 
-### `process_count`
-**Definition:** Count of specific process names in the text.
+#### `mitre_ttp_only_density`
 
-**How it's identified:**
-- Regex pattern: `r"\b(node\.exe|ws_tomcatservice\.exe|powershell\.exe|cmd\.exe)\b"`
-- Case-insensitive word boundary matching
-- Matches specific executable names commonly referenced in threat hunting
+MITRE technique reference density, counted only when no command-line artifacts are present.
 
-**Accuracy:** High - Specific process names
+**Calculation:** `(mitre_count / word_count) if cmdline_artifact_count == 0 else 0.0`
 
-**Limitation:** Only matches 4 specific processes (not comprehensive)
+**Detection:** `_V3_MITRE` regex — `T\d{4}(\.\d{1,3})?` (e.g., `T1059.001`).
+
+**Rationale:** A pure TTP table with no supporting command-line content is not extractable by CmdlineExtract or the other sub-agents. Chunks that mix TTP references with actual commands score 0 here.
 
 ---
 
-### `cve_count`
-**Definition:** Count of CVE (Common Vulnerabilities and Exposures) references.
+#### `marketing_term_count`
 
-**How it's identified:**
-- Regex pattern: `r"CVE-\d{4}-\d+"` (case-insensitive)
-- Matches format: `CVE-YYYY-NNNN+`
+Count of marketing and CTA phrases from `V2_MARKETING_TERMS` (~30 terms).
 
-**Accuracy:** Very High - Standard CVE format is unique
-
-**Examples:**
-- `CVE-2023-1234`
-- `CVE-2024-56789`
+**Detection:** Substring match over `V2_MARKETING_TERMS`. Includes: `demo`, `free trial`, `book a demo`, `managed service`, `webinar`, `white paper`, `sign up`, `subscribe`, `contact sales`, `schedule a call`, `leverage`, `empower`, `streamline`, `transform your`, `our solution`, `case study`, `testimonial`, and similar.
 
 ---
 
-## Content Quality Indicators
+### Discriminators
 
-### `technical_term_count`
-**Definition:** Count of technical security terminology.
-
-**How it's identified:**
-- Regex pattern: `r"\b(dll|exe|payload|backdoor|shell|exploit|vulnerability|malware)\b"`
-- Case-insensitive word boundary matching
-- Matches common security/technical terms
-
-**Accuracy:** High - Specific technical keywords
-
-**Examples:**
-- `dll`, `exe`, `payload`, `backdoor`, `shell`, `exploit`, `vulnerability`, `malware`
+These four features are cross-cutting signals that help the model distinguish technically rich chunks from superficially similar noise.
 
 ---
 
-### `marketing_term_count`
-**Definition:** Count of marketing/PR terminology.
+#### `perfect_pattern_count`
 
-**How it's identified:**
-- Regex pattern: `r"\b(demo|free trial|book a demo|managed service|platform)\b"`
-- Case-insensitive word boundary matching
-- Identifies commercial/marketing language
+Count of perfect-discriminator keyword matches, with noisy short patterns excluded.
 
-**Accuracy:** High - Common marketing phrases
+**Detection:** Iterates `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` (92 patterns), skipping `V3_NOISY_PERFECT_DISCRIMINATORS` = `{"MZ", "C:\\", "D:\\"}`. Remaining patterns are matched case-insensitively against the raw text via `re.escape()`.
 
-**Examples:**
-- `demo`, `free trial`, `book a demo`, `managed service`, `platform`
 
----
-
-### `acknowledgment_count`
-**Definition:** Count of acknowledgment/gratitude phrases.
-
-**How it's identified:**
-- Regex pattern: `r"\b(acknowledgement|gratitude|thank you|appreciate|contact)\b"`
-- Case-insensitive word boundary matching
-- Identifies author bios, contact sections, acknowledgments
-
-**Accuracy:** High - Common acknowledgment phrases
-
-**Examples:**
-- `acknowledgement`, `gratitude`, `thank you`, `appreciate`, `contact`
+**Pattern categories:**
+- Windows executables: `rundll32.exe`, `msiexec.exe`, `svchost.exe`, `lsass.exe`, `wscript.exe`, `conhost.exe`, `winlogon.exe`
+- Registry/environment: `hklm`, `appdata`, `programdata`, `WINDIR`, `wintmp`, `\\temp\\`, `\\pipe\\`
+- Command execution: `powershell.exe`, `wmic.exe`, `iex`, `findstr.exe`, `reg.exe`
+- PowerShell techniques: `FromBase64String`, `MemoryStream`, `DownloadString`, `invoke-mimikatz`, `invoke-shellcode`
+- KQL Advanced Hunting tables: `DeviceProcessEvents`, `DeviceNetworkEvents`, `DeviceEvents`, `EmailEvents`, `InitiatingProcessCommandLine`, `ProcessCommandLine`
+- Falcon EDR fields: `ProcessRollup2`, `event_simpleName`, `ImageFileName`, `ParentBaseFileName`, `SHA256HashData`, `ScriptContent`, `RegistryOperation`
+- SentinelOne: `EventType = Process`, `EventType = File`, `EventType = Registry`, `EventType = Network`, `EventType = ScheduledTask`
+- Splunk CIM: `Endpoint.Processes`, `Endpoint.Registry`, `Endpoint.Filesystem`
+- Elastic Security: `logs-endpoint.events.process`, `logs-endpoint.events.file`, `logs-endpoint.events.registry`
 
 ---
 
-### `technical_term_ratio`
-**Definition:** Ratio of technical terms to total word count.
+#### `attacker_placed_path_count`
 
-**Calculation:** `technical_term_count / word_count`
+Count of attacker-staged filesystem paths — locations adversaries commonly use for staging, distinct from generic Windows paths.
 
-**Purpose:** Measures technical content density.
-
----
-
-### `marketing_term_ratio`
-**Definition:** Ratio of marketing terms to total word count.
-
-**Calculation:** `marketing_term_count / word_count`
-
-**Purpose:** Identifies marketing content density.
+**Detection:** `_V3_ATTACKER_PATH` regex. Matches:
+- `C:\Users\Public\<file>`
+- `C:\ProgramData\<CustomDir>\<file>` (at least 3 chars in the custom dir name)
+- `C:\Windows\Temp\<file>`
+- Environment-variable forms: `%PUBLIC%\...`, `%PROGRAMDATA%\...`, `%TEMP%\...`, `%AppData%\<AppName>`
+- Unix staging: `/tmp/<file>`, `~/Library/LaunchAgents/<file>`
 
 ---
 
-## Structural Features (Boolean)
+#### `technical_term_count`
 
-### `has_code_blocks`
-**Definition:** Boolean indicating presence of code blocks.
+Count of security and tradecraft vocabulary matches from `V2_TECHNICAL_TERMS` (~50 terms).
 
-**How it's identified:**
-- Regex pattern: `r"```|`[^`]+`"`
-- Matches:
-  - Triple backticks: ` ``` `
-  - Inline code: `` `code` ``
-
-**Accuracy:** High - Standard markdown code block patterns
+**Detection:** Substring match over `V2_TECHNICAL_TERMS`. Covers: original v1 terms (`dll`, `exe`, `payload`, `backdoor`, `shell`, `exploit`, `vulnerability`, `malware`) plus tradecraft (`persistence`, `privesc`, `lateral movement`, `exfiltration`, `ransomware`, `dropper`, `loader`, `stager`, `implant`, `rootkit`), C2/network (`beacon`, `c2`, `command and control`, `reverse shell`), system artifacts (`registry key`, `scheduled task`, `mutex`, `process injection`, `dll injection`), credential terms (`lsass`, `mimikatz`, `kerberos`, `ntlm`, `credential dump`), indicators (`ioc`, `ttp`, `observable`), and cryptographic/forensic terms (`sha256`, `sha1`, `md5`, `base64`, `obfuscat`, `encoded payload`).
 
 ---
 
-### `has_commands`
-**Definition:** Boolean indicating presence of command markers.
+#### `has_code_blocks`
 
-**How it's identified:**
-- Regex pattern: `r"Command:|Cleartext:"`
-- Matches specific command extraction markers
+Binary (0.0 / 1.0). Fires on markdown code blocks or inline code spans.
 
-**Accuracy:** High - Specific markers from extraction system
-
-**Purpose:** Identifies extracted command-line data.
+**Detection:** `re.search(r"```|`[^`]+`", text)`
 
 ---
 
-### `has_urls`
-**Definition:** Boolean indicating presence of URLs.
-
-**How it's identified:**
-- Regex pattern: `r"http[s]?://"`
-- Simple presence check (not count)
-
-**Accuracy:** Very High
+### Density / Aggregates
 
 ---
 
-### `has_file_paths`
-**Definition:** Boolean indicating presence of file paths.
+#### `cmdline_density`
 
-**How it's identified:**
-- Regex pattern: `r"[A-Za-z]:\\\\|/[^\s]+"`
-- Matches Windows or Unix path patterns
+Command-line artifact density per word: `cmdline_artifact_count / word_count`.
 
-**Accuracy:** High
+`word_count` is clamped to a minimum of 1 to prevent division by zero.
 
 ---
 
-## Hunt Score Integration Features
+#### `extractor_signal_strength`
 
-### `hunt_score`
-**Definition:** Normalized threat hunting score (0-1 range).
+Sum of all six extractor signal counts:
 
-**How it's identified:**
-- Source: Article metadata `threat_hunting_score` (0-100 range)
-- Normalization: `hunt_score / 100.0`
-- Calculated by `ThreatHuntingScorer.score_threat_hunting_content()`
+```
+cmdline_artifact_count + registry_hive_path_count + process_lineage_count
++ service_artifact_count + scheduled_task_count + hunt_query_count
+```
 
-**Current training contract:**
-- `train_model()` does not pass `hunt_score` into `extract_features()`
-- `predict_huntability()` also uses the 27-feature base vector
-- The value is still used to adjust confidence at prediction time, but it is not part of the fitted RandomForest feature matrix
-
-**Calculation Method:**
-- Uses logarithmic bucket scoring with geometric series
-- Perfect discriminators: 75 points max
-- LOLBAS: 10 points max
-- Intelligence indicators: 10 points max
-- Good discriminators: 5 points max
-- Negative penalty: -10 points max
-- Final score: 0-99.9 range (never reaches 100)
-
-**Accuracy:** Very High - Based on validated keyword analysis of 319 articles
+This is the primary aggregate positive signal. The RF uses it as a length-normalized proxy for overall extractability.
 
 ---
 
-### `hunt_score_high`
-**Definition:** Boolean indicating high-quality content (score ≥ 70).
+## Feature Version Compatibility
 
-**How it's identified:**
-- Calculation: `1.0 if hunt_score >= 70 else 0.0`
-- Binary feature for high-quality threshold
+| Version | Feature count | Extractor function | Status |
+|---|---|---|---|
+| v1 | 27 | `extract_features()` | Legacy; default for pkl files with no `.meta.json` sidecar |
+| v2 | 19 | `extract_features_v2()` | Legacy; intermediate cleanup |
+| v3 | 20 | `extract_features_v3()` | **Production** |
 
-**Current training contract:**
-- Emitted only when a caller supplies `hunt_score` to `extract_features()`
-- Not part of the current fitted model feature matrix
+`load_model()` reads `<model_path>.meta.json` and sets `self.feature_version` automatically. Training (`train_model()`) writes this sidecar. A missing sidecar means a legacy v1 pkl; `load_model()` logs a warning and defaults to `"v1"`.
 
-**Accuracy:** Exact
 
 ---
 
-### `hunt_score_medium`
-**Definition:** Boolean indicating medium-quality content (30-69).
+## Model Training Reference
 
-**How it's identified:**
-- Calculation: `1.0 if 30 <= hunt_score < 70 else 0.0`
-- Binary feature for medium-quality range
+| Parameter | Value |
+|---|---|
+| Algorithm | RandomForestClassifier |
+| `n_estimators` | 100 |
+| `max_depth` | 10 |
+| `class_weight` | balanced |
+| `random_state` | 42 |
+| Train/test split | 80/20, stratified |
+| Eval F1 (Huntable class, v3) | ≈ 0.89 |
+| Eval dataset | 240-row curated Huntable corpus |
 
-**Current training contract:**
-- Emitted only when a caller supplies `hunt_score` to `extract_features()`
-- Not part of the current fitted model feature matrix
 
-**Accuracy:** Exact
-
----
-
-### `hunt_score_low`
-**Definition:** Boolean indicating low-quality content (score < 30).
-
-**How it's identified:**
-- Calculation: `1.0 if hunt_score < 30 else 0.0`
-- Binary feature for low-quality threshold
-
-**Current training contract:**
-- Emitted only when a caller supplies `hunt_score` to `extract_features()`
-- Not part of the current fitted model feature matrix
-
-**Accuracy:** Exact
+Feature importances are learned from training data; call `model.feature_importances_` on a trained instance to inspect the current ranking.
 
 ---
 
-## Feature Identification Accuracy Summary
+## Pattern Matching Implementation
 
-| Feature | Accuracy | Method | Notes |
-|---------|----------|--------|-------|
-| `perfect_pattern_count` | Very High | Regex + validated keywords | 100% precision in training data |
-| `hunt_score` | Very High | Logarithmic scoring system | Based on 319 article analysis |
-| `cve_count` | Very High | Regex pattern | Standard CVE format |
-| `url_count` | Very High | Regex pattern | Standard URL format |
-| `huntable_pattern_count` | High | Regex + keyword lists | Validated keyword sets |
-| `command_count` | High | Regex with word boundaries | Specific command keywords |
-| `file_path_count` | High | Regex pattern | Common path patterns |
-| `sentence_count` | High | NLP (SpaCy) | Sentence boundary detection |
-| `ip_count` | Medium-High | Regex pattern | May match non-IP numbers |
-| `process_count` | High | Regex pattern | Limited to 4 specific processes |
+`extract_features_v3()` uses pre-compiled class-level regexes (named `_V3_*`) to avoid per-call compilation overhead. The vocabulary lists (`V2_TECHNICAL_TERMS`, `V2_MARKETING_TERMS`, `V3_EDUCATIONAL_PHRASES`, `V3_BEACON_CONFIG_KEYS`) are tuples defined at class level and iterated with `in` (substring) or `re.search(re.escape(p), ...)` matching depending on the feature.
 
----
+`HUNT_SCORING_KEYWORDS["perfect_discriminators"]` is imported from `src/utils/content.py` and shared by both the keyword-scoring system and the v3 extractor. Changes to that list affect both systems.
 
-## Pattern Matching Details
-
-### Keyword Matching Algorithm
-
-The system uses `ThreatHuntingScorer._keyword_matches()` for pattern matching:
-
-1. **Regex Patterns:** If keyword starts with `r"`, treated as raw regex
-2. **Word Boundaries:** Literal keywords use word boundaries to prevent false positives
-3. **Obfuscation Detection:** Includes regex patterns for cmd.exe obfuscation:
-   - Environment variable substring access: `%VAR:~0,5%`
-   - Delayed expansion: `!VAR!`
-   - Caret obfuscation: `s^e^t`, `c^a^l^l`
-   - FOR loop obfuscation
-4. **Case-Insensitive:** All matching is case-insensitive
-
-### Perfect Discriminators (103 patterns)
-
-**Source:** Analysis of 319 articles showing 100% precision (0% false positives)
-
-**Categories:**
-- **Windows Executables:** `rundll32.exe`, `msiexec.exe`, `svchost.exe`, `lsass.exe`
-- **Registry/Paths:** `hklm`, `appdata`, `programdata`, `WINDIR`, `wintmp`
-- **Command Execution:** `powershell.exe`, `wmic.exe`, `iex`, `findstr.exe`
-- **File Types:** `.lnk`, `.iso`, `MZ`
-- **PowerShell Techniques:** `FromBase64String`, `MemoryStream`, `DownloadString`
-- **KQL Tables:** `DeviceProcessEvents`, `DeviceNetworkEvents`, `EmailEvents`
-- **Falcon EDR Fields:** `ProcessRollup2`, `event_simpleName`, `ImageFileName`
-- **SentinelOne Fields:** `TgtFileProcessPath`, `SrcProcParentPath`
-- **Splunk CIM:** `Processes`, `Network_Traffic`
-- **Elastic Security:** `process.command_line`, `file.path`
-
----
-
-## Model Training Context
-
-- **Algorithm:** RandomForestClassifier
-- **Training Data:** 278 historical samples (222 annotations + 81 feedback). Dataset labels reflect legacy "high/low signal" annotations and do not imply an active article-level classification UI.
-- **Features:** 27 base features in training/inference, 31 only when the debug extractor is asked to emit the hunt_score-derived fields
-- **Feature Importances:** Learned during training (not equal weighting)
-- **Accuracy:** ~80% on test data
-
-The model learns which features are most important for classification, but only among the features actually passed into the training matrix. In the current runtime path, the hunt_score bins are debug-only and do not contribute to the fitted forest unless the training code is changed to include them.
-
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_
+_Last reviewed: 2026-05-22_

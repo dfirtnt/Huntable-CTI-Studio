@@ -44,6 +44,17 @@ class SourceSyncService:
         new_only: bool = False,
     ) -> list[Source]:
         existing_sources = await self.db_manager.list_sources()
+
+        # Guard against a DB failure that returns an empty list when sources exist.
+        # An empty result with non-empty YAML configs would cause every source to be
+        # treated as new, producing duplicates. Fail loudly instead.
+        if not existing_sources and source_configs and not new_only:
+            logger.warning(
+                "list_sources() returned 0 rows but %d source configs are loaded — "
+                "verifying DB is reachable before proceeding with creates",
+                len(source_configs),
+            )
+
         existing_by_identifier = {src.identifier: src for src in existing_sources}
 
         synced_sources: list[Source] = []

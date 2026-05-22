@@ -266,6 +266,7 @@ def test_database_restore(backup_path: Path, metadata: dict[str, Any]) -> dict[s
             with opener() as f_in:
                 for filtered_line in filter_dump_lines(
                     f_in,
+                    skip_unsupported_sets=True,
                     rewrite_fk_constraints=True,
                 ):
                     temp_file.write(filtered_line)

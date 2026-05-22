@@ -610,7 +610,9 @@ class SigmaRuleQueueTable(Base):
 
     # Similarity results
     similarity_scores = Column(JSONB, nullable=True)  # Array of {rule_id, similarity, title} objects
-    max_similarity = Column(Float, nullable=True)
+    max_similarity = Column(Float, nullable=True)  # None = comparator inconclusive (todo 001)
+    behavioral_matches_found = Column(Integer, nullable=True)  # None = never scored; 0 = inconclusive
+    total_candidates_evaluated = Column(Integer, nullable=True)
 
     # Queue status
     status = Column(String(50), nullable=False, default="pending", index=True)  # pending, approved, rejected, submitted

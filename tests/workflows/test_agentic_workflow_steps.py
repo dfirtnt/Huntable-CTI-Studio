@@ -223,6 +223,42 @@ class TestJunkFilterNode:
         assert result["status"] == "failed"
         assert result["error"] is not None
 
+    def test_junk_filter_terminates_when_no_huntable_content(self, article, execution, config_obj):
+        """When all chunks fail the filter, status=completed with junk termination reason."""
+        db_session = _make_db_session(article, execution)
+
+        with (
+            patch("src.workflows.agentic_workflow.ContentFilter") as mock_cf,
+            patch("src.workflows.agentic_workflow.WorkflowTriggerService"),
+            patch("src.workflows.agentic_workflow.StateGraph") as mock_sg,
+        ):
+            filter_result = Mock()
+            filter_result.filtered_content = ""
+            filter_result.removed_chunks = [{"text": "junk", "confidence": 0.1}]
+            filter_result.is_huntable = False
+            filter_result.confidence = 0.1
+            mock_cf.return_value.filter_content.return_value = filter_result
+
+            fake_graph = Mock()
+            captured: dict = {}
+            fake_graph.add_node = lambda name, fn: captured.update({name: fn})
+            fake_graph.add_edge = Mock()
+            fake_graph.add_conditional_edges = Mock()
+            fake_graph.set_entry_point = Mock()
+            fake_graph.compile = Mock(return_value=Mock())
+            mock_sg.return_value = fake_graph
+
+            create_agentic_workflow(db_session)
+
+        state = _default_state(config={"junk_filter_threshold": 0.8})
+        result = captured["junk_filter"](state)
+
+        assert result["status"] == "completed"
+        assert result["termination_reason"] == "no_huntable_content"
+        assert result["filtered_content"] == ""
+        assert result["termination_details"]["confidence"] == 0.1
+        assert result["termination_details"]["threshold"] == 0.8
+
     def test_junk_filter_article_not_found_fails(self, article, execution, config_obj):
         """Missing article -> failure."""
         db_session = _make_db_session(article, execution)

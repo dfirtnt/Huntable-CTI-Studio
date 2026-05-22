@@ -57,6 +57,7 @@ Manual Container Management:
     make test             # Run all tests (starts containers, runs tests, stops containers)
 """
 
+import asyncio
 import logging
 import os
 import sys
@@ -65,6 +66,7 @@ from pathlib import Path
 # Add project root to Python path
 project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
+
 
 # Augment PATH so subprocesses can find tools (e.g. Docker Desktop CLI on macOS)
 # installed outside the default non-login shell PATH.
@@ -80,11 +82,15 @@ try:
 except NameError:
     pass
 
-from tests_runner.env import in_ci as _in_ci_fn, load_dotenv as _load_dotenv_fn, strip_cloud_llm_keys as _strip_cloud_llm_keys_fn  # noqa: E402
+from tests_runner.env import in_ci as _in_ci_fn  # noqa: E402
+from tests_runner.env import load_dotenv as _load_dotenv_fn
+from tests_runner.env import strip_cloud_llm_keys as _strip_cloud_llm_keys_fn
+
 
 # Backward-compatible local aliases used throughout this file
 def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_fn()
+
 
 def _load_dotenv() -> None:
     _load_dotenv_fn(project_root)
@@ -96,16 +102,36 @@ try:
 except ImportError:
     pass
 
+# Enhanced debugging imports
+try:
+    from tests.utils.test_failure_analyzer import TestFailureReporter  # noqa: F401
+    from tests.utils.test_isolation import TestIsolationManager  # noqa: F401
+    from tests.utils.test_output_formatter import TestOutputFormatter  # noqa: F401
+
+    from tests.utils.async_debug_utils import AsyncDebugger  # noqa: F401
+    from tests.utils.performance_profiler import (  # noqa: F401
+        PerformanceProfiler,
+        start_performance_monitoring,
+        stop_performance_monitoring,
+    )
+
+    DEBUGGING_AVAILABLE = True
+except ImportError:
+    DEBUGGING_AVAILABLE = False
+
 # Set up logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-from tests_runner.cli import main  # noqa: E402
 
 def _in_ci() -> bool:
     """Return True when running inside a CI environment (GitHub Actions or generic CI)."""
     return _in_ci_fn()
 
+
+from tests_runner.cli import main  # noqa: E402
+
 if __name__ == "__main__":
     import asyncio
+
     raise SystemExit(asyncio.run(main()))

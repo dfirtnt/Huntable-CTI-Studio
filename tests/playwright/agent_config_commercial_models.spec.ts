@@ -20,6 +20,11 @@ test.describe('Agent Config Commercial Models', () => {
     await page.waitForFunction(() => (window as any).isInitializing === false, { timeout: 10000 });
 
     await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
+
+    const hasOpenAI = await page.locator('#rankagent-provider option[value="openai"]').count() > 0;
+    if (!hasOpenAI) {
+      test.skip(true, 'OpenAI provider not available (no API key configured in Settings)');
+    }
   });
 
   test('should load commercial model catalog for OpenAI', async ({ page }) => {

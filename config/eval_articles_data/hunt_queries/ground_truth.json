@@ -2,9 +2,9 @@
   {
     "url": "https://www.microsoft.com/en-us/security/blog/2026/01/06/phishing-actors-exploit-complex-routing-and-misconfigurations-to-spoof-domains/",
     "expected_items": [
-      "EmailEvents | where Timestamp >= ago(30d) | where EmailDirection == \"Inbound\" | where Connectors == \"\"",
-      "EmailEvents | where EmailDirection == \"Inbound\" | where Connectors == \"\" | where SenderFromDomain in (\"contoso.com\", \"fabrikam.com\")",
-      "_Im_NetworkSession"
+      "EmailEvents | where Timestamp >= ago(30d) | where EmailDirection == \"Inbound\" | where Connectors == \"\" // No connector used | where SenderFromDomain in (\"contoso.com\") // Replace with your domain(s) | project Timestamp, NetworkMessageId, InternetMessageId, SenderMailFromAddress, SenderFromAddress, SenderDisplayName, SenderFromDomain, SenderIPv4, RecipientEmailAddress, Subject, DeliveryAction, DeliveryLocation",
+      "EmailEvents | where EmailDirection == \"Inbound\" | where Connectors == \"\" // No connector used | where SenderFromDomain in (\"contoso.com\", \"fabrikam.com\") // Replace with your accepted domains | where AuthenticationDetails !contains \"SPF=pass\" // SPF failed or missing | where AuthenticationDetails !contains \"DKIM=pass\" // DKIM failed or missing | where AuthenticationDetails !contains \"DMARC=pass\" // DMARC failed or missing | where SenderIPv4 !in (\" \") // Exclude known relay IPs | where ThreatTypes has_any (\"Phish\", \"Spam\") or ConfidenceLevel == \"High\" // | project Timestamp, NetworkMessageId, InternetMessageId, SenderMailFromAddress, SenderFromAddress, SenderDisplayName, SenderFromDomain, SenderIPv4, RecipientEmailAddress, Subject, AuthenticationDetails, DeliveryAction",
+      "let lookback = 30d; let ioc_ip_addr = dynamic([\"162.19.196.13\", \"163.5.221.110\", \"51.195.94.194\", \"51.89.59.188\"]); let ioc_domains = dynamic([\"2fa.valoufroo.in.net\", \"valoufroo.in.net\", \"integralsm.cl\", \"absoluteprintgroup.com\"]); _Im_NetworkSession(starttime=todatetime(ago(lookback)), endtime=now()) | where DstIpAddr in (ioc_ip_addr) or DstDomain has_any (ioc_domains) | summarize imNWS_mintime=min(TimeGenerated), imNWS_maxtime=max(TimeGenerated), EventCount=count() by SrcIpAddr, DstIpAddr, DstDomain, Dvc, EventProduct, EventVendor"
     ]
   },
   {
@@ -31,9 +31,9 @@
   {
     "url": "https://www.crowdstrike.com/en-us/blog/falcon-prevents-cookie-spider-shamos-delivery-macos/",
     "expected_items": [
-      "Bash script execution with calls to risky LOOBINs",
-      "AppleScript execution under a binary from /tmp/",
-      "Curl with commandline indicative of data exfil"
+      "event_platform=Mac #event_simpleName=ScriptControlScanInfo ScriptContent=\"*dscl*curl*xattr*chmod*\" | format(\"[GraphExplorer](https://falcon.crowdstrike.com/graphs/process-explorer/tree?id=pid:%s:%s)\", field=[\"aid\", \"TargetProcessId\"], as=GraphExplorer) | groupBy([aid, GraphExplorer, ScriptContent])",
+      "event_platform=Mac #event_simpleName=ProcessRollup2 ImageFileName=\"*/tmp/*\" | join({event_platform=Mac #event_simpleName=ProcessRollup2 ImageFileName=\"*osascript\" CommandLine=\"*-e*\" | rename(field=\"CommandLine\", as=\"ChildCommandLine\") | rename(field=\"ImageFileName\", as=\"ChildImageFileName\")}, field=TargetProcessId, key=ParentProcessId, include=[\"ChildImageFileName\", \"ChildCommandLine\"], limit=20000) | format(\"[GraphExplorer](https://falcon.crowdstrike.com/graphs/process-explorer/tree?id=pid:%s:%s)\", field=[\"aid\", \"TargetProcessId\"], as=GraphExplorer) | groupBy([aid, GraphExplorer, ImageFileName, CommandLine, ChildImageFileName, ChildCommandLine])",
+      "event_platform=Mac #event_simpleName=ProcessRollup2 FileName=curl CommandLine=\"*POST*out.zip*\" | format(\"[GraphExplorer](https://falcon.crowdstrike.com/graphs/process-explorer/tree?id=pid:%s:%s)\", field=[\"aid\", \"TargetProcessId\"], as=GraphExplorer) | groupBy([aid, GraphExplorer, ImageFileName, CommandLine])"
     ]
   },
   {
@@ -48,32 +48,28 @@
   {
     "url": "https://securelist.com/macos-security-and-typical-attacks/117367/",
     "expected_items": [
-      "Keychain access",
-      "SIP status discovery",
-      "Quarantine attribute removal",
-      "Gatekeeper disable"
+      "title: Keychain access description: This rule detects dumping of keychain tags: - attack.credential-access - attack.t1555.001 logsource: category: process_creation product: macos detection: selection: cmdline: security cmdline: -list-keychains -dump-keychain condition: selection falsepositives: - Unknow level: medium",
+      "title: SIP status discovery description: This rule detects SIP status discovery tags: - attack.discovery - attack.t1518.001 logsource: category: process_creation product: macos detection: selection: cmdline: csrutil status condition: selection falsepositives: - Unknow level: low",
+      "title: Quarantine attribute removal description: This rule detects removal of the Quarantine attribute, that leads to avoid File Quarantine tags: - attack.defense-evasion - attack.t1553.001 logsource: category: process_creation product: macos detection: selection: cmdline: xattr -d com.apple.quarantine condition: selection falsepositives: - Unknow level: high",
+      "title: Gatekeeper disable description: This rule detects disabling of Gatekeeper tags: - attack.defense-evasion - attack.t1562.001 logsource: category: process_creation product: macos detection: selection: cmdline: spctl cmdline: - '--master-disable' - '--global-disable' condition: selection"
     ]
   },
   {
     "url": "https://www.cisa.gov/news-events/analysis-reports/ar25-338a",
-    "expected_items": [
-      "BRICKSTORM Backdoor Activity r2"
-    ]
+    "expected_items": []
   },
   {
     "url": "https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/",
     "expected_items": [
-      "Scheduled task executing powershell encoded payload from registry",
-      "Execution of ZeroLogon PoC executable",
-      "Enabling RDP service via reg.exe command execution"
+      "title: Scheduled task executing powershell encoded payload from registry status: Experimental description: Detects the creation of a schtask that executes a base64 encoded payload stored in the Windows Registry using PowerShell. author: @Kostastsale , @TheDFIRReport references: - https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/ date: 2022/02/12 logsource: product: windows category: process_creation detection: selection1: Image|endswith: '\\schtasks.exe' CommandLine|contains|all: - '/Create' - '/SC' selection2: CommandLine|contains|all: - 'FromBase64String' - 'powershell' - 'Get-ItemProperty' - 'HKCU:' condition: selection1 and selection2 falsepositives: - Uknown level: high tags: - attack.execution - attack.persistence - attack.t1053.005 - attack.t1059.001",
+      "title: Execution of ZeroLogon PoC executable status: Experimental description: Detects the execution of the commonly used ZeroLogon PoC executable. author: @Kostastsale, @TheDFIRReport references: - https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/ - https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/ date: 2022/02/12 logsource: product: windows category: process_creation detection: selection1: ParentImage|endswith: - '\\cmd.exe' Image|endswith: - '\\cool.exe' - '\\zero.exe' CommandLine|contains|all: - 'Administrator' - '-c' selection2: CommandLine|contains|all: - 'taskkill' - '/f' - '/im' selection3: CommandLine|contains: - 'powershell' condition: selection1 and (selection2 or selection3) falsepositives: - Uknown level: high tags: - attack.execution - attack.lateral_movement - attack.T1210",
+      "title: Enabling RDP service via reg.exe command execution status: Experimental description: Detects the execution of reg.exe and subsequent command line arguments for enabling RDP service on the host author: @Kostastsale , @TheDFIRReport references: - https://thedfirreport.com/2022/02/21/qbot-and-zerologon-lead-to-full-domain-compromise/ date: 2022/02/12 logsource: product: windows category: process_creation detection: selection1: Image|endswith: - '\\reg.exe' CommandLine|contains|all: - 'add' - 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server' - 'REG_DWORD' Winstations1: CommandLine|contains: - 'WinStations\\RDP-Tcp' Winstations2: CommandLine|contains: - 'MaxInstanceCount' - 'fEnableWinStation' selection2: CommandLine|contains|all: - 'Licensing Core' - 'EnableConcurrentSessions' selection3: CommandLine|contains: - 'TSUserEnabled' - 'TSEnabled' - 'TSAppCompat' - 'IdleWinStationPoolCount' - 'TSAdvertise' - 'AllowTSConnections' - 'fSingleSessionPerUser' condition: selection1 and ((Winstations1 and Winstations2) or (selection2 or selection3)) falsepositives: - Uknown level: high tags: - attack.defense_evasion - attack.lateral_movement - attack.t1021.001 - attack.t1112"
     ]
   },
   {
     "url": "https://thedfirreport.com/2022/10/31/follina-exploit-leads-to-domain-compromise/",
     "expected_items": [
-      "Potential Qbot SMB DLL Lateral Movement",
-      "proc_creation_win_msdt_susp_parent",
-      "proc_creation_win_sdiagnhost_susp_child"
+      "title: Potential Qbot SMB DLL Lateral Movement id: 3eaa2cee-2dfb-46e9-98f6-3782aab30f38 status: Experimental description: Detection of potential us of SMB to transfer DLL's into the C$ folder of hosts unique to Qbot malware for purposes of lateral movement. author: \\@TheDFIRReport date: 2022/09/12 references: - https://thedfirreport.com/ logsource: product: zeek service: smb_files detection: selection_1: zeek_smb_files_path|endswith: - 'C$' selection_2: file_name|endswith: - '\\.dll.cfg' condition: selection_1 and selection_2 falsepositives: - RMM Tools and Administrative activities in C$ Share. level: medium tags: - attack.lateral_movement - attack.t1570"
     ]
   }
 ]

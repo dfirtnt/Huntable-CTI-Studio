@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "huntable-cti-studio": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["scripts/run_mcp_server.sh"]
+    }
+  }
+}

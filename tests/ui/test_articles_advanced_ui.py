@@ -123,9 +123,9 @@ class TestArticlesSearchAndFilter:
         # Get initial state
         initial_checked = title_only_checkbox.is_checked()
 
-        # Toggle checkbox
+        # Toggle checkbox — clicking triggers form auto-submit; wait for navigation to complete
         title_only_checkbox.click()
-        page.wait_for_timeout(300)
+        page.wait_for_load_state("load")
 
         # Verify state changed
         new_checked = title_only_checkbox.is_checked()
@@ -171,8 +171,9 @@ class TestArticlesSearchAndFilter:
         options = source_filter.locator("option")
         if options.count() > 1:
             source_filter.select_option(index=1)
-            page.wait_for_load_state("load")
-            expect(page).to_have_url(re.compile(r".*source=.*"))
+            # expect() auto-retries until the URL matches or the timeout expires,
+            # making it robust even when form.submit() is queued asynchronously.
+            expect(page).to_have_url(re.compile(r".*source=.*"), timeout=10000)
 
     @pytest.mark.ui
     @pytest.mark.articles
@@ -246,7 +247,6 @@ class TestArticlesSorting:
             "title",
             "source_id",
             "threat_hunting_score",
-            "ml_hunt_score",
             "annotation_count",
             "word_count",
             "id",
@@ -266,17 +266,17 @@ class TestArticlesSorting:
         # Change sort by
         sort_by = page.locator("#sort-by")
         sort_by.select_option("title")
-        page.wait_for_load_state("load")
 
-        # Verify URL contains sort parameter
-        expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
+        # expect() auto-retries until the URL matches or the timeout expires,
+        # making it robust even when form.submit() is queued asynchronously.
+        expect(page).to_have_url(re.compile(r".*sort_by=title.*"), timeout=10000)
 
     @pytest.mark.ui
     @pytest.mark.articles
     def test_sort_parameter_preservation_in_url(self, page: Page):
         """Test sort parameter preservation in URL."""
         base_url = os.getenv("CTI_SCRAPER_URL", "http://localhost:8001")
-        # Use JS navigation to bypass _UrlAwarePage dedup (which ignores query params)
+        # Navigate to clean /articles first, then use JS navigation to set exact query params.
         page.goto(f"{base_url}/articles")
         with page.expect_navigation(wait_until="load", timeout=15000):
             page.evaluate(f"window.location.href = '{base_url}/articles?sort_by=title&sort_order=asc'")
@@ -297,20 +297,20 @@ class TestArticlesSorting:
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
-        # Apply a filter (score range)
+        # Apply a filter (score range) and wait for its navigation to complete before sorting.
         score_filter = page.locator("#threat_hunting_range")
         if score_filter.is_visible():
             score_filter.select_option("80-100")
-            page.wait_for_load_state("load")
+            expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"), timeout=10000)
+            _ensure_filters_visible(page)
 
         # Change sort
         sort_by = page.locator("#sort-by")
         sort_by.select_option("title")
-        page.wait_for_load_state("load")
 
         # Verify both parameters are in URL (threat_hunting_range from filter, sort_by from sort dropdown)
-        expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
-        expect(page).to_have_url(re.compile(r".*sort_by=title.*"))
+        expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"), timeout=10000)
+        expect(page).to_have_url(re.compile(r".*sort_by=title.*"), timeout=10000)
 
     @pytest.mark.ui
     @pytest.mark.articles
@@ -347,10 +347,11 @@ class TestArticlesPagination:
         page.wait_for_load_state("load")
         _ensure_filters_visible(page)
 
-        # Change per-page
+        # Change per-page — wrap in expect_navigation so we wait for the
+        # form-submit navigation triggered by the select, not the pre-existing load state.
         per_page = page.locator("#per_page")
-        per_page.select_option("50")
-        page.wait_for_load_state("load")
+        with page.expect_navigation(wait_until="load", timeout=10000):
+            per_page.select_option("50")
 
         # Verify URL contains per_page parameter
         expect(page).to_have_url(re.compile(r".*per_page=50.*"))

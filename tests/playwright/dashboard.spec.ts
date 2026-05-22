@@ -119,12 +119,10 @@ test.describe('Dashboard - Failing Sources', () => {
             name: 'Example Threat Source',
             consecutive_failures: 7,
             last_success: '2026-04-20T00:00:00',
-            healing_exhausted: true,
           }],
           top_articles: [],
           recent_activities: [],
           stats: { total_articles: 0, active_sources: 1, avg_hunt_score: 0, filter_efficiency: 0 },
-          healing_enabled: false,
         }),
       });
     });

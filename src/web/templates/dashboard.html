@@ -47,65 +47,10 @@
         z-index: 0;
     }
 
-    /* ─── Page header ─── */
-    .dash-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.75rem;
-        border-bottom: 1px solid var(--d-border);
-    }
-
-    .dash-header-left {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .live-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        font-family: 'Inter', system-ui, sans-serif;
-        font-size: 0.625rem;
-        font-weight: 700;
-        letter-spacing: 0.18em;
-        text-transform: uppercase;
-        color: var(--d-green);
-        border: 1px solid rgba(52, 211, 153, 0.35);
-        padding: 2px 8px 2px 5px;
-        border-radius: 2px;
-    }
-
-    .live-badge-dot {
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: var(--d-green);
-        box-shadow: 0 0 6px var(--d-green);
-        animation: live-pulse 2s ease-in-out infinite;
-    }
-
+    /* ─── live-pulse: shared by .health-dot ─── */
     @keyframes live-pulse {
         0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--d-green); }
         50%       { opacity: 0.5; box-shadow: 0 0 2px var(--d-green); }
-    }
-
-    .dash-title {
-        font-family: 'Inter', system-ui, sans-serif;
-        font-size: 1rem;
-        font-weight: 600;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: var(--d-sub);
-    }
-
-    .dash-timestamp {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.625rem;
-        color: var(--d-muted);
-        letter-spacing: 0.03em;
     }
 
     /* ─── Cards ─── */
@@ -525,18 +470,6 @@
 
 <div class="dash-root">
 
-    <!-- ─── Dashboard header ─── -->
-    <div class="dash-header">
-        <div class="dash-header-left">
-            <span class="live-badge">
-                <span class="live-badge-dot"></span>
-                Live
-            </span>
-            <span class="dash-title">Threat Intelligence Monitor</span>
-        </div>
-        <span class="dash-timestamp" id="last-updated">{{ current_time }}</span>
-    </div>
-
     <!-- ─── Main grid (3 cols) ─── -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 
@@ -643,7 +576,7 @@
 
             <div class="metric-row">
                 <span class="metric-label">Active Sources</span>
-                <span class="metric-val cyan">{{ sources|length if sources else '0' }}</span>
+                <span class="metric-val cyan">{{ source_counts.active if source_counts else '0' }}</span>
             </div>
             <div class="metric-row">
                 <span class="metric-label">Processing Queue</span>
@@ -925,10 +858,6 @@
             if (avgSc && data.stats?.avg_hunt_score != null) {
                 avgSc.textContent = Number(data.stats.avg_hunt_score).toFixed(1);
             }
-
-            // ── Timestamp ──
-            const tsEl = document.getElementById('last-updated');
-            if (tsEl) tsEl.textContent = new Date().toLocaleString();
 
         } catch (err) {
             console.error('Dashboard refresh failed:', err);

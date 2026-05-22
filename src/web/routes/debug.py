@@ -121,6 +121,19 @@ async def api_chunk_debug(
         async def analyze_chunk(chunk_id: int, start: int, end: int, chunk_text: str):
             async with semaphore:
 
+                def _extract_for_version() -> dict[str, float]:
+                    """Dispatch on the filter's feature_version so the chunk debugger
+                    uses the SAME featurizer the live model was trained with. Hard-coding
+                    v1's extract_features() here caused a shape mismatch against v2/v3
+                    models and surfaced as 'ML processing failed' in the UI.
+                    """
+                    version = getattr(content_filter, "feature_version", "v1")
+                    if version == "v3":
+                        return content_filter.extract_features_v3(chunk_text)
+                    if version == "v2":
+                        return content_filter.extract_features_v2(chunk_text)
+                    return content_filter.extract_features(chunk_text, hunt_score, include_new_features=True)
+
                 def _process_chunk():
                     chunk_result = content_filter.filter_content(
                         chunk_text,
@@ -129,7 +142,7 @@ async def api_chunk_debug(
                         hunt_score,
                     )
 
-                    features = content_filter.extract_features(chunk_text, hunt_score, include_new_features=True)
+                    features = _extract_for_version()
                     sanitized_features = {}
                     for key, value in features.items():
                         if hasattr(value, "item"):
@@ -142,9 +155,7 @@ async def api_chunk_debug(
                     ml_details = None
                     if content_filter.model:
                         try:
-                            ml_features = content_filter.extract_features(
-                                chunk_text, hunt_score, include_new_features=False
-                            )
+                            ml_features = _extract_for_version()
                             feature_vector = np.array(list(ml_features.values()), dtype=float).reshape(1, -1)
                             prediction = content_filter.model.predict(feature_vector)[0]
                             probabilities = content_filter.model.predict_proba(feature_vector)[0]

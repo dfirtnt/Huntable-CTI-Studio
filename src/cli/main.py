@@ -13,7 +13,6 @@ from .commands import archive, backup, collect, compare_sources, cron, export, i
 from .commands.capabilities import capabilities_group
 from .commands.embed import embed_group
 from .commands.rescore import rescore
-from .commands.rescore_ml import rescore_ml
 from .context import CLIContext, setup_logging
 from .sigma_commands import sigma_group
 
@@ -48,7 +47,6 @@ cli.add_command(cron)
 cli.add_command(sync_sources)
 cli.add_command(compare_sources)
 cli.add_command(rescore)
-cli.add_command(rescore_ml)
 cli.add_command(embed_group)
 cli.add_command(archive)
 cli.add_command(sigma_group)

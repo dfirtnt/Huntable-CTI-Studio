@@ -8,8 +8,6 @@ This workflow orchestrates the Extract Agent (and any supporting sub-agents) thr
 - Stack is running (`./start.sh` and web reachable on `http://localhost:8001`)
 - Article exists (from RSS collection, UI upload, or `POST /api/scrape-url`)
 
-The workflow definition lives in `langgraph.json`, and the API trigger below tells LangGraph to execute the agents in the proper order; there is no public endpoint to start a single agent on its own.
-
 ## 1) Get or create an article
 Manual scrape example:
 ```bash
@@ -46,4 +44,4 @@ Re-trigger the workflow to apply new prompts or models. The latest execution ret
 ## Cmdline Attention Preprocessor
 For command-line extraction, the **CmdlineExtract** sub-agent can use an optional attention preprocessor that surfaces LOLBAS-aligned snippets earlier in the LLM prompt. Enable or disable it in Workflow Config -> Cmdline Extract agent. See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_

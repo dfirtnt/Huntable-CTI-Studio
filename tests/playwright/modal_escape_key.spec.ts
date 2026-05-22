@@ -169,4 +169,100 @@ test.describe('Modal Escape Key Functionality', () => {
     }
   });
 
+  // Regression: the Sigma Enhance — System Prompt overlay (#enrich-expanded-overlay)
+  // is a bespoke overlay outside ModalManager. Its only Escape path used to be an
+  // inline onkeydown on the div, which fires ONLY while focus is inside the overlay.
+  // Once focus lands on document.body (clicking the dimmed backdrop / browser chrome),
+  // Escape no longer reached it and the modal was stuck open. The fix attaches a
+  // document-level Escape listener on open and removes it on close.
+  test('ESC key closes Sigma Enhance expanded overlay even when focus is on body', async ({ page }) => {
+    await page.goto(`${BASE}/workflow`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    const opened = await page.evaluate(() => {
+      if (typeof (window as any).openEnrichExpanded === 'function') {
+        (window as any).openEnrichExpanded();
+        return true;
+      }
+      return false;
+    });
+    expect(opened).toBe(true);
+
+    const overlay = page.locator('#enrich-expanded-overlay');
+    await expect(overlay).toBeVisible({ timeout: 5000 });
+
+    // Reproduce the real-world failure: move focus OUT of the overlay subtree.
+    // (Clicking the backdrop would call closeEnrichExpanded() via onclick and
+    // mask the bug, so blur programmatically instead.)
+    await page.evaluate(() => {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && typeof ae.blur === 'function') ae.blur();
+    });
+    const focusOutsideOverlay = await page.evaluate(() => {
+      const o = document.getElementById('enrich-expanded-overlay');
+      return !!o && !o.contains(document.activeElement);
+    });
+    expect(focusOutsideOverlay).toBe(true);
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
+    await expect(overlay).not.toBeVisible({ timeout: 3000 });
+  });
+
+  // Regression guard for the fragile half of the fix: closeEnrichExpanded() MUST
+  // remove the document-level keydown listener it added in openEnrichExpanded().
+  // If teardown regresses, the leaked _enrichExpEscHandler keeps invoking
+  // closeEnrichExpanded() on every later Escape (re-running its side effects and
+  // fighting ModalManager). We assert the invariant directly via a call counter
+  // on closeEnrichExpanded — no coupling to parent-modal reveal UX. (Same spy
+  // technique as expanded_prompt_editor_save.spec.ts wrapping saveAgentPrompt2.)
+  test('Escape listener is torn down on close (no leaked handler fires later)', async ({ page }) => {
+    await page.goto(`${BASE}/workflow`);
+    await page.waitForLoadState('networkidle');
+    await page.waitForTimeout(2000);
+
+    const opened = await page.evaluate(() => {
+      if (typeof (window as any).openEnrichExpanded !== 'function') return false;
+      (window as any).__closeEnrichCount = 0;
+      const orig = (window as any).closeEnrichExpanded;
+      (window as any).closeEnrichExpanded = function (...args: any[]) {
+        (window as any).__closeEnrichCount++;
+        return orig.apply(this, args);
+      };
+      (window as any).openEnrichExpanded();
+      return true;
+    });
+    expect(opened).toBe(true);
+
+    const overlay = page.locator('#enrich-expanded-overlay');
+    await expect(overlay).toBeVisible({ timeout: 5000 });
+
+    // Focus off the overlay subtree (real-world condition that exposed the bug).
+    await page.evaluate(() => {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && typeof ae.blur === 'function') ae.blur();
+    });
+
+    // Esc #1: the document listener fires -> closeEnrichExpanded() exactly once,
+    // and that call must remove the listener.
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    await expect(overlay).not.toBeVisible({ timeout: 3000 });
+    const countAfterFirst = await page.evaluate(() => (window as any).__closeEnrichCount);
+    expect(countAfterFirst).toBe(1);
+
+    // Esc #2 with the overlay already closed: a correctly torn-down listener does
+    // NOT invoke closeEnrichExpanded() again. A leaked listener would -> count 2.
+    await page.evaluate(() => {
+      const ae = document.activeElement as HTMLElement | null;
+      if (ae && typeof ae.blur === 'function') ae.blur();
+    });
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+    const countAfterSecond = await page.evaluate(() => (window as any).__closeEnrichCount);
+    expect(countAfterSecond).toBe(1);
+  });
+
 });

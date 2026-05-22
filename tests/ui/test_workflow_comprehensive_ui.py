@@ -1163,3 +1163,64 @@ class TestWorkflowEnrichModalUI:
         # Must not have a button labelled exactly 'Validate' (without 'Rule')
         exact_validate = rule_modal.locator('button:text-is("Validate")')
         assert exact_validate.count() == 0, "Bare 'Validate' button should not exist; expected 'Validate Rule'"
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_load_preset_syncs_system_prompt_display(self, page: Page):
+        """Regression: loading an enrichment preset must refresh the VISIBLE
+        system-prompt display div, not just the hidden textarea.
+
+        Before the fix, loadPresetById() set #enrichSystemPrompt.value but never
+        called _syncEnrichDisplay()/_enrichSPViewMode() -- so in view mode the
+        user kept seeing the prior /prompt/latest text and the preset appeared
+        not to include its system prompt. Every other setter syncs the display.
+        """
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(400)
+
+        preset_prompt = (
+            "PRESET SYSTEM PROMPT -- return a JSON object with status pass|needs_revision|fail and updated_sigma_yaml."
+        )
+
+        def handle_preset(route):
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "success": True,
+                        "id": 7,
+                        "name": "Regression Preset",
+                        "description": "",
+                        "provider": "openai",
+                        "model": "gpt-4o",
+                        "system_prompt": preset_prompt,
+                        "user_instruction": "",
+                    }
+                ),
+            )
+
+        page.route("**/api/sigma-queue/preset/7", handle_preset)
+
+        # Isolate display-sync behaviour from the provider/model catalog network
+        # path so this asserts only the loadPresetById -> display contract.
+        page.evaluate("() => { window.populateEnrichModelDropdown = async () => {}; }")
+        page.evaluate("async () => { await loadPresetById(7, { silent: true }); }")
+        page.wait_for_timeout(300)
+
+        display_div = page.locator("#enrichSystemPromptDisplay")
+        textarea = page.locator("#enrichSystemPrompt")
+
+        expect(display_div).to_be_visible(timeout=3000)
+        expect(textarea).to_be_hidden(timeout=3000)
+
+        display_text = (display_div.text_content() or "").strip()
+        assert display_text == preset_prompt, (
+            "After loading a preset the visible display div must show the "
+            f"preset's system prompt, not the stale default. Got: {display_text!r}"
+        )
+
+        ta_value = page.evaluate("() => document.getElementById('enrichSystemPrompt').value")
+        assert ta_value.strip() == preset_prompt, (
+            "Textarea (source of truth sent to /enrich) must hold the preset prompt"
+        )

@@ -1,11 +1,9 @@
 """Tests for security fixes from 2026-04-02 daily code review.
 
 Covers:
-- XSS escaping in workflow_executions.html and diags.html
 - sort_by allowlist in articles API
 - Dummy article removal from rss_parser
 - Parameterized SQL in async_manager score ranges
-- error_detail truncation in source_healing_service
 """
 
 from unittest.mock import AsyncMock

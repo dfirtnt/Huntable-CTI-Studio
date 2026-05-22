@@ -41,13 +41,20 @@ from typing import Any
 
 # String anchors: case-insensitive substring match -- ONLY high-specificity tokens
 STRING_ANCHORS_EXACT = [
-    "Process Create", "ProcessCreate", "ProcessCreated",
-    "EventID 1", "Event ID 1",
-    "ParentImage", "ParentCommandLine",
-    "ParentProcessName", "ParentProcessId", "ParentProcessGuid",
+    "Process Create",
+    "ProcessCreate",
+    "ProcessCreated",
+    "EventID 1",
+    "Event ID 1",
+    "ParentImage",
+    "ParentCommandLine",
+    "ParentProcessName",
+    "ParentProcessId",
+    "ParentProcessGuid",
     # Arrow renderings
     "\u2192",  # right arrow
-    "->", "-->",
+    "->",
+    "-->",
     # Tree-drawing glyphs
     "\u2514\u2500",  # corner + horizontal
     "\u251c\u2500",  # tee + horizontal
@@ -71,10 +78,6 @@ PROC_TREE_REGEX_PATTERNS = [
     # P3: parent/child label (must be qualified)
     r"\b(?:parent|child)\s+(?:process|pid|image|id|command\s*line)\b",
     r"\b(?:parent|child)\s*[:=]\s*\S",
-    # P4: PID / PPID
-    r"\b(?:p?pid|process\s*id|parent\s*pid)\s*[:=]?\s*\d{2,}",
-    # P5: process injection / hollowing
-    r"\b(?:inject(?:ed|ing|s)?|hollow(?:ed|ing|s)?)\s+(?:code\s+)?into\s+[\w\-.]+(?:\.exe)?",
     # P6: child of / running under / in the context of
     r"\bchild\s+of\s+[\w\-.]+(?:\.exe)?",
     r"\brunning\s+under\s+[\w\-.]+(?:\.exe)?",
@@ -89,25 +92,25 @@ PROC_TREE_REGEX_PATTERNS = [
 REGEX_ANCHORS = [re.compile(p, re.IGNORECASE) for p in PROC_TREE_REGEX_PATTERNS]
 
 # Indices into REGEX_ANCHORS for classification (strong vs weak)
-# P1=0, P2=1, P3=2-3, P4=4, P5=5, P6=6-8, P7=9, P8=10
-_STRONG_REGEX_INDICES = frozenset({2, 3, 4, 5, 9, 10})  # P3, P4, P5, P7, P8
-_WEAK_REGEX_INDICES = frozenset({0, 1, 6, 7, 8})  # P1, P2, P6
+# P1=0, P2=1, P3=2-3, P6=4-6, P7=7, P8=8
+_STRONG_REGEX_INDICES = frozenset({2, 3, 7, 8})  # P3, P7, P8
+_WEAK_REGEX_INDICES = frozenset({0, 1, 4, 5, 6})  # P1, P2, P6
 
-# Known process tokens for Rule T3 (proximity-qualified matching)
-KNOWN_PROCESS_TOKENS = frozenset({
-    "services.exe", "lsass.exe", "winlogon.exe", "explorer.exe",
-    "svchost.exe", "taskeng.exe", "taskhost.exe", "taskhostw.exe",
-    "spoolsv.exe", "smss.exe", "csrss.exe", "wininit.exe", "userinit.exe",
-    "cmd.exe", "powershell.exe", "pwsh.exe", "wmic.exe",
-    "cscript.exe", "wscript.exe", "mshta.exe",
-    "rundll32.exe", "regsvr32.exe", "dllhost.exe", "msbuild.exe",
-    "installutil.exe", "msdt.exe", "msiexec.exe", "certutil.exe",
-    "bitsadmin.exe", "schtasks.exe", "wuauclt.exe",
-    "winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe",
-    "acrord32.exe", "acrobat.exe",
-    "chrome.exe", "firefox.exe", "msedge.exe", "iexplore.exe",
-    "winrshost.exe", "wsmprovhost.exe", "psexec.exe", "psexesvc.exe",
-})
+# Executable-shape heuristic for T3 (matches any exe/dll/scr/com/bat/cmd/ps1 token)
+_EXE_SHAPE_RE = re.compile(
+    r"\b[a-zA-Z0-9_\-]+\.(exe|dll|scr|com|bat|cmd|ps1)\b",
+    re.IGNORECASE,
+)
+
+# Path indicators for T3 (Windows drive roots, UNC paths, quoted executables,
+# backslash-prefixed executable names)
+_PATH_INDICATOR_RE = re.compile(
+    r"[A-Za-z]:\\"
+    r"|\\\\[\w\-]+"
+    r'|"[^"]*\.(exe|dll|scr|com|bat|cmd|ps1)"'
+    r"|(?<![A-Za-z0-9])\\[A-Za-z0-9_\-]{2,}\.(exe|dll|scr|com|bat|cmd|ps1)",
+    re.IGNORECASE,
+)
 
 # Lineage keywords for T3 proximity check
 _LINEAGE_KEYWORDS_RE = re.compile(
@@ -118,11 +121,21 @@ _LINEAGE_KEYWORDS_RE = re.compile(
 )
 
 # Arrow / tree glyph tokens for narrative suppression check
-_ARROW_TREE_GLYPHS = frozenset({
-    "\u2192", "->", "-->", "==>",
-    "\u2514\u2500", "\u251c\u2500", "\u2514\u2500\u2500", "\u251c\u2500\u2500",
-    "\u2514>", "\\->", "|-",
-})
+_ARROW_TREE_GLYPHS = frozenset(
+    {
+        "\u2192",
+        "->",
+        "-->",
+        "==>",
+        "\u2514\u2500",
+        "\u251c\u2500",
+        "\u2514\u2500\u2500",
+        "\u251c\u2500\u2500",
+        "\u2514>",
+        "\\->",
+        "|-",
+    }
+)
 
 # Boundary patterns (reuse same logic as cmdline preprocessor)
 NEWLINE_ONLY = re.compile(r"\n")
@@ -147,7 +160,7 @@ _SYSMON_IMAGE_RE = re.compile(r"\bImage\b", re.IGNORECASE)
 _SYSMON_PARENT_CMDLINE_RE = re.compile(r"\bParentCommandLine\b", re.IGNORECASE)
 _SYSMON_CMDLINE_RE = re.compile(r"\bCommandLine\b", re.IGNORECASE)
 
-# P4 regex for T5 (PID/PPID pair detection)
+# PID/PPID pattern for T5 (pair detection -- requires two matches on same line)
 _PID_RE = re.compile(r"\b(?:p?pid|process\s*id|parent\s*pid)\s*[:=]?\s*\d{2,}", re.IGNORECASE)
 
 
@@ -179,23 +192,25 @@ def _find_match_positions(line: str, line_lower: str) -> list[tuple[int, int]]:
         for m in pattern.finditer(line):
             positions.append((m.start(), m.end()))
 
-    # T3: two KNOWN_PROCESS_TOKENS + lineage keyword within +/-60 chars
-    exe_matches = list(_EXE_TOKEN_RE.finditer(line))
-    known_positions = [(m.start(), m.end(), m.group(1).lower()) for m in exe_matches
-                       if m.group(1).lower() in KNOWN_PROCESS_TOKENS]
-    if len(known_positions) >= 2:
-        for i, (s1, e1, _) in enumerate(known_positions):
-            for s2, e2, _ in known_positions[i + 1:]:
-                region_start = max(0, min(s1, s2) - 60)
-                region_end = min(len(line), max(e1, e2) + 60)
-                region = line[region_start:region_end]
-                if _LINEAGE_KEYWORDS_RE.search(region):
-                    positions.append((s1, e1))
-                    positions.append((s2, e2))
+    # T3a: two executable-shape tokens + lineage keyword within +/-60 chars
+    shape_matches = list(_EXE_SHAPE_RE.finditer(line))
+    if len(shape_matches) >= 2:
+        for i, m1 in enumerate(shape_matches):
+            for m2 in shape_matches[i + 1 :]:
+                region_start = max(0, min(m1.start(), m2.start()) - 60)
+                region_end = min(len(line), max(m1.end(), m2.end()) + 60)
+                if _LINEAGE_KEYWORDS_RE.search(line[region_start:region_end]):
+                    positions.append((m1.start(), m1.end()))
+                    positions.append((m2.start(), m2.end()))
+
+    # T3b: path indicator + lineage keyword
+    if _PATH_INDICATOR_RE.search(line) and _LINEAGE_KEYWORDS_RE.search(line):
+        positions.append((0, len(line)))
 
     # T4: Sysmon field block
-    if ((_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or
-            (_SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line))):
+    if (_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or (
+        _SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line)
+    ):
         positions.append((0, len(line)))
 
     # T5: PID and PPID on same line (two distinct PID matches)
@@ -243,7 +258,8 @@ def _line_matches_anchor(line: str, line_lower: str) -> bool:
 def _line_matches_structural_rules(line: str) -> bool:
     """
     Return True if line matches any structural capture rule:
-    T3: Two KNOWN_PROCESS_TOKENS + lineage keyword within +/-60 chars
+    T3a: Two executable-shape tokens + lineage keyword within +/-60 chars
+    T3b: Path indicator + lineage keyword on same line
     T4: Sysmon field block (ParentImage AND Image, or ParentCommandLine AND CommandLine)
     T5: PID and PPID pair on same line
     (T1/T2 are covered by P7/P8 regex anchors)
@@ -251,22 +267,24 @@ def _line_matches_structural_rules(line: str) -> bool:
     if not line or not line.strip():
         return False
 
-    # T3: two known process tokens + lineage keyword nearby
-    exe_matches = list(_EXE_TOKEN_RE.finditer(line))
-    known_positions = [(m.start(), m.end()) for m in exe_matches
-                       if m.group(1).lower() in KNOWN_PROCESS_TOKENS]
-    if len(known_positions) >= 2:
-        for i, (s1, e1) in enumerate(known_positions):
-            for s2, e2 in known_positions[i + 1:]:
-                region_start = max(0, min(s1, s2) - 60)
-                region_end = min(len(line), max(e1, e2) + 60)
-                region = line[region_start:region_end]
-                if _LINEAGE_KEYWORDS_RE.search(region):
+    # T3a: two executable-shape tokens + lineage keyword within +/-60 chars
+    shape_matches = list(_EXE_SHAPE_RE.finditer(line))
+    if len(shape_matches) >= 2:
+        for i, m1 in enumerate(shape_matches):
+            for m2 in shape_matches[i + 1 :]:
+                region_start = max(0, min(m1.start(), m2.start()) - 60)
+                region_end = min(len(line), max(m1.end(), m2.end()) + 60)
+                if _LINEAGE_KEYWORDS_RE.search(line[region_start:region_end]):
                     return True
 
+    # T3b: path indicator + lineage keyword
+    if _PATH_INDICATOR_RE.search(line) and _LINEAGE_KEYWORDS_RE.search(line):
+        return True
+
     # T4: Sysmon field block
-    if ((_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or
-            (_SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line))):
+    if (_SYSMON_PARENT_IMAGE_RE.search(line) and _SYSMON_IMAGE_RE.search(line)) or (
+        _SYSMON_PARENT_CMDLINE_RE.search(line) and _SYSMON_CMDLINE_RE.search(line)
+    ):
         return True
 
     # T5: PID and PPID on same line
@@ -314,11 +332,12 @@ def _is_narrative_only(line: str, matched_strong_anchor: bool) -> bool:
     if matched_strong_anchor:
         return False
 
-    line_lower = line.lower()
+    # Check for executable-shape tokens
+    if _EXE_SHAPE_RE.search(line):
+        return False
 
-    # Check for known process tokens
-    exe_matches = _EXE_TOKEN_RE.findall(line)
-    if any(t.lower() in KNOWN_PROCESS_TOKENS for t in exe_matches):
+    # Check for path indicators
+    if _PATH_INDICATOR_RE.search(line):
         return False
 
     # Check for arrow/tree glyphs
@@ -333,7 +352,7 @@ def _is_tree_glyph_line(line: str) -> bool:
     if any(stripped.startswith(p) for p in tree_prefixes):
         return True
     # P8 regex match
-    return bool(REGEX_ANCHORS[10].search(line))  # P8 is index 10
+    return bool(REGEX_ANCHORS[8].search(line))  # P8 is now index 8
 
 
 def _extract_snippet(
@@ -355,8 +374,13 @@ def _extract_snippet(
 
 
 def _extract_windowed_snippets(
-    line: str, lines: list[str], line_idx: int, line_lower: str,
-    *, byte_preserving: bool = False, adjacent: int = ADJACENT_LINES_DEFAULT,
+    line: str,
+    lines: list[str],
+    line_idx: int,
+    line_lower: str,
+    *,
+    byte_preserving: bool = False,
+    adjacent: int = ADJACENT_LINES_DEFAULT,
 ) -> list[str]:
     """
     For long lines (>LONG_LINE_THRESHOLD): extract match-window snippets.
@@ -371,8 +395,7 @@ def _extract_windowed_snippets(
 
     # Compute raw windows, merge overlapping/adjacent ranges
     raw: list[tuple[int, int]] = sorted(
-        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS))
-        for start, end in positions
+        (max(0, start - MATCH_WINDOW_CHARS), min(len(line), end + MATCH_WINDOW_CHARS)) for start, end in positions
     )
     merged: list[tuple[int, int]] = []
     for ws, we in raw:
@@ -389,8 +412,8 @@ def _extract_windowed_snippets(
         snippets.append(window)
 
     # Prepend previous line, append next line for cross-line context (first snippet only)
-    prev_lines = lines[max(0, line_idx - adjacent):line_idx]
-    next_lines = lines[line_idx + 1:min(len(lines), line_idx + adjacent + 1)]
+    prev_lines = lines[max(0, line_idx - adjacent) : line_idx]
+    next_lines = lines[line_idx + 1 : min(len(lines), line_idx + adjacent + 1)]
     if (prev_lines or next_lines) and snippets:
         parts = [*prev_lines, snippets[0], *next_lines]
         parts = [p for p in parts if p]
@@ -457,8 +480,12 @@ def process(
         # Long line: match-window capture
         if len(line) > LONG_LINE_THRESHOLD:
             windowed = _extract_windowed_snippets(
-                line, lines, i, line_lower,
-                byte_preserving=byte_preserving, adjacent=adjacent,
+                line,
+                lines,
+                i,
+                line_lower,
+                byte_preserving=byte_preserving,
+                adjacent=adjacent,
             )
             for snippet in windowed:
                 if not snippet or snippet in seen:
@@ -469,7 +496,9 @@ def process(
 
         # Short line: full-line capture
         snippet = _extract_snippet(
-            line, lines, i,
+            line,
+            lines,
+            i,
             byte_preserving=byte_preserving,
             adjacent=adjacent,
         )

@@ -1,6 +1,7 @@
 # Non-production scripts and test runner
 scripts/
 run_tests.py
+tests_runner/
 
 # Frontend assets — pre-existing HTML/JS findings are tech debt, not this PR's scope
 src/web/static/
@@ -19,3 +20,6 @@ src/utils/simhash.py
 src/web/routes/workflow_executions.py
 # Dynamic SQL with internal bounded parameters (no user input in SQL string)
 src/database/async_manager.py
+
+# Eval data fixtures — scraped article content with natural bidi characters
+config/eval_articles_data/

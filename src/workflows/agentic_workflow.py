@@ -43,6 +43,7 @@ from src.utils.langfuse_client import (
 )
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
 from src.workflows.status_utils import (
+    TERMINATION_REASON_JUNK_FILTER,
     TERMINATION_REASON_NO_SIGMA_RULES,
     TERMINATION_REASON_NON_WINDOWS_OS,
     TERMINATION_REASON_RANK_THRESHOLD,
@@ -141,6 +142,30 @@ def _all_extractors_errored(extraction_result: dict | None) -> tuple[bool, str |
     if len(unique_errors) > 2:
         reason += f" (and {len(unique_errors) - 2} more)"
     return True, reason
+
+
+def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
+    """Classify one rule's novelty comparison for the review queue (todo 001, C1+C2).
+
+    Distinguishes a *scored* low/zero result from an *inconclusive* one: the
+    comparator evaluated candidates but found zero behavioral matches. The old
+    code collapsed the inconclusive case into ``max_similarity=0.0``, which
+    silently disabled novelty suppression for ~86% of the queue.
+
+    Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
+    ``total==0`` (empty corpus) is NOT treated as inconclusive.
+    """
+    matches = match_result.get("matches", []) or []
+    total = int(match_result.get("total_candidates_evaluated", 0) or 0)
+    behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
+    sims = [m.get("similarity", 0.0) for m in matches]
+    inconclusive = total > 0 and behavioral == 0
+    return {
+        "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
+        "total_candidates_evaluated": total,
+        "behavioral_matches_found": behavioral,
+        "comparator_inconclusive": inconclusive,
+    }
 
 
 class WorkflowState(TypedDict):
@@ -498,7 +523,7 @@ def _is_agent_allowed(
     eval_match: set[str] = set()
     if raw_eval:
         canonical, lookup_values = build_subagent_lookup_values(raw_eval)
-        for v in (lookup_values or set()):
+        for v in lookup_values or set():
             if v is not None and str(v).strip():
                 eval_match.add(str(v).strip().lower())
         if canonical and canonical not in eval_match:
@@ -532,9 +557,7 @@ def _is_agent_allowed(
     return matches
 
 
-def _parse_agent_result(
-    agent_name: str, result_key: str, agent_result: dict
-) -> tuple[list, dict]:
+def _parse_agent_result(agent_name: str, result_key: str, agent_result: dict) -> tuple[list, dict]:
     """Parse an extraction agent's raw result into (items, subresult_entry).
 
     HuntQueriesExtract has custom normalization; all other agents share a
@@ -842,9 +865,39 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 }
                 db_session.commit()
 
+            # Terminate early when no chunks survived the filter
+            if not filter_result.is_huntable:
+                logger.info(
+                    f"[Workflow {state['execution_id']}] Junk filter: no huntable content "
+                    f"(confidence={filter_result.confidence:.2f}, threshold={junk_filter_threshold}). Terminating."
+                )
+                termination_details = {
+                    "confidence": filter_result.confidence,
+                    "threshold": junk_filter_threshold,
+                    "original_length": len(article.content),
+                }
+                if execution:
+                    mark_execution_completed(
+                        execution,
+                        step="junk_filter",
+                        db_session=db_session,
+                        reason=TERMINATION_REASON_JUNK_FILTER,
+                        details=termination_details,
+                        commit=True,
+                    )
+                return {
+                    **state,
+                    "filtered_content": "",
+                    "junk_filter_result": execution.junk_filter_result if execution else None,
+                    "current_step": "junk_filter",
+                    "status": "completed",
+                    "termination_reason": TERMINATION_REASON_JUNK_FILTER,
+                    "termination_details": termination_details,
+                }
+
             return {
                 **state,
-                "filtered_content": filter_result.filtered_content or article.content,
+                "filtered_content": filter_result.filtered_content,
                 "junk_filter_result": execution.junk_filter_result if execution else None,
                 "current_step": "junk_filter",
                 "status": state.get("status", "running"),
@@ -1548,7 +1601,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             for agent_name, result_key in sub_agents:
                 # Consolidated eval-blocking check (replaces three formerly-separate inline checks)
-                if not _is_agent_allowed(agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]):
+                if not _is_agent_allowed(
+                    agent_name, execution, subagent_eval, eval_lookup_values, state["execution_id"]
+                ):
                     subresults[result_key] = {"items": [], "count": 0, "raw": {"status": "blocked_by_eval_filter"}}
                     conversation_log.append(
                         {"agent": agent_name, "items_count": 0, "result": {"status": "blocked_by_eval_filter"}}
@@ -1885,7 +1940,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     execution.error_log["extract_agent"] = {}
                 execution.error_log["extract_agent"]["completed"] = True
                 execution.error_log["extract_agent"]["completed_at"] = datetime.now().isoformat()
-
 
                 flag_modified(execution, "error_log")
                 db_session.commit()
@@ -2264,9 +2318,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 )
                 similar_rules = match_result.get("matches", [])
 
-                # max_similarity must use ALL matches, not just threshold-filtered ones
-                all_similarities = [r.get("similarity", 0.0) for r in similar_rules]
-                rule_max_sim = max(all_similarities) if all_similarities else 0.0
+                # Single source of truth (todo 001, C1+C2): distinguish a scored
+                # low/zero result from an *inconclusive* one (candidates evaluated,
+                # 0 behavioral matches). rule_max_sim is None when inconclusive.
+                rule_summary = summarize_rule_novelty(match_result)
+                rule_max_sim = rule_summary["max_similarity"]
 
                 # Filter by threshold and limit to top 10
                 filtered_rules = [r for r in similar_rules if r.get("similarity", 0.0) >= similarity_threshold][:10]
@@ -2280,7 +2336,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     {
                         "rule_title": rule.get("title"),
                         "similar_rules": [r for r in similar_rules if r.get("similarity", 0.0) > 0][:10],
-                        "max_similarity": rule_max_sim,  # Actual max from all candidates
+                        "max_similarity": rule_max_sim,  # None when comparator inconclusive
+                        "total_candidates_evaluated": rule_summary["total_candidates_evaluated"],
+                        "behavioral_matches_found": rule_summary["behavioral_matches_found"],
+                        "comparator_inconclusive": rule_summary["comparator_inconclusive"],
                         "novelty_label": rule_novelty_label,
                         "novelty_score": rule_min_novelty,
                         "top_matches": filtered_rules[:5] if filtered_rules else similar_rules[:5],
@@ -2390,7 +2449,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             else:
                 # Similarity search ran successfully - calculate max_similarity from results
                 if len(similarity_results) > 0:
-                    max_similarity = max([r.get("max_similarity", 0.0) for r in similarity_results], default=0.0)
+                    # None = inconclusive (todo 001). Exclude from the aggregate so an
+                    # inconclusive-only batch yields 0.0 (-> falls through to promote as
+                    # needs_review) rather than TypeError on max([..., None]).
+                    scored = [s for s in (r.get("max_similarity") for r in similarity_results) if s is not None]
+                    max_similarity = max(scored) if scored else 0.0
                 else:
                     # Similarity search ran successfully but found 0 matches - treat as 0.0 similarity
                     max_similarity = 0.0
@@ -2414,9 +2477,13 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         rule_similarity = (
                             similarity_results[idx] if idx < len(similarity_results) else {"max_similarity": 0.0}
                         )
-                        rule_max_sim = rule_similarity.get("max_similarity", 0.0)
+                        inconclusive = rule_similarity.get("comparator_inconclusive", False)
+                        rule_max_sim = rule_similarity.get("max_similarity")
 
-                        if rule_max_sim < similarity_threshold:
+                        # Enqueue when inconclusive (route to needs_review) OR a genuine
+                        # sub-threshold score. A scored >= threshold rule is suppressed
+                        # as a near-duplicate (novelty suppression now actually works).
+                        if inconclusive or (rule_max_sim is not None and rule_max_sim < similarity_threshold):
                             # Strip observables_used from rule before YAML (not valid SIGMA)
                             rule_for_yaml = {k: v for k, v in rule.items() if k != "observables_used"}
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
@@ -2438,8 +2505,10 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                                 rule_yaml=rule_yaml,
                                 rule_metadata=rule_meta,
                                 similarity_scores=rule_similarity.get("similar_rules", []),
-                                max_similarity=rule_max_sim,
-                                status="pending",
+                                max_similarity=None if inconclusive else rule_max_sim,
+                                behavioral_matches_found=rule_similarity.get("behavioral_matches_found"),
+                                total_candidates_evaluated=rule_similarity.get("total_candidates_evaluated"),
+                                status="needs_review" if inconclusive else "pending",
                             )
                             db_session.add(queue_entry)
                             queued_rules.append(queue_entry.id)
@@ -2515,6 +2584,12 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 return "junk_filter"
 
         return "end"
+
+    def check_should_continue_after_junk_filter(state: WorkflowState) -> str:
+        """Gate the pipeline on junk filter result. Routes to END when no huntable content."""
+        if state.get("termination_reason") == TERMINATION_REASON_JUNK_FILTER:
+            return "end"
+        return check_rank_agent_enabled(state)
 
     def check_rank_agent_enabled(state: WorkflowState) -> str:
         """Check if rank agent is enabled and route accordingly.
@@ -2630,8 +2705,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
     )
     workflow.add_conditional_edges(
         "junk_filter",
-        check_rank_agent_enabled,
-        {"rank_article": "rank_article", "rank_agent_bypass": "rank_agent_bypass"},
+        check_should_continue_after_junk_filter,
+        {"rank_article": "rank_article", "rank_agent_bypass": "rank_agent_bypass", "end": END},
     )
     workflow.add_conditional_edges(
         "rank_article", check_should_continue_after_rank, {"extract_agent": "extract_agent", "end": END}
@@ -2975,14 +3050,13 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     try:
                         _sigma_rules = final_state.get("sigma_rules", []) or []
                         import json as _json
+
                         _rules_serialized = _json.dumps(_sigma_rules)
                         # OTel attribute values have a practical size ceiling; if the full
                         # rules payload would exceed ~32KB, store only titles+ids to avoid
                         # silent truncation of the trace output attribute.
                         if len(_rules_serialized) > 32768:
-                            _sigma_rules_out = [
-                                {"title": r.get("title"), "id": r.get("id")} for r in _sigma_rules
-                            ]
+                            _sigma_rules_out = [{"title": r.get("title"), "id": r.get("id")} for r in _sigma_rules]
                         else:
                             _sigma_rules_out = _sigma_rules
                         trace.update(
@@ -3017,9 +3091,7 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                             "queued_rules_count": len(final_state.get("queued_rules", [])),
                         }
                         if not _success:
-                            _completion_result["failure_reason"] = (
-                                _extractor_failure_reason or str(_top_level_error)
-                            )
+                            _completion_result["failure_reason"] = _extractor_failure_reason or str(_top_level_error)
                         log_workflow_step(
                             trace,
                             "workflow_completed",

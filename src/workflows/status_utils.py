@@ -14,6 +14,7 @@ from typing import Any
 TERMINATION_REASON_RANK_THRESHOLD = "rank_below_threshold"
 TERMINATION_REASON_NO_SIGMA_RULES = "no_sigma_rules_generated"
 TERMINATION_REASON_NON_WINDOWS_OS = "non_windows_os_detected"
+TERMINATION_REASON_JUNK_FILTER = "no_huntable_content"
 
 
 def _prepare_termination_payload(

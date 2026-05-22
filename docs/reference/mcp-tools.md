@@ -1,6 +1,10 @@
 # Huntable CTI Studio MCP tools
 
-The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for querying the same PostgreSQL corpus and queues as the web app. Run it with the same environment as the API (`python3 run_mcp.py` or `python3 -m src.huntable_mcp`; same `.env` / DB as the web app).
+The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for querying the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
+
+**Connecting a client.** The repo ships a committed `.mcp.json` registering this server via `scripts/run_mcp_server.sh`. Clients that read project `.mcp.json` (Claude Code launched in the repo) need no further setup — approve the server when prompted. For other clients, register the command `bash scripts/run_mcp_server.sh`.
+
+**Running by hand (debugging).** MCP clients spawn the server in a clean environment and do **not** inherit an activated virtualenv, so bare `python3 run_mcp.py` fails with `ModuleNotFoundError: No module named 'mcp'`. Use the project venv explicitly — `.venv/bin/python run_mcp.py` (or `bash scripts/run_mcp_server.sh`, which auto-selects it).
 
 **Article IDs:** Search tools label each hit with **`Article ID`** (database primary key `articles.id`). Pass that value to `get_article`. The numbered list position (1, 2, …) is **not** the article ID.
 
@@ -26,4 +30,4 @@ Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articl
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_

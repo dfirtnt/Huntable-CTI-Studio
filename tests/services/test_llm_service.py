@@ -1,7 +1,6 @@
 """Tests for LLM service functionality."""
 
 import contextlib
-import json
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -819,4 +818,3 @@ class TestTraceabilityNormalization:
         for item in result["items"]:
             assert isinstance(item, dict), "items should be normalized to dicts"
             assert "value" in item
-

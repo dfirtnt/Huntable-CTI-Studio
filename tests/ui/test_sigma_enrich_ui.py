@@ -203,65 +203,47 @@ class TestSigmaEnrichUI:
 
     def test_enrich_button_disabled_during_enrichment(self, page: Page):
         """Test that enrich button is disabled during enrichment process."""
-
-        import threading
-
-        def slow_response(route):
-            # Use a background thread so the Playwright event loop is not blocked.
-            # time.sleep() inside a route handler blocks the event loop, preventing
-            # subsequent Playwright calls (like text_content()) from executing until
-            # after the sleep completes -- by which point the button has already reset.
-            def _fulfill():
-                import time
-
-                time.sleep(2)
-                try:
-                    route.fulfill(
-                        status=200,
-                        content_type="application/json",
-                        body='{"enriched_yaml": "title: Test Rule", "message": "Success"}',
-                    )
-                except Exception:
-                    pass
-
-            threading.Thread(target=_fulfill, daemon=True).start()
-
-        page.route("**/api/sigma-queue/*/enrich", slow_response)
-
         self._open_preview_then_enrich(page)
 
-        # Set provider/model selects to lmstudio so enrichRule() proceeds past
-        # the provider/model guard without waiting for catalog API calls that
-        # are not mocked in this test. LMStudio skips the API-key check too.
+        # Override window.fetch in JS to:
+        #  1. Return a fake API key for /api/settings so enrichRule() passes
+        #     the key guard and reaches the "disable button" code path.
+        #  2. Return a never-resolving Promise for the enrich endpoint so the
+        #     button stays disabled indefinitely during the assertion window
+        #     (eliminates all timing sensitivity — no race between the slow
+        #     response completing and Playwright's 100 ms polling interval).
+        #
+        # JS-level override is used instead of page.route() because the
+        # class-scoped page calls unroute_all() in fixture teardown, and route
+        # matching order with accumulated handlers is fragile here.
         page.evaluate(
             """() => {
-                const ps = document.getElementById('enrichProviderSelect');
-                const ms = document.getElementById('enrichModelSelect');
-                if (ps) {
-                    while (ps.options.length > 0) ps.remove(0);
-                    const opt = document.createElement('option');
-                    opt.value = 'lmstudio';
-                    opt.textContent = 'LMStudio';
-                    ps.appendChild(opt);
-                    ps.value = 'lmstudio';
-                }
-                if (ms) {
-                    while (ms.options.length > 0) ms.remove(0);
-                    const opt = document.createElement('option');
-                    opt.value = 'test-model';
-                    opt.textContent = 'test-model';
-                    ms.appendChild(opt);
-                    ms.value = 'test-model';
-                }
+                const _orig = window.fetch.bind(window);
+                window.fetch = async function(url, opts) {
+                    const u = typeof url === 'string' ? url
+                              : (url && url.url ? url.url : String(url));
+                    if (u.endsWith('/api/settings')) {
+                        return new Response(
+                            JSON.stringify({
+                                success: true,
+                                settings: {WORKFLOW_OPENAI_API_KEY: 'ci-test-key'}
+                            }),
+                            {status: 200, headers: {'Content-Type': 'application/json'}}
+                        );
+                    }
+                    if (u.includes('/api/sigma-queue/') && u.includes('/enrich')) {
+                        return new Promise(() => {});  // never resolves
+                    }
+                    return _orig(url, opts);
+                };
             }"""
         )
 
         enrich_rule_button = page.locator("#enrichBtn")
         enrich_rule_button.click()
 
-        # Check that button is disabled while request is in flight
+        # Button should be disabled while the (never-resolving) enrich request is in flight
         expect(enrich_rule_button).to_be_disabled(timeout=3000)
 
-        # Check for loading indicator text (readable because event loop is not blocked)
         button_text = enrich_rule_button.text_content()
         assert "Enriching" in button_text or "..." in button_text

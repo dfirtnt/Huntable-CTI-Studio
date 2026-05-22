@@ -66,9 +66,7 @@ _AUTO_TRIGGER_THRESHOLD_KEY = "AUTO_TRIGGER_HUNT_SCORE_THRESHOLD"
 
 def _get_threshold_from_settings(db_session) -> float | None:
     """Read auto-trigger threshold from AppSettingsTable. Returns None if not set."""
-    row = db_session.query(AppSettingsTable).filter(
-        AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY
-    ).first()
+    row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY).first()
     if row and row.value is not None:
         try:
             return float(row.value)
@@ -80,18 +78,19 @@ def _get_threshold_from_settings(db_session) -> float | None:
 def _save_threshold_to_settings(db_session, value: float) -> None:
     """Write auto-trigger threshold to AppSettingsTable (upsert)."""
     from datetime import datetime
-    row = db_session.query(AppSettingsTable).filter(
-        AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY
-    ).first()
+
+    row = db_session.query(AppSettingsTable).filter(AppSettingsTable.key == _AUTO_TRIGGER_THRESHOLD_KEY).first()
     if row:
         row.value = str(value)
         row.updated_at = datetime.now()
     else:
-        db_session.add(AppSettingsTable(
-            key=_AUTO_TRIGGER_THRESHOLD_KEY,
-            value=str(value),
-            category="workflow",
-        ))
+        db_session.add(
+            AppSettingsTable(
+                key=_AUTO_TRIGGER_THRESHOLD_KEY,
+                value=str(value),
+                category="workflow",
+            )
+        )
 
 
 def _active_workflow_config_query(db_session):
@@ -500,7 +499,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 else (
                     _settings_threshold
                     if _settings_threshold is not None
-                    else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
+                    else (
+                        getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0
+                    )
                 )
             )
 
@@ -688,9 +689,7 @@ def update_auto_trigger_threshold(request: Request, body: dict[str, Any]):
         except (TypeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail="auto_trigger_hunt_score_threshold must be a number") from exc
         if not (0.0 <= value <= 100.0):
-            raise HTTPException(
-                status_code=400, detail=f"auto_trigger_hunt_score_threshold must be 0-100, got {value}"
-            )
+            raise HTTPException(status_code=400, detail=f"auto_trigger_hunt_score_threshold must be 0-100, got {value}")
 
         db_manager = DatabaseManager()
         db_session = db_manager.get_session()
@@ -1294,9 +1293,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
             if existing.get("prompt"):
                 old_prompt = existing.get("prompt", "")
             elif "system" in existing or "user" in existing:
-                old_prompt = json.dumps(
-                    {"system": existing.get("system"), "user": existing.get("user")}
-                )
+                old_prompt = json.dumps({"system": existing.get("system"), "user": existing.get("user")})
             else:
                 old_prompt = ""
             old_instructions = existing.get("instructions", "")
@@ -1376,8 +1373,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None
-                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1398,9 +1394,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
             # For canonical writes, encode {system, user} as JSON for the text-only
             # prompt column so rollback restores via the legacy shim's shape-3 branch.
             if canonical_mode:
-                version_prompt = json.dumps(
-                    {"system": prompt_update.system, "user": prompt_update.user}
-                )
+                version_prompt = json.dumps({"system": prompt_update.system, "user": prompt_update.user})
             else:
                 version_prompt = prompt_update.prompt if prompt_update.prompt is not None else old_prompt
             version_instructions = (
@@ -1651,8 +1645,7 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None
-                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -1942,8 +1935,7 @@ def bootstrap_prompts_from_files(request: Request):
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None
-                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 
@@ -2036,8 +2028,7 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                     current_config, "proc_tree_attention_preprocessor_enabled", True
                 ),
                 auto_trigger_hunt_score_threshold=(
-                    _thr if _thr is not None
-                    else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
                 ),
             )
 

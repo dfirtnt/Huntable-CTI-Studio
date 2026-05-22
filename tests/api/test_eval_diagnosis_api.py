@@ -14,6 +14,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.web.routes.evaluation_api import (
+    get_diagnosis_counts,
     get_saved_diagnosis,
     get_subagent_eval_compare,
     get_subagent_eval_version_articles,
@@ -26,6 +27,7 @@ pytestmark = [pytest.mark.api]
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_eval_record(
     url,
@@ -218,9 +220,7 @@ async def test_compare_basic_improvement():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     assert result["version_a"] == 10
     assert result["version_b"] == 11
@@ -251,9 +251,7 @@ async def test_compare_regression():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # A: score=0, B: score=-2 -> improvement = 0 - 2 = -2
@@ -276,9 +274,7 @@ async def test_compare_article_only_in_one_version():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     assert article["improvement"] is None
@@ -310,9 +306,7 @@ async def test_compare_sort_biggest_change_first():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     improvements = [a["improvement"] for a in result["articles"]]
     # url1 (imp=4) before url2 (imp=1), url3 (imp=None) last
@@ -345,9 +339,7 @@ async def test_compare_aggregate_perfect_matches():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     assert result["aggregate_a"]["perfect_matches"] == 1
     assert result["aggregate_a"]["perfect_match_percentage"] == 50.0
@@ -372,9 +364,7 @@ async def test_compare_preset_expected_overrides_record_expected():
         patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_compare(
-            request=MagicMock(), subagent="cmdline", version_a=10, version_b=11
-        )
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
 
     article = result["articles"][0]
     # A: actual=3, preset_expected=3, score=0
@@ -412,7 +402,9 @@ def _va_ctx(db_manager):
 
     stack = ExitStack()
     stack.enter_context(patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager))
-    stack.enter_context(patch(*_VERSION_ARTICLES_PATCHES["resolve"][0:1], return_value=_VERSION_ARTICLES_PATCHES["resolve"][1]))
+    stack.enter_context(
+        patch(*_VERSION_ARTICLES_PATCHES["resolve"][0:1], return_value=_VERSION_ARTICLES_PATCHES["resolve"][1])
+    )
     stack.enter_context(patch(_VERSION_ARTICLES_PATCHES["excluded"][0], new=_VERSION_ARTICLES_PATCHES["excluded"][1]))
     return stack
 
@@ -428,9 +420,7 @@ async def test_version_articles_basic_returns_urls():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=42
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=42)
 
     assert result["config_version"] == 42
     assert result["count"] == 2
@@ -447,9 +437,7 @@ async def test_version_articles_empty_version_returns_empty():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=99
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=99)
 
     assert result["urls"] == []
     assert result["count"] == 0
@@ -466,9 +454,7 @@ async def test_version_articles_skips_none_urls():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=5
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=5)
 
     assert result["count"] == 2
     assert None not in result["urls"]
@@ -484,9 +470,7 @@ async def test_version_articles_response_has_required_keys():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=7
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=7)
 
     assert "config_version" in result
     assert "urls" in result
@@ -504,8 +488,114 @@ async def test_version_articles_count_matches_urls_length():
         patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
         patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
     ):
-        result = await get_subagent_eval_version_articles(
-            request=MagicMock(), subagent="cmdline", config_version=20
-        )
+        result = await get_subagent_eval_version_articles(request=MagicMock(), subagent="cmdline", config_version=20)
 
     assert result["count"] == len(result["urls"])
+
+
+# ---------------------------------------------------------------------------
+# get_diagnosis_counts  (GET /evals/diagnosis-counts) -- powers the [dx N] badge
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_diagnosis_counts_empty_dir_returns_empty(tmp_path):
+    """No saved diagnoses -> {} (badge stays hidden, JS `if (!count) return`)."""
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await get_diagnosis_counts()
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_diagnosis_counts_nonexistent_dir_returns_empty(tmp_path):
+    """Cold start -- diagnoses dir does not exist yet -> {} (not an error)."""
+    missing = tmp_path / "never_created"
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=missing):
+        result = await get_diagnosis_counts()
+    assert result == {}
+
+
+@pytest.mark.asyncio
+async def test_diagnosis_counts_single_file_real_filename(tmp_path):
+    """One diagnosis using the real {exec}_{agent}_{shortid}.json format -> {exec: 1}.
+
+    Mirrors the exact scenario that surfaced the badge bug (execution #2547).
+    """
+    (tmp_path / "2547_CmdlineExtract_0795c435.json").write_text(
+        json.dumps({"diagnosis_id": "0795c435", "execution_id": 2547})
+    )
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await get_diagnosis_counts()
+    assert result == {2547: 1}
+
+
+@pytest.mark.asyncio
+async def test_diagnosis_counts_aggregates_multiple_runs_same_execution(tmp_path):
+    """Multiple diagnosis runs for one execution -> aggregated count (drives '[dx N]')."""
+    for short in ("aaa", "bbb", "ccc"):
+        (tmp_path / f"42_CmdlineExtract_{short}.json").write_text(json.dumps({"diagnosis_id": short}))
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await get_diagnosis_counts()
+    assert result == {42: 3}
+
+
+@pytest.mark.asyncio
+async def test_diagnosis_counts_multiple_executions_independent(tmp_path):
+    """Counts are keyed per execution and do not bleed across executions."""
+    (tmp_path / "10_CmdlineExtract_a.json").write_text(json.dumps({"d": 1}))
+    (tmp_path / "20_ProcTreeExtract_b.json").write_text(json.dumps({"d": 2}))
+    (tmp_path / "20_ProcTreeExtract_c.json").write_text(json.dumps({"d": 3}))
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await get_diagnosis_counts()
+    assert result == {10: 1, 20: 2}
+
+
+@pytest.mark.asyncio
+async def test_diagnosis_counts_ignores_non_numeric_and_malformed_names(tmp_path):
+    """Files whose stem does not start with a numeric execution id are skipped,
+    so a stray/garbage file can never inflate or fabricate a badge count."""
+    (tmp_path / "5_CmdlineExtract_ok.json").write_text(json.dumps({"d": 1}))
+    (tmp_path / "notanumber_CmdlineExtract_x.json").write_text(json.dumps({"d": 2}))
+    (tmp_path / "README.json").write_text(json.dumps({"d": 3}))
+    (tmp_path / "_leadingunderscore.json").write_text(json.dumps({"d": 4}))
+    with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", new=tmp_path):
+        result = await get_diagnosis_counts()
+    assert result == {5: 1}
+
+
+# ---------------------------------------------------------------------------
+# Frontend <-> backend URL contract
+# ---------------------------------------------------------------------------
+
+
+def test_agent_evals_diagnosis_count_badge_url_is_a_registered_route():
+    """The diagnosis-count badge fetch URL in agent_evals.html must be a path
+    the FastAPI app actually serves.
+
+    Regression: the badge fetched '/api/evals/diagnosis-counts' while the route
+    is mounted under the '/api/evaluations' router prefix as
+    '/api/evaluations/evals/diagnosis-counts', so the fetch 404'd and the
+    badge silently never rendered (applyDiagnosisCounts swallows !resp.ok).
+    """
+    import re
+    from pathlib import Path
+
+    repo_root = Path(__file__).resolve().parents[2]
+    template = repo_root / "src" / "web" / "templates" / "agent_evals.html"
+    html = template.read_text(encoding="utf-8")
+
+    match = re.search(r"""fetch\(\s*['"`]([^'"`]*diagnosis-counts[^'"`]*)['"`]""", html)
+    assert match, "Could not find the diagnosis-counts fetch() call in agent_evals.html"
+    fetched_url = match.group(1)
+
+    from src.web.modern_main import app
+
+    registered_paths = {getattr(route, "path", None) for route in app.routes}
+
+    assert fetched_url in registered_paths, (
+        f"agent_evals.html fetches {fetched_url!r} for the diagnosis-count "
+        f"badge, but no route with that exact path is registered. The "
+        f"diagnosis-counts route is served at "
+        f"'/api/evaluations/evals/diagnosis-counts' (router prefix "
+        f"'/api/evaluations'). The badge fetch URL must match the served path."
+    )

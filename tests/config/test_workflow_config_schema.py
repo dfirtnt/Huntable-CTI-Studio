@@ -343,7 +343,6 @@ def test_missing_rankagentqa_prompt_raises():
         WorkflowConfigV2.model_validate(raw)
 
 
-
 def test_missing_required_qa_agent_raises():
     """Missing required QA agent for RankAgent raises ValidationError."""
     agents = {
@@ -379,12 +378,13 @@ def test_valid_config_passes():
         "HuntQueriesExtract": agent_cfg,
         "RankAgentQA": agent_cfg,
     }
-    prompts = {name: {"prompt": "", "instructions": ""} for name in agents}
+    # ExtractAgent is a model/provider fallback key and must NOT appear in Prompts
+    prompts = {name: {"prompt": "", "instructions": ""} for name in agents if name != "ExtractAgent"}
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Version == "2.0"
     assert len(config.Agents) == 7
-    assert len(config.Prompts) == 7
+    assert len(config.Prompts) == 6
 
 
 def test_enabled_agent_missing_model_raises():

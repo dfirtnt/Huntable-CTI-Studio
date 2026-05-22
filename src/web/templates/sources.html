@@ -223,33 +223,24 @@
             Threat Intelligence Sources
         </h1>
 
-        <!-- Stats bar -->
-        {% set ns = namespace(active=0, inactive=0, failing=0, total=0) %}
-        {% for source in sources %}
-            {% if source.name.lower() != 'manual' and source.identifier != 'eval_articles' %}
-                {% set ns.total = ns.total + 1 %}
-                {% if source.active %}{% set ns.active = ns.active + 1 %}{% else %}{% set ns.inactive = ns.inactive + 1 %}{% endif %}
-                {% if source.consecutive_failures and source.consecutive_failures > 0 %}{% set ns.failing = ns.failing + 1 %}{% endif %}
-            {% endif %}
-        {% endfor %}
         <div class="stats-bar">
             <span class="stat-chip sc-active" data-filter="active" onclick="toggleChipFilter(this)" title="Click to filter Active sources">
                 <span class="stat-dot" style="background:var(--action-success-light,#22c55e);"></span>
-                {{ ns.active }} Active
+                {{ source_counts.active }} Active
             </span>
             <span class="stat-chip sc-inactive" data-filter="inactive" onclick="toggleChipFilter(this)" title="Click to filter Inactive sources">
                 <span class="stat-dot" style="background:var(--action-danger,#dc2626);"></span>
-                {{ ns.inactive }} Inactive
+                {{ source_counts.inactive }} Inactive
             </span>
-            {% if ns.failing > 0 %}
+            {% if source_counts.failing > 0 %}
             <span class="stat-chip sc-failing" data-filter="failing" onclick="toggleChipFilter(this)" title="Click to filter Failing sources">
                 <span class="stat-dot" style="background:var(--action-warning,#eab308);"></span>
-                ⚠ {{ ns.failing }} Failing
+                ⚠ {{ source_counts.failing }} Failing
             </span>
             {% endif %}
             <span class="stat-chip sc-total" data-filter="all" onclick="toggleChipFilter(this)" title="Click to show all sources">
                 <span class="stat-dot" style="background:var(--text-muted-slate);"></span>
-                {{ ns.total }} Sources
+                {{ source_counts.total }} Sources
             </span>
         </div>
     </div>
@@ -284,7 +275,7 @@
             <option value="playwright">Playwright</option>
             <option value="web">Web</option>
         </select>
-        <span class="filter-count" id="filterCount">{{ ns.total }} sources</span>
+        <span class="filter-count" id="filterCount">{{ source_counts.total }} sources</span>
     </div>
 
     <!-- Section header -->

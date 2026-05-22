@@ -219,14 +219,18 @@ class WorkflowConfigV2(BaseModel):
             base = QA_AGENT_TO_BASE.get(name, name[:-2])
             if base not in agents:
                 raise ValueError(f"Orphan QA agent {name}: base agent {base} must exist in Agents")
-        # Part 3: every agent with Provider+Model must have a prompt block
-        # (ExtractAgent is excluded: no longer carries a Prompt after the supervisor removal)
+        # Part 3: every agent with Provider+Model must have a prompt block.
+        # ExtractAgent is excluded: it is a model/provider fallback key for sub-agents only
+        # and must NOT appear in the Prompts block (migrator strips any stale DB entry).
         _PROMPT_FREE = {"ExtractAgent"}
         for name, cfg in agents.items():
             if name in _PROMPT_FREE:
                 continue
             if cfg.Provider and cfg.Model and name not in prompts:
                 raise ValueError(f"Missing prompt block for agent {name}")
+        for name in prompts:
+            if name in _PROMPT_FREE:
+                raise ValueError(f"Prompts block must not contain '{name}': it is a model/provider fallback key only.")
         return self
 
     def flatten_for_llm_service(self) -> dict[str, Any]:

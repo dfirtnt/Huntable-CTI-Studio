@@ -165,7 +165,23 @@ async def api_model_retrain():
                     ["python3", retrain_script, "--verbose"], capture_output=True, text=True, timeout=300
                 )
 
+                # Always log the retrain script's output so silent failures are visible
+                if result.stdout:
+                    for line in result.stdout.strip().splitlines():
+                        logger.info(f"[retrain] {line}")
+                if result.stderr:
+                    for line in result.stderr.strip().splitlines():
+                        logger.warning(f"[retrain stderr] {line}")
+
                 if result.returncode == 0:
+                    # Clear the cached ContentFilter singleton so the next request loads the retrained model
+                    try:
+                        from src.web.dependencies import get_content_filter
+
+                        get_content_filter.cache_clear()
+                    except Exception:
+                        pass
+
                     # Get the latest model version after successful retraining
                     try:
                         from src.database.async_manager import AsyncDatabaseManager
@@ -184,6 +200,51 @@ async def api_model_retrain():
                         latest_version = run_sync(get_latest_version(), allow_running_loop=False)
 
                         if latest_version:
+                            # If the retrain subprocess failed to save eval metrics (silent failure),
+                            # run the evaluator here as a recovery step before marking complete.
+                            if latest_version.evaluated_at is None:
+                                logger.warning(
+                                    f"[retrain] v{latest_version.version_number} has no eval metrics "
+                                    "after subprocess exit — running evaluator in route thread as recovery"
+                                )
+                                try:
+                                    from src.utils.content_filter import ContentFilter
+                                    from src.utils.model_evaluation import ModelEvaluator
+
+                                    cf = ContentFilter()
+                                    evaluator = ModelEvaluator()
+                                    eval_metrics = evaluator.evaluate_model(cf)
+
+                                    async def save_eval_recovery(version_id, metrics):
+                                        db_manager = AsyncDatabaseManager(pool_size=2, max_overflow=0)
+                                        vm = MLModelVersionManager(db_manager)
+                                        try:
+                                            return await vm.save_evaluation_metrics(version_id, metrics)
+                                        finally:
+                                            await db_manager.close()
+
+                                    saved = run_sync(
+                                        save_eval_recovery(latest_version.id, eval_metrics),
+                                        allow_running_loop=False,
+                                    )
+                                    if saved:
+                                        logger.info(
+                                            f"[retrain] Recovery eval metrics saved for "
+                                            f"v{latest_version.version_number}: "
+                                            f"acc={eval_metrics['accuracy']:.3f} "
+                                            f"f1={eval_metrics['f1_score_huntable']:.3f}"
+                                        )
+                                    else:
+                                        logger.error(
+                                            f"[retrain] Recovery save_evaluation_metrics returned False "
+                                            f"for v{latest_version.version_number}"
+                                        )
+                                except Exception as eval_err:
+                                    logger.error(
+                                        f"[retrain] Recovery evaluator failed for "
+                                        f"v{latest_version.version_number}: {eval_err}"
+                                    )
+
                             # Return detailed metrics for the frontend
                             retrain_data = {
                                 "new_version": latest_version.version_number,
@@ -226,20 +287,37 @@ async def api_model_retrain():
                             },
                         )
                 else:
-                    # The retrain script uses print() → stdout, not stderr.
-                    # Prefer stderr if populated (unexpected crash), otherwise
-                    # surface the last non-empty line of stdout as the reason.
-                    error_detail = (
-                        result.stderr.strip()
-                        if result.stderr.strip()
-                        else (
-                            next(
-                                (ln.strip() for ln in reversed(result.stdout.splitlines()) if ln.strip()),
-                                "unknown error — check server logs",
-                            )
+                    # The retrain script uses print() → stdout for real status messages.
+                    # stderr only carries Python logger output (WARNING/ERROR), which is
+                    # usually *not* the failure reason — it's just noise from libraries.
+                    # Priority order for surfacing the failure:
+                    #   1. "RETRAIN REJECTED" (quality gate) — most specific
+                    #   2. "❌" markers in stdout (script's explicit failure prints)
+                    #   3. Last ERROR/Exception line in stderr (real Python traceback)
+                    #   4. Last non-empty stdout line (fallback)
+                    stdout_lines = result.stdout.splitlines()
+                    stderr_lines = result.stderr.splitlines()
+
+                    rejection_line = next((ln.strip() for ln in stdout_lines if "RETRAIN REJECTED" in ln), None)
+                    if rejection_line:
+                        update_status("error", 0, rejection_line)
+                    else:
+                        # Look for explicit ❌ failure markers in stdout
+                        explicit_failure = next((ln.strip() for ln in reversed(stdout_lines) if "❌" in ln), None)
+                        # Look for real errors in stderr (skip WARNING lines)
+                        real_stderr_error = next(
+                            (
+                                ln.strip()
+                                for ln in reversed(stderr_lines)
+                                if ln.strip() and "WARNING" not in ln and "Found" not in ln  # skip chunk-length warning
+                            ),
+                            None,
                         )
-                    )
-                    update_status("error", 0, f"Retraining failed: {error_detail}")
+                        last_stdout = next((ln.strip() for ln in reversed(stdout_lines) if ln.strip()), None)
+                        error_detail = (
+                            explicit_failure or real_stderr_error or last_stdout or "unknown error — check server logs"
+                        )
+                        update_status("error", 0, f"Retraining failed: {error_detail}")
 
             except Exception as e:
                 update_status("error", 0, f"Retraining error: {str(e)}")
@@ -600,7 +678,6 @@ async def api_model_rollback(version_id: int = Path(..., gt=0)):
     in the database, clears the ContentFilter cache, and starts a background
     backfill so chunk classifications reflect the restored model.
     """
-    import os
     import threading
 
     from src.utils.model_versioning import MLModelVersionManager
@@ -614,8 +691,12 @@ async def api_model_rollback(version_id: int = Path(..., gt=0)):
     if version.is_current:
         return {"success": False, "message": f"Version {version.version_number} is already the active model"}
 
-    artifact_path = version.model_file_path
-    if not artifact_path or not os.path.exists(artifact_path):
+    import os as _os
+
+    _primary = version.model_file_path
+    _backup = _os.path.join("backups/models", _os.path.basename(_primary)) if _primary else None
+    _resolved = next((p for p in (_primary, _backup) if p and _os.path.exists(p)), None)
+    if not _resolved:
         raise HTTPException(
             status_code=422,
             detail=(
@@ -822,10 +903,20 @@ async def api_get_feedback_comparison():
             new_is_huntable, new_confidence = content_filter.predict_huntability(chunk_text)
             new_classification = "Huntable" if new_is_huntable else "Not Huntable"
 
-            # Extract huntable probability from model for new prediction
+            # Extract huntable probability from model for new prediction.
+            # Featurization must dispatch on content_filter.feature_version --
+            # hard-coding extract_features() (v1) produces shape mismatch against
+            # v2/v3 models and the predict_proba call below raises. Same root
+            # cause as the debug.py "ML processing failed" bug fixed 2026-05-21.
             import numpy as np
 
-            features = content_filter.extract_features(chunk_text, include_new_features=False)
+            version = getattr(content_filter, "feature_version", "v1")
+            if version == "v3":
+                features = content_filter.extract_features_v3(chunk_text)
+            elif version == "v2":
+                features = content_filter.extract_features_v2(chunk_text)
+            else:
+                features = content_filter.extract_features(chunk_text, include_new_features=False)
             feature_vector = np.array(list(features.values())).reshape(1, -1)
             probabilities = content_filter.model.predict_proba(feature_vector)[0]
             new_huntable_probability = float(probabilities[1])  # Index 1 is "Huntable"

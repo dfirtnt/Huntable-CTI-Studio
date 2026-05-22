@@ -182,6 +182,8 @@ class QueuedRuleResponse(BaseModel):
     rule_metadata: dict[str, Any] | None
     similarity_scores: list[dict[str, Any]] | None
     max_similarity: float | None
+    behavioral_matches_found: int | None = None
+    total_candidates_evaluated: int | None = None
     status: str
     reviewed_by: str | None
     review_notes: str | None
@@ -215,6 +217,15 @@ class RuleYamlUpdateRequest(BaseModel):
     """Request model for updating rule YAML."""
 
     rule_yaml: str
+
+
+class BulkActionRequest(BaseModel):
+    """Request model for bulk queue operations."""
+
+    ids: list[int]
+    action: str  # "approve", "reject", "delete", "set_status"
+    status: str | None = None  # used when action == "set_status"
+    review_notes: str | None = None
 
 
 DEFAULT_SIGMA_ENRICHMENT_TOGGLES: dict[str, bool] = {f"d{i}": True for i in range(1, 8)}
@@ -403,9 +414,11 @@ def list_queued_rules(
                 # Get article title
                 article = db_session.query(ArticleTable).filter(ArticleTable.id == rule.article_id).first()
 
-                # Calculate max_similarity on-the-fly if missing
+                # Recompute on-the-fly only for legacy/never-scored rows. A row with
+                # evidence columns set but max_similarity=None is *inconclusive*
+                # (todo 001, C1) -- recomputing would just thrash back to None.
                 max_similarity = rule.max_similarity
-                if max_similarity is None:
+                if max_similarity is None and rule.behavioral_matches_found is None:
                     try:
                         # Lazy initialize matching service
                         if matching_service is None:
@@ -461,6 +474,8 @@ def list_queued_rules(
                         rule_metadata=rule.rule_metadata,
                         similarity_scores=rule.similarity_scores,
                         max_similarity=max_similarity,
+                        behavioral_matches_found=rule.behavioral_matches_found,
+                        total_candidates_evaluated=rule.total_candidates_evaluated,
                         status=rule.status,
                         reviewed_by=rule.reviewed_by,
                         review_notes=rule.review_notes,
@@ -572,6 +587,76 @@ async def reject_queued_rule(request: Request, queue_id: int):
         raise
     except Exception as e:
         logger.error(f"Error rejecting queued rule: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.delete("/{queue_id}")
+def delete_queued_rule(queue_id: int):
+    """Hard-delete a single queued rule."""
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            rule = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id == queue_id).first()
+            if not rule:
+                raise HTTPException(status_code=404, detail="Queued rule not found")
+            db_session.delete(rule)
+            db_session.commit()
+            return {"success": True, "message": f"Rule {queue_id} deleted"}
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting queued rule: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/bulk")
+def bulk_action_queued_rules(bulk: BulkActionRequest):
+    """Perform a bulk action (approve / reject / delete / set_status) on multiple queue items."""
+    if not bulk.ids:
+        raise HTTPException(status_code=400, detail="No IDs provided")
+    valid_actions = {"approve", "reject", "delete", "set_status"}
+    if bulk.action not in valid_actions:
+        raise HTTPException(status_code=400, detail=f"Invalid action. Must be one of: {', '.join(valid_actions)}")
+    if bulk.action == "set_status" and not bulk.status:
+        raise HTTPException(status_code=400, detail="status is required for set_status action")
+
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+        try:
+            rules = db_session.query(SigmaRuleQueueTable).filter(SigmaRuleQueueTable.id.in_(bulk.ids)).all()
+            found_ids = {r.id for r in rules}
+            missing = [i for i in bulk.ids if i not in found_ids]
+
+            if bulk.action == "delete":
+                for rule in rules:
+                    db_session.delete(rule)
+            else:
+                target_status = (
+                    "approved" if bulk.action == "approve" else "rejected" if bulk.action == "reject" else bulk.status
+                )
+                now = datetime.now()
+                for rule in rules:
+                    rule.status = target_status
+                    rule.reviewed_at = now
+                    rule.reviewed_by = "system"
+                    if bulk.review_notes is not None:
+                        rule.review_notes = bulk.review_notes
+
+            db_session.commit()
+            result = {"success": True, "updated": len(rules), "action": bulk.action}
+            if missing:
+                result["missing_ids"] = missing
+            return result
+        finally:
+            db_session.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error performing bulk action on queued rules: {e}")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
@@ -735,8 +820,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"API key required. Provide X-{provider.capitalize()}-API-Key. "
-                    f"Provider: {provider}, Model: {model}"
+                    f"API key required. Provide X-{provider.capitalize()}-API-Key. Provider: {provider}, Model: {model}"
                 ),
             )
 
@@ -766,17 +850,13 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                     try:
                         content_filter = ContentFilter()
                         hunt_score = (
-                            article.article_metadata.get("threat_hunting_score", 0)
-                            if article.article_metadata
-                            else 0
+                            article.article_metadata.get("threat_hunting_score", 0) if article.article_metadata else 0
                         )
                         filter_result = content_filter.filter_content(
                             article.content, min_confidence=0.8, hunt_score=hunt_score, article_id=article.id
                         )
                         article_content = filter_result.filtered_content or article.content
-                        logger.info(
-                            f"Including filtered article content ({len(article_content)} chars) for enrichment"
-                        )
+                        logger.info(f"Including filtered article content ({len(article_content)} chars) for enrichment")
                     except Exception as e:
                         logger.warning(f"Failed to filter article content: {e}, using original content")
                         article_content = article.content
@@ -868,7 +948,8 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                             ) from e
                         if "insufficient_quota" in err.lower():
                             raise HTTPException(
-                                status_code=402, detail="OpenAI quota exceeded. Please check your plan and billing details."
+                                status_code=402,
+                                detail="OpenAI quota exceeded. Please check your plan and billing details.",
                             ) from e
                         raise HTTPException(status_code=502, detail=err) from e
                 elif provider == "anthropic":
@@ -985,9 +1066,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                         # Check if there's a finish_reason that might explain the empty response
                                         finish_reason = response_data["choices"][0].get("finish_reason", "unknown")
                                         if finish_reason != "stop":
-                                            logger.warning(
-                                                f"LMStudio finish_reason: {finish_reason} (expected 'stop')"
-                                            )
+                                            logger.warning(f"LMStudio finish_reason: {finish_reason} (expected 'stop')")
                                         if idx < len(lmstudio_urls) - 1:
                                             continue
                                         error_detail = (
@@ -1013,16 +1092,12 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
                                 error_text = response.text[:500] if hasattr(response, "text") else str(response)
 
                                 if response.status_code == 404:
-                                    error_detail = (
-                                        f"LMStudio model '{model}' not found. Load the model in LMStudio."
-                                    )
+                                    error_detail = f"LMStudio model '{model}' not found. Load the model in LMStudio."
                                     if idx < len(lmstudio_urls) - 1:
                                         logger.warning(f"LMStudio 404 at {chat_url}, trying next URL...")
                                         continue
                                 elif response.status_code == 503:
-                                    error_detail = (
-                                        "LMStudio service unavailable. Please ensure LMStudio is running."
-                                    )
+                                    error_detail = "LMStudio service unavailable. Please ensure LMStudio is running."
                                     if idx < len(lmstudio_urls) - 1:
                                         logger.warning(f"LMStudio 503 at {chat_url}, trying next URL...")
                                         continue
@@ -1068,9 +1143,7 @@ async def enrich_rule(request: Request, queue_id: int, enrich_request: EnrichRul
 
                     if not raw_response:
                         urls_tried = ", ".join(lmstudio_urls)
-                        error_detail = (
-                            f"Failed to connect to LMStudio. Tried: {urls_tried}. Last error: {last_error}"
-                        )
+                        error_detail = f"Failed to connect to LMStudio. Tried: {urls_tried}. Last error: {last_error}"
                         error_detail = error_detail.replace("\n", " ").replace("\r", " ").strip()
                         raise HTTPException(status_code=503, detail=error_detail)
 
@@ -2187,10 +2260,13 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
             match_canonical_class = match_result.get("canonical_class")
             match_logsource_key = match_result.get("logsource_key", "") or ""
 
-            # Calculate max similarity
-            max_similarity = (
-                max([m.get("similarity", 0.0) for m in similar_matches], default=0.0) if similar_matches else 0.0
-            )
+            # Single source of truth (todo 001, C1+C2): an inconclusive comparator
+            # (candidates evaluated, 0 behavioral matches) yields None, never a
+            # fake 0.0 that masquerades as a confident novelty score.
+            from src.workflows.agentic_workflow import summarize_rule_novelty
+
+            _summary = summarize_rule_novelty(match_result)
+            max_similarity = _summary["max_similarity"]  # None when inconclusive
 
             # When no matches, attach diagnostic so UI can explain (e.g. repo not synced or no rules for this logsource)
             diagnostic = None
@@ -2242,10 +2318,22 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
                 if (m.get("semantic_details") or {}).get("jaccard", m.get("atom_jaccard", 0)) > 0
             ]
 
-            # Update the queued rule's max_similarity if it's None or different
-            if rule.max_similarity is None or abs(rule.max_similarity - max_similarity) > 0.001:
-                rule.max_similarity = max_similarity
+            # Persist evidence columns so the on-the-fly recompute guard (above)
+            # treats this row as scored; route inconclusive pending rows to needs_review.
+            new_max = _summary["max_similarity"]
+            new_behav = _summary["behavioral_matches_found"]
+            new_total = _summary["total_candidates_evaluated"]
+            if (
+                rule.max_similarity != new_max
+                or rule.behavioral_matches_found != new_behav
+                or rule.total_candidates_evaluated != new_total
+            ):
+                rule.max_similarity = new_max
+                rule.behavioral_matches_found = new_behav
+                rule.total_candidates_evaluated = new_total
                 rule.similarity_scores = to_store
+                if _summary["comparator_inconclusive"] and rule.status == "pending":
+                    rule.status = "needs_review"
                 try:
                     db_session.commit()
                 except Exception as commit_err:

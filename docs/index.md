@@ -22,7 +22,7 @@ With full transparency, each article moves through an explicit LangGraph pipelin
 - **Detection support** — validation, similarity matching, and coverage classification
 - **Storage & services** — FastAPI web app, PostgreSQL + pgvector, Redis, Celery worker/scheduler
 - **Search & MCP retrieval** — Semantic search across collected intelligence; conversational retrieval via the Huntable MCP server
-- **MCP (optional)** — Read-only Model Context Protocol server: `python3 run_mcp.py` (same env as the web app; [tool reference](reference/mcp-tools.md))
+- **MCP (optional)** — Read-only Model Context Protocol server; committed `.mcp.json` wires it up for project-aware clients with no setup (same env as the web app; [tool reference](reference/mcp-tools.md))
 
 ## Quick Start
 
@@ -31,6 +31,7 @@ git clone https://github.com/dfirtnt/Huntable-CTI-Studio.git
 cd Huntable-CTI-Studio
 ./setup.sh --no-backups
 ./start.sh
+python3 scripts/seed_model.py  # required on first install or after a restore
 ```
 
 If prompted, you can run the MkDocs docs server in the background; logs go to `logs/mkdocs.log`.
@@ -67,10 +68,6 @@ Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection]
 
 Semantic search across your CTI corpus using embeddings, accessed via MCP tools. See [Semantic Search](features/semantic-search.md).
 
-### Source Auto-Healing
-
-LLM-powered diagnostics automatically repair failing sources. Deep probes inspect RSS content, sitemaps, WP JSON APIs, and JS-rendering behavior before proposing config fixes. See `src/services/source_healing_service.py` for implementation details.
-
 ### Model Versioning And Rollback
 
 Train, evaluate, and roll back the content-filtering model through the MLOps control center. Every training run is versioned with metrics (accuracy, precision, recall, F1); rollback restores a prior artifact and re-scores all chunks in the background. See [Content Filtering](features/content-filtering.md).
@@ -91,7 +88,7 @@ See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 - **Contributing**: See [Contributing Guide](CONTRIBUTING.md)
 - **Issues**: [GitHub Issues](https://github.com/dfirtnt/Huntable-CTI-Studio/issues)
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-15_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTEwNzM5MDg3MjEsLTYxMzk0MzI2NF19
 -->

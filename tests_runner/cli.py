@@ -12,28 +12,26 @@ separated from execution logic, matching the file-size target of the spec.
 from __future__ import annotations
 
 import argparse
-import asyncio
 import logging
-import os
 import shlex
 import sys
-import time
 from pathlib import Path
 
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from tests.utils.test_database_url import build_test_database_url  # noqa: E402
 from tests_runner.config import ExecutionContext, RunTestConfig, RunTestType  # noqa: E402
-from tests_runner.env import load_dotenv as _load_dotenv_raw, strip_cloud_llm_keys as _strip_cloud_llm_keys_raw  # noqa: E402
+from tests_runner.env import load_dotenv as _load_dotenv_raw  # noqa: E402
+from tests_runner.env import strip_cloud_llm_keys as _strip_cloud_llm_keys_raw
 from tests_runner.runner import RunTestRunner  # noqa: E402
-from tests_runner.tui import Glyph  # noqa: E402
 
 logger = logging.getLogger(__name__)
+
 
 # Thin wrappers (matching signatures used in main())
 def _load_dotenv() -> None:
     _load_dotenv_raw(project_root)
+
 
 def _strip_cloud_llm_keys() -> None:
     _strip_cloud_llm_keys_raw()
@@ -349,7 +347,7 @@ async def main():
         return 1
 
 
-def _extract_counts(runner: "RunTestRunner") -> dict[str, int]:
+def _extract_counts(runner: RunTestRunner) -> dict[str, int]:
     """Aggregate passed/failed/skipped counts from a runner's results."""
     passed = failed = skipped = 0
     for key in ("pytest", "playwright"):
@@ -397,7 +395,8 @@ def _print_combined_summary(results: list[tuple[str, bool, dict[str, int], list[
     print(f"  {'-' * 16} {'-' * 8} {'-' * 8} {'-' * 8}   {'-' * 8}")
 
     totals = {"passed": 0, "failed": 0, "skipped": 0}
-    all_passed = True
+    any_test_failures = False
+    any_process_errors = False
 
     for test_type, passed, counts, _failed_names in results:
         p = counts.get("passed", 0)
@@ -407,19 +406,29 @@ def _print_combined_summary(results: list[tuple[str, bool, dict[str, int], list[
         totals["failed"] += f
         totals["skipped"] += s
 
-        status = f"{GREEN}PASSED{RESET}" if passed else f"{RED}FAILED{RESET}"
+        if f > 0:
+            status = f"{RED}FAILED{RESET}"
+            any_test_failures = True
+        elif p > 0 or passed:
+            # Tests ran and none failed, or process exited cleanly.
+            status = f"{GREEN}PASSED{RESET}"
+        else:
+            # Process exited non-zero, no tests ran or counts unavailable.
+            status = f"{YELLOW}ERROR{RESET}"
+            any_process_errors = True
         p_str = f"{GREEN}{p:>8d}{RESET}" if p else f"{DIM}{p:>8d}{RESET}"
         f_str = f"{RED}{f:>8d}{RESET}" if f else f"{DIM}{f:>8d}{RESET}"
         s_str = f"{YELLOW}{s:>8d}{RESET}" if s else f"{DIM}{s:>8d}{RESET}"
         print(f"  {test_type:<16s} {p_str} {f_str} {s_str}   {status}")
-        if not passed:
-            all_passed = False
 
     print(f"  {'-' * 16} {'-' * 8} {'-' * 8} {'-' * 8}   {'-' * 8}")
     tp, tf, ts = totals["passed"], totals["failed"], totals["skipped"]
-    overall = f"{GREEN}ALL PASSED{RESET}" if all_passed else f"{RED}SOME FAILED{RESET}"
+    if any_test_failures:
+        overall = f"{RED}SOME FAILED{RESET}"
+    elif any_process_errors:
+        overall = f"{YELLOW}SOME ERRORS{RESET}"
+    else:
+        overall = f"{GREEN}ALL PASSED{RESET}"
     print(f"  {'Total':<16s} {tp:>8d} {tf:>8d} {ts:>8d}   {overall}")
     print("=" * 72)
     print()
-
-

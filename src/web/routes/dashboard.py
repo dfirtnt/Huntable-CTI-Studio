@@ -10,18 +10,16 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter
 
 from src.database.async_manager import async_db_manager
+from src.models.source import is_internal_source, summarize_sources
 from src.web.dependencies import logger
 
 router = APIRouter(tags=["Dashboard"])
-_EXCLUDED_HEALTH_IDENTIFIERS = {"manual", "eval_articles"}
 
 
 def _compute_ingestion_health(sources):
     """Score ingestion health using failure severity instead of raw active/total ratio."""
     monitored_sources = [
-        source
-        for source in sources
-        if getattr(source, "active", True) and getattr(source, "identifier", "") not in _EXCLUDED_HEALTH_IDENTIFIERS
+        source for source in sources if getattr(source, "active", True) and not is_internal_source(source)
     ]
 
     total_monitored = len(monitored_sources)
@@ -106,8 +104,9 @@ async def api_dashboard_data():
         stats = await async_db_manager.get_database_stats()
         sources = await async_db_manager.list_sources()
 
-        total_sources = len([s for s in sources if s.identifier not in _EXCLUDED_HEALTH_IDENTIFIERS])
-        active_sources = len([s for s in sources if s.active and s.identifier not in _EXCLUDED_HEALTH_IDENTIFIERS])
+        source_counts = summarize_sources(sources)
+        total_sources = source_counts.total
+        active_sources = source_counts.active
         health = _compute_ingestion_health(sources)
 
         recent_articles = await async_db_manager.list_articles(limit=1000)
@@ -359,5 +358,4 @@ async def api_dashboard_data():
                 "avg_hunt_score": 0,
                 "filter_efficiency": 0,
             },
-            "healing_enabled": False,
         }

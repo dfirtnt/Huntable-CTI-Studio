@@ -37,6 +37,7 @@
         // Tracks whether the article has already been processed with the current active config.
         // Loaded async on page load; drives button label and force flag.
         let _articleProcessedWithCurrentConfig = false;
+        let _latestExecutionId = null;
 
         async function initWorkflowButtonState(articleId) {
             try {
@@ -44,6 +45,20 @@
                 if (resp.ok) {
                     const data = await resp.json();
                     _articleProcessedWithCurrentConfig = !!data.processed_with_current_config;
+                    _latestExecutionId = data.latest_execution_id || null;
+
+                    // Fallback: if the server predates the latest_execution_id field, resolve it
+                    // from the executions API so the "View last run" link always works.
+                    if (_articleProcessedWithCurrentConfig && !_latestExecutionId) {
+                        try {
+                            const execResp = await fetch(`/api/workflow/executions?article_id=${articleId}&status=completed&limit=1`);
+                            if (execResp.ok) {
+                                const execData = await execResp.json();
+                                const execs = execData.executions || [];
+                                if (execs.length > 0) _latestExecutionId = execs[0].id;
+                            }
+                        } catch (_) { /* non-fatal */ }
+                    }
                 }
             } catch (e) {
                 // Leave default (false = "Send to Workflow") on network error
@@ -54,13 +69,19 @@
         function updateWorkflowButtonLabel() {
             const btnText = document.getElementById('triggerWorkflowBtnText');
             const btn = document.getElementById('triggerWorkflowBtn');
+            const viewLastRunLink = document.getElementById('viewLastRunLink');
             if (!btnText || !btn) return;
             if (_articleProcessedWithCurrentConfig) {
                 btnText.textContent = 'Reprocess';
                 btn.title = 'Reprocess: bypasses idempotency gate and runs the pipeline even if this article was already processed with the current config. Use after changing prompts or model settings to get fresh output.';
+                if (viewLastRunLink && _latestExecutionId) {
+                    viewLastRunLink.href = `/workflow?open_execution=${_latestExecutionId}#executions`;
+                    viewLastRunLink.classList.remove('hidden');
+                }
             } else {
                 btnText.textContent = 'Send to Workflow';
                 btn.title = 'Send to Workflow: runs this article through the current agent config for the first time.';
+                if (viewLastRunLink) viewLastRunLink.classList.add('hidden');
             }
         }
 
@@ -359,42 +380,6 @@
                         </span>
                     </div>
                     {% endif %}
-                    <div class="flex items-center">
-                        <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg></span>
-                        <span>MLHuntScore: 
-                            {% if article.article_metadata and article.article_metadata.get('ml_hunt_score') is not none %}
-                                {% set ml_score = article.article_metadata.get('ml_hunt_score', 0) %}
-                                {% if ml_score >= 80 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-200 dark:border-green-700">
-                                        🤖 {{ "%.1f"|format(ml_score) }}
-                                    </span>
-                                {% elif ml_score >= 60 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
-                                        🟡 {{ "%.1f"|format(ml_score) }}
-                                    </span>
-                                {% elif ml_score >= 40 %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 border border-orange-200 dark:border-orange-700">
-                                        🟠 {{ "%.1f"|format(ml_score) }}
-                                    </span>
-                                {% else %}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 border border-red-200 dark:border-red-700">
-                                        🔴 {{ "%.1f"|format(ml_score) }}
-                                    </span>
-                                {% endif %}
-                            {% else %}
-                                <span class="article-help-anchor inline-flex items-center px-3 py-1 rounded-full text-sm font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 cursor-help" tabindex="0" title="ML Hunt Score not yet calculated. Run chunk analysis to generate this score." aria-describedby="articleMlHuntScoreTooltip">
-                                    TBD
-                                    <span id="articleMlHuntScoreTooltip" role="tooltip" class="article-help-bubble absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded-lg opacity-0 invisible whitespace-pre-line z-50 text-left shadow-lg">
-                                        <strong>ML Hunt Score: To Be Determined</strong><br><br>
-                                        This score requires chunk analysis to be run first.<br><br>
-                                        <strong>How to generate:</strong><br>
-                                        1. Scroll down to "Chunk Analysis" section and click "Run Full Analysis"<br>
-                                        2. Or run CLI: <code class="bg-gray-800 px-1 rounded text-xs">./run_cli.sh rescore-ml --article-id {{ article.id }}</code>
-                                    </span>
-                                </span>
-                            {% endif %}
-                        </span>
-                    </div>
                 </div>
 
                 <div class="mb-4 flex flex-wrap items-center gap-3">
@@ -413,6 +398,11 @@
                         <span class="mr-2"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg></span>
                         <span id="triggerWorkflowBtnText">Send to Workflow</span>
                     </button>
+
+                    <a id="viewLastRunLink" href="#" class="hidden inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 underline underline-offset-2 transition-colors" title="Open the most recent execution of this article in the workflow view">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>
+                        View last run
+                    </a>
 
                     <button onclick="showChunkDebugModal()" 
                             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-purple-500 hover:bg-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-gray-900 transition-colors">
@@ -454,11 +444,9 @@
         
         <div id="keyword-matches-content" class="hidden mt-11">
             <div class="mb-4 space-y-3">
-                <p class="text-sm text-gray-600 dark:text-gray-300">
-                    Automatic keyword highlights use one precedence-aware match per span. If a term belongs to multiple automatic categories, the highest-priority category owns the rendered highlight.
-                </p>
                 <div class="flex flex-wrap items-center gap-3">
                     <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Automatic keyword highlights</span>
+                    <button type="button" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-xs font-bold text-gray-400 dark:text-gray-500 border border-gray-300 dark:border-gray-600 hover:text-gray-600 dark:hover:text-gray-300 hover:border-gray-400 dark:hover:border-gray-400 transition-colors" title="Overlapping keyword matches are split at every boundary. Each sub-span is won by the highest-priority category covering it (Perfect &gt; Good &gt; LOLBAS &gt; Intelligence &gt; Negative). On ties, the longer match wins. Adjacent sub-spans with the same winner are merged.">?</button>
                     {% for legend in keyword_resolution.automatic_legends %}
                     <span class="inline-flex items-center gap-2 px-2 py-1 rounded-md text-xs font-medium text-gray-900 dark:text-gray-100 {{ legend.classes }}" title="{{ legend.title }}">
                         <span class="w-3 h-3 rounded border border-current/30 {{ legend.classes }}"></span>
@@ -5624,23 +5612,23 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleEsc);
         
         loadingModal.innerHTML = `
-            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border border-gray-700 w-96 shadow-lg rounded-md bg-gray-800">
                 <div class="mt-3 text-center">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-100">
-                        <svg class="animate-spin h-6 w-6 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-purple-900/30">
+                        <svg class="animate-spin h-6 w-6 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Processing Custom Request...</h3>
-                    <p class="text-sm text-gray-500 mt-2">This may take a few moments.</p>
+                    <h3 class="text-lg font-medium text-gray-100 mt-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Processing Custom Request...</h3>
+                    <p class="text-sm text-gray-400 mt-2">This may take a few moments.</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
-                        <button id="cancelBtnCustom" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                        <button id="cancelBtnCustom" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
                         </button>
-                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <div class="flex items-center space-x-2 text-sm text-gray-400">
                             <span>Press</span>
-                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <kbd class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
                             <span>or click outside to dismiss (operation continues)</span>
                         </div>
                     </div>
@@ -6737,22 +6725,22 @@ Please provide a detailed analysis based on the article content and the user's s
         document.addEventListener('keydown', handleOsEsc);
         
         loadingModal.innerHTML = `
-            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border border-gray-700 w-96 shadow-lg rounded-md bg-gray-800">
                 <div class="mt-3 text-center">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Detecting Operating System</h3>
+                    <h3 class="text-lg font-medium text-gray-100 mb-4"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> Detecting Operating System</h3>
                     <div class="flex justify-center items-center">
-                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-600"></div>
-                        <span class="ml-3 text-gray-600">Analyzing article content...</span>
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400"></div>
+                        <span class="ml-3 text-gray-300">Analyzing article content...</span>
                     </div>
-                    <p class="text-xs text-gray-500 mt-4">Trying keyword matching, then ${embeddingModelDisplay} embeddings + classifier</p>
-                    <p class="text-xs text-gray-400 mt-1">Fallback: ${fallbackModelDisplay}</p>
+                    <p class="text-xs text-gray-400 mt-4">Trying keyword matching, then ${embeddingModelDisplay} embeddings + classifier</p>
+                    <p class="text-xs text-gray-500 mt-1">Fallback: ${fallbackModelDisplay}</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
-                        <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                        <button id="cancelBtnOs" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
                         </button>
-                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <div class="flex items-center space-x-2 text-sm text-gray-400">
                             <span>Press</span>
-                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <kbd class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
                             <span>or click outside to dismiss (operation continues)</span>
                         </div>
                     </div>
@@ -6784,7 +6772,8 @@ Please provide a detailed analysis based on the article content and the user's s
             
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.detail || 'OS detection failed');
+                const detail = errorData.detail;
+                throw new Error((detail && typeof detail === 'object' ? detail.message : detail) || 'OS detection failed');
             }
             
             const result = await response.json();
@@ -6950,214 +6939,6 @@ Please provide a detailed analysis based on the article content and the user's s
                 }
             });
         }
-    }
-    
-    async function extractIOCsCTIBERT() {
-        // closeAIAssistantModal(); // DEPRECATED
-        
-        const articleId = {{ article.id|default(0)|int }};
-        
-        // Show loading modal
-        const loadingModal = document.createElement('div');
-        loadingModal.id = 'loadingModal';
-        loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
-        loadingModal.innerHTML = `
-            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3 text-center">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">Extracting IOCs with CTI-BERT</h3>
-                    <p class="text-sm text-gray-500">Using IBM Research's CTI-BERT model for Named Entity Recognition...</p>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(loadingModal);
-        
-        try {
-            const response = await fetch(`/api/articles/${articleId}/extract-iocs-ctibert`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({})
-            });
-            
-            const result = await response.json();
-            
-            // Remove loading modal
-            const loading = document.getElementById('loadingModal');
-            if (loading) {
-                loading.remove();
-            }
-            
-            if (!response.ok) {
-                throw new Error(result.detail || 'Failed to extract IOCs');
-            }
-            
-            if (result.success && result.validated_count > 0) {
-                // Show results modal
-                showCTIBERTIOCsModal(result.iocs, result);
-            } else {
-                showNotification('No IOCs found using CTI-BERT extraction.', 'info');
-            }
-            
-        } catch (error) {
-            // Remove loading modal
-            const loading = document.getElementById('loadingModal');
-            if (loading) {
-                loading.remove();
-            }
-            
-            console.error('CTI-BERT extraction error:', error);
-            showNotification(`Failed to extract IOCs: ${error.message}`, 'error');
-        }
-    }
-    
-    async function showCTIBERTIOCsModal(iocsData, resultData) {
-        // Remove any existing modal
-        closeCTIBERTIOCsModal();
-        await cleanupExistingModal('ctibertIOCsModal');
-        
-        const modal = document.createElement('div');
-        modal.id = 'ctibertIOCsModal';
-        modal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50';
-        
-        // Add click outside to close
-        modal.addEventListener('click', function(e) {
-            if (e.target === modal) {
-                closeCTIBERTIOCsModal();
-            }
-        });
-        
-        // Add ESC key to close
-        const handleEsc = function(e) {
-            if (e.key === 'Escape') {
-                closeCTIBERTIOCsModal();
-                document.removeEventListener('keydown', handleEsc);
-            }
-        };
-        document.addEventListener('keydown', handleEsc);
-        
-        const extractedAt = resultData?.metadata?.extracted_at || new Date().toISOString();
-        const extractedAtFormatted = new Date(extractedAt).toLocaleString();
-        const confidence = (resultData?.confidence || 0) * 100;
-        const processingTime = (resultData?.processing_time || 0).toFixed(2);
-        const method = resultData?.method || 'ctibert-ner';
-        
-        // Calculate totals
-        let totalCount = 0;
-        const categoryCounts = {};
-        for (const [category, items] of Object.entries(iocsData)) {
-            const count = Array.isArray(items) ? items.length : 0;
-            categoryCounts[category] = count;
-            totalCount += count;
-        }
-        
-        modal.innerHTML = `
-            <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md" style="background-color: var(--surface-modal-muted);">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-medium text-gray-900"><svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3M21 8.25h-1.5M4.5 12H3M21 12h-1.5M4.5 15.75H3M21 15.75h-1.5M8.25 19.5V21M12 3v1.5M12 19.5V21M15.75 3v1.5M15.75 19.5V21M6.75 7.5h10.5v9H6.75v-9z"/></svg> CTI-BERT IOC Extraction</h3>
-                    <div class="flex items-center space-x-2">
-                        <button onclick="showCTIBERTHelp()" class="text-blue-500 hover:text-blue-700 text-sm px-2 py-1 rounded border border-blue-300 hover:bg-blue-50">
-                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            Help
-                        </button>
-                        <button onclick="closeCTIBERTIOCsModal()" class="text-gray-400 hover:text-gray-600">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="mb-4 grid grid-cols-4 gap-4">
-                    <div class="bg-blue-50 p-3 rounded border border-blue-200">
-                        <div class="text-sm text-blue-600 font-medium">Total IOCs</div>
-                        <div class="text-lg font-bold text-blue-900">${totalCount}</div>
-                    </div>
-                    <div class="bg-green-50 p-3 rounded border border-green-200">
-                        <div class="text-sm text-emerald-400 font-medium">Confidence</div>
-                        <div class="text-lg font-bold text-green-900">${confidence.toFixed(1)}%</div>
-                    </div>
-                    <div class="bg-purple-50 p-3 rounded border border-purple-200">
-                        <div class="text-sm text-purple-600 font-medium">Processing Time</div>
-                        <div class="text-lg font-bold text-purple-900">${processingTime}s</div>
-                    </div>
-                    <div class="bg-orange-50 p-3 rounded border border-orange-200">
-                        <div class="text-sm text-orange-600 font-medium">Method</div>
-                        <div class="text-sm font-bold text-orange-900">${method}</div>
-                    </div>
-                </div>
-                
-                <div class="mb-4 text-sm text-gray-600">
-                    <span class="font-medium">Extracted at:</span> ${extractedAtFormatted}
-                </div>
-                
-                <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        ${Object.entries(iocsData).filter(([cat, items]) => items && items.length > 0).map(([category, items]) => `
-                        <div class="bg-white p-3 rounded border">
-                            <h4 class="font-medium text-gray-900 mb-2 capitalize flex items-center justify-between">
-                                <span>${category.replace(/_/g, ' ')}</span>
-                                <span class="text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">${items.length}</span>
-                            </h4>
-                            <ul class="text-sm text-gray-700 space-y-1 max-h-48 overflow-y-auto">
-                                ${items.slice(0, 20).map(item => `<li class="font-mono text-xs bg-gray-50 px-2 py-1 rounded break-all">${item}</li>`).join('')}
-                                ${items.length > 20 ? `<li class="text-xs text-gray-500 italic">... and ${items.length - 20} more</li>` : ''}
-                            </ul>
-                        </div>
-                        `).join('')}
-                    </div>
-                    ${totalCount === 0 ? '<p class="text-gray-500 text-center py-8">No IOCs found</p>' : ''}
-                </div>
-                
-                ${resultData?.metadata ? `
-                <div class="mt-4 p-3 bg-gray-50 rounded border">
-                    <h4 class="font-medium text-gray-900 mb-2 text-sm">Extraction Details</h4>
-                    <div class="text-xs text-gray-600 space-y-1">
-                        <div><strong>Model:</strong> ${resultData.metadata.model_name || 'ibm-research/CTI-BERT'}</div>
-                        <div><strong>Device:</strong> ${resultData.metadata.device || 'cpu'}</div>
-                        ${resultData.metadata.chunks_processed ? `<div><strong>Chunks Processed:</strong> ${resultData.metadata.chunks_processed}</div>` : ''}
-                    </div>
-                </div>
-                ` : ''}
-                
-                <div class="mt-4 flex justify-end">
-                    <button onclick="closeCTIBERTIOCsModal()" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
-                        Close
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Ensure modal is visible
-        modal.classList.remove('hidden');
-        
-        // Register and open with ModalManager
-        if (window.ModalManager) {
-            setTimeout(() => {
-                window.ModalManager.register('ctibertIOCsModal', {
-                    isDynamic: true,
-                    hasInput: false
-                });
-                window.ModalManager.open('ctibertIOCsModal');
-                modal.classList.remove('hidden');
-            }, 50);
-        }
-    }
-    
-    function closeCTIBERTIOCsModal() {
-        const modal = document.getElementById('ctibertIOCsModal');
-        if (modal) {
-            modal.remove();
-        }
-    }
-    
-    function showCTIBERTHelp() {
-        showNotification('CTI-BERT: Domain-specific NER-based IOC extraction. Runs locally, no API keys. Extracts IPs, domains, URLs, hashes, and more.', 'info');
     }
     
     async function showGPT4oRankingModal(analysis, data) {
@@ -8516,23 +8297,23 @@ ${JSON.stringify(rule.logsource, null, 2)}
         loadingModal.id = 'chunkDebugLoadingModal';
         loadingModal.className = 'fixed inset-0 bg-black/60 backdrop-blur-sm overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4';
         loadingModal.innerHTML = `
-            <div class="mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mx-auto p-5 border border-gray-700 w-96 shadow-lg rounded-md bg-gray-800">
                 <div class="mt-3 text-center">
-                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
-                        <svg class="animate-spin h-6 w-6 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-900/30">
+                        <svg class="animate-spin h-6 w-6 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mt-4">Analyzing Chunks</h3>
-                    <p class="text-sm text-gray-500 mt-2">Processing article content and analyzing chunking decisions...</p>
+                    <h3 class="text-lg font-medium text-gray-100 mt-4">Analyzing Chunks</h3>
+                    <p class="text-sm text-gray-400 mt-2">Processing article content and analyzing chunking decisions...</p>
                     <div class="mt-6 flex flex-col items-center space-y-3">
-                        <button id="cancelBtnChunk" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 shadow-sm transition-colors">
+                        <button id="cancelBtnChunk" class="px-6 py-2.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 focus:ring-offset-gray-900 shadow-sm transition-colors">
                             Cancel Operation
                         </button>
-                        <div class="flex items-center space-x-2 text-sm text-gray-600">
+                        <div class="flex items-center space-x-2 text-sm text-gray-400">
                             <span>Press</span>
-                            <kbd class="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs font-semibold text-gray-700 shadow-sm">ESC</kbd>
+                            <kbd class="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-xs font-semibold text-gray-300 shadow-sm">ESC</kbd>
                             <span>or click outside to dismiss (operation continues)</span>
                         </div>
                     </div>
@@ -9189,19 +8970,18 @@ ${JSON.stringify(rule.logsource, null, 2)}
                     ${chunk.confidence && !isNaN(chunk.confidence) && chunk.confidence > 0 ? ` | <strong>Confidence:</strong> ${(chunk.confidence * 100).toFixed(1)}%` : ''}
                 </div>
                 
-                <!-- Feedback Section (only show when ML model is available) -->
-                ${chunk.ml_details && !chunk.ml_details.error ? `
+                <!-- Feedback Section -->
                 <div class="mb-3 p-3 card">
                     <div class="flex items-center justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-300">Was this ML classification correct?</span>
+                        <span class="text-sm font-medium text-gray-300">Was this classification correct?</span>
                         <div class="flex gap-2">
-                            <button onclick="submitChunkFeedback(${index}, true)" 
+                            <button onclick="submitChunkFeedback(${index}, true)"
                                     class="px-3 py-1 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                ✅ Correct - ${chunk.ml_details.prediction_label}
+                                ✅ Correct - ${chunk.ml_details && chunk.ml_details.prediction_label ? chunk.ml_details.prediction_label : (chunk.is_kept ? 'Huntable' : 'Not Huntable')}
                             </button>
-                            <button onclick="submitChunkFeedback(${index}, false)" 
+                            <button onclick="submitChunkFeedback(${index}, false)"
                                     class="px-3 py-1 text-xs bg-red-500/10 text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/20 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 focus:ring-offset-gray-900">
-                                ❌ Incorrect - ${chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable'}
+                                ❌ Incorrect - ${chunk.ml_details && chunk.ml_details.prediction_label ? (chunk.ml_details.prediction_label === 'Huntable' ? 'Not Huntable' : 'Huntable') : (chunk.is_kept ? 'Not Huntable' : 'Huntable')}
                             </button>
                         </div>
                     </div>
@@ -9212,7 +8992,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
                         <!-- Previous feedback will be loaded here -->
                     </div>
                 </div>
-                ` : ''}
                 
                 <!-- Feature Details -->
                 <div class="mb-3">
@@ -10184,5 +9963,6 @@ ${JSON.stringify(rule.logsource, null, 2)}
     function toggleKeywordMatches() {
         toggleCollapsible('keyword-matches');
     }
+
 </script>
 {% endblock %}

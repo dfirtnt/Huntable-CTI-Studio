@@ -87,10 +87,7 @@ class TestValidateAgentPromptReadOnlyFallback:
         the canonical-aware helper satisfies the read-only fallback contract.
         """
         uses_canonical_helper = "getAgentPromptParts(agentName)" in validate_fn_body
-        uses_direct_access = (
-            "agentPrompts[agentName]" in validate_fn_body
-            and "parsePromptParts" in validate_fn_body
-        )
+        uses_direct_access = "agentPrompts[agentName]" in validate_fn_body and "parsePromptParts" in validate_fn_body
         assert uses_canonical_helper or uses_direct_access, (
             "validateAgentPrompt must either call getAgentPromptParts(agentName) "
             "(canonical-aware helper) or directly reference agentPrompts[agentName] "

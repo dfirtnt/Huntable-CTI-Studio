@@ -4,7 +4,6 @@ Gap 1: Eval bundle fixtures for ProcTreeExtract, ServicesExtract, ScheduledTasks
         (CmdlineExtract-only coverage existed prior to this file)
 """
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -109,5 +108,3 @@ class TestEvalBundleStructuredExtractors:
         assert "execution_context" in bundle
         assert "integrity" in bundle
         assert bundle.get("infra_failed") is not True
-
-

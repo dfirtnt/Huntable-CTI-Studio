@@ -116,6 +116,44 @@ def _build_missing_params() -> list[pytest.param]:
     return params or [pytest.param("__none__", "__none__", id="no_missing_entries")]
 
 
+def _load_ground_truth_counts() -> dict[str, dict[str, int]]:
+    """Return {subagent: {url: len(expected_items), ...}} from ground_truth.json files."""
+    result: dict[str, dict[str, int]] = defaultdict(dict)
+    if not _DATA_DIR.exists():
+        return dict(result)
+    for subdir in _DATA_DIR.iterdir():
+        if not subdir.is_dir():
+            continue
+        gt_path = subdir / "ground_truth.json"
+        if not gt_path.exists():
+            continue
+        with open(gt_path) as f:
+            entries = json.load(f)
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            url = entry.get("url")
+            items = entry.get("expected_items")
+            if url and isinstance(items, list):
+                result[subdir.name][url] = len(items)
+    return dict(result)
+
+
+def _build_ground_truth_mismatch_params() -> list[pytest.param]:
+    """(subagent, url) pairs where len(ground_truth.expected_items) != yaml expected_count."""
+    yaml_counts = _load_yaml_counts()
+    gt_counts = _load_ground_truth_counts()
+    params = []
+    for subagent in sorted(set(yaml_counts) | set(gt_counts)):
+        yaml_for = yaml_counts.get(subagent, {})
+        gt_for = gt_counts.get(subagent, {})
+        common_urls = set(yaml_for) & set(gt_for)
+        for url in sorted(common_urls):
+            if yaml_for[url] != gt_for[url]:
+                params.append(pytest.param(subagent, url, id=f"{subagent}::{url}"))
+    return params or [pytest.param("__none__", "__none__", id="no_gt_count_mismatches")]
+
+
 def _build_count_mismatch_params() -> list[pytest.param]:
     """(subagent, url) pairs whose expected_count differs between YAML and articles.json.
 
@@ -190,4 +228,30 @@ def test_yaml_and_json_expected_count_agree(subagent: str, url: str) -> None:
         f"articles.json expected_count={json_ec}. "
         f"Update both files to agree, or run scripts/fetch_eval_articles_static.py "
         f"if the YAML is the source of truth."
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.contract
+@pytest.mark.parametrize("subagent,url", _build_ground_truth_mismatch_params())
+def test_ground_truth_item_count_matches_yaml_expected_count(subagent: str, url: str) -> None:
+    """len(ground_truth.json expected_items) must equal eval_articles.yaml expected_count.
+
+    ground_truth.json is the hand-curated list of items a perfect run should emit.
+    Its length is the definitive expected_count for scoring.  If it drifts from the
+    YAML, the eval scorer uses the wrong baseline and pass/fail thresholds are silently
+    wrong.  Fix by updating either the ground_truth.json items or the YAML expected_count
+    to agree.
+    """
+    if subagent == "__none__":
+        return  # sentinel: nothing to check
+    yaml_counts = _load_yaml_counts()
+    gt_counts = _load_ground_truth_counts()
+    yaml_ec = yaml_counts.get(subagent, {}).get(url)
+    gt_ec = gt_counts.get(subagent, {}).get(url)
+    assert yaml_ec == gt_ec, (
+        f"[{subagent}] {url}: "
+        f"eval_articles.yaml expected_count={yaml_ec} but "
+        f"ground_truth.json has {gt_ec} expected_items. "
+        f"Update ground_truth.json or the YAML expected_count to agree."
     )

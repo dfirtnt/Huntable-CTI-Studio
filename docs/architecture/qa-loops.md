@@ -27,10 +27,22 @@ Historical pipeline steps:
 
 From [Sigma Detection Rules](../features/sigma-rules.md):
 
-- **pySigma validation**: Every generated rule is validated; syntax and required
-  fields are enforced.
-- **Iterative retries**: Up to 3 attempts, with validator feedback injected into
-  the next prompt when a rule fails.
+- **pySigma validation (deterministic -- no LLM)**: Every generated rule is
+  validated by `validate_sigma_rule` (`src/services/sigma_validator.py`): a
+  pySigma library parse plus structural/metadata checks.
+  `sigma_extended_validator.py` adds a pySigma hard-fail gate and extended
+  checks. No model is called here -- this is a pure-Python gate, so its verdict
+  is reproducible.
+- **Iterative repair (LLM)**: Up to 3 attempts per rule
+  (`max_repair_attempts_per_rule`, default 3). On failure, `_repair_rules`
+  (`src/services/sigma_generation_service.py`) injects the deterministic
+  validation errors into the `sigma_repair_single` / `SigmaRepair` prompt
+  (`{validation_errors}`, `{original_rule}`) and asks the model to fix the rule.
+  Repair reuses the **SigmaAgent** model, provider, temperature, `top_p`, and
+  seed, and the **same system prompt** as generation -- only the user prompt
+  differs (`sigma_repair_single` instead of
+  `sigma_generate_multi`/`sigma_generation`). There is no separate repair-model
+  config; both phases funnel through `_call_provider_for_sigma`.
 - **Similarity and coverage checks**: Generated rules are compared to SigmaHQ
   embeddings to prevent duplication and classify coverage.
 - **Storage**: Attempt logs, validation errors, and final rules are stored in
@@ -57,4 +69,4 @@ for consistency and compliance. If validation fails, the ranking retries up to
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 
-_Last updated: 2026-05-01_
+_Last updated: 2026-05-17_

@@ -16,6 +16,11 @@ sys.path.append(str(Path(__file__).parent.parent / "src"))
 
 from utils.content_filter import ContentFilter
 
+# Quality gate thresholds — applied when a curated holdout eval set is available.
+# If the retrained model falls below either, it is rejected without overwriting the live model.
+MIN_RECALL_HUNTABLE = 0.30
+MIN_F1_HUNTABLE = 0.30
+
 
 def load_feedback_data():
     """Load user feedback data from database."""
@@ -282,6 +287,15 @@ def retrain_model_with_feedback(
     # Load feedback data
     feedback_df = load_feedback_data()
 
+    # Three-tier cascade for the baseline training CSV:
+    #   1. combined_training_data.csv exists  → normal path
+    #   2. combined missing, seed exists      → fall back to seed corpus
+    #   3. neither exists                     → bootstrap_mode = True (last resort)
+    seed_fallback = str(Path(__file__).parent.parent / "models" / "seed_training_data.csv")
+    if not os.path.exists(original_file) and os.path.exists(seed_fallback):
+        original_file = seed_fallback
+        print(f"ℹ️  Combined CSV absent — falling back to seed corpus: {seed_fallback}")
+
     # When the baseline CSV is absent we are in bootstrap mode — load all
     # annotations from DB (including already-used ones) since they aren't
     # represented in any CSV file yet.
@@ -328,9 +342,11 @@ def retrain_model_with_feedback(
         except Exception as e:
             print(f"⚠️  Could not get current model version: {e}")
 
-    # Train the model
+    # Train to a staging path — the live model is only updated after the
+    # quality gate passes so a rejected retrain never corrupts the live model.
+    staging_model_path = "/app/models/content_filter_staging.pkl"
     print("\n🤖 Training ML model...")
-    filter_system = ContentFilter(model_path=current_model_path)
+    filter_system = ContentFilter(model_path=staging_model_path, feature_version="v3")
 
     training_result = filter_system.train_model(output_file)
 
@@ -367,7 +383,7 @@ def retrain_model_with_feedback(
                         model_file_path=current_model_path,
                     )
                     versioned_path = f"/app/models/content_filter_v{version_id}.pkl"
-                    shutil.copy2(current_model_path, versioned_path)
+                    shutil.copy2(staging_model_path, versioned_path)
                     await vm.set_version_artifact(version_id, versioned_path)
                     return version_id, versioned_path
                 finally:
@@ -381,6 +397,7 @@ def retrain_model_with_feedback(
             # Set the compared_with_version field for the new version
             if old_version_id and new_version_id:
                 try:
+
                     async def update_comparison_reference():
                         from sqlalchemy import update
 
@@ -435,6 +452,7 @@ def retrain_model_with_feedback(
         # Run evaluation on test set
         print("\n🧪 Running evaluation on test set...")
         eval_metrics = None
+        using_curated_eval = False
 
         # Try dedicated evaluator first (uses curated eval_set.csv)
         try:
@@ -442,6 +460,7 @@ def retrain_model_with_feedback(
 
             evaluator = ModelEvaluator()
             eval_metrics = evaluator.evaluate_model(filter_system)
+            using_curated_eval = True
             print("✅ Evaluation complete (curated eval set)!")
             print(f"   - Misclassified: {eval_metrics['misclassified_count']}/{eval_metrics['total_eval_chunks']}")
         except (FileNotFoundError, ImportError) as e:
@@ -473,6 +492,7 @@ def retrain_model_with_feedback(
 
             # Save evaluation metrics to the model version
             try:
+
                 async def save_eval_metrics():
                     db = AsyncDatabaseManager(pool_size=2, max_overflow=0)
                     try:
@@ -495,6 +515,25 @@ def retrain_model_with_feedback(
                 print(f"⚠️  Could not save evaluation metrics: {e}")
         else:
             print("⚠️  No evaluation metrics available")
+
+        # Quality gate — only applied when using the curated holdout eval set.
+        # When falling back to noisy training-split metrics the gate is skipped
+        # because train-split recall/F1 are optimistic and would wrongly pass a
+        # model that performs poorly on unseen data.
+        if using_curated_eval and eval_metrics:
+            recall = eval_metrics.get("recall_huntable", 0.0)
+            f1 = eval_metrics.get("f1_score_huntable", 0.0)
+            if recall < MIN_RECALL_HUNTABLE or f1 < MIN_F1_HUNTABLE:
+                print(
+                    f"❌ RETRAIN REJECTED: recall_huntable={recall:.3f} (min {MIN_RECALL_HUNTABLE}), "
+                    f"f1_huntable={f1:.3f} (min {MIN_F1_HUNTABLE}). "
+                    "Staged model discarded; live model unchanged."
+                )
+                return False
+
+        # Gate passed (or was not applied) — promote staged model to live.
+        shutil.copy2(staging_model_path, current_model_path)
+        print("✅ Staged model promoted to live")
 
         # Show statistics
         if not feedback_df.empty:

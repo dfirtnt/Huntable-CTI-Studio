@@ -5,271 +5,341 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Huntable CTI Studio</title>
     <style>
+        :root {
+            --panel-bg-0: #0a0e1a;
+            --panel-bg-1: #0f1423;
+            --panel-bg-2: #12182a;
+            --panel-bg-3: #141c30;
+            --panel-bg-5: #1a2238;
+            --panel-bg-6: #1e2841;
+            --purple-primary: #8b5cf6;
+            --purple-hover: #7c3aed;
+            --purple-light: #a78bfa;
+            --purple-pale: #c4b5fd;
+            --purple-border-20: rgba(139, 92, 246, 0.2);
+            --purple-border-40: rgba(139, 92, 246, 0.4);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-muted: #374151;
+            --border-subtle: #4b5563;
+            --action-execute: #10b981;
+            --action-execute-dark: #059669;
+            --action-danger: #dc2626;
+            --action-info: #3b82f6;
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            width: 350px;
+            width: 360px;
             min-height: 200px;
             margin: 0;
             padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--panel-bg-0);
+            color: var(--text-primary);
+            font-size: 13px;
         }
 
+        /* ── Header ── */
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 16px;
-            text-align: center;
+            background: var(--panel-bg-1);
+            border-bottom: 1px solid var(--purple-border-20);
+            padding: 13px 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
         }
-
-        .header h1 {
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--purple-primary), var(--purple-light), transparent);
+        }
+        .header-icon {
+            flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+        }
+        .header-text h1 {
             margin: 0;
-            font-size: 18px;
-            font-weight: 600;
-        }
-
-        .header p {
-            margin: 4px 0 0 0;
-            font-size: 12px;
-            opacity: 0.9;
-        }
-
-        .content {
-            padding: 16px;
-        }
-
-        .article-info {
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
-            border: 1px solid #e5e7eb;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .article-title {
             font-size: 14px;
             font-weight: 600;
-            color: #1a202c;
-            margin-bottom: 8px;
+            color: var(--text-primary);
+            letter-spacing: 0.01em;
+        }
+        .header-text p {
+            margin: 2px 0 0 0;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ── Content area ── */
+        .content {
+            padding: 12px 14px;
+        }
+
+        /* ── Article card ── */
+        .article-info {
+            background: var(--panel-bg-2);
+            border-radius: 6px;
+            padding: 11px 12px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border-muted);
+        }
+        .article-title {
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 6px;
             line-height: 1.4;
-            max-height: 60px;
+            max-height: 58px;
             overflow: hidden;
             display: -webkit-box;
             -webkit-line-clamp: 3;
             -webkit-box-orient: vertical;
         }
-
         .article-url {
-            font-size: 12px;
-            color: #4a5568;
+            font-size: 11px;
+            color: var(--text-muted);
             word-break: break-all;
-            margin-bottom: 8px;
+            margin-bottom: 7px;
         }
-
         .article-meta {
             font-size: 11px;
-            color: #718096;
+            color: var(--text-muted);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-
         .word-count {
-            background: #edf2f7;
-            padding: 2px 6px;
+            background: var(--panel-bg-5);
+            color: var(--purple-light);
+            padding: 2px 7px;
             border-radius: 4px;
             font-weight: 500;
+            font-size: 10px;
+            border: 1px solid var(--purple-border-20);
         }
 
+        /* ── Buttons ── */
         .controls {
             display: flex;
-            gap: 8px;
-            margin-bottom: 12px;
+            gap: 7px;
+            margin-bottom: 10px;
         }
-
         .btn {
             flex: 1;
-            padding: 10px 16px;
+            padding: 9px 12px;
             border: none;
-            border-radius: 6px;
-            font-size: 13px;
+            border-radius: 5px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: background 0.15s, transform 0.1s;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 6px;
         }
-
         .btn-primary {
-            background: #667eea;
-            color: white;
+            background: var(--purple-primary);
+            color: #fff;
+            border: 1px solid var(--purple-border-40);
         }
-
         .btn-primary:hover {
-            background: #5a67d8;
+            background: var(--purple-hover);
             transform: translateY(-1px);
         }
-
         .btn-primary:disabled {
-            background: #a0aec0;
+            background: var(--panel-bg-5);
+            color: var(--text-muted);
+            border-color: var(--border-muted);
             cursor: not-allowed;
             transform: none;
         }
-
         .btn-secondary {
-            background: #e5e7eb;
-            color: #4a5568;
+            background: var(--panel-bg-3);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-muted);
         }
-
         .btn-secondary:hover {
-            background: #cbd5e1;
+            background: var(--panel-bg-5);
+            border-color: var(--border-subtle);
+        }
+        .btn-small {
+            padding: 4px 8px;
+            font-size: 10px;
+            flex: none;
         }
 
+        /* ── Status ── */
         .status {
-            padding: 8px 12px;
-            border-radius: 6px;
+            padding: 8px 11px;
+            border-radius: 5px;
             font-size: 12px;
             font-weight: 500;
             text-align: center;
             margin-bottom: 8px;
         }
-
         .status.success {
-            background: #c6f6d5;
-            color: #22543d;
-            border: 1px solid #9ae6b4;
+            background: rgba(16, 185, 129, 0.12);
+            color: #6ee7b7;
+            border: 1px solid rgba(16, 185, 129, 0.3);
         }
-
         .status.error {
-            background: #fed7d7;
-            color: #742a2a;
-            border: 1px solid #feb2b2;
+            background: rgba(220, 38, 38, 0.12);
+            color: #fca5a5;
+            border: 1px solid rgba(220, 38, 38, 0.3);
         }
-
         .status.loading {
-            background: #bee3f8;
-            color: #2a4365;
-            border: 1px solid #90cdf4;
+            background: rgba(139, 92, 246, 0.1);
+            color: var(--purple-light);
+            border: 1px solid var(--purple-border-20);
         }
 
+        /* ── Config panels ── */
         .config {
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            border: 1px solid #e5e7eb;
-            margin-top: 12px;
+            background: var(--panel-bg-2);
+            border-radius: 6px;
+            padding: 11px 12px;
+            border: 1px solid var(--border-muted);
+            margin-top: 10px;
         }
-
         .config h3 {
-            margin: 0 0 8px 0;
-            font-size: 13px;
+            margin: 0 0 9px 0;
+            font-size: 11px;
             font-weight: 600;
-            color: #2d3748;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
         }
-
-        .config input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #e5e7eb;
-            border-radius: 4px;
-            font-size: 12px;
-            margin-bottom: 8px;
-        }
-
         .config label {
             font-size: 11px;
-            color: #718096;
+            color: var(--text-muted);
             font-weight: 500;
             display: block;
             margin-bottom: 4px;
         }
-
-        .hidden {
-            display: none;
+        .config input[type="text"],
+        .config select {
+            width: 100%;
+            padding: 7px 9px;
+            background: var(--panel-bg-1);
+            border: 1px solid var(--border-muted);
+            border-radius: 4px;
+            font-size: 12px;
+            color: var(--text-primary);
+            margin-bottom: 9px;
+            outline: none;
+            transition: border-color 0.15s;
         }
+        .config input[type="text"]:focus,
+        .config select:focus {
+            border-color: var(--purple-primary);
+        }
+        .config input[type="checkbox"] {
+            accent-color: var(--purple-primary);
+        }
+        .config select option {
+            background: var(--panel-bg-1);
+            color: var(--text-primary);
+        }
+
+        /* ── Image list ── */
+        .image-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 8px;
+            background: var(--panel-bg-3);
+            border-radius: 4px;
+            margin-bottom: 4px;
+            border: 1px solid var(--border-muted);
+        }
+        .image-item img {
+            width: 36px;
+            height: 36px;
+            object-fit: cover;
+            border-radius: 3px;
+            border: 1px solid var(--border-muted);
+        }
+        .image-item-info { flex: 1; min-width: 0; }
+        .image-item-name {
+            font-size: 11px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .image-item-status { font-size: 10px; color: var(--text-muted); }
+        .image-item-actions { display: flex; gap: 4px; }
+
+        /* ── Misc ── */
+        .hidden { display: none; }
 
         .spinner {
-            width: 16px;
-            height: 16px;
-            border: 2px solid #ffffff;
-            border-top: 2px solid transparent;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top: 2px solid #fff;
             border-radius: 50%;
-            animation: spin 1s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
-
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
-        .icon {
-            width: 16px;
-            height: 16px;
-        }
+        .icon { width: 14px; height: 14px; }
 
-        .image-item {
+        #image-list {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 8px;
+        }
+        #image-list::-webkit-scrollbar { width: 4px; }
+        #image-list::-webkit-scrollbar-track { background: var(--panel-bg-1); }
+        #image-list::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
+
+        #ocr-section { margin-top: 0; }
+
+        label.inline-check {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px;
-            background: #f7fafc;
-            border-radius: 4px;
-            margin-bottom: 4px;
-            border: 1px solid #e5e7eb;
-        }
-
-        .image-item img {
-            width: 40px;
-            height: 40px;
-            object-fit: cover;
-            border-radius: 4px;
-        }
-
-        .image-item-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .image-item-name {
+            margin-top: 8px;
             font-size: 11px;
-            color: #4a5568;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .image-item-status {
-            font-size: 10px;
-            color: #718096;
-        }
-
-        .image-item-actions {
-            display: flex;
-            gap: 4px;
-        }
-
-        .btn-small {
-            padding: 4px 8px;
-            font-size: 10px;
-            min-width: auto;
-        }
-
-        #ocr-section {
-            margin-top: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
     <div class="header">
-        <h1>🛡️ Huntable CTI Studio</h1>
-        <p>Send article for threat intelligence analysis</p>
+        <!-- Inline H-shield icon matching huntable-icon.svg palette -->
+        <svg class="header-icon" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="16" cy="16" r="15" fill="#1a1a2e"/>
+            <path d="M16 4 L26 8 L26 16 Q26 24 16 28 Q6 24 6 16 L6 8 Z"
+                  fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.85"/>
+            <rect x="10" y="10" width="2.5" height="12" fill="#a78bfa" rx="0.5"/>
+            <rect x="19.5" y="10" width="2.5" height="12" fill="#a78bfa" rx="0.5"/>
+            <rect x="10" y="15.2" width="12" height="2" fill="#c4b5fd" rx="0.5"/>
+            <circle cx="16" cy="16.2" r="1.8" fill="#8b5cf6" opacity="0.9"/>
+            <circle cx="16" cy="16.2" r="0.9" fill="#c4b5fd"/>
+        </svg>
+        <div class="header-text">
+            <h1>Huntable CTI Studio</h1>
+            <p>Threat intelligence analysis</p>
+        </div>
     </div>
 
     <div class="content">
         <div id="status" class="status hidden"></div>
-        
+
         <div class="article-info">
             <div id="article-title" class="article-title">Loading article...</div>
             <div id="article-url" class="article-url"></div>
@@ -281,14 +351,17 @@
 
         <div class="controls">
             <button id="scrape-btn" class="btn btn-primary">
-                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
                 </svg>
-                Send to Huntable CTI Studio
+                Send to Huntable
             </button>
             <button id="refresh-btn" class="btn btn-secondary">
-                <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
                 </svg>
                 Refresh
             </button>
@@ -296,44 +369,47 @@
 
         <div class="config">
             <h3>Configuration</h3>
-            <label for="api-url">Huntable CTI Studio API URL:</label>
+            <label for="api-url">API URL</label>
             <input type="text" id="api-url" placeholder="http://127.0.0.1:8001" value="http://127.0.0.1:8001">
-            
-            <label for="force-scrape">Force scrape (ignore duplicates):</label>
-            <input type="checkbox" id="force-scrape">
+            <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-secondary);cursor:pointer;">
+                <input type="checkbox" id="force-scrape">
+                Force scrape (ignore duplicates)
+            </label>
         </div>
 
         <div class="config" id="ocr-section">
             <h3>Image Text Extraction</h3>
 
-            <label for="extraction-mode">Mode:</label>
-            <select id="extraction-mode" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 12px; margin-bottom: 8px;">
+            <label for="extraction-mode">Mode</label>
+            <select id="extraction-mode">
                 <option value="ocr">OCR (local, free)</option>
                 <option value="vision">Vision LLM (uses app settings key)</option>
                 <option value="hybrid">Hybrid (Vision LLM + OCR fallback)</option>
             </select>
 
             <div id="vision-config" class="hidden">
-                <label for="vision-provider">Provider:</label>
-                <select id="vision-provider" style="width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; font-size: 12px; margin-bottom: 8px;">
+                <label for="vision-provider">Provider</label>
+                <select id="vision-provider">
                     <option value="openai">OpenAI (GPT-4o Vision)</option>
                     <option value="anthropic">Anthropic (Claude Vision)</option>
                 </select>
             </div>
 
-            <div style="margin-bottom: 8px;">
-                <button id="extract-images-btn" class="btn btn-secondary" style="width: 100%; margin-bottom: 8px;">
-                    <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                    </svg>
-                    Extract Images from Page
-                </button>
-            </div>
-            <div id="image-list" style="max-height: 150px; overflow-y: auto; margin-bottom: 8px;"></div>
+            <button id="extract-images-btn" class="btn btn-secondary" style="width:100%;margin-bottom:8px;">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                Extract Images from Page
+            </button>
+
+            <div id="image-list"></div>
             <div id="ocr-status" class="status hidden"></div>
-            <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+
+            <label class="inline-check">
                 <input type="checkbox" id="enable-ocr" checked>
-                <span>Include extracted text in article content</span>
+                Include extracted text in article content
             </label>
         </div>
     </div>

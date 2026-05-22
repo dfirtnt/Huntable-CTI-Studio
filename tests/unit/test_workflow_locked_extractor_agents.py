@@ -46,9 +46,7 @@ class TestLockedExtractorAgents:
         which parse_sigma_agent_prompt_data then had to special-case.
         """
         names = _names_in_block(LOCKED_EXTRACTOR_BLOCK)
-        assert "SigmaAgent" not in names, (
-            f"SigmaAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
-        )
+        assert "SigmaAgent" not in names, f"SigmaAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
 
     def test_actual_extraction_agents_remain(self):
         """The genuine extraction agents -- which DO use task/json_example -- must stay listed."""
@@ -74,9 +72,7 @@ class TestLockedExtractorAgents:
         envelope and silently drop the user's persona.
         """
         names = _names_in_block(LOCKED_EXTRACTOR_BLOCK)
-        assert "RankAgent" not in names, (
-            f"RankAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
-        )
+        assert "RankAgent" not in names, f"RankAgent must not be in LOCKED_EXTRACTOR_AGENTS. Found: {sorted(names)}"
 
 
 # ---------------------------------------------------------------------------
@@ -93,7 +89,7 @@ class TestLockedExtractorAgents:
 # ---------------------------------------------------------------------------
 
 # The rendering array starts immediately after the subresults guard block.
-_RENDER_SECTION = TEMPLATE[TEMPLATE.find("if (exec.extraction_result?.subresults)"):]
+_RENDER_SECTION = TEMPLATE[TEMPLATE.find("if (exec.extraction_result?.subresults)") :]
 _RENDER_ARRAY_MATCH = re.search(
     r"const subAgents\s*=\s*\[(\s*\{.+?)\s*\]\s*;",
     _RENDER_SECTION,
@@ -124,8 +120,7 @@ class TestSubAgentsRenderingArray:
     def test_exactly_six_entries(self):
         count = len(re.findall(r"\{\s*key:", _RENDER_ARRAY_BLOCK))
         assert count == 6, (
-            f"Expected 6 sub-agent rendering entries, found {count}. "
-            "Update this count when adding a new extractor."
+            f"Expected 6 sub-agent rendering entries, found {count}. Update this count when adding a new extractor."
         )
 
     @pytest.mark.parametrize("key,agent_name", _EXPECTED_RENDER_ENTRIES)
@@ -136,12 +131,68 @@ class TestSubAgentsRenderingArray:
             f"The {agent_name} card will not render in the execution detail modal."
         )
         assert f"name: '{agent_name}'" in _RENDER_ARRAY_BLOCK, (
-            f"Rendering array is missing agent name '{agent_name}'. "
-            f"The card for key '{key}' will not render correctly."
+            f"Rendering array is missing agent name '{agent_name}'. The card for key '{key}' will not render correctly."
         )
 
     def test_scheduled_tasks_is_last(self):
         """ScheduledTasksExtract must be order 6 (last) -- it was added after the other five."""
-        assert "order: 6" in _RENDER_ARRAY_BLOCK, (
-            "ScheduledTasksExtract must have order: 6 in the rendering array."
+        assert "order: 6" in _RENDER_ARRAY_BLOCK, "ScheduledTasksExtract must have order: 6 in the rendering array."
+
+
+# ---------------------------------------------------------------------------
+# LOCKED_CANONICAL_AGENTS: SigmaAgent and RankAgent
+# ---------------------------------------------------------------------------
+# These agents use the {system, user} canonical save format (not the extractor
+# JSON envelope). Their user-template slot holds the generation prompt that
+# gets filled with article data at runtime. renderSinglePrompt shows this
+# template in the amber "locked scaffold" section so users can see the loaded
+# prompt after importing a quickstart preset.
+# ---------------------------------------------------------------------------
+
+_CANONICAL_MATCH = re.search(
+    r"const LOCKED_CANONICAL_AGENTS\s*=\s*\[(.+?)\]\s*;",
+    TEMPLATE,
+    re.DOTALL,
+)
+LOCKED_CANONICAL_BLOCK = _CANONICAL_MATCH.group(1) if _CANONICAL_MATCH else ""
+
+# Extract renderSinglePrompt body (up to, not including, renderQAPrompt).
+_RENDER_SINGLE_MATCH = re.search(
+    r"function renderSinglePrompt\(.+?(?=function renderQAPrompt)",
+    TEMPLATE,
+    re.DOTALL,
+)
+RENDER_SINGLE_BODY = _RENDER_SINGLE_MATCH.group(0) if _RENDER_SINGLE_MATCH else ""
+
+
+class TestLockedCanonicalAgents:
+    """Guards the LOCKED_CANONICAL_AGENTS list in workflow.html.
+
+    SigmaAgent and RankAgent use the {system, user} canonical save format.
+    Their quickstart presets store the full behavioral specification in the
+    system field and a minimal data template (Threat Intel Input + observables)
+    in the user field.  The user template is intentionally not displayed in the
+    UI -- it is purely data wiring filled at runtime.
+    """
+
+    def test_locked_canonical_agents_list_present(self):
+        """LOCKED_CANONICAL_AGENTS array literal must exist in workflow.html."""
+        assert _CANONICAL_MATCH, "LOCKED_CANONICAL_AGENTS array literal not found in workflow.html"
+
+    def test_locked_canonical_agents_contains_sigma_and_rank(self):
+        """Both SigmaAgent and RankAgent must be in LOCKED_CANONICAL_AGENTS."""
+        names = _names_in_block(LOCKED_CANONICAL_BLOCK)
+        assert "SigmaAgent" in names, "SigmaAgent missing from LOCKED_CANONICAL_AGENTS"
+        assert "RankAgent" in names, "RankAgent missing from LOCKED_CANONICAL_AGENTS"
+
+    def test_locked_canonical_agents_has_exactly_two_entries(self):
+        """Exactly SigmaAgent and RankAgent — no accidental additions."""
+        names = _names_in_block(LOCKED_CANONICAL_BLOCK)
+        assert len(names) == 2, (
+            f"Expected exactly 2 LOCKED_CANONICAL_AGENTS, got {len(names)}: {sorted(names)}. "
+            "Update this test when intentionally adding a new canonical agent."
         )
+
+    def test_render_single_prompt_function_found(self):
+        """renderSinglePrompt function must be locatable in workflow.html."""
+        assert _RENDER_SINGLE_MATCH, "renderSinglePrompt function not found in workflow.html"

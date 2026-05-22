@@ -86,6 +86,7 @@ class _UrlAwarePage:
                 and current.scheme == target.scheme
                 and current.netloc == target.netloc
                 and current.path == target.path
+                and current.query == target.query
             ):
                 return None
         except Exception:

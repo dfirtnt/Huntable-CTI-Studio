@@ -14,6 +14,29 @@ from src.web.dependencies import logger
 router = APIRouter(prefix="/api/ml-model-performance", tags=["ML Model Performance"])
 
 
+def _count_csv_data_rows(csv_path: str) -> int | None:
+    """Count data rows (excluding header) in a CSV file.
+
+    Uses csv.reader so embedded newlines inside quoted fields don't over-count.
+    Returns None on any I/O error so callers can render gracefully.
+
+    Extracted from get_comparison_summary() so the row-counting logic can be
+    tested independently. The previous wc -l-style implementation over-counted
+    chunks because eval chunks are ~1000 chars and frequently contain literal
+    \\n characters inside the quoted chunk_text column.
+    """
+    import csv
+
+    try:
+        with open(csv_path, encoding="utf-8") as f:
+            reader = csv.reader(f)
+            next(reader, None)  # skip header
+            return sum(1 for _ in reader)
+    except (OSError, csv.Error) as exc:  # noqa: BLE001
+        logger.warning("Could not read CSV row count for %s: %s", csv_path, exc)
+        return None
+
+
 @router.get("/stats")
 def get_model_comparison_stats(model_version: str | None = None):
     """Get comparison statistics for model versions."""
@@ -358,12 +381,22 @@ def get_comparison_summary():
         finally:
             sync_db.close()
 
+        # Eval-set size for chart labels (read once per request — small CSV, cheap).
+        eval_set_path = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+            "outputs",
+            "evaluation_data",
+            "eval_set.csv",
+        )
+        eval_set_size = _count_csv_data_rows(eval_set_path) if os.path.exists(eval_set_path) else None
+
         summary = {
             "total_model_versions": total_model_versions,
             "total_chunk_analyses": total_results,
             "model_versions": model_versions,
             "overall_stats": all_stats,
             "last_updated": recent_results[0]["created_at"] if recent_results else None,
+            "eval_set_size": eval_set_size,
         }
 
         return {"success": True, "summary": summary}
