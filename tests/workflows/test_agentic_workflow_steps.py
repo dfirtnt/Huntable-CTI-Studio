@@ -91,8 +91,6 @@ def config_obj():
             "prompt": "Generate SIGMA rules for: {title}\n{content}",
         },
     }
-    cfg.qa_enabled = {}
-    cfg.qa_max_retries = 5
     cfg.sigma_fallback_enabled = True
     return cfg
 
@@ -337,8 +335,6 @@ class TestRankArticleNode:
         config_obj.agent_prompts = {
             "RankAgent": {"system": "Custom detection engineer persona for testing"},
         }
-        config_obj.qa_enabled = {"RankAgent": False}
-        config_obj.qa_max_retries = 1
         execution.error_log = None
 
         db_session = _make_db_session(article, execution)
@@ -370,8 +366,6 @@ class TestRankArticleNode:
         evaluates against what the LLM actually received.
         """
         config_obj.agent_prompts = {}
-        config_obj.qa_enabled = {"RankAgent": False}
-        config_obj.qa_max_retries = 1
         execution.error_log = None
 
         db_session = _make_db_session(article, execution)

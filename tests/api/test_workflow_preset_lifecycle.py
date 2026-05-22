@@ -71,7 +71,6 @@ class TestPresetLifecycle:
                     "junk_filter_threshold": current_config["junk_filter_threshold"],
                 },
                 "agent_models": current_config.get("agent_models", {}),
-                "qa_enabled": current_config.get("qa_enabled", {}),
             },
         }
 
@@ -128,8 +127,6 @@ class TestPresetLifecycle:
                 "junk_filter_threshold": current_config["junk_filter_threshold"],
             },
             "agent_models": current_config.get("agent_models", {}),
-            "qa_enabled": current_config.get("qa_enabled", {}),
-            "qa_max_retries": current_config.get("qa_max_retries", 5),
             "sigma_fallback_enabled": current_config.get("sigma_fallback_enabled", False),
             "osdetection_fallback_enabled": current_config.get("osdetection_fallback_enabled", False),
             "rank_agent_enabled": current_config.get("rank_agent_enabled", True),
@@ -211,8 +208,6 @@ class TestPresetLifecycle:
             "osdetection_fallback_enabled": False,
             "rank_agent_enabled": True,
             "cmdline_attention_preprocessor_enabled": True,
-            "qa_max_retries": 3,
-            "qa_enabled": {"RankAgent": False, "SigmaAgent": False},
             "agent_models": {"RankAgent_provider": "lmstudio", "RankAgent": "test-model"},
         }
 
@@ -249,7 +244,6 @@ class TestPresetLifecycle:
                 "version": "1.0",
                 "thresholds": {"similarity_threshold": 0.65, "ranking_threshold": 6.8, "junk_filter_threshold": 0.82},
                 "agent_models": {},
-                "qa_enabled": {},
             },
         }
 

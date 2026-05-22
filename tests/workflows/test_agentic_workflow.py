@@ -48,8 +48,6 @@ def mock_config():
             "instructions": "Output JSON",
         }
     }
-    config.qa_enabled = {}
-    config.qa_max_retries = 5
     return config
 
 
@@ -68,7 +66,6 @@ def mock_execution(mock_config):
         "skip_os_detection": True,
         "agent_prompts": mock_config.agent_prompts,
         "agent_models": mock_config.agent_models,
-        "qa_enabled": {},
         "cmdline_attention_preprocessor_enabled": True,
     }
     execution.started_at = None
@@ -246,8 +243,6 @@ async def test_lmstudio_health_gate_aborts_when_unreachable(mock_db_session, moc
         "ExtractAgent": "gemma-3-1b",
     }
     lmstudio_config.agent_prompts = {}
-    lmstudio_config.qa_enabled = {}
-    lmstudio_config.qa_max_retries = 5
     lmstudio_config.rank_agent_enabled = True
     lmstudio_config.cmdline_attention_preprocessor_enabled = True
 
@@ -257,7 +252,6 @@ async def test_lmstudio_health_gate_aborts_when_unreachable(mock_db_session, moc
         "skip_os_detection": True,
         "agent_models": lmstudio_config.agent_models,
         "agent_prompts": {},
-        "qa_enabled": {},
         "cmdline_attention_preprocessor_enabled": True,
     }
 

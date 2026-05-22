@@ -279,7 +279,6 @@ class TestWorkflowPresets:
                     "junk_filter_threshold": current_config["junk_filter_threshold"],
                 },
                 "agent_models": current_config.get("agent_models", {}),
-                "qa_enabled": current_config.get("qa_enabled", {}),
             },
         }
 

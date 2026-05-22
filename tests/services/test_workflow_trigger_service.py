@@ -52,7 +52,6 @@ class TestWorkflowTriggerService:
         config.junk_filter_threshold = 0.8
         config.auto_trigger_hunt_score_threshold = 60.0
         config.agent_models = {}
-        config.qa_enabled = {}
         config.rank_agent_enabled = True
         return config
 
@@ -357,7 +356,6 @@ class TestIdempotencyCheck:
         c.similarity_threshold = 0.5
         c.junk_filter_threshold = 0.8
         c.agent_models = {}
-        c.qa_enabled = {}
         c.rank_agent_enabled = True
         return c
 
@@ -466,7 +464,6 @@ class TestIdempotencyConfigIdCheck:
         c.junk_filter_threshold = 0.8
         c.auto_trigger_hunt_score_threshold = 100.0  # article score (200) clears this
         c.agent_models = {}
-        c.qa_enabled = {}
         c.rank_agent_enabled = True
         return c
 

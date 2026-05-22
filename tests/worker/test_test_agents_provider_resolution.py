@@ -20,8 +20,6 @@ def _make_config(agent_models: dict, agent_prompts: dict | None = None):
     return SimpleNamespace(
         agent_models=agent_models,
         agent_prompts=agent_prompts or {"RegistryExtract": {"prompt": "", "instructions": ""}},
-        qa_enabled={},
-        qa_max_retries=5,
     )
 
 

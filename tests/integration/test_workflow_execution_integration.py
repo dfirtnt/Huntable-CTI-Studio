@@ -48,7 +48,6 @@ def test_workflow_execution_with_real_db_mocked_llm():
                 version=1,
                 is_active=True,
                 description="Test default",
-                qa_enabled={},
                 agent_prompts={},
             )
             session.add(config)
@@ -95,7 +94,6 @@ def test_workflow_execution_with_real_db_mocked_llm():
             "junk_filter_threshold": 0.8,
             "agent_models": {},
             "agent_prompts": config.agent_prompts if config.agent_prompts else {},
-            "qa_enabled": {},
             "rank_agent_enabled": False,
             "cmdline_attention_preprocessor_enabled": True,
             "config_id": config.id,

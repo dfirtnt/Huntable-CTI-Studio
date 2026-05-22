@@ -276,10 +276,15 @@ def _ensure_workflow_config_columns() -> None:
 
         engine = create_engine(db_url)
         with engine.connect() as conn:
+            # QA deprecation (2026-05-22): drop columns removed from the ORM
+            for drop_col in ("qa_enabled", "qa_max_retries"):
+                conn.execute(
+                    text(f"ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS {drop_col}")
+                )
+            conn.commit()
             for column_name, sql_type in (
                 ("osdetection_fallback_enabled", "BOOLEAN NOT NULL DEFAULT FALSE"),
                 ("rank_agent_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
-                ("qa_max_retries", "INTEGER NOT NULL DEFAULT 5"),
                 ("cmdline_attention_preprocessor_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
                 ("proc_tree_attention_preprocessor_enabled", "BOOLEAN NOT NULL DEFAULT TRUE"),
             ):

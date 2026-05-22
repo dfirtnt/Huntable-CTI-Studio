@@ -23,8 +23,6 @@ def _make_config(agent_prompts: dict, agent_models: dict | None = None):
     return SimpleNamespace(
         agent_models=agent_models or {"SigmaAgent_provider": "lmstudio", "SigmaAgent": "qwen/qwen3-8b"},
         agent_prompts=agent_prompts,
-        qa_enabled={},
-        qa_max_retries=5,
     )
 
 

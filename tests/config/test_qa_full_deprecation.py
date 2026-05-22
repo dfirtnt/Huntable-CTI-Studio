@@ -9,6 +9,7 @@ Covers:
   - Migrate: normalized config validates cleanly as WorkflowConfigV2
   - Workflow: sub_agents list is 2-tuples (name, subresult_key)
   - Default prompts: QA agents absent from AGENT_PROMPT_FILES
+  - UI: workflow.html sub-agent panel has no QA result rendering
 """
 
 from __future__ import annotations
@@ -254,3 +255,59 @@ class TestSubAgentsTupleArity:
         assert not re.search(three_tuple_pattern, source), (
             "Found 3-element sub_agents tuple for CmdlineExtract -- QA qa_name should be removed."
         )
+
+
+# ---------------------------------------------------------------------------
+# UI template: workflow.html sub-agent panel QA rendering removed
+# ---------------------------------------------------------------------------
+
+
+class TestWorkflowHtmlNoQARendering:
+    """Regression: the sub-agent detail panel in workflow.html must not
+    render QA results.
+
+    The panel previously read ``exec.error_log.qa_results``, attached a
+    ``qaName`` to every subAgent array entry, and built a ``qaHtml`` block
+    showing verdict / feedback / issues. All of it is dead since the backend
+    no longer writes ``qa_results`` -- removed 2026-05-22. These checks fail
+    if the QA rendering is reintroduced.
+    """
+
+    @staticmethod
+    def _workflow_html() -> str:
+        import pathlib
+
+        return pathlib.Path("src/web/templates/workflow.html").read_text()
+
+    def test_no_qa_results_error_log_access(self):
+        """workflow.html no longer reads error_log.qa_results."""
+        html = self._workflow_html()
+        assert "qa_results" not in html, "workflow.html still references error_log.qa_results"
+
+    def test_no_qa_rendering_js_variables(self):
+        """No qaHtml / qaResults / qaVerdict / qaFeedback / qaIssues JS vars remain."""
+        html = self._workflow_html()
+        for symbol in ("qaHtml", "qaResults", "qaVerdict", "qaFeedback", "qaIssues"):
+            assert symbol not in html, f"workflow.html still references dead QA symbol: {symbol}"
+
+    def test_no_qa_name_on_sub_agents_array(self):
+        """The subAgents array entries no longer carry a qaName property."""
+        html = self._workflow_html()
+        assert "qaName" not in html, "workflow.html subAgents array still has a qaName property"
+
+    def test_sub_agent_panel_still_intact(self):
+        """Positive check: the sub-agent extraction panel itself survives.
+
+        Guards against an over-eager deletion removing the whole panel along
+        with the QA code.
+        """
+        html = self._workflow_html()
+        for agent in (
+            "CmdlineExtract",
+            "ProcTreeExtract",
+            "HuntQueriesExtract",
+            "RegistryExtract",
+            "ServicesExtract",
+            "ScheduledTasksExtract",
+        ):
+            assert agent in html, f"subAgents array is missing {agent} -- panel may have been over-trimmed"

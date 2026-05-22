@@ -98,8 +98,6 @@ def _make_mock_config(junk_filter_threshold: float = 0.5) -> Mock:
     # Enable fallback so generate_sigma_node uses filtered_content and does not
     # return early due to empty extraction result.
     config.sigma_fallback_enabled = True
-    config.qa_enabled = {}
-    config.qa_max_retries = 5
     config.rank_agent_enabled = True
     config.cmdline_attention_preprocessor_enabled = True
     config.agent_models = {}
@@ -125,7 +123,6 @@ def _make_mock_execution(config: Mock) -> Mock:
         "skip_os_detection": True,
         "agent_prompts": {},
         "agent_models": {},
-        "qa_enabled": {},
         "cmdline_attention_preprocessor_enabled": True,
         # eval_run omitted so sigma node is NOT skipped
     }
@@ -245,7 +242,6 @@ async def test_generate_sigma_rules_receives_default_when_config_is_none():
         "skip_os_detection": True,
         "agent_prompts": {},
         "agent_models": {},
-        "qa_enabled": {},
         "cmdline_attention_preprocessor_enabled": True,
     }
 
@@ -345,7 +341,6 @@ def test_generate_sigma_rules_default_when_attribute_missing_pure_logic():
         """Config-like object that deliberately omits junk_filter_threshold."""
 
         sigma_fallback_enabled = True
-        qa_enabled = {}
         agent_models = {}
         agent_prompts = {}
 

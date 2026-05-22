@@ -44,7 +44,6 @@ class WorkflowTriggerService:
                     version=1,
                     is_active=True,
                     description="Default configuration",
-                    qa_enabled={},
                     agent_prompts=default_prompts if default_prompts else None,
                 )
                 self.db.add(config)
@@ -213,7 +212,6 @@ class WorkflowTriggerService:
                     "similarity_threshold": config.similarity_threshold,
                     "junk_filter_threshold": config.junk_filter_threshold,
                     "agent_models": config.agent_models,
-                    "qa_enabled": config.qa_enabled if config and config.qa_enabled is not None else {},
                     "rank_agent_enabled": config.rank_agent_enabled
                     if config and hasattr(config, "rank_agent_enabled")
                     else True,

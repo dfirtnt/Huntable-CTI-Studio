@@ -69,7 +69,6 @@ def test_trigger_agentic_workflow_eager_touches_db():
                 version=1,
                 is_active=True,
                 description="Test",
-                qa_enabled={},
                 agent_prompts={},
             )
             session.add(config)
