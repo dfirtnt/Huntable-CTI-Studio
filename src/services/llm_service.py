@@ -1690,7 +1690,6 @@ class LLMService:
         system_override: str | None = None,
         execution_id: int | None = None,
         article_id: int | None = None,
-        qa_feedback: str | None = None,
         ground_truth_rank: float | None = None,
         ground_truth_details: dict[str, float | None] | None = None,
     ) -> dict[str, Any]:
@@ -1855,10 +1854,6 @@ class LLMService:
 
         # Format prompt with truncated content
         prompt_text = prompt_template_str.format(title=title, source=source, url=url, content=truncated_content)
-
-        # Add QA feedback if provided
-        if qa_feedback:
-            prompt_text = f"{qa_feedback}\n\n{prompt_text}"
 
         # Final verification: estimate total prompt tokens
         total_prompt_tokens = self._estimate_tokens(prompt_text) + system_message_tokens + message_formatting_overhead

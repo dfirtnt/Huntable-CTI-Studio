@@ -94,7 +94,7 @@ def minimal_active_config(db_session):
         description="Minimal LMStudio Gemma 3 1B E2E test",
         agent_models=legacy["agent_models"],
         agent_prompts=legacy["agent_prompts"],
-        qa_enabled=legacy["qa_enabled"],
+        qa_enabled=legacy.get("qa_enabled", {}),
         sigma_fallback_enabled=legacy.get("sigma_fallback_enabled", False),
         qa_max_retries=legacy.get("qa_max_retries", 1),
         rank_agent_enabled=legacy.get("rank_agent_enabled", False),

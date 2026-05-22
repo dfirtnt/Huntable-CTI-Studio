@@ -6,8 +6,10 @@ ExtractAgent is the model/provider fallback key for sub-agents (CmdlineExtract, 
 which each carry their own prompt. ExtractAgent does not have a prompt of its own.
 
 Strict export: Prompts may only contain canonical prompt-bearing agent names (no ExtractAgentSettings).
-QA.Enabled keys must match Agents keys. Features only SigmaFallbackEnabled and CmdlineAttentionPreprocessorEnabled;
+Features only SigmaFallbackEnabled and CmdlineAttentionPreprocessorEnabled;
 agent execution is controlled by Agents.<name>.Enabled (legacy rank/os flags emitted by to_legacy_response_dict).
+
+QA Agents are fully deprecated (removed 2026-05-22). RankAgentQA and all extractor QA agents are gone.
 """
 
 from __future__ import annotations
@@ -47,15 +49,6 @@ class EmbeddingsConfig(BaseModel):
 
     OsDetection: str = "ibm-research/CTI-BERT"
     Sigma: str = "ibm-research/CTI-BERT"
-
-
-class QAConfig(BaseModel):
-    """QA toggles and max retries."""
-
-    model_config = {"extra": "forbid"}
-
-    Enabled: dict[str, bool] = Field(default_factory=dict)
-    MaxRetries: int = 1
 
 
 class FeatureFlags(BaseModel):
@@ -117,9 +110,7 @@ AGENT_NAMES_SUB = [
     "ServicesExtract",
     "ScheduledTasksExtract",
 ]
-AGENT_NAMES_QA = [
-    "RankAgentQA",
-]
+AGENT_NAMES_QA: list[str] = []
 AGENT_NAMES_SPECIAL: list[str] = []
 ALL_AGENT_NAMES = AGENT_NAMES_MAIN + AGENT_NAMES_SUB + AGENT_NAMES_QA + AGENT_NAMES_SPECIAL
 
@@ -130,7 +121,6 @@ CANONICAL_PROMPT_AGENT_NAMES = frozenset(ALL_AGENT_NAMES)
 AGENT_DISPLAY_NAMES: dict[str, str] = {
     "RankAgent": "Rank Agent",
     "ExtractAgent": "Extract Agent",
-    "QAAgent": "QA Agent (legacy)",
     "SigmaAgent": "SIGMA Agent",
     "OSDetectionAgent": "OS Detection",
     "CmdlineExtract": "Command Line Extraction",
@@ -139,14 +129,11 @@ AGENT_DISPLAY_NAMES: dict[str, str] = {
     "RegistryExtract": "Registry Artifacts Extraction",
     "ServicesExtract": "Windows Services Extraction",
     "ScheduledTasksExtract": "Scheduled Tasks Extraction",
-    "RankAgentQA": "Rank Agent QA",
 }
 
-# LLM agent symmetry: base agents that require a QA agent (explicit mapping matches codebase naming).
-BASE_AGENT_TO_QA: dict[str, str] = {
-    "RankAgent": "RankAgentQA",
-}
-QA_AGENT_TO_BASE: dict[str, str] = {qa: base for base, qa in BASE_AGENT_TO_QA.items()}
+# QA agents fully deprecated (2026-05-22). These dicts are intentionally empty.
+BASE_AGENT_TO_QA: dict[str, str] = {}
+QA_AGENT_TO_BASE: dict[str, str] = {}
 
 
 class WorkflowConfigV2(BaseModel):
@@ -162,7 +149,6 @@ class WorkflowConfigV2(BaseModel):
     Thresholds: ThresholdConfig = Field(default_factory=ThresholdConfig)
     Agents: dict[str, AgentConfig] = Field(default_factory=dict)
     Embeddings: EmbeddingsConfig = Field(default_factory=EmbeddingsConfig)
-    QA: QAConfig = Field(default_factory=QAConfig)
     Features: FeatureFlags = Field(default_factory=FeatureFlags)
     Prompts: dict[str, PromptConfig] = Field(default_factory=dict)
     Execution: ExecutionConfig = Field(default_factory=ExecutionConfig)
@@ -186,40 +172,15 @@ class WorkflowConfigV2(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def qa_enabled_keys_in_agents(self) -> WorkflowConfigV2:
-        """Every QA.Enabled key must exist in Agents; no orphan QA keys."""
-        for key in self.QA.Enabled:
-            if key not in self.Agents:
-                raise ValueError(f"QA.Enabled key '{key}' is not in Agents; QA.Enabled must align with Agents keys")
-        return self
-
-    @model_validator(mode="after")
     def llm_agent_symmetry(self) -> WorkflowConfigV2:
-        """Enforce symmetry: (0) enabled agents must have Provider+Model; (1) required QA for enabled
-        base agents; (2) no orphan QA agents; (3) prompt block per LLM agent."""
+        """Enforce symmetry: (0) enabled agents must have Provider+Model; (1) prompt block per LLM agent."""
         agents = self.Agents
         prompts = self.Prompts
         # Part 0: if Enabled == true, Provider and Model must be non-empty (no pseudo-enabled empty-model loophole)
         for name, cfg in agents.items():
             if cfg.Enabled and (not cfg.Provider or not cfg.Model):
                 raise ValueError(f"Agent '{name}' is Enabled but missing Provider or Model.")
-        # Part 1: every enabled base agent (with Provider+Model) in mapping must have its QA agent
-        for name, cfg in agents.items():
-            if name.endswith("QA"):
-                continue
-            if not (cfg.Enabled and cfg.Provider and cfg.Model):
-                continue
-            expected_qa = BASE_AGENT_TO_QA.get(name)
-            if expected_qa is not None and expected_qa not in agents:
-                raise ValueError(f"Missing QA agent for {name}: expected {expected_qa} in Agents")
-        # Part 2: every QA agent must have its base agent
-        for name in agents:
-            if not name.endswith("QA"):
-                continue
-            base = QA_AGENT_TO_BASE.get(name, name[:-2])
-            if base not in agents:
-                raise ValueError(f"Orphan QA agent {name}: base agent {base} must exist in Agents")
-        # Part 3: every agent with Provider+Model must have a prompt block.
+        # Part 1: every agent with Provider+Model must have a prompt block.
         # ExtractAgent is excluded: it is a model/provider fallback key for sub-agents only
         # and must NOT appear in the Prompts block (migrator strips any stale DB entry).
         _PROMPT_FREE = {"ExtractAgent"}
@@ -237,13 +198,10 @@ class WorkflowConfigV2(BaseModel):
         """
         Produce flat key format expected by LLMService and other legacy consumers.
         Keys: RankAgent_provider, RankAgent, RankAgent_temperature, RankAgent_top_p, etc.
-        Main agents use name as model key; sub-agents use name_model; QA use name.
+        Main agents use name as model key; sub-agents use name_model.
         """
         out: dict[str, Any] = {}
         main_model_keys = {"RankAgent", "ExtractAgent", "SigmaAgent"}
-        qa_agents = {
-            "RankAgentQA",
-        }
         sub_agents = {
             "CmdlineExtract",
             "ProcTreeExtract",
@@ -252,23 +210,19 @@ class WorkflowConfigV2(BaseModel):
             "ServicesExtract",
             "ScheduledTasksExtract",
         }
-        legacy_flat_prefix: dict[str, str] = {}
         for agent_name, agent in self.Agents.items():
             if not isinstance(agent, AgentConfig):
                 continue
-            prefix = legacy_flat_prefix.get(agent_name, agent_name)
-            out[f"{prefix}_provider"] = agent.Provider
+            out[f"{agent_name}_provider"] = agent.Provider
             if agent_name in main_model_keys:
                 model_key = agent_name
             elif agent_name in sub_agents:
-                model_key = f"{prefix}_model"
-            elif agent_name in qa_agents:
-                model_key = prefix
+                model_key = f"{agent_name}_model"
             else:
-                model_key = prefix
+                model_key = agent_name
             out[model_key] = agent.Model
-            out[f"{prefix}_temperature"] = agent.Temperature
-            out[f"{prefix}_top_p"] = agent.TopP
+            out[f"{agent_name}_temperature"] = agent.Temperature
+            out[f"{agent_name}_top_p"] = agent.TopP
         out["OSDetectionAgent_embedding"] = self.Embeddings.OsDetection
         out["SigmaEmbeddingModel"] = self.Embeddings.Sigma
         if self.Execution.OsDetectionSelectedOs:
@@ -307,10 +261,8 @@ class WorkflowConfigV2(BaseModel):
             "description": self.Metadata.Description,
             "agent_prompts": agent_prompts_out,
             "agent_models": self.flatten_for_llm_service(),
-            "qa_enabled": self.QA.Enabled,
             "sigma_fallback_enabled": self.Features.SigmaFallbackEnabled,
             "osdetection_fallback_enabled": False,
-            "qa_max_retries": self.QA.MaxRetries,
             "rank_agent_enabled": rank_agent.Enabled if isinstance(rank_agent, AgentConfig) else True,
             "cmdline_attention_preprocessor_enabled": self.Features.CmdlineAttentionPreprocessorEnabled,
             "proc_tree_attention_preprocessor_enabled": self.Features.ProcTreeAttentionPreprocessorEnabled,

@@ -12,7 +12,6 @@ _MINIMAL_AGENT_MODELS = {
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
     "ScheduledTasksExtract_model": "gpt-4",
-    "RankAgentQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
@@ -122,12 +121,10 @@ def test_v2_passthrough():
         },
         "Agents": {
             "RankAgent": {"Provider": "lmstudio", "Model": "x", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "RankAgentQA": {"Provider": "lmstudio", "Model": "x", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
-        "Prompts": {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}},
+        "Prompts": {"RankAgent": {"prompt": "", "instructions": ""}},
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
     }
     result = migrate_v1_to_v2(raw)
@@ -148,4 +145,4 @@ def test_missing_required_sections_get_defaults():
     assert "Agents" in migrated
     assert migrated["Thresholds"]["MinHuntScore"] == 97.0
     config = WorkflowConfigV2.model_validate(migrated)
-    assert len(config.Agents) == 10
+    assert len(config.Agents) == 9

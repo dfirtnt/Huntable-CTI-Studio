@@ -32,7 +32,6 @@ from src.database.models import (
 from src.services.eval_item_scorer import score_items
 from src.services.llm_service import LLMService
 from src.services.lmstudio_model_loader import auto_load_workflow_models
-from src.services.qa_agent_service import QAAgentService
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
@@ -1029,22 +1028,11 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Get config models for LLMService
             config_obj = trigger_service.get_active_config()
-            qa_flags = (
-                config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled
-                else (state.get("config", {}).get("qa_enabled", {}) or {})
-            )
             agent_models = config_obj.agent_models if config_obj else None
             llm_service = LLMService(config_models=agent_models)
             llm_service._current_execution_id = state["execution_id"]
             llm_service._current_article_id = article.id
 
-            # Check if QA is enabled for Rank Agent
-            qa_enabled = qa_flags.get("RankAgent", False)
-
-            # Get QA max retries from config
-            max_qa_retries = config_obj.qa_max_retries if config_obj and hasattr(config_obj, "qa_max_retries") else 5
-            qa_feedback = None
             ranking_result = None
 
             # Get source name
@@ -1077,102 +1065,47 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         f"system_len={len(rank_system_prompt or '')} chars)"
                     )
 
-            # Initialize conversation log for rank_article
-            conversation_log = []
+            # Rank article using LLM
+            ranking_result = await llm_service.rank_article(
+                title=article.title,
+                content=filtered_content,
+                source=source_name,
+                url=article.canonical_url or "",
+                prompt_template=rank_prompt_template,
+                system_override=rank_system_prompt,
+                execution_id=state["execution_id"],
+                article_id=article.id,
+                ground_truth_rank=ground_truth_rank,
+                ground_truth_details=ground_truth_details,
+            )
 
-            # QA retry loop
-            for qa_attempt in range(max_qa_retries):
-                # Rank article using LLM
-                ranking_result = await llm_service.rank_article(
-                    title=article.title,
-                    content=filtered_content,
-                    source=source_name,
-                    url=article.canonical_url or "",
-                    prompt_template=rank_prompt_template,
-                    system_override=rank_system_prompt,
-                    execution_id=state["execution_id"],
-                    article_id=article.id,
-                    ground_truth_rank=ground_truth_rank,
-                    ground_truth_details=ground_truth_details,
-                    qa_feedback=qa_feedback,
-                )
+            # Store LLM interaction in conversation log
+            conversation_log = [
+                {
+                    "attempt": 1,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": agent_prompt,
+                        },
+                        {
+                            "role": "user",
+                            "content": f"Title: {article.title}\nSource: {source_name}\nURL: {article.canonical_url or ''}\n\nContent: {filtered_content[:2000]}..."
+                            if len(filtered_content) > 2000
+                            else f"Title: {article.title}\nSource: {source_name}\nURL: {article.canonical_url or ''}\n\nContent: {filtered_content}",
+                        },
+                    ],
+                    "llm_response": ranking_result.get("raw_response", ranking_result.get("reasoning", "")),
+                    "score": ranking_result.get("score"),
+                }
+            ]
 
-                # Store LLM interaction in conversation log
-                conversation_log.append(
-                    {
-                        "attempt": qa_attempt + 1,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": agent_prompt,
-                            },
-                            {
-                                "role": "user",
-                                "content": f"Title: {article.title}\nSource: {source_name}\nURL: {article.canonical_url or ''}\n\nContent: {filtered_content[:2000]}..."
-                                if len(filtered_content) > 2000
-                                else f"Title: {article.title}\nSource: {source_name}\nURL: {article.canonical_url or ''}\n\nContent: {filtered_content}",
-                            },
-                        ],
-                        "llm_response": ranking_result.get("raw_response", ranking_result.get("reasoning", "")),
-                        "score": ranking_result.get("score"),
-                        "qa_feedback": qa_feedback,
-                    }
-                )
-
-                # Store conversation log in execution.error_log
-                if execution:
-                    if execution.error_log is None:
-                        execution.error_log = {}
-                    execution.error_log["rank_article"] = {"conversation_log": conversation_log}
-                    db_session.commit()
-
-                # If QA not enabled, break after first attempt
-                if not qa_enabled:
-                    break
-
-                # Run QA check
-                # Get provider for RankAgent QA (fallback to RankAgent provider, then ExtractAgent provider)
-                rank_qa_provider = None
-                if agent_models:
-                    rank_qa_provider = agent_models.get("RankAgentQA_provider")
-                    if not rank_qa_provider:
-                        rank_qa_provider = agent_models.get("RankAgent_provider")
-                    if not rank_qa_provider:
-                        rank_qa_provider = agent_models.get("ExtractAgent_provider")
-
-                qa_service = QAAgentService(llm_service=llm_service)
-                qa_result = await qa_service.evaluate_agent_output(
-                    article=article,
-                    agent_prompt=agent_prompt,
-                    agent_output=ranking_result,
-                    agent_name="RankAgent",
-                    config_obj=config_obj,
-                    execution_id=state["execution_id"],
-                    provider=rank_qa_provider,
-                )
-
-                # Store QA result in error_log
-                if execution:
-                    if execution.error_log is None:
-                        execution.error_log = {}
-                    if "qa_results" not in execution.error_log:
-                        execution.error_log["qa_results"] = {}
-                    execution.error_log["qa_results"]["RankAgent"] = qa_result
-                    flag_modified(execution, "error_log")
-                    db_session.commit()
-
-                # If QA passes, break
-                if qa_result.get("verdict") == "pass":
-                    break
-
-                # Generate feedback for retry
-                qa_feedback = await qa_service.generate_feedback(qa_result, "RankAgent")
-
-                # If critical failure, raise error
-                if qa_result.get("verdict") == "critical_failure" and qa_attempt == max_qa_retries - 1:
-                    raise ValueError(
-                        f"QA critical failure after {max_qa_retries} attempts: {qa_result.get('summary', 'Unknown error')}"
-                    )
+            # Store conversation log in execution.error_log
+            if execution:
+                if execution.error_log is None:
+                    execution.error_log = {}
+                execution.error_log["rank_article"] = {"conversation_log": conversation_log}
+                db_session.commit()
 
             ranking_score = ranking_result["score"] if ranking_result else 0.0
             config = state.get("config")
@@ -2017,7 +1950,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 config_obj.junk_filter_threshold if config_obj and hasattr(config_obj, "junk_filter_threshold") else 0.8
             )
 
-            qa_feedback = None
             generation_result = None
 
             # Get source name
@@ -2104,7 +2036,6 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                 min_confidence=sigma_min_confidence,
                 execution_id=state["execution_id"],
                 article_id=state["article_id"],
-                qa_feedback=qa_feedback,
                 sigma_prompt_template=sigma_prompt_template,  # Pass database prompt if available
                 sigma_system_prompt=sigma_system_prompt,  # Pass database system prompt if available
                 sigma_repair_template=sigma_repair_template,  # Pass database repair prompt if available
@@ -2778,7 +2709,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                     "junk_filter_threshold": config_obj.junk_filter_threshold if config_obj else 0.8,
                     "agent_models": config_obj.agent_models if config_obj else {},
                     "agent_prompts": config_obj.agent_prompts if config_obj else {},
-                    "qa_enabled": config_obj.qa_enabled if config_obj else {},
                     "rank_agent_enabled": config_obj.rank_agent_enabled
                     if config_obj and hasattr(config_obj, "rank_agent_enabled")
                     else True,
@@ -2815,9 +2745,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "ranking_threshold": config_obj.ranking_threshold if config_obj else 6.0,
                 "similarity_threshold": config_obj.similarity_threshold if config_obj else 0.5,
                 "junk_filter_threshold": config_obj.junk_filter_threshold if config_obj else 0.8,
-                "qa_enabled": config_obj.qa_enabled
-                if config_obj and config_obj.qa_enabled and isinstance(config_obj.qa_enabled, dict)
-                else {},
                 "agent_models": config_obj.agent_models
                 if config_obj and config_obj.agent_models and isinstance(config_obj.agent_models, dict)
                 else {},
@@ -2841,7 +2768,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
                 "ranking_threshold": 6.0,
                 "similarity_threshold": 0.5,
                 "junk_filter_threshold": 0.8,
-                "qa_enabled": {},
                 "agent_models": {},
                 "rank_agent_enabled": True,
                 "cmdline_attention_preprocessor_enabled": True,
@@ -2850,18 +2776,18 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
         )
 
         # Merge config_snapshot from execution (for eval runs and other overrides)
-        # Use deep merge for nested dicts like agent_models, agent_prompts, qa_enabled
+        # Use deep merge for nested dicts like agent_models, agent_prompts
         if execution.config_snapshot:
             snapshot = execution.config_snapshot
             # Merge top-level values
             for key, value in snapshot.items():
-                if key in ("agent_models", "agent_prompts", "qa_enabled") and isinstance(value, dict):
+                if key in ("agent_models", "agent_prompts") and isinstance(value, dict):
                     # Deep merge nested dicts - preserve existing values, add/update from snapshot
                     if key in config and isinstance(config[key], dict):
                         config[key] = {**config[key], **value}
                     else:
                         config[key] = value.copy() if isinstance(value, dict) else value
-                elif key in ("agent_models", "agent_prompts", "qa_enabled") and value is None:
+                elif key in ("agent_models", "agent_prompts") and value is None:
                     # Snapshot has None (e.g. default config before preset) - keep existing or use {}
                     config[key] = config.get(key) if isinstance(config.get(key), dict) else {}
                 else:
@@ -2924,7 +2850,6 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
             logger.info(f"[Workflow {execution.id}] Auto-loading LMStudio models...")
             load_result = auto_load_workflow_models(
                 agent_models_for_loading,
-                qa_enabled=config.get("qa_enabled") if isinstance(config.get("qa_enabled"), dict) else {},
             )
             if load_result["models_loaded"]:
                 logger.info(f"[Workflow {execution.id}] ✅ Loaded {len(load_result['models_loaded'])} model(s)")

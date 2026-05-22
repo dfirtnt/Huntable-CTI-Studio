@@ -456,24 +456,6 @@ class TestEvalBundleServiceHelpers:
             warnings=warnings,
         )
         assert extraction_context["parsed_result"]["count"] == 1
-        assert extraction_context["qa_corrections_applied"] is True
-
-        qa = service._extract_qa_results(
-            error_log={
-                "qa_results": {
-                    "RankAgentQA": {
-                        "verdict": "pass",
-                        "summary": "All good",
-                        "issues": [],
-                        "feedback": "none",
-                    }
-                }
-            },
-            agent_name="rank_article",
-            warnings=warnings,
-        )
-        assert qa["verdict"] == "pass"
-        assert qa["has_issues"] is False
 
         execution.status = "completed"
         execution.current_step = "done"

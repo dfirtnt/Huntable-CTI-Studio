@@ -8,7 +8,6 @@ from src.config.workflow_config_schema import (
     FeatureFlags,
     MetadataConfig,
     PromptConfig,
-    QAConfig,
     ThresholdConfig,
     WorkflowConfigV2,
 )
@@ -21,7 +20,6 @@ __all__ = [
     "load_workflow_config",
     "MetadataConfig",
     "PromptConfig",
-    "QAConfig",
     "ThresholdConfig",
     "WorkflowConfigV2",
 ]

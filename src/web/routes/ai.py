@@ -2151,7 +2151,6 @@ async def api_generate_sigma(article_id: int, request: Request):
             min_confidence=min_confidence,
             execution_id=None,  # Not part of workflow execution
             article_id=article_id,
-            qa_feedback=None,
             sigma_prompt_template=sigma_prompt_template,  # Use prompt from config if available
             sigma_system_prompt=sigma_system_prompt,  # Use system prompt from config if available
             sigma_repair_template=sigma_repair_template,  # Use repair prompt from config if available

@@ -26,7 +26,6 @@ WORKFLOW_TEMPLATE = TEMPLATE_DIR / "workflow.html"
 # Rank Agent (rankagent) is JS-rendered in the same file and covered separately.
 # OS Detection uses a different structure (embedding + fallback model).
 AGENT_PREFIXES = [
-    "rankqa",
     "cmdlineextract",
     "proctreeextract",
     "huntqueriesextract",
@@ -37,7 +36,6 @@ AGENT_PREFIXES = [
 
 # Macro call parameters for each agent, matching the actual workflow.html invocations.
 AGENT_MACRO_PARAMS = {
-    "rankqa": ("rankqa", "RankAgentQA_provider", "RankAgentQA", False, True),
     "cmdlineextract": ("cmdlineextract", "CmdlineExtract_provider", "CmdlineExtract_model", True, True),
     "proctreeextract": ("proctreeextract", "ProcTreeExtract_provider", "ProcTreeExtract_model", True, True),
     "huntqueriesextract": ("huntqueriesextract", "HuntQueriesExtract_provider", "HuntQueriesExtract_model", True, True),
@@ -185,18 +183,8 @@ class TestExtractAgentFallbackOption:
         "servicesextract",
         "scheduledtasksextract",
     ]
-    QA_PREFIXES = [
-        "rankqa",
-    ]
-
     @pytest.mark.parametrize("prefix", EXTRACT_PREFIXES)
     def test_extract_agent_has_fallback(self, rendered_blocks, prefix):
         assert "Use Extract Agents Fallback Model" in rendered_blocks[prefix], (
             f"Extract agent '{prefix}' must have fallback model option"
-        )
-
-    @pytest.mark.parametrize("prefix", QA_PREFIXES)
-    def test_qa_agent_has_no_fallback(self, rendered_blocks, prefix):
-        assert "Use Extract Agents Fallback Model" not in rendered_blocks[prefix], (
-            f"QA agent '{prefix}' should NOT have fallback model option"
         )

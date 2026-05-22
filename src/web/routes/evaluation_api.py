@@ -639,7 +639,6 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                             "junk_filter_threshold": config.junk_filter_threshold,
                             "agent_models": config.agent_models or {},
                             "agent_prompts": config.agent_prompts or {},
-                            "qa_enabled": config.qa_enabled or {},
                             "rank_agent_enabled": config.rank_agent_enabled
                             if hasattr(config, "rank_agent_enabled")
                             else True,
@@ -1271,7 +1270,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "junk_filter_threshold": active_config.junk_filter_threshold,
                         "agent_models": active_config.agent_models or {},
                         "agent_prompts": active_config.agent_prompts or {},
-                        "qa_enabled": active_config.qa_enabled or {},
                         "config_id": active_config.id,
                         "config_version": active_config.version,
                         "eval_run": True,
@@ -2249,7 +2247,6 @@ async def get_config_versions_models(
             models_by_version = {}
             for config in configs:
                 agent_models = config.agent_models or {}
-                qa_enabled = config.qa_enabled or {}
                 agent_prompts = config.agent_prompts or {}
 
                 # Get disabled extract agents (same logic as frontend)
@@ -2271,11 +2268,6 @@ async def get_config_versions_models(
                 # Build model list (same format as frontend)
                 model_list = []
 
-                # Main agents (only if QA enabled)
-                if agent_models.get("SigmaAgent") and qa_enabled.get("SigmaAgent"):
-                    provider = agent_models.get("SigmaAgent_provider") or ""
-                    model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider or 'not configured'})")
-
                 # Sub-agents (only if enabled and has model)
                 for agent in [
                     "CmdlineExtract",
@@ -2292,7 +2284,6 @@ async def get_config_versions_models(
 
                 models_by_version[config.version] = {
                     "agent_models": agent_models,
-                    "qa_enabled": qa_enabled,
                     "display_text": "\n".join(model_list) if model_list else "No models configured",
                 }
 

@@ -121,7 +121,7 @@ _AGENT_MODEL_KEYS = {
 @pytest.mark.api
 @pytest.mark.asyncio
 async def test_config_versions_models_response_shape(async_client: httpx.AsyncClient):
-    """models_by_version maps version -> {agent_models, qa_enabled, display_text}."""
+    """models_by_version maps version -> {agent_models, display_text}."""
     # Use version 1 which always exists (may have empty agent_models for old configs)
     response = await async_client.get("/api/evaluations/config-versions-models?config_versions=1")
     assert response.status_code == 200
@@ -131,7 +131,6 @@ async def test_config_versions_models_response_shape(async_client: httpx.AsyncCl
     assert isinstance(mbv, dict)
     for version_key, payload in mbv.items():
         assert "agent_models" in payload, f"version {version_key} missing agent_models"
-        assert "qa_enabled" in payload, f"version {version_key} missing qa_enabled"
         assert "display_text" in payload, f"version {version_key} missing display_text"
         assert isinstance(payload["agent_models"], dict)
 

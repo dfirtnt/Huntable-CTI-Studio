@@ -131,10 +131,8 @@ class WorkflowConfigResponse(BaseModel):
     description: str | None
     agent_prompts: dict[str, Any] | None = None
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow None values
-    qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool = False
     osdetection_fallback_enabled: bool = False  # deprecated, always False
-    qa_max_retries: int = 5
     rank_agent_enabled: bool = True
     cmdline_attention_preprocessor_enabled: bool = True
     proc_tree_attention_preprocessor_enabled: bool = True
@@ -153,10 +151,8 @@ class WorkflowConfigUpdate(BaseModel):
     description: str | None = None
     agent_prompts: dict[str, Any] | None = None
     agent_models: dict[str, Any] | None = None  # Changed from Dict[str, str] to allow numeric temperatures
-    qa_enabled: dict[str, bool] | None = None
     sigma_fallback_enabled: bool | None = None
     rank_agent_enabled: bool | None = None
-    qa_max_retries: int | None = Field(None, ge=1, le=20, description="Maximum QA retry attempts (1-20)")
     cmdline_attention_preprocessor_enabled: bool | None = None
     proc_tree_attention_preprocessor_enabled: bool | None = None
     auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
@@ -284,8 +280,6 @@ def get_workflow_config(request: Request):
                     description="Default configuration",
                     sigma_fallback_enabled=False,
                     osdetection_fallback_enabled=False,
-                    qa_enabled={},
-                    qa_max_retries=5,
                     agent_prompts=default_prompts if default_prompts else None,
                 )
                 db_session.add(config)
@@ -402,19 +396,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 )
             )
             osdetection_fallback = False
-            qa_max_retries = (
-                config_update.qa_max_retries
-                if config_update.qa_max_retries is not None
-                else (
-                    current_config.qa_max_retries if current_config and hasattr(current_config, "qa_max_retries") else 5
-                )
-            )
-
-            # Validate qa_max_retries
-            if not (1 <= qa_max_retries <= 20):
-                raise HTTPException(
-                    status_code=400, detail=f"QA max retries must be between 1 and 20, got {qa_max_retries}"
-                )
 
             # Merge agent_models instead of replacing (preserve existing models when updating)
             merged_agent_models = None
@@ -459,11 +440,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 config_update.agent_prompts
                 if config_update.agent_prompts is not None
                 else (current_config.agent_prompts if current_config else None)
-            )
-            final_qa_enabled = (
-                config_update.qa_enabled
-                if config_update.qa_enabled is not None
-                else (current_config.qa_enabled if current_config and current_config.qa_enabled is not None else {})
             )
             final_rank_agent_enabled = (
                 config_update.rank_agent_enabled
@@ -535,7 +511,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     and abs(current_config.similarity_threshold - similarity_threshold) < 0.0001
                     and abs(current_config.junk_filter_threshold - junk_filter_threshold) < 0.0001
                     and current_config.sigma_fallback_enabled == sigma_fallback
-                    and current_config.qa_max_retries == qa_max_retries
                     and getattr(current_config, "rank_agent_enabled", True) == final_rank_agent_enabled
                     and getattr(current_config, "cmdline_attention_preprocessor_enabled", True)
                     == final_cmdline_attention_preprocessor_enabled
@@ -554,13 +529,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     current_models = current_config.agent_models or {}
                     new_models = merged_agent_models or {}
                     if json.dumps(current_models, sort_keys=True) != json.dumps(new_models, sort_keys=True):
-                        configs_identical = False
-
-                if configs_identical:
-                    # Compare qa_enabled
-                    current_qa = current_config.qa_enabled or {}
-                    new_qa = final_qa_enabled or {}
-                    if json.dumps(current_qa, sort_keys=True) != json.dumps(new_qa, sort_keys=True):
                         configs_identical = False
 
                 if configs_identical:
@@ -588,10 +556,8 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                         description=current_config.description,
                         agent_prompts=current_config.agent_prompts,
                         agent_models=current_config.agent_models,
-                        qa_enabled=current_config.qa_enabled,
                         sigma_fallback_enabled=current_config.sigma_fallback_enabled,
                         osdetection_fallback_enabled=False,
-                        qa_max_retries=current_config.qa_max_retries,
                         rank_agent_enabled=current_config.rank_agent_enabled
                         if hasattr(current_config, "rank_agent_enabled")
                         else True,
@@ -621,10 +587,8 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 description=final_description,
                 agent_prompts=final_agent_prompts,
                 agent_models=merged_agent_models,
-                qa_enabled=final_qa_enabled,
                 sigma_fallback_enabled=sigma_fallback,
                 osdetection_fallback_enabled=osdetection_fallback,
-                qa_max_retries=qa_max_retries,
                 rank_agent_enabled=final_rank_agent_enabled,
                 cmdline_attention_preprocessor_enabled=final_cmdline_attention_preprocessor_enabled,
                 proc_tree_attention_preprocessor_enabled=final_proc_tree_attention_preprocessor_enabled,
@@ -649,10 +613,8 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 description=new_config.description,
                 agent_prompts=new_config.agent_prompts,
                 agent_models=new_config.agent_models,
-                qa_enabled=new_config.qa_enabled,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
                 osdetection_fallback_enabled=False,
-                qa_max_retries=new_config.qa_max_retries,
                 rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
                 cmdline_attention_preprocessor_enabled=getattr(
                     new_config, "cmdline_attention_preprocessor_enabled", True
@@ -866,7 +828,6 @@ def export_config_as_v2(preset: dict[str, Any]):
 
 def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
     """Convert WorkflowConfigV2 to applyPreset()-ready legacy preset shape."""
-    qa_enabled = dict(config.QA.Enabled)
     return {
         "version": "1.0",
         "min_hunt_score": config.Thresholds.MinHuntScore,
@@ -876,11 +837,9 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
             "junk_filter_threshold": config.Thresholds.JunkFilterThreshold,
         },
         "agent_models": config.flatten_for_llm_service(),
-        "qa_enabled": qa_enabled,
         "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
         "osdetection_fallback_enabled": False,
         "rank_agent_enabled": config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True,
-        "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
         "proc_tree_attention_preprocessor_enabled": config.Features.ProcTreeAttentionPreprocessorEnabled,
         "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
@@ -898,7 +857,7 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
 def preset_to_legacy(preset: dict[str, Any]):
     """
     Accept a preset (v1 or v2), validate and normalize via load_workflow_config,
-    return legacy shape for applyPreset() (version, thresholds, agent_models, qa_enabled, etc.).
+    return legacy shape for applyPreset() (version, thresholds, agent_models, etc.).
     """
     try:
         config = load_workflow_config(preset)
@@ -1032,13 +991,11 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
             "similarity_threshold": config.similarity_threshold,
         },
         "agent_models": config.agent_models if config.agent_models is not None else {},
-        "qa_enabled": config.qa_enabled if config.qa_enabled is not None else {},
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False) or False,
         "osdetection_fallback_enabled": False,
         "rank_agent_enabled": getattr(config, "rank_agent_enabled", True)
         if getattr(config, "rank_agent_enabled", None) is not None
         else True,
-        "qa_max_retries": getattr(config, "qa_max_retries", 5) or 5,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
         "proc_tree_attention_preprocessor_enabled": getattr(config, "proc_tree_attention_preprocessor_enabled", True),
         "extract_agent_settings": {"disabled_agents": disabled_agents},
@@ -1345,7 +1302,7 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                 if prompt_update.instructions is not None:
                     agent_prompts[prompt_update.agent_name]["instructions"] = prompt_update.instructions
 
-            # Create new config version - preserve all fields including agent_models and qa_enabled
+            # Create new config version - preserve all fields including agent_models
             _thr = _get_threshold_from_settings(db_session)
             new_config = AgenticWorkflowConfigTable(
                 min_hunt_score=current_config.min_hunt_score,
@@ -1357,7 +1314,6 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                 description=current_config.description or "Updated configuration",
                 agent_prompts=agent_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
-                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
@@ -1365,7 +1321,6 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
-                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
@@ -1629,7 +1584,6 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                 description=current_config.description or "Rolled back configuration",
                 agent_prompts=agent_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
-                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
@@ -1637,7 +1591,6 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
-                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
@@ -1880,12 +1833,6 @@ def bootstrap_prompts_from_files(request: Request):
                 with open(sigma_repair_path) as f:
                     loaded_prompts["SigmaRepair"] = {"prompt": f.read(), "instructions": ""}
 
-            # QAAgent
-            qa_agent_path = prompts_dir / "QAAgentCMD"
-            if qa_agent_path.exists():
-                with open(qa_agent_path) as f:
-                    loaded_prompts["QAAgent"] = {"prompt": f.read(), "instructions": ""}
-
             # Sub-Agents
             sub_agents = [
                 "CmdlineExtract",
@@ -1919,7 +1866,6 @@ def bootstrap_prompts_from_files(request: Request):
                 description="Bootstrapped prompts from files",
                 agent_prompts=loaded_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
-                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
@@ -1927,7 +1873,6 @@ def bootstrap_prompts_from_files(request: Request):
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
-                qa_max_retries=current_config.qa_max_retries if hasattr(current_config, "qa_max_retries") else 5,
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),
@@ -2016,11 +1961,9 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                 description=f"Reset prompts to defaults: {', '.join(reset_agents)}",
                 agent_prompts=merged_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
-                qa_enabled=current_config.qa_enabled.copy() if current_config.qa_enabled else {},
                 sigma_fallback_enabled=getattr(current_config, "sigma_fallback_enabled", False),
                 osdetection_fallback_enabled=False,
                 rank_agent_enabled=getattr(current_config, "rank_agent_enabled", True),
-                qa_max_retries=getattr(current_config, "qa_max_retries", 5),
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True
                 ),

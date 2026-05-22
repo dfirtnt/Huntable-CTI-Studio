@@ -1140,7 +1140,6 @@ function showHelp(fieldName) {
                           <li>OS detection is skipped in eval runs.</li>
                           <li>SIGMA rule generation is skipped (no rules created).</li>
                           <li>Each eval runs a single extraction subagent (the selected one).</li>
-                          <li>Extractor QA runs only if enabled for that subagent.</li>
                       </ul>
                       <p class="mb-2"><strong>Evaluation scope:</strong></p>
                       <ul class="list-disc list-inside mb-2 space-y-1">
@@ -2247,9 +2246,8 @@ async function loadAggregateScores() {
                         const configData = modelsByVersion[version];
                         if (configData && configData.agent_models) {
                             const models = configData.agent_models;
-                            const qaEnabled = configData.qa_enabled || {};
                             const firstPresent = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
-                            
+
                             // Get agent-specific parameters
                             const temperature = firstPresent(
                                 models[`${agentName}_temperature`],
@@ -2264,22 +2262,12 @@ async function loadAggregateScores() {
                             const agentProvider = firstPresent(models[`${agentName}_provider`], '');
                             const agentModelKey = `${agentName}_model`;
                             const agentModel = firstPresent(models[agentModelKey], 'N/A');
-                            
-                            // Get QA agent status
-                            const qaAgentName = agentName === 'CmdlineExtract' ? 'CmdLineQA' :
-                                               agentName === 'ProcTreeExtract' ? 'ProcTreeQA' :
-                                               agentName === 'HuntQueriesExtract' ? 'HuntQueriesQA' :
-                                               agentName === 'RegistryExtract' ? 'RegistryQA' :
-                                               agentName === 'ServicesExtract' ? 'ServicesQA' :
-                               agentName === 'ScheduledTasksExtract' ? 'ScheduledTasksQA' : null;
-                            const qaStatus = qaAgentName ? (qaEnabled[qaAgentName] === true ? 'Enabled' : 'Disabled') : 'N/A';
-                            
+
                             configParamsByVersion[version] = {
                                 temperature,
                                 topP,
                                 agentProvider,
                                 agentModel,
-                                qaStatus
                             };
                         }
                     });
@@ -2324,7 +2312,6 @@ async function loadAggregateScores() {
                         <div><strong class="text-gray-300 dark:text-gray-300">LLM Model:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.agentModel || 'N/A'}</span></div>
                         <div><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.temperature ?? 'N/A'}</span></div>
                         <div><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.topP ?? 'N/A'}</span></div>
-                        <div class="col-span-2"><strong class="text-gray-300 dark:text-gray-300">QA Agent Status:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.qaStatus || 'N/A'}</span></div>
                     </div>
                 </div>
             ` : '';

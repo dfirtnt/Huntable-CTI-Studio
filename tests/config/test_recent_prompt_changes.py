@@ -74,14 +74,13 @@ class TestQuickstartPresetCompliance:
     """All three quickstart presets must satisfy baseline structural invariants."""
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
-    def test_rank_agent_qa_disabled(self, preset_file):
-        """RankAgent.QAEnabled must be false in every quickstart preset."""
+    def test_rank_agent_qa_keys_absent(self, preset_file):
+        """QAEnabled, QA, QAPrompt must be absent from every quickstart preset (fully deprecated)."""
         preset = _load_preset(preset_file)
         rank = preset.get("RankAgent", {})
-        assert "QAEnabled" in rank, f"{preset_file}: RankAgent missing QAEnabled key"
-        assert rank["QAEnabled"] is False, (
-            f"{preset_file}: RankAgent.QAEnabled must be false, got {rank['QAEnabled']!r}"
-        )
+        for key in ("QAEnabled", "QA", "QAPrompt"):
+            assert key not in rank, f"{preset_file}: RankAgent.{key} must be absent (QA fully deprecated)"
+        assert "QASettings" not in preset, f"{preset_file}: top-level QASettings must be absent"
 
     @pytest.mark.parametrize("preset_file", QUICKSTART_PRESETS)
     def test_hunt_queries_prompt_has_standard_envelope(self, preset_file):

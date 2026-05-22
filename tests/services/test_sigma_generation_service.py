@@ -437,46 +437,6 @@ level: low
                         assert result.get("errors") is not None
 
     @pytest.mark.asyncio
-    async def test_generate_sigma_rules_qa_feedback(self, service, sample_article_data, sample_sigma_rule):
-        """Test QA feedback integration."""
-        qa_feedback = "Focus on PowerShell command-line arguments"
-
-        with patch("src.services.sigma_generation_service.optimize_article_content") as mock_optimize:
-            mock_optimize.return_value = {
-                "success": True,
-                "filtered_content": sample_article_data["content"],
-                "tokens_saved": 0,
-            }
-
-            with patch("src.utils.prompt_loader.format_prompt_async") as mock_prompt:
-                mock_prompt.return_value = "Generate rule"
-
-                with patch.object(service, "_call_provider_for_sigma") as mock_call:
-                    mock_call.return_value = sample_sigma_rule
-
-                    with patch("src.services.sigma_generation_service.validate_sigma_rule") as mock_validate:
-                        mock_validate.return_value = ValidationResult(
-                            is_valid=True,
-                            errors=[],
-                            warnings=[],
-                            metadata={"rule": yaml.safe_load(sample_sigma_rule)},
-                            content_preview=sample_sigma_rule,
-                        )
-
-                        await service.generate_sigma_rules(
-                            article_title=sample_article_data["title"],
-                            article_content=sample_article_data["content"],
-                            source_name=sample_article_data["source_name"],
-                            url=sample_article_data["url"],
-                            qa_feedback=qa_feedback,
-                        )
-
-                        # Verify QA feedback was included in prompt
-                        call_args = mock_call.call_args
-                        prompt_passed = call_args[0][0] if call_args else ""
-                        assert qa_feedback in prompt_passed
-
-    @pytest.mark.asyncio
     async def test_generate_sigma_rules_max_attempts_exceeded(self, service, sample_article_data):
         """Test behavior when max attempts exceeded."""
         invalid_response = "Not valid YAML"

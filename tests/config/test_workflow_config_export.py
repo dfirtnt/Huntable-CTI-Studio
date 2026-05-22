@@ -14,7 +14,6 @@ _MINIMAL_AGENT_MODELS = {
     "HuntQueriesExtract_model": "gpt-4",
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
-    "RankAgentQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
@@ -123,20 +122,6 @@ def test_no_stray_prompt_keys():
     assert "ExtractAgentSettings" not in out
 
 
-def test_qa_enabled_keys_match_agents():
-    """Exported UI-ordered preset loads; config has QA.Enabled keys in Agents."""
-    raw = {
-        **_FULL_LEGACY_V1,
-        "agent_models": dict(_MINIMAL_AGENT_MODELS),
-        "qa_enabled": {},
-    }
-    out = export_preset_as_canonical_v2(raw)
-    config = load_workflow_config(out)
-    qa_enabled = config.QA.Enabled
-    agents = config.Agents
-    for key in qa_enabled:
-        assert key in agents, f"QA.Enabled key {key} must be in Agents"
-
 
 def test_metadata_not_empty():
     """Exported preset has non-empty Metadata.CreatedAt and Metadata.Description."""
@@ -238,9 +223,7 @@ def test_ui_ordered_export_roundtrip_preserves_values():
     assert config.Thresholds.RankingThreshold == 6.0
     assert config.Thresholds.JunkFilterThreshold == 0.8
     assert config.Execution.OsDetectionSelectedOs == ["Linux"]
-    assert config.QA.Enabled.get("RankAgent") is True
     assert config.Agents["RankAgent"].Model
-    assert config.Agents["RankAgentQA"].Model
 
 
 def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():

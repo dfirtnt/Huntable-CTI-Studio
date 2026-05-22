@@ -198,7 +198,6 @@ class SigmaGenerationService:
         min_confidence: float = 0.7,
         execution_id: int | None = None,
         article_id: int | None = None,
-        qa_feedback: str | None = None,
         sigma_prompt_template: str | None = None,
         sigma_system_prompt: str | None = None,
         sigma_repair_template: str | None = None,
@@ -322,7 +321,6 @@ class SigmaGenerationService:
             logger.info("Phase 1: Multi-rule generation")
             generated_yaml = await self._generate_multi_rules(
                 sigma_prompt=sigma_prompt,
-                qa_feedback=qa_feedback,
                 sigma_system_prompt=sigma_system_prompt,
                 ai_model=ai_model,
                 execution_id=execution_id,
@@ -376,7 +374,6 @@ class SigmaGenerationService:
 
                     expansion_yaml = await self._generate_multi_rules(
                         sigma_prompt=expansion_prompt,
-                        qa_feedback=None,
                         sigma_system_prompt=sigma_system_prompt,
                         ai_model=ai_model,
                         execution_id=execution_id,
@@ -499,18 +496,12 @@ class SigmaGenerationService:
     async def _generate_multi_rules(
         self,
         sigma_prompt: str,
-        qa_feedback: str | None,
         sigma_system_prompt: str | None,
         ai_model: str,
         execution_id: int | None,
         article_id: int | None,
     ) -> str:
         """Phase 1: Generate multi-rule YAML with structural constraints."""
-        # Prepare prompt
-        current_prompt = sigma_prompt
-        if qa_feedback:
-            current_prompt = f"{qa_feedback}\n\n{current_prompt}"
-
         # Call LLM API
         sigma_provider = self.llm_service.provider_sigma
         requested_provider = self.llm_service._canonicalize_provider(ai_model)
@@ -518,7 +509,7 @@ class SigmaGenerationService:
             sigma_provider = requested_provider
 
         sigma_response = await self._call_provider_for_sigma(
-            current_prompt,
+            sigma_prompt,
             provider=sigma_provider,
             execution_id=execution_id,
             article_id=article_id,

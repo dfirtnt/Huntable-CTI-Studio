@@ -241,9 +241,6 @@ class EvalBundleService:
         # Extract article metadata
         article_metadata = self._extract_article_metadata(article, warnings)
 
-        # Extract QA results
-        qa_results = self._extract_qa_results(error_log, agent_name, warnings)
-
         # Extract execution status and errors
         execution_context = self._extract_execution_context(execution, warnings)
 
@@ -272,10 +269,6 @@ class EvalBundleService:
         # Add article metadata
         if article_metadata:
             bundle["article_metadata"] = article_metadata
-
-        # Add QA results
-        if qa_results:
-            bundle["qa_results"] = qa_results
 
         # Add execution context
         if execution_context:
@@ -1199,14 +1192,9 @@ class EvalBundleService:
             "has_items": len(parsed_items) > 0 if isinstance(parsed_items, list) else False,
         }
 
-        # Extract raw result (includes QA corrections if available)
+        # Extract raw result
         if raw_result:
             context["raw_result"] = raw_result
-            # Check for QA corrections in raw result
-            qa_corrections = raw_result.get("qa_corrections_applied") or raw_result.get("qa_corrections")
-            if qa_corrections:
-                context["qa_corrections_applied"] = True
-                context["qa_corrections"] = qa_corrections
 
         # Note: extraction_warnings are global to the entire extraction, not agent-specific
         # We don't include them here to avoid confusion with agent-specific data
@@ -1246,52 +1234,6 @@ class EvalBundleService:
             metadata["source_id"] = article.source.id
 
         return metadata
-
-    def _extract_qa_results(
-        self, error_log: dict[str, Any], agent_name: str, warnings: list[str]
-    ) -> dict[str, Any] | None:
-        """Extract QA results for the agent."""
-        if not isinstance(error_log, dict):
-            return None
-
-        qa_results_all = error_log.get("qa_results", {})
-        if not isinstance(qa_results_all, dict):
-            return None
-
-        # Map agent names to QA agent names. Only RankAgent QA is still active.
-        qa_agent_map = {
-            "rank_article": "RankAgentQA",
-        }
-
-        qa_agent_name = qa_agent_map.get(agent_name)
-        if not qa_agent_name:
-            return None
-
-        qa_result = qa_results_all.get(qa_agent_name) or qa_results_all.get(agent_name)
-        if not qa_result:
-            return None
-
-        # Extract key QA information
-        qa_context = {
-            "verdict": qa_result.get("verdict"),
-            "summary": qa_result.get("summary"),
-            "issues": qa_result.get("issues", []),
-            "has_issues": len(qa_result.get("issues", [])) > 0,
-        }
-
-        # Surface corrections_applied and pre_filter_count at the top-level qa_context so
-        # eval dashboards can read them without spelunking into raw_result._qa_result.
-        if "corrections_applied" in qa_result:
-            qa_context["corrections_applied"] = qa_result.get("corrections_applied")
-        if "pre_filter_count" in qa_result:
-            qa_context["pre_filter_count"] = qa_result.get("pre_filter_count")
-
-        # Extract feedback if available
-        feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied")
-        if feedback:
-            qa_context["feedback"] = feedback
-
-        return qa_context
 
     def _extract_execution_context(
         self, execution: AgenticWorkflowExecutionTable, warnings: list[str]
