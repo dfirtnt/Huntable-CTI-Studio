@@ -1,0 +1,29 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Shield outline -->
+  <path d="M64 14 L104 28 L104 64 Q104 100 64 114 Q24 100 24 64 L24 28 Z"
+        fill="none" stroke="#8b5cf6" stroke-width="2" opacity="0.8"/>
+  <!-- Shield fill (subtle) -->
+  <path d="M64 14 L104 28 L104 64 Q104 100 64 114 Q24 100 24 64 L24 28 Z"
+        fill="#8b5cf6" opacity="0.08"/>
+
+  <!-- H left vertical -->
+  <rect x="38" y="40" width="10" height="48" fill="#a78bfa" rx="2"/>
+  <!-- H right vertical -->
+  <rect x="80" y="40" width="10" height="48" fill="#a78bfa" rx="2"/>
+  <!-- H crossbar -->
+  <rect x="38" y="59" width="52" height="10" fill="#c4b5fd" rx="2"/>
+
+  <!-- Crosshair vertical — top -->
+  <line x1="64" y1="18" x2="64" y2="52" stroke="#8b5cf6" stroke-width="2.5" opacity="0.65" stroke-linecap="round"/>
+  <!-- Crosshair vertical — bottom -->
+  <line x1="64" y1="76" x2="64" y2="110" stroke="#8b5cf6" stroke-width="2.5" opacity="0.65" stroke-linecap="round"/>
+
+  <!-- Target center -->
+  <circle cx="64" cy="64" r="7" fill="#8b5cf6" opacity="0.9"/>
+  <circle cx="64" cy="64" r="3.5" fill="#c4b5fd"/>
+
+  <!-- Data-flow accent lines (right side of shield) -->
+  <path d="M 92 36 Q 100 32 104 28" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.45" stroke-linecap="round"/>
+  <path d="M 93 54 Q 101 54 104 50" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.45" stroke-linecap="round"/>
+  <path d="M 93 74 Q 101 78 104 82" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.45" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0e1a; font-family: 'JetBrains Mono', monospace; padding: 32px; width: 1200px; }
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+  h2 { color: #94a3b8; font-family: Inter, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 14px; margin-top: 28px; padding-bottom: 6px; border-bottom: 1px solid rgba(34,211,238,0.10); }
+  h2:first-child { margin-top: 0; }
+  .grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+
+  /* Standard color swatch */
+  .swatch { width: 160px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); }
+  .swatch-color { height: 52px; }
+  .swatch-info { padding: 8px 10px; background: #0f1423; }
+  .swatch-name { color: #f8fafc; font-size: 11px; font-weight: 600; display: block; margin-bottom: 2px; }
+  .swatch-hex  { color: #64748b; font-size: 10px; font-family: 'JetBrains Mono', monospace; }
+  .swatch-token { color: #8b5cf6; font-size: 9px; font-family: 'JetBrains Mono', monospace; display: block; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Badge swatch — shows the pill as rendered in the app */
+  .badge-swatch { width: 200px; border-radius: 4px; overflow: hidden; border: 1px solid rgba(255,255,255,0.06); }
+  .badge-preview { height: 52px; background: #0f1423; display: flex; align-items: center; justify-content: center; }
+  .badge-pill { font-family: Inter, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; }
+  .badge-info { padding: 8px 10px; background: #0f1423; border-top: 1px solid rgba(255,255,255,0.06); }
+  .badge-colors { color: #64748b; font-size: 9px; font-family: 'JetBrains Mono', monospace; line-height: 1.6; }
+  .badge-token { color: #8b5cf6; font-size: 9px; font-family: 'JetBrains Mono', monospace; display: block; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<h2>Backgrounds — Depth Hierarchy</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#070c12"></div><div class="swatch-info"><span class="swatch-name">Deep Base</span><span class="swatch-hex">#070c12</span><span class="swatch-token">--d-bg (dashboard)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#0a0e1a"></div><div class="swatch-info"><span class="swatch-name">App Base</span><span class="swatch-hex">#0a0e1a</span><span class="swatch-token">--panel-bg-0</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#0f1423"></div><div class="swatch-info"><span class="swatch-name">Card Surface</span><span class="swatch-hex">#0f1423</span><span class="swatch-token">--panel-bg-1</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#12182a"></div><div class="swatch-info"><span class="swatch-name">Nested Panel</span><span class="swatch-hex">#12182a</span><span class="swatch-token">--panel-bg-2</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#141c30"></div><div class="swatch-info"><span class="swatch-name">Elevated Card</span><span class="swatch-hex">#141c30</span><span class="swatch-token">--panel-bg-3</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#1d3067"></div><div class="swatch-info"><span class="swatch-name">Panel Header</span><span class="swatch-hex">#1d3067</span><span class="swatch-token">--panel-header</span></div></div>
+</div>
+
+<h2>Brand — Purple / Violet</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#8b5cf6"></div><div class="swatch-info"><span class="swatch-name">Primary</span><span class="swatch-hex">#8b5cf6</span><span class="swatch-token">--purple-primary</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#7c3aed"></div><div class="swatch-info"><span class="swatch-name">Hover</span><span class="swatch-hex">#7c3aed</span><span class="swatch-token">--purple-hover</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#a78bfa"></div><div class="swatch-info"><span class="swatch-name">Light</span><span class="swatch-hex">#a78bfa</span><span class="swatch-token">--purple-light</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#c4b5fd"></div><div class="swatch-info"><span class="swatch-name">Lightest / Mono</span><span class="swatch-hex">#c4b5fd</span><span class="swatch-token">--text-mono</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#9333ea"></div><div class="swatch-info"><span class="swatch-name">Deep / Chart</span><span class="swatch-hex">#9333ea</span><span class="swatch-token">--purple-deep</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#4b4e77"></div><div class="swatch-info"><span class="swatch-name">Muted</span><span class="swatch-hex">#4b4e77</span><span class="swatch-token">--purple-muted</span></div></div>
+</div>
+
+<h2>Dashboard Accent — Cyan</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#22d3ee"></div><div class="swatch-info"><span class="swatch-name">Cyan / Live Data</span><span class="swatch-hex">#22d3ee</span><span class="swatch-token">--step-0 / --d-cyan</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#4bc0c0"></div><div class="swatch-info"><span class="swatch-name">Cyan Chart Series</span><span class="swatch-hex">#4bc0c0</span><span class="swatch-token">--chart-cyan</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:rgba(34,211,238,0.10); border:1px solid rgba(34,211,238,0.32)"></div><div class="swatch-info"><span class="swatch-name">Cyan Border</span><span class="swatch-hex">rgba(34,211,238,0.10)</span><span class="swatch-token">--d-border</span></div></div>
+</div>
+
+<h2>Semantic — Action Colors</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#10b981"></div><div class="swatch-info"><span class="swatch-name">Execute / Success</span><span class="swatch-hex">#10b981</span><span class="swatch-token">--action-execute</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#22c55e"></div><div class="swatch-info"><span class="swatch-name">Success Light</span><span class="swatch-hex">#22c55e</span><span class="swatch-token">--action-success-light</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#34d399"></div><div class="swatch-info"><span class="swatch-name">Live Pulse Green</span><span class="swatch-hex">#34d399</span><span class="swatch-token">--d-green</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#eab308"></div><div class="swatch-info"><span class="swatch-name">Warning</span><span class="swatch-hex">#eab308</span><span class="swatch-token">--action-warning</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#fbbf24"></div><div class="swatch-info"><span class="swatch-name">Amber / KPI</span><span class="swatch-hex">#fbbf24</span><span class="swatch-token">--d-amber</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#3b82f6"></div><div class="swatch-info"><span class="swatch-name">Info / Analyze</span><span class="swatch-hex">#3b82f6</span><span class="swatch-token">--action-info</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#dc2626"></div><div class="swatch-info"><span class="swatch-name">Danger</span><span class="swatch-hex">#dc2626</span><span class="swatch-token">--action-danger</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#f87171"></div><div class="swatch-info"><span class="swatch-name">Red / Alert</span><span class="swatch-hex">#f87171</span><span class="swatch-token">--d-red</span></div></div>
+</div>
+
+<h2>Workflow Step Rainbow (Steps 0–6)</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#22d3ee"></div><div class="swatch-info"><span class="swatch-name">Step 0 — OS Detect</span><span class="swatch-hex">#22d3ee</span><span class="swatch-token">--step-0 (cyan)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#60a5fa"></div><div class="swatch-info"><span class="swatch-name">Step 1 — Junk Filter</span><span class="swatch-hex">#60a5fa</span><span class="swatch-token">--step-1 (blue)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#4ade80"></div><div class="swatch-info"><span class="swatch-name">Step 2 — LLM Rank</span><span class="swatch-hex">#4ade80</span><span class="swatch-token">--step-2 (green)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#facc15"></div><div class="swatch-info"><span class="swatch-name">Step 3 — Extract</span><span class="swatch-hex">#facc15</span><span class="swatch-token">--step-3 (yellow)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#fb923c"></div><div class="swatch-info"><span class="swatch-name">Step 4 — Gen SIGMA</span><span class="swatch-hex">#fb923c</span><span class="swatch-token">--step-4 (orange)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#f472b6"></div><div class="swatch-info"><span class="swatch-name">Step 5 — Similarity</span><span class="swatch-hex">#f472b6</span><span class="swatch-token">--step-5 (pink)</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#c084fc"></div><div class="swatch-info"><span class="swatch-name">Step 6 — Promote</span><span class="swatch-hex">#c084fc</span><span class="swatch-token">--step-6 (violet)</span></div></div>
+</div>
+
+<h2>Text Hierarchy</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#ffffff"></div><div class="swatch-info"><span class="swatch-name">Emphasis</span><span class="swatch-hex">#ffffff</span><span class="swatch-token">--text-emphasis</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#f8fafc"></div><div class="swatch-info"><span class="swatch-name">Primary</span><span class="swatch-hex">#f8fafc</span><span class="swatch-token">--text-primary</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#cbd5e1"></div><div class="swatch-info"><span class="swatch-name">Secondary</span><span class="swatch-hex">#cbd5e1</span><span class="swatch-token">--text-secondary</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#94a3b8"></div><div class="swatch-info"><span class="swatch-name">Muted Slate</span><span class="swatch-hex">#94a3b8</span><span class="swatch-token">--text-muted-slate</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#6b7280"></div><div class="swatch-info"><span class="swatch-name">Muted</span><span class="swatch-hex">#6b7280</span><span class="swatch-token">--text-muted</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#c4b5fd"></div><div class="swatch-info"><span class="swatch-name">Mono Tint</span><span class="swatch-hex">#c4b5fd</span><span class="swatch-token">--text-mono</span></div></div>
+</div>
+
+<h2>Badges — Rendered Pill Style</h2>
+<div class="grid">
+  <div class="badge-swatch">
+    <div class="badge-preview"><span class="badge-pill" style="color:#86efac; background:rgba(34,197,94,0.2);">Active</span></div>
+    <div class="badge-info"><span class="swatch-name">Green / Active</span><div class="badge-colors">text #86efac<br>bg rgba(34,197,94,0.2)</div><span class="badge-token">--badge-green-*</span></div>
+  </div>
+  <div class="badge-swatch">
+    <div class="badge-preview"><span class="badge-pill" style="color:#fde047; background:rgba(234,179,8,0.2);">Warning</span></div>
+    <div class="badge-info"><span class="swatch-name">Yellow / Warning</span><div class="badge-colors">text #fde047<br>bg rgba(234,179,8,0.2)</div><span class="badge-token">--badge-yellow-*</span></div>
+  </div>
+  <div class="badge-swatch">
+    <div class="badge-preview"><span class="badge-pill" style="color:#fca5a5; background:rgba(239,68,68,0.2);">Failed</span></div>
+    <div class="badge-info"><span class="swatch-name">Red / Failed</span><div class="badge-colors">text #fca5a5<br>bg rgba(239,68,68,0.2)</div><span class="badge-token">--badge-red-*</span></div>
+  </div>
+  <div class="badge-swatch">
+    <div class="badge-preview"><span class="badge-pill" style="color:#93c5fd; background:rgba(59,130,246,0.2);">Info</span></div>
+    <div class="badge-info"><span class="swatch-name">Blue / Info</span><div class="badge-colors">text #93c5fd<br>bg rgba(59,130,246,0.2)</div><span class="badge-token">--badge-blue-*</span></div>
+  </div>
+  <div class="badge-swatch">
+    <div class="badge-preview"><span class="badge-pill" style="color:#94a3b8; background:rgba(71,85,105,0.5);">Neutral</span></div>
+    <div class="badge-info"><span class="swatch-name">Gray / Neutral</span><div class="badge-colors">text #94a3b8<br>bg rgba(71,85,105,0.5)</div><span class="badge-token">--badge-gray-bg</span></div>
+  </div>
+</div>
+
+<h2>Chart Series — Solid Colors</h2>
+<div class="grid">
+  <div class="swatch"><div class="swatch-color" style="background:#f97316"></div><div class="swatch-info"><span class="swatch-name">Orange</span><span class="swatch-hex">#f97316</span><span class="swatch-token">--chart-orange</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#ff6384"></div><div class="swatch-info"><span class="swatch-name">Pink / Rose</span><span class="swatch-hex">#ff6384</span><span class="swatch-token">--chart-pink</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#36a2eb"></div><div class="swatch-info"><span class="swatch-name">Blue Light</span><span class="swatch-hex">#36a2eb</span><span class="swatch-token">--chart-blue-light</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#4bc0c0"></div><div class="swatch-info"><span class="swatch-name">Teal</span><span class="swatch-hex">#4bc0c0</span><span class="swatch-token">--chart-cyan</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#22c55e"></div><div class="swatch-info"><span class="swatch-name">Green</span><span class="swatch-hex">#22c55e</span><span class="swatch-token">--action-success-light</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#9333ea"></div><div class="swatch-info"><span class="swatch-name">Purple</span><span class="swatch-hex">#9333ea</span><span class="swatch-token">--chart-purple / --purple-deep</span></div></div>
+  <div class="swatch"><div class="swatch-color" style="background:#9ca3af"></div><div class="swatch-info"><span class="swatch-name">Gray</span><span class="swatch-hex">#9ca3af</span><span class="swatch-token">--chart-gray</span></div></div>
+</div>
+
+</body>
+</html>

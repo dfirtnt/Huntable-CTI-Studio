@@ -137,3 +137,111 @@ class TestSubAgentsRenderingArray:
     def test_scheduled_tasks_is_last(self):
         """ScheduledTasksExtract must be order 6 (last) -- it was added after the other five."""
         assert "order: 6" in _RENDER_ARRAY_BLOCK, "ScheduledTasksExtract must have order: 6 in the rendering array."
+
+
+# ---------------------------------------------------------------------------
+# LOCKED_CANONICAL_AGENTS: SigmaAgent and RankAgent
+# ---------------------------------------------------------------------------
+# These agents use the {system, user} canonical save format (not the extractor
+# JSON envelope). Their user-template slot holds the generation prompt that
+# gets filled with article data at runtime. renderSinglePrompt shows this
+# template in the amber "locked scaffold" section so users can see the loaded
+# prompt after importing a quickstart preset.
+# ---------------------------------------------------------------------------
+
+_CANONICAL_MATCH = re.search(
+    r"const LOCKED_CANONICAL_AGENTS\s*=\s*\[(.+?)\]\s*;",
+    TEMPLATE,
+    re.DOTALL,
+)
+LOCKED_CANONICAL_BLOCK = _CANONICAL_MATCH.group(1) if _CANONICAL_MATCH else ""
+
+# Extract renderSinglePrompt body (up to, not including, renderQAPrompt).
+_RENDER_SINGLE_MATCH = re.search(
+    r"function renderSinglePrompt\(.+?(?=function renderQAPrompt)",
+    TEMPLATE,
+    re.DOTALL,
+)
+RENDER_SINGLE_BODY = _RENDER_SINGLE_MATCH.group(0) if _RENDER_SINGLE_MATCH else ""
+
+
+class TestLockedCanonicalAgents:
+    """Guards the LOCKED_CANONICAL_AGENTS list and the active-template rendering added in
+    commit 9b8617d7 ('feat(ui): show active generation template for locked canonical prompts').
+
+    Background: quickstart presets store SigmaAgent/RankAgent prompts in the legacy
+    {prompt: "..."} shape.  parsePromptParts() routes text-with-placeholders into
+    promptParts.user (not system), so the System Prompt field shows '(empty)'.
+    The fix renders promptParts.user in the amber locked-scaffold section so users
+    see the loaded generation template after import.
+    """
+
+    def test_locked_canonical_agents_list_present(self):
+        """LOCKED_CANONICAL_AGENTS array literal must exist in workflow.html."""
+        assert _CANONICAL_MATCH, "LOCKED_CANONICAL_AGENTS array literal not found in workflow.html"
+
+    def test_locked_canonical_agents_contains_sigma_and_rank(self):
+        """Both SigmaAgent and RankAgent must be in LOCKED_CANONICAL_AGENTS."""
+        names = _names_in_block(LOCKED_CANONICAL_BLOCK)
+        assert "SigmaAgent" in names, "SigmaAgent missing from LOCKED_CANONICAL_AGENTS"
+        assert "RankAgent" in names, "RankAgent missing from LOCKED_CANONICAL_AGENTS"
+
+    def test_locked_canonical_agents_has_exactly_two_entries(self):
+        """Exactly SigmaAgent and RankAgent — no accidental additions.
+
+        If a third canonical agent is intentionally added, update this assertion
+        and verify it also gets the active-template display in renderSinglePrompt.
+        """
+        names = _names_in_block(LOCKED_CANONICAL_BLOCK)
+        assert len(names) == 2, (
+            f"Expected exactly 2 LOCKED_CANONICAL_AGENTS, got {len(names)}: {sorted(names)}. "
+            "Update this test and verify the new agent gets active-template display treatment."
+        )
+
+    def test_render_single_prompt_function_found(self):
+        """renderSinglePrompt function must be locatable in workflow.html."""
+        assert _RENDER_SINGLE_MATCH, "renderSinglePrompt function not found in workflow.html"
+
+    def test_active_generation_template_label_present_in_render_single(self):
+        """The 'Active generation template:' label must be in renderSinglePrompt.
+
+        Regression: if this label is removed, users importing a quickstart preset
+        will see a blank prompt in the Generate SIGMA / Rank Agent panels.
+        """
+        assert "Active generation template:" in RENDER_SINGLE_BODY, (
+            "renderSinglePrompt no longer contains 'Active generation template:'. "
+            "Quickstart preset users will see a blank prompt panel after import."
+        )
+
+    def test_active_generation_template_uses_escape_html(self):
+        """Prompt content must be rendered via escapeHtml() to prevent XSS.
+
+        The user template can contain arbitrary text from the preset file.
+        Direct interpolation without escaping would be an XSS vector.
+        """
+        idx = RENDER_SINGLE_BODY.find("Active generation template:")
+        assert idx != -1, "Cannot locate 'Active generation template:' in renderSinglePrompt"
+        # Inspect the 500 chars immediately following the label
+        nearby = RENDER_SINGLE_BODY[idx : idx + 500]
+        assert "escapeHtml(promptParts.user)" in nearby, (
+            "The active-template div must use escapeHtml(promptParts.user). "
+            "Raw interpolation of promptParts.user is an XSS risk."
+        )
+
+    def test_active_generation_template_guarded_by_locked_scaffold(self):
+        """The canonical-template display must be nested inside the isLockedScaffoldAgent branch.
+
+        If it escapes that guard it would render for regular (non-locked) agents
+        that happen to have non-empty promptParts.user, polluting their UI.
+        """
+        locked_pos = RENDER_SINGLE_BODY.find("isLockedScaffoldAgent ?")
+        canonical_pos = RENDER_SINGLE_BODY.find("isLockedCanonicalPrompt(agentName) && promptParts.user")
+        assert locked_pos != -1, "isLockedScaffoldAgent ternary not found in renderSinglePrompt"
+        assert canonical_pos != -1, (
+            "isLockedCanonicalPrompt(agentName) && promptParts.user condition not found in renderSinglePrompt"
+        )
+        assert locked_pos < canonical_pos, (
+            "The isLockedCanonicalPrompt condition must appear AFTER the isLockedScaffoldAgent "
+            "guard (i.e. nested inside it). "
+            "Current order would render the template outside the locked-scaffold branch."
+        )

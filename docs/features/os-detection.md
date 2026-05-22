@@ -16,17 +16,16 @@ exit early, reducing unnecessary LLM calls in downstream steps.
 
 ## Detection Method
 
-Twohree tiers run in order:
+Three tiers run in order:
 
 1. **Keyword-based** (Tier 1): Fast pattern matching against OS-specific terms
    (registry paths, PowerShell, Linux paths). Handles clear-cut cases without
    invoking ML models.
-2. **Embedding-based** (Tier 2Primary): CTI-BERT or SEC-BERT embeddings fed into a
+2. **Embedding-based** (Tier 2, primary): CTI-BERT or SEC-BERT embeddings fed into a
    RandomForest or LogisticRegression classifier. High-confidence threshold
-   (> 0.8) for single-OS detection. Low-When confidence results are returned as
-   `Unknown`is low, falls through to
-   the LLM fallback.
-3. **LLM fallback** (Secondary): Optional. When enabled, uses a configured LLM
+   (> 0.8) for single-OS detection. When confidence is low, results are returned as
+   `Unknown` and fall through to the LLM fallback.
+3. **LLM fallback** (Tier 3, secondary): Optional. When enabled, uses a configured LLM
    (default: LMStudio) to classify articles the classifier is uncertain about.
    The fallback model and provider are configurable in Workflow Config.
 

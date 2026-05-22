@@ -29,7 +29,11 @@ class SigmaSyncService:
             repo_path: Path to the SigmaHQ repository directory
         """
         self.repo_path = Path(repo_path)
-        self.rules_path = self.repo_path / "rules"
+        self.rules_paths = [
+            self.repo_path / "rules",
+            self.repo_path / "rules-emerging-threats",
+            self.repo_path / "rules-threat-hunting",
+        ]
 
     def ensure_repo_dir(self):
         """Ensure the repository directory exists."""
@@ -97,25 +101,28 @@ class SigmaSyncService:
 
     def find_rule_files(self) -> list[Path]:
         """
-        Find all Sigma rule YAML files in the repository.
+        Find all Sigma rule YAML files across all configured rule directories.
 
         Returns:
             List of Path objects to rule files
         """
-        if not self.rules_path.exists():
-            logger.error(f"Rules directory not found: {self.rules_path}")
-            return []
-
         rule_files = []
-        for root, dirs, files in os.walk(self.rules_path):
-            # Skip hidden directories and common non-rule directories
-            dirs[:] = [d for d in dirs if not d.startswith(".")]
+        for rules_path in self.rules_paths:
+            if not rules_path.exists():
+                logger.debug(f"Rules directory not found, skipping: {rules_path}")
+                continue
 
-            for file in files:
-                if file.endswith(".yml") or file.endswith(".yaml"):
-                    rule_files.append(Path(root) / file)
+            dir_count = 0
+            for root, dirs, files in os.walk(rules_path):
+                dirs[:] = [d for d in dirs if not d.startswith(".")]
+                for file in files:
+                    if file.endswith(".yml") or file.endswith(".yaml"):
+                        rule_files.append(Path(root) / file)
+                        dir_count += 1
 
-        logger.info(f"Found {len(rule_files)} rule files")
+            logger.info(f"Found {dir_count} rule files in {rules_path.name}")
+
+        logger.info(f"Found {len(rule_files)} rule files total")
         return rule_files
 
     def parse_rule_file(self, file_path: Path) -> dict | None:

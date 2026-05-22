@@ -66,11 +66,16 @@ class ModelEvaluator:
             if invalid_labels:
                 raise ValueError(f"Invalid labels found: {invalid_labels}")
 
-            # Validate chunk lengths
+            # Validate chunk lengths — chunks are produced by Spacy sentence-boundary
+            # chunking targeting ~1000 chars, so they will rarely be exactly 1000.
+            # Only warn about chunks that are way too short to be informative.
             chunk_lengths = self.eval_data["chunk_text"].str.len()
-            non_1000_chunks = chunk_lengths[chunk_lengths != 1000]
-            if len(non_1000_chunks) > 0:
-                logger.warning(f"Found {len(non_1000_chunks)} chunks with non-1000 character length")
+            too_short = chunk_lengths[chunk_lengths < 200]
+            if len(too_short) > 0:
+                logger.warning(
+                    f"Found {len(too_short)} eval chunks shorter than 200 chars — "
+                    f"these may not represent realistic article content"
+                )
 
             logger.info(f"Loaded {len(self.eval_data)} evaluation chunks")
             logger.info(f"Label distribution: {self.eval_data['label'].value_counts().to_dict()}")

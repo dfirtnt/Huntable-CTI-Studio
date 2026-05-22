@@ -176,6 +176,7 @@ datasets/
 !config/presets/AgentConfigs/quickstart/*.json
 !config/eval_articles_data/**/articles.json
 !config/eval_articles_data/**/ground_truth.json
+!config/labeled_chunks/**
 !package.json
 !package-lock.json
 !.mcp.json

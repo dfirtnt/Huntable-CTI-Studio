@@ -171,3 +171,65 @@ class TestParseRuleFileRawYaml:
         f, _ = rule_file
         parsed = service.parse_rule_file(f)
         assert parsed["raw_yaml"].strip() != ""
+
+
+class TestFindRuleFilesMultiDir:
+    """find_rule_files must scan rules/, rules-emerging-threats/, and rules-threat-hunting/."""
+
+    def _write_rule(self, path: "Path", rule_id: str, title: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            f"title: {title}\n"
+            f"id: {rule_id}\n"
+            "status: experimental\n"
+            "description: Test rule\n"
+            "logsource:\n"
+            "    category: process_creation\n"
+            "    product: windows\n"
+            "detection:\n"
+            "    selection:\n"
+            "        Image|endswith: '\\\\malware.exe'\n"
+            "    condition: selection\n"
+            "level: high\n",
+            encoding="utf-8",
+        )
+
+    def test_scans_all_three_rule_dirs(self, tmp_path):
+        self._write_rule(
+            tmp_path / "rules" / "windows" / "stable.yml",
+            "aaaaaaaa-0000-0000-0000-000000000001",
+            "Stable Rule",
+        )
+        self._write_rule(
+            tmp_path / "rules-emerging-threats" / "windows" / "emerging.yml",
+            "aaaaaaaa-0000-0000-0000-000000000002",
+            "Emerging Threat Rule",
+        )
+        self._write_rule(
+            tmp_path / "rules-threat-hunting" / "windows" / "hunting.yml",
+            "aaaaaaaa-0000-0000-0000-000000000003",
+            "Threat Hunting Rule",
+        )
+
+        svc = SigmaSyncService(repo_path=str(tmp_path))
+        files = svc.find_rule_files()
+
+        names = {f.name for f in files}
+        assert "stable.yml" in names
+        assert "emerging.yml" in names
+        assert "hunting.yml" in names
+        assert len(files) == 3
+
+    def test_missing_extra_dirs_are_skipped_gracefully(self, tmp_path):
+        """Only rules/ present — no error, no crash."""
+        self._write_rule(
+            tmp_path / "rules" / "windows" / "only.yml",
+            "aaaaaaaa-0000-0000-0000-000000000004",
+            "Only Rule",
+        )
+
+        svc = SigmaSyncService(repo_path=str(tmp_path))
+        files = svc.find_rule_files()
+
+        assert len(files) == 1
+        assert files[0].name == "only.yml"

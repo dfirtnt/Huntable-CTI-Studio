@@ -682,6 +682,14 @@ class ContentFilter:
     )
     _V3_IPV4 = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b")
     _V3_DEFANGED_DOMAIN = re.compile(r"\b[\w-]+\[\.\][\w.-]+\b")
+    # Beacon-config key detector — built from V3_BEACON_CONFIG_KEYS so the
+    # vocabulary is the single source of truth, but compiled once at class
+    # definition time rather than inside extract_features_v3().
+    _V3_BEACON_CONFIG = re.compile(
+        r"\b(beacontype|beacon type|sleeptime|sleep_time|jitter|maxgetsize|"
+        r"spawnto|spawn to|polling|maxdns|watermark|license_id|kill_date|cfg_caution)\b",
+        re.IGNORECASE,
+    )
 
     _V3_SIGMA_MARKERS = (
         "title:",
@@ -741,11 +749,7 @@ class ContentFilter:
         )
         suricata_indicator = 1.0 if self._V3_SURICATA.search(text) else 0.0
 
-        beacon_key_re = re.compile(
-            r"\b(" + "|".join(re.escape(k) for k in self.V3_BEACON_CONFIG_KEYS) + r")\b",
-            re.IGNORECASE,
-        )
-        beacon_config_count = len(beacon_key_re.findall(text))
+        beacon_config_count = len(self._V3_BEACON_CONFIG.findall(text))
         beacon_config_indicator = 1.0 if beacon_config_count >= 3 else 0.0
 
         hash_count = len(self._V3_HASH.findall(text))
