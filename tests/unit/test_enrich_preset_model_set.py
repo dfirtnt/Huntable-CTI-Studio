@@ -62,14 +62,13 @@ class TestLoadPresetByIdModelSetRegression:
             "loadPresetById must await populateEnrichModelDropdown before setting model"
         )
         assert "modelSelect.value = data.model" in body, (
-            "loadPresetById must directly assign modelSelect.value = data.model "
-            "after the await (no setTimeout wrapper)"
+            "loadPresetById must directly assign modelSelect.value = data.model after the await (no setTimeout wrapper)"
         )
 
     def test_console_warn_guard_present(self):
         """A console.warn must fire if the resolved model is absent from the catalog."""
         body = _load_preset_by_id_body()
-        assert 'console.warn' in body, (
+        assert "console.warn" in body, (
             "loadPresetById should warn when the preset model is not found in the "
             "populated catalog — silent failures are hard to diagnose"
         )

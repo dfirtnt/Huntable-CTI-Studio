@@ -125,5 +125,3 @@ def test_auto_load_returns_not_available_when_api_unreachable():
     assert result["success"] is False
     assert result["lmstudio_available"] is False
     assert result["lmstudio_cli_available"] is False
-
-

@@ -157,7 +157,6 @@ class TestMigration:
                 "RegistryExtract_temperature": 0.2,
                 "RegistryExtract_top_p": 0.95,
             },
-
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
         }
         migrated = migrate_v1_to_v2(raw)
@@ -177,7 +176,6 @@ class TestMigration:
                 "RegistryExtract_temperature": 0.3,
                 "RegistryExtract_top_p": 0.85,
             },
-
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
         }
         migrated = migrate_v1_to_v2(raw)

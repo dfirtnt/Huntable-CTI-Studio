@@ -208,9 +208,7 @@ class TestSigmaEnrichUI:
         # values.  The catalog function is a module-level JS variable and can be
         # overwritten safely; the class-scoped page reuses the same tab but this is
         # the last test in the class so no intra-class contamination.
-        page.evaluate(
-            """() => { window.loadEnrichProviderModelCatalog = async function() {}; }"""
-        )
+        page.evaluate("""() => { window.loadEnrichProviderModelCatalog = async function() {}; }""")
 
         self._open_preview_then_enrich(page)
 

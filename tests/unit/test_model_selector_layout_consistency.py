@@ -183,6 +183,7 @@ class TestExtractAgentFallbackOption:
         "servicesextract",
         "scheduledtasksextract",
     ]
+
     @pytest.mark.parametrize("prefix", EXTRACT_PREFIXES)
     def test_extract_agent_has_fallback(self, rendered_blocks, prefix):
         assert "Use Extract Agents Fallback Model" in rendered_blocks[prefix], (

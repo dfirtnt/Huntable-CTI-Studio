@@ -61,17 +61,13 @@ class TestPatternBasedFallback:
         cf.model = MagicMock()
         cf.model.predict.side_effect = RuntimeError("corrupt model")
 
-        is_huntable, confidence = cf.predict_huntability(
-            "powershell -ep bypass invoke-expression download cradle"
-        )
+        is_huntable, confidence = cf.predict_huntability("powershell -ep bypass invoke-expression download cradle")
         assert isinstance(is_huntable, bool)
         assert 0.0 <= confidence <= 1.0
 
     def test_pattern_classification_direct(self, cf_no_model):
         """_pattern_based_classification returns (bool, float) directly."""
-        result = cf_no_model._pattern_based_classification(
-            "lateral movement via pass-the-hash with mimikatz"
-        )
+        result = cf_no_model._pattern_based_classification("lateral movement via pass-the-hash with mimikatz")
         assert len(result) == 2
         is_huntable, confidence = result
         assert isinstance(is_huntable, bool)
@@ -79,7 +75,5 @@ class TestPatternBasedFallback:
 
     def test_confidence_bounded(self, cf_no_model):
         """Confidence is always in [0, 1] regardless of hunt score input."""
-        _, confidence = cf_no_model._pattern_based_classification(
-            "some text", hunt_score=150.0
-        )
+        _, confidence = cf_no_model._pattern_based_classification("some text", hunt_score=150.0)
         assert 0.0 <= confidence <= 1.0

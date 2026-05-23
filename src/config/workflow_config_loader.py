@@ -281,9 +281,7 @@ def _is_legacy_v1_shape(raw: dict[str, Any]) -> bool:
     """True if preset looks like legacy v1 (snake_case keys like agent_models)."""
     if raw.get("Version") == "2.0" and "Agents" in raw and "Thresholds" in raw:
         return False
-    return (
-        raw.get("version") == "1.0" or raw.get("Version") == "1.0" or "agent_models" in raw
-    )
+    return raw.get("version") == "1.0" or raw.get("Version") == "1.0" or "agent_models" in raw
 
 
 def validate_legacy_preset_strict(raw: dict[str, Any]) -> None:

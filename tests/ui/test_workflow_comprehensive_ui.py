@@ -831,7 +831,6 @@ class TestWorkflowConfigRegressions:
     """Config-tab regression tests (consolidated from single-file tests)."""
 
 
-
 # ---------------------------------------------------------------------------
 # Enrich modal system prompt UI (rework: view/edit mode, validate, hardcoded
 # instruction) -- tests the workflow.html enrich modal, not /sigma-queue.

@@ -58,6 +58,7 @@ class TestCheckSourceAttributionIntegrity:
 
     def test_fails_logs_warning(self, caplog):
         import logging
+
         threshold = int(_SOURCE_MISMATCH_BASELINE * 1.10)
         with patch("subprocess.run", return_value=_psql_ok(threshold + 50)):
             with caplog.at_level(logging.WARNING, logger="restore_database_v3"):

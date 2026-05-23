@@ -571,7 +571,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 agent_prompts=final_agent_prompts,
                 agent_models=merged_agent_models,
                 sigma_fallback_enabled=sigma_fallback,
-
                 rank_agent_enabled=final_rank_agent_enabled,
                 cmdline_attention_preprocessor_enabled=final_cmdline_attention_preprocessor_enabled,
                 proc_tree_attention_preprocessor_enabled=final_proc_tree_attention_preprocessor_enabled,
@@ -596,7 +595,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 agent_prompts=new_config.agent_prompts,
                 agent_models=new_config.agent_models,
                 sigma_fallback_enabled=new_config.sigma_fallback_enabled,
-
                 rank_agent_enabled=new_config.rank_agent_enabled if hasattr(new_config, "rank_agent_enabled") else True,
                 cmdline_attention_preprocessor_enabled=getattr(
                     new_config, "cmdline_attention_preprocessor_enabled", True
@@ -820,7 +818,6 @@ def _v2_to_legacy_preset_dict(config: Any) -> dict[str, Any]:
         },
         "agent_models": config.flatten_for_llm_service(),
         "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
-
         "rank_agent_enabled": config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
         "proc_tree_attention_preprocessor_enabled": config.Features.ProcTreeAttentionPreprocessorEnabled,
@@ -974,7 +971,6 @@ def _config_row_to_preset_dict(config: AgenticWorkflowConfigTable) -> dict[str, 
         },
         "agent_models": config.agent_models if config.agent_models is not None else {},
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False) or False,
-
         "rank_agent_enabled": getattr(config, "rank_agent_enabled", True)
         if getattr(config, "rank_agent_enabled", None) is not None
         else True,
@@ -1299,7 +1295,6 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
@@ -1569,7 +1564,6 @@ def rollback_agent_prompt(request: Request, agent_name: str, rollback_request: R
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
@@ -1851,7 +1845,6 @@ def bootstrap_prompts_from_files(request: Request):
                 sigma_fallback_enabled=current_config.sigma_fallback_enabled
                 if hasattr(current_config, "sigma_fallback_enabled")
                 else False,
-
                 rank_agent_enabled=current_config.rank_agent_enabled
                 if hasattr(current_config, "rank_agent_enabled")
                 else True,
@@ -1944,7 +1937,6 @@ def reset_prompts_to_defaults(request: Request, reset_request: ResetPromptsToDef
                 agent_prompts=merged_prompts,
                 agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
                 sigma_fallback_enabled=getattr(current_config, "sigma_fallback_enabled", False),
-
                 rank_agent_enabled=getattr(current_config, "rank_agent_enabled", True),
                 cmdline_attention_preprocessor_enabled=getattr(
                     current_config, "cmdline_attention_preprocessor_enabled", True

@@ -42,7 +42,6 @@ def test_scheduled_tasks_extract_help_key_present():
     assert "'scheduledTasksExtract'" in HELP_TEXTS_BLOCK
 
 
-
 def test_hunt_queries_extract_header_has_help_button():
     """HuntQueriesExtract collapsed header row includes a showHelp() button."""
     # The button must sit between the sa-title span and the description span

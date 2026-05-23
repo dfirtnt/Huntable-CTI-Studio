@@ -111,10 +111,7 @@ def run(project_root: Path | None = None) -> tuple[int, int, str]:
         return 0, 0, "no_config_data"
 
     with db_manager.get_session() as session:
-        existing_urls = {
-            row[0]
-            for row in session.query(ArticleTable.canonical_url).all()
-        }
+        existing_urls = {row[0] for row in session.query(ArticleTable.canonical_url).all()}
     to_create = [url for url in articles_by_url if url not in existing_urls]
     if not to_create:
         logger.info(
