@@ -133,10 +133,10 @@ class TestRunReturnReason:
     def test_returns_already_present_when_all_urls_exist(self, tmp_path, mock_db):
         """When all article URLs already in DB, returns (0, 0, 'already_present')."""
         manager, session = mock_db
-        # _get_or_create_eval_source
+        # _get_or_create_eval_source uses .filter().first()
         session.query.return_value.filter.return_value.first.return_value = MagicMock(id=1)
-        # existing_urls query: return both URLs so to_create is empty
-        session.query.return_value.filter.return_value.all.return_value = [
+        # existing_urls query now calls .all() without a filter (cross-source dedup)
+        session.query.return_value.all.return_value = [
             ("https://a.com/1",),
             ("https://b.com/2",),
         ]
@@ -154,18 +154,6 @@ class TestRunReturnReason:
         )
 
         with patch("src.services.seed_eval_articles.DatabaseManager", return_value=manager):
-            # First call: source_id; then get_session for existing_urls (all)
-            def first_all(*args, **kwargs):
-                q = session.query.return_value.filter.return_value
-                if hasattr(q, "all"):
-                    return [("https://a.com/1",), ("https://b.com/2",)]
-                return []
-
-            session.query.return_value.filter.return_value.all.return_value = [
-                ("https://a.com/1",),
-                ("https://b.com/2",),
-            ]
-
             created, errors, reason = run(project_root=tmp_path)
 
         assert created == 0
