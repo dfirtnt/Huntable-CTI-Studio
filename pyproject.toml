@@ -45,7 +45,7 @@ dependencies = [
     "reportlab==4.5.1",
     "python-dateutil==2.9.0.post0",
     # Security
-    "certifi==2026.4.22",
+    "certifi==2026.5.20",
     "urllib3==2.7.0",
     "charset-normalizer==3.4.5",
     "python-multipart==0.0.27",
