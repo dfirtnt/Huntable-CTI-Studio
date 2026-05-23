@@ -267,7 +267,6 @@ async def run_secbert_detection(article_id: int, content: str, junk_filter_thres
         config_obj = trigger_service.get_active_config()
         agent_models = config_obj.agent_models if config_obj and config_obj.agent_models else {}
         embedding_model = agent_models.get("OSDetectionAgent_embedding", "ibm-research/CTI-BERT")
-        fallback_model = agent_models.get("OSDetectionAgent_fallback")
 
         # Apply junk filter
         content_filter = ContentFilter()
@@ -283,9 +282,7 @@ async def run_secbert_detection(article_id: int, content: str, junk_filter_thres
 
         # Run OS detection
         os_service = OSDetectionService(model_name=embedding_model)
-        result = await os_service.detect_os(
-            content=filtered_content, use_classifier=True, use_fallback=True, fallback_model=fallback_model
-        )
+        result = await os_service.detect_os(content=filtered_content, use_classifier=True)
 
         return {
             "detected_os": result.get("operating_system", "Unknown"),
