@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.services.lmstudio_model_loader import auto_load_workflow_models, extract_lmstudio_models
+from src.services.lmstudio_model_loader import auto_load_workflow_models
 
 pytestmark = pytest.mark.unit
 

@@ -277,7 +277,6 @@ def get_workflow_config(request: Request):
                     is_active=True,
                     description="Default configuration",
                     sigma_fallback_enabled=False,
-    
                     agent_prompts=default_prompts if default_prompts else None,
                 )
                 db_session.add(config)
@@ -542,7 +541,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                         agent_prompts=current_config.agent_prompts,
                         agent_models=current_config.agent_models,
                         sigma_fallback_enabled=current_config.sigma_fallback_enabled,
-        
                         rank_agent_enabled=current_config.rank_agent_enabled
                         if hasattr(current_config, "rank_agent_enabled")
                         else True,
