@@ -1178,3 +1178,63 @@ class TestWorkflowEnrichModalUI:
         assert ta_value.strip() == preset_prompt, (
             "Textarea (source of truth sent to /enrich) must hold the preset prompt"
         )
+
+    @pytest.mark.ui
+    @pytest.mark.workflow
+    def test_load_preset_sets_model_dropdown(self, page: Page):
+        """Regression: loadPresetById must set the model dropdown to the preset's model.
+
+        Previously a setTimeout(100) set enrichModelSelect.value — on slow catalog
+        loads the timer fired before <option> elements existed, silently reverting
+        to the dropdown default. Fixed 2026-05-23 (5e4ba82b): direct assignment
+        after the awaited populateEnrichModelDropdown call.
+
+        This test lets populateEnrichModelDropdown run for real (seeding
+        enrichProviderCatalog in JS so it doesn't need a network call) and then
+        verifies the selected value matches the preset's model field.
+        """
+        self._open_enrich_modal(page)
+        page.wait_for_timeout(400)
+
+        preset_model = "gpt-4o"
+        preset_provider = "openai"
+
+        def handle_preset(route):
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "success": True,
+                        "id": 8,
+                        "name": "Model Set Regression Preset",
+                        "description": "",
+                        "provider": preset_provider,
+                        "model": preset_model,
+                        "system_prompt": "test prompt",
+                        "user_instruction": "",
+                    }
+                ),
+            )
+
+        page.route("**/api/sigma-queue/preset/8", handle_preset)
+
+        # Seed the in-page catalog so populateEnrichModelDropdown doesn't need a
+        # network call. This mirrors what the real catalog loader populates.
+        page.evaluate(
+            f"""() => {{
+                window.enrichProviderCatalog = window.enrichProviderCatalog || {{}};
+                window.enrichProviderCatalog["{preset_provider}"] = [
+                    "{preset_model}", "gpt-4o-mini", "gpt-4-turbo"
+                ];
+            }}"""
+        )
+
+        page.evaluate("async () => { await loadPresetById(8, { silent: true }); }")
+        page.wait_for_timeout(300)
+
+        selected = page.evaluate("() => document.getElementById('enrichModelSelect').value")
+        assert selected == preset_model, (
+            f"After loadPresetById the model dropdown must show '{preset_model}', "
+            f"got '{selected}'. The setTimeout race fix may have been reverted."
+        )
