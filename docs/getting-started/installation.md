@@ -109,7 +109,6 @@ Run CLI commands using the wrapper script:
 ./run_cli.sh sync-sources --config config/sources.yaml --no-remove
 ./run_cli.sh compare-sources --config-path config/sources.yaml
 ./run_cli.sh rescore --article-id 123 --dry-run
-./run_cli.sh rescore-ml --article-id 123 --dry-run
 ./run_cli.sh capabilities check
 ./run_cli.sh embed stats
 ./run_cli.sh sigma stats

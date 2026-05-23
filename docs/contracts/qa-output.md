@@ -1,5 +1,9 @@
 # QA Output Contract
 
+> **Deprecated (v7.1.0, 2026-05-22):** The entire QA agent subsystem — `QAEvaluator`, `qa_evaluator.py`, `qa_agent_service.py`, and all extractor QA agents — was removed. This document is retained as a historical reference only.
+
+---
+
 Canonical schema for all QA evaluation results produced by `QAEvaluator`.
 
 ## Canonical Output Key: `verdict`

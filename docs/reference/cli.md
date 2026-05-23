@@ -212,7 +212,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 
 ### rescore
 
-**When:** Regenerate **keyword-based** threat hunting scores (`threat_hunting_score` in article metadata). Use after changing scoring rules or to backfill missing scores. Does not change ML-based scores (use `rescore-ml` for that).
+**When:** Regenerate **keyword-based** threat hunting scores (`threat_hunting_score` in article metadata). Use after changing scoring rules or to backfill missing scores.
 
 **Options:**
 
@@ -231,32 +231,6 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ```
 
 **See also:** [Scoring](../architecture/scoring.md). After scoring-rule changes, run `./run_cli.sh rescore --force` (per AGENTS.md).
-
----
-
-### rescore-ml
-
-**When:** Regenerate **ML-based** hunt scores (chunk-level RandomForest predictions aggregated to article score). Use after retraining the ML model or to backfill/change metric. Distinct from `rescore` (keyword-based).
-
-**Options:**
-
-| Option | Description |
-|--------|-------------|
-| `--article-id ID` | Rescore only this article |
-| `--force` | Recalculate even if score exists |
-| `--dry-run` | Compute but do not save |
-| `--metric NAME` | `weighted_average`, `proportion_weighted`, `confidence_sum_normalized`, `top_percentile`, `user_proposed` |
-| `--model-version VERSION` | Use specific model version (default: latest) |
-
-**Examples:**
-
-```bash
-./run_cli.sh rescore-ml --article-id 1234 --dry-run
-./run_cli.sh rescore-ml --metric proportion_weighted
-./run_cli.sh rescore-ml --force
-```
-
-**See also:** [ML Hunt Scoring](../ml-training/hunt-scoring.md), [Chunking](../architecture/chunking.md).
 
 ---
 
@@ -453,7 +427,6 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `compare-sources` | Compare DB source settings vs sources.yaml (drift check) |
 | `backup create/list/restore/verify/prune/stats` | Full backup workflow |
 | `rescore` | Recompute keyword-based threat hunting scores |
-| `rescore-ml` | Recompute ML-based hunt scores |
 | `embed embed` / `embed stats` / `embed search` | Embedding coverage, generation, coverage stats, semantic search |
 | `sigma sync/index/index-metadata/index-embeddings/index-customer-repo/backfill-metadata/recompute-semantics/match/stats` | Sigma rules: sync, index, semantic backfill, matching |
 | `capabilities check` | Runtime feature capability status |

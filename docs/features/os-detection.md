@@ -1,7 +1,7 @@
 # OS Detection
 
 Automated operating system detection for threat intelligence articles using
-embedding-based classification with optional LLM fallback.
+embedding-based classification.
 
 ## Overview
 
@@ -24,10 +24,7 @@ Three tiers run in order:
 2. **Embedding-based** (Tier 2, primary): CTI-BERT or SEC-BERT embeddings fed into a
    RandomForest or LogisticRegression classifier. High-confidence threshold
    (> 0.8) for single-OS detection. When confidence is low, results are returned as
-   `Unknown` and fall through to the LLM fallback.
-3. **LLM fallback** (Tier 3, secondary): Optional. When enabled, uses a configured LLM
-   (default: LMStudio) to classify articles the classifier is uncertain about.
-   The fallback model and provider are configurable in Workflow Config.
+   `Unknown` when confidence is too low to classify.
 
 ## OS Labels
 
@@ -47,9 +44,6 @@ On the Workflow Config page, OS Detection exposes:
 
 - **Embedding model**: CTI-BERT (`ibm-research/CTI-BERT`, default) or
   SEC-BERT (`nlpaueb/sec-bert-base`)
-- **Fallback LLM**: Toggle to enable; choose provider (LMStudio, OpenAI,
-  Anthropic), model, temperature, and top-p. Settings are saved in workflow
-  config and included in preset export/import.
 
 ### Environment Variables
 
@@ -87,7 +81,6 @@ result = service.detect_os(article_content)
 
 - Keyword tier: < 5ms
 - Embedding classification: 100-200ms per article
-- LLM fallback: 2-5 seconds per article
 - GPU acceleration: automatic if CUDA available; model loads lazily on first use
 
 ## Troubleshooting
@@ -96,11 +89,6 @@ result = service.detect_os(article_content)
 1. Verify the embedding model loaded correctly
 2. Confirm the classifier file exists at `models/os_detection_classifier.pkl`
 3. Retrain with more labeled data (see [ML Training: Hunt Scoring](../ml-training/hunt-scoring.md))
-
-**LLM fallback not working:**
-1. Verify LMStudio is running: `curl http://localhost:1234/v1/models`
-2. Check the model is loaded (Mistral-7B-Instruct-v0.3 or configured alternative)
-3. Verify `LMSTUDIO_API_URL` in environment
 
 **False positives / wrong OS:**
 1. Review OS indicator texts in `src/services/os_detection_service.py`
@@ -130,21 +118,11 @@ Labels are derived from LOLBAS keyword matches (ground truth):
 ### Training
 
 ```bash
-# 1. Prepare training data
-python3 scripts/prepare_huntable_windows_training_data.py \
-    --limit 500 \
-    --balance \
-    --output data/huntable_windows_training_data.json
-
-# 2. Train classifier
-python3 scripts/train_huntable_windows_classifier.py \
-    --data data/huntable_windows_training_data.json \
-    --classifier random_forest \
-    --output models/huntable_windows_classifier.pkl \
-    --scaler-output models/huntable_windows_scaler.pkl
-
-# 3. Or run the automated workflow
+# Run the automated workflow
 bash scripts/train_huntable_windows_workflow.sh
+
+# Manual steps: prepare_huntable_windows_training_data.py and
+# train_huntable_windows_classifier.py no longer exist — use the workflow above
 ```
 
 Train on **raw content** (no filtering flag): more training samples, model
@@ -163,19 +141,9 @@ LLM-labeled articles.
 # Automated workflow
 bash scripts/train_os_detection_workflow.sh
 
-# Manual: generate labels
-python scripts/prepare_os_detection_training_data.py \
-    --min-hunt-score 80.0 \
-    --limit 50 \
-    --output data/os_detection_training_data.json
-
-# Manual: train
-python scripts/train_os_detection_classifier_enhanced.py \
-    --data data/os_detection_training_data.json \
-    --classifier random_forest \
-    --output models/os_detection_classifier.pkl \
-    --test-split 0.2 \
-    --cv-folds 5
+# Manual steps: see scripts/ for available training utilities
+# (prepare_os_detection_training_data.py and train_os_detection_classifier_enhanced.py
+#  referenced here no longer exist — use the automated workflow above)
 ```
 
 ### Classifier types
@@ -197,10 +165,9 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 
 - `src/services/os_detection_service.py` — service implementation
 - `src/utils/content.py` — LOLBAS keyword definitions
-- `scripts/prepare_os_detection_training_data.py` — training data prepaLLM-based label generation
-- `scripts/train_os_detection_classifier_enhanced.py` — training with CV
-- `scripts/prepare_huntable_windows_training_data.py` — Windows binary classifier data
-- `scripts/train_huntable_windows_classifier.py` — Windows binary classifier training
+- `scripts/train_os_detection_workflow.sh` — automated OS classifier training workflow
+- `scripts/eval_os_detection_manual.py` — manual OS detection evaluation
+- `scripts/train_huntable_windows_workflow.sh` — automated Windows binary classifier training
 
 _Last updated: 2026-05-15_
 <!--stackedit_data:

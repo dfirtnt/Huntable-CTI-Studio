@@ -35,7 +35,7 @@ The Huntable pipeline code (`llm_service.py`) enforces specific prompt structure
 - The code auto-appends a traceability block to every user prompt requiring: `value`, `source_evidence`, `extraction_justification`, `confidence_score`.
 - Your `json_example` MUST already include these four fields.
 - If `json_example` omits them, the model receives conflicting schema instructions (your example says one thing, the appended block says another).
-- `source_evidence` and `extraction_justification` are not cosmetic -- the QA agent uses them for factuality checks. Without them, QA flags outputs as potentially hallucinated.
+- `source_evidence` and `extraction_justification` are not cosmetic -- they are required by the pipeline for downstream rendering and traceability. Without them, extracted items render as bare values in the UI.
 
 ### 4. json_example must match output schema
 
@@ -255,11 +255,11 @@ Required for each field:
 
 **Traceability fields (mandatory -- all extractors):**
 
-These four fields MUST appear on every extracted item. They are required by the pipeline code and consumed by the QA agent for factuality checks.
+These four fields MUST appear on every extracted item. They are required by the pipeline code for downstream rendering and traceability.
 
 - **value**: REQUIRED. The extracted artifact itself (the primary content). Map this to whatever your artifact's main field is (e.g., for CmdLine this is the command line; for Registry this is the key path). If your schema uses a different primary field name (key, query_text, etc.), ALSO include value as a duplicate or alias.
-- **source_evidence**: REQUIRED. The exact excerpt from the article that contains or directly supports the artifact. This is the QA agent's ground truth for factuality verification.
-- **extraction_justification**: REQUIRED. One sentence explaining WHY this artifact was extracted -- what makes it a valid, detection-relevant artifact rather than noise. Used by QA to assess extraction reasoning.
+- **source_evidence**: REQUIRED. The exact excerpt from the article that contains or directly supports the artifact. Rendered in the UI for human review; used for traceability.
+- **extraction_justification**: REQUIRED. One sentence explaining WHY this artifact was extracted -- what makes it a valid, detection-relevant artifact rather than noise. Rendered in the UI alongside each extracted item.
 - **confidence_score**: REQUIRED. Float between 0.0 and 1.0.
     - 1.0 = artifact is unambiguously explicit, complete, and detection-relevant
     - 0.7-0.9 = artifact is present but has minor ambiguity (e.g., operation type not stated, partial context)

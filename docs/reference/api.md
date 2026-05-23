@@ -83,7 +83,7 @@ The workflow engine writes its state into `agentic_workflow_executions` and expo
 - `POST /api/workflow/config/preset/save`
 - `PATCH /api/workflow/config/auto-trigger-threshold` — Update the auto-trigger hunt score threshold (0–100). Body: `{ "auto_trigger_hunt_score_threshold": <float> }`. **This is the only endpoint that changes this value.** It mutates the active config row in-place and is intentionally excluded from the main `PUT /api/workflow/config` endpoint and from all preset import/export paths. Manage this setting only through the Settings UI.
 
-Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`, and the QA counterpart defined in the schema (`RankAgentQA`). Note: names such as `CmdLineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA` appear in internal workflow execution tracking but are not part of `CANONICAL_PROMPT_AGENT_NAMES` in `workflow_config_schema.py` and cannot be stored in the Prompts section of a v2 config.
+Valid `agent_name` values for the prompts endpoints are the canonical agent names defined in `src/config/workflow_config_schema.py`: `RankAgent`, `ExtractAgent`, `SigmaAgent`, `CmdlineExtract`, `ProcTreeExtract`, `HuntQueriesExtract`, `RegistryExtract`, `ServicesExtract`, `ScheduledTasksExtract`. QA agents (`RankAgentQA` and all extractor QA agents) were fully removed in v7.1.0 (2026-05-22) and are no longer valid agent names.
 
 Each prompt object is a JSON dict with these fields:
 

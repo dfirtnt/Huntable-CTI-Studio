@@ -24,12 +24,6 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 | `RegistryExtract` | `RegistryExtract` | Registry artifact extraction |
 | `ServicesExtract` | `ServicesExtract` | Windows services extraction |
 | `ScheduledTasksExtract` | `ScheduledTasksExtract` | Scheduled tasks extraction |
-| `QAAgentCMD` | `CmdLineQA` | QA for CmdlineExtract |
-| `ProcTreeQA` | `ProcTreeQA` | QA for ProcTreeExtract |
-| `HuntQueriesQA` | `HuntQueriesQA` | QA for HuntQueriesExtract |
-| `RegistryQA` | `RegistryQA` | QA for RegistryExtract |
-| `ServicesQA` | `ServicesQA` | QA for ServicesExtract |
-| `ScheduledTasksQA` | `ScheduledTasksQA` | QA for ScheduledTasksExtract |
 
 ## File-Only Prompts (Not in Workflow Config)
 

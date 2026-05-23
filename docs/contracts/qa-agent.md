@@ -2,9 +2,9 @@
 
 Version: 1.1
 Last Updated: 2026-05-12
-Applies To: RankAgentQA only
+Applies To: **Archived — all QA agents removed**
 
-> **Note (2026-05-12):** Per-extractor QA agents (CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA) were removed from the pipeline. Only `RankAgentQA` remains active. The contract structure below applies exclusively to RankAgentQA.
+> **Deprecated (v7.1.0, 2026-05-22):** The entire QA agent subsystem was removed. `RankAgentQA` and all extractor QA agents (CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA) no longer exist in the pipeline, schema, or codebase. This document is retained as a historical reference only.
 
 ---
 
