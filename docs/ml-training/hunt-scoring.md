@@ -13,7 +13,9 @@ The `ml_hunt_score` is an article-level score produced by a RandomForest classif
 
 ## Metric Options
 
-### 1. `weighted_average` (Recommended)
+> **Historical reference only.** The per-article `ml_hunt_score` aggregate was retired. `calculate_ml_hunt_score` and `update_article_ml_hunt_score` no longer exist in `ChunkAnalysisService`; `store_chunk_analysis` does not write `ml_hunt_score` to article metadata. Existing rows retain the field as legacy data. No config key or CLI flag exposes metric selection — this section documents the options that existed when the feature was active.
+
+### 1. `weighted_average` (was the default)
 
 **Formula**: `average(ml_confidence for huntable chunks) * 100`
 
@@ -106,52 +108,13 @@ Average confidence of chunks above a 50% threshold.
 
 ---
 
-## Recommendation
-
-Use `weighted_average` as the default metric:
-
-1. **Interpretable**: "Average confidence of huntable chunks" needs no further explanation.
-2. **Robust**: No huntable chunks returns 0 cleanly.
-3. **Quality-focused**: Weights confidence over quantity.
-4. **Consistent**: Article length does not affect the result.
-5. **Correct field usage**: Filters by `ml_prediction=True`, not an arbitrary threshold.
-
 ## Implementation
 
-### Storage
-
-ML hunt scores are stored in `article_metadata`:
-
-```json
-{
-  "ml_hunt_score": 75.5,
-  "ml_hunt_score_metric": "weighted_average",
-  "ml_hunt_score_details": {
-    "total_chunks": 42,
-    "huntable_chunks": 28,
-    "huntable_proportion": 0.667,
-    "avg_confidence": 0.755,
-    "min_confidence": 0.512,
-    "max_confidence": 0.987,
-    "model_version": "v1.2.3"
-  }
-}
-```
-
-### Automatic Calculation
-
-ML hunt scores calculate automatically when:
-- Chunk analysis results are stored via `ChunkAnalysisService.store_chunk_analysis()`
-- The article's `threat_hunting_score` exceeds 50 (same threshold as chunk storage)
+> **Note:** Per-article `ml_hunt_score` aggregation was retired. `store_chunk_analysis` stores chunk-level predictions in `chunk_analysis_results` but no longer computes or writes an article-level `ml_hunt_score`. Legacy articles that were scored before the retirement retain `ml_hunt_score` in their `article_metadata`; new chunk analysis runs do not produce this field.
 
 ### Recalculation
 
-No CLI command recomputes `ml_hunt_score` directly. The score recalculates whenever chunk analysis is re-stored for an article. Trigger that by:
-
-- **Backfill** — run **Process All Eligible Articles** on the ML vs Hunt Comparison Dashboard, or call `POST /api/ml-model-performance/backfill`. This re-analyzes every article with `hunt_score > 50`.
-- **Re-run extraction** — re-extracting an article regenerates its chunk predictions and the aggregate `ml_hunt_score`.
-
-The aggregation metric is fixed in the scoring code; it is not selectable per run.
+The ML vs Hunt Comparison Dashboard (`POST /api/ml-model-performance/backfill`) reruns chunk-level predictions across all articles with `hunt_score > 50`. It does not rewrite `ml_hunt_score` — chunk analysis results are the current scoring surface.
 
 
 
@@ -171,8 +134,7 @@ The aggregation metric is fixed in the scoring code; it is not selectable per ru
 1. **Use both scores**: keyword score for fast filtering, ML score for quality assessment.
 2. **Monitor correlation**: track how ML scores correlate with keyword scores over time.
 3. **Retrain regularly**: update the model as new feedback accumulates.
-4. **Start with `weighted_average`**: switch metrics only if you have a concrete reason.
-5. **Tune thresholds**: adjust workflow trigger thresholds based on observed score distributions.
+4. **Tune thresholds**: adjust workflow trigger thresholds based on observed score distributions.
 
 ## Troubleshooting
 
@@ -192,13 +154,11 @@ The aggregation metric is fixed in the scoring code; it is not selectable per ru
 **Symptom**: ML scores do not match expectations.
 
 **Causes**:
-- Metric selection may not suit the content type
 - Model version mismatch between chunks and current model
 - Chunk size or overlap settings differ from training
 
 **Resolution**:
-- Try a different metric: `--metric proportion_weighted`
-- Inspect chunk analysis details in the article's metadata
+- Inspect chunk analysis details via the ML vs Hunt Comparison Dashboard
 - Verify model version consistency across chunk records
 
 ---
