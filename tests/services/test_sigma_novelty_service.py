@@ -361,8 +361,6 @@ class TestAssessNoveltyDegradationWarnings:
 
 
 
-
-
 class TestSnakeCaseFieldAliasNormalization:
     """
     build_canonical_rule must normalise snake_case field names to the same

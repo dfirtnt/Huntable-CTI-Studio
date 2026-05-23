@@ -1450,19 +1450,6 @@ class SigmaNoveltyService:
             return 1 + self._compute_logic_depth(logic["NOT"])
         return 0
 
-    def _count_operators(self, logic: dict[str, Any]) -> int:
-        """Count number of operators in logic tree."""
-        count = 0
-        if "AND" in logic or "OR" in logic:
-            count = 1
-            operands = logic.get("AND", logic.get("OR", []))
-            for op in operands:
-                count += self._count_operators(op)
-        elif "NOT" in logic:
-            count = 1 + self._count_operators(logic["NOT"])
-
-        return count
-
     def compute_similarity_metrics(self, rule1: CanonicalRule, rule2: CanonicalRule) -> dict[str, Any]:
         """
         Compute similarity metrics between two canonical rules.
