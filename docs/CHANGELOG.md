@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unused imports removed** (2026-05-23): `get_backup_config_manager` from `backup_system.py`, `shutil` from `restore_database.py` and `verify_backup.py`.
 
 ### Changed
+- **Docs accuracy pass: QA removal, OS fallback removal, ml_hunt_score retirement** (2026-05-23): 18 doc files updated to reflect v7.1.0+ state. QA agent references removed from `agent-config-schema.md`, `qa-loops.md`, `qa-agent.md`, `qa-output.md`, `extractor-standard.md`, `agents.md`, `edit-prompts.md`, `api.md`, `prompt-mapping-table.md`, `schemas.md`. OS detection LLM fallback tier removed from `os-detection.md` (toggle, environment variables, troubleshooting, training CLI). `rescore-ml` CLI command removed from `cli.md` and `installation.md`. `ml_hunt_score` aggregate references updated in `chunking.md` and `huntables.md`. `backup-and-restore.md` QA settings column removed. `debugging.md` log example updated. `agent-evals.md` stale TODO annotation removed.
 - **`seed_eval_articles.py` cross-source URL dedup** (2026-05-23): `existing_urls` query now spans all sources (removed `.filter(source_id==…)`), preventing the same article URL from being seeded twice under different source IDs.
 - **`ml_hunt_score` field retired** (2026-05-23): `calculate_ml_hunt_score` and `update_article_ml_hunt_score` removed from `ChunkAnalysisService`; `store_chunk_analysis` no longer writes `ml_hunt_score`. `docs/ml-training/hunt-scoring.md` updated to reflect retired metric.
 
