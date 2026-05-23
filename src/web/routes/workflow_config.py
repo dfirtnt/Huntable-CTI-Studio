@@ -11,7 +11,12 @@ from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import func
 
 from src.config.workflow_config_loader import export_preset_as_canonical_v2, load_workflow_config
-from src.config.workflow_config_schema import AGENT_DISPLAY_NAMES, AGENT_NAMES_SPECIAL
+from src.config.workflow_config_schema import (
+    AGENT_DISPLAY_NAMES,
+    AGENT_NAMES_SPECIAL,
+    agent_models_is_nested,
+    normalize_agent_models_to_flat,
+)
 from src.database.manager import DatabaseManager
 from src.database.models import (
     AgenticWorkflowConfigTable,
@@ -395,19 +400,27 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             # Merge agent_models instead of replacing (preserve existing models when updating)
             merged_agent_models = None
             if config_update.agent_models is not None:
+                # Flatten incoming nested-format keys (WorkflowConfigV2 shape) so the DB
+                # always stores the flat keys LLMService reads. Without this, a nested
+                # payload silently routes all LLM calls to LMStudio (the empty-provider
+                # fallback in _canonicalize_provider).
+                incoming = config_update.agent_models
+                if agent_models_is_nested(incoming):
+                    logger.warning(
+                        "agent_models save payload arrived in nested WorkflowConfigV2 format; "
+                        "flattening to legacy flat keys before DB write"
+                    )
+                    incoming = normalize_agent_models_to_flat(incoming)
+
                 # Start with current config's agent_models if it exists
                 if current_config and current_config.agent_models:
-                    merged_agent_models = current_config.agent_models.copy()
+                    merged_agent_models = normalize_agent_models_to_flat(current_config.agent_models)
                 else:
                     merged_agent_models = {}
                 # First, identify keys that should be removed (explicitly set to None in update)
-                keys_to_remove = set()
-                if config_update.agent_models:
-                    for key, value in config_update.agent_models.items():
-                        if value is None:
-                            keys_to_remove.add(key)
-                # Update with new values from config_update (excluding None values)
-                for key, value in config_update.agent_models.items():
+                keys_to_remove = {key for key, value in incoming.items() if value is None}
+                # Update with new values from incoming (excluding None values)
+                for key, value in incoming.items():
                     if value is not None:
                         merged_agent_models[key] = value
                 # Remove keys that were explicitly set to None
@@ -420,7 +433,7 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                 # Auto-enable providers used in preset so any provider (OpenAI, Anthropic, LMStudio) works
                 _enable_providers_from_agent_models(db_session, merged_agent_models)
             elif current_config:
-                merged_agent_models = current_config.agent_models
+                merged_agent_models = normalize_agent_models_to_flat(current_config.agent_models)
 
             # Determine final values for new config
             final_min_hunt_score = (

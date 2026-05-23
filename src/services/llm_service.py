@@ -370,6 +370,22 @@ class LLMService:
         # Priority: config_models > AppSettings DB > environment variables > default
         config_models = config_models or {}
 
+        # Defensive: if a caller hands us the WorkflowConfigV2 nested form
+        # ({"CmdlineExtract": {"provider": "openai", "model": "..."}}) instead of
+        # the legacy flat keys ({"CmdlineExtract_model": "...", "CmdlineExtract_provider": "..."}),
+        # unwrap it. Without this, every flat-key lookup below misses, every
+        # provider canonicalizes to "lmstudio" via the empty-string fallback,
+        # and the workflow silently runs against the wrong backend.
+        from src.config.workflow_config_schema import agent_models_is_nested, normalize_agent_models_to_flat
+
+        if agent_models_is_nested(config_models):
+            logger.warning(
+                "config_models arrived in nested WorkflowConfigV2 format; "
+                "unwrapping to flat keys. Save path should normalize this -- "
+                "see workflow_config.update_workflow_config."
+            )
+            config_models = normalize_agent_models_to_flat(config_models)
+
         workflow_settings = self._load_workflow_provider_settings()
         lmstudio_db = self._load_lmstudio_settings()
 

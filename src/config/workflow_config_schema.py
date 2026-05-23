@@ -136,6 +136,52 @@ BASE_AGENT_TO_QA: dict[str, str] = {}
 QA_AGENT_TO_BASE: dict[str, str] = {}
 
 
+_MAIN_MODEL_AGENTS = frozenset({"RankAgent", "ExtractAgent", "SigmaAgent"})
+_SUB_MODEL_AGENTS = frozenset(AGENT_NAMES_SUB)
+
+
+def normalize_agent_models_to_flat(agent_models: dict[str, Any] | None) -> dict[str, Any]:
+    """Convert agent_models to the flat-key format LLMService expects.
+
+    Accepts either flat (e.g. ``CmdlineExtract_model``, ``CmdlineExtract_provider``)
+    or the WorkflowConfigV2 nested form (``{"CmdlineExtract": {"provider": ...,
+    "model": ..., "temperature": ..., "top_p": ...}}``) and emits flat keys
+    matching :meth:`WorkflowConfigV2.flatten_for_llm_service`. Idempotent on
+    already-flat input. Returns a new dict; never mutates the input.
+    """
+    if not agent_models:
+        return {}
+    out: dict[str, Any] = {}
+    for key, value in agent_models.items():
+        if isinstance(value, dict) and key in (_MAIN_MODEL_AGENTS | _SUB_MODEL_AGENTS):
+            provider = value.get("provider") if "provider" in value else value.get("Provider")
+            model = value.get("model") if "model" in value else value.get("Model")
+            temperature = value.get("temperature") if "temperature" in value else value.get("Temperature")
+            top_p = value.get("top_p") if "top_p" in value else value.get("TopP")
+            if provider is not None:
+                out[f"{key}_provider"] = provider
+            if model is not None:
+                model_key = key if key in _MAIN_MODEL_AGENTS else f"{key}_model"
+                out[model_key] = model
+            if temperature is not None:
+                out[f"{key}_temperature"] = temperature
+            if top_p is not None:
+                out[f"{key}_top_p"] = top_p
+        else:
+            out[key] = value
+    return out
+
+
+def agent_models_is_nested(agent_models: dict[str, Any] | None) -> bool:
+    """True if any agent_models entry uses the nested WorkflowConfigV2 form."""
+    if not agent_models:
+        return False
+    for key, value in agent_models.items():
+        if isinstance(value, dict) and key in (_MAIN_MODEL_AGENTS | _SUB_MODEL_AGENTS):
+            return True
+    return False
+
+
 class WorkflowConfigV2(BaseModel):
     """
     Normalized workflow config v2. Version required.
