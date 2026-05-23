@@ -122,7 +122,7 @@ test = [
     "sphinx==9.0.4",
     "sphinx-rtd-theme==3.1.0",
     "pytest-reportlog==1.0.0",
-    "allure-pytest==2.15.3",
+    "allure-pytest==2.16.0",
     "line-profiler==5.0.2",
 ]
 
