@@ -673,12 +673,16 @@ class SigmaNoveltyService:
                 base_field, modifiers = self._parse_field_with_modifiers(field_name)
 
                 # Apply field alias normalization (v1.2)
-                # Make lookup case-insensitive (map uses title case)
+                # Make lookup case-insensitive AND underscore-insensitive so that
+                # snake_case field names (LLM-generated or older Sigma rules) map to
+                # the same canonical form as their camelCase equivalents.
+                # e.g. parent_image → parentimage == ParentImage.lower() → ParentImage
                 base_field_lower = base_field.lower() if base_field else ""
-                # Find matching key in map (case-insensitive)
+                base_field_nounderscore = base_field_lower.replace("_", "")
                 canonical_field = base_field
                 for map_key, map_value in self.FIELD_ALIAS_MAP.items():
-                    if map_key.lower() == base_field_lower:
+                    map_key_lower = map_key.lower()
+                    if map_key_lower == base_field_lower or map_key_lower == base_field_nounderscore:
                         canonical_field = map_value
                         break
                 # If no match found, use title case version of original

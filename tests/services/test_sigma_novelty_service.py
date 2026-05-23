@@ -358,3 +358,93 @@ class TestAssessNoveltyDegradationWarnings:
         assert top["atom_jaccard"] > 0.5, (
             f"Expected high Jaccard for identical detection logic, got {top['atom_jaccard']}"
         )
+
+
+
+
+
+class TestSnakeCaseFieldAliasNormalization:
+    """
+    build_canonical_rule must normalise snake_case field names to the same
+    canonical form as their PascalCase equivalents so that compute_atom_jaccard
+    produces 1.0 for rules that differ only in field name convention.
+    """
+
+    def _make_rule(self, field_map: dict) -> dict:
+        """Return a minimal process_creation rule dict with the given detection fields."""
+        return {
+            "title": "Test Rule",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": field_map, "condition": "selection"},
+        }
+
+    def test_parent_image_snake_and_pascal_produce_same_canonical_field(self):
+        """parent_image and ParentImage must resolve to the same canonical field."""
+        service = SigmaNoveltyService()
+        canon_snake = service.build_canonical_rule(
+            self._make_rule({"parent_image|contains": "*\\\\powershell.exe"})
+        )
+        canon_pascal = service.build_canonical_rule(
+            self._make_rule({"ParentImage|contains": "*\\\\powershell.exe"})
+        )
+
+        # detection["atoms"] holds dicts (built via dataclasses.asdict)
+        fields_snake = {a["field"] for a in canon_snake.detection["atoms"]}
+        fields_pascal = {a["field"] for a in canon_pascal.detection["atoms"]}
+        assert fields_snake == fields_pascal, (
+            f"parent_image canonical field {fields_snake!r} != "
+            f"ParentImage canonical field {fields_pascal!r}"
+        )
+
+    def test_compute_atom_jaccard_is_one_for_rules_differing_only_in_field_case(self):
+        """
+        Two rules identical except parent_image vs ParentImage must score
+        atom_jaccard == 1.0 in the pairwise comparison path.
+        """
+        service = SigmaNoveltyService()
+
+        rule_snake = self._make_rule(
+            {
+                "parent_image|contains": "*\\\\powershell.exe",
+                "Image|contains": "*\\\\powershell.exe",
+            }
+        )
+        rule_pascal = self._make_rule(
+            {
+                "ParentImage|contains": "*\\\\powershell.exe",
+                "Image|contains": "*\\\\powershell.exe",
+            }
+        )
+
+        canonical_snake = service.build_canonical_rule(rule_snake)
+        canonical_pascal = service.build_canonical_rule(rule_pascal)
+        jaccard = service.compute_atom_jaccard(canonical_snake, canonical_pascal)
+
+        assert jaccard == 1.0, (
+            f"Expected atom_jaccard 1.0 for rules differing only in parent_image vs "
+            f"ParentImage field casing, got {jaccard}"
+        )
+
+    def test_explainability_shows_no_missing_atoms_for_field_casing_only_diff(self):
+        """
+        generate_explainability must report shared_atoms only (no added_atoms /
+        removed_atoms) when both rules detect the same behaviour.
+        """
+        service = SigmaNoveltyService()
+
+        rule_snake = self._make_rule({"parent_image|contains": "*\\\\powershell.exe"})
+        rule_pascal = self._make_rule({"ParentImage|contains": "*\\\\powershell.exe"})
+
+        canonical_snake = service.build_canonical_rule(rule_snake)
+        canonical_pascal = service.build_canonical_rule(rule_pascal)
+        expl = service.generate_explainability(canonical_snake, canonical_pascal, {})
+
+        assert len(expl["shared_atoms"]) == 1, (
+            f"Expected 1 shared atom, got {expl['shared_atoms']}"
+        )
+        assert expl["added_atoms"] == [], (
+            f"Unexpected added_atoms: {expl['added_atoms']}"
+        )
+        assert expl["removed_atoms"] == [], (
+            f"Unexpected removed_atoms: {expl['removed_atoms']}"
+        )
