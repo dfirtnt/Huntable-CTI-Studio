@@ -179,7 +179,6 @@ def test_lmstudio_gemma3_1b_smoke_workflow_completes(db_session, minimal_active_
             minimal_active_config, "cmdline_attention_preprocessor_enabled", True
         ),
         "sigma_fallback_enabled": getattr(minimal_active_config, "sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": False,
         "extract_agent_settings": {
             "disabled_agents": [
                 "ProcTreeExtract",

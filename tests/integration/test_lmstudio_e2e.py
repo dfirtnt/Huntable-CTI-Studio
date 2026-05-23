@@ -424,7 +424,6 @@ def test_full_workflow_with_lmstudio(db_session, lmstudio_active_config, test_ar
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": getattr(config, "osdetection_fallback_enabled", False),
         "extract_agent_settings": {"disabled_agents": []},
         # Config provenance
         "config_id": config.id,

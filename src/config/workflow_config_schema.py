@@ -262,7 +262,6 @@ class WorkflowConfigV2(BaseModel):
             "agent_prompts": agent_prompts_out,
             "agent_models": self.flatten_for_llm_service(),
             "sigma_fallback_enabled": self.Features.SigmaFallbackEnabled,
-            "osdetection_fallback_enabled": False,
             "rank_agent_enabled": rank_agent.Enabled if isinstance(rank_agent, AgentConfig) else True,
             "cmdline_attention_preprocessor_enabled": self.Features.CmdlineAttentionPreprocessorEnabled,
             "proc_tree_attention_preprocessor_enabled": self.Features.ProcTreeAttentionPreprocessorEnabled,

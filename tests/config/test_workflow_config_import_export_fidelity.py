@@ -207,7 +207,6 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     assert legacy["similarity_threshold"] == FIDELITY_SIGMA_THRESHOLD
     assert legacy["sigma_fallback_enabled"] is FIDELITY_SIGMA_FULL_ARTICLE
     assert legacy["cmdline_attention_preprocessor_enabled"] is FIDELITY_CMDLINE_ATTENTION
-    assert legacy["osdetection_fallback_enabled"] is False
     # Note: schema to_legacy_response_dict does not include extract_agent_settings; the API
     # route _v2_to_legacy_preset_dict adds it. Execution.DisabledAgents is asserted in test_import_enforces_all_settings.
 

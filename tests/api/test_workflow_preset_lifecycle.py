@@ -128,7 +128,6 @@ class TestPresetLifecycle:
             },
             "agent_models": current_config.get("agent_models", {}),
             "sigma_fallback_enabled": current_config.get("sigma_fallback_enabled", False),
-            "osdetection_fallback_enabled": current_config.get("osdetection_fallback_enabled", False),
             "rank_agent_enabled": current_config.get("rank_agent_enabled", True),
             "cmdline_attention_preprocessor_enabled": current_config.get(
                 "cmdline_attention_preprocessor_enabled", True
@@ -205,7 +204,6 @@ class TestPresetLifecycle:
             "description": "Imported test preset",
             "thresholds": {"junk_filter_threshold": 0.8, "ranking_threshold": 6.5, "similarity_threshold": 0.6},
             "sigma_fallback_enabled": False,
-            "osdetection_fallback_enabled": False,
             "rank_agent_enabled": True,
             "cmdline_attention_preprocessor_enabled": True,
             "agent_models": {"RankAgent_provider": "lmstudio", "RankAgent": "test-model"},

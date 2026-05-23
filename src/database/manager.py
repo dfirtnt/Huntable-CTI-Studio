@@ -106,6 +106,8 @@ class DatabaseManager:
                     # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM
                     "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_enabled",
                     "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
+                    # osdetection_fallback_enabled always-False since 9797f699; drop the column
+                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
                 ]:
                     conn.execute(text(col_ddl))
                 # Add primary keys to tables that pre-date PK enforcement.

@@ -39,7 +39,7 @@ _FULL_LEGACY_V1 = {
     "agent_models": dict(_MINIMAL_AGENT_MODELS),
     "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
     "sigma_fallback_enabled": False,
-    "osdetection_fallback_enabled": False,
+
     "rank_agent_enabled": True,
     "cmdline_attention_preprocessor_enabled": True,
     "proc_tree_attention_preprocessor_enabled": True,
@@ -322,7 +322,7 @@ def test_config_row_to_preset_dict_includes_disabled_agents_from_agent_prompts()
         similarity_threshold=0.5,
         agent_models={"RankAgent": "gpt-4"},
         sigma_fallback_enabled=False,
-        osdetection_fallback_enabled=False,
+
         rank_agent_enabled=True,
         cmdline_attention_preprocessor_enabled=True,
         proc_tree_attention_preprocessor_enabled=True,
@@ -348,7 +348,7 @@ def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompt
             "ExtractAgentSettings": {"disabled_agents": ["CmdlineExtract", "ProcTreeExtract"]},
         },
         sigma_fallback_enabled=False,
-        osdetection_fallback_enabled=False,
+
         rank_agent_enabled=True,
         cmdline_attention_preprocessor_enabled=True,
         proc_tree_attention_preprocessor_enabled=True,

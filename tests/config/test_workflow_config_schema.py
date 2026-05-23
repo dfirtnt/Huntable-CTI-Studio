@@ -200,7 +200,6 @@ _LEGACY_RESPONSE_DICT_KEYS = frozenset(
         "agent_prompts",
         "agent_models",
         "sigma_fallback_enabled",
-        "osdetection_fallback_enabled",
         "rank_agent_enabled",
         "cmdline_attention_preprocessor_enabled",
         "proc_tree_attention_preprocessor_enabled",

@@ -78,9 +78,6 @@ def _v2_to_legacy(config) -> dict:
         "agent_models": config.flatten_for_llm_service(),
         "qa_enabled": qa_enabled,
         "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
-        "osdetection_fallback_enabled": (
-            config.Agents.get("OSDetectionFallback").Enabled if config.Agents.get("OSDetectionFallback") else False
-        ),
         "rank_agent_enabled": (config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True),
         "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
@@ -115,7 +112,6 @@ def build_put_payload(legacy: dict, description: str = "Preset applied via scrip
         "agent_models": legacy.get("agent_models", {}),
         "qa_enabled": legacy.get("qa_enabled", {}),
         "sigma_fallback_enabled": legacy.get("sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": legacy.get("osdetection_fallback_enabled", False),
         "rank_agent_enabled": legacy.get("rank_agent_enabled", True),
         "qa_max_retries": legacy.get("qa_max_retries", 5),
         "cmdline_attention_preprocessor_enabled": legacy.get("cmdline_attention_preprocessor_enabled", True),
