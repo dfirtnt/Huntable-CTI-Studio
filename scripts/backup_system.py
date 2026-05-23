@@ -36,13 +36,10 @@ src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
 try:
-    from utils.backup_config import get_backup_config, get_backup_config_manager
+    from utils.backup_config import get_backup_config
 except ImportError:
     # Fallback if config module not available
     def get_backup_config():
-        return None
-
-    def get_backup_config_manager():
         return None
 
 

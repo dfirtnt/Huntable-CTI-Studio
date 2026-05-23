@@ -109,7 +109,7 @@ V2 Preset (canonical)  ->  POST /config/preset/to-legacy  ->  V1 Preset (legacy)
 - V2 -> V1 conversion works
 - Legacy format has correct structure
 - Values preserved (e.g., SimilarityThreshold -> similarity_threshold)
-- Required legacy fields present (`agent_models`, `qa_enabled`)
+- Required legacy fields present (`agent_models`, `sigma_fallback_enabled`)
 
 ---
 

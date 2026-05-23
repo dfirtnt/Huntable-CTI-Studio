@@ -7,17 +7,15 @@ Validates LLM-generated SIGMA rules for syntax, structure, and best practices.
 import logging
 import re
 from dataclasses import dataclass
+from importlib.util import find_spec
 from typing import Any
 
 import yaml
 
 try:
-    from sigma.rule import SigmaRule
-
-    PYSIGMA_AVAILABLE = True
-except ImportError:
+    PYSIGMA_AVAILABLE = find_spec("sigma") is not None and find_spec("sigma.rule") is not None
+except ModuleNotFoundError:
     PYSIGMA_AVAILABLE = False
-    SigmaRule = None
 
 logger = logging.getLogger(__name__)
 

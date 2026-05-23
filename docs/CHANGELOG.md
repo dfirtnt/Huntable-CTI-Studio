@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+- **`osdetection_fallback_enabled` zombie flag fully removed** (2026-05-23): Field was hardcoded `False` since commit `9797f699` when the OS-detection fallback LLM agent was deprecated. Removed the SQLAlchemy column, schema default in `workflow_config_schema.py`, all 12+ route call sites in `workflow_config.py`, and references in 8 test files and `scripts/apply_preset.py`. Startup `ALTER TABLE … DROP COLUMN IF EXISTS` added to `manager.py` and `async_manager.py`. Migration deprecation warning retained in `workflow_config_migrate.py` for one release cycle to surface stale preset JSON.
+- **QA agent subsystem fully removed** (2026-05-23): `RankAgentQA` and all extractor QA agents deprecated and removed from schema, config, services (`qa_agent_service.py`, `qa_evaluator.py`), workflow, routes, and UI. `qa_enabled` and `qa_max_retries` columns dropped at startup. 3,960 tests passing.
+
+### Added
+- **`scripts/repair_source_attribution.py`** (2026-05-23): Dry-run-safe maintenance script for correcting article/source mismatches. 3-way decision loop: archive (duplicate with correct source exists) → repoint (unambiguous host→source mapping) → review queue. 9-entry allowlist of benign cross-domain pairs. Rolls back on any error.
+- **Post-restore source attribution integrity check in `restore_database_v3.py`** (2026-05-23): `check_source_attribution_integrity()` queries article URL host vs source URL host after a restore, warns if mismatch count exceeds baseline (`112`) by more than 10%, and surfaces the result in the restore report dict.
+
+### Fixed
+- **`loadPresetById` setTimeout race condition** (2026-05-23): `setTimeout(100)` was leftover scaffolding from before `populateEnrichModelDropdown` became async. On slow catalog loads the timer fired before `<option>` elements were populated, silently reverting the preset model selection to the dropdown default. Replaced with a direct assignment immediately after the `await`, plus a `console.warn` guard when the resolved model is absent from the catalog. Regression guard added in `tests/unit/test_enrich_preset_model_set.py` (string-search) and a Playwright behavioral test in `tests/ui/test_workflow_comprehensive_ui.py`.
+- **CodeQL path-traversal taint in `evaluation_api.py`** (2026-05-23): `_load_static_eval_articles` constructed `data_dir` from a user-supplied query parameter without a path-confinement check. Added `resolve()` + prefix guard; resolved path is stored back into `data_dir` so all subsequent sub-paths are built from the sanitised value.
+- **`proc_tree_attention_preprocessor.py` implicit string concatenation** (2026-05-23): Multi-line regex strings in `PROC_TREE_REGEX_PATTERNS` (P1, P2) were implicitly concatenated — visually ambiguous and flagged by CodeQL. Wrapped in explicit parentheses.
+- **`eval_os_detection_manual.py` stale `detect_os` arguments** (2026-05-23): `use_fallback` and `fallback_model` kwargs removed from `detect_os()` call after the OS-detection fallback agent was deprecated.
+- **`sigma_validator.py` and `tests/ui/conftest.py` bare ImportError suppression** (2026-05-23): Replaced `try/except ImportError` with `find_spec` availability checks. Fixed `find_spec("sigma.rule")` raising `ModuleNotFoundError` when the `sigma` parent package is absent by guarding with `find_spec("sigma") is not None` first.
+- **Unused imports removed** (2026-05-23): `get_backup_config_manager` from `backup_system.py`, `shutil` from `restore_database.py` and `verify_backup.py`.
+
+### Changed
+- **`seed_eval_articles.py` cross-source URL dedup** (2026-05-23): `existing_urls` query now spans all sources (removed `.filter(source_id==…)`), preventing the same article URL from being seeded twice under different source IDs.
+- **`ml_hunt_score` field retired** (2026-05-23): `calculate_ml_hunt_score` and `update_article_ml_hunt_score` removed from `ChunkAnalysisService`; `store_chunk_analysis` no longer writes `ml_hunt_score`. `docs/ml-training/hunt-scoring.md` updated to reflect retired metric.
+
 ## [7.1.0 "Europa"] - 2026-05-22
 ### Fixed
 - **Test runner summary table showed FAILED for test types with zero test failures** (2026-05-22): `_print_combined_summary` in `tests_runner/cli.py` derived per-type status from the subprocess exit code (`passed` bool), so a type that ran 1 test, passed it, but exited non-zero (e.g. fixture teardown crash or asyncio warning) displayed red FAILED while showing `0` in the Failed column — a contradictory and misleading table. Status is now count-driven: `f > 0` → FAILED, `p > 0 or passed` → PASSED, otherwise → YELLOW ERROR (nothing ran, process failed). The overall row uses matching `any_test_failures` / `any_process_errors` booleans.
