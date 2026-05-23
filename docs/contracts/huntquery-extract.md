@@ -266,4 +266,4 @@ If the query is presented as "you could detect..." or "defenders should...", SKI
 If the content is pseudocode or narrative description without runnable text, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

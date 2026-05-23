@@ -123,10 +123,14 @@ These endpoints manage runtime settings and provider connectivity.
 
 Route module: `src/web/routes/models.py`. Version data is stored in the `ml_model_versions` table (see `src/database/models.py`).
 
+### AI / Inline LLM Endpoints
+
+- `POST /api/articles/{article_id}/detect-os` — Run OS detection on a single article. Returns OS label, confidence, and method. **HTTP 422** when content filter finds no huntable chunks (`{ "error": "no_huntable_content" }`); client should check `is_huntable` before calling if this matters.
+
 ### Sigma Queue And Evaluation
 
 - `GET /sigma-queue` — HTML page for the standalone Sigma queue (same console as Workflow -> Queue; uses `/api/sigma-queue/*` for data).
-- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/eval/*` — Hallucination/relevance ratings, metrics, history, comparison, agent benchmarks (route module: `src/web/routes/evaluation.py`)
@@ -167,4 +171,4 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - Workflow API changes: run `python3 run_tests.py integration`
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

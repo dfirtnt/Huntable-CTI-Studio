@@ -168,4 +168,4 @@ run is currently streaming results.
 - Prefer API/CLI entry points (`./run_cli.sh`, workflow triggers) over ad-hoc
   code paths to keep telemetry consistent.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_
