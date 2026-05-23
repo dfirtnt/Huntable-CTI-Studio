@@ -14809,11 +14809,12 @@ async function loadPresetById(presetId, opts = {}) {
         // Load the preset into the form
         document.getElementById('enrichProviderSelect').value = data.provider;
         await populateEnrichModelDropdown(data.provider);
-        
-        // Wait a bit for model dropdown to populate, then set model
-        setTimeout(() => {
-            document.getElementById('enrichModelSelect').value = data.model;
-        }, 100);
+
+        const modelSelect = document.getElementById('enrichModelSelect');
+        modelSelect.value = data.model;
+        if (data.model && modelSelect.value !== data.model) {
+            console.warn(`loadPresetById: model "${data.model}" not found in catalog for provider "${data.provider}"`);
+        }
         
         document.getElementById('enrichSystemPrompt').value = data.system_prompt;
         if (data.user_instruction) {
