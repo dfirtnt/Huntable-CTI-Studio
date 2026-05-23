@@ -11,7 +11,7 @@ The `ml_hunt_score` is an article-level score produced by a RandomForest classif
 2. **ML prediction**: The RandomForest classifier labels each chunk "Huntable" or "Not Huntable" with a confidence score (0-1).
 3. **Score aggregation**: Chunk-level predictions aggregate into an article-level score (0-100).
 
-## Metric Options
+## Metric Options (Historical Reference — Not Runtime-Selectable)
 
 > **Historical reference only.** The per-article `ml_hunt_score` aggregate was retired. `calculate_ml_hunt_score` and `update_article_ml_hunt_score` no longer exist in `ChunkAnalysisService`; `store_chunk_analysis` does not write `ml_hunt_score` to article metadata. Existing rows retain the field as legacy data. No config key or CLI flag exposes metric selection — this section documents the options that existed when the feature was active.
 
