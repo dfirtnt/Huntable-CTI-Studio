@@ -284,14 +284,15 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     file (if present) and is never stored in articles.json.
     """
     out: dict[str, dict] = {}
-    data_dir = (
-        _EVAL_ARTICLES_DATA_DIR / subagent_key
-    )  # codeql[py/path-injection] false positive: subagent_key is an internal enum value, not a user-supplied path component
+    data_dir = (_EVAL_ARTICLES_DATA_DIR / subagent_key).resolve()
+    # Prevent path traversal: resolved path must stay within the allowed data directory.
+    if not str(data_dir).startswith(str(_EVAL_ARTICLES_DATA_DIR.resolve()) + "/"):
+        return out
     articles_path = data_dir / "articles.json"
-    if not articles_path.exists():  # codeql[py/path-injection] false positive: see above
+    if not articles_path.exists():
         return out
     try:
-        with open(articles_path) as f:  # codeql[py/path-injection] false positive: see above
+        with open(articles_path) as f:
             articles = json.load(f)
         if not isinstance(articles, list):
             return out
@@ -312,10 +313,10 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
 
     # Merge expected_items from ground_truth.json (item-level eval ground truth).
     # This file is separate so article snapshot refreshes never clobber annotations.
-    gt_path = data_dir / "ground_truth.json"  # codeql[py/path-injection] false positive: see above
-    if gt_path.exists():  # codeql[py/path-injection] false positive: see above
+    gt_path = data_dir / "ground_truth.json"
+    if gt_path.exists():
         try:
-            with open(gt_path) as f:  # codeql[py/path-injection] false positive: see above
+            with open(gt_path) as f:
                 gt_entries = json.load(f)
             if isinstance(gt_entries, list):
                 for gt in gt_entries:
