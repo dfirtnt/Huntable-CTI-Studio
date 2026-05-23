@@ -287,10 +287,12 @@ CANONICAL_CATEGORIES = [
     "scheduled_tasks",
 ]
 
-# Every template that flattens/unflattens the per-rule observables list.
-# Adding a fourth must add it here -- silence on a new file is the failure
-# mode this contract is designed to prevent.
-OBS_TYPE_ORDER_TEMPLATES = [
+# The shared JS component that owns the canonical OBS_TYPE_ORDER declaration.
+OBS_TYPE_ORDER_SHARED_JS = "src/web/static/js/components/observable-utils.js"
+
+# Templates that consume OBS_TYPE_ORDER from the shared file.
+# These must NOT declare their own copy -- doing so would silently diverge.
+OBS_TYPE_ORDER_CONSUMER_TEMPLATES = [
     "src/web/templates/workflow.html",
     "src/web/templates/workflow_executions.html",
     "src/web/templates/sigma_queue.html",
@@ -311,18 +313,42 @@ class TestCanonicalObservableOrderContract:
         assert list(AGENT_NAMES_SUB) == CANONICAL_AGENT_NAMES_SUB, (
             "AGENT_NAMES_SUB drift would silently change observables_used "
             "index numbering for every new execution. If reordering is "
-            "intentional, also update CANONICAL_CATEGORIES + every template's "
+            "intentional, also update CANONICAL_CATEGORIES + the shared JS "
             "OBS_TYPE_ORDER in lockstep."
         )
 
-    @pytest.mark.parametrize("rel_path", OBS_TYPE_ORDER_TEMPLATES)
-    def test_frontend_obs_type_order_matches_canonical(self, rel_path):
-        """Template tripwire. Each template flattens/unflattens observables
-        using its own OBS_TYPE_ORDER. Three separate recurrences of the same
-        bug class (cmdline+proc+hunt only) traced to ONE template drifting
-        while the others were fixed -- this asserts every occurrence in every
-        listed template equals the canonical sequence, so the next drift fails
-        loudly and names the file."""
+    def test_frontend_obs_type_order_matches_canonical(self):
+        """Shared-JS tripwire. OBS_TYPE_ORDER now lives in observable-utils.js
+        rather than being redeclared in each template. This test asserts the
+        canonical sequence is correct in that single authoritative location."""
+        import re
+        from pathlib import Path
+
+        repo_root = Path(__file__).resolve().parents[2]
+        path = repo_root / OBS_TYPE_ORDER_SHARED_JS
+        assert path.exists(), f"shared JS missing: {OBS_TYPE_ORDER_SHARED_JS}"
+        content = path.read_text()
+
+        matches = re.findall(r"OBS_TYPE_ORDER\s*=\s*\[([^\]]+)\]", content)
+        assert matches, (
+            f"{OBS_TYPE_ORDER_SHARED_JS} has no OBS_TYPE_ORDER declaration. "
+            f"The canonical order must live in this shared component."
+        )
+
+        for i, body in enumerate(matches):
+            parsed = [item.strip().strip("'").strip('"') for item in body.split(",") if item.strip()]
+            assert parsed == CANONICAL_CATEGORIES, (
+                f"{OBS_TYPE_ORDER_SHARED_JS} OBS_TYPE_ORDER occurrence #{i} is not canonical.\n"
+                f"  expected: {CANONICAL_CATEGORIES}\n"
+                f"  got:      {parsed}"
+            )
+
+    @pytest.mark.parametrize("rel_path", OBS_TYPE_ORDER_CONSUMER_TEMPLATES)
+    def test_consumer_templates_do_not_redeclare_obs_type_order(self, rel_path):
+        """Anti-duplication tripwire. Templates must NOT redeclare OBS_TYPE_ORDER
+        locally -- doing so would silently diverge from observable-utils.js.
+        If this test fails on a template, remove its local copy and import from
+        the shared component instead."""
         import re
         from pathlib import Path
 
@@ -331,20 +357,11 @@ class TestCanonicalObservableOrderContract:
         assert path.exists(), f"template missing: {rel_path}"
         content = path.read_text()
 
-        matches = re.findall(r"OBS_TYPE_ORDER\s*=\s*\[([^\]]+)\]", content)
-        assert matches, (
-            f"{rel_path} has no OBS_TYPE_ORDER declaration. Every template "
-            f"that groups observables by type is required to declare it so "
-            f"this contract test can verify it."
+        matches = re.findall(r"OBS_TYPE_ORDER\s*=\s*\[", content)
+        assert not matches, (
+            f"{rel_path} redeclares OBS_TYPE_ORDER ({len(matches)} occurrence(s)). "
+            f"Remove the local copy and rely on observable-utils.js instead."
         )
-
-        for i, body in enumerate(matches):
-            parsed = [item.strip().strip("'").strip('"') for item in body.split(",") if item.strip()]
-            assert parsed == CANONICAL_CATEGORIES, (
-                f"{rel_path} OBS_TYPE_ORDER occurrence #{i} is not canonical.\n"
-                f"  expected: {CANONICAL_CATEGORIES}\n"
-                f"  got:      {parsed}"
-            )
 
     def test_supervisor_subresults_dict_init_uses_canonical_order(self):
         """Producer-runtime tripwire. agentic_workflow.py:1288 initializes

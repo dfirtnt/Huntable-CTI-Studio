@@ -81,22 +81,58 @@ async function addRuleToQueue(
   throw lastError;
 }
 
-// Reject a queue entry (used for cleanup and as a test action).
+// Reject a queue entry (used as a test action only, not for cleanup).
 async function rejectQueueEntry(request: APIRequestContext, queueId: number): Promise<void> {
   await request.post(`${BASE}/api/sigma-queue/${queueId}/reject`, {
     data: { review_notes: 'cleaned up by e2e test suite' },
   });
 }
 
+// Hard-delete a queue entry so it leaves no trace in the DB after the test run.
+async function deleteQueueEntry(request: APIRequestContext, queueId: number): Promise<void> {
+  await request.delete(`${BASE}/api/sigma-queue/${queueId}`);
+}
+
 // ---------------------------------------------------------------------------
 // Shared cleanup state - all queue IDs created during the run land here so
-// afterAll can reject them regardless of which test created them.
+// afterAll can delete them regardless of which test created them.
 // ---------------------------------------------------------------------------
 const createdQueueIds: number[] = [];
 
+// Purge any stale marker rules left over from a previous crashed run before
+// this suite starts. Fetches all queue pages and bulk-deletes rows whose title
+// contains TEST_MARKER.
+test.beforeAll(async ({ request }) => {
+  const staleIds: number[] = [];
+  let offset = 0;
+  const limit = 200;
+  while (true) {
+    const resp = await request
+      .get(`${BASE}/api/sigma-queue/list?limit=${limit}&offset=${offset}`)
+      .catch(() => null);
+    if (!resp || !resp.ok()) break;
+    const data = await resp.json();
+    const items: any[] = data.items ?? [];
+    for (const item of items) {
+      if (typeof item.rule_yaml === 'string' && item.rule_yaml.includes(TEST_MARKER)) {
+        staleIds.push(item.id);
+      }
+    }
+    if (items.length < limit) break;
+    offset += limit;
+  }
+  if (staleIds.length > 0) {
+    await request
+      .post(`${BASE}/api/sigma-queue/bulk`, {
+        data: { ids: staleIds, action: 'delete' },
+      })
+      .catch(() => {});
+  }
+});
+
 test.afterAll(async ({ request }) => {
   for (const id of createdQueueIds) {
-    await rejectQueueEntry(request, id).catch(() => {});
+    await deleteQueueEntry(request, id).catch(() => {});
   }
 });
 
