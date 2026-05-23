@@ -155,7 +155,6 @@ class WorkflowConfigUpdate(BaseModel):
     rank_agent_enabled: bool | None = None
     cmdline_attention_preprocessor_enabled: bool | None = None
     proc_tree_attention_preprocessor_enabled: bool | None = None
-    auto_trigger_hunt_score_threshold: float | None = Field(None, ge=0.0, le=100.0)
 
 
 class AgentPromptUpdate(BaseModel):
@@ -470,15 +469,9 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             )
             _settings_threshold = _get_threshold_from_settings(db_session)
             final_auto_trigger_hunt_score_threshold = (
-                config_update.auto_trigger_hunt_score_threshold
-                if config_update.auto_trigger_hunt_score_threshold is not None
-                else (
-                    _settings_threshold
-                    if _settings_threshold is not None
-                    else (
-                        getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0
-                    )
-                )
+                _settings_threshold
+                if _settings_threshold is not None
+                else (getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0) if current_config else 60.0)
             )
 
             # Validate all agent prompts are valid JSON (for extraction agents that use JSON prompts)
@@ -516,11 +509,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
                     == final_cmdline_attention_preprocessor_enabled
                     and getattr(current_config, "proc_tree_attention_preprocessor_enabled", True)
                     == final_proc_tree_attention_preprocessor_enabled
-                    and abs(
-                        getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
-                        - final_auto_trigger_hunt_score_threshold
-                    )
-                    < 0.0001
                 )
 
                 # Deep compare JSONB fields
@@ -596,7 +584,6 @@ def update_workflow_config(request: Request, config_update: WorkflowConfigUpdate
             )
 
             db_session.add(new_config)
-            _save_threshold_to_settings(db_session, final_auto_trigger_hunt_score_threshold)
             db_session.commit()
             db_session.refresh(new_config)
 

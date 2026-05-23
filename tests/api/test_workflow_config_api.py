@@ -33,21 +33,24 @@ class TestWorkflowConfigCRUD:
         new_threshold = 0.75 if original_threshold != 0.75 else 0.80
         update_payload = {"similarity_threshold": new_threshold, "description": "API test update"}
 
-        update_response = await async_client.put("/api/workflow/config", json=update_payload)
-        assert update_response.status_code == 200
-        update_data = update_response.json()
-        # PUT response returns the config object directly, not wrapped
-        assert "id" in update_data  # Verify it's a config object
+        try:
+            update_response = await async_client.put("/api/workflow/config", json=update_payload)
+            assert update_response.status_code == 200
+            update_data = update_response.json()
+            # PUT response returns the config object directly, not wrapped
+            assert "id" in update_data  # Verify it's a config object
 
-        # Verify config was updated
-        verify_response = await async_client.get("/api/workflow/config")
-        assert verify_response.status_code == 200
-        updated_config = verify_response.json()
+            # Verify config was updated
+            verify_response = await async_client.get("/api/workflow/config")
+            assert verify_response.status_code == 200
+            updated_config = verify_response.json()
 
-        # Check threshold was updated
-        assert updated_config["similarity_threshold"] == new_threshold
-        # Version should increment
-        assert updated_config["version"] > original_version
+            # Check threshold was updated
+            assert updated_config["similarity_threshold"] == new_threshold
+            # Version should increment
+            assert updated_config["version"] > original_version
+        finally:
+            await async_client.put("/api/workflow/config", json={"similarity_threshold": original_threshold})
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -64,13 +67,16 @@ class TestWorkflowConfigCRUD:
         new_threshold = 7.0 if original_threshold != 7.0 else 8.0
         update_payload = {"ranking_threshold": new_threshold}
 
-        update_response = await async_client.put("/api/workflow/config", json=update_payload)
-        assert update_response.status_code == 200
+        try:
+            update_response = await async_client.put("/api/workflow/config", json=update_payload)
+            assert update_response.status_code == 200
 
-        # Verify update
-        verify_response = await async_client.get("/api/workflow/config")
-        updated_config = verify_response.json()
-        assert updated_config["ranking_threshold"] == new_threshold
+            # Verify update
+            verify_response = await async_client.get("/api/workflow/config")
+            updated_config = verify_response.json()
+            assert updated_config["ranking_threshold"] == new_threshold
+        finally:
+            await async_client.put("/api/workflow/config", json={"ranking_threshold": original_threshold})
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -109,31 +115,36 @@ class TestWorkflowConfigDeduplication:
     @pytest.mark.api
     @pytest.mark.integration_full
     @pytest.mark.asyncio
-    async def test_changing_auto_trigger_threshold_creates_new_version(self, async_client: httpx.AsyncClient):
-        """Regression: auto_trigger_hunt_score_threshold was missing from
-        configs_identical, so changing it alone was silently ignored."""
+    async def test_auto_trigger_threshold_only_writable_via_patch(self, async_client: httpx.AsyncClient):
+        """auto_trigger_hunt_score_threshold is settings-only: PATCH updates it without
+        bumping the config version, and PUT ignores the field entirely."""
         response = await async_client.get("/api/workflow/config")
         assert response.status_code == 200
         current = response.json()
         original_version = current["version"]
         original_threshold = current.get("auto_trigger_hunt_score_threshold", 60.0)
 
-        # Pick a value that differs from the current one
         new_threshold = 55.0 if original_threshold != 55.0 else 65.0
-        update_response = await async_client.put(
-            "/api/workflow/config",
-            json={"auto_trigger_hunt_score_threshold": new_threshold},
-        )
-        assert update_response.status_code == 200
+        try:
+            patch_response = await async_client.patch(
+                "/api/workflow/config/auto-trigger-threshold",
+                json={"auto_trigger_hunt_score_threshold": new_threshold},
+            )
+            assert patch_response.status_code == 200
 
-        verify_response = await async_client.get("/api/workflow/config")
-        assert verify_response.status_code == 200
-        updated = verify_response.json()
+            verify_response = await async_client.get("/api/workflow/config")
+            assert verify_response.status_code == 200
+            updated = verify_response.json()
 
-        assert updated["auto_trigger_hunt_score_threshold"] == pytest.approx(new_threshold)
-        assert updated["version"] > original_version, (
-            "Changing auto_trigger_hunt_score_threshold must create a new config version"
-        )
+            assert updated["auto_trigger_hunt_score_threshold"] == pytest.approx(new_threshold)
+            assert updated["version"] == original_version, (
+                "Changing auto_trigger_hunt_score_threshold must NOT create a new config version"
+            )
+        finally:
+            await async_client.patch(
+                "/api/workflow/config/auto-trigger-threshold",
+                json={"auto_trigger_hunt_score_threshold": original_threshold},
+            )
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -151,7 +162,6 @@ class TestWorkflowConfigDeduplication:
             "ranking_threshold": current["ranking_threshold"],
             "similarity_threshold": current["similarity_threshold"],
             "junk_filter_threshold": current["junk_filter_threshold"],
-            "auto_trigger_hunt_score_threshold": current.get("auto_trigger_hunt_score_threshold", 60.0),
         }
         dup_response = await async_client.put("/api/workflow/config", json=same_payload)
         assert dup_response.status_code == 200
