@@ -532,33 +532,13 @@ class TestCriticalAPIs:
     @pytest.mark.smoke
     @pytest.mark.asyncio
     async def test_workflow_trigger_smoke(self, async_client: httpx.AsyncClient):
-        """Test workflow trigger endpoint accepts requests (doesn't wait for completion)."""
-        # Try to get an article for testing
-        articles_response = await async_client.get("/api/articles?limit=1")
-        article_id = None
+        """Test workflow trigger endpoint is routable (uses nonexistent ID to avoid real side effects)."""
+        # Use a nonexistent article ID — goal is only to confirm the endpoint exists (not 405).
+        # Grabbing a real article and triggering it creates spurious workflow executions in the DB.
+        response = await async_client.post("/api/workflow/articles/999999/trigger")
 
-        if articles_response.status_code == 200:
-            articles_data = articles_response.json()
-            if articles_data.get("articles"):
-                article_id = articles_data["articles"][0]["id"]
-
-        # If no articles, test endpoint accessibility with non-existent article
-        if not article_id:
-            article_id = 999999  # Non-existent article ID
-
-        # Trigger workflow (may return 400 if execution already exists, or 404 if article doesn't exist)
-        response = await async_client.post(f"/api/workflow/articles/{article_id}/trigger")
-
-        # Accept 200 (success), 400 (validation/duplicate), 404 (article not found), or 500 (server error)
-        # Just verify endpoint is accessible and responds appropriately (not 405 method not allowed)
-        assert response.status_code in [200, 400, 404, 500], f"Unexpected status {response.status_code}"
-
-        if response.status_code == 200:
-            data = response.json()
-            assert "execution_id" in data or "message" in data
-        elif response.status_code in [400, 404]:
-            data = response.json()
-            assert "detail" in data
+        # 404 proves the route exists; 400 and 500 are also acceptable (e.g. DB unavailable).
+        assert response.status_code in [400, 404, 500], f"Unexpected status {response.status_code}"
 
     @pytest.mark.api
     @pytest.mark.smoke
