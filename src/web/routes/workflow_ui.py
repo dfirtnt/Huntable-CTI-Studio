@@ -19,9 +19,9 @@ router = APIRouter(tags=["workflow-ui"])
 async def workflow_page(request: Request):
     """Unified workflow management page with tabs."""
     response = templates.TemplateResponse(
+        request,
         "workflow.html",
         {
-            "request": request,
             "provider_model_catalog": load_catalog(),
         },
     )

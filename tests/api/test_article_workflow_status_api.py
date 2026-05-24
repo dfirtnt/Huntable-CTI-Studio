@@ -100,19 +100,20 @@ async def test_workflow_status_false_when_no_completed_execution(async_client, m
 @pytest.mark.asyncio
 async def test_workflow_status_true_when_completed_execution_exists(async_client, monkeypatch):
     """
-    Returns {"processed_with_current_config": true} when a completed
+    Returns {"processed_with_current_config": true} when a completed non-eval
     execution matching the current (config_id, config_version) exists.
     """
     _patch_route_internals(
         monkeypatch,
         config=_make_config(config_id=3, version=5),
-        completed_exec=_make_execution(exec_id=101),  # <-- found
+        completed_exec=_make_execution(exec_id=101),
     )
 
     response = await async_client.get("/api/articles/42/workflow-status")
     assert response.status_code == 200
     data = response.json()
-    assert data == {"processed_with_current_config": True, "latest_execution_id": 101}
+    assert data["processed_with_current_config"] is True
+    assert data["latest_execution_id"] == 101
 
 
 @pytest.mark.asyncio
@@ -165,6 +166,30 @@ async def test_workflow_status_false_on_db_error_fail_open(async_client, monkeyp
     assert response.status_code == 200
     data = response.json()
     assert data == {"processed_with_current_config": False, "latest_execution_id": None}
+
+
+@pytest.mark.asyncio
+async def test_workflow_status_false_when_only_eval_run_exists(async_client, monkeypatch):
+    """
+    Returns {"processed_with_current_config": false} when the only completed
+    execution for the current config was an eval run (eval_run=True in
+    config_snapshot).  Eval runs must not trigger the "Reprocess" button state.
+    """
+    # The query now excludes eval_run=true rows, so the DB returns None even
+    # though a completed execution exists — exactly as if no non-eval run has
+    # been done yet.
+    _patch_route_internals(
+        monkeypatch,
+        config=_make_config(config_id=1, version=1),
+        completed_exec=None,  # eval row filtered out by query; no match returned
+    )
+
+    response = await async_client.get("/api/articles/55/workflow-status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data == {"processed_with_current_config": False, "latest_execution_id": None}, (
+        "An eval-only run must not set processed_with_current_config=True."
+    )
 
 
 @pytest.mark.asyncio

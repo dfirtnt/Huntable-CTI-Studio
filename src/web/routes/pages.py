@@ -96,9 +96,9 @@ async def dashboard(request: Request):
         show_first_launch_banner = force_first_launch or (total == 0)
 
         return templates.TemplateResponse(
+            request,
             "dashboard.html",
             {
-                "request": request,
                 "stats": stats,
                 "sources": sources,
                 "source_counts": summarize_sources(sources),
@@ -111,8 +111,9 @@ async def dashboard(request: Request):
     except Exception as exc:
         logger.error("Dashboard error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -121,12 +122,13 @@ async def dashboard(request: Request):
 async def analytics_page(request: Request):
     """Analytics dashboard page."""
     try:
-        return templates.TemplateResponse("analytics.html", {"request": request})
+        return templates.TemplateResponse(request, "analytics.html")
     except Exception as exc:
         logger.error("Analytics page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -135,12 +137,13 @@ async def analytics_page(request: Request):
 async def mlops_page(request: Request):
     """MLOps control center page."""
     try:
-        return templates.TemplateResponse("mlops.html", {"request": request})
+        return templates.TemplateResponse(request, "mlops.html")
     except Exception as exc:
         logger.error("MLOps page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -149,12 +152,13 @@ async def mlops_page(request: Request):
 async def agent_evals_page(request: Request):
     """Agent evaluation comparison page."""
     try:
-        return templates.TemplateResponse("agent_evals.html", {"request": request})
+        return templates.TemplateResponse(request, "agent_evals.html")
     except Exception as exc:
         logger.error("Agent evals page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -163,12 +167,13 @@ async def agent_evals_page(request: Request):
 async def agent_evals2_page(request: Request):
     """Agent evaluation page with item-level precision/recall scoring."""
     try:
-        return templates.TemplateResponse("agent_evals2.html", {"request": request})
+        return templates.TemplateResponse(request, "agent_evals2.html")
     except Exception as exc:
         logger.error("Agent evals2 page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -177,12 +182,13 @@ async def agent_evals2_page(request: Request):
 async def settings_page(request: Request):
     """Settings page."""
     try:
-        return templates.TemplateResponse("settings.html", {"request": request})
+        return templates.TemplateResponse(request, "settings.html")
     except Exception as exc:
         logger.error("Settings page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -191,12 +197,13 @@ async def settings_page(request: Request):
 async def diags_page(request: Request):
     """System diagnostics and health monitoring page combining jobs, health checks, and analytics."""
     try:
-        return templates.TemplateResponse("diags.html", {"request": request, "environment": ENVIRONMENT})
+        return templates.TemplateResponse(request, "diags.html", {"environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Diagnostics page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -205,12 +212,13 @@ async def diags_page(request: Request):
 async def scraper_metrics_page(request: Request):
     """Scraper metrics analytics page."""
     try:
-        return templates.TemplateResponse("scraper_metrics.html", {"request": request, "environment": ENVIRONMENT})
+        return templates.TemplateResponse(request, "scraper_metrics.html", {"environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Scraper metrics page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -219,12 +227,13 @@ async def scraper_metrics_page(request: Request):
 async def hunt_metrics_page(request: Request):
     """Hunt scoring metrics analytics page."""
     try:
-        return templates.TemplateResponse("hunt_metrics.html", {"request": request, "environment": ENVIRONMENT})
+        return templates.TemplateResponse(request, "hunt_metrics.html", {"environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Hunt metrics page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -233,12 +242,13 @@ async def hunt_metrics_page(request: Request):
 async def hunt_metrics_demo_page(request: Request):
     """Advanced hunt scoring metrics demo page with multidimensional visualizations."""
     try:
-        return templates.TemplateResponse("hunt_metrics_demo.html", {"request": request, "environment": ENVIRONMENT})
+        return templates.TemplateResponse(request, "hunt_metrics_demo.html", {"environment": ENVIRONMENT})
     except Exception as exc:
         logger.error("Hunt metrics demo page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -289,9 +299,9 @@ async def sources_list(request: Request):
             return _get_collection_method(source)
 
         return templates.TemplateResponse(
+            request,
             "sources.html",
             {
-                "request": request,
                 "sources": sources_sorted,
                 "source_counts": summarize_sources(sources_sorted),
                 "quality_stats": quality_lookup,
@@ -303,8 +313,9 @@ async def sources_list(request: Request):
     except Exception as exc:
         logger.error("Sources list error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -365,9 +376,9 @@ async def articles_list(
                 "title_only": title_only,
             }
             return templates.TemplateResponse(
+                request,
                 "articles.html",
                 {
-                    "request": request,
                     "articles": articles_page,
                     "sources": sources,
                     "source_lookup": source_lookup,
@@ -506,9 +517,9 @@ async def articles_list(
         }
 
         return templates.TemplateResponse(
+            request,
             "articles.html",
             {
-                "request": request,
                 "articles": articles,
                 "sources": sources,
                 "source_lookup": source_lookup,
@@ -519,8 +530,9 @@ async def articles_list(
     except Exception as exc:
         logger.error("Articles list error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -532,8 +544,9 @@ async def article_detail(request: Request, article_id: int):
         article = await async_db_manager.get_article(article_id)
         if not article:
             return templates.TemplateResponse(
+                request,
                 "error.html",
-                {"request": request, "error": "Article not found"},
+                {"error": "Article not found"},
                 status_code=404,
             )
 
@@ -542,9 +555,9 @@ async def article_detail(request: Request, article_id: int):
         keyword_resolution = build_keyword_resolution_context(str(article.content or ""), metadata)
 
         return templates.TemplateResponse(
+            request,
             "article_detail.html",
             {
-                "request": request,
                 "article": article,
                 "source": source,
                 "keyword_resolution": keyword_resolution,
@@ -557,46 +570,48 @@ async def article_detail(request: Request, article_id: int):
     except Exception as exc:
         logger.error("Article detail error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
 
 @router.get("/pdf-upload")
-async def pdf_upload_page():
+async def pdf_upload_page(request: Request):
     """PDF upload page."""
-    return templates.TemplateResponse("pdf_upload.html", {"request": {}})
+    return templates.TemplateResponse(request, "pdf_upload.html")
 
 
 @router.get("/jobs", response_class=HTMLResponse)
 async def jobs_page(request: Request):
     """Job monitoring page."""
-    return templates.TemplateResponse("jobs.html", {"request": request, "environment": ENVIRONMENT})
+    return templates.TemplateResponse(request, "jobs.html", {"environment": ENVIRONMENT})
 
 
 @router.get("/ml-model-performance", response_class=HTMLResponse)
 async def ml_hunt_comparison_page(request: Request):
     """ML model performance page."""
-    return templates.TemplateResponse("ml_hunt_comparison.html", {"request": request, "environment": ENVIRONMENT})
+    return templates.TemplateResponse(request, "ml_hunt_comparison.html", {"environment": ENVIRONMENT})
 
 
 @router.get("/observables-training", response_class=HTMLResponse)
 async def observable_training_page(request: Request):
     """Observable extractor training dashboard."""
-    return templates.TemplateResponse("observable_training.html", {"request": request, "environment": ENVIRONMENT})
+    return templates.TemplateResponse(request, "observable_training.html", {"environment": ENVIRONMENT})
 
 
 @router.get("/sigma-ab-test", response_class=HTMLResponse)
 async def sigma_ab_test_page(request: Request):
     """SIGMA rule A/B testing interface."""
     try:
-        return templates.TemplateResponse("sigma_ab_test.html", {"request": request})
+        return templates.TemplateResponse(request, "sigma_ab_test.html")
     except Exception as exc:
         logger.error("SIGMA A/B test page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )
 
@@ -605,11 +620,12 @@ async def sigma_ab_test_page(request: Request):
 async def sigma_similarity_test_page(request: Request):
     """SIGMA rule cosine similarity testing interface."""
     try:
-        return templates.TemplateResponse("sigma_similarity_test.html", {"request": request})
+        return templates.TemplateResponse(request, "sigma_similarity_test.html")
     except Exception as exc:
         logger.error("SIGMA similarity test page error: %s", exc)
         return templates.TemplateResponse(
+            request,
             "error.html",
-            {"request": request, "error": "An unexpected error occurred"},
+            {"error": "An unexpected error occurred"},
             status_code=500,
         )

@@ -316,6 +316,7 @@ def api_get_article_workflow_status(article_id: int):
                     AgenticWorkflowExecutionTable.status == "completed",
                     AgenticWorkflowExecutionTable.config_snapshot["config_id"].as_integer() == config.id,
                     AgenticWorkflowExecutionTable.config_snapshot["config_version"].as_integer() == config.version,
+                    ~AgenticWorkflowExecutionTable.config_snapshot.contains({"eval_run": True}),
                 )
                 .order_by(AgenticWorkflowExecutionTable.id.desc())
                 .first()

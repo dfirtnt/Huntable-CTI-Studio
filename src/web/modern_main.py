@@ -202,8 +202,9 @@ async def not_found_handler(request: Request, exc: HTTPException):
         return JSONResponse(content={"detail": detail}, status_code=404)
 
     return templates.TemplateResponse(
+        request,
         "error.html",
-        {"request": request, "error": "Page not found"},
+        {"error": "Page not found"},
         status_code=404,
     )
 
@@ -213,8 +214,9 @@ async def internal_error_handler(request: Request, exc: HTTPException):
     """Handle 500 errors."""
     logger.error("Internal server error: %s", exc)
     return templates.TemplateResponse(
+        request,
         "error.html",
-        {"request": request, "error": "Internal server error"},
+        {"error": "Internal server error"},
         status_code=500,
     )
 

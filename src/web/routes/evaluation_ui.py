@@ -20,11 +20,11 @@ router = APIRouter(tags=["evaluation-ui"])
 def evaluations_page(request: Request):
     """Main evaluations dashboard page."""
     try:
-        return templates.TemplateResponse("evaluations.html", {"request": request})
+        return templates.TemplateResponse(request, "evaluations.html")
     except Exception as e:
         logger.error(f"Error loading evaluations page: {e}")
         return templates.TemplateResponse(
-            "error.html", {"request": request, "error": "An unexpected error occurred"}, status_code=500
+            request, "error.html", {"error": "An unexpected error occurred"}, status_code=500
         )
 
 
@@ -38,10 +38,10 @@ def compare_evaluations_page(request: Request, baseline_id: int = Query(...), cu
         tracker = EvaluationTracker(db_session)
         comparison = tracker.compare_evaluations(baseline_id, current_id)
 
-        return templates.TemplateResponse("evaluation_comparison.html", {"request": request, "comparison": comparison})
+        return templates.TemplateResponse(request, "evaluation_comparison.html", {"comparison": comparison})
     except ValueError as e:
         return templates.TemplateResponse(
-            "error.html", {"request": request, "error": "An unexpected error occurred"}, status_code=400
+            request, "error.html", {"error": "An unexpected error occurred"}, status_code=400
         )
     finally:
         db_session.close()
@@ -95,9 +95,9 @@ def subagent_evaluation_page(
             selected_evaluation = None
 
         return templates.TemplateResponse(
+            request,
             "subagent_evaluation.html",
             {
-                "request": request,
                 "agent_name": agent_name,
                 "subagent_name": subagent_name,
                 "history": history or [],
@@ -153,9 +153,9 @@ def agent_evaluation_page(request: Request, agent_name: str, evaluation_id: int 
             selected_evaluation = None
 
         return templates.TemplateResponse(
+            request,
             "agent_evaluation.html",
             {
-                "request": request,
                 "agent_name": agent_name,
                 "history": history or [],
                 "latest": latest,
