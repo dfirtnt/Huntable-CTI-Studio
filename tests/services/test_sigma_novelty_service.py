@@ -187,6 +187,10 @@ class TestNormalizeAtomIdentity:
             ("OriginalFileName|eq||VSSADMIN.EXE", "originalfilename|eq||vssadmin.exe"),
             # Value casing folded
             ("process.command_line|contains|contains|all|Delete", "process.command_line|contains|contains|all|delete"),
+            # Service creation aliases — many-to-one must collapse to same canonical
+            ("ServiceFileName|contains|literal|bits", "serviceimagepath|contains|literal|bits"),
+            ("ImagePath|contains|literal|bits", "serviceimagepath|contains|literal|bits"),
+            ("StartType|eq|literal|2", "servicestarttype|eq|literal|2"),
         ],
     )
     def test_normalization(self, raw, expected):
@@ -449,7 +453,7 @@ class TestSnakeCaseFieldAliasNormalization:
 
 
 class TestAggressiveNormalizationSnakeCase:
-    """normalize_detection must apply aggressive normalization to snake_case
+    """build_canonical_rule must apply aggressive normalization to snake_case
     CommandLine fields (command_line, process_command_line, parent_command_line)
     the same as it does to their PascalCase equivalents."""
 

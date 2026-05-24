@@ -43,6 +43,7 @@ except ImportError:
 # Jaccard scores even when the proposed rule was atomized by a different version
 # of the extractor than the stored SigmaHQ atoms.
 _ATOM_FIELD_ALIAS: dict[str, str] = {
+    # Process execution — map to process.* namespace
     "commandline": "process.command_line",
     "command_line": "process.command_line",
     "processcommandline": "process.command_line",
@@ -54,6 +55,14 @@ _ATOM_FIELD_ALIAS: dict[str, str] = {
     "parent_image": "process.parent_image",
     "parentcommandline": "process.parent_command_line",
     "parent_command_line": "process.parent_command_line",
+    # Service creation — collapse multi-to-one aliases so stored atoms using
+    # either alias resolve to the same form as proposed atoms via FIELD_ALIAS_MAP.
+    "servicefilename": "serviceimagepath",
+    "servicefile_name": "serviceimagepath",
+    "imagepath": "serviceimagepath",
+    "image_path": "serviceimagepath",
+    "starttype": "servicestarttype",
+    "start_type": "servicestarttype",
 }
 
 
@@ -578,57 +587,6 @@ class SigmaNoveltyService:
         logsource_key = f"{product}|{category}"
         logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}' (service: {service})")
         return logsource_key, service
-
-    def normalize_detection(self, detection: dict[str, Any], field_name: str) -> dict[str, Any]:
-        """
-        Normalize detection values with field-aware normalization.
-
-        Args:
-            detection: Detection dictionary
-            field_name: Field name being normalized
-
-        Returns:
-            Normalized detection dictionary
-        """
-        if not isinstance(detection, dict):
-            return detection
-
-        normalized = {}
-
-        for key, value in detection.items():
-            if key == "condition":
-                normalized[key] = value
-                continue
-
-            # Normalize field values
-            if isinstance(value, dict):
-                normalized[key] = {}
-                for field, field_value in value.items():
-                    base_field, modifiers = self._parse_field_with_modifiers(field)
-
-                    # Apply normalization based on field type.
-                    # Check is underscore-insensitive so snake_case fields
-                    # (e.g. command_line) match PascalCase set members (CommandLine).
-                    base_field_probe = base_field.lower().replace("_", "")
-                    aggressive = any(
-                        k.lower() == base_field_probe for k in self.AGGRESSIVE_NORMALIZATION_FIELDS
-                    )
-                    if aggressive:
-                        normalized_value = self._normalize_aggressive(field_value)
-                    else:
-                        normalized_value = self._normalize_conservative(field_value)
-
-                    # Reconstruct field with modifiers
-                    if modifiers:
-                        field_key = f"{base_field}|{'|'.join(modifiers)}"
-                    else:
-                        field_key = base_field
-
-                    normalized[key][field_key] = normalized_value
-            else:
-                normalized[key] = value
-
-        return normalized
 
     def _normalize_conservative(self, value: Any) -> Any:
         """Conservative normalization: trim whitespace, normalize slashes."""
