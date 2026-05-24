@@ -282,5 +282,5 @@ Feature importances are learned from training data; call `model.feature_importan
 
 `HUNT_SCORING_KEYWORDS["perfect_discriminators"]` is imported from `src/utils/content.py` and shared by both the keyword-scoring system and the v3 extractor. Changes to that list affect both systems.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-24_
 _Last reviewed: 2026-05-22_

@@ -1,7 +1,7 @@
 # QA Agent Contract
 
 Version: 1.1
-Last Updated: 2026-05-12
+Last Updated: 2026-05-24
 Applies To: RankAgentQA only
 
 > **Note (2026-05-12):** Per-extractor QA agents (CmdLineQA, ProcTreeQA, HuntQueriesQA, RegistryQA, ServicesQA, ScheduledTasksQA) were removed from the pipeline. Only `RankAgentQA` remains active. The contract structure below applies exclusively to RankAgentQA.
@@ -394,4 +394,4 @@ A: The pipeline will attempt to parse it. If parsing fails, the evaluation is tr
 
 QA agents are the final safeguard before outputs enter downstream systems. Invest time in clear, specific evaluation criteria and evidence-based reasoning. A well-designed QA prompt prevents hallucinations and schema violations from propagating through the pipeline.
 
-_Last updated: 2026-05-16_
+_Last updated: 2026-05-24_

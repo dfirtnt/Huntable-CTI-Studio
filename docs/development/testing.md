@@ -258,4 +258,4 @@ All tests are non-impactful to production data and configuration:
 - Authentication/authorization — single-user application
 - Multi-user tests — local-first, single-user design
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-24_

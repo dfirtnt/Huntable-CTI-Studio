@@ -71,7 +71,7 @@ These agents have both a seed file in `src/prompts/` and a database entry in wor
 1. **Database** (workflow config `agent_prompts`) -- takes precedence
 2. **Seed file** (`src/prompts/`) -- fallback on bootstrap or reset
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-24_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbLTEzMDQ3ODU5NDFdfQ==
 -->

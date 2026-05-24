@@ -69,4 +69,4 @@ for consistency and compliance. If validation fails, the ranking retries up to
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-24_

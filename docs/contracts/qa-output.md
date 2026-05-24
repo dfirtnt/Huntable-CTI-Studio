@@ -78,4 +78,4 @@ that owns the LLM call, the 6-strategy response parser, fail-closed default,
 and schema normalization.  All call sites (`qa_agent_service.py`,
 `run_extraction_agent` in `llm_service.py`) delegate to it.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-24_
