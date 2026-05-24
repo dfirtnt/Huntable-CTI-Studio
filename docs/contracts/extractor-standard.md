@@ -401,4 +401,39 @@ Use this when reviewing any extractor prompt (new or revised):
     - Check that the fleet's combined coverage has no gaps or overlaps
     - Verify all `json_examples` still match the pipeline's traceability requirements
 
-_Last updated: 2026-05-15_
+---
+
+## Sigma novelty: canonical class coverage
+
+The deterministic novelty engine (`sigma_semantic_similarity`) classifies rules by
+canonical telemetry class before comparison. Rules whose logsource does not match a
+registered class fall through to the legacy `logsource_key + top_k=20` path, which
+loses containment/surface-score classification and caps retrieval.
+
+### Supported canonical classes (as of 2026-05-23)
+
+| Canonical class | Covered logsource / EventIDs |
+|---|---|
+| `windows.process_creation` | `category: process_creation`, Sysmon EID 1, Security EID 4688 |
+| `linux.process_creation` | `category: process_creation` (Linux) |
+| `windows.registry_event` | `category: registry_event`, Sysmon EIDs 12/13/14, Security EID 4657 |
+| `windows.service` | `category: service_creation`, System EIDs 7045/7036, Security EID 4697 |
+| `windows.scheduled_task` | `service: taskscheduler`, Security EIDs 4698/4699/4700/4702 |
+
+Source of truth: `sigma_semantic_similarity/sigma_similarity/canonical_logsource.py::CANONICAL_CLASS_REGISTRY`.
+
+### Known limitation: cross-telemetry scheduled-task rules
+
+Scheduled-task creation is observable across four telemetry sources simultaneously:
+- `process_creation` via `schtasks.exe` (classifies as `windows.process_creation`)
+- `file_event` for `\Tasks\` directory writes (unregistered class, legacy path)
+- `registry_event` for TaskCache keys (classifies as `windows.registry_event`)
+- `security` EventID 4698 (classifies as `windows.scheduled_task`)
+
+Rules targeting the same scheduled-task behavior via different telemetry sources fall
+into separate canonical class buckets and are never compared against each other.
+This can produce false-NOVEL classifications for behaviorally equivalent rules.
+This structural limitation is tracked separately and requires cross-class comparison
+support to resolve (Option B).
+
+_Last updated: 2026-05-23_

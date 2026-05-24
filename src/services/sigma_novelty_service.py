@@ -198,6 +198,17 @@ class SigmaNoveltyService:
         "TargetObject": "RegistryPath",
         "RegistryKey": "RegistryPath",
         "RegistryPath": "RegistryPath",
+        "RegistryValue": "RegistryValue",
+        # Service creation
+        "ServiceName": "ServiceName",
+        "ServiceFileName": "ServiceImagePath",
+        "ImagePath": "ServiceImagePath",
+        "StartType": "ServiceStartType",
+        "ServiceType": "ServiceType",
+        "ServiceStartType": "ServiceStartType",
+        # Scheduled tasks
+        "TaskName": "TaskName",
+        "TaskContent": "TaskContent",
     }
 
     # Service penalty configuration (v1.2)
