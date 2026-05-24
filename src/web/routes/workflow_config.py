@@ -1382,6 +1382,76 @@ def update_agent_prompts(request: Request, prompt_update: AgentPromptUpdate):
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+@router.delete("/config/prompts/{agent_name}")
+def delete_agent_prompt(request: Request, agent_name: str):
+    """Remove an agent's prompt entry from the active workflow configuration.
+
+    Creates a new config version with the agent key omitted from agent_prompts.
+    Returns 404 if the agent name is not present in the current config.
+    """
+    try:
+        db_manager = DatabaseManager()
+        db_session = db_manager.get_session()
+
+        try:
+            current_config = _active_workflow_config_query(db_session).with_for_update().first()
+
+            if not current_config:
+                raise HTTPException(status_code=404, detail="No active workflow configuration found")
+
+            agent_prompts = current_config.agent_prompts.copy() if current_config.agent_prompts else {}
+
+            if agent_name not in agent_prompts:
+                raise HTTPException(status_code=404, detail=f"Agent prompt '{agent_name}' not found")
+
+            del agent_prompts[agent_name]
+
+            _deactivate_active_workflow_configs(db_session)
+            new_version = _next_workflow_config_version(db_session)
+            _thr = _get_threshold_from_settings(db_session)
+
+            new_config = AgenticWorkflowConfigTable(
+                min_hunt_score=current_config.min_hunt_score,
+                ranking_threshold=current_config.ranking_threshold,
+                similarity_threshold=current_config.similarity_threshold,
+                junk_filter_threshold=current_config.junk_filter_threshold,
+                version=new_version,
+                is_active=True,
+                description=current_config.description or "Updated configuration",
+                agent_prompts=agent_prompts,
+                agent_models=current_config.agent_models.copy() if current_config.agent_models else {},
+                sigma_fallback_enabled=current_config.sigma_fallback_enabled
+                if hasattr(current_config, "sigma_fallback_enabled")
+                else False,
+                rank_agent_enabled=current_config.rank_agent_enabled
+                if hasattr(current_config, "rank_agent_enabled")
+                else True,
+                cmdline_attention_preprocessor_enabled=getattr(
+                    current_config, "cmdline_attention_preprocessor_enabled", True
+                ),
+                proc_tree_attention_preprocessor_enabled=getattr(
+                    current_config, "proc_tree_attention_preprocessor_enabled", True
+                ),
+                auto_trigger_hunt_score_threshold=(
+                    _thr if _thr is not None else getattr(current_config, "auto_trigger_hunt_score_threshold", 60.0)
+                ),
+            )
+
+            db_session.add(new_config)
+            db_session.commit()
+
+            logger.info(f"Deleted agent prompt for {agent_name!r} in config version {new_version}")
+            return {"success": True, "message": f"Agent prompt deleted for {agent_name}", "version": new_version}
+        finally:
+            db_session.close()
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting agent prompt: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @router.get("/config/prompts/{agent_name}/versions")
 def get_agent_prompt_versions(request: Request, agent_name: str):
     """Get version history for an agent prompt."""

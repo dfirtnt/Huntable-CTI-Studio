@@ -292,20 +292,26 @@ class TestWorkflowPresets:
             },
         }
 
-        # Save preset
-        save_response = await async_client.post("/api/workflow/config/preset/save", json=preset_payload)
-        assert save_response.status_code == 200
-        save_data = save_response.json()
+        created_preset_id = None
+        try:
+            # Save preset
+            save_response = await async_client.post("/api/workflow/config/preset/save", json=preset_payload)
+            assert save_response.status_code == 200
+            save_data = save_response.json()
 
-        assert save_data.get("success") is True
-        assert "preset_id" in save_data or "id" in save_data
+            assert save_data.get("success") is True
+            assert "preset_id" in save_data or "id" in save_data
+            created_preset_id = save_data.get("preset_id") or save_data.get("id")
 
-        # Verify preset appears in list
-        list_response = await async_client.get("/api/workflow/config/preset/list")
-        list_data = list_response.json()
-        presets = list_data if isinstance(list_data, list) else list_data.get("presets", [])
-        preset_names = [p["name"] for p in presets]
-        assert preset_payload["name"] in preset_names
+            # Verify preset appears in list
+            list_response = await async_client.get("/api/workflow/config/preset/list")
+            list_data = list_response.json()
+            presets = list_data if isinstance(list_data, list) else list_data.get("presets", [])
+            preset_names = [p["name"] for p in presets]
+            assert preset_payload["name"] in preset_names
+        finally:
+            if created_preset_id is not None:
+                await async_client.delete(f"/api/workflow/config/preset/{created_preset_id}")
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -400,16 +406,22 @@ class TestAgentPrompts:
         updated_prompt = original_prompt + "\n# Modified by API test"
         update_payload = {"agent_name": "ExtractAgent", "prompt": updated_prompt}
 
-        update_response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
-        assert update_response.status_code == 200
-        update_data = update_response.json()
-        assert update_data.get("success") is True
+        try:
+            update_response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
+            assert update_response.status_code == 200
+            update_data = update_response.json()
+            assert update_data.get("success") is True
 
-        # Verify prompt was updated
-        verify_response = await async_client.get("/api/workflow/config/prompts/ExtractAgent")
-        assert verify_response.status_code == 200
-        verify_data = verify_response.json()
-        assert verify_data["prompt"] == updated_prompt
+            # Verify prompt was updated
+            verify_response = await async_client.get("/api/workflow/config/prompts/ExtractAgent")
+            assert verify_response.status_code == 200
+            verify_data = verify_response.json()
+            assert verify_data["prompt"] == updated_prompt
+        finally:
+            await async_client.put(
+                "/api/workflow/config/prompts",
+                json={"agent_name": "ExtractAgent", "prompt": original_prompt},
+            )
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -418,13 +430,16 @@ class TestAgentPrompts:
         """Test updating prompt for non-existent agent succeeds (creates new prompt)."""
         update_payload = {"agent_name": "nonexistent_agent_xyz", "prompt": "Test prompt"}
 
-        # Note: The endpoint actually creates a new prompt for any agent name
-        # This is by design - no validation against a fixed list of agents
-        response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
-        # Should succeed (creates new agent prompt)
-        assert response.status_code == 200
-        data = response.json()
-        assert data.get("success") is True
+        # Note: The endpoint creates a new prompt for any agent name by design —
+        # there is no validation against a fixed list of agents.
+        try:
+            response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
+            assert response.status_code == 200
+            data = response.json()
+            assert data.get("success") is True
+        finally:
+            # Remove the test-created prompt so it doesn't pollute subsequent runs.
+            await async_client.delete("/api/workflow/config/prompts/nonexistent_agent_xyz")
 
 
 class TestWorkflowConfigVersions:

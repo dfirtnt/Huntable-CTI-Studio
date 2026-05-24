@@ -38,6 +38,7 @@ from . import (
     search,
     settings,
     sigma_ab_test,
+    sigma_similarity_test,
     sigma_queue,
     sources,
     tasks,
@@ -91,4 +92,5 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(evaluation_ui.router)
     app.include_router(evaluation_api.router)
     app.include_router(sigma_ab_test.router)
+    app.include_router(sigma_similarity_test.router)
     app.include_router(sigma_queue.router)
