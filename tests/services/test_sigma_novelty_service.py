@@ -446,3 +446,45 @@ class TestSnakeCaseFieldAliasNormalization:
         assert expl["removed_atoms"] == [], (
             f"Unexpected removed_atoms: {expl['removed_atoms']}"
         )
+
+
+class TestAggressiveNormalizationSnakeCase:
+    """normalize_detection must apply aggressive normalization to snake_case
+    CommandLine fields (command_line, process_command_line, parent_command_line)
+    the same as it does to their PascalCase equivalents."""
+
+    def _make_rule(self, field_map: dict) -> dict:
+        return {
+            "title": "Test",
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": field_map, "condition": "selection"},
+        }
+
+    def test_snake_case_command_line_gets_aggressive_normalization(self):
+        """command_line and CommandLine must produce the same canonical atom value."""
+        service = SigmaNoveltyService()
+        # Extra whitespace and backslash — aggressive normalization collapses these
+        value = 'powershell.exe  -enc  "abc"'
+
+        canon_snake = service.build_canonical_rule(
+            self._make_rule({"command_line|contains": value})
+        )
+        canon_pascal = service.build_canonical_rule(
+            self._make_rule({"CommandLine|contains": value})
+        )
+
+        atoms_snake = {a["value"] for a in canon_snake.detection["atoms"]}
+        atoms_pascal = {a["value"] for a in canon_pascal.detection["atoms"]}
+        assert atoms_snake == atoms_pascal, (
+            f"command_line atoms {atoms_snake!r} != CommandLine atoms {atoms_pascal!r} — "
+            f"aggressive normalization not applied to snake_case field"
+        )
+
+    def test_jaccard_is_one_for_rules_differing_only_in_commandline_field_case(self):
+        """Two rules identical except command_line vs CommandLine must score 1.0."""
+        service = SigmaNoveltyService()
+        value = "powershell.exe -enc abc"
+
+        canon_a = service.build_canonical_rule(self._make_rule({"command_line|contains": value}))
+        canon_b = service.build_canonical_rule(self._make_rule({"CommandLine|contains": value}))
+        assert service.compute_atom_jaccard(canon_a, canon_b) == 1.0

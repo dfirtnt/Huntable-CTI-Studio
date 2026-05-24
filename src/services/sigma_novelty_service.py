@@ -606,8 +606,14 @@ class SigmaNoveltyService:
                 for field, field_value in value.items():
                     base_field, modifiers = self._parse_field_with_modifiers(field)
 
-                    # Apply normalization based on field type
-                    if base_field in self.AGGRESSIVE_NORMALIZATION_FIELDS:
+                    # Apply normalization based on field type.
+                    # Check is underscore-insensitive so snake_case fields
+                    # (e.g. command_line) match PascalCase set members (CommandLine).
+                    base_field_probe = base_field.lower().replace("_", "")
+                    aggressive = any(
+                        k.lower() == base_field_probe for k in self.AGGRESSIVE_NORMALIZATION_FIELDS
+                    )
+                    if aggressive:
                         normalized_value = self._normalize_aggressive(field_value)
                     else:
                         normalized_value = self._normalize_conservative(field_value)
