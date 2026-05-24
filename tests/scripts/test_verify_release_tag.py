@@ -38,7 +38,9 @@ def _load_script_module():
 
 @pytest.fixture(scope="module")
 def script():
-    return _load_script_module()
+    module = _load_script_module()
+    yield module
+    sys.modules.pop("verify_release_tag", None)
 
 
 def _build_fake_repo(

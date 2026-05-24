@@ -40,7 +40,9 @@ def _load_script_module():
 
 @pytest.fixture(scope="module")
 def script():
-    return _load_script_module()
+    module = _load_script_module()
+    yield module
+    sys.modules.pop("extract_changelog_section", None)
 
 
 SAMPLE_CHANGELOG = """\
