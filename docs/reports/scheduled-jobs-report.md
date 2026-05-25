@@ -60,4 +60,4 @@ All scheduled/periodic jobs (Celery Beat + host crontab).
 - **Backup cron:** `src/services/backup_cron_service.py`, `config/backup.yaml`, `src/cli/commands/backup.py` (`backup cron`), `src/web/routes/backup.py` (`/api/backup/cron`).
 - **Generic crontab:** `src/cli/commands/cron.py` (`cron show` / `cron set`), `src/web/routes/cron.py` (`/api/cron`).
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

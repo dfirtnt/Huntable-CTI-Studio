@@ -299,9 +299,9 @@ quoted rule or paraphrase from one of two contract documents:
 
 ### Diagnosis API reference
 
-All endpoints live under the `/api` prefix.
+All endpoints are mounted under the `/api/evaluations` prefix (router in `src/web/routes/evaluation_api.py`).
 
-#### POST /api/evals/{execution_id}/diagnose
+#### POST /api/evaluations/evals/{execution_id}/diagnose
 
 Run LLM-powered failure diagnosis on an eval bundle.
 
@@ -327,7 +327,7 @@ Run LLM-powered failure diagnosis on an eval bundle.
 
 ---
 
-#### GET /api/evals/{execution_id}/diagnosis
+#### GET /api/evaluations/evals/{execution_id}/diagnosis
 
 Return the most recent saved diagnosis for an execution.
 
@@ -337,7 +337,7 @@ Return the most recent saved diagnosis for an execution.
 
 ---
 
-#### GET /api/evals/{execution_id}/diagnoses
+#### GET /api/evaluations/evals/{execution_id}/diagnoses
 
 Return all saved diagnoses for an execution, newest first.
 
@@ -346,7 +346,7 @@ none exist.
 
 ---
 
-#### GET /api/subagent-eval-compare
+#### GET /api/evaluations/subagent-eval-compare
 
 Side-by-side comparison of two config versions for a subagent.
 
@@ -363,7 +363,7 @@ version, and improved/regressed/unchanged counts.
 
 ---
 
-#### GET /api/subagent-eval-version-articles
+#### GET /api/evaluations/subagent-eval-version-articles
 
 Return the distinct article URLs used in a specific config version run.
 
@@ -432,4 +432,4 @@ config version without manually re-selecting articles.
 | Zero-count cells with no error | Model ran but returned empty array; inspect `_llm_response` in the execution detail |
 | Same article appearing in multiple versions with identical output | Idempotency not enforced; manual re-runs use the force flag to bypass |
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

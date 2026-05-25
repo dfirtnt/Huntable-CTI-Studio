@@ -80,4 +80,4 @@ Boolean search, pagination, source filtering, and article detail views.
 | Workflow execution | [Pipelines](../concepts/pipelines.md) |
 | Agent responsibilities | [Agents](../concepts/agents.md) |
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

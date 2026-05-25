@@ -50,4 +50,4 @@ Observables are the **structured extraction output** of the Extract Agent: typed
 2. Trigger the workflow (`POST /api/workflow/articles/{article_id}/trigger`).
 3. Wait for `status=completed`, then read `extraction_result` from the API or UI. Re-run the trigger if you change models, prompts, or input content.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

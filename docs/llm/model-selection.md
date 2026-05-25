@@ -331,4 +331,4 @@ Always verify model hash against official releases.
 
 ---
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-25_

@@ -107,8 +107,9 @@ The article UI renders the LLM ↔ pySigma conversation:
 
 - AI model configured (OpenAI API key, or LMStudio local server)
 - pySigma installed (bundled in requirements)
-- For similarity search: Sigma rules indexed (`sigma index-metadata` then
-  `sigma index-embeddings`)
+- For article-to-rule matching (pgvector path): Sigma rules indexed (`sigma index-metadata` then
+  `sigma index-embeddings`). Note: the rule novelty/deduplication path uses Jaccard×Containment
+  scoring and does not require embeddings — only `sigma index-metadata` is needed for it.
 - Threat hunting score < 65 shows a warning but does not block generation
 
 ---
@@ -238,6 +239,22 @@ Similarity 30%.
 | 0.7 – 0.9 | Review for potential extension |
 | < 0.7 | Novel detection opportunity |
 
+### Queue Status: `needs_review`
+
+When candidates are evaluated but zero behavioral matches are found (i.e., the Jaccard×Containment
+scorer returned no non-zero results), the outcome is **inconclusive** — not confidently novel.
+Previously this was collapsed into `max_similarity=0.0` and treated as novel; it is now a
+distinct queue state.
+
+- **`needs_review`** (yellow badge): candidates were evaluated, none produced a behavioral match.
+  `max_similarity` is stored as `NULL`; `behavioral_matches_found=0` with
+  `total_candidates_evaluated > 0`. Queue actions: Approve or Reject.
+- **`pending`** (standard): a scored similarity result exists (possibly 0.0 from an empty corpus
+  or a genuinely low score). `max_similarity` is a numeric value.
+
+Two DB columns on `sigma_rule_queue` support this: `behavioral_matches_found` and
+`total_candidates_evaluated`.
+
 ### Candidate Retrieval
 
 The `/api/sigma-queue/{id}/similar-rules` response includes
@@ -311,7 +328,7 @@ entry for display in the Sigma Queue UI.
 | Precompute | `sigma_semantic_precompute.py` | Materializes canonical atom sets and logsource keys at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
-| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based similarity scoring (cosine similarity via local sentence-transformers) |
+| Semantic scorer | `sigma_semantic_scorer.py` | Fallback scoring path (not used by the primary Jaccard×Containment pipeline) |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine; used when installed |
 
@@ -532,4 +549,4 @@ docker-compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

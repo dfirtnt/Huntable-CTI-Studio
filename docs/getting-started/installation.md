@@ -211,7 +211,7 @@ The committed eval article directories cover all six extraction sub-agents:
 
 ---
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbMTU2NDQzMzMxNl19
 -->

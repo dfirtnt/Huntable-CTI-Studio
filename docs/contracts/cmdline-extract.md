@@ -261,4 +261,4 @@ If a cmd.exe wrapper strips down to a trivial command, SKIP.
 If the source is malware source code, detection logic, or defensive guidance, SKIP.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

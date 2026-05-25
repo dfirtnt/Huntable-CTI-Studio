@@ -240,4 +240,4 @@ Increasing n_ctx beyond 16K should only be done if empirical testing shows a mea
 quality improvement for your specific article corpus, on hardware with VRAM headroom to
 absorb the cost without concurrency degradation.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-25_

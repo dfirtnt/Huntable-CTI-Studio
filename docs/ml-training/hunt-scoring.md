@@ -421,5 +421,5 @@ Three settings influence dashboard metrics:
 
 ---
 
-_Last updated: 2026-05-21_
+_Last updated: 2026-05-25_
 _Last reviewed: 2026-05-22_
