@@ -11,9 +11,35 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
+import pytest_asyncio
 
 pytestmark = pytest.mark.api
+
+
+# ---------------------------------------------------------------------------
+# Module-local ASGI client — always in-process so monkeypatch reaches routes
+# ---------------------------------------------------------------------------
+
+@pytest_asyncio.fixture
+async def asgi_client():
+    """In-process ASGI transport client.
+
+    Unlike the shared ``async_client`` fixture (which may hit a live server),
+    this one *always* runs the FastAPI app in-process.  That ensures
+    ``monkeypatch`` calls made in the test process are visible to the route
+    handlers, which is required for tests that assert a True return value.
+    """
+    from httpx import ASGITransport
+
+    from src.web.modern_main import app
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver", timeout=60.0
+    ) as client:
+        yield client
 
 
 def _make_config(config_id: int = 1, version: int = 1):
@@ -98,10 +124,14 @@ async def test_workflow_status_false_when_no_completed_execution(async_client, m
 
 
 @pytest.mark.asyncio
-async def test_workflow_status_true_when_completed_execution_exists(async_client, monkeypatch):
+async def test_workflow_status_true_when_completed_execution_exists(asgi_client, monkeypatch):
     """
     Returns {"processed_with_current_config": true} when a completed non-eval
     execution matching the current (config_id, config_version) exists.
+
+    Uses the module-local ``asgi_client`` so monkeypatch reaches the in-process
+    route handler — avoiding live-server brittleness when the active config
+    version rotates between pipeline runs.
     """
     _patch_route_internals(
         monkeypatch,
@@ -109,7 +139,7 @@ async def test_workflow_status_true_when_completed_execution_exists(async_client
         completed_exec=_make_execution(exec_id=101),
     )
 
-    response = await async_client.get("/api/articles/42/workflow-status")
+    response = await asgi_client.get("/api/articles/42/workflow-status")
     assert response.status_code == 200
     data = response.json()
     assert data["processed_with_current_config"] is True

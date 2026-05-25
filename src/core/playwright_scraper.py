@@ -320,7 +320,7 @@ class PlaywrightScraper:
                         break
 
             if not published_at:
-                structured_data = StructuredDataExtractor.extract_structured_data(html_content)
+                structured_data = StructuredDataExtractor.extract_structured_data(html_content, url)
                 jsonld_article = StructuredDataExtractor.find_article_jsonld(structured_data)
                 if jsonld_article:
                     jsonld_extracted = StructuredDataExtractor.extract_from_jsonld(jsonld_article)

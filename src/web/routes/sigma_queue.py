@@ -387,6 +387,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
 def list_queued_rules(
     request: Request,
     status: str | None = None,
+    keyword: str | None = None,
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ):
@@ -399,12 +400,16 @@ def list_queued_rules(
             base = db_session.query(SigmaRuleQueueTable)
             if status:
                 base = base.filter(SigmaRuleQueueTable.status == status)
+            if keyword:
+                base = base.filter(SigmaRuleQueueTable.rule_yaml.ilike(f"%{keyword}%"))
 
             total = base.with_entities(func.count(SigmaRuleQueueTable.id)).scalar() or 0
 
             data_query = db_session.query(SigmaRuleQueueTable)
             if status:
                 data_query = data_query.filter(SigmaRuleQueueTable.status == status)
+            if keyword:
+                data_query = data_query.filter(SigmaRuleQueueTable.rule_yaml.ilike(f"%{keyword}%"))
             rules = data_query.order_by(SigmaRuleQueueTable.created_at.desc()).offset(offset).limit(limit).all()
 
             result = []
