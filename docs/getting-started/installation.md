@@ -187,6 +187,31 @@ See `configuration.md` for detailed port configuration.
 - Verify Docker daemon is running
 - Try rebuilding: `docker-compose up --build -d`
 
+## ML Content Filter Model
+
+The app ships a RandomForest classifier that labels article chunks "Huntable" or "Not Huntable". The trained model is **not committed to git** (it's a binary artifact), but `./setup.sh` seeds it automatically during fresh install:
+
+```
+./setup.sh
+  └─ docker exec cti_web python3 scripts/seed_model.py
+       ├─ trains RandomForest from config/eval_articles_data/ fixtures
+       └─ writes outputs/evaluation_data/eval_set.csv (317-row holdout)
+```
+
+If you need to seed manually (e.g., after restoring a database backup without the models volume):
+
+```bash
+docker exec cti_web python3 scripts/seed_model.py
+```
+
+The curated holdout eval set (`outputs/evaluation_data/eval_set.csv`) **is** committed and will be present after `git clone`. If you need to regenerate it from the source label files:
+
+```bash
+python3 scripts/prepare_eval_set.py
+```
+
+See the [ML Model Operations Runbook](../operations/ml-model-runbook.md) for retraining, quality gate details, and rollback procedures.
+
 ## Agent evals
 
 **MLOps → Agent evals** (Load Eval Articles, run subagent evals) use article snapshots committed in the repo under `config/eval_articles_data/{subagent}/articles.json`. No network fetch is required: the web app seeds these files into the DB at startup, and `start.sh` also runs the seed. If "Load Eval Articles" shows no articles, ensure you have the latest repo so the committed JSON files are present.
