@@ -220,6 +220,30 @@ def main() -> None:
         if version_id:
             print(f"    Version id: {version_id}")
 
+    # Build (or refresh) the curated holdout eval set from config/labeled_chunks/.
+    # This runs automatically so fresh installs get a working quality gate without
+    # a separate manual step.  Failures are warnings only — the model is already saved.
+    print("\n🧪  Building holdout eval set from config/labeled_chunks/ ...")
+    try:
+        import subprocess as _sp
+        _prepare = ROOT / "scripts" / "prepare_eval_set.py"
+        _result = _sp.run(
+            [sys.executable, str(_prepare)],
+            capture_output=True,
+            text=True,
+            cwd=str(ROOT),
+        )
+        for _line in _result.stdout.strip().splitlines():
+            print(f"  {_line}")
+        if _result.returncode != 0:
+            print(f"⚠️   prepare_eval_set.py exited {_result.returncode}")
+            if _result.stderr:
+                print(_result.stderr.strip()[:400])
+            print("    Run manually:  python3 scripts/prepare_eval_set.py")
+    except Exception as _exc:
+        print(f"⚠️   Could not build eval set: {_exc}")
+        print("    Run:  python3 scripts/prepare_eval_set.py")
+
     print("\n🎉  Seed complete. Restart the server to activate the new model.")
 
 
