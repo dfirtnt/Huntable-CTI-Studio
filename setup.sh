@@ -261,8 +261,11 @@ create_env_file() {
         local embed_url="${base_url%/v1}/v1/embeddings"
         startup_set_env_key ".env" "LMSTUDIO_API_URL" "${base_url}"
         startup_set_env_key ".env" "LMSTUDIO_EMBEDDING_URL" "${embed_url}"
+        startup_set_env_key ".env" "WORKFLOW_LMSTUDIO_ENABLED" "true"
+        startup_set_env_key ".env" "PROCEED_WITHOUT_LMSTUDIO" "0"
     else
         # User chose not to use LMStudio: persist so Settings hides LMStudio UI
+        # and LLMService rejects any config that resolves to LMStudio.
         startup_disable_lmstudio ".env"
     fi
     

@@ -505,12 +505,33 @@ class LLMService:
             return "openai"
         if normalized in {"anthropic", "claude", "claude-sonnet-4-5"}:
             return "anthropic"
-        if normalized in {"lmstudio", "local", "local_llm", "deepseek"} or not normalized:
+        if normalized in {"lmstudio", "local", "local_llm", "deepseek", "auto"}:
+            if not self._is_lmstudio_enabled():
+                raise ValueError(
+                    f"Provider '{provider}' resolves to LMStudio, but LMStudio is not enabled on this install. "
+                    "Set WORKFLOW_LMSTUDIO_ENABLED=true (or re-run setup.sh and opt in to LMStudio), "
+                    "or configure an explicit provider (openai/anthropic) for this agent."
+                )
             return "lmstudio"
-        if normalized == "auto":
-            return "lmstudio"
-        logger.warning(f"Unknown provider '{provider}' for workflow; defaulting to LMStudio")
-        return "lmstudio"
+        if not normalized:
+            raise ValueError(
+                "No provider configured for one of the workflow agents. "
+                "Set an explicit provider (openai/anthropic) in the workflow config, "
+                "or enable LMStudio via setup.sh / WORKFLOW_LMSTUDIO_ENABLED=true."
+            )
+        raise ValueError(
+            f"Unknown provider '{provider}'. Valid providers: openai, anthropic"
+            + (", lmstudio" if self._is_lmstudio_enabled() else "")
+            + "."
+        )
+
+    def _is_lmstudio_enabled(self) -> bool:
+        # Prefer the already-resolved attribute set during __init__; fall back to env
+        # for the case where this is called before that attribute exists.
+        val = getattr(self, "workflow_lmstudio_enabled", None)
+        if val is not None:
+            return bool(val)
+        return os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
 
     def _load_workflow_provider_settings(self) -> dict[str, str | None]:
         settings: dict[str, str | None] = {}

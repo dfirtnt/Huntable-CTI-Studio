@@ -915,16 +915,23 @@ class ContentFilter:
             y_pred = self.model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
 
-            # Calculate detailed metrics
-            precision = precision_score(y_test, y_pred, average=None, zero_division=0)
-            recall = recall_score(y_test, y_pred, average=None, zero_division=0)
-            f1 = f1_score(y_test, y_pred, average=None, zero_division=0)
+            # Calculate detailed metrics. Pass labels=[0, 1] so the returned
+            # arrays are always length-2 (index 0 = Not Huntable, 1 = Huntable)
+            # even when y_test contains only one class — which happens on
+            # brand-new installs where the seed/feedback data is single-class.
+            precision = precision_score(y_test, y_pred, labels=[0, 1], average=None, zero_division=0)
+            recall = recall_score(y_test, y_pred, labels=[0, 1], average=None, zero_division=0)
+            f1 = f1_score(y_test, y_pred, labels=[0, 1], average=None, zero_division=0)
 
             training_duration = time.time() - start_time
 
             logger.info(f"Model trained successfully. Accuracy: {accuracy:.3f}")
             logger.info("Classification Report:")
-            logger.info(classification_report(y_test, y_pred, target_names=["Not Huntable", "Huntable"]))
+            logger.info(
+                classification_report(
+                    y_test, y_pred, labels=[0, 1], target_names=["Not Huntable", "Huntable"], zero_division=0
+                )
+            )
 
             # Save model
             import joblib
@@ -946,11 +953,11 @@ class ContentFilter:
                 "training_duration_seconds": training_duration,
                 "test_set_size": len(y_test),
                 "accuracy": float(accuracy),
-                "precision_huntable": float(precision[1]) if len(precision) > 1 else 0.0,
+                "precision_huntable": float(precision[1]),
                 "precision_not_huntable": float(precision[0]),
-                "recall_huntable": float(recall[1]) if len(recall) > 1 else 0.0,
+                "recall_huntable": float(recall[1]),
                 "recall_not_huntable": float(recall[0]),
-                "f1_score_huntable": float(f1[1]) if len(f1) > 1 else 0.0,
+                "f1_score_huntable": float(f1[1]),
                 "f1_score_not_huntable": float(f1[0]),
                 "model_params": {
                     "n_estimators": 100,
@@ -961,8 +968,10 @@ class ContentFilter:
                 "classification_report": classification_report(
                     y_test,
                     y_pred,
+                    labels=[0, 1],
                     target_names=["Not Huntable", "Huntable"],
                     output_dict=True,
+                    zero_division=0,
                 ),
             }
 
