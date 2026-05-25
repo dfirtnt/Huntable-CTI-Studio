@@ -706,6 +706,23 @@ main() {
         # Align with start.sh startup path: validate pgvector index shape first.
         startup_migrate_pgvector_indexes
 
+        # Seed ML junk-filter model if not already present.
+        # models/ is bind-mounted into the container, so writing inside Docker also
+        # writes to the host's models/ directory — both see the same file.
+        print_header "ML Content Filter Model"
+        if [[ -f "models/content_filter.pkl" ]]; then
+            print_status "✅ ML model already exists — skipping seed."
+        else
+            print_status "Seeding ML junk-filter model from eval fixtures (this takes ~1 min)..."
+            if $DOCKER_CMD exec cti_web python3 scripts/seed_model.py --no-register; then
+                print_status "✅ ML model seeded successfully."
+            else
+                print_warning "⚠️  ML model seed failed. Run manually after setup:"
+                print_warning "   docker exec cti_web python3 scripts/seed_model.py"
+            fi
+        fi
+        echo ""
+
         # Sigma embeddings: required for semantic search, similarity, and MCP retrieval.
         # Prompt only in interactive mode when not already limited by environment.
         if [[ -z "$SKIP_SIGMA_INDEX" ]] && [[ "$NON_INTERACTIVE" != "true" ]]; then
