@@ -210,7 +210,9 @@ class TestArticlesSearchAndFilter:
         score_filter = page.locator("#threat_hunting_range")
         if score_filter.is_visible():
             score_filter.select_option("80-100")
-            page.wait_for_load_state("load")
+            # expect() auto-retries until the URL matches or the timeout expires,
+            # making it robust even when form.submit() is queued asynchronously.
+            expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"), timeout=10000)
 
         # Find clear all link
         clear_link = page.locator("a:has-text('Clear all')")
