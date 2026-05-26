@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Create-Huntable-Agent — Integration Wiring Map</title>
+<style>
+:root {
+  --bg: #0B0F19; --surface: #141924; --surface2: #1C2333;
+  --border: #2A3347; --text: #E2E8F0; --muted: #7A8BA8; --dim: #4A5568;
+  --l1:#3B82F6; --l2:#10B981; --l3:#8B5CF6;
+  --l4:#F59E0B; --l5:#EF4444; --l6:#F97316; --l7:#14B8A6;
+  --phigh:#DC2626; --pmed:#D97706; --plow:#4B5563;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:ui-monospace,'SF Mono','Cascadia Code',monospace;font-size:11px;line-height:1.5;padding:0 0 40px;}
+
+/* HEADER */
+.hdr{background:linear-gradient(135deg,#0F1929 0%,#111827 100%);border-bottom:1px solid var(--border);padding:20px 24px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:24px;}
+.hdr-title{font-size:16px;font-weight:800;letter-spacing:-.4px;color:#F1F5F9;}
+.hdr-sub{color:var(--muted);font-size:10px;margin-top:3px;}
+.stats-row{display:flex;gap:8px;flex-shrink:0;}
+.stat{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 12px;text-align:center;min-width:58px;}
+.stat-n{font-size:18px;font-weight:800;color:#F1F5F9;}
+.stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;margin-top:1px;}
+
+/* LEGEND */
+.legend{display:flex;gap:10px;flex-wrap:wrap;padding:9px 24px;background:var(--surface);border-bottom:1px solid var(--border);align-items:center;}
+.li{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--muted);}
+.ld{width:9px;height:9px;border-radius:2px;flex-shrink:0;}
+
+/* IDENTITY */
+.identity-wrap{padding:14px 24px;border-bottom:1px solid var(--border);background:var(--surface);}
+.section-title{font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:8px;}
+.identity-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;}
+.id-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;}
+.id-label{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;}
+.id-pattern{font-size:10px;color:#A78BFA;font-weight:700;margin-top:3px;}
+.id-example{font-size:9px;color:var(--muted);margin-top:2px;}
+
+/* MAIN LAYOUT */
+.main{display:grid;grid-template-columns:1fr 272px;gap:0;align-items:start;}
+.layers-col{padding:16px 12px 16px 24px;display:flex;flex-direction:column;gap:6px;}
+.pitfalls-col{padding:16px 24px 16px 0;position:sticky;top:0;max-height:100vh;overflow-y:auto;}
+
+/* LAYER */
+.layer-wrap{border-radius:8px;overflow:hidden;border:1px solid var(--border);}
+.layer-hdr{display:flex;align-items:center;gap:8px;padding:7px 12px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.9px;}
+.layer-num{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:900;flex-shrink:0;}
+.layer-note{font-size:8.5px;font-weight:400;font-style:italic;text-transform:none;letter-spacing:0;margin-left:auto;opacity:.6;}
+.layer-body{display:flex;flex-wrap:wrap;gap:6px;padding:8px 10px;background:rgba(0,0,0,.25);}
+
+/* CONNECTOR */
+.connector{display:flex;justify-content:flex-start;padding-left:36px;height:12px;position:relative;}
+.connector::before{content:'';position:absolute;left:36px;top:0;height:12px;width:2px;background:var(--border);}
+.connector::after{content:'▼';position:absolute;left:30px;bottom:-2px;font-size:8px;color:var(--border);}
+
+/* FILE CARD */
+.fc{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:8px 10px;min-width:140px;flex:1;max-width:290px;position:relative;cursor:default;transition:border-color .15s,transform .1s;}
+.fc:hover{border-color:rgba(255,255,255,.25);transform:translateY(-1px);}
+.fc.is-new{border-style:dashed;border-color:rgba(16,185,129,.5);}
+.fc.is-mandatory{border-color:rgba(239,68,68,.45);}
+.fc.is-complex{border-color:rgba(239,68,68,.6);}
+.fc.is-verify{opacity:.55;}
+.fc-name{font-size:10px;font-weight:700;color:var(--text);word-break:break-all;line-height:1.3;}
+.fc-path{font-size:8.5px;color:var(--muted);margin-top:1px;}
+.fc-path.new-prefix::before{content:'✦ NEW  ';color:#34D399;font-weight:700;}
+.fc-tags{display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;}
+.tag{font-size:8.5px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.07);color:var(--muted);white-space:nowrap;}
+.badge-row{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;align-items:center;}
+.pbadge{font-size:8px;font-weight:800;padding:1px 5px;border-radius:10px;color:#fff;cursor:pointer;flex-shrink:0;}
+.pbadge.high{background:var(--phigh);}.pbadge.med{background:var(--pmed);}.pbadge.low{background:var(--plow);}
+.tag-mandatory{font-size:7.5px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.15);color:#F87171;border:1px solid rgba(239,68,68,.3);text-transform:uppercase;letter-spacing:.5px;}
+.tag-complex{font-size:7.5px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.1);color:#FCA5A5;border:1px solid rgba(239,68,68,.25);}
+.tag-verify{font-size:7.5px;padding:1px 5px;border-radius:3px;background:rgba(255,255,255,.04);color:var(--dim);}
+
+/* PITFALLS PANEL */
+.pitfalls-panel{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.pp-hdr{background:#111827;padding:9px 12px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);}
+.pp-title{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.pp-count{background:var(--phigh);color:#fff;font-size:8px;font-weight:800;padding:1px 7px;border-radius:10px;}
+.pp-list{max-height:1400px;overflow-y:auto;}
+.sev-divider{padding:5px 11px;font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;background:rgba(0,0,0,.2);border-bottom:1px solid rgba(255,255,255,.03);display:flex;align-items:center;gap:6px;}
+.sev-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.pit{padding:8px 11px;border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s;}
+.pit:hover{background:rgba(255,255,255,.03);}
+.pit-row{display:flex;align-items:flex-start;gap:6px;}
+.pit-num{width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:900;flex-shrink:0;margin-top:1px;color:#fff;}
+.pit-num.high{background:var(--phigh);}.pit-num.med{background:var(--pmed);}.pit-num.low{background:var(--plow);}
+.pit-title{font-size:9.5px;font-weight:700;color:var(--text);line-height:1.3;flex:1;}
+.pit-desc{font-size:8.5px;color:var(--muted);margin-top:3px;line-height:1.45;padding-left:23px;}
+
+/* AUTO-WIRED */
+.auto-wrap{padding:16px 24px;border-top:1px solid var(--border);margin-top:8px;}
+.auto-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;}
+.ac{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:10px 12px;opacity:.72;}
+.ac-name{font-size:9.5px;font-weight:700;color:var(--muted);display:flex;align-items:center;gap:5px;}
+.ac-check{color:#10B981;}
+.ac-file{font-size:8px;color:var(--dim);margin-top:3px;font-style:italic;}
+.ac-desc{font-size:8.5px;color:var(--muted);margin-top:4px;line-height:1.4;opacity:.8;}
+
+/* VERIFICATION */
+.verify-wrap{padding:16px 24px;}
+.verify-list{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-top:8px;}
+.vitem{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:9px;color:var(--muted);display:flex;align-items:flex-start;gap:6px;line-height:1.4;}
+.vnum{background:var(--surface2);border:1px solid var(--border);width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:var(--text);flex-shrink:0;}
+.vcode{background:rgba(255,255,255,.07);padding:1px 4px;border-radius:3px;color:#93C5FD;font-size:8.5px;font-family:inherit;}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="hdr-title">Create-Huntable-Agent — Integration Wiring Map</div>
+    <div class="hdr-sub">Every file, touch point, pitfall, and auto-wired behaviour the skill accounts for</div>
+  </div>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n">30+</div><div class="stat-l">Points</div></div>
+    <div class="stat"><div class="stat-n">7</div><div class="stat-l">Layers</div></div>
+    <div class="stat"><div class="stat-n">22+</div><div class="stat-l">Files</div></div>
+    <div class="stat" style="border-color:#DC2626"><div class="stat-n" style="color:#F87171">17</div><div class="stat-l">Pitfalls</div></div>
+    <div class="stat" style="opacity:.65"><div class="stat-n" style="color:#9CA3AF">4</div><div class="stat-l">Auto</div></div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="li"><div class="ld" style="background:#3B82F6"></div>Layer 1 Schema</div>
+  <div class="li"><div class="ld" style="background:#10B981"></div>Layer 2 Prompts</div>
+  <div class="li"><div class="ld" style="background:#8B5CF6"></div>Layer 3 Services</div>
+  <div class="li"><div class="ld" style="background:#F59E0B"></div>Layer 4 Routes</div>
+  <div class="li"><div class="ld" style="background:#EF4444"></div>Layer 5 UI Templates</div>
+  <div class="li"><div class="ld" style="background:#F97316"></div>Layer 6 Config/Data</div>
+  <div class="li"><div class="ld" style="background:#14B8A6"></div>Layer 7 Tests</div>
+  <div class="li" style="margin-left:auto">
+    <div class="ld" style="background:#DC2626;border-radius:50%"></div>&nbsp;High pitfall&nbsp;
+    <div class="ld" style="background:#D97706;border-radius:50%"></div>&nbsp;Med&nbsp;
+    <div class="ld" style="background:#4B5563;border-radius:50%"></div>&nbsp;Low&nbsp;
+    <div class="ld" style="border:1px dashed #10B981;border-radius:2px"></div>&nbsp;New file&nbsp;
+    <div class="ld" style="border:1px solid rgba(239,68,68,.5);border-radius:2px"></div>&nbsp;Mandatory
+  </div>
+</div>
+
+<div class="identity-wrap">
+  <div class="section-title">Naming identifiers — decide all six before touching any code</div>
+  <div class="identity-grid" id="identity-grid"></div>
+</div>
+
+<div class="main">
+  <div class="layers-col" id="layers-col"></div>
+  <div class="pitfalls-col">
+    <div class="pitfalls-panel">
+      <div class="pp-hdr">
+        <span class="pp-title">Pitfalls</span>
+        <span class="pp-count">17</span>
+      </div>
+      <div class="pp-list" id="pp-list"></div>
+    </div>
+  </div>
+</div>
+
+<div class="auto-wrap">
+  <div class="section-title">Auto-wired — no per-agent code changes once layers 1–3 are wired</div>
+  <div class="auto-grid" id="auto-grid"></div>
+</div>
+
+<div class="verify-wrap">
+  <div class="section-title">Verification sequence — run in order</div>
+  <div class="verify-list" id="verify-list"></div>
+</div>
+
+<script>
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function mk(tag, cls) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  return e;
+}
+
+function txt(content) { return document.createTextNode(content); }
+
+function app(parent) {
+  const args = Array.prototype.slice.call(arguments, 1);
+  args.forEach(function(c) { if (c) parent.appendChild(c); });
+  return parent;
+}
+
+function span(cls, content) {
+  const s = mk('span', cls);
+  s.textContent = content;
+  return s;
+}
+
+function div(cls, content) {
+  const d = mk('div', cls);
+  if (typeof content === 'string') d.textContent = content;
+  return d;
+}
+
+// ── data ─────────────────────────────────────────────────────────────────────
+
+const IDENTITY = [
+  { label: 'AgentName', pattern: '{Name}Extract', example: 'e.g. RegistryExtract' },
+  { label: 'QAName', pattern: '{Name}QA', example: 'e.g. RegistryQA' },
+  { label: 'canonical_alias', pattern: '{descriptive_snake}', example: 'e.g. registry_artifacts — used in execution results, eval dirs & normalization. Does NOT need to match PascalCase.' },
+  { label: 'UI display name', pattern: 'Human label', example: 'e.g. "Registry Artifacts"' },
+  { label: 'UI scope key', pattern: 'lowercase key', example: 'key for SUBAGENT_SCOPE_MAP — e.g. registry' },
+  { label: 'Icon emoji', pattern: '🗝️ example', example: 'for execution modals & eval cards' },
+];
+
+const PITFALLS = [
+  { id:1,  sev:'med',  title:'QA_AGENT_TO_BASE Orphan Detection',
+    desc:'Missing BASE_AGENT_TO_QA entry → validator strips "QA" suffix → derives wrong base (RegistryQA → "Registry" not "RegistryExtract") → "Orphan QA agent … base agent must exist". Always add to BASE_AGENT_TO_QA.' },
+  { id:2,  sev:'med',  title:'Empty-String vs Undefined in JS Backfill',
+    desc:'New config fields return "" not undefined. !am[key] is falsy for both, but the backfill condition needs explicit || am[key] === \'\' to catch empty-string new-agent values in workflow-config-display.js.' },
+  { id:3,  sev:'low',  title:'Browser Static File Cache',
+    desc:'After editing workflow-config-display.js, the browser serves the stale cached version. Always bump the ?v= cache-buster in base.html immediately after.' },
+  { id:4,  sev:'med',  title:'Sub-Agent Model Fallback Tiers',
+    desc:'Extract sub-agents fall back to ExtractAgent\'s model. QA agents fall back to a PEER QA agent\'s model (e.g. qwen3-14b). Never use ExtractAgent as the fallback tier for a QA agent.' },
+  { id:5,  sev:'med',  title:'Migration Agent Count Assertion',
+    desc:'test_workflow_config_migrate.py has a hardcoded agent count. Adding one extractor + one QA = increment by 2. Also extend _MINIMAL_AGENT_MODELS with {Agent}_model and {Agent}QA entries or prompt-symmetry validation fails.' },
+  { id:6,  sev:'med',  title:'UI-Ordered Export Fixture',
+    desc:'test_workflow_config_export.py contains a fixture that must include the new agent section with all required keys — otherwise import validation fails with a confusing "missing key" error.' },
+  { id:7,  sev:'med',  title:'LMStudio Model Dropdown Stays Empty',
+    desc:'If AGENT_CONFIG (workflow.html Category 2.1) is missing the new agent entry, loadAgentModels() skips the /api/lmstudio-models call entirely. Dropdown shows only "Use Extract Agents Fallback Model" even when LMStudio is running.' },
+  { id:8,  sev:'high', title:'Old Presets Reject New Agent on Import',
+    desc:'validate_ui_ordered_preset_strict runs before ui_ordered_to_v2. Presets saved before this agent fail with "missing or null: {Agent}". Fix: add agent to _OPTIONAL_SUB_AGENT_SECTIONS in loader.py so old presets get a disabled default injected before strict validation.' },
+  { id:9,  sev:'high', title:'Prompt File Seeds DB Once Only',
+    desc:'src/prompts/{Agent} is read ONLY on the first DB seed. After that the DB is authoritative. No per-agent Reset button exists. Refresh options: re-import preset (only if embedded prompt was regenerated), manual paste in UI, or delete the DB row (destructive).' },
+  { id:10, sev:'high', title:'Preset Prompt.prompt Left Empty — Silent Breakage',
+    desc:'Structural preset keys pass import validation even with Prompt.prompt = "". Agent runs with zero instructions, produces empty/nonsensical output, no error log. Use the checklist script to embed from disk. TestPresetFiles MUST assert the value is truthy.' },
+  { id:11, sev:'med',  title:'Structured Extractor: value Field Rules',
+    desc:'source_evidence / extraction_justification / confidence_score are always required. value is only required if no domain-identity fields present. Omitting a required field causes MESSAGES_MISSING / infra_failed before any LLM call — looks like a provider issue, is actually a schema rejection.' },
+  { id:12, sev:'high', title:'Sibling Preset Embedded Prompts Go Stale Silently',
+    desc:'Editing disk prompts does NOT update the JSON-encoded strings embedded in all 8 preset files. Users who import a preset after your ship get stale sibling prompts, rolling back your Architecture Context updates. Regenerate embeddings with the checklist script after any disk prompt change.' },
+  { id:13, sev:'med',  title:'Fidelity Test Phantom DisabledAgents',
+    desc:'_full_ui_ordered_preset missing the new agent → _backfill injects Enabled=False → DisabledAgents → confusing AssertionError: [\'NewAgent\'] == []. Fix: add full agent block + FIDELITY_{AGENT}_ENABLED = True + FIDELITY_{AGENT}_QA_ENABLED = True constants.' },
+  { id:14, sev:'low',  title:'E2E Test disabled_agents List',
+    desc:'test_lmstudio_minimal_e2e.py (~line 189) hardcodes which sub-agents to disable for a fast minimal run. New agents must be appended or the e2e fans out to all extractors, slowing the run and adding new failure surface.' },
+  { id:15, sev:'low',  title:"Don't Full-String-Match llm_service.py in Tests",
+    desc:'Exact list-string assertions break when the next agent is added to that list. Use per-key substring assertions: assert \'"registry_artifacts"\' in source. These survive future additions without modification.' },
+  { id:16, sev:'med',  title:'Three Coupled Edits in Traceability Contract Test',
+    desc:'Must touch all three: (1) MIGRATED_QA_AGENTS list, (2) base_for_qa map — missing entry causes KeyError not a clean assertion, (3) MIGRATED_EXTRACT_AGENTS — only if agent envelope uses "count" field. If it uses task_count/query_count etc., leave it out and add a comment documenting why.' },
+  { id:17, sev:'high', title:'Dual-Template Execution Card Drift',
+    desc:'workflow.html (Category 11) AND workflow_executions.html both maintain a subAgents rendering array. Missing from workflow.html silently drops the per-agent execution card — no error, no warning. TestSubAgentsRenderingArray in test_workflow_locked_extractor_agents.py locks both; a missing entry fails CI.' },
+];
+
+const LAYERS = [
+  {
+    id:1, label:'Schema & Config', color:'#3B82F6',
+    note:'Do these first — if wrong, nothing downstream works',
+    files:[
+      { name:'workflow_config_schema.py', path:'src/config/',
+        tags:['AGENT_NAMES_SUB list','BASE_AGENT_TO_QA map','validation rules','flatten logic'],
+        pitfalls:[1,5] },
+      { name:'workflow_config_loader.py', path:'src/config/',
+        tags:['group lists','UI order','export/import','_OPTIONAL_SUB_AGENT_SECTIONS (old preset compat)'],
+        pitfalls:[8] },
+      { name:'workflow_config_migrate.py', path:'src/config/',
+        tags:['v1→v2 migration prefixes','agent count (+2)'],
+        pitfalls:[5] },
+      { name:'subagent_utils.py', path:'src/utils/',
+        tags:['canonical alias normalization map'],
+        pitfalls:[] },
+      { name:'default_agent_prompts.py', path:'src/utils/',
+        tags:['prompt file mapping'],
+        pitfalls:[] },
+    ]
+  },
+  {
+    id:2, label:'Prompt Files', color:'#10B981',
+    note:'Create 2 new files; mandatory sibling maintenance on all existing extractors',
+    files:[
+      { name:'{AgentName}', path:'src/prompts/', isNew:true,
+        tags:['JSON extract prompt','/no_think in role field (Qwen3)','json_example with all traceability fields','source_evidence + extraction_justification + confidence_score always required'],
+        pitfalls:[9,11] },
+      { name:'{QAName}', path:'src/prompts/', isNew:true,
+        tags:['JSON QA prompt','3 traceability checks in evaluation_criteria','[PASS] prefix notation (ASCII)'],
+        pitfalls:[9] },
+      { name:'All existing extractors', path:'src/prompts/', isMandatory:true,
+        tags:['Architecture Context block — both directions','boundary rules for new agent','CmdlineExtract · ProcTreeExtract · RegistryExtract · ServicesExtract · ScheduledTasksExtract · HuntQueriesExtract'],
+        pitfalls:[12] },
+    ]
+  },
+  {
+    id:3, label:'Services & Workflow Engine', color:'#8B5CF6',
+    note:'Execution backbone — ~5 spots in agentic_workflow.py',
+    files:[
+      { name:'llm_service.py', path:'src/services/',
+        tags:['top_p fallback tier (QA vs Extract)','traceability validation block','JSON normalization','Langfuse output keys'],
+        pitfalls:[4,11] },
+      { name:'lmstudio_model_loader.py', path:'src/services/',
+        tags:['sub-agent preload list'],
+        pitfalls:[] },
+      { name:'eval_bundle_service.py', path:'src/services/',
+        tags:['eval bundle export maps × 3 locations'],
+        pitfalls:[] },
+      { name:'agentic_workflow.py', path:'src/workflows/',
+        tags:['subagent maps','default results','QA name mapping (~5 spots)','LangGraph graph wiring'],
+        pitfalls:[] },
+    ]
+  },
+  {
+    id:4, label:'Web Routes', color:'#F59E0B',
+    note:'API layer — 5 locations in evaluation_api.py alone',
+    files:[
+      { name:'workflow_executions.py', path:'src/web/routes/',
+        tags:['agent_mapping dict','primary_agents set'],
+        pitfalls:[] },
+      { name:'evaluation_api.py', path:'src/web/routes/',
+        tags:['subagent maps','result extraction','model display × 5 locations'],
+        pitfalls:[] },
+    ]
+  },
+  {
+    id:5, label:'UI Templates', color:'#EF4444',
+    note:'Most complex — ~40 insertion points in workflow.html alone',
+    files:[
+      { name:'workflow-config-display.js', path:'src/web/static/js/components/',
+        tags:['Selected Models panel entry','backfill empty-string check'],
+        pitfalls:[2,3] },
+      { name:'workflow.html', path:'src/web/templates/', isComplex:true,
+        tags:['~40 insertion points','AGENT_CONFIG registration (Category 2.1)','provider/model dropdowns','prompt editor','QA toggle','test button','subAgents rendering array (Category 11)'],
+        pitfalls:[7,17] },
+      { name:'agent_evaluation.html', path:'src/web/templates/',
+        tags:['eval card (1 insertion)'],
+        pitfalls:[] },
+      { name:'agent_evals.html', path:'src/web/templates/',
+        tags:['dropdown','SUBAGENT_MAP','QA ternary','modal rendering (~7 insertions)'],
+        pitfalls:[] },
+      { name:'subagent_evaluation.html', path:'src/web/templates/',
+        tags:['purpose description block'],
+        pitfalls:[] },
+      { name:'workflow_executions.html', path:'src/web/templates/',
+        tags:['_DN display-name dict','subAgents rendering array (2 insertions)'],
+        pitfalls:[17] },
+      { name:'base.html', path:'src/web/templates/',
+        tags:['cache-busting ?v= bump on JS'],
+        pitfalls:[3] },
+    ]
+  },
+  {
+    id:6, label:'Config & Data', color:'#F97316',
+    note:'Preset prompt embedding is the most likely silent failure path',
+    files:[
+      { name:'quickstart/*.json  (x8)', path:'config/presets/AgentConfigs/', isMandatory:true,
+        tags:['New agent section in every preset','Prompt.prompt fully embedded (not ""!)','QAPrompt.prompt fully embedded','QA Temperature = 0.1','Updated Description field','+ all sibling prompts regenerated via checklist script'],
+        pitfalls:[10,12] },
+      { name:'{canonical_alias}/', path:'config/eval_articles_data/', isNew:true,
+        tags:['articles.json (article snapshots)','ground_truth.json optional — array of {url, expected_items}','Keep separate from articles.json so refreshes never clobber annotations'],
+        pitfalls:[] },
+    ]
+  },
+  {
+    id:7, label:'Tests', color:'#14B8A6',
+    note:'1 new wiring test + 8 existing files to update',
+    files:[
+      { name:'test_{agent}_wiring.py', path:'tests/config/', isNew:true,
+        tags:['schema + config + migration + subagent utils','prompts + presets + eval data + Langfuse keys','TestPresetFiles: assert Prompt.prompt is truthy (non-empty)'],
+        pitfalls:[10,15] },
+      { name:'test_workflow_config_migrate.py', path:'tests/config/',
+        tags:['agent count assertion +2','_MINIMAL_AGENT_MODELS: add {Agent}_model + {Agent}QA'],
+        pitfalls:[5] },
+      { name:'test_workflow_config_export.py', path:'tests/config/',
+        tags:['add new agent section to UI-ordered fixture'],
+        pitfalls:[6] },
+      { name:'test_workflow_config_import_export_fidelity.py', path:'tests/config/',
+        tags:['new agent block in _full_ui_ordered_preset','FIDELITY_{AGENT}_ENABLED = True','FIDELITY_{AGENT}_QA_ENABLED = True'],
+        pitfalls:[13] },
+      { name:'test_backfill_sub_agents.py', path:'tests/config/',
+        tags:['BACKFILL_AGENTS list (+1 entry → +11 test cases auto)'],
+        pitfalls:[] },
+      { name:'test_subagent_traceability_contract.py', path:'tests/config/',
+        tags:['MIGRATED_QA_AGENTS list','base_for_qa map (KeyError if missing!)','MIGRATED_EXTRACT_AGENTS — only if envelope uses "count" field'],
+        pitfalls:[16] },
+      { name:'test_workflow_locked_extractor_agents.py', path:'tests/unit/',
+        tags:['TestSubAgentsRenderingArray: locks count + every (key, name) pair in workflow.html'],
+        pitfalls:[17] },
+      { name:'test_test_agents_provider_resolution.py', path:'tests/worker/',
+        tags:['verify parametrized test already includes new agent — likely no code change needed'],
+        pitfalls:[] },
+      { name:'test_lmstudio_minimal_e2e.py', path:'tests/integration/',
+        tags:['disabled_agents list (~line 189) — append new agent to keep e2e minimal'],
+        pitfalls:[14] },
+      { name:'test_conversation_log_truncation.py', path:'tests/workflows/', isVerify:true,
+        tags:['no changes needed — truncation is agent-agnostic — verify only'],
+        pitfalls:[] },
+    ]
+  },
+];
+
+const AUTO = [
+  { name:'Test Button (Celery)', file:'src/worker/tasks/test_agents.py',
+    desc:'Resolves {Agent}_provider, _model, _temperature, _top_p dynamically from agent_models JSONB. Verify it does not silently fall back to ExtractAgent\'s provider after wiring.' },
+  { name:'Langfuse Tracing', file:'log_llm_completion in llm_service.py',
+    desc:'Traces every LLM call automatically. Agent name + model captured from call context. No per-agent Langfuse wiring needed.' },
+  { name:'Live Execution View (SSE)', file:'/executions/{id}/stream',
+    desc:'SSE endpoint streams generic execution state. Sub-agent results flow through the same structure automatically once agentic_workflow.py (Layer 3) is wired.' },
+  { name:'Error Log Capture', file:'src/web/routes/workflow_executions.py',
+    desc:'Routes errors generically via agent_mapping. As long as the agent is in that map (Layer 4), error logs appear in the execution detail view without further changes.' },
+];
+
+// [prefix, code_snippet, suffix]  — code_snippet may be empty string
+const VERIFICATION = [
+  ['Run wiring test:', 'python3 run_tests.py unit --paths tests/config/test_{agent}_wiring.py', ''],
+  ['Run locked extractor test:', 'python3 run_tests.py unit --paths tests/unit/test_workflow_locked_extractor_agents.py', '— catches missed workflow.html Cat 11 or workflow_executions.html item 18'],
+  ['Run all config tests:', 'python3 run_tests.py unit --paths tests/config/', ''],
+  ['Load a pre-existing preset (no new-agent section).', '', 'Must import cleanly; new agent must default to disabled.'],
+  ['Click "Test {Agent}".', '', 'Modal output must show the correct provider/model — not ExtractAgent\'s fallback.'],
+  ['Disk → Preset → DB chain: import preset on fresh DB, then assert', 'db_prompt == disk_prompt', '— catches Pitfall #12 end-to-end.'],
+  ['Browser', '/workflow#config', ': models panel shows agent + QA; LMStudio dropdown is populated (not just fallback option).'],
+  ['Open DevTools, reload, search console for new agent name.', '', 'No JS errors should appear.'],
+];
+
+// ── render ────────────────────────────────────────────────────────────────────
+
+function renderIdentity() {
+  const grid = document.getElementById('identity-grid');
+  IDENTITY.forEach(function(id) {
+    const card = mk('div', 'id-card');
+    app(card,
+      div('id-label', id.label),
+      div('id-pattern', id.pattern),
+      div('id-example', id.example)
+    );
+    grid.appendChild(card);
+  });
+}
+
+function sevCls(s) { return s === 'high' ? 'high' : s === 'med' ? 'med' : 'low'; }
+
+function renderLayers() {
+  const col = document.getElementById('layers-col');
+  LAYERS.forEach(function(layer, li) {
+    if (li > 0) col.appendChild(mk('div', 'connector'));
+
+    const wrap = mk('div', 'layer-wrap');
+    wrap.style.borderColor = layer.color + '44';
+
+    // header
+    const hdr = mk('div', 'layer-hdr');
+    hdr.style.background = layer.color + '22';
+    hdr.style.color = layer.color;
+
+    const num = mk('div', 'layer-num');
+    num.style.background = layer.color + '33';
+    num.style.color = layer.color;
+    num.textContent = String(layer.id);
+
+    const noteEl = span('layer-note', layer.note);
+    app(hdr, num, txt(' ' + layer.label + ' '), noteEl);
+
+    // body
+    const body = mk('div', 'layer-body');
+    layer.files.forEach(function(f) {
+      const cls = 'fc' +
+        (f.isNew ? ' is-new' : '') +
+        (f.isMandatory ? ' is-mandatory' : '') +
+        (f.isComplex ? ' is-complex' : '') +
+        (f.isVerify ? ' is-verify' : '');
+      const card = mk('div', cls);
+
+      const nameEl = div('fc-name', f.name);
+      const pathEl = mk('div', 'fc-path' + (f.isNew ? ' new-prefix' : ''));
+      pathEl.textContent = f.path;
+
+      const tagsEl = mk('div', 'fc-tags');
+      f.tags.forEach(function(t) {
+        const s = span('tag', t);
+        tagsEl.appendChild(s);
+      });
+
+      app(card, nameEl, pathEl, tagsEl);
+
+      // badges
+      const hasBadges = (f.pitfalls && f.pitfalls.length) || f.isMandatory || f.isComplex || f.isVerify;
+      if (hasBadges) {
+        const row = mk('div', 'badge-row');
+        if (f.pitfalls) {
+          f.pitfalls.forEach(function(pid) {
+            const p = PITFALLS.find(function(x) { return x.id === pid; });
+            const b = mk('span', 'pbadge ' + sevCls(p.sev));
+            b.textContent = 'P' + pid;
+            b.title = 'Pitfall #' + pid + ': ' + p.title;
+            row.appendChild(b);
+          });
+        }
+        if (f.isMandatory) row.appendChild(span('tag-mandatory', 'mandatory'));
+        if (f.isComplex)   row.appendChild(span('tag-complex', '~40 pts'));
+        if (f.isVerify)    row.appendChild(span('tag-verify', 'verify only'));
+        card.appendChild(row);
+      }
+
+      body.appendChild(card);
+    });
+
+    app(wrap, hdr, body);
+    col.appendChild(wrap);
+  });
+}
+
+function renderPitfalls() {
+  const list = document.getElementById('pp-list');
+  const groups = [
+    { sev:'high', label:'High — silent user-facing failures', color:'#DC2626' },
+    { sev:'med',  label:'Medium — errors / wrong behaviour',  color:'#D97706' },
+    { sev:'low',  label:'Low — inconvenience / brittle tests', color:'#4B5563' },
+  ];
+  groups.forEach(function(g) {
+    const items = PITFALLS.filter(function(p) { return p.sev === g.sev; });
+
+    const divider = mk('div', 'sev-divider');
+    const dot = mk('div', 'sev-dot');
+    dot.style.background = g.color;
+    app(divider, dot, txt(g.label + ' (' + items.length + ')'));
+    list.appendChild(divider);
+
+    items.forEach(function(p) {
+      const el = mk('div', 'pit');
+      const row = mk('div', 'pit-row');
+      const num = mk('div', 'pit-num ' + sevCls(p.sev));
+      num.textContent = String(p.id);
+      const titleEl = span('pit-title', p.title);
+      app(row, num, titleEl);
+      const descEl = div('pit-desc', p.desc);
+      app(el, row, descEl);
+      list.appendChild(el);
+    });
+  });
+}
+
+function renderAuto() {
+  const grid = document.getElementById('auto-grid');
+  AUTO.forEach(function(a) {
+    const card = mk('div', 'ac');
+    const nameEl = mk('div', 'ac-name');
+    const check = span('ac-check', '✓ ');
+    app(nameEl, check, txt(a.name));
+    app(card,
+      nameEl,
+      div('ac-file', a.file),
+      div('ac-desc', a.desc)
+    );
+    grid.appendChild(card);
+  });
+}
+
+function renderVerification() {
+  const list = document.getElementById('verify-list');
+  VERIFICATION.forEach(function(v, i) {
+    const el = mk('div', 'vitem');
+    const num = mk('div', 'vnum');
+    num.textContent = String(i + 1);
+
+    const content = mk('span');
+    if (v[0]) content.appendChild(txt(v[0] + ' '));
+    if (v[1]) {
+      const code = mk('code', 'vcode');
+      code.textContent = v[1];
+      content.appendChild(code);
+      content.appendChild(txt(' '));
+    }
+    if (v[2]) content.appendChild(txt(v[2]));
+
+    app(el, num, content);
+    list.appendChild(el);
+  });
+}
+
+renderIdentity();
+renderLayers();
+renderPitfalls();
+renderAuto();
+renderVerification();
+</script>
+</body>
+</html>

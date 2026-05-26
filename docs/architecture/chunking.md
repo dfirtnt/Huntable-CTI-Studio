@@ -38,8 +38,9 @@ Note: `total_chunks` reflects the actual chunks emitted by the chunker. Article 
 - Chunk metadata objects (`ml_prediction`, confidence, offsets) are not passed to the Extract Agent or Sigma generator.
 - The filtered content — produced by removing non-huntable chunks — is what both agents receive. The full raw article is not used.
 - As of 2026-05-21, a chunk consisting entirely of overlap from the previous chunk's tail is suppressed rather than emitted. This prevents spurious ~200-character chunks at section boundaries that carry no new content.
+- As of 2026-05-26, a zero-overlap bug was fixed: in sections with no sentence terminators (e.g. dense UUID/SIGMA-rule lists), `find_sentence_boundaries` could return the previous chunk's end position, causing the guard to reset `start` to that boundary and silently drop the 200-char overlap. The guard now falls back to a hard character cut at `start + chunk_size` instead, preserving the overlap positioning.
 - Training examples from `prepare_eval_set.py` use filtered content by default (same filter as extraction). The original full content is stored as a reference field but is not the training input.
 
 
-_Last updated: 2026-05-21_
-_Last reviewed: 2026-05-22_
+_Last updated: 2026-05-26_
+_Last reviewed: 2026-05-26_
