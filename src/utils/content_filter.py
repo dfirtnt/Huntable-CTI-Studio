@@ -834,16 +834,22 @@ class ContentFilter:
                 if sentence_end is not None:
                     end = sentence_end
 
-            # Skip "overlap-only" chunks: when find_sentence_boundaries returns
-            # the same boundary that ended the previous chunk, we'd emit a chunk
-            # whose end equals chunks[-1][1] — meaning every character is already
-            # present in the previous chunk's tail (no new content). This was
-            # producing spurious 200-char chunks (== overlap size) at section
-            # boundaries that have no model value. Advance past the duplicate
-            # boundary and continue the main loop.
+            # When find_sentence_boundaries returns a boundary at or before the
+            # previous chunk's end, the sentence aligner got stuck on the same
+            # break point. Resetting start to chunks[-1][1] would skip the overlap
+            # entirely (bug: produces 0-char overlap pairs like 33195→33195).
+            # Instead, fall back to a hard character cut at start+chunk_size so
+            # the current start position (and its overlap with the previous chunk)
+            # is preserved.  Only if even the hard cut is still inside the previous
+            # chunk (truly degenerate content with no forward progress) do we
+            # advance past it.
             if chunks and end <= chunks[-1][1]:
-                start = chunks[-1][1]
-                continue
+                end = min(start + chunk_size, len(content))
+                if end <= chunks[-1][1]:
+                    # Hard cut still inside previous chunk — advance past it.
+                    start = chunks[-1][1]
+                    continue
+                # else: fall through with the hard-cut end; overlap is preserved.
 
             chunk_text = content[start:end].strip()
             if chunk_text:

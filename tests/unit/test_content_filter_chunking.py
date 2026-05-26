@@ -118,7 +118,7 @@ class TestProgressInvariants:
 
 
 class TestOverlapPreservation:
-    """Consecutive chunks should overlap (when content is long enough)."""
+    """Consecutive chunks should overlap by exactly `overlap` chars."""
 
     def test_consecutive_chunks_overlap(self, cf) -> None:
         content = "X" * 5000
@@ -131,3 +131,40 @@ class TestOverlapPreservation:
             assert curr_start < prev_end, (
                 f"Chunk {i} starts at {curr_start} but previous ended at {prev_end} — no overlap, content gap risk."
             )
+
+    def test_overlap_preserved_across_sentence_boundary_that_equals_prev_end(self, cf) -> None:
+        """Regression test for the zero-overlap bug.
+
+        When find_sentence_boundaries returns the same position that ended the
+        previous chunk (common in dense content like UUID lists), the old code
+        reset `start` to `chunks[-1][1]`, silently dropping the 200-char overlap.
+
+        This produced pairs like:
+            chunk[47]: 32369–33195  (overlap with 46 = 200 ✓)
+            chunk[48]: 33195–34195  (overlap with 47 = 0  ✗)
+
+        The fix: fall back to a hard character cut instead of resetting start.
+        """
+        # Simulate a dense UUID:Name list — no sentence terminators, so
+        # find_sentence_boundaries repeatedly returns the previous chunk's end.
+        uuid_entry = "abcdef12-3456-7890-abcd-ef1234567890 : Suspicious PowerShell Parameter Substring "
+        dense = uuid_entry * 40  # ~3600 chars, no '.' or '\n' sentence breaks
+        content = ("Normal sentence content here. " * 30) + dense + ("Normal sentence content here. " * 30)
+
+        chunks = cf.chunk_content(content, chunk_size=1000, overlap=200)
+
+        bad_pairs = []
+        for i in range(1, len(chunks)):
+            prev_end = chunks[i - 1][1]
+            curr_start = chunks[i][0]
+            overlap_actual = prev_end - curr_start
+            if overlap_actual <= 0:
+                bad_pairs.append((i - 1, i, prev_end, curr_start, overlap_actual))
+
+        assert not bad_pairs, (
+            "Zero-overlap (gap) pairs detected — sentence-boundary-stuck bug regressed:\n"
+            + "\n".join(
+                f"  chunk[{a}] end={pe}  chunk[{b}] start={cs}  overlap={ov}"
+                for a, b, pe, cs, ov in bad_pairs
+            )
+        )
