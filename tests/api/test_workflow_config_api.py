@@ -441,6 +441,47 @@ class TestAgentPrompts:
             # Remove the test-created prompt so it doesn't pollute subsequent runs.
             await async_client.delete("/api/workflow/config/prompts/nonexistent_agent_xyz")
 
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_delete_agent_prompt_happy_path(self, async_client: httpx.AsyncClient):
+        """DELETE /config/prompts/{agent_name} removes the prompt and subsequent GET returns 404."""
+        agent_name = "test_delete_target_api"
+
+        # Ensure prompt exists (create/overwrite)
+        put_response = await async_client.put(
+            "/api/workflow/config/prompts",
+            json={"agent_name": agent_name, "prompt": "Temporary prompt for delete test"},
+        )
+        assert put_response.status_code == 200, "Setup PUT failed"
+
+        # Verify it is retrievable before deletion
+        get_before = await async_client.get(f"/api/workflow/config/prompts/{agent_name}")
+        assert get_before.status_code == 200
+
+        # Delete it
+        delete_response = await async_client.delete(f"/api/workflow/config/prompts/{agent_name}")
+        assert delete_response.status_code == 200
+        delete_data = delete_response.json()
+        assert delete_data.get("success") is True
+        assert "version" in delete_data  # new config version was created
+
+        # Verify the prompt is gone
+        get_after = await async_client.get(f"/api/workflow/config/prompts/{agent_name}")
+        assert get_after.status_code == 404
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_delete_agent_prompt_not_found(self, async_client: httpx.AsyncClient):
+        """DELETE /config/prompts/{agent_name} returns 404 when agent is not in config."""
+        response = await async_client.delete(
+            "/api/workflow/config/prompts/test_definitely_nonexistent_prompt_xyz"
+        )
+        assert response.status_code == 404
+        data = response.json()
+        assert "detail" in data
+
 
 class TestWorkflowConfigVersions:
     """Test workflow configuration version management."""
