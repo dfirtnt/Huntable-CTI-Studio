@@ -132,6 +132,69 @@ class TestOverlapPreservation:
                 f"Chunk {i} starts at {curr_start} but previous ended at {prev_end} — no overlap, content gap risk."
             )
 
+    def test_hard_cut_fallback_produces_exactly_200_char_overlap(self, cf) -> None:
+        """Hard-cut fallback preserves *exactly* the requested overlap.
+
+        When find_sentence_boundaries returns a stuck boundary (≤ prev chunk end)
+        and the guard falls back to start+chunk_size, the invariant is:
+
+            next_start = prev_end - overlap
+            new_end    = next_start + chunk_size   (hard cut)
+            overlap    = prev_end - next_start = exactly `overlap`
+
+        Asserting strict equality (not just > 0) catches partial regressions
+        where the guard fires but lands the start at the wrong position.
+        """
+        # One clean sentence boundary at ~952, then dense content that forces
+        # the hard-cut fallback on every subsequent chunk.
+        section = "A" * 950 + ". "  # period at char ~952
+        dense = "uuid-uuid-uuid-xxxx-uuid " * 60  # ~1500 chars, no terminators
+        content = section + dense  # ~2452 chars total
+
+        chunks = cf.chunk_content(content, chunk_size=1000, overlap=200)
+        assert len(chunks) >= 2, "Need at least 2 chunks to verify overlap"
+
+        for i in range(1, len(chunks)):
+            prev_end = chunks[i - 1][1]
+            curr_start = chunks[i][0]
+            overlap_actual = prev_end - curr_start
+            assert overlap_actual == 200, (
+                f"Expected exactly 200-char overlap between chunk[{i-1}] and chunk[{i}], "
+                f"got {overlap_actual}. prev_end={prev_end}, curr_start={curr_start}. "
+                "Hard-cut fallback may be landing start at the wrong position."
+            )
+
+    def test_overlap_maintained_across_multiple_consecutive_dense_sections(self, cf) -> None:
+        """Overlap survives multiple alternating normal/dense sections.
+
+        The 2026-05-26 bug could cascade: a stuck boundary in one dense region
+        could corrupt the start-position state used by the next dense region.
+        Three interleaved dense UUID blocks exercise this cascade.
+        """
+        normal = "Threat actor exploited CVE-2024-9999 via PowerShell. " * 18  # ~936 chars
+        dense = "aaaa1111-bbbb-2222-cccc-3333dddd4444 SuspiciousProc " * 25     # ~1325 chars
+
+        content = normal + dense + normal + dense + normal + dense + normal
+
+        chunks = cf.chunk_content(content, chunk_size=1000, overlap=200)
+        assert len(chunks) >= 4, "Need multiple chunks to verify cascade behaviour"
+
+        bad_pairs = []
+        for i in range(1, len(chunks)):
+            prev_end = chunks[i - 1][1]
+            curr_start = chunks[i][0]
+            if prev_end <= curr_start:  # gap (zero or negative overlap)
+                bad_pairs.append((i - 1, i, prev_end, curr_start))
+
+        assert not bad_pairs, (
+            "Content gaps found across multiple dense sections — "
+            "zero-overlap bug may have cascaded between dense regions:\n"
+            + "\n".join(
+                f"  chunk[{a}] end={pe}  chunk[{b}] start={cs}  gap={cs - pe}"
+                for a, b, pe, cs in bad_pairs
+            )
+        )
+
     def test_overlap_preserved_across_sentence_boundary_that_equals_prev_end(self, cf) -> None:
         """Regression test for the zero-overlap bug.
 
