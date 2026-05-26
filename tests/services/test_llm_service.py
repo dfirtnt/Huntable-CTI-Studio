@@ -55,8 +55,11 @@ class TestLLMService:
         """Create LLMService with config models."""
         config_models = {
             "RankAgent": "test-rank-model",
+            "RankAgent_provider": "openai",
             "ExtractAgent": "test-extract-model",
+            "ExtractAgent_provider": "openai",
             "SigmaAgent": "test-sigma-model",
+            "SigmaAgent_provider": "openai",
         }
         with patch("src.services.llm_service.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
@@ -74,10 +77,13 @@ class TestLLMService:
         assert service._canonicalize_provider("claude") == "anthropic"
 
     def test_canonicalize_provider_lmstudio(self, service):
-        """Test provider canonicalization for LMStudio."""
-        assert service._canonicalize_provider("lmstudio") == "lmstudio"
-        assert service._canonicalize_provider("local") == "lmstudio"
-        assert service._canonicalize_provider(None) == "lmstudio"
+        """Test provider canonicalization for LMStudio when the feature is enabled."""
+        with patch.object(service, "_is_lmstudio_enabled", return_value=True):
+            assert service._canonicalize_provider("lmstudio") == "lmstudio"
+            assert service._canonicalize_provider("local") == "lmstudio"
+        # None/empty provider always raises regardless of LMStudio flag (fail-fast).
+        with pytest.raises(ValueError, match="No provider configured"):
+            service._canonicalize_provider(None)
 
     def test_resolve_agent_model_from_config(self, service_with_config):
         """Test model resolution from config."""
@@ -108,6 +114,8 @@ class TestLLMService:
     @pytest.mark.asyncio
     async def test_request_chat_success(self, service):
         """Test successful chat request."""
+        # Enable LMStudio so _canonicalize_provider("lmstudio") does not raise.
+        service.workflow_lmstudio_enabled = True
         mock_response = {
             "choices": [{"message": {"content": "Test response"}}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
@@ -174,6 +182,8 @@ class TestLLMService:
     @pytest.mark.asyncio
     async def test_request_chat_error_handling(self, service):
         """Test error handling in chat request."""
+        # Enable LMStudio so _canonicalize_provider("lmstudio") does not raise.
+        service.workflow_lmstudio_enabled = True
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(side_effect=RuntimeError("API error"))
@@ -360,6 +370,8 @@ class TestLLMService:
     @pytest.mark.asyncio
     async def test_run_extraction_agent_uses_detected_lmstudio_context(self, service):
         """run_extraction_agent should use the detected LMStudio window before truncating content."""
+        # Enable LMStudio so provider="lmstudio" does not raise in _canonicalize_provider.
+        service.workflow_lmstudio_enabled = True
         content = "x" * 10000
         prompt_config = {
             "role": "You are a registry extractor.",
