@@ -347,4 +347,4 @@ TEXT                 FONTS
 
 ---
 
-*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-05-20.*
+*Source: extracted from `src/web/static/css/theme-variables.css` and `src/web/templates/base.html`, `dashboard.html`. Last updated 2026-05-26.*

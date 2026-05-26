@@ -202,7 +202,7 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 - `scripts/prepare_huntable_windows_training_data.py` — Windows binary classifier data
 - `scripts/train_huntable_windows_classifier.py` — Windows binary classifier training
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-26_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
 -->

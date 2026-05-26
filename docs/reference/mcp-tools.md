@@ -30,4 +30,4 @@ Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articl
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-26_

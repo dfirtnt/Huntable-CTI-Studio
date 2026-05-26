@@ -113,4 +113,4 @@ lsof -i :11435
 ### Container Name Conflicts
 All Dev2 containers use `_dev2` suffix to avoid naming conflicts with the original instance.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-26_
