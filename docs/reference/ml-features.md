@@ -265,12 +265,21 @@ This is the primary aggregate positive signal. The RF uses it as a length-normal
 | Algorithm | RandomForestClassifier |
 | `n_estimators` | 100 |
 | `max_depth` | 10 |
-| `class_weight` | balanced |
+| `class_weight` | `"balanced"` |
 | `random_state` | 42 |
 | Train/test split | 80/20, stratified |
 | Eval F1 (Huntable class, v3) | ≈ 0.89 |
 | Eval dataset | 240-row curated Huntable corpus |
 
+### Hyperparameter rationale
+
+**`n_estimators=100`** — 100 independent trees, each trained on a bootstrap sample of the data with a random feature subset at each split. Prediction is by majority vote across all trees. Error rate plateaus well before 100 trees for this corpus size; going higher yields diminishing returns and increases inference latency.
+
+**`max_depth=10`** — caps the maximum split depth per tree. Without a limit, trees grow until leaves are pure (one sample each), which memorises training noise. Depth 10 is sufficient to capture non-trivial feature interactions (e.g. high TF-IDF AND long chunk AND IOC keywords → Huntable) without overfitting. The ensemble's variance-averaging relaxes the need for shallow trees compared to a single decision tree.
+
+**`class_weight="balanced"`** — the labeled corpus is heavily skewed toward "Not Huntable" chunks (~86% of articles score in the 0–19 hunt-score band). Without correction a classifier can achieve high accuracy by predicting the majority class for everything, missing the rare high-value articles entirely. `"balanced"` weights each class inversely by its frequency (`n_samples / (n_classes × class_count)`), so misclassifying a "Huntable" chunk is penalised proportionally more during tree construction. This is preferable to oversampling (SMOTE) or undersampling because it wastes no training data and adds no preprocessing overhead.
+
+**`random_state=42`** — fixed seed for reproducibility across training runs on the same dataset. Does not affect model quality.
 
 Feature importances are learned from training data; call `model.feature_importances_` on a trained instance to inspect the current ranking.
 

@@ -261,6 +261,126 @@ Customer rules use `rule_id` prefix `cust-` and `file_path` prefix `customer/`.
 
 ---
 
+## Sigma Queue
+
+Rules that pass generation and similarity scoring are placed in the **Sigma Queue** for human review before being submitted to your GitHub Sigma rules repository.
+
+### Queue Status Lifecycle
+
+```
+[generated] ──► pending        ──► approved ──► submitted
+                                └► rejected
+             ──► needs_review  ──► approved ──► submitted
+                                └► rejected
+```
+
+| Status | Badge | Meaning |
+|---|---|---|
+| `pending` | grey | Scored rule awaiting review; similarity comparator produced a confident result (including a confident zero when the corpus is empty) |
+| `needs_review` | yellow | Comparator was **inconclusive** — candidates were evaluated but none produced behavioral matches; similarity is unscored (`max_similarity = null`) |
+| `approved` | green | Human accepted the rule; eligible for GitHub PR submission |
+| `rejected` | red | Human discarded the rule |
+| `submitted` | blue | Rule has been submitted to the GitHub repository as a PR |
+
+### `needs_review` in Depth
+
+`needs_review` is set when the behavioral novelty comparator finds candidates in
+the indexed corpus (i.e. `total_candidates_evaluated > 0`) but produces zero
+behavioral matches (`behavioral_matches_found == 0`). This is **not** the same as
+a low similarity score — it means the comparator could not confidently assert the
+rule is novel *or* redundant.
+
+**Why this matters:** Before `needs_review` existed, this inconclusive outcome was
+collapsed into `max_similarity = 0.0`, which appeared identical to a confident
+"no overlap" score. The result was that ~86% of queued rules were silently treated
+as novel and novelty-suppression logic never fired.
+
+**When it occurs:**
+
+- The rule's logsource/canonical-class filter found candidates in the corpus.
+- Atom extraction succeeded on both sides.
+- But no atom from the generated rule matched any atom in any candidate — either
+  due to field-name mismatches, normalization gaps, or genuinely orthogonal
+  detection logic.
+
+**What is stored:**
+
+| Column | Value |
+|---|---|
+| `max_similarity` | `null` (unscored; `None` in Python) |
+| `behavioral_matches_found` | `0` |
+| `total_candidates_evaluated` | N > 0 |
+
+**Empty corpus is different:** when `total_candidates_evaluated == 0` (no rules
+indexed for this logsource), the result is a confident zero similarity, not
+inconclusive. That rule enters `pending`, not `needs_review`.
+
+**Implementation:** `summarize_rule_novelty()` in
+`src/workflows/agentic_workflow.py:146` encodes this three-way distinction. The
+list endpoint (`GET /api/sigma-queue`) re-runs the check on-the-fly for `pending`
+rows that lack evidence columns, then skips rows that already have evidence set
+to prevent thrash.
+
+### Reviewing `needs_review` Rules
+
+In the **Sigma Queue** UI, `needs_review` rows show:
+
+- A yellow **Needs Review** badge.
+- The `total_candidates_evaluated` count (how many corpus rules were compared).
+- `behavioral_matches_found: 0` as the reason for inconclusive status.
+- Approve and Reject action buttons — same as `pending` rows.
+
+**Recommended review steps:**
+
+1. Open the full rule YAML and inspect the `detection` block.
+2. Check the **Similar Rules** panel to see which candidates were retrieved — the
+   logsource filter matched these rules but atom extraction found no overlap.
+3. If the rule detects genuinely novel behavior, **Approve** it.
+4. If the rule is a near-duplicate that the comparator missed (e.g. equivalent
+   field names the normalizer does not yet know about), **Reject** it and open an
+   issue for the missing alias.
+
+### API Reference
+
+#### List Queue
+
+**`GET /api/sigma-queue`**
+
+Optional query params: `?status=needs_review` (or `pending`, `approved`,
+`rejected`, `submitted`)
+
+Response includes `status_counts` broken down by status and `behavioral_matches_found` /
+`total_candidates_evaluated` per row.
+
+#### Approve a Rule
+
+**`POST /api/sigma-queue/{queue_id}/approve`**
+
+```json
+{ "status": "approved" }
+```
+
+#### Reject a Rule
+
+**`POST /api/sigma-queue/{queue_id}/reject`**
+
+No body required.
+
+#### Bulk Actions
+
+**`POST /api/sigma-queue/bulk-action`**
+
+```json
+{
+  "ids": [1, 2, 3],
+  "action": "approve"
+}
+```
+
+Valid actions: `approve`, `reject`, `delete`, `set_status`.
+
+---
+
 ## Observables-Used Tracing
 
 Every LLM-generated Sigma rule carries an `observables_used` field linking it
@@ -532,4 +652,4 @@ docker-compose exec web python3 -c "from src.services.embedding_service import E
 - [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md)
 - [Sigma Cross-Field Soft Matching](../solutions/logic-errors/sigma-cross-field-soft-matching-zero-similarity-2026-04-12.md)
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-26_

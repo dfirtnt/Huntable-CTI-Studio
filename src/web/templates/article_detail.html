@@ -8869,48 +8869,71 @@ ${JSON.stringify(rule.logsource, null, 2)}
         if (!data) return '';
         const totalLength = data.content_length !== undefined ? data.content_length : 0;
         const chunks = data.chunk_analysis || [];
-        
-        let html = '<div class="relative bg-gray-700 rounded-lg p-2 mb-4" style="height: 60px;">';
-        
+        const overlapSize = data.overlap || 200;
+
+        // Metadata line
+        let html = `<div class="text-xs text-gray-400 mb-1">${chunks.length} chunks · ${overlapSize}-char overlap between adjacent chunks</div>`;
+
+        // Main bar: chunk bars occupy top 75%, overlap strip occupies bottom 25%
+        html += '<div class="relative bg-gray-700 rounded-lg overflow-hidden mb-3" style="height: 64px;">';
+
         chunks.forEach((chunk, index) => {
-            const width = (chunk.length / totalLength) * 100;
-            const left = (chunk.start / totalLength) * 100;
-            const color = chunk.is_kept ? 'bg-emerald-500' : 'bg-red-500';
-            const opacity = chunk.is_kept ? 'opacity-80' : 'opacity-60';
-            
-            // Add mismatch indicator
-            const mismatchClass = chunk.ml_mismatch ? 'ring-2 ring-amber-400' : '';
-            const mismatchTitle = chunk.ml_mismatch ? ' (ML MISMATCH)' : '';
-            
+            // Use end-start for width so the bar correctly spans the full character range
+            const rangeWidth = totalLength > 0 ? ((chunk.end - chunk.start) / totalLength) * 100 : 0;
+            const left = totalLength > 0 ? (chunk.start / totalLength) * 100 : 0;
+            const bgColor = chunk.is_kept ? '#10b981' : '#ef4444';
+            const opacity = chunk.is_kept ? '0.85' : '0.65';
+            const mismatchShadow = chunk.ml_mismatch ? 'box-shadow: 0 0 0 2px #fbbf24 inset;' : '';
+            const mismatchTitle = chunk.ml_mismatch ? ' · ML MISMATCH' : '';
+
             html += `
-                <div class="absolute ${color} ${opacity} ${mismatchClass} rounded cursor-pointer hover:opacity-100 transition-opacity"
-                     style="left: ${left}%; width: ${width}%; height: 100%;"
-                     title="Chunk ${chunk.chunk_id}: ${chunk.length} chars (${chunk.is_kept ? 'KEPT' : 'REMOVED'})${mismatchTitle}"
+                <div class="absolute cursor-pointer transition-opacity hover:opacity-100"
+                     style="left:${left}%;width:${rangeWidth}%;top:0;height:75%;background:${bgColor};opacity:${opacity};border-radius:2px;${mismatchShadow}"
+                     title="Chunk ${chunk.chunk_id}: ${chunk.end - chunk.start} chars @${chunk.start}–${chunk.end} (${chunk.is_kept ? 'KEPT' : 'REMOVED'})${mismatchTitle}"
                      onclick="highlightChunk(${index})">
                 </div>
             `;
+
+            // Overlap strip: the region this chunk shares with the previous chunk
+            if (index > 0) {
+                const prev = chunks[index - 1];
+                if (chunk.start < prev.end) {
+                    const overlapLeft = left;
+                    const overlapWidth = totalLength > 0 ? ((Math.min(prev.end, chunk.end) - chunk.start) / totalLength) * 100 : 0;
+                    html += `
+                        <div class="absolute"
+                             style="left:${overlapLeft}%;width:${overlapWidth}%;bottom:0;height:25%;background:#818cf8;opacity:0.9;"
+                             title="Overlap: chars ${chunk.start}–${Math.min(prev.end, chunk.end)} (shared with chunk ${prev.chunk_id})">
+                        </div>
+                    `;
+                }
+            }
         });
-        
+
         html += '</div>';
-        
-        // Add legend
+
+        // Legend
         html += `
-            <div class="flex items-center space-x-4 text-sm text-gray-300">
+            <div class="flex items-center flex-wrap gap-x-4 gap-y-1 text-sm text-gray-300">
                 <div class="flex items-center">
-                    <div class="w-4 h-4 bg-emerald-500 rounded mr-2"></div>
+                    <div class="w-4 h-3 bg-emerald-500 rounded-sm mr-2"></div>
                     <span>Kept for LLM</span>
                 </div>
                 <div class="flex items-center">
-                    <div class="w-4 h-4 bg-red-500 rounded mr-2"></div>
+                    <div class="w-4 h-3 bg-red-500 rounded-sm mr-2"></div>
                     <span>Filtered Out</span>
                 </div>
                 <div class="flex items-center">
-                    <div class="w-4 h-4 bg-amber-400 rounded mr-2 ring-2 ring-amber-400"></div>
+                    <div class="w-4 h-3 bg-amber-400 rounded-sm mr-2 ring-2 ring-amber-400"></div>
                     <span>ML Mismatch</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-4 h-3 rounded-sm mr-2" style="background:#818cf8;"></div>
+                    <span>Overlap region</span>
                 </div>
             </div>
         `;
-        
+
         return html;
     }
     function generateChunkDetails(chunks) {
