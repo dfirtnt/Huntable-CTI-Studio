@@ -580,6 +580,7 @@
 
 let evalArticles = [];
 let activeConfig = null;
+let _configIsRunnable = true; // false when no agent models are configured
 let selectedArticleUrls = new Set();
 let currentSubagent = 'cmdline';
 
@@ -626,6 +627,8 @@ async function loadActiveConfig() {
     try {
         const resp = await fetch('/api/workflow/config');
         activeConfig = await resp.json();
+        _configIsRunnable = !!(activeConfig && activeConfig.agent_models && activeConfig.agent_models.ExtractAgent);
+        updateRunButton();
         if (typeof renderWorkflowConfigDisplay === 'function') {
             renderWorkflowConfigDisplay(activeConfig);
         }
@@ -749,7 +752,12 @@ async function loadEvalArticles() {
 
 function updateRunButton() {
     const btn = document.getElementById('runEvalBtn');
-    btn.disabled = selectedArticleUrls.size === 0;
+    btn.disabled = selectedArticleUrls.size === 0 || !_configIsRunnable;
+    if (!_configIsRunnable) {
+        btn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+    } else {
+        btn.title = '';
+    }
     const hint = document.getElementById('evalMultiplierHint');
     const multInput = document.getElementById('evalMultiplier');
     if (hint && multInput) {
