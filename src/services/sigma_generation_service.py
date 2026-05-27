@@ -7,6 +7,7 @@ Reusable service for generating SIGMA rules from articles using LLM.
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import yaml
@@ -17,6 +18,13 @@ from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_l
 from src.utils.llm_optimizer import optimize_article_content
 
 logger = logging.getLogger(__name__)
+
+SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+
+def _sigma_rule_date() -> str:
+    """Current date in SigmaHQ canonical YYYY/MM/DD format."""
+    return date.today().strftime("%Y/%m/%d")
 
 
 def _extract_message_text(payload: Any) -> str:
@@ -250,6 +258,8 @@ class SigmaGenerationService:
                         url=url or "N/A",
                         content=content_to_analyze,
                         observables_section=observables_section,
+                        date=_sigma_rule_date(),
+                        author=SIGMA_RULE_AUTHOR,
                     )
                     logger.info(f"Using database prompt template for SIGMA generation (len={len(sigma_prompt)} chars)")
                 except (KeyError, AttributeError, ValueError) as e:
@@ -268,6 +278,8 @@ class SigmaGenerationService:
                         url=url or "N/A",
                         content=content_to_analyze,
                         observables_section=observables_section,
+                        date=_sigma_rule_date(),
+                        author=SIGMA_RULE_AUTHOR,
                     )
                     if sigma_prompt and isinstance(sigma_prompt, str):
                         logger.info(
@@ -283,6 +295,8 @@ class SigmaGenerationService:
                         url=url or "N/A",
                         content=content_to_analyze,
                         observables_section=observables_section,
+                        date=_sigma_rule_date(),
+                        author=SIGMA_RULE_AUTHOR,
                     )
                     if sigma_prompt and isinstance(sigma_prompt, str):
                         logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
@@ -839,6 +853,8 @@ class SigmaGenerationService:
             url=url or "N/A",
             content=content_to_analyze,
             observables_section=_build_observables_section(extraction_result),
+            date=_sigma_rule_date(),
+            author=SIGMA_RULE_AUTHOR,
         )
 
         # Add expansion context

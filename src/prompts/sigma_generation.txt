@@ -32,22 +32,38 @@ Output Rules:
 CRITICAL: Your response will be parsed by pySIGMA validator. If you include ANY narrative text before or within the YAML, validation will fail with "mapping values are not allowed here". Output ONLY the YAML rule structure.
 
 Required Structure:
-title: [descriptive rule title]
-id: [UUID]
-description: [behavior detected]
+title: [Title Case, <= 50 chars, NO 'Detects' prefix in title]
+id: [UUID v4]
+status: experimental
+description: Detects [what the rule fires on — written so an analyst seeing a hit understands what it means]
+author: {author}
+date: {date}
 observables_used: [REQUIRED: 0-based indices from the Observables list that this rule uses, e.g. [0, 3]; use [] if none apply]
 logsource:
-  category: [process_creation/network_connection/registry_event/...]
+  # Prefer generic category + product. Use `service:` ONLY when no category
+  # covers the source (e.g. service: security for Windows Security Event Log
+  # logon/privilege events 4624/4625/4673).
+  category: [process_creation/network_connection/registry_event/file_event/image_load/driver_load/ps_script/ps_module/dns_query]
   product: [windows/linux/macos]
 detection:
   selection:
     [criteria]
   condition: selection
-level: [low/medium/high/critical]
+falsepositives:
+  - [concrete benign scenario that could trigger this rule — guides analyst triage]
+level: [see Level Criteria below]
 tags:
   - attack.[technique]
 references:
   - {url}
+
+Level Criteria (CRITICAL — most generated rules are over-rated):
+- critical: Reserved for rules that should NEVER fire false positives and directly indicate an active incident. Use sparingly.
+- high: Rare false positives acceptable; firing implies likely malicious activity that requires manual review and probably an incident.
+- medium: Suspicious activity or policy violations; expected to require triage and baselining; routine false positives are normal.
+- low: Notable behavior commonly seen in benign administration; useful for correlation, not for paging.
+- informational: Compliance, baseline counts, or context — not alertable on its own.
+Default to `medium` unless the behavior is high-fidelity. Do NOT default to `high`.
 
 Behavioral Extraction Rules:
 - For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.
