@@ -266,6 +266,9 @@ class SigmaRule:
                 "file_delete",
                 "file_rename",
                 "file_write",
+                "file_event",
+                "image_load",
+                "driver_load",
                 "network_connection",
                 "dns_query",
                 "http_request",
@@ -274,11 +277,9 @@ class SigmaRule:
                 "registry_delete",
                 "registry_rename",
                 "powershell",
+                "ps_script",
+                "ps_module",
                 "wmi",
-                "sysmon",
-                "windows",
-                "linux",
-                "macos",
             ]
             if category not in valid_categories:
                 raise ValidationError(f"Invalid logsource category: {category}")
@@ -512,6 +513,9 @@ class SigmaValidator:
             "file_delete",
             "file_rename",
             "file_write",
+            "file_event",
+            "image_load",
+            "driver_load",
             "network_connection",
             "dns_query",
             "http_request",
@@ -520,11 +524,9 @@ class SigmaValidator:
             "registry_delete",
             "registry_rename",
             "powershell",
+            "ps_script",
+            "ps_module",
             "wmi",
-            "sysmon",
-            "windows",
-            "linux",
-            "macos",
         ]
 
         category = logsource.get("category")
