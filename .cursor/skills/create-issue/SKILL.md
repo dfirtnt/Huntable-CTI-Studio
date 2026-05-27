@@ -21,6 +21,8 @@ Turns chat-surfaced problems/bugs (or user-provided text) into Todoist tasks in 
 
 ### 2. Propose draft
 
+**Verbosity principle:** Write the Description (and subtask descriptions) as if the implementing agent has never seen this conversation. Include: what is broken or needed, where in the codebase it lives (file paths, function names, relevant config keys if known), reproduction steps or triggering conditions, any constraints or prior decisions from the chat, and the expected outcome. A future agent should be able to implement correctly from the description alone — do not sacrifice completeness for brevity.
+
 Output a single **Create Issue Proposal** in this shape:
 
 ```markdown
@@ -28,16 +30,19 @@ Output a single **Create Issue Proposal** in this shape:
 
 **Title:** [Short, actionable title]
 
-**Description:** [1–3 sentences: what’s wrong, where it shows up, impact if obvious]
+**Description:**
+[Full context for a cold agent: what’s wrong or needed, where it lives (files/functions/config),
+how to reproduce or trigger it, any relevant constraints or decisions from the chat,
+and what "done" looks like. Length should match complexity — do not truncate.]
 
 **Section:** Intake *(or user-specified: Up Next | WIP | Someday / Maybe)*
 
 **Subtasks:** *(none | or list below)*
-- **1.** [Subtask title] — [Brief description]
+- **1.** [Subtask title] — [What to do, where, and any non-obvious details]
 - **2.** …
 ```
 
-- **Subtasks:** Add them only when the issue naturally breaks into 2+ concrete, separate steps or sub-bugs. Otherwise use "*(none)*".
+- **Subtasks:** Add them only when the issue naturally breaks into 2+ concrete, separate steps or sub-bugs. Otherwise use "*(none)*". Each subtask description should also be self-contained.
 
 Do **not** call Todoist yet. Ask for approval, e.g. “Approve to create in Huntable CTI Studio?” or “Say 'yes' / 'go' to create, or edit Title/Description/Section/Subtasks.”
 
