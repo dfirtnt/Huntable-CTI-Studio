@@ -2277,6 +2277,8 @@ async function loadAggregateScores() {
                                 topP,
                                 agentProvider,
                                 agentModel,
+                                cmdlineAttnPreprocessor: configData.cmdline_attention_preprocessor_enabled,
+                                procTreeAttnPreprocessor: configData.proc_tree_attention_preprocessor_enabled,
                             };
                         }
                     });
@@ -2313,6 +2315,11 @@ async function loadAggregateScores() {
             card.className = 'p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-800 border border-gray-700';
             
             const configParams = configParamsByVersion[agg.config_version] || {};
+            const attnPreprocessorValue = agentName === 'CmdlineExtract'
+                ? (configParams.cmdlineAttnPreprocessor != null ? (configParams.cmdlineAttnPreprocessor ? 'Yes' : 'No') : 'N/A')
+                : agentName === 'ProcTreeExtract'
+                    ? (configParams.procTreeAttnPreprocessor != null ? (configParams.procTreeAttnPreprocessor ? 'Yes' : 'No') : 'N/A')
+                    : 'N/A';
             const paramsHtml = configParams.agentModel && configParams.agentModel !== 'N/A' ? `
                 <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                     <div class="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Agent Configuration:</div>
@@ -2321,6 +2328,7 @@ async function loadAggregateScores() {
                         <div><strong class="text-gray-300 dark:text-gray-300">LLM Model:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.agentModel || 'N/A'}</span></div>
                         <div><strong class="text-gray-300 dark:text-gray-300">Temp:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.temperature ?? 'N/A'}</span></div>
                         <div><strong class="text-gray-300 dark:text-gray-300">Top_P:</strong> <span class="text-gray-400 dark:text-gray-400">${configParams.topP ?? 'N/A'}</span></div>
+                        <div><strong class="text-gray-300 dark:text-gray-300">Attn Preprocessor:</strong> <span class="text-gray-400 dark:text-gray-400">${attnPreprocessorValue}</span></div>
                     </div>
                 </div>
             ` : '';

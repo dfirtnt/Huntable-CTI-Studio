@@ -2286,6 +2286,8 @@ async def get_config_versions_models(
                 models_by_version[config.version] = {
                     "agent_models": agent_models,
                     "display_text": "\n".join(model_list) if model_list else "No models configured",
+                    "cmdline_attention_preprocessor_enabled": config.cmdline_attention_preprocessor_enabled,
+                    "proc_tree_attention_preprocessor_enabled": config.proc_tree_attention_preprocessor_enabled,
                 }
 
             return {"models_by_version": models_by_version}
