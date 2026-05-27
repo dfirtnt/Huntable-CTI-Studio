@@ -312,12 +312,12 @@ def test_sc_regex_anchor_matches_real_usage():
         assert len(result["high_likelihood_snippets"]) >= 1, f"sc missed real usage: {text!r}"
 
 
-def test_cmd_slash_question_mark_matches():
-    """'/?' regex fires correctly (was dead due to \\b after non-word char '?')."""
-    # Use a line where /? is the only LOLBAS anchor -- no .exe, no other known tools
+def test_cmd_slash_question_mark_no_match():
+    """/? (help flag) was removed from the cmd-flag regex: no attack-signal value."""
+    # /? with no other LOLBAS anchors should no longer produce a snippet
     text = "Run the binary with /? to see usage options."
     result = process(text)
-    assert len(result["high_likelihood_snippets"]) >= 1, "'/?' should trigger the slash-flag anchor"
+    assert result["high_likelihood_snippets"] == [], "'/?' alone should not trigger after removal"
 
 
 def test_long_line_threshold_boundary():
@@ -395,3 +395,141 @@ def test_runaway_snippet_token_budget():
     # Tokens consumed by capped snippets must not exceed budget
     total_cost = sum(len(s) // 4 + 2 for s in capped)
     assert total_cost <= max_snippet_tokens
+
+
+# ---------------------------------------------------------------------------
+# Contract LOLBin anchors (STRING_ANCHORS additions)
+# ---------------------------------------------------------------------------
+
+
+def test_whoami_bare_utility_captured():
+    """whoami /all in narrative prose surfaces a snippet (no .exe required)."""
+    text = "The threat actor executed whoami /all to enumerate group memberships."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "whoami" in result["high_likelihood_snippets"][0].lower()
+
+
+def test_nltest_bare_utility_captured():
+    """nltest /domain_trusts in narrative prose surfaces a snippet."""
+    text = "Domain enumeration was performed using nltest /domain_trusts against the target."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "nltest" in result["high_likelihood_snippets"][0].lower()
+
+
+def test_vssadmin_captured():
+    """vssadmin delete shadows /all in prose surfaces a snippet."""
+    text = "Ransomware deleted backups: vssadmin delete shadows /all /quiet was observed."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "vssadmin" in result["high_likelihood_snippets"][0].lower()
+
+
+def test_wevtutil_captured():
+    """wevtutil in prose surfaces a snippet (event log wiping)."""
+    text = "Defense evasion included wevtutil cl System to clear the System event log."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "wevtutil" in result["high_likelihood_snippets"][0].lower()
+
+
+def test_bcdedit_captured():
+    """bcdedit in prose surfaces a snippet (boot config modification)."""
+    text = "Persistence was achieved via bcdedit /set safeboot minimal on the victim host."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "bcdedit" in result["high_likelihood_snippets"][0].lower()
+
+
+# ---------------------------------------------------------------------------
+# PowerShell execution flag anchors (STRING_ANCHORS additions)
+# ---------------------------------------------------------------------------
+
+
+def test_noprofile_without_powershell_keyword_captured():
+    """-NoProfile on a line without 'powershell' keyword still surfaces a snippet."""
+    text = "The script was invoked with -NoProfile -WindowStyle Hidden to avoid detection."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "-NoProfile" in result["high_likelihood_snippets"][0] or "-noprofile" in result["high_likelihood_snippets"][0].lower()
+
+
+def test_executionpolicy_flag_captured():
+    """-ExecutionPolicy in prose surfaces a snippet."""
+    text = "Attackers bypassed defenses using -ExecutionPolicy Bypass before running the payload."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+
+
+# ---------------------------------------------------------------------------
+# net verb-guarded REGEX anchor
+# ---------------------------------------------------------------------------
+
+
+def test_net_user_domain_captured():
+    """net user /domain surfaces a snippet via verb-guarded regex."""
+    text = "The adversary ran net user /domain to enumerate domain accounts."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "net user" in result["high_likelihood_snippets"][0].lower()
+
+
+def test_net_localgroup_captured():
+    """net localgroup with argument surfaces a snippet."""
+    text = 'Privilege escalation check: net localgroup "Domain Admins" /add user1'
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+
+
+def test_net_bare_prose_no_match():
+    """Bare 'network connectivity' does NOT produce a snippet (noise guard)."""
+    text = "The malware checked network connectivity before exfiltrating data."
+    result = process(text)
+    assert result["high_likelihood_snippets"] == [], f"'network' should not fire net anchor: {result}"
+
+
+# ---------------------------------------------------------------------------
+# expand regex tightening
+# ---------------------------------------------------------------------------
+
+
+def test_expand_prose_no_match():
+    """'expand the attack surface' does NOT produce a snippet after tightening."""
+    text = "Attackers seek to expand the attack surface by exploiting exposed services."
+    result = process(text)
+    assert result["high_likelihood_snippets"] == [], "'expand' prose should not fire"
+
+
+def test_expand_with_windows_path_captured():
+    """expand followed by a Windows drive path surfaces a snippet."""
+    text = "The payload was decompressed using expand C:\\temp\\file.dl_ -F:* ."
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1
+    assert "expand" in result["high_likelihood_snippets"][0].lower()
+
+
+# ---------------------------------------------------------------------------
+# NARRATIVE_VERBS extension
+# ---------------------------------------------------------------------------
+
+
+def test_narrative_exe_executed_suppressed():
+    """'MSBuild.exe executed silently' is suppressed — 'executed' now in NARRATIVE_VERBS."""
+    text = "MSBuild.exe executed silently in the background without user interaction."
+    result = process(text)
+    assert result["high_likelihood_snippets"] == [], f"Narrative 'executed' should be suppressed: {result}"
+
+
+def test_narrative_exe_launched_suppressed():
+    """'tool.exe launched quietly' is suppressed — 'launched' now in NARRATIVE_VERBS."""
+    text = "The implant tool.exe launched quietly after user logon."
+    result = process(text)
+    assert result["high_likelihood_snippets"] == [], f"Narrative 'launched' should be suppressed: {result}"
+
+
+def test_exe_with_arg_indicator_not_suppressed():
+    """msbuild.exe with a real flag is NOT suppressed despite 'executed' being a narrative verb."""
+    text = "msbuild.exe executed /t:Build /p:Configuration=Release project.csproj"
+    result = process(text)
+    assert len(result["high_likelihood_snippets"]) >= 1, "Arg indicator '/' must override narrative suppression"

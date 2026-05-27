@@ -94,19 +94,36 @@ STRING_ANCHORS = [
     ".img",
     ".vhd",
     ".vhdx",
+    # Contract LOLBins (named in CmdlineExtract Condition 2; absent from .exe structural rules)
+    "whoami",
+    "vssadmin",
+    "wevtutil",
+    "nltest",
+    "bcdedit",
+    "adfind",
+    "psexec",
+    "nslookup",
+    # PowerShell execution flags (appear on lines without the "powershell" keyword itself)
+    "-NoProfile",
+    "-WindowStyle",
+    "-ExecutionPolicy",
+    "-NonInteractive",
 ]
 
 REGEX_ANCHOR_PATTERNS = [
     r"\b(hklm|hkcu|hkey_local_machine|hkey_current_user)\b",
     r"\breg(\.exe)?\s+(add|delete|query|save|load)\b",
-    r"(^|\s)(/c|/k|/\?)(?=\s|$)",
+    # /? (help flag) removed: no attack-signal value; /c and /k are execution flags
+    r"(^|\s)(/c|/k)(?=\s|$)",
     r"-(encodedcommand|enc)\b",
     r"\brundll32(\.exe)?\s+[^,\s]+,\S+",
     r"\.(lnk|iso|img|vhd|vhdx)\b",
     # "sc" promoted from STRING_ANCHORS: plain substring match fires on "Microsoft", "scan", etc.
     r"\bsc(\.exe)?\s+(start|stop|create|delete|config|query|description)\b",
-    # "expand" promoted from STRING_ANCHORS: fires on prose ("expand the surface area")
-    r"\bexpand(\.exe)?\b",
+    # "expand" promoted from STRING_ANCHORS: requires Windows path arg to avoid prose FP
+    r"\bexpand(\.exe)?\s+[A-Za-z]:\\",
+    # "net" promoted from STRING_ANCHORS: bare "net" fires on "network", "internet", etc.
+    r"\bnet(\.exe)?\s+(user|group|use|share|view|localgroup|accounts|session|start|stop|computer)\b",
 ]
 
 # Pre-compiled regexes (case-insensitive)
@@ -175,6 +192,16 @@ NARRATIVE_VERBS = frozenset(
         "stopped",
         "created",
         "dropped",
+        # Common prose verbs describing process execution in narrative text
+        "ran",
+        "executed",
+        "invoked",
+        "spawned",
+        "launched",
+        "terminated",
+        "installed",
+        "deployed",
+        "triggered",
     }
 )
 # Rule 5: Two or more Windows paths (C:\... or D:\...)
