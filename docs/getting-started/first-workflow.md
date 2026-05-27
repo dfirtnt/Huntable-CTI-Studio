@@ -85,4 +85,4 @@ The agentic workflow runs these stages in order:
 | Empty extraction results | Article filtered as non-huntable | Check `termination_reason` in execution record |
 | No Sigma rules generated | Article had no extractable observables | Review extraction_result for empty observables |
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-27_

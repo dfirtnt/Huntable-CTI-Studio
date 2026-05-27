@@ -1,7 +1,7 @@
 # Extractor Agent Prompt Standard
 
 Version: 1.1
-Last Updated: 2026-05-15
+Last Updated: 2026-05-27
 Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
 
 ---
@@ -401,4 +401,4 @@ Use this when reviewing any extractor prompt (new or revised):
     - Check that the fleet's combined coverage has no gaps or overlaps
     - Verify all `json_examples` still match the pipeline's traceability requirements
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-27_

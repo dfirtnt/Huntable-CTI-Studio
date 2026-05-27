@@ -259,4 +259,4 @@ If the source is malware source code, detection logic, or defensive guidance, SK
 Only the FIRST valid occurrence of each unique service is extracted.
 When in doubt, OMIT.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-27_

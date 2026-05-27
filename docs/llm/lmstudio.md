@@ -159,5 +159,5 @@ python scripts/benchmark_llm_providers.py --quick
 
 Results are written to `logs/llm_benchmark_results_TIMESTAMP.json`.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-27_
 _Last reviewed: 2026-05-03_

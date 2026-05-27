@@ -51,10 +51,9 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.1.0 "Europa" (2026-05-22)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.1.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; prime candidate for extraterrestrial life due to its subsurface liquid ocean
+- **Significance**: ML pipeline hardening -- content-filter train/serve feature-version alignment, retrain quality gate with staging promotion, chunk overlap deduplication, and test-suite reliability fixes
+- **Features**: `ContentFilter` v3 feature extractor (20 features, 6 sub-agent signal groups); JSON sidecar auto-aligns feature version at inference; retrain quality gate (recall/F1 >= 0.30) with staging path promotion; seed-corpus fallback cascade; chunk overlap-only tail elimination; model rollback backup-path fallback; `assess_rule_novelty` rename (Sigma); count-driven test-runner summary; `_UrlAwarePage.goto` query-string dedup fix; `uv.lock` pin spec alignment
 
 ### v7.0.0 "Europa" (2026-05-12)
 - **Named After**: Europa, one of Jupiter's four Galilean moons and the sixth-largest moon in the solar system; prime candidate for extraterrestrial life due to its subsurface liquid ocean
@@ -108,4 +107,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-05-16_
+_Last updated: 2026-05-27_
