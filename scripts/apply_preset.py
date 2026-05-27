@@ -60,10 +60,10 @@ def load_and_convert_preset(preset_path: Path) -> dict:
 
 
 def _v2_to_legacy(config) -> dict:
-    """Convert WorkflowConfigV2 to legacy preset shape (matches workflow_config._v2_to_legacy_preset_dict)."""
-    qa_enabled = dict(config.QA.Enabled)
-    if "OSDetectionFallback" in qa_enabled and "OSDetectionAgent" not in qa_enabled:
-        qa_enabled["OSDetectionAgent"] = qa_enabled["OSDetectionFallback"]
+    """Convert WorkflowConfigV2 to legacy preset shape (matches workflow_config._v2_to_legacy_preset_dict).
+
+    Note: QA subsystem was deprecated 2026-05-24; references removed.
+    """
     return {
         "min_hunt_score": config.Thresholds.MinHuntScore,
         "auto_trigger_hunt_score_threshold": config.Thresholds.AutoTriggerHuntScoreThreshold,
@@ -76,10 +76,8 @@ def _v2_to_legacy(config) -> dict:
             "junk_filter_threshold": config.Thresholds.JunkFilterThreshold,
         },
         "agent_models": config.flatten_for_llm_service(),
-        "qa_enabled": qa_enabled,
         "sigma_fallback_enabled": config.Features.SigmaFallbackEnabled,
         "rank_agent_enabled": (config.Agents.get("RankAgent").Enabled if config.Agents.get("RankAgent") else True),
-        "qa_max_retries": config.QA.MaxRetries,
         "cmdline_attention_preprocessor_enabled": config.Features.CmdlineAttentionPreprocessorEnabled,
         "proc_tree_attention_preprocessor_enabled": config.Features.ProcTreeAttentionPreprocessorEnabled,
         "extract_agent_settings": {"disabled_agents": list(config.Execution.ExtractAgentSettings.DisabledAgents)},
@@ -110,10 +108,8 @@ def build_put_payload(legacy: dict, description: str = "Preset applied via scrip
         "junk_filter_threshold": th.get("junk_filter_threshold", legacy.get("junk_filter_threshold", 0.8)),
         "auto_trigger_hunt_score_threshold": legacy.get("auto_trigger_hunt_score_threshold", 60.0),
         "agent_models": legacy.get("agent_models", {}),
-        "qa_enabled": legacy.get("qa_enabled", {}),
         "sigma_fallback_enabled": legacy.get("sigma_fallback_enabled", False),
         "rank_agent_enabled": legacy.get("rank_agent_enabled", True),
-        "qa_max_retries": legacy.get("qa_max_retries", 5),
         "cmdline_attention_preprocessor_enabled": legacy.get("cmdline_attention_preprocessor_enabled", True),
         "proc_tree_attention_preprocessor_enabled": legacy.get("proc_tree_attention_preprocessor_enabled", True),
         "agent_prompts": prompts,
