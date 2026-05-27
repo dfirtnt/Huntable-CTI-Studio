@@ -122,3 +122,26 @@ def test_uptime_weights_warning_at_half():
     health = _compute_ingestion_health(sources)
 
     assert health["uptime"] == pytest.approx(75.0, abs=0.1)
+
+
+def test_uptime_at_or_above_90_percent_is_nominal():
+    # 9 healthy + 1 warning → uptime = (9 + 0.5) / 10 * 100 = 95% → Nominal
+    sources = [_source(f"s{i}") for i in range(9)] + [_source("w1", consecutive_failures=1)]
+    health = _compute_ingestion_health(sources)
+
+    assert health["uptime"] == pytest.approx(95.0, abs=0.1)
+    assert health["status"] == "nominal"
+    assert health["label"] == "Nominal"
+    assert health["warning_sources"] == 1
+
+
+def test_uptime_just_below_90_percent_is_degraded():
+    # 5 healthy + 3 warning → uptime = (5 + 1.5) / 8 * 100 = 81.25% → Degraded
+    sources = [_source(f"s{i}") for i in range(5)] + [
+        _source(f"w{i}", consecutive_failures=1) for i in range(3)
+    ]
+    health = _compute_ingestion_health(sources)
+
+    assert health["uptime"] < 90.0
+    assert health["status"] == "degraded"
+    assert health["label"] == "Degraded"

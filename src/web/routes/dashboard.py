@@ -51,12 +51,12 @@ def _compute_ingestion_health(sources):
     if critical_sources >= critical_threshold:
         status = "critical"
         label = "Critical"
-    elif critical_sources > 0 or warning_sources > 0:
-        status = "degraded"
-        label = "Degraded"
-    else:
+    elif uptime >= 90.0:
         status = "nominal"
         label = "Nominal"
+    else:
+        status = "degraded"
+        label = "Degraded"
 
     return {
         "uptime": uptime,
