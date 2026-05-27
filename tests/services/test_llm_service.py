@@ -85,6 +85,27 @@ class TestLLMService:
         with pytest.raises(ValueError, match="No provider configured"):
             service._canonicalize_provider(None)
 
+    def test_init_with_eval_filtered_config_no_sigma_provider(self):
+        """LLMService must not raise when SigmaAgent_* keys are absent.
+
+        Eval runs strip SigmaAgent keys from agent_models before constructing LLMService.
+        Regression: commit d51ad10d made _canonicalize_provider('') raise immediately,
+        so absent provider keys incorrectly triggered 'No provider configured' errors.
+        """
+        eval_filtered_models = {
+            "ExtractAgent": "claude-haiku-4-5-20251001",
+            "ExtractAgent_provider": "anthropic",
+            "RankAgent": "claude-haiku-4-5-20251001",
+            "RankAgent_provider": "anthropic",
+            "CmdlineExtract_model": "claude-haiku-4-5-20251001",
+            "CmdlineExtract_provider": "anthropic",
+        }
+        with patch("src.services.llm_service.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
+            svc = LLMService(config_models=eval_filtered_models)
+        assert svc.provider_extract == "anthropic"
+        assert svc.provider_sigma == ""
+
     def test_resolve_agent_model_from_config(self, service_with_config):
         """Test model resolution from config."""
         assert service_with_config.model_rank == "test-rank-model"

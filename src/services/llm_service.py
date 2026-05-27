@@ -437,9 +437,12 @@ class LLMService:
             "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL", "claude-sonnet-4-5"),
         }
 
-        self.provider_rank = self._canonicalize_provider(config_models.get("RankAgent_provider") or "")
-        self.provider_extract = self._canonicalize_provider(config_models.get("ExtractAgent_provider") or "")
-        self.provider_sigma = self._canonicalize_provider(config_models.get("SigmaAgent_provider") or "")
+        _rp = (config_models.get("RankAgent_provider") or "").strip()
+        self.provider_rank = self._canonicalize_provider(_rp) if _rp else ""
+        _ep = (config_models.get("ExtractAgent_provider") or "").strip()
+        self.provider_extract = self._canonicalize_provider(_ep) if _ep else ""
+        _sp = (config_models.get("SigmaAgent_provider") or "").strip()
+        self.provider_sigma = self._canonicalize_provider(_sp) if _sp else ""
 
         rank_override = (config_models.get("RankAgent") or "").strip()
         rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK", "")).strip()
