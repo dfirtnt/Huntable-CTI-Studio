@@ -26,6 +26,33 @@ class ValidationError(Exception):
     pass
 
 
+VALID_LOGSOURCE_CATEGORIES: frozenset[str] = frozenset(
+    [
+        "process_creation",
+        "process_access",
+        "file_access",
+        "file_change",
+        "file_delete",
+        "file_rename",
+        "file_write",
+        "file_event",
+        "image_load",
+        "driver_load",
+        "network_connection",
+        "dns_query",
+        "http_request",
+        "registry_access",
+        "registry_change",
+        "registry_delete",
+        "registry_rename",
+        "powershell",
+        "ps_script",
+        "ps_module",
+        "wmi",
+    ]
+)
+
+
 def clean_sigma_rule(rule_content: str) -> str:
     """Clean SIGMA rule by removing markdown formatting and explanatory text"""
 
@@ -257,32 +284,8 @@ class SigmaRule:
             raise ValidationError("Logsource section is empty")
 
         category = logsource.get("category")
-        if category:
-            valid_categories = [
-                "process_creation",
-                "process_access",
-                "file_access",
-                "file_change",
-                "file_delete",
-                "file_rename",
-                "file_write",
-                "file_event",
-                "image_load",
-                "driver_load",
-                "network_connection",
-                "dns_query",
-                "http_request",
-                "registry_access",
-                "registry_change",
-                "registry_delete",
-                "registry_rename",
-                "powershell",
-                "ps_script",
-                "ps_module",
-                "wmi",
-            ]
-            if category not in valid_categories:
-                raise ValidationError(f"Invalid logsource category: {category}")
+        if category and category not in VALID_LOGSOURCE_CATEGORIES:
+            raise ValidationError(f"Invalid logsource category: {category}")
 
     def _validate_detection(self):
         """Validate detection logic."""
@@ -504,33 +507,8 @@ class SigmaValidator:
         if "category" not in logsource and "product" not in logsource and "service" not in logsource:
             warnings.append("Logsource should specify category, product, or service")
 
-        # Validate logsource values
-        valid_categories = [
-            "process_creation",
-            "process_access",
-            "file_access",
-            "file_change",
-            "file_delete",
-            "file_rename",
-            "file_write",
-            "file_event",
-            "image_load",
-            "driver_load",
-            "network_connection",
-            "dns_query",
-            "http_request",
-            "registry_access",
-            "registry_change",
-            "registry_delete",
-            "registry_rename",
-            "powershell",
-            "ps_script",
-            "ps_module",
-            "wmi",
-        ]
-
         category = logsource.get("category")
-        if category and category not in valid_categories:
+        if category and category not in VALID_LOGSOURCE_CATEGORIES:
             errors.append(f"Invalid logsource category: {category}")
 
     def _validate_metadata(self, rule_data: dict, errors: list[str], warnings: list[str]):
