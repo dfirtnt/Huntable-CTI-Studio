@@ -852,3 +852,272 @@ class TestBundleActualItemsTruthiness:
 
         workflow_meta = bundle.get("workflow", {})
         assert "actual_items" not in workflow_meta
+
+
+class TestForensicInstrumentationDehydration:
+    """Pin the bundle-side dehydration of forensic instrumentation fields.
+
+    Background: `_llm_messages` (verbatim wire copy) and `_provider_payload_verbatim`
+    are stamped on the agent_result by llm_service.run_extraction_agent. If the bundle
+    layer surfaced these as full copies, the messages array would be stored 4x:
+        - llm_request.messages
+        - llm_request.raw_payload.messages
+        - llm_request.runtime_messages_verbatim
+        - llm_request.provider_payload_verbatim.messages
+    For a CmdlineExtract call that's ~200KB of duplicated bytes.
+
+    The bundle must instead surface:
+        - runtime_messages_verbatim as a SMALL ATTESTATION (sha + count), not bytes
+        - provider_payload_verbatim with .messages dehydrated to a _ref shape
+    so consumers retain forensic value without 4x storage bloat.
+    """
+
+    def _build_execution_with_instrumentation(self, messages, provider_payload):
+        """Helper: build a Mock execution whose error_log carries the new fields."""
+        execution = Mock()
+        execution.id = 555
+        execution.error_log = {
+            "extract_agent": {
+                "conversation_log": [
+                    {
+                        "agent": "CmdlineExtract",
+                        "result": {
+                            "items": [],
+                            "count": 0,
+                            "_llm_messages": messages,
+                            "_llm_response": "stored-response",
+                            "_provider_payload_verbatim": provider_payload,
+                            "_provider_url": "https://api.openai.com/v1/chat/completions",
+                            "_post_augmentation_prompt_tokens": 1234,
+                            "_orchestration_injected_sections": [
+                                "title_url_header",
+                                "content_block",
+                                "important_json_reminder",
+                            ],
+                        },
+                    }
+                ]
+            }
+        }
+        execution.config_snapshot = {
+            "agent_models": {
+                "CmdlineExtract_provider": "openai",
+                "CmdlineExtract_model": "gpt-4o-mini",
+            }
+        }
+        return execution
+
+    def test_runtime_messages_verbatim_is_attestation_not_copy(self):
+        """`runtime_messages_verbatim` must be a small attestation dict, NOT a duplicate of the messages."""
+        from src.services.eval_bundle_service import compute_sha256_json
+
+        messages = [
+            {"role": "system", "content": "You are a detection engineer."},
+            {"role": "user", "content": "x" * 5000},  # large user message
+        ]
+        execution = self._build_execution_with_instrumentation(
+            messages=messages, provider_payload={"model": "gpt-4o-mini", "messages": messages}
+        )
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(Mock())
+            llm_request, _, _, _ = service._extract_llm_call_data(
+                execution=execution, agent_name="CmdlineExtract", attempt=None
+            )
+
+        rmv = llm_request["runtime_messages_verbatim"]
+        assert isinstance(rmv, dict), "runtime_messages_verbatim must be a dict attestation, not a list"
+        assert rmv["is_verbatim_wire_copy"] is True
+        assert rmv["source_field"] == "llm_request.messages"
+        assert rmv["source_sha256"] == compute_sha256_json(messages)
+        assert rmv["message_count"] == 2
+        # Size discipline: the attestation must be tiny relative to the messages it attests
+        import json as _json
+
+        assert len(_json.dumps(rmv)) < 500, "attestation should be a few hundred bytes, not KBs"
+        assert len(_json.dumps(rmv)) < len(_json.dumps(messages)), "attestation must be smaller than messages"
+
+    def test_provider_payload_verbatim_messages_field_is_dehydrated(self):
+        """`provider_payload_verbatim.messages` must be a SHA-ref, not a copy of the messages."""
+        from src.services.eval_bundle_service import compute_sha256_json
+
+        messages = [
+            {"role": "system", "content": "You are a detection engineer."},
+            {"role": "user", "content": "x" * 5000},
+        ]
+        provider_payload = {
+            "model": "gpt-4o-mini",
+            "max_completion_tokens": 8192,
+            "temperature": 0.0,
+            "messages": messages,
+        }
+        execution = self._build_execution_with_instrumentation(
+            messages=messages, provider_payload=provider_payload
+        )
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(Mock())
+            llm_request, _, _, _ = service._extract_llm_call_data(
+                execution=execution, agent_name="CmdlineExtract", attempt=None
+            )
+
+        ppv = llm_request["provider_payload_verbatim"]
+        # Envelope fields preserved (this is the whole point of keeping ppv)
+        assert ppv["model"] == "gpt-4o-mini"
+        assert ppv["max_completion_tokens"] == 8192
+        # Inner .messages dehydrated
+        inner = ppv["messages"]
+        assert isinstance(inner, dict), "ppv.messages must be a _ref dict, not the original list"
+        assert inner["_ref"] == "llm_request.messages"
+        assert inner["_count"] == 2
+        assert inner["_sha256"] == compute_sha256_json(messages)
+
+    def test_simple_instrumentation_fields_pass_through_unchanged(self):
+        """`provider_url`, `post_augmentation_prompt_tokens`, `orchestration_injected_sections`
+        are small primitives — they should pass through without transformation."""
+        messages = [{"role": "user", "content": "hi"}]
+        execution = self._build_execution_with_instrumentation(
+            messages=messages, provider_payload={"model": "gpt-4o-mini", "messages": messages}
+        )
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(Mock())
+            llm_request, _, _, _ = service._extract_llm_call_data(
+                execution=execution, agent_name="CmdlineExtract", attempt=None
+            )
+
+        assert llm_request["provider_url"] == "https://api.openai.com/v1/chat/completions"
+        assert llm_request["post_augmentation_prompt_tokens"] == 1234
+        assert llm_request["orchestration_injected_sections"] == [
+            "title_url_header",
+            "content_block",
+            "important_json_reminder",
+        ]
+
+    def test_dehydration_handles_missing_inner_messages_gracefully(self):
+        """If `_provider_payload_verbatim` doesn't have a `messages` key (e.g. malformed
+        provider envelope), the field passes through without crashing."""
+        messages = [{"role": "user", "content": "hi"}]
+        # Provider payload with NO messages key (unusual but possible if dispatcher is buggy)
+        provider_payload = {"model": "gpt-4o-mini", "max_completion_tokens": 8192}
+        execution = self._build_execution_with_instrumentation(
+            messages=messages, provider_payload=provider_payload
+        )
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(Mock())
+            llm_request, _, _, _ = service._extract_llm_call_data(
+                execution=execution, agent_name="CmdlineExtract", attempt=None
+            )
+
+        assert llm_request["provider_payload_verbatim"] == provider_payload
+
+    def test_llm_messages_wins_over_truncated_attempt_messages(self):
+        """Regression: when both `attempt_entry['messages']` (truncated to 3000 chars/
+        message for the SSE live view in agentic_workflow.py) and
+        `result['_llm_messages']` (the byte-for-byte wire copy) exist on the same
+        conversation_log entry, the verbatim copy MUST win.
+
+        Pre-fix bug: the bundle preferred `attempt_entry['messages']` first, which
+        meant viewers saw '…'-suffixed content while the actual LLM had received the
+        full payload. This was indistinguishable from real prompt truncation and
+        polluted forensic analysis.
+
+        Fix: eval_bundle_service.py reads `result['_llm_messages']` first, falling
+        back to `attempt_entry['messages']` only if the verbatim copy is missing
+        (e.g. older executions persisted before the instrumentation landed)."""
+        full_user_content = "The full user content " * 500  # ~10KB, well above 3000-char SSE cap
+        verbatim_messages = [
+            {"role": "system", "content": "You are a detection engineer."},
+            {"role": "user", "content": full_user_content},
+        ]
+        truncated_user_content = full_user_content[:3000] + "…"  # what SSE-prep stores
+        truncated_messages = [
+            {"role": "system", "content": "You are a detection engineer."},
+            {"role": "user", "content": truncated_user_content},
+        ]
+
+        execution = Mock()
+        execution.id = 777
+        execution.error_log = {
+            "extract_agent": {
+                "conversation_log": [
+                    {
+                        "agent": "CmdlineExtract",
+                        # The SSE-truncated copy that agentic_workflow.py:1658 writes.
+                        # Pre-fix code read this first and shipped it in the bundle.
+                        "messages": truncated_messages,
+                        "llm_response": "stored-response",
+                        "result": {
+                            "items": [],
+                            "count": 0,
+                            # The verbatim wire copy stamped by llm_service.py:2868.
+                            # Post-fix code reads THIS first.
+                            "_llm_messages": verbatim_messages,
+                            "_llm_response": "stored-response",
+                        },
+                    }
+                ]
+            }
+        }
+        execution.config_snapshot = {
+            "agent_models": {
+                "CmdlineExtract_provider": "openai",
+                "CmdlineExtract_model": "gpt-4o-mini",
+            }
+        }
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(Mock())
+            llm_request, _, _, _ = service._extract_llm_call_data(
+                execution=execution, agent_name="CmdlineExtract", attempt=None
+            )
+
+        # The bundle must contain the full verbatim user content, not the truncated copy
+        bundle_user_msg = next(m for m in llm_request["messages"] if m["role"] == "user")
+        assert bundle_user_msg["content"] == full_user_content
+        assert not bundle_user_msg["content"].endswith("…"), (
+            "bundle is showing the truncated SSE-view copy instead of the verbatim wire copy"
+        )
+        # And the bundle must NOT be marked as reconstructed — we had real messages
+        assert llm_request["reconstructed"] is False
+
+    def test_falls_back_to_attempt_messages_when_llm_messages_missing(self):
+        """Backwards compatibility: executions that pre-date the `_llm_messages`
+        instrumentation only have `attempt_entry['messages']`. The bundle must still
+        surface those (even if SSE-truncated) rather than appear empty."""
+        legacy_messages = [
+            {"role": "system", "content": "Legacy system."},
+            {"role": "user", "content": "Legacy user content (no _llm_messages alongside)."},
+        ]
+
+        execution = Mock()
+        execution.id = 778
+        execution.error_log = {
+            "extract_agent": {
+                "conversation_log": [
+                    {
+                        "agent": "CmdlineExtract",
+                        "messages": legacy_messages,
+                        "llm_response": "legacy-response",
+                        # Old-format result with NO _llm_messages key
+                        "result": {"items": [], "count": 0},
+                    }
+                ]
+            }
+        }
+        execution.config_snapshot = {
+            "agent_models": {
+                "CmdlineExtract_provider": "openai",
+                "CmdlineExtract_model": "gpt-4o-mini",
+            }
+        }
+
+        with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
+            service = EvalBundleService(Mock())
+            llm_request, _, _, _ = service._extract_llm_call_data(
+                execution=execution, agent_name="CmdlineExtract", attempt=None
+            )
+
+        assert llm_request["messages"] == legacy_messages
+        assert llm_request["reconstructed"] is False

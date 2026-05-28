@@ -438,3 +438,297 @@ class TestTaskKeyFallback:
             user_msg = next(m["content"] for m in messages if m["role"] == "user")
             assert "Objective text (should win)." in user_msg
             assert "Task text (should lose)." not in user_msg
+
+
+# ---------------------------------------------------------------------------
+# Forensic instrumentation: wire-truth fields on agent_result
+# ---------------------------------------------------------------------------
+
+
+class TestForensicInstrumentation:
+    """Pin the instrumentation fields stamped on agent_result by run_extraction_agent.
+
+    These fields exist so eval bundles can answer 'what EXACTLY did the provider see'
+    without code archaeology across the orchestration / dispatcher layers.
+    See docs/concepts/agents.md#prompt-architecture and the prompt-pipeline forensic
+    report for context.
+    """
+
+    @pytest.mark.asyncio
+    async def test_cmdline_extract_emits_expected_injected_sections(self, llm_service):
+        """CmdlineExtract with a json_example should record every orchestration-injected block."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test Article",
+                url="https://example.com/test",
+                prompt_config={
+                    "system": "You are a test extractor.",
+                    "task": "Extract test artifacts.",
+                    "instructions": "Output valid JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+                attention_preprocessor_enabled=False,  # keep section list deterministic
+            )
+
+        sections = result["_orchestration_injected_sections"]
+        # Always-present scaffold sections (in order)
+        for required in (
+            "title_url_header",
+            "content_block",
+            "task_line",
+            "output_format_specification",
+            "critical_instructions",
+            "important_json_reminder",
+        ):
+            assert required in sections, f"missing '{required}' in {sections}"
+        # json_example was supplied, so its two markers must appear
+        assert "required_json_structure_example" in sections
+        assert "json_format_instruction" in sections
+        # CmdlineExtract is a _SIMPLE_EXTRACTOR — traceability footer is the value-field variant
+        assert "traceability_common" in sections
+        assert "traceability_simple_value_footer" in sections
+        # Preprocessor was disabled — its markers must NOT appear
+        assert "cmdline_attention_snippets_section" not in sections
+
+    @pytest.mark.asyncio
+    async def test_structured_extractor_emits_structured_footer(self, llm_service):
+        """ScheduledTasksExtract gets the domain-identity traceability variant, not the value-field one."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="ScheduledTasksExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "system": "You are a scheduled-tasks extractor.",
+                    "task": "Extract scheduled tasks.",
+                    "instructions": "Output valid JSON.",
+                    "json_example": {"items": [], "count": 0},
+                },
+            )
+
+        sections = result["_orchestration_injected_sections"]
+        assert "traceability_structured_identity_footer" in sections
+        assert "traceability_simple_value_footer" not in sections
+
+    @pytest.mark.asyncio
+    async def test_post_augmentation_prompt_tokens_is_positive(self, llm_service):
+        """The token count covers the final messages array, so it must be > 0 for any real prompt."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "system": "You are a test extractor.",
+                    "task": "Extract commands.",
+                    "instructions": "Output JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+            )
+
+        assert result["_post_augmentation_prompt_tokens"] > 0
+        # Sanity: it should at least cover the article body (chars/4 heuristic)
+        assert result["_post_augmentation_prompt_tokens"] >= len(content) // 4 // 2
+
+    @pytest.mark.asyncio
+    async def test_provider_payload_markers_are_popped_from_response(self, llm_service):
+        """When request_chat attaches _provider_payload / _provider_url to its return value,
+        run_extraction_agent must move them onto agent_result and remove them from the
+        response dict so they don't pollute Langfuse output or downstream parsing."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+        fake_payload = {"model": "test-model", "messages": [], "max_tokens": 8192}
+
+        captured: dict = {}
+
+        async def fake_request_chat(**kwargs):
+            return {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+                "_provider_payload": fake_payload,
+                "_provider_url": "https://example.test/v1/chat/completions",
+            }
+
+        with patch.object(llm_service, "request_chat", side_effect=fake_request_chat):
+            result = await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "system": "You are a test extractor.",
+                    "task": "Extract commands.",
+                    "instructions": "Output JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+            )
+
+        assert result["_provider_payload_verbatim"] == fake_payload
+        assert result["_provider_url"] == "https://example.test/v1/chat/completions"
+        # _llm_messages is the canonical wire-message storage (separate field, predates this work)
+        assert isinstance(result["_llm_messages"], list)
+        assert len(result["_llm_messages"]) == 2  # system + user
+
+    @pytest.mark.asyncio
+    async def test_cmdline_extract_with_preprocessor_emits_snippet_markers(self, llm_service):
+        """When CmdlineExtract runs with attention_preprocessor_enabled=True and the
+        preprocessor returns snippets, the section list must record the snippet section
+        and the full-article reference marker. This is the production path — all real
+        v4203 eval bundles fire this branch. Without this test, removing the section.append
+        calls in the cmdline branch would be silent."""
+        # full_article MUST equal content byte-for-byte so the newline-count invariant passes
+        content = (
+            "Some intro paragraph.\n"
+            "powershell -enc JABjAG8AbQBtAGEAbgBkAA==\n"
+            "More body text continues here.\n" * 30
+        )
+        fake_preprocess_result = {
+            "high_likelihood_snippets": [
+                "powershell -enc JABjAG8AbQBtAGEAbgBkAA==",
+                "cmd.exe /c whoami",
+            ],
+            "full_article": content,
+        }
+
+        with (
+            patch(
+                "src.services.cmdline_attention_preprocessor.process",
+                return_value=fake_preprocess_result,
+            ),
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat,
+        ):
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "system": "You are a cmdline extractor.",
+                    "task": "Extract commands.",
+                    "instructions": "Output JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+                attention_preprocessor_enabled=True,
+            )
+
+        sections = result["_orchestration_injected_sections"]
+        assert "cmdline_attention_snippets_section" in sections
+        assert "full_article_reference_marker" in sections
+        # The snippet markers come first in the list (they appear at the top of the
+        # user message). Pin order to catch reordering regressions that would
+        # invalidate analysis tooling that walks the list positionally.
+        assert sections[0] == "cmdline_attention_snippets_section"
+        assert sections[1] == "full_article_reference_marker"
+        # ProcTree marker MUST NOT appear when CmdlineExtract is running
+        assert "proc_tree_attention_snippets_section" not in sections
+
+    @pytest.mark.asyncio
+    async def test_proc_tree_extract_with_preprocessor_emits_snippet_markers(self, llm_service):
+        """Symmetric to cmdline test: ProcTreeExtract's preprocessor branch must record
+        its OWN marker, not the cmdline one. These are separate code paths with separate
+        section names; conflating them would defeat the whole "what got injected" audit."""
+        content = (
+            "Process lineage analysis follows.\n"
+            "explorer.exe → powershell.exe → cmd.exe\n"
+            "Parent-child chains documented.\n" * 30
+        )
+        fake_preprocess_result = {
+            "high_likelihood_snippets": [
+                "explorer.exe → powershell.exe → cmd.exe",
+            ],
+            "full_article": content,
+        }
+
+        with (
+            patch(
+                "src.services.proc_tree_attention_preprocessor.process",
+                return_value=fake_preprocess_result,
+            ),
+            patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat,
+        ):
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="ProcTreeExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "system": "You are a proc-tree extractor.",
+                    "task": "Extract process lineage.",
+                    "instructions": "Output JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+                proc_tree_attention_preprocessor_enabled=True,
+            )
+
+        sections = result["_orchestration_injected_sections"]
+        assert "proc_tree_attention_snippets_section" in sections
+        assert "full_article_reference_marker" in sections
+        # Order pin — same rationale as cmdline test above
+        assert sections[0] == "proc_tree_attention_snippets_section"
+        assert sections[1] == "full_article_reference_marker"
+        # Cmdline marker MUST NOT appear when ProcTreeExtract is running
+        assert "cmdline_attention_snippets_section" not in sections
+
+    @pytest.mark.asyncio
+    async def test_user_prefix_appended_when_prompt_config_user_provided(self, llm_service):
+        """When `prompt_config['user']` is a non-empty string, the orchestration prepends
+        it to the user message and records a `user_prefix` marker. The marker only fires
+        on the truthy branch — pin it so the conditional doesn't silently invert."""
+        content = "x" * (MIN_USER_CONTENT_CHARS + 100)
+
+        with patch.object(llm_service, "request_chat", new_callable=AsyncMock) as mock_chat:
+            mock_chat.return_value = {
+                "choices": [{"message": {"content": '{"items":[],"count":0}'}}],
+                "usage": {},
+            }
+            result = await llm_service.run_extraction_agent(
+                agent_name="CmdlineExtract",
+                content=content,
+                title="Test",
+                url="https://example.com",
+                prompt_config={
+                    "system": "You are a test extractor.",
+                    "user": "Custom preamble for this preset.",
+                    "task": "Extract commands.",
+                    "instructions": "Output JSON.",
+                    "json_example": '{"items":[],"count":0}',
+                },
+                attention_preprocessor_enabled=False,
+            )
+
+        sections = result["_orchestration_injected_sections"]
+        assert "user_prefix" in sections
+        # Cross-check: the prefix actually made it into the user message
+        call_args = mock_chat.call_args
+        messages = call_args.kwargs.get("messages") or call_args[1].get("messages")
+        user_msg = next(m["content"] for m in messages if m["role"] == "user")
+        assert user_msg.startswith("Custom preamble for this preset.")
