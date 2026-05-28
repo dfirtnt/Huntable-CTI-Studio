@@ -2085,18 +2085,31 @@ async def get_subagent_eval_compare(
 
             preset_expected_by_url = _load_preset_expected_by_url(subagent)
 
-            # Build per-(url, version) latest-record map (most recent by created_at)
+            # Build per-(url, version) latest-record map (most recent by
+            # created_at, tie-broken by id DESC so the choice is deterministic
+            # across page refreshes -- replicate runs queued together can share
+            # a created_at timestamp at microsecond precision).
+            # Also count attempts per (url, version) so the UI can surface
+            # replicate variance instead of silently collapsing it.
             latest: dict[tuple[str | None, int], SubagentEvaluationTable] = {}
+            attempt_counts: dict[tuple[str | None, int], int] = {}
             for record in all_records:
                 if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
                     continue
                 key = (record.article_url, record.workflow_config_version)
-                if key not in latest:
+                attempt_counts[key] = attempt_counts.get(key, 0) + 1
+                existing = latest.get(key)
+                if existing is None:
                     latest[key] = record
-                else:
-                    existing = latest[key]
-                    if record.created_at and (existing.created_at is None or record.created_at > existing.created_at):
-                        latest[key] = record
+                    continue
+                rec_ts = record.created_at
+                ext_ts = existing.created_at
+                rec_id = record.id or 0
+                ext_id = existing.id or 0
+                if rec_ts is not None and (ext_ts is None or rec_ts > ext_ts):
+                    latest[key] = record
+                elif rec_ts == ext_ts and rec_id > ext_id:
+                    latest[key] = record
 
             # Collect all unique URLs seen in either version
             all_urls: dict[str | None, str] = {}  # url -> title
@@ -2150,14 +2163,15 @@ async def get_subagent_eval_compare(
                     "perfect_match_percentage": round(perfect_match_pct, 1),
                 }
 
-            # Collect per-version record lists for aggregate computation
-            records_a: list[SubagentEvaluationTable] = []
-            records_b: list[SubagentEvaluationTable] = []
-            for (url, ver), rec in latest.items():
-                if ver == version_a:
-                    records_a.append(rec)
-                elif ver == version_b:
-                    records_b.append(rec)
+            # Aggregate over ALL completed attempts per version so the MAE here
+            # matches the "MAE by Config Version" chart. Using only the latest
+            # attempt per article would silently discard replicates and inflate
+            # single-run LLM variance.
+            def _allowed(r: SubagentEvaluationTable) -> bool:
+                return r.article_id is None or r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
+
+            records_a = [r for r in all_records if r.workflow_config_version == version_a and _allowed(r)]
+            records_b = [r for r in all_records if r.workflow_config_version == version_b and _allowed(r)]
 
             aggregate_a = _compute_aggregate(records_a, version_a)
             aggregate_b = _compute_aggregate(records_b, version_b)
@@ -2195,6 +2209,8 @@ async def get_subagent_eval_compare(
                         "result_a": result_a,
                         "result_b": result_b,
                         "improvement": improvement,
+                        "attempts_a": attempt_counts.get((url, version_a), 0),
+                        "attempts_b": attempt_counts.get((url, version_b), 0),
                     }
                 )
 

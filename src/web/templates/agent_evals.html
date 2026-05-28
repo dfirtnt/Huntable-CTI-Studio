@@ -3427,7 +3427,7 @@ function renderCompareResult(data) {
         '</div>'
     ].join('\n');
 
-    function cellHtml(result, expectedCount) {
+    function cellHtml(result, expectedCount, attempts) {
         if (!result) return '<span style="color:var(--text-muted);">--</span>';
         const actual = result.actual_count;
         const score = result.score;
@@ -3445,7 +3445,13 @@ function renderCompareResult(data) {
         const execLink = execId
             ? '<a href="/workflow?exec=' + execId + '#executions" class="hover:underline" style="color:var(--text-muted); font-size:0.65rem;" title="Execution #' + execId + '">#' + execId + '</a>'
             : '';
-        return '<span class="font-mono font-semibold" style="color:' + color + '; font-size:0.8rem;">' + actual + '</span> <span class="font-mono" style="color:' + color + '; font-size:0.7rem;">(' + deltaStr + ')</span>' + (execLink ? ' ' + execLink : '');
+        // Surface replicate count when more than one attempt exists; the cell
+        // shows the latest single attempt (deterministic tie-break by id DESC),
+        // while the aggregate MAE averages all attempts.
+        const replicateBadge = (attempts != null && attempts > 1)
+            ? ' <span class="font-mono" style="color:var(--text-muted); font-size:0.65rem;" title="' + attempts + ' attempts; aggregate MAE averages all of them">n=' + attempts + '</span>'
+            : '';
+        return '<span class="font-mono font-semibold" style="color:' + color + '; font-size:0.8rem;">' + actual + '</span> <span class="font-mono" style="color:' + color + '; font-size:0.7rem;">(' + deltaStr + ')</span>' + (execLink ? ' ' + execLink : '') + replicateBadge;
     }
 
     function changeBadge(improvement) {
@@ -3467,8 +3473,8 @@ function renderCompareResult(data) {
         rowsHtml += '<tr style="border-top:1px solid rgba(139,92,246,0.06);">'
             + '<td class="px-2 py-2">' + titleCell + '</td>'
             + '<td class="px-2 py-2 text-center font-mono text-xs" style="color:var(--text-muted-slate);">' + expected + '</td>'
-            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_a, art.expected_count) + '</td>'
-            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_b, art.expected_count) + '</td>'
+            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_a, art.expected_count, art.attempts_a) + '</td>'
+            + '<td class="px-2 py-2 text-center">' + cellHtml(art.result_b, art.expected_count, art.attempts_b) + '</td>'
             + '<td class="px-2 py-2 text-center">' + changeBadge(art.improvement) + '</td>'
             + '</tr>';
     });
