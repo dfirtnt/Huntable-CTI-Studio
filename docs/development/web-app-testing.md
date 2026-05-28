@@ -695,5 +695,5 @@ page.pause()  # Pause execution for manual inspection
 
 <!-- AUDIT: Usefulness -- "This file has been moved" dead-end note removed; the content is still present in this file and the note was never updated to a useful cross-link. -->
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-28_
 _Last reviewed: 2026-05-03_

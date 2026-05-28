@@ -51,10 +51,9 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.1.0 "Europa" (2026-05-22)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.1.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons and the sixth-largest moon in the solar system; prime candidate for extraterrestrial life due to its subsurface liquid ocean
+- **Significance**: Test runner count-driven status, ML retrain quality gate with staging promotion, content filter v3 train/serve skew fixes, Sigma `needs_review` queue for inconclusive comparisons, and UI/pipeline reliability improvements
+- **Features**: Count-driven test runner summary (no more FAILED/0 contradictions); `retrain_with_feedback.py` staging path + quality gate (`recall_huntable ≥ 0.30`, `f1_huntable ≥ 0.30`) with seed-corpus fallback; `ContentFilter` feature-version auto-alignment via JSON sidecar; model rollback backup-path fallback; overlap-only tail chunk suppression; `needs_review` Sigma queue status for inconclusive novelty comparisons; `eval_set_size` in ML performance summary; junk-filter early-termination routing; `SigmaMatchingService.compare_proposed_rule_to_embeddings` renamed to `assess_rule_novelty`; CTI-BERT NER extractor removed; `_UrlAwarePage.goto` query-string dedup fix; UI test flakiness fixes
 
 ### v7.0.0 "Europa" (2026-05-12)
 - **Named After**: Europa, one of Jupiter's four Galilean moons and the sixth-largest moon in the solar system; prime candidate for extraterrestrial life due to its subsurface liquid ocean
@@ -108,4 +107,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-05-16_
+_Last updated: 2026-05-28_

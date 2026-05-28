@@ -71,4 +71,4 @@ When you add `tests/playwright/your_spec.spec.ts`, update
 project's `testMatch` list. If a spec is not in any project, the default run
 will silently skip it.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-28_
