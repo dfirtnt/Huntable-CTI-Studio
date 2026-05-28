@@ -2506,7 +2506,7 @@ Every item in the output array MUST be an object (not a plain string)."""
                             provider=effective_provider,
                             model_name=model_name,
                             messages=converted_messages,
-                            max_tokens=2000,
+                            max_tokens=8192,
                             temperature=temperature,
                             top_p=effective_top_p,
                             timeout=extraction_timeout,
@@ -2532,6 +2532,13 @@ Every item in the output array MUST be an object (not a plain string)."""
                         response_text = response["choices"][0]["message"].get("reasoning_content", "")
 
                     # Log the actual response for debugging
+                    finish_reason = response["choices"][0].get("finish_reason", "")
+                    if finish_reason == "length":
+                        logger.warning(
+                            f"{agent_name} response truncated by max_tokens limit "
+                            f"(finish_reason=length). Output JSON will be incomplete. "
+                            f"Increase max_tokens in llm_service.py:extract_agent_data."
+                        )
                     logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
                     logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
                     logger.debug(f"{agent_name} full response: {response_text}")
