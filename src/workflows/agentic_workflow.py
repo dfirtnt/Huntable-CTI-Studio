@@ -2696,8 +2696,28 @@ async def run_workflow(article_id: int, db_session: Session, execution_id: int |
 
         if not execution:
             # Create execution record if it doesn't exist (e.g., when called directly via Celery)
-            # NOTE: This should rarely happen for evals since they create execution first
-            logger.warning(f"No pending/running execution found for article {article_id}, creating one...")
+            # NOTE: This should rarely happen for evals since they create execution first.
+            # Guard: check eligibility before creating an untracked execution so that low-score
+            # articles (e.g. hunt_score < auto_trigger threshold) are never silently re-run when
+            # someone dispatches trigger_agentic_workflow without an execution_id.
+            import traceback as _tb  # noqa: PLC0415
+
+            _stack = "".join(_tb.format_stack())
+            logger.warning(
+                "No pending/running execution found for article %d — creating one without execution_id. "
+                "This should be rare; the normal path always carries an execution_id. "
+                "Call stack:\n%s",
+                article_id,
+                _stack,
+            )
+            ok, block_reason = trigger_service._workflow_eligibility(article)
+            if not ok:
+                logger.warning(
+                    "Refusing to create execution for article %d (bare Celery dispatch blocked): %s",
+                    article_id,
+                    block_reason,
+                )
+                return {"success": False, "skipped": True, "reason": block_reason}
             config_obj = trigger_service.get_active_config()
             execution = AgenticWorkflowExecutionTable(
                 article_id=article_id,

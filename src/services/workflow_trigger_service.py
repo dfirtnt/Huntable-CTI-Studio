@@ -233,10 +233,11 @@ class WorkflowTriggerService:
 
             logger.info(f"Triggering agentic workflow for article {article_id} (execution_id: {execution.id})")
 
-            # Dispatch Celery task
+            # Dispatch Celery task — always carry execution.id so run_workflow() uses the
+            # pre-created record instead of creating a new one (prevents eligibility bypass).
             from src.worker.celery_app import trigger_agentic_workflow  # noqa: PLC0415
 
-            trigger_agentic_workflow.delay(article_id)
+            trigger_agentic_workflow.delay(article_id, execution.id)
 
             return True, None
 

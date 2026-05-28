@@ -1,7 +1,7 @@
 """Tests for workflow trigger service functionality."""
 
 from datetime import datetime, timedelta
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -204,7 +204,8 @@ class TestWorkflowTriggerService:
             assert result == (True, None)
             mock_db_session.add.assert_called_once()
             mock_db_session.commit.assert_called()
-            mock_trigger.delay.assert_called_once_with(1)
+            # execution.id is the pre-created execution's ID (None in mock, int in real DB)
+            mock_trigger.delay.assert_called_once_with(1, ANY)
 
     def test_trigger_workflow_article_not_found(self, service, mock_db_session):
         """Test workflow trigger when article doesn't exist."""
@@ -277,7 +278,8 @@ class TestWorkflowTriggerService:
             result = service.trigger_workflow(article_id=1, force=True)
 
             assert result == (True, None)
-            mock_trigger.delay.assert_called_once_with(1)
+            # execution.id is the pre-created execution's ID (None in mock, int in real DB)
+            mock_trigger.delay.assert_called_once_with(1, ANY)
 
     def test_get_active_config_error_handling(self, service, mock_db_session):
         """Test error handling in get_active_config."""
