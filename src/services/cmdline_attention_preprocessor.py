@@ -10,18 +10,31 @@ PURPOSE:
     high-likelihood text regions (via LOLBAS-aligned anchors) and surfacing them
     earlier in the LLM prompt. The LLM still receives the full article.
 
+SCOPE:
+    Covers execution/persistence (LOLBAS), credential access (T1003: LSASS dump
+    tooling, mimikatz), and indirect execution (WSL/bash, at.exe). Scope was
+    expanded beyond original LOLBAS-only coverage to close post-exploitation gaps.
+
 NON-GOALS (strict):
     - Does NOT extract command lines
     - Does NOT validate syntax
     - Does NOT infer attacker behavior
-    - Does NOT modify original text
+    - Does NOT modify original text (full_article is always byte-identical to input)
     - Does NOT apply Sigma/EDR logic
     - Does NOT score or rank commands
+
+CARET NORMALIZATION:
+    cmd.exe silently strips ^ before execution (p^ow^er^sh^ell == powershell).
+    _normalize_for_matching() strips carets from a COPY of the line for anchor
+    matching only. The original line is ALWAYS used for snippet extraction and
+    full_article passthrough. This is consistent with the HARD CONTRACT above.
 
 EXTENDING ANCHORS:
     Add to STRING_ANCHORS for case-insensitive literal match, or REGEX_ANCHORS
     for pattern-based match. Keep anchors aligned with LOLBAS tradecraft.
     Pre-compile regexes at module load. Do not add scoring, weighting, or caps.
+    Promote tokens to REGEX_ANCHORS (with structural guards) when the bare
+    substring fires too broadly on prose (see "sc", "net", "expand", "tftp").
 """
 
 import re
@@ -32,10 +45,22 @@ from typing import Any
 # -----------------------------------------------------------------------------
 
 # String anchors: case-insensitive `in` check. "cmd" uses boundary regex (see below).
+# REMOVED (too broad / not cmdline-density indicators):
+#   "C:\\" / "D:\\"  — path component in every Windows article; R5 (two-path rule) handles cmdlines
+#   "system32"       — path component; near-universal FP across all Windows security content
+#   "appdata" / "programdata" — directory names, not cmdline indicators
+#   "ftp"            — 3-letter protocol name; fires on FTP protocol descriptions
+#   "ipconfig"       — weakest LOLBin; single-token command, no surrounding cmdline density
+#   "tasklist"       — no extractable argument structure; R1/R4 cover meaningful invocations
+#   "dllhost"        — better served by proc_tree_attention_preprocessor
+#   ".img"           — fires on HTML <img> refs and generic image descriptions
+#   "tftp"           — promoted to REGEX_ANCHORS with word-boundary guard
 STRING_ANCHORS = [
+    # --- Execution / LOLBINs ---
     "powershell",
     "pwsh",
     "rundll32",
+    "regsvr32",          # T1218.010 — AppLocker/SRP bypass via COM scriptlet (Squiblydoo)
     "msiexec",
     "wmic",
     "certutil",
@@ -48,8 +73,6 @@ STRING_ANCHORS = [
     "forfiles",
     "findstr",
     "taskkill",
-    "tasklist",
-    "ipconfig",
     "systeminfo",
     "diskshadow",
     "makecab",
@@ -62,39 +85,45 @@ STRING_ANCHORS = [
     "regini",
     "odbcconf",
     "cmstp",
-    "dllhost",
-    "ftp",
-    "tftp",
+    "mavinject",         # T1055.001 — DLL injection via LOLBIN
+    "xwizard",           # T1218 — proxy execution
+    "presentationhost",  # T1218.008 — proxy execution
     "curl",
     "wget",
-    "C:\\",
-    "D:\\",
+    # --- Windows paths / environment variables (cmdline-context specific) ---
     "%WINDIR%",
     "%TEMP%",
     "%TMP%",
     "\\temp\\",
-    "\\pipe\\",
-    "appdata",
-    "programdata",
-    "system32",
-    "syswow64",
-    "wbem",
-    "comspec",
+    "\\pipe\\",    # Named pipe paths → lateral movement / C2 comms (SMB, Cobalt Strike)
+    "syswow64",    # 32-bit on 64-bit OS; implies injection/evasion context
+    "wbem",        # WMI namespace path → persistence/execution (T1047, T1546.003)
+    "comspec",     # %COMSPEC% env var; only appears in cmdline invocation contexts
+    # --- PowerShell tradecraft ---
     "FromBase64String",
     "DownloadString",
+    "DownloadFile",      # .NET/PS download cradle (was missing)
+    "DownloadData",
+    "WebClient",         # [System.Net.WebClient] / New-Object Net.WebClient
     "Invoke-WebRequest",
     "Invoke-Expression",
     "IEX",
     "New-Object",
     "MemoryStream",
-    "Add-MpPreference",
-    "Set-MpPreference",
+    "Add-MpPreference",  # T1562.001 — Defender exclusion add
+    "Set-MpPreference",  # T1562.001 — Defender policy change
+    # --- Container / disk artifacts (MOTW bypass: T1553.005) ---
     ".lnk",
     ".iso",
-    ".img",
     ".vhd",
     ".vhdx",
-    # Contract LOLBins (named in CmdlineExtract Condition 2; absent from .exe structural rules)
+    # --- Credential access (T1003) — scope expansion beyond original LOLBAS set ---
+    "comsvcs",     # comsvcs.dll MiniDump → LSASS dump via rundll32
+    "lsass",       # LSASS process — primary credential dump target
+    "mimikatz",    # credential dumping toolkit; low FP (always attack-context)
+    "sekurlsa",    # mimikatz module (sekurlsa::logonpasswords)
+    "procdump",    # Sysinternals dump tool commonly used for LSASS
+    # --- Contract LOLBins (named in CmdlineExtract Condition 2) ---
     "whoami",
     "vssadmin",
     "wevtutil",
@@ -103,7 +132,7 @@ STRING_ANCHORS = [
     "adfind",
     "psexec",
     "nslookup",
-    # PowerShell execution flags (appear on lines without the "powershell" keyword itself)
+    # --- PowerShell execution flags (appear without the "powershell" keyword) ---
     "-NoProfile",
     "-WindowStyle",
     "-ExecutionPolicy",
@@ -111,19 +140,28 @@ STRING_ANCHORS = [
 ]
 
 REGEX_ANCHOR_PATTERNS = [
-    r"\b(hklm|hkcu|hkey_local_machine|hkey_current_user)\b",
+    # REMOVED: r"\b(hklm|hkcu|...)\b"  — fires on registry prose; redundant with reg regex below
+    # REMOVED: r"(^|\s)(/c|/k)(?=\s|$)" — redundant with CMD_BOUNDARY_REGEX; fires on many tool flags
     r"\breg(\.exe)?\s+(add|delete|query|save|load)\b",
-    # /? (help flag) removed: no attack-signal value; /c and /k are execution flags
-    r"(^|\s)(/c|/k)(?=\s|$)",
     r"-(encodedcommand|enc)\b",
     r"\brundll32(\.exe)?\s+[^,\s]+,\S+",
-    r"\.(lnk|iso|img|vhd|vhdx)\b",
-    # "sc" promoted from STRING_ANCHORS: plain substring match fires on "Microsoft", "scan", etc.
+    r"\.(lnk|iso|vhd|vhdx)\b",   # .img removed: fires on HTML <img> and generic image refs
+    # "sc" promoted from STRING_ANCHORS: plain substring fires on "Microsoft", "scan", etc.
     r"\bsc(\.exe)?\s+(start|stop|create|delete|config|query|description)\b",
     # "expand" promoted from STRING_ANCHORS: requires Windows path arg to avoid prose FP
     r"\bexpand(\.exe)?\s+[A-Za-z]:\\",
     # "net" promoted from STRING_ANCHORS: bare "net" fires on "network", "internet", etc.
     r"\bnet(\.exe)?\s+(user|group|use|share|view|localgroup|accounts|session|start|stop|computer)\b",
+    # "tftp" promoted from STRING_ANCHORS: word-boundary guard prevents compound-token FP
+    r"\btftp(\.exe)?\b",
+    # T1218.001 — Compiled HTML Help: two-char name requires boundary + argument guard
+    r"\bhh(\.exe)?\s+\S",
+    # T1202 — Indirect Command Execution via Windows Subsystem for Linux
+    r"\bwsl(\.exe)?\b",
+    # T1202 — bash with explicit execution flag (bare "bash" fires on shell scripting prose)
+    r"\bbash(\.exe)?\s+(-c|-i)\b",
+    # T1053.002 — legacy at.exe scheduler: time argument required to avoid "at" substring noise
+    r"\bat(\.exe)?\s+\d{1,2}:\d{2}\b",
 ]
 
 # Pre-compiled regexes (case-insensitive)
@@ -147,6 +185,19 @@ CMD_BOUNDARY_REGEX = re.compile(r"\bcmd(\.exe)?\b", re.IGNORECASE)
 # would break silently if the function were extended to use m.start()/m.end() directly.
 SENTENCE_SPLIT = re.compile(r"(?<=[\n])|(?<=\.)(?!\w)\s+")
 NEWLINE_ONLY = re.compile(r"\n")
+
+# Caret normalization: cmd.exe silently strips ^ before executing a command.
+# e.g. p^ow^er^sh^ell -enc AAA  →  powershell -enc AAA
+# _normalize_for_matching() strips carets from a COPY for anchor/structural
+# matching only. The original line is ALWAYS used for snippet extraction.
+# HARD CONTRACT: full_article is never touched by this function.
+_CARET_STRIP_RE = re.compile(r"\^")
+
+
+def _normalize_for_matching(line: str) -> str:
+    """Strip cmd.exe caret escapes for anchor matching. Original preserved for extraction."""
+    return _CARET_STRIP_RE.sub("", line)
+
 
 # Line length threshold: use sentence logic only if line > N chars
 LONG_LINE_THRESHOLD = 500
@@ -202,6 +253,23 @@ NARRATIVE_VERBS = frozenset(
         "installed",
         "deployed",
         "triggered",
+        # Prose connectors that follow .exe in narrative sentences but are not cmdline args.
+        # Without these, "tool.exe using the AppDomain feature" fires R4.
+        "using",
+        "via",
+        "hosting",
+        "calling",
+        "leveraging",
+        "with",
+        "within",
+        "based",
+        "found",
+        "located",
+        "attempting",
+        "trying",
+        "able",
+        "known",
+        "running",
     }
 )
 # Rule 5: Two or more Windows paths (C:\... or D:\...)
@@ -507,14 +575,30 @@ def process(
 
     for i, line in enumerate(lines):
         line_lower = line.lower()
-        if not _line_matches_anchor(line, line_lower) and not _line_matches_structural_rules(line):
+
+        # Caret normalization: also match against the stripped copy so that
+        # cmd.exe escape obfuscation (p^ow^er^sh^ell) fires the same anchors.
+        # Snippet extraction ALWAYS uses the original `line` / `lines`.
+        line_norm = _normalize_for_matching(line)
+        line_norm_lower = line_norm.lower() if line_norm != line else line_lower
+
+        anchor_match = _line_matches_anchor(line, line_lower) or (
+            line_norm != line and _line_matches_anchor(line_norm, line_norm_lower)
+        )
+        structural_match = _line_matches_structural_rules(line) or (
+            line_norm != line and _line_matches_structural_rules(line_norm)
+        )
+        if not anchor_match and not structural_match:
             continue
         if _is_narrative_exe_only(line, line_lower):
             continue
 
-        # Long line: match-window capture (eval fix A)
+        # Long line: match-window capture.
         if len(line) > LONG_LINE_THRESHOLD:
             windowed = _extract_windowed_snippets(line, lines, i, line_lower, byte_preserving=byte_preserving)
+            if not windowed and line_norm != line:
+                # Caret obfuscation shifted positions; fall back to full ±1 line capture.
+                windowed = [_extract_snippet(line, lines, i, prefer_full_line=True, line_lower=line_lower, byte_preserving=byte_preserving)]
             for snippet in windowed:
                 if not snippet or snippet in seen:
                     continue
@@ -554,6 +638,8 @@ if __name__ == "__main__":
     The attacker used powershell -enc to decode the payload.
     Then they ran cmd.exe /c whoami to check privileges.
     Registry modification: reg add HKLM\\Software\\Test.
+    Caret-obfuscated: p^ow^er^sh^ell -enc JABjAG8AbQBtAGEAbgBk
+    LSASS dump: rundll32 comsvcs.dll MiniDump 624 C:\\Temp\\lsass.dmp full
     """
     result = process(example)
     print("Snippets:", len(result["high_likelihood_snippets"]))
