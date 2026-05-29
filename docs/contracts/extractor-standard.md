@@ -4,6 +4,15 @@ Version: 1.1
 Last Updated: 2026-05-15
 Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
 
+## Jump to an agent contract
+
+- [**CmdlineExtract**](cmdline-extract.md) — Windows command-line observables
+- [**ProcTreeExtract**](proctree-extract.md) — parent → child process relationships
+- [**RegistryExtract**](registry-extract.md) — Windows registry artifacts
+- [**ServicesExtract**](services-extract.md) — Windows service artifacts
+- [**HuntQueriesExtract**](huntquery-extract.md) — EDR/SIEM queries & Sigma rules
+- [**ScheduledTasksExtract**](scheduled-tasks-extract.md) — scheduled-task identity & schedule
+
 ---
 
 ## Purpose

@@ -1,6 +1,6 @@
 # Huntable CTI Studio MCP tools
 
-The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for querying the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
+The **`huntable-cti-studio`** MCP server exposes **thirteen read-only tools** for querying the same PostgreSQL corpus and queues as the web app. It uses the same `.env` / database as the API.
 
 **Connecting a client.** The repo ships a committed `.mcp.json` registering this server via `scripts/run_mcp_server.sh`. Clients that read project `.mcp.json` (Claude Code launched in the repo) need no further setup — approve the server when prompted. For other clients, register the command `bash scripts/run_mcp_server.sh`.
 
@@ -23,11 +23,13 @@ The **`huntable-cti-studio`** MCP server exposes **eleven read-only tools** for 
 | 9 | `list_workflow_executions` | Recent agentic workflow runs (article, status, step, ranking score, errors). Params: optional `status` filter (`pending`, `running`, `completed`, `failed`), `limit`. |
 | 10 | `list_sigma_queue` | Sigma rule review queue (AI-generated rules): rule title/metadata, source article, max similarity to existing rules, notes, PR link. Params: optional `status` filter (`pending`, `approved`, `rejected`, `submitted`), `limit`. |
 | 11 | `get_queue_rule` | Full YAML, status, similarity scores, and reviewer notes for a single AI-generated queue item. Param: `queue_number` (integer; the number after "Queue #" in `list_sigma_queue` output). Returns the raw YAML block, top-10 similarity matches to existing rules, and any reviewer comments. |
+| 12 | `list_tables` | Schema discovery helper. Lists all tables in the connected database with row counts, so callers can plan ad-hoc SQL before issuing `execute_sql`. No params. |
+| 13 | `execute_sql` | Execute a **read-only** SQL statement (single `SELECT` / CTE). Rejects DDL and DML at the parser layer. Param: `sql` (string). Use `list_tables` first to discover schema. |
 
-Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`).
+Implementation lives under `src/huntable_mcp/` (`stdio_server.py`, `tools/articles.py`, `tools/sigma.py`, `tools/sources.py`, `tools/workflow.py`, `tools/query.py`).
 
 ## Schema note — raw_yaml column
 
 `sigma_rules.raw_yaml` (TEXT, nullable) stores the verbatim YAML from the SigmaHQ repo file. It is populated during `sigma index` / `sigma index-metadata`. Run `scripts/migrate_sigma_raw_yaml.py` once on existing databases before re-indexing.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-29_

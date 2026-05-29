@@ -30,15 +30,18 @@ Toggle in the Workflow Config page under the Cmdline Extract agent panel. The ch
 ## Anchor Types
 
 ### String Anchors (case-insensitive)
-Examples: `powershell`, `pwsh`, `rundll32`, `msiexec`, `certutil`, `bitsadmin`, `schtasks`, `netsh`, `mshta`, `cscript`, `wscript`, `forfiles`, `findstr`, `taskkill`, `tasklist`, `curl`, `wget`, `FromBase64String`, `DownloadString`, `Invoke-WebRequest`, `Invoke-Expression`, `IEX`, `New-Object`, `MemoryStream`, `Add-MpPreference`, `Set-MpPreference`, `.lnk`, `.iso`, `.vhd`, `C:\`, `D:\`, `%WINDIR%`, `%TEMP%`, `system32`, `syswow64`, `appdata`, `programdata`, and others aligned with LOLBAS tradecraft.
+Examples: `powershell`, `pwsh`, `rundll32`, `regsvr32`, `msiexec`, `wmic`, `certutil`, `bitsadmin`, `schtasks`, `netsh`, `mshta`, `cscript`, `wscript`, `forfiles`, `findstr`, `taskkill`, `mavinject`, `xwizard`, `presentationhost`, `comsvcs`, `lsass`, `mimikatz`, `procdump`, `curl`, `wget`, `FromBase64String`, `DownloadString`, `DownloadFile`, `WebClient`, `Invoke-WebRequest`, `Invoke-Expression`, `IEX`, `New-Object`, `MemoryStream`, `Add-MpPreference`, `Set-MpPreference`, `.lnk`, `.iso`, `.vhd`, `%WINDIR%`, `%TEMP%`, `\temp\`, `\pipe\`, `syswow64`, and others aligned with LOLBAS tradecraft. Bare path components (`C:\`, `D:\`, `system32`, `appdata`, `programdata`) and `tasklist`/`ipconfig`/`dllhost` were removed in the 2026-05-27 precision overhaul — they fired on nearly every Windows article. The two-path detection (Structural Rule 5) now handles drive-letter cmdlines instead. See [Implementation](#implementation) for the full current list.
 
 ### Regex Anchors
-- Registry keys: `hklm`, `hkcu`, `hkey_local_machine`, `hkey_current_user`
-- Registry operations: `reg add`, `reg delete`, `reg query`, etc.
-- CMD flags: `/c`, `/k`, `/?`
+Pre-compiled patterns in `REGEX_ANCHOR_PATTERNS` (structural guards prevent prose false positives):
+
+- Registry operations: `reg add`, `reg delete`, `reg query`, `reg save`, `reg load`
 - PowerShell: `-encodedcommand`, `-enc`
-- Rundll32 invocation shape: `rundll32.dll,Export`
-- File extensions: `.lnk`, `.iso`, `.img`, `.vhd`, `.vhdx`
+- Rundll32 invocation shape: `rundll32.exe <dll>,Export`
+- File extensions: `.lnk`, `.iso`, `.vhd`, `.vhdx`
+- Guarded LOLBINs (require an argument/boundary so the bare token does not fire on prose): `sc <verb>`, `expand <path>`, `net <verb>`, `tftp`, `hh <arg>`, `wsl`, `bash -c|-i`, `at <HH:MM>`
+
+The bare registry-hive pattern (`hklm`/`hkcu`/...) and the standalone CMD-flag pattern (`/c`, `/k`) were **removed** in the 2026-05-27 overhaul — the hive pattern was redundant with the `reg` operation regex, and the CMD-flag pattern fired on many unrelated tool flags. `.img` was also dropped (fired on HTML `<img>` references).
 
 ### Structural Rules
 1. **.exe path + argument** — Quoted or unquoted `.exe` followed by at least one argument token
@@ -75,6 +78,8 @@ To add anchors, edit `cmdline_attention_preprocessor.py`:
 - **String anchors**: Add to `STRING_ANCHORS` for case-insensitive literal match
 - **Regex anchors**: Add pattern to `REGEX_ANCHOR_PATTERNS` (pre-compiled at module load)
 
-Keep anchors aligned with LOLBAS tradecraft. Do not add scoring, weighting, or caps.
+Keep anchors aligned with LOLBAS tradecraft. Do not add scoring, weighting, or caps. Promote a bare token to `REGEX_ANCHOR_PATTERNS` (with a structural guard) when its plain substring form fires on prose — `sc`, `net`, `expand`, and `tftp` were promoted this way.
 
-_Last updated: 2026-05-15_
+**Caret-escape normalization:** `_normalize_for_matching()` strips `^` from a copy of each line before anchor matching, defeating the `p^ow^er^sh^ell` / `c^er^tu^til` obfuscation-evasion class. The original text is always preserved verbatim in emitted snippets and `full_article`.
+
+_Last updated: 2026-05-29_

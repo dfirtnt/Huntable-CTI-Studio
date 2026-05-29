@@ -221,7 +221,7 @@ _Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normall
 - Workflow is sequential (extraction → SIGMA within the same execution)
 - Database is for persistence/audit, not execution logic
 
-**Important:** When every sub-agent returns zero items and fallback is disabled, SIGMA generation returns early with `termination_reason: 'no_sigma_rules'`.
+**Important:** When every sub-agent returns zero items and fallback is disabled, SIGMA generation returns early with `termination_reason: 'no_sigma_rules_generated'` (the value of the `TERMINATION_REASON_NO_SIGMA_RULES` constant in `src/workflows/status_utils.py`).
 
 ## Celery vs Direct Execution
 

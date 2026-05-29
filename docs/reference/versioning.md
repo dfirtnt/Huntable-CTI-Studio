@@ -51,10 +51,13 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ## Version History
 
 ### v7.1.0 "Europa" (2026-05-22)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.1.0] section. -->
-- **Named After**: <fill>
-- **Significance**: <fill>
-- **Features**: <fill>
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename established in v7.0.0
+- **Significance**: ContentFilter train/serve skew fixed end-to-end (v2/v3 feature extractors, sidecar metadata, dispatch-by-version), retrain quality gate with seed-corpus fallback and staging-promotion, junk-filter early termination wired into LangGraph routing, Sigma queue `needs_review` for inconclusive novelty, committed `.mcp.json` for project-aware MCP clients, and a full documentation accuracy pass
+- **Features**: `ContentFilter` v2 (19-feature) and v3 (20-feature) extractors aligned with the six ExtractAgent sub-agent contracts, with auto-aligned `feature_version` via `content_filter.pkl.meta.json` sidecar; retrain quality gate (`recall_huntable >= 0.30`, `f1_huntable >= 0.30`) writing to staging before live promotion; junk filter `no_huntable_content` short-circuit (new `check_should_continue_after_junk_filter` routing function) and matching `Junk Filtered` UI badge; Sigma queue `needs_review` status with `behavioral_matches_found` / `total_candidates_evaluated` evidence columns; canonical `summarize_sources()` helper for dashboard/sources widget parity; committed `.mcp.json` + `scripts/run_mcp_server.sh` launcher; CVE-2026-45134 (langsmith) pin and `uv.lock` reconciliation; source dedup fix with `pg_insert ON CONFLICT (identifier)` and UNIQUE constraint; restore scripts standardized on `skip_unsupported_sets=True`; stale "Version 4.0.0" diags card removed; docs accuracy pass across `chunking.md`, `content-filtering.md`, `hunt-scoring.md`, `ml-features.md`
+
+### v7.0.1 (2026-05-14)
+- **Significance**: ProcTreeExtract v2.0 contract closing four eval gaps and ProcTree attention preprocessor anchored to structural lineage evidence
+- **Features**: ProcTreeExtract v2.0 contract (arrow-notation chains, cross-chain dedup, self-referential hop skip, multi-hop `json_example`, `.lnk` exclusion) propagated to seed prompts, all 9 Quickstart presets, and `docs/contracts/proctree-extract.md`; ProcTree attention preprocessor P4/P5 patterns removed (no more bare PID / injection-only false positives); `workflow.html` extractor prompt validator now accepts plain role-persona strings; relaxed `TestWorkflowConfig` active-version assertion
 
 ### v7.0.0 "Europa" (2026-05-12)
 - **Named After**: Europa, one of Jupiter's four Galilean moons and the sixth-largest moon in the solar system; prime candidate for extraterrestrial life due to its subsurface liquid ocean
@@ -108,4 +111,4 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 ### v4.0.0 "Kepler" (2025-11-04)
 - **Named After**: Johannes Kepler, known for planetary motion laws
 
-_Last updated: 2026-05-16_
+_Last updated: 2026-05-29_

@@ -7,8 +7,12 @@ to catch bad output before it surfaces to users.
 
 > **Note:** The regex + encoder + LLM-validator pipeline described here reflects
 > an earlier architecture and is archived. Current extraction runs direct LLM
-> sub-agents (CmdlineExtract, ProcTreeExtract, etc.) with QA handled per-agent.
-> The steps below are retained for historical context.
+> sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract,
+> RegistryExtract, ServicesExtract, ScheduledTasksExtract). The per-extractor QA
+> agent layer was removed in v7.0.0 (2026-05-12) and the remaining shared QA
+> subsystem (`RankAgentQA`, `qa_max_retries`) was removed in v7.1.0
+> (2026-05-22); extractor output now reaches aggregation directly. The steps
+> below are retained for historical context only.
 
 Historical pipeline steps:
 

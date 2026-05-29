@@ -62,10 +62,10 @@ from saturating any one bucket.
 Perfect discriminators  75.0 pts max  (92 patterns)
 LOLBAS executables      10.0 pts max  (239 patterns)
 Intelligence indicators 10.0 pts max  (56 patterns)
-Supporting indicators    5.0 pts max  (89 patterns)
-Negative indicators     -penalty      (25 patterns, linear: min(12.5, n x 6.0))
+Supporting indicators    5.0 pts max  (89 patterns, key: good_discriminators)
+Negative indicators     15.0 pts max  (25 patterns, geometric: 15.0 * (1 - 0.5^n))
 
-Final = max(0.0, min(100.0, perfect + good + lolbas + intelligence - negative))
+Final = max(0.0, min(99.9, perfect + good + lolbas + intelligence - negative))
 ```
 
 **Perfect discriminators** (75 pts max):
@@ -89,7 +89,7 @@ Cmd.exe obfuscation regex patterns (sampled): `%VAR:~0,4%`, `!VAR!`,
 `temp`, `==`, `c:\windows\`, `Event ID`, `.bat`, `.ps1`,
 `pipe`, `::`, `[.]`, `-->`, `currentversion`, `EventCode`
 
-**Negative indicators** (up to -12.5 pts):
+**Negative indicators** (up to -15 pts, geometric like the positive buckets):
 Educational and marketing content: `what is`, `how to`, `best practices`,
 `free trial`
 
@@ -144,4 +144,4 @@ Contains `rundll32`, `iex`, `lsass.exe`; code blocks and host-based indicators.
 **Score 0/100**
 No recognized keywords; no technical depth indicators.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-29_
