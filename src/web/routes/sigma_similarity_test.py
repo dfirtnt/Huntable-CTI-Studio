@@ -33,7 +33,7 @@ def _extract_yaml_block(text: str) -> str:
         fence_close = text.find("\n```", content_start)
         if fence_close == -1:
             fence_close = text.find("```", content_start)
-        return (text[content_start:fence_close].strip() if fence_close != -1 else text[content_start:].strip())
+        return text[content_start:fence_close].strip() if fence_close != -1 else text[content_start:].strip()
     for start in ("title:", "id:", "logsource:", "detection:"):
         idx = text.find(start)
         if idx != -1:
