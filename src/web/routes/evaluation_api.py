@@ -276,6 +276,9 @@ _ROOT = Path(__file__).parent.parent.parent.parent
 _EVAL_ARTICLES_DATA_DIR = _ROOT / "config" / "eval_articles_data"
 
 
+_SUBAGENT_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
 def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     """Load static eval article snapshots for a subagent.
 
@@ -284,6 +287,11 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     file (if present) and is never stored in articles.json.
     """
     out: dict[str, dict] = {}
+    # Strict allowlist on subagent_key (defense-in-depth above the resolve/startswith
+    # containment guard below). Real keys are lowercase identifiers like "cmdline",
+    # "hunt_queries", "process_lineage" — never contain "/" or ".".
+    if not isinstance(subagent_key, str) or not _SUBAGENT_KEY_RE.fullmatch(subagent_key):
+        return out
     data_dir = (_EVAL_ARTICLES_DATA_DIR / subagent_key).resolve()
     # Prevent path traversal: resolved path must stay within the allowed data directory.
     if not str(data_dir).startswith(str(_EVAL_ARTICLES_DATA_DIR.resolve()) + "/"):
