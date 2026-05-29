@@ -236,8 +236,10 @@ test_*.html
 debug_*.py
 !utils/temp/debug_*.py
 *_test.py
-!src/web/routes/sigma_ab_test.py  # Allow SIGMA A/B test route
-!src/web/routes/sigma_similarity_test.py  # Allow SIGMA similarity test route
+# Allow SIGMA A/B test route (gitignore does not support inline comments)
+!src/web/routes/sigma_ab_test.py
+# Allow SIGMA similarity test route
+!src/web/routes/sigma_similarity_test.py
 *_debug.py
 debug_*.log
 *.test
