@@ -1485,9 +1485,7 @@ class LLMService:
         if cancellation_event and cancellation_event.is_set():
             raise asyncio.CancelledError("Request cancelled by client")
 
-        async def make_request(
-            client: httpx.AsyncClient, url: str, request_payload: dict
-        ) -> httpx.Response:
+        async def make_request(client: httpx.AsyncClient, url: str, request_payload: dict) -> httpx.Response:
             """Make the HTTP request as a cancellable task."""
             # For LM Studio, read timeout must be long enough to allow prompt processing
             # before any response data is sent.

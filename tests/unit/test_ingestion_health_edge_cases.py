@@ -137,9 +137,7 @@ def test_uptime_at_or_above_90_percent_is_nominal():
 
 def test_uptime_just_below_90_percent_is_degraded():
     # 5 healthy + 3 warning → uptime = (5 + 1.5) / 8 * 100 = 81.25% → Degraded
-    sources = [_source(f"s{i}") for i in range(5)] + [
-        _source(f"w{i}", consecutive_failures=1) for i in range(3)
-    ]
+    sources = [_source(f"s{i}") for i in range(5)] + [_source(f"w{i}", consecutive_failures=1) for i in range(3)]
     health = _compute_ingestion_health(sources)
 
     assert health["uptime"] < 90.0

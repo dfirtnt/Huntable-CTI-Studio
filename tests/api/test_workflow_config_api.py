@@ -475,9 +475,7 @@ class TestAgentPrompts:
     @pytest.mark.asyncio
     async def test_delete_agent_prompt_not_found(self, async_client: httpx.AsyncClient):
         """DELETE /config/prompts/{agent_name} returns 404 when agent is not in config."""
-        response = await async_client.delete(
-            "/api/workflow/config/prompts/test_definitely_nonexistent_prompt_xyz"
-        )
+        response = await async_client.delete("/api/workflow/config/prompts/test_definitely_nonexistent_prompt_xyz")
         assert response.status_code == 404
         data = response.json()
         assert "detail" in data

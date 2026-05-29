@@ -599,9 +599,7 @@ class TestForensicInstrumentation:
         calls in the cmdline branch would be silent."""
         # full_article MUST equal content byte-for-byte so the newline-count invariant passes
         content = (
-            "Some intro paragraph.\n"
-            "powershell -enc JABjAG8AbQBtAGEAbgBkAA==\n"
-            "More body text continues here.\n" * 30
+            "Some intro paragraph.\npowershell -enc JABjAG8AbQBtAGEAbgBkAA==\nMore body text continues here.\n" * 30
         )
         fake_preprocess_result = {
             "high_likelihood_snippets": [

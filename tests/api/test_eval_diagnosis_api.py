@@ -372,17 +372,22 @@ async def test_compare_aggregate_includes_all_replicate_attempts():
     ts_early = datetime(2026, 5, 27, 20, 3, 12, 800089, tzinfo=UTC)
     ts_tied = datetime(2026, 5, 27, 20, 8, 22, 980560, tzinfo=UTC)
     recs = [
-        _make_eval_record(url, version=10, actual_count=0, expected_count=10,
-                          execution_id=101, record_id=1, created_at=ts_early),
-        _make_eval_record(url, version=10, actual_count=6, expected_count=10,
-                          execution_id=102, record_id=2, created_at=ts_tied),
-        _make_eval_record(url, version=10, actual_count=6, expected_count=10,
-                          execution_id=103, record_id=3, created_at=ts_tied),
+        _make_eval_record(
+            url, version=10, actual_count=0, expected_count=10, execution_id=101, record_id=1, created_at=ts_early
+        ),
+        _make_eval_record(
+            url, version=10, actual_count=6, expected_count=10, execution_id=102, record_id=2, created_at=ts_tied
+        ),
+        _make_eval_record(
+            url, version=10, actual_count=6, expected_count=10, execution_id=103, record_id=3, created_at=ts_tied
+        ),
         # Two v11 attempts; both share a created_at to verify tie-break order.
-        _make_eval_record(url, version=11, actual_count=8, expected_count=10,
-                          execution_id=201, record_id=4, created_at=ts_tied),
-        _make_eval_record(url, version=11, actual_count=8, expected_count=10,
-                          execution_id=202, record_id=5, created_at=ts_tied),
+        _make_eval_record(
+            url, version=11, actual_count=8, expected_count=10, execution_id=201, record_id=4, created_at=ts_tied
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=8, expected_count=10, execution_id=202, record_id=5, created_at=ts_tied
+        ),
     ]
 
     db_manager = _make_db(recs)
@@ -447,18 +452,30 @@ async def test_compare_improvement_uses_averaged_not_latest_attempt():
     url = "https://example.com/article"
     ts = datetime(2026, 5, 27, 21, 0, 0, tzinfo=UTC)
     recs = [
-        _make_eval_record(url, version=10, actual_count=4, expected_count=10,
-                          execution_id=101, record_id=1, created_at=ts),
-        _make_eval_record(url, version=10, actual_count=4, expected_count=10,
-                          execution_id=102, record_id=2, created_at=ts),
-        _make_eval_record(url, version=10, actual_count=9, expected_count=10,  # abs_err=1, the lucky one
-                          execution_id=103, record_id=3, created_at=ts),
-        _make_eval_record(url, version=11, actual_count=7, expected_count=10,
-                          execution_id=201, record_id=4, created_at=ts),
-        _make_eval_record(url, version=11, actual_count=7, expected_count=10,
-                          execution_id=202, record_id=5, created_at=ts),
-        _make_eval_record(url, version=11, actual_count=7, expected_count=10,
-                          execution_id=203, record_id=6, created_at=ts),
+        _make_eval_record(
+            url, version=10, actual_count=4, expected_count=10, execution_id=101, record_id=1, created_at=ts
+        ),
+        _make_eval_record(
+            url, version=10, actual_count=4, expected_count=10, execution_id=102, record_id=2, created_at=ts
+        ),
+        _make_eval_record(
+            url,
+            version=10,
+            actual_count=9,
+            expected_count=10,  # abs_err=1, the lucky one
+            execution_id=103,
+            record_id=3,
+            created_at=ts,
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=7, expected_count=10, execution_id=201, record_id=4, created_at=ts
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=7, expected_count=10, execution_id=202, record_id=5, created_at=ts
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=7, expected_count=10, execution_id=203, record_id=6, created_at=ts
+        ),
     ]
 
     db_manager = _make_db(recs)

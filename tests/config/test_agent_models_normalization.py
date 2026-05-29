@@ -100,9 +100,7 @@ class TestAgentModelsNormalization:
 
 class TestAgentModelsIsNested:
     def test_flat_returns_false(self):
-        assert not agent_models_is_nested(
-            {"CmdlineExtract_model": "x", "CmdlineExtract_provider": "openai"}
-        )
+        assert not agent_models_is_nested({"CmdlineExtract_model": "x", "CmdlineExtract_provider": "openai"})
 
     def test_nested_returns_true(self):
         assert agent_models_is_nested({"CmdlineExtract": {"provider": "openai", "model": "x"}})

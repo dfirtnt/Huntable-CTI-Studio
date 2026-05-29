@@ -364,7 +364,6 @@ class TestAssessNoveltyDegradationWarnings:
         )
 
 
-
 class TestSnakeCaseFieldAliasNormalization:
     """
     build_canonical_rule must normalise snake_case field names to the same
@@ -383,19 +382,14 @@ class TestSnakeCaseFieldAliasNormalization:
     def test_parent_image_snake_and_pascal_produce_same_canonical_field(self):
         """parent_image and ParentImage must resolve to the same canonical field."""
         service = SigmaNoveltyService()
-        canon_snake = service.build_canonical_rule(
-            self._make_rule({"parent_image|contains": "*\\\\powershell.exe"})
-        )
-        canon_pascal = service.build_canonical_rule(
-            self._make_rule({"ParentImage|contains": "*\\\\powershell.exe"})
-        )
+        canon_snake = service.build_canonical_rule(self._make_rule({"parent_image|contains": "*\\\\powershell.exe"}))
+        canon_pascal = service.build_canonical_rule(self._make_rule({"ParentImage|contains": "*\\\\powershell.exe"}))
 
         # detection["atoms"] holds dicts (built via dataclasses.asdict)
         fields_snake = {a["field"] for a in canon_snake.detection["atoms"]}
         fields_pascal = {a["field"] for a in canon_pascal.detection["atoms"]}
         assert fields_snake == fields_pascal, (
-            f"parent_image canonical field {fields_snake!r} != "
-            f"ParentImage canonical field {fields_pascal!r}"
+            f"parent_image canonical field {fields_snake!r} != ParentImage canonical field {fields_pascal!r}"
         )
 
     def test_compute_atom_jaccard_is_one_for_rules_differing_only_in_field_case(self):
@@ -441,15 +435,9 @@ class TestSnakeCaseFieldAliasNormalization:
         canonical_pascal = service.build_canonical_rule(rule_pascal)
         expl = service.generate_explainability(canonical_snake, canonical_pascal, {})
 
-        assert len(expl["shared_atoms"]) == 1, (
-            f"Expected 1 shared atom, got {expl['shared_atoms']}"
-        )
-        assert expl["added_atoms"] == [], (
-            f"Unexpected added_atoms: {expl['added_atoms']}"
-        )
-        assert expl["removed_atoms"] == [], (
-            f"Unexpected removed_atoms: {expl['removed_atoms']}"
-        )
+        assert len(expl["shared_atoms"]) == 1, f"Expected 1 shared atom, got {expl['shared_atoms']}"
+        assert expl["added_atoms"] == [], f"Unexpected added_atoms: {expl['added_atoms']}"
+        assert expl["removed_atoms"] == [], f"Unexpected removed_atoms: {expl['removed_atoms']}"
 
 
 class TestAggressiveNormalizationSnakeCase:
@@ -470,12 +458,8 @@ class TestAggressiveNormalizationSnakeCase:
         # Extra whitespace and backslash — aggressive normalization collapses these
         value = 'powershell.exe  -enc  "abc"'
 
-        canon_snake = service.build_canonical_rule(
-            self._make_rule({"command_line|contains": value})
-        )
-        canon_pascal = service.build_canonical_rule(
-            self._make_rule({"CommandLine|contains": value})
-        )
+        canon_snake = service.build_canonical_rule(self._make_rule({"command_line|contains": value}))
+        canon_pascal = service.build_canonical_rule(self._make_rule({"CommandLine|contains": value}))
 
         atoms_snake = {a["value"] for a in canon_snake.detection["atoms"]}
         atoms_pascal = {a["value"] for a in canon_pascal.detection["atoms"]}

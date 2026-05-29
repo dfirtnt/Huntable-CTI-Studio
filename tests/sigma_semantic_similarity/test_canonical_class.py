@@ -39,6 +39,7 @@ def test_unknown_class_raises():
 
 # --- windows.registry_event resolution ---
 
+
 def test_registry_event_category_resolves():
     r = {
         "logsource": {"product": "windows", "category": "registry_event"},
@@ -65,6 +66,7 @@ def test_security_4657_resolves_registry_event():
 
 
 # --- windows.service resolution ---
+
 
 def test_service_creation_category_resolves():
     r = {
@@ -93,6 +95,7 @@ def test_security_4697_resolves_service():
 
 # --- windows.scheduled_task resolution ---
 
+
 def test_taskscheduler_service_resolves():
     r = {
         "logsource": {"product": "windows", "service": "taskscheduler"},
@@ -111,6 +114,7 @@ def test_security_scheduled_task_event_ids_resolve(event_id):
 
 
 # --- cross-class mismatch ---
+
 
 def test_registry_vs_process_creation_mismatch():
     r_reg = {
@@ -141,6 +145,7 @@ def test_service_vs_registry_mismatch():
 
 
 # --- same-class duplicate detection ---
+
 
 def test_two_registry_rules_same_class_comparable():
     r1 = {

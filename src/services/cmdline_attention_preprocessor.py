@@ -60,7 +60,7 @@ STRING_ANCHORS = [
     "powershell",
     "pwsh",
     "rundll32",
-    "regsvr32",          # T1218.010 — AppLocker/SRP bypass via COM scriptlet (Squiblydoo)
+    "regsvr32",  # T1218.010 — AppLocker/SRP bypass via COM scriptlet (Squiblydoo)
     "msiexec",
     "wmic",
     "certutil",
@@ -85,8 +85,8 @@ STRING_ANCHORS = [
     "regini",
     "odbcconf",
     "cmstp",
-    "mavinject",         # T1055.001 — DLL injection via LOLBIN
-    "xwizard",           # T1218 — proxy execution
+    "mavinject",  # T1055.001 — DLL injection via LOLBIN
+    "xwizard",  # T1218 — proxy execution
     "presentationhost",  # T1218.008 — proxy execution
     "curl",
     "wget",
@@ -95,16 +95,16 @@ STRING_ANCHORS = [
     "%TEMP%",
     "%TMP%",
     "\\temp\\",
-    "\\pipe\\",    # Named pipe paths → lateral movement / C2 comms (SMB, Cobalt Strike)
-    "syswow64",    # 32-bit on 64-bit OS; implies injection/evasion context
-    "wbem",        # WMI namespace path → persistence/execution (T1047, T1546.003)
-    "comspec",     # %COMSPEC% env var; only appears in cmdline invocation contexts
+    "\\pipe\\",  # Named pipe paths → lateral movement / C2 comms (SMB, Cobalt Strike)
+    "syswow64",  # 32-bit on 64-bit OS; implies injection/evasion context
+    "wbem",  # WMI namespace path → persistence/execution (T1047, T1546.003)
+    "comspec",  # %COMSPEC% env var; only appears in cmdline invocation contexts
     # --- PowerShell tradecraft ---
     "FromBase64String",
     "DownloadString",
-    "DownloadFile",      # .NET/PS download cradle (was missing)
+    "DownloadFile",  # .NET/PS download cradle (was missing)
     "DownloadData",
-    "WebClient",         # [System.Net.WebClient] / New-Object Net.WebClient
+    "WebClient",  # [System.Net.WebClient] / New-Object Net.WebClient
     "Invoke-WebRequest",
     "Invoke-Expression",
     "IEX",
@@ -118,11 +118,11 @@ STRING_ANCHORS = [
     ".vhd",
     ".vhdx",
     # --- Credential access (T1003) — scope expansion beyond original LOLBAS set ---
-    "comsvcs",     # comsvcs.dll MiniDump → LSASS dump via rundll32
-    "lsass",       # LSASS process — primary credential dump target
-    "mimikatz",    # credential dumping toolkit; low FP (always attack-context)
-    "sekurlsa",    # mimikatz module (sekurlsa::logonpasswords)
-    "procdump",    # Sysinternals dump tool commonly used for LSASS
+    "comsvcs",  # comsvcs.dll MiniDump → LSASS dump via rundll32
+    "lsass",  # LSASS process — primary credential dump target
+    "mimikatz",  # credential dumping toolkit; low FP (always attack-context)
+    "sekurlsa",  # mimikatz module (sekurlsa::logonpasswords)
+    "procdump",  # Sysinternals dump tool commonly used for LSASS
     # --- Contract LOLBins (named in CmdlineExtract Condition 2) ---
     "whoami",
     "vssadmin",
@@ -145,7 +145,7 @@ REGEX_ANCHOR_PATTERNS = [
     r"\breg(\.exe)?\s+(add|delete|query|save|load)\b",
     r"-(encodedcommand|enc)\b",
     r"\brundll32(\.exe)?\s+[^,\s]+,\S+",
-    r"\.(lnk|iso|vhd|vhdx)\b",   # .img removed: fires on HTML <img> and generic image refs
+    r"\.(lnk|iso|vhd|vhdx)\b",  # .img removed: fires on HTML <img> and generic image refs
     # "sc" promoted from STRING_ANCHORS: plain substring fires on "Microsoft", "scan", etc.
     r"\bsc(\.exe)?\s+(start|stop|create|delete|config|query|description)\b",
     # "expand" promoted from STRING_ANCHORS: requires Windows path arg to avoid prose FP
@@ -598,7 +598,11 @@ def process(
             windowed = _extract_windowed_snippets(line, lines, i, line_lower, byte_preserving=byte_preserving)
             if not windowed and line_norm != line:
                 # Caret obfuscation shifted positions; fall back to full ±1 line capture.
-                windowed = [_extract_snippet(line, lines, i, prefer_full_line=True, line_lower=line_lower, byte_preserving=byte_preserving)]
+                windowed = [
+                    _extract_snippet(
+                        line, lines, i, prefer_full_line=True, line_lower=line_lower, byte_preserving=byte_preserving
+                    )
+                ]
             for snippet in windowed:
                 if not snippet or snippet in seen:
                     continue

@@ -951,9 +951,7 @@ class TestForensicInstrumentationDehydration:
             "temperature": 0.0,
             "messages": messages,
         }
-        execution = self._build_execution_with_instrumentation(
-            messages=messages, provider_payload=provider_payload
-        )
+        execution = self._build_execution_with_instrumentation(messages=messages, provider_payload=provider_payload)
 
         with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
             service = EvalBundleService(Mock())
@@ -1000,9 +998,7 @@ class TestForensicInstrumentationDehydration:
         messages = [{"role": "user", "content": "hi"}]
         # Provider payload with NO messages key (unusual but possible if dispatcher is buggy)
         provider_payload = {"model": "gpt-4o-mini", "max_completion_tokens": 8192}
-        execution = self._build_execution_with_instrumentation(
-            messages=messages, provider_payload=provider_payload
-        )
+        execution = self._build_execution_with_instrumentation(messages=messages, provider_payload=provider_payload)
 
         with patch("src.services.eval_bundle_service.is_langfuse_enabled", return_value=False):
             service = EvalBundleService(Mock())

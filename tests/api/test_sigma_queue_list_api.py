@@ -63,9 +63,7 @@ class TestSigmaQueueListAPI:
     @pytest.mark.asyncio
     async def test_list_keyword_no_match_returns_empty(self, async_client):
         """Keyword filter that matches nothing returns an empty items list with total=0."""
-        response = await async_client.get(
-            "/api/sigma-queue/list?keyword=ZZZNOTAVALIDKEYWORD999&limit=50&offset=0"
-        )
+        response = await async_client.get("/api/sigma-queue/list?keyword=ZZZNOTAVALIDKEYWORD999&limit=50&offset=0")
         assert response.status_code == 200
         data = response.json()
         assert data["items"] == []

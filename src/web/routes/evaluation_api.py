@@ -2123,9 +2123,7 @@ async def get_subagent_eval_compare(
                 ext_ts = existing.created_at
                 rec_id = record.id or 0
                 ext_id = existing.id or 0
-                if rec_ts is not None and (ext_ts is None or rec_ts > ext_ts):
-                    latest[key] = record
-                elif rec_ts == ext_ts and rec_id > ext_id:
+                if rec_ts is not None and (ext_ts is None or rec_ts > ext_ts) or rec_ts == ext_ts and rec_id > ext_id:
                     latest[key] = record
 
             # Collect all unique URLs seen in either version

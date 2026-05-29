@@ -189,12 +189,8 @@ class ContentFetcher:
                         _pw_cfg = _pw_cfg["config"]
                     _profile_dir: str | None = None
                     if _pw_cfg.get("playwright_profile"):
-                        _profile_dir = os.path.join(
-                            "/app/logs/playwright-profiles", source.identifier
-                        )
-                    playwright_scraper = PlaywrightScraper(
-                        headless=True, timeout=30000.0, user_data_dir=_profile_dir
-                    )
+                        _profile_dir = os.path.join("/app/logs/playwright-profiles", source.identifier)
+                    playwright_scraper = PlaywrightScraper(headless=True, timeout=30000.0, user_data_dir=_profile_dir)
 
                     async with playwright_scraper:
                         articles = await playwright_scraper.scrape_source(source)

@@ -319,16 +319,12 @@ class TestLLMService:
             first_response = Mock()
             first_response.status_code = 400
             first_response.text = '{"error":{"message":"Invalid model identifier","type":"invalid_request_error"}}'
-            first_response.json = Mock(
-                return_value={"error": {"message": "Invalid model identifier"}}
-            )
+            first_response.json = Mock(return_value={"error": {"message": "Invalid model identifier"}})
 
             second_response = Mock()
             second_response.status_code = 200
             second_response.text = '{"choices":[{"message":{"content":"ok"}}]}'
-            second_response.json = Mock(
-                return_value={"choices": [{"message": {"content": "ok"}}], "usage": {}}
-            )
+            second_response.json = Mock(return_value={"choices": [{"message": {"content": "ok"}}], "usage": {}})
 
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(side_effect=[first_response, second_response])

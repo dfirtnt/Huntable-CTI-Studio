@@ -657,7 +657,7 @@ class SigmaNoveltyService:
                 canonical_field = base_field
                 for map_key, map_value in self.FIELD_ALIAS_MAP.items():
                     map_key_lower = map_key.lower()
-                    if map_key_lower == base_field_lower or map_key_lower == base_field_nounderscore:
+                    if map_key_lower in (base_field_lower, base_field_nounderscore):
                         canonical_field = map_value
                         break
                 # If no match found, use title case version of original

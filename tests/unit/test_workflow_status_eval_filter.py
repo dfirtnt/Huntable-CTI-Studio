@@ -21,6 +21,7 @@ pytestmark = pytest.mark.unit
 # Helper — compile the filter expression to SQL string + bind params
 # ---------------------------------------------------------------------------
 
+
 def _compile_eval_filter():
     """Return (sql_string, params_dict) for the eval-run exclusion filter clause."""
     from sqlalchemy.dialects import postgresql
@@ -57,9 +58,7 @@ def test_eval_filter_bind_param_contains_eval_run_true():
     """
     _, params = _compile_eval_filter()
     param_value = next(iter(params.values()))
-    assert param_value == {"eval_run": True}, (
-        f"Expected bind param {{'eval_run': True}}, got: {param_value!r}"
-    )
+    assert param_value == {"eval_run": True}, f"Expected bind param {{'eval_run': True}}, got: {param_value!r}"
 
 
 def test_eval_filter_targets_config_snapshot_column():

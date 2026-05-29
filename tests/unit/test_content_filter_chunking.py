@@ -159,7 +159,7 @@ class TestOverlapPreservation:
             curr_start = chunks[i][0]
             overlap_actual = prev_end - curr_start
             assert overlap_actual == 200, (
-                f"Expected exactly 200-char overlap between chunk[{i-1}] and chunk[{i}], "
+                f"Expected exactly 200-char overlap between chunk[{i - 1}] and chunk[{i}], "
                 f"got {overlap_actual}. prev_end={prev_end}, curr_start={curr_start}. "
                 "Hard-cut fallback may be landing start at the wrong position."
             )
@@ -172,7 +172,7 @@ class TestOverlapPreservation:
         Three interleaved dense UUID blocks exercise this cascade.
         """
         normal = "Threat actor exploited CVE-2024-9999 via PowerShell. " * 18  # ~936 chars
-        dense = "aaaa1111-bbbb-2222-cccc-3333dddd4444 SuspiciousProc " * 25     # ~1325 chars
+        dense = "aaaa1111-bbbb-2222-cccc-3333dddd4444 SuspiciousProc " * 25  # ~1325 chars
 
         content = normal + dense + normal + dense + normal + dense + normal
 
@@ -189,10 +189,7 @@ class TestOverlapPreservation:
         assert not bad_pairs, (
             "Content gaps found across multiple dense sections — "
             "zero-overlap bug may have cascaded between dense regions:\n"
-            + "\n".join(
-                f"  chunk[{a}] end={pe}  chunk[{b}] start={cs}  gap={cs - pe}"
-                for a, b, pe, cs in bad_pairs
-            )
+            + "\n".join(f"  chunk[{a}] end={pe}  chunk[{b}] start={cs}  gap={cs - pe}" for a, b, pe, cs in bad_pairs)
         )
 
     def test_overlap_preserved_across_sentence_boundary_that_equals_prev_end(self, cf) -> None:
@@ -226,8 +223,5 @@ class TestOverlapPreservation:
 
         assert not bad_pairs, (
             "Zero-overlap (gap) pairs detected — sentence-boundary-stuck bug regressed:\n"
-            + "\n".join(
-                f"  chunk[{a}] end={pe}  chunk[{b}] start={cs}  overlap={ov}"
-                for a, b, pe, cs, ov in bad_pairs
-            )
+            + "\n".join(f"  chunk[{a}] end={pe}  chunk[{b}] start={cs}  overlap={ov}" for a, b, pe, cs, ov in bad_pairs)
         )

@@ -23,16 +23,16 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     },
     "windows.registry_event": {
         ("windows", "registry_event", None, None),
-        ("windows", None, "sysmon", 12),   # Object create/delete
-        ("windows", None, "sysmon", 13),   # Value Set
-        ("windows", None, "sysmon", 14),   # Key/Value Rename
+        ("windows", None, "sysmon", 12),  # Object create/delete
+        ("windows", None, "sysmon", 13),  # Value Set
+        ("windows", None, "sysmon", 14),  # Key/Value Rename
         ("windows", None, "security", 4657),  # Registry value modified
     },
     "windows.service": {
         ("windows", "service_creation", None, None),
-        ("windows", None, "system", 7045),   # Service install
-        ("windows", None, "system", 7036),   # Service start/stop
-        ("windows", None, "security", 4697), # Service install (security log)
+        ("windows", None, "system", 7045),  # Service install
+        ("windows", None, "system", 7036),  # Service start/stop
+        ("windows", None, "security", 4697),  # Service install (security log)
     },
     # Known limitation: scheduled-task behavior observable across multiple telemetry sources
     # (schtasks.exe via process_creation, \Tasks\ writes via file_event, TaskCache keys via
@@ -40,8 +40,8 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     # creation behavior across these sources will not be compared and may produce false-NOVEL
     # classifications. This cross-telemetry case is tracked separately.
     "windows.scheduled_task": {
-        ("windows", "taskscheduler", None, None),      # category form (forward-compat)
-        ("windows", None, "taskscheduler", None),      # service form (standard SigmaHQ)
+        ("windows", "taskscheduler", None, None),  # category form (forward-compat)
+        ("windows", None, "taskscheduler", None),  # service form (standard SigmaHQ)
         ("windows", None, "security", 4698),  # Task created
         ("windows", None, "security", 4699),  # Task deleted
         ("windows", None, "security", 4700),  # Task enabled

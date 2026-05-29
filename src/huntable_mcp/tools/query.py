@@ -60,7 +60,11 @@ def _format_results(columns: list[str], rows: list) -> str:
         lines.append("|" + "|".join(f" {c:<{col_widths[i]}} " for i, c in enumerate(cells)) + "|")
     lines.append(sep)
 
-    note = f"\n({len(display_rows)} of {len(rows)} rows shown — first {_MAX_ROWS} max)" if truncated else f"\n({len(display_rows)} row{'s' if len(display_rows) != 1 else ''})"
+    note = (
+        f"\n({len(display_rows)} of {len(rows)} rows shown — first {_MAX_ROWS} max)"
+        if truncated
+        else f"\n({len(display_rows)} row{'s' if len(display_rows) != 1 else ''})"
+    )
     return "\n".join(lines) + note
 
 

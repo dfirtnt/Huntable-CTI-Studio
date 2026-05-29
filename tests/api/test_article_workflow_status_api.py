@@ -22,6 +22,7 @@ pytestmark = pytest.mark.api
 # Module-local ASGI client — always in-process so monkeypatch reaches routes
 # ---------------------------------------------------------------------------
 
+
 @pytest_asyncio.fixture
 async def asgi_client():
     """In-process ASGI transport client.
@@ -36,9 +37,7 @@ async def asgi_client():
     from src.web.modern_main import app
 
     transport = ASGITransport(app=app, raise_app_exceptions=False)
-    async with httpx.AsyncClient(
-        transport=transport, base_url="http://testserver", timeout=60.0
-    ) as client:
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver", timeout=60.0) as client:
         yield client
 
 
