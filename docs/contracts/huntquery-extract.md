@@ -1,5 +1,9 @@
 # HuntQueriesExtract -- Prompt v2.0 (Standard-compliant)
 
+!!! tip "Use this outside Huntable"
+    Grab the [drop-in version](huntquery-extract-dropin.md) — paste it into a Claude or
+    ChatGPT Project and feed it a URL, text, or PDF.
+
 ## ROLE
 
 You extract finished detection logic (EDR/SIEM queries and Sigma rules) from threat intelligence articles.

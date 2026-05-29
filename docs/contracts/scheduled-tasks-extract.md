@@ -1,5 +1,9 @@
 # ScheduledTasksExtract -- Prompt v1.0 (Standard-compliant)
 
+!!! tip "Use this outside Huntable"
+    Grab the [drop-in version](scheduled-tasks-extract-dropin.md) — paste it into a Claude or
+    ChatGPT Project and feed it a URL, text, or PDF.
+
 ## ROLE
 
 You extract Windows scheduled-task identity and scheduling metadata from threat intelligence articles.

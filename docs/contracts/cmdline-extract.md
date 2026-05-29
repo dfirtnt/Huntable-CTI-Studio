@@ -1,5 +1,9 @@
 # CmdlineExtract (WindowsCommand) -- Prompt v2.0 (Standard-compliant)
 
+!!! tip "Use this outside Huntable"
+    Grab the [drop-in version](cmdline-extract-dropin.md) — paste it into a Claude or
+    ChatGPT Project and feed it a URL, text, or PDF.
+
 ## ROLE
 
 You extract Windows command-line observables from threat intelligence articles.
