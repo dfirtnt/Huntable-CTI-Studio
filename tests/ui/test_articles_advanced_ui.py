@@ -190,12 +190,12 @@ class TestArticlesSearchAndFilter:
         # Verify Excellent option exists (avoid asserting visibility on <option> when select is collapsed)
         expect(score_filter.locator("option").nth(1)).to_have_text("Excellent (80-100)")
 
-        # Select score range
+        # Select score range. The change listener in articles.html fires
+        # form.submit() asynchronously, so the navigation lags the dispatched
+        # event. expect() auto-retries until the URL matches or times out,
+        # matching the pattern used by the sibling source-filter test.
         score_filter.select_option("80-100")
-        page.wait_for_load_state("load")
-
-        # Verify URL contains score range parameter
-        expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"))
+        expect(page).to_have_url(re.compile(r".*threat_hunting_range=80-100.*"), timeout=10000)
 
     @pytest.mark.ui
     @pytest.mark.articles
