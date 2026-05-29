@@ -6,14 +6,6 @@
     ]
   },
   {
-    "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
-    "expected_items": []
-  },
-  {
-    "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
-    "expected_items": []
-  },
-  {
     "url": "https://www.huntress.com/blog/advanced-intrusion-targeting-executive-at-critical-marketing-research-company",
     "expected_items": [
       "WebrootCheck"

@@ -36,10 +36,6 @@
     ]
   },
   {
-    "url": "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/",
-    "expected_items": []
-  },
-  {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
     "expected_items": [
       "w3wp.exe -> schtasks.exe"

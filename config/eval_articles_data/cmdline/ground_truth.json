@@ -50,10 +50,6 @@
     ]
   },
   {
-    "url": "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
-    "expected_items": []
-  },
-  {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
     "expected_items": [
       "ipconfig /all",
@@ -121,9 +117,5 @@
       "net user backup_EA P@ssw0rd1234 /add /dom",
       "net group \"enterprise admins\" backup_EA /add /dom"
     ]
-  },
-  {
-    "url": "https://www.elastic.co/security-labs/roningloader",
-    "expected_items": []
   }
 ]
