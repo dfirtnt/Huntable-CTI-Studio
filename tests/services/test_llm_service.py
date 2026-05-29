@@ -55,8 +55,11 @@ class TestLLMService:
         """Create LLMService with config models."""
         config_models = {
             "RankAgent": "test-rank-model",
+            "RankAgent_provider": "openai",
             "ExtractAgent": "test-extract-model",
+            "ExtractAgent_provider": "openai",
             "SigmaAgent": "test-sigma-model",
+            "SigmaAgent_provider": "openai",
         }
         with patch("src.services.llm_service.DatabaseManager") as mock_db:
             mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
@@ -74,10 +77,34 @@ class TestLLMService:
         assert service._canonicalize_provider("claude") == "anthropic"
 
     def test_canonicalize_provider_lmstudio(self, service):
-        """Test provider canonicalization for LMStudio."""
-        assert service._canonicalize_provider("lmstudio") == "lmstudio"
-        assert service._canonicalize_provider("local") == "lmstudio"
-        assert service._canonicalize_provider(None) == "lmstudio"
+        """Test provider canonicalization for LMStudio when the feature is enabled."""
+        with patch.object(service, "_is_lmstudio_enabled", return_value=True):
+            assert service._canonicalize_provider("lmstudio") == "lmstudio"
+            assert service._canonicalize_provider("local") == "lmstudio"
+        # None/empty provider always raises regardless of LMStudio flag (fail-fast).
+        with pytest.raises(ValueError, match="No provider configured"):
+            service._canonicalize_provider(None)
+
+    def test_init_with_eval_filtered_config_no_sigma_provider(self):
+        """LLMService must not raise when SigmaAgent_* keys are absent.
+
+        Eval runs strip SigmaAgent keys from agent_models before constructing LLMService.
+        Regression: commit d51ad10d made _canonicalize_provider('') raise immediately,
+        so absent provider keys incorrectly triggered 'No provider configured' errors.
+        """
+        eval_filtered_models = {
+            "ExtractAgent": "claude-haiku-4-5-20251001",
+            "ExtractAgent_provider": "anthropic",
+            "RankAgent": "claude-haiku-4-5-20251001",
+            "RankAgent_provider": "anthropic",
+            "CmdlineExtract_model": "claude-haiku-4-5-20251001",
+            "CmdlineExtract_provider": "anthropic",
+        }
+        with patch("src.services.llm_service.DatabaseManager") as mock_db:
+            mock_db.return_value.get_session.return_value.query.return_value.all.return_value = []
+            svc = LLMService(config_models=eval_filtered_models)
+        assert svc.provider_extract == "anthropic"
+        assert svc.provider_sigma == ""
 
     def test_resolve_agent_model_from_config(self, service_with_config):
         """Test model resolution from config."""
@@ -108,6 +135,8 @@ class TestLLMService:
     @pytest.mark.asyncio
     async def test_request_chat_success(self, service):
         """Test successful chat request."""
+        # Enable LMStudio so _canonicalize_provider("lmstudio") does not raise.
+        service.workflow_lmstudio_enabled = True
         mock_response = {
             "choices": [{"message": {"content": "Test response"}}],
             "usage": {"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
@@ -174,6 +203,8 @@ class TestLLMService:
     @pytest.mark.asyncio
     async def test_request_chat_error_handling(self, service):
         """Test error handling in chat request."""
+        # Enable LMStudio so _canonicalize_provider("lmstudio") does not raise.
+        service.workflow_lmstudio_enabled = True
         with patch("httpx.AsyncClient") as mock_client_class:
             mock_client = AsyncMock()
             mock_client.post = AsyncMock(side_effect=RuntimeError("API error"))
@@ -273,6 +304,59 @@ class TestLLMService:
             assert "temperature" not in payload
 
     @pytest.mark.asyncio
+    async def test_lmstudio_model_prefix_retry_sends_modified_payload(self, service):
+        """Regression: retry on 'invalid model identifier' must POST the modified model.
+
+        Previously, the inner `make_request` closure captured `payload` by name, so the
+        retry loop's `payload_retry` was built but never actually sent — every retry
+        re-sent the original payload. This test pins the wire-level contract: the second
+        POST body must carry the prefix-stripped model, and the success result's
+        forensic `_provider_payload` must match what was actually sent.
+        """
+        service.workflow_lmstudio_enabled = True
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            first_response = Mock()
+            first_response.status_code = 400
+            first_response.text = '{"error":{"message":"Invalid model identifier","type":"invalid_request_error"}}'
+            first_response.json = Mock(return_value={"error": {"message": "Invalid model identifier"}})
+
+            second_response = Mock()
+            second_response.status_code = 200
+            second_response.text = '{"choices":[{"message":{"content":"ok"}}]}'
+            second_response.json = Mock(return_value={"choices": [{"message": {"content": "ok"}}], "usage": {}})
+
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(side_effect=[first_response, second_response])
+            mock_client.aclose = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service.request_chat(
+                provider="lmstudio",
+                model_name="myorg/test-model",
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=128,
+                temperature=0.7,
+                timeout=30.0,
+                failure_context="lmstudio-prefix-retry",
+            )
+
+            assert result["choices"][0]["message"]["content"] == "ok"
+            assert mock_client.post.await_count == 2
+
+            first_payload = mock_client.post.await_args_list[0].kwargs["json"]
+            second_payload = mock_client.post.await_args_list[1].kwargs["json"]
+
+            # Initial attempt sends the canonical (prefixed) model name.
+            assert first_payload["model"] == "myorg/test-model"
+            # Retry MUST send the prefix-stripped form — not the original.
+            assert second_payload["model"] == "test-model"
+            # Forensic instrumentation records what actually went on the wire.
+            assert result["_provider_payload"]["model"] == "test-model"
+
+    @pytest.mark.asyncio
     async def test_request_chat_empty_messages_raises_preprocess_invariant_error(self, service):
         """Circuit breaker: request_chat must never invoke LLM with empty messages."""
         with pytest.raises(PreprocessInvariantError, match="empty messages"):
@@ -360,6 +444,8 @@ class TestLLMService:
     @pytest.mark.asyncio
     async def test_run_extraction_agent_uses_detected_lmstudio_context(self, service):
         """run_extraction_agent should use the detected LMStudio window before truncating content."""
+        # Enable LMStudio so provider="lmstudio" does not raise in _canonicalize_provider.
+        service.workflow_lmstudio_enabled = True
         content = "x" * 10000
         prompt_config = {
             "role": "You are a registry extractor.",

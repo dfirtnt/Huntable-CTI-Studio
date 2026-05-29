@@ -251,9 +251,7 @@ def lmstudio_active_config(db_session):
         description=f"LMStudio E2E test — {_PRESET_NAME}",
         agent_models=legacy["agent_models"],
         agent_prompts=legacy["agent_prompts"],
-        qa_enabled=legacy["qa_enabled"],
         sigma_fallback_enabled=legacy.get("sigma_fallback_enabled", False),
-        qa_max_retries=legacy.get("qa_max_retries", 3),
         rank_agent_enabled=legacy.get("rank_agent_enabled", True),
         cmdline_attention_preprocessor_enabled=legacy.get("cmdline_attention_preprocessor_enabled", True),
     )
@@ -419,7 +417,6 @@ def test_full_workflow_with_lmstudio(db_session, lmstudio_active_config, test_ar
         # Models and prompts from the preset
         "agent_models": config.agent_models or {},
         "agent_prompts": config.agent_prompts or {},
-        "qa_enabled": config.qa_enabled or {},
         # Feature flags
         # Always enable ranking for this test — the preset sets rank_agent_enabled=False
         # (it assumes a fast eval loop), but this E2E test explicitly exercises the full
@@ -427,8 +424,6 @@ def test_full_workflow_with_lmstudio(db_session, lmstudio_active_config, test_ar
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": getattr(config, "cmdline_attention_preprocessor_enabled", True),
         "sigma_fallback_enabled": getattr(config, "sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": getattr(config, "osdetection_fallback_enabled", False),
-        "qa_max_retries": getattr(config, "qa_max_retries", 3),
         "extract_agent_settings": {"disabled_agents": []},
         # Config provenance
         "config_id": config.id,

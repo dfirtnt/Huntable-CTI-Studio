@@ -68,7 +68,7 @@ Comprehensive guide for Huntable CTI Studio backup and restore operations, inclu
 #### Database-Only Backup
 - PostgreSQL database dump (compressed) - **includes ALL tables**
   - **ml_model_versions**: ML model version history with evaluation metrics (accuracy, precision, recall, F1 scores)
-  - **agentic_workflow_config**: Agent workflow configuration (thresholds, agent models, prompts, QA settings)
+  - **agentic_workflow_config**: Agent workflow configuration (thresholds, agent models, prompts)
   - **agent_prompt_versions**: Agent prompt version history
   - **app_settings**: Application settings (user preferences, API keys, LLM configurations)
   - **agent_evaluations**: Agent evaluation results and performance metrics

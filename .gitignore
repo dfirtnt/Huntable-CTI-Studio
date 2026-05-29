@@ -222,14 +222,24 @@ tramp
 .\#*
 
 # Project specific
-outputs/
+# outputs/* instead of outputs/ so git still traverses subdirs — required for negation to work.
+# See: https://git-scm.com/docs/gitignore "It is not possible to re-include a file if a parent
+# directory of that file is excluded."
+outputs/*
+!outputs/evaluation_data/
+outputs/evaluation_data/*
+# Curated holdout eval set — committed so fresh installs have a working quality gate.
+# Source labels live in config/labeled_chunks/ and regenerate this via prepare_eval_set.py.
+!outputs/evaluation_data/eval_set.csv
 test_*.html
 # Temporary scripts (root level only - utils/temp/ scripts are tracked)
 debug_*.py
 !utils/temp/debug_*.py
 *_test.py
-!src/web/routes/sigma_ab_test.py  # Allow SIGMA A/B test route
-!src/web/routes/sigma_similarity_test.py  # Allow SIGMA similarity test route
+# Allow SIGMA A/B test route (gitignore does not support inline comments)
+!src/web/routes/sigma_ab_test.py
+# Allow SIGMA similarity test route
+!src/web/routes/sigma_similarity_test.py
 *_debug.py
 debug_*.log
 *.test
@@ -273,3 +283,8 @@ Workshop/.worktrees/
 /playwright/.auth/
 .setup_complete
 *.pptx
+
+# Local-only generated reports (interactive diagrams, distribution snapshots)
+create-agent-wiring-map.html
+create-agent-wiring-map.pdf
+hunt_score_distribution.html

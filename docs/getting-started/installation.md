@@ -109,7 +109,6 @@ Run CLI commands using the wrapper script:
 ./run_cli.sh sync-sources --config config/sources.yaml --no-remove
 ./run_cli.sh compare-sources --config-path config/sources.yaml
 ./run_cli.sh rescore --article-id 123 --dry-run
-./run_cli.sh rescore-ml --article-id 123 --dry-run
 ./run_cli.sh capabilities check
 ./run_cli.sh embed stats
 ./run_cli.sh sigma stats
@@ -187,6 +186,31 @@ See `configuration.md` for detailed port configuration.
 - Check disk space: `df -h`
 - Verify Docker daemon is running
 - Try rebuilding: `docker-compose up --build -d`
+
+## ML Content Filter Model
+
+The app ships a RandomForest classifier that labels article chunks "Huntable" or "Not Huntable". The trained model is **not committed to git** (it's a binary artifact), but `./setup.sh` seeds it automatically during fresh install:
+
+```
+./setup.sh
+  └─ docker exec cti_web python3 scripts/seed_model.py
+       ├─ trains RandomForest from config/eval_articles_data/ fixtures
+       └─ writes outputs/evaluation_data/eval_set.csv (317-row holdout)
+```
+
+If you need to seed manually (e.g., after restoring a database backup without the models volume):
+
+```bash
+docker exec cti_web python3 scripts/seed_model.py
+```
+
+The curated holdout eval set (`outputs/evaluation_data/eval_set.csv`) **is** committed and will be present after `git clone`. If you need to regenerate it from the source label files:
+
+```bash
+python3 scripts/prepare_eval_set.py
+```
+
+See the [ML Model Operations Runbook](../operations/ml-model-runbook.md) for retraining, quality gate details, and rollback procedures.
 
 ## Agent evals
 

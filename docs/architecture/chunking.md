@@ -11,7 +11,7 @@ Chunking splits article content for ML scoring and content filtering. Non-huntab
 
 ## Uses
 
-- **ML hunt scoring**: Chunks are classified huntable/not; confidences are aggregated into `ml_hunt_score` and `ml_hunt_score_details`. See [ML hunt scoring](../ml-training/hunt-scoring.md).
+- **ML chunk scoring**: Chunks are classified huntable/not by the ContentFilter model. Per-article `ml_hunt_score` aggregation was retired in v7.1.0 (2026-05-23); chunk-level predictions are still stored in `chunk_analysis_results`. See [ML hunt scoring](../ml-training/hunt-scoring.md).
 - **Fine-tuning prep**: Use `scripts/prepare_eval_set.py` to surface observable-rich chunks and suitability scores when selecting articles. Training still uses full articles.
 - **Operator review**: Chunk previews identify where observables are concentrated before running extraction or fine-tuning.
 
@@ -23,25 +23,7 @@ Each analyzed chunk records:
 - `ml_confidence` (0–1)
 - Character offsets and snippet text
 
-Aggregates in article metadata:
-
-```json
-{
-  "ml_hunt_score": 75.5,
-  "ml_hunt_score_metric": "weighted_average",
-  "ml_hunt_score_details": {
-    "total_chunks": 42,
-    "huntable_chunks": 28,
-    "huntable_proportion": 0.667,
-    "avg_confidence": 0.755,
-    "min_confidence": 0.512,
-    "max_confidence": 0.987,
-    "model_version": "v1.2.3"
-  }
-}
-```
-
-Note: `total_chunks` reflects the actual chunks emitted by the chunker. As of 2026-05-21, overlap-only tail chunks are suppressed (see [Boundaries](#boundaries)), so `total_chunks` may be lower than the naive `len(content) // 1000 + 1` estimate.
+Note: `total_chunks` reflects the actual chunks emitted by the chunker. Article metadata no longer contains `ml_hunt_score` or `ml_hunt_score_details` — that aggregation was retired in v7.1.0 (2026-05-23). Legacy articles scored before retirement may still have the field; new chunk analysis runs do not write it. As of 2026-05-21, overlap-only tail chunks are suppressed (see [Boundaries](#boundaries)), so `total_chunks` may be lower than the naive `len(content) // 1000 + 1` estimate.
 
 
 ## Running analysis
@@ -56,8 +38,9 @@ Note: `total_chunks` reflects the actual chunks emitted by the chunker. As of 20
 - Chunk metadata objects (`ml_prediction`, confidence, offsets) are not passed to the Extract Agent or Sigma generator.
 - The filtered content — produced by removing non-huntable chunks — is what both agents receive. The full raw article is not used.
 - As of 2026-05-21, a chunk consisting entirely of overlap from the previous chunk's tail is suppressed rather than emitted. This prevents spurious ~200-character chunks at section boundaries that carry no new content.
+- As of 2026-05-26, a zero-overlap bug was fixed: in sections with no sentence terminators (e.g. dense UUID/SIGMA-rule lists), `find_sentence_boundaries` could return the previous chunk's end position, causing the guard to reset `start` to that boundary and silently drop the 200-char overlap. The guard now falls back to a hard character cut at `start + chunk_size` instead, preserving the overlap positioning.
 - Training examples from `prepare_eval_set.py` use filtered content by default (same filter as extraction). The original full content is stored as a reference field but is not the training input.
 
 
-_Last updated: 2026-05-21_
-_Last reviewed: 2026-05-22_
+_Last updated: 2026-05-26_
+_Last reviewed: 2026-05-26_

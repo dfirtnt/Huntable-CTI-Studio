@@ -24,139 +24,6 @@ test.describe('Agent Config Toggle Interactions', () => {
     await expandPanelIfNeeded(page, 'sigma-agent-panel');
   });
 
-  test('should disable Rank QA when Rank Agent is disabled', async ({ page }) => {
-    const rankAgentToggle = page.locator('#rank-agent-enabled');
-    const rankQAToggle = page.locator('#qa-rankagent');
-
-    await rankAgentToggle.waitFor({ state: 'attached', timeout: 10000 });
-    await rankQAToggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    // Ensure Rank Agent is enabled and Rank QA is enabled
-    if (!(await rankAgentToggle.isChecked())) {
-      await page.evaluate(() => {
-        const el = document.getElementById('rank-agent-enabled') as HTMLInputElement;
-        if (el) {
-          el.checked = true;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          // Call update function if it exists
-          if (typeof updateRankQAState === 'function') {
-            updateRankQAState(false);
-          }
-        }
-      });
-      await page.waitForTimeout(1000);
-    }
-    if (!(await rankQAToggle.isChecked())) {
-      await page.evaluate(() => {
-        const el = document.getElementById('qa-rankagent') as HTMLInputElement;
-        if (el) {
-          el.checked = true;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      });
-      await page.waitForTimeout(1000);
-    }
-
-    // Disable Rank Agent
-    await page.evaluate(() => {
-      const el = document.getElementById('rank-agent-enabled') as HTMLInputElement;
-      if (el) {
-        el.checked = false;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        // Call update function to disable QA
-        if (typeof updateRankQAState === 'function') {
-          updateRankQAState(false);
-        }
-      }
-    });
-    await page.waitForTimeout(1000); // Wait for UI update
-
-    // Rank QA should be disabled and unchecked
-    const isQADisabled = await rankQAToggle.isDisabled();
-    const isQAChecked = await rankQAToggle.isChecked();
-
-    expect(isQADisabled).toBe(true);
-    expect(isQAChecked).toBe(false);
-  });
-
-  test('should enable Rank QA when Rank Agent is enabled', async ({ page }) => {
-    const rankAgentToggle = page.locator('#rank-agent-enabled');
-    const rankQAToggle = page.locator('#qa-rankagent');
-
-    await rankAgentToggle.waitFor({ state: 'attached', timeout: 10000 });
-    await rankQAToggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    // Disable Rank Agent first
-    if (await rankAgentToggle.isChecked()) {
-      await page.evaluate(() => {
-        const el = document.getElementById('rank-agent-enabled') as HTMLInputElement;
-        if (el) {
-          el.checked = false;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      });
-      await page.waitForTimeout(500);
-    }
-
-    // Verify QA is disabled
-    expect(await rankQAToggle.isDisabled()).toBe(true);
-
-    // Enable Rank Agent
-    await page.evaluate(() => {
-      const el = document.getElementById('rank-agent-enabled') as HTMLInputElement;
-      if (el) {
-        el.checked = true;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-    await page.waitForTimeout(500);
-
-    // Rank QA should be enabled (but may not be checked)
-    const isQADisabled = await rankQAToggle.isDisabled();
-    expect(isQADisabled).toBe(false);
-  });
-
-  test('should update QA checkbox state when Extract sub-agent toggle changes', async ({ page }) => {
-    await expandPanelIfNeeded(page, 'cmdlineextract-agent-panel');
-    const extractToggle = page.locator('#toggle-cmdlineextract-enabled');
-    const qaCheckbox = page.locator('#qa-cmdlineextract');
-
-    await extractToggle.waitFor({ state: 'attached', timeout: 10000 });
-    await qaCheckbox.waitFor({ state: 'attached', timeout: 10000 });
-
-    // Ensure extract agent is enabled
-    if (!(await extractToggle.isChecked())) {
-      await page.evaluate(() => {
-        const el = document.getElementById('toggle-cmdlineextract-enabled') as HTMLInputElement;
-        if (el) {
-          el.checked = true;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-          if (typeof handleExtractAgentToggle === 'function') {
-            handleExtractAgentToggle('CmdlineExtract');
-          }
-        }
-      });
-      await page.waitForTimeout(500);
-    }
-
-    // Disable extract agent
-    await page.evaluate(() => {
-      const el = document.getElementById('toggle-cmdlineextract-enabled') as HTMLInputElement;
-      if (el) {
-        el.checked = false;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-        if (typeof handleExtractAgentToggle === 'function') {
-          handleExtractAgentToggle('CmdlineExtract');
-        }
-      }
-    });
-    await page.waitForTimeout(500);
-
-    // QA checkbox should be disabled
-    const isQADisabled = await qaCheckbox.isDisabled();
-    expect(isQADisabled).toBe(true);
-  });
-
   test('should autosave all toggles on change', async ({ page }) => {
     const rankAgentToggle = page.locator('#rank-agent-enabled');
     await rankAgentToggle.waitFor({ state: 'attached', timeout: 10000 });
@@ -327,7 +194,7 @@ test.describe('Agent Config Toggle Interactions', () => {
 
 const PANEL_STEP_MAP: Record<string, string[]> = {
   'os-detection-panel': ['s0'], 'other-thresholds-panel': ['s1', 's5'],
-  'rank-agent-configs-panel': ['s2'], 'qa-settings-panel': ['s2'],
+  'rank-agent-configs-panel': ['s2'],
   'extract-agent-panel': ['s3'], 'cmdlineextract-agent-panel': ['s3'],
   'proctreeextract-agent-panel': ['s3'], 'huntqueriesextract-agent-panel': ['s3'],
   'registryextract-agent-panel': ['s3'], 'sigma-agent-panel': ['s4'],

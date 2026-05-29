@@ -24,7 +24,6 @@ test.describe('Agent Config Autosave', () => {
     // Expand necessary panels
     await expandPanelIfNeeded(page, 'other-thresholds-panel');
     await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
-    await expandPanelIfNeeded(page, 'qa-settings-panel');
   });
 
   test('should autosave junk filter threshold on input', async ({ page }) => {
@@ -146,46 +145,6 @@ test.describe('Agent Config Autosave', () => {
     expect(responseData.rank_agent_enabled).toBe(!initialChecked);
   });
 
-  test('should autosave Rank QA toggle on change', async ({ page }) => {
-    const toggle = page.locator('#qa-rankagent');
-    await toggle.waitFor({ state: 'attached', timeout: 10000 });
-
-    // Ensure Rank Agent is enabled first
-    const rankAgentToggle = page.locator('#rank-agent-enabled');
-    if (!(await rankAgentToggle.isChecked())) {
-      await page.evaluate(() => {
-        const el = document.getElementById('rank-agent-enabled') as HTMLInputElement;
-        if (el) {
-          el.checked = true;
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      });
-      await page.waitForTimeout(500);
-    }
-
-    const initialChecked = await toggle.isChecked();
-
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
-    );
-
-    await page.evaluate(() => {
-      const el = document.getElementById('qa-rankagent') as HTMLInputElement;
-      if (el) {
-        el.checked = !el.checked;
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-    await page.waitForTimeout(500);
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    expect(responseData.qa_enabled?.RankAgent).toBe(!initialChecked);
-  });
-
   test('should autosave Sigma fallback toggle on change', async ({ page }) => {
     await expandPanelIfNeeded(page, 'sigma-agent-panel');
     const toggle = page.locator('#sigma-fallback-enabled');
@@ -212,73 +171,6 @@ test.describe('Agent Config Autosave', () => {
 
     const responseData = await response.json();
     expect(responseData.sigma_fallback_enabled).toBe(!initialChecked);
-  });
-
-  test('should autosave QA max retries when valid (1-3 range)', async ({ page }) => {
-    const input = page.locator('#qaMaxRetries');
-    await input.waitFor({ state: 'visible', timeout: 10000 });
-
-    const newValue = '2';
-
-    const responsePromise = page.waitForResponse(
-      (resp) => resp.url().includes('/api/workflow/config') && resp.request().method() === 'PUT',
-      { timeout: 10000 }  // Increased from 5000 to 10000 for reliability
-    );
-
-    await input.fill(newValue);
-    await input.blur();
-
-    const response = await responsePromise;
-    expect(response.status()).toBe(200);
-
-    const responseData = await response.json();
-    expect(responseData.qa_max_retries).toBe(2);
-  });
-
-  test('should block Save when QA max retries is invalid (e.g. 5) and show error', async ({ page }) => {
-    // QA settings are now inline in step 2 (LLM Ranking), no separate panel
-    await expandPanelIfNeeded(page, 'rank-agent-configs-panel');
-    const input = page.locator('#qaMaxRetries');
-    await input.waitFor({ state: 'visible', timeout: 10000 });
-    await input.fill('5');
-    await input.blur();
-    await page.waitForTimeout(300);
-
-    // Also expand step 1 for the ranking threshold
-    await expandPanelIfNeeded(page, 'other-thresholds-panel');
-    const rankInput = page.locator('#rankingThreshold');
-    await rankInput.waitFor({ state: 'visible', timeout: 5000 });
-    const rankVal = parseFloat(await rankInput.inputValue()) || 6;
-    await rankInput.evaluate((el, val) => {
-      (el as HTMLInputElement).value = val.toString();
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
-    }, rankVal + 0.1);
-    await page.waitForTimeout(500);
-
-    // Close step 2 then re-open to verify QA error survives
-    await page.evaluate(() => document.getElementById('s2')?.classList.remove('open'));
-    await page.waitForTimeout(300);
-
-    const consoleErrors: string[] = [];
-    page.on('console', msg => {
-      if (msg.type() === 'error') consoleErrors.push(msg.text());
-    });
-
-    const saveButton = page.locator('#save-config-button');
-    await saveButton.waitFor({ state: 'visible', timeout: 5000 });
-    await page.waitForTimeout(500);
-    await saveButton.click();
-    await page.waitForTimeout(1500);
-
-    const notFocusable = consoleErrors.some(t => t.includes('not focusable'));
-    expect(notFocusable).toBe(false);
-
-    // Re-open step 2 to see the error
-    await page.evaluate(() => document.getElementById('s2')?.classList.add('open'));
-    await page.waitForTimeout(400);
-    const errorEl = page.locator('#qaMaxRetries-error');
-    await expect(errorEl).toContainText(/between 1 and 3/);
   });
 
   test('should preserve other fields when autosaving one field', async ({ page }) => {
@@ -392,7 +284,6 @@ const PANEL_STEP_MAP: Record<string, string[]> = {
   'os-detection-panel': ['s0'],
   'other-thresholds-panel': ['s1', 's5'],   // junk filter + similarity
   'rank-agent-configs-panel': ['s2'],
-  'qa-settings-panel': ['s2'],
   'extract-agent-panel': ['s3'],
   'cmdlineextract-agent-panel': ['s3'],
   'proctreeextract-agent-panel': ['s3'],

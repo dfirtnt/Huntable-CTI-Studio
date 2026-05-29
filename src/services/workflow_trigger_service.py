@@ -44,7 +44,6 @@ class WorkflowTriggerService:
                     version=1,
                     is_active=True,
                     description="Default configuration",
-                    qa_enabled={},
                     agent_prompts=default_prompts if default_prompts else None,
                 )
                 self.db.add(config)
@@ -213,7 +212,6 @@ class WorkflowTriggerService:
                     "similarity_threshold": config.similarity_threshold,
                     "junk_filter_threshold": config.junk_filter_threshold,
                     "agent_models": config.agent_models,
-                    "qa_enabled": config.qa_enabled if config and config.qa_enabled is not None else {},
                     "rank_agent_enabled": config.rank_agent_enabled
                     if config and hasattr(config, "rank_agent_enabled")
                     else True,
@@ -235,10 +233,11 @@ class WorkflowTriggerService:
 
             logger.info(f"Triggering agentic workflow for article {article_id} (execution_id: {execution.id})")
 
-            # Dispatch Celery task
+            # Dispatch Celery task — always carry execution.id so run_workflow() uses the
+            # pre-created record instead of creating a new one (prevents eligibility bypass).
             from src.worker.celery_app import trigger_agentic_workflow  # noqa: PLC0415
 
-            trigger_agentic_workflow.delay(article_id)
+            trigger_agentic_workflow.delay(article_id, execution.id)
 
             return True, None
 

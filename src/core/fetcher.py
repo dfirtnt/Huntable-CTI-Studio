@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
@@ -122,8 +123,7 @@ class ContentFetcher:
 
                     # Extract RSS parsing stats from first article if available
                     rss_stats = {}
-                    if articles and len(articles) > 0:
-                        # Try to get stats from article_metadata (correct field name for ArticleCreate)
+                    if articles:
                         first_article = articles[0]
                         if hasattr(first_article, "article_metadata") and first_article.article_metadata:
                             rss_stats = first_article.article_metadata.get("rss_parsing_stats", {})
@@ -181,8 +181,16 @@ class ContentFetcher:
                 try:
                     logger.debug(f"Attempting Playwright scraping for {source.name} (JS-rendered content)")
 
-                    # Create new Playwright scraper instance for this source
-                    playwright_scraper = PlaywrightScraper(headless=True, timeout=30000.0)
+                    # If config has playwright_profile: true, use a persistent browser
+                    # profile stored at /app/logs/playwright-profiles/<identifier> so
+                    # WAF session cookies survive between collection runs.
+                    _pw_cfg = source.config if isinstance(source.config, dict) else {}
+                    if "config" in _pw_cfg and isinstance(_pw_cfg.get("config"), dict):
+                        _pw_cfg = _pw_cfg["config"]
+                    _profile_dir: str | None = None
+                    if _pw_cfg.get("playwright_profile"):
+                        _profile_dir = os.path.join("/app/logs/playwright-profiles", source.identifier)
+                    playwright_scraper = PlaywrightScraper(headless=True, timeout=30000.0, user_data_dir=_profile_dir)
 
                     async with playwright_scraper:
                         articles = await playwright_scraper.scrape_source(source)
@@ -370,10 +378,7 @@ class ContentFetcher:
         else:
             actual_config = config
 
-        config_keys = list(actual_config.keys()) if isinstance(actual_config, dict) else "N/A"
-        logger.debug(f"Checking Playwright for {source.name}: config type={type(actual_config)}, keys={config_keys}")
         use_playwright = actual_config.get("use_playwright", False) if isinstance(actual_config, dict) else False
-        logger.debug(f"Playwright check for {source.name}: use_playwright={use_playwright}")
 
         if use_playwright:
             logger.info(f"Playwright enabled for {source.name}")
@@ -397,32 +402,18 @@ class ContentFetcher:
         """Check if source has modern scraping configuration."""
         config = source.config
 
-        config_keys = list(config.keys()) if isinstance(config, dict) else "not a dict"
-        logger.debug(f"Checking modern config for {source.name}: config type={type(config)}, config keys={config_keys}")
-
         # Check for discovery strategies
         discovery = config.get("discovery", {}) if isinstance(config, dict) else getattr(config, "discovery", {})
-        logger.debug(
-            f"Discovery config: {discovery}, has strategies: {bool(discovery and discovery.get('strategies'))}"
-        )
         if discovery and discovery.get("strategies"):
-            logger.debug(f"Modern config detected via discovery strategies for {source.name}")
             return True
 
         # Check for extraction configuration beyond basic selectors
         extract = config.get("extract", {}) if isinstance(config, dict) else getattr(config, "extract", {})
-        has_selectors = bool(
-            extract
-            and (extract.get("title_selectors") or extract.get("date_selectors") or extract.get("body_selectors"))
-        )
-        logger.debug(f"Extract config: {extract}, has selectors: {has_selectors}")
         if extract and (
             extract.get("title_selectors") or extract.get("date_selectors") or extract.get("body_selectors")
         ):
-            logger.debug(f"Modern config detected via extract selectors for {source.name}")
             return True
 
-        logger.debug(f"No modern config found for {source.name}")
         return False
 
     def _merge_articles_by_url(

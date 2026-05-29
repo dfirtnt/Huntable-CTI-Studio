@@ -69,7 +69,7 @@ All six extract sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract,
 
 ## QA
 
-Only `RankAgent` has a QA counterpart (`RankAgentQA`). It reviews ranking scores rather than extraction fidelity and is the only QA agent active in the pipeline. The six extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) do not have QA agents; their outputs go directly to aggregation.
+The QA agent subsystem was fully removed in v7.1.0 (2026-05-22). There are no QA agents in the pipeline. All six extraction sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract) and the RankAgent output go directly to the next pipeline stage.
 
 ## Versioning and rollback
 

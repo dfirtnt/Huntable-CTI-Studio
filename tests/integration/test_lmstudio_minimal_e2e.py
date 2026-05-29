@@ -94,9 +94,7 @@ def minimal_active_config(db_session):
         description="Minimal LMStudio Gemma 3 1B E2E test",
         agent_models=legacy["agent_models"],
         agent_prompts=legacy["agent_prompts"],
-        qa_enabled=legacy["qa_enabled"],
         sigma_fallback_enabled=legacy.get("sigma_fallback_enabled", False),
-        qa_max_retries=legacy.get("qa_max_retries", 1),
         rank_agent_enabled=legacy.get("rank_agent_enabled", False),
         cmdline_attention_preprocessor_enabled=legacy.get("cmdline_attention_preprocessor_enabled", True),
     )
@@ -176,14 +174,11 @@ def test_lmstudio_gemma3_1b_smoke_workflow_completes(db_session, minimal_active_
         "auto_trigger_hunt_score_threshold": getattr(minimal_active_config, "auto_trigger_hunt_score_threshold", 60.0),
         "agent_models": minimal_active_config.agent_models or {},
         "agent_prompts": minimal_active_config.agent_prompts or {},
-        "qa_enabled": minimal_active_config.qa_enabled or {},
         "rank_agent_enabled": False,
         "cmdline_attention_preprocessor_enabled": getattr(
             minimal_active_config, "cmdline_attention_preprocessor_enabled", True
         ),
         "sigma_fallback_enabled": getattr(minimal_active_config, "sigma_fallback_enabled", False),
-        "osdetection_fallback_enabled": False,
-        "qa_max_retries": getattr(minimal_active_config, "qa_max_retries", 1),
         "extract_agent_settings": {
             "disabled_agents": [
                 "ProcTreeExtract",

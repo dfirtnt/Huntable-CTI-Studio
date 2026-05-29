@@ -26,8 +26,7 @@ that schedules and distributes the work. Each agent writes results to
 
 ## Extract Agent Sub-Agents
 
-- **CmdlineExtract**: Command-line observables with arguments and QA
-  corrections. The optional **Attention Preprocessor** surfaces LOLBAS-aligned
+- **CmdlineExtract**: Command-line observables with arguments. The optional **Attention Preprocessor** surfaces LOLBAS-aligned
   snippets earlier in the LLM prompt; toggle in Workflow Config under
   Cmdline Extract. See [Cmdline Attention Preprocessor](../features/cmdline-preprocessor.md).
 - **HuntQueriesExtract**: Detection queries (EDR queries and Sigma rules)
@@ -94,8 +93,6 @@ prompt editor UI does not expose:
   config.
 - **System fallback**: if no `role` or `system` is set, extractors default to
   "You are a detection engineer." RankAgent raises an error instead.
-- **QA feedback prepend**: on retry after QA failure, the QA agent's feedback
-  is prepended to the user message.
 - **Content truncation**: article content is truncated to fit the model's
   context window. A `[Content truncated to fit context window]` marker is
   injected.
@@ -107,7 +104,7 @@ To see the full assembled prompt for any execution, check its Langfuse trace.
 ### Traceability Fields
 
 All six extract sub-agents require these fields on every extracted item. They
-feed the QA agent and the evaluation pipeline:
+are required by the pipeline and feed the evaluation pipeline:
 
 - **`value`**: the extracted artifact itself.
 - **`source_evidence`**: verbatim excerpt from the article supporting the artifact.

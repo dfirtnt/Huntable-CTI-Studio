@@ -4,6 +4,8 @@ Load, validate, and migrate workflow config.
 Entry point: load_workflow_config(raw) -> WorkflowConfigV2.
 Always migrates v1 to v2 at load time. Use flatten_for_llm_service() for legacy consumers.
 Export: export_preset_as_canonical_v2() returns strict v2 dict for file download.
+
+QA Agents fully deprecated (2026-05-22).
 """
 
 from __future__ import annotations
@@ -29,15 +31,12 @@ EXTRACT_AGENTS = [
     "ServicesExtract",
     "ScheduledTasksExtract",
 ]
-QA_AGENTS = ["RankAgentQA"]
+QA_AGENTS: list[str] = []
 UTILITY_AGENTS: list[str] = []
 
-# UI top-to-bottom order for export: each agent grouped with its QA agent (e.g. RankAgent then RankAgentQA).
-# So sections read as: OS Detection → Rank (agent + QA) → Extract fallback → CmdlineExtract
-# → ProcTree → HuntQueries → Sigma.
+# UI top-to-bottom order for export.
 AGENTS_ORDER_UI = [
     "RankAgent",
-    "RankAgentQA",
     "ExtractAgent",
     "CmdlineExtract",
     "ProcTreeExtract",
@@ -53,7 +52,6 @@ V2_TOP_LEVEL_ORDER = [
     "Version",
     "Metadata",
     "Thresholds",
-    "QA",
     "Execution",
     "Embeddings",
     "Agents",
@@ -70,12 +68,10 @@ THRESHOLDS_ORDER_UI = [
 ]
 
 # UI-ordered export: one block per UI section, top-to-bottom order of configurable elements.
-# Each block contains that section's settings + prompt + QA (where applicable).
 UI_ORDERED_TOP_LEVEL_ORDER = [
     "Version",
     "Metadata",
     "JunkFilter",
-    "QASettings",
     "Thresholds",  # only MinHuntScore (not per-panel)
     "OSDetection",
     "RankAgent",
@@ -95,8 +91,6 @@ _LEGACY_REQUIRED_KEYS = [
     "thresholds",
     "agent_models",
     "agent_prompts",
-    "qa_enabled",
-    "qa_max_retries",
     "sigma_fallback_enabled",
     "rank_agent_enabled",
     "cmdline_attention_preprocessor_enabled",
@@ -109,7 +103,6 @@ _LEGACY_REQUIRED_KEYS = [
 # Required sections and keys for UI-ordered preset import. Import fails if any are missing or null.
 _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
     ("JunkFilter", ["JunkFilterThreshold"]),
-    ("QASettings", ["MaxRetries"]),
     ("Thresholds", ["MinHuntScore"]),
     ("OSDetection", ["Embedding", "SelectedOs"]),
     (
@@ -122,9 +115,6 @@ _UI_ORDERED_REQUIRED: list[tuple[str, list[str]]] = [
             "TopP",
             "RankingThreshold",
             "Prompt",
-            "QAEnabled",
-            "QA",
-            "QAPrompt",
         ],
     ),
     ("ExtractAgent", ["Provider", "Model", "Temperature", "TopP"]),
@@ -182,13 +172,11 @@ def _prompt_cfg(prompts: dict, name: str) -> dict[str, Any]:
 def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     """
     Convert v2 dict to UI-ordered export: one block per UI section so JSON order
-    matches the workflow config page (Junk → QA Settings → OS Detection → Rank → Extract →
+    matches the workflow config page (Junk → OS Detection → Rank → Extract →
     Cmdline → ProcTree → HuntQueries → Sigma).
-    Each block contains that section's settings, prompt, and QA where applicable.
+    Each block contains that section's settings and prompt.
     """
     th = v2.get("Thresholds") or {}
-    qa = v2.get("QA") or {}
-    qa_enabled = qa.get("Enabled") or {}
     agents = v2.get("Agents") or {}
     prompts = v2.get("Prompts") or {}
     emb = v2.get("Embeddings") or {}
@@ -204,7 +192,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         out["Metadata"] = v2["Metadata"]
 
     out["JunkFilter"] = {"JunkFilterThreshold": float(th.get("JunkFilterThreshold", 0.8))}
-    out["QASettings"] = {"MaxRetries": int(qa.get("MaxRetries", 5))}
     out["Thresholds"] = {
         "MinHuntScore": float(th.get("MinHuntScore", 97.0)),
     }
@@ -215,7 +202,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
     }
 
     rank = _agent_cfg(agents, "RankAgent")
-    rank_qa = _agent_cfg(agents, "RankAgentQA")
     out["RankAgent"] = {
         "Enabled": rank["Enabled"],
         "Provider": rank["Provider"],
@@ -224,14 +210,6 @@ def v2_to_ui_ordered_export(v2: dict[str, Any]) -> dict[str, Any]:
         "TopP": rank["TopP"],
         "RankingThreshold": float(th.get("RankingThreshold", 6.0)),
         "Prompt": _prompt_cfg(prompts, "RankAgent"),
-        "QAEnabled": qa_enabled.get("RankAgent", False),
-        "QA": {
-            "Provider": rank_qa["Provider"],
-            "Model": rank_qa["Model"],
-            "Temperature": rank_qa["Temperature"],
-            "TopP": rank_qa["TopP"],
-        },
-        "QAPrompt": _prompt_cfg(prompts, "RankAgentQA"),
     }
 
     extract = _agent_cfg(agents, "ExtractAgent")
@@ -296,16 +274,14 @@ def is_ui_ordered_preset(preset: dict[str, Any]) -> bool:
         r = preset["RankAgent"]
         if "RankingThreshold" in r and "Prompt" in r and ("Provider" in r or "Model" in r):
             return True
-    return "JunkFilter" in preset and "QASettings" in preset and "OSDetection" in preset
+    return "JunkFilter" in preset and "OSDetection" in preset
 
 
 def _is_legacy_v1_shape(raw: dict[str, Any]) -> bool:
-    """True if preset looks like legacy v1 (snake_case keys like agent_models, qa_max_retries)."""
+    """True if preset looks like legacy v1 (snake_case keys like agent_models)."""
     if raw.get("Version") == "2.0" and "Agents" in raw and "Thresholds" in raw:
         return False
-    return (
-        raw.get("version") == "1.0" or raw.get("Version") == "1.0" or "agent_models" in raw or "qa_max_retries" in raw
-    )
+    return raw.get("version") == "1.0" or raw.get("Version") == "1.0" or "agent_models" in raw
 
 
 def validate_legacy_preset_strict(raw: dict[str, Any]) -> None:
@@ -421,7 +397,6 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
     """Convert UI-ordered export back to v2 for load_workflow_config."""
     th_extra = ui.get("Thresholds") or {}
     junk = ui.get("JunkFilter") or {}
-    qas = ui.get("QASettings") or {}
     osd = ui.get("OSDetection") or {}
     rank = ui.get("RankAgent") or {}
     extract = ui.get("ExtractAgent") or {}
@@ -429,17 +404,9 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
 
     agents: dict[str, Any] = {}
     prompts: dict[str, Any] = {}
-    qa_enabled: dict[str, bool] = {}
     disabled_agents: list[str] = []
 
-    def add_agent(
-        name: str,
-        cfg: dict,
-        prompt: dict | None = None,
-        qa_name: str | None = None,
-        qa_cfg: dict | None = None,
-        qa_prompt: dict | None = None,
-    ):
+    def add_agent(name: str, cfg: dict, prompt: dict | None = None):
         agents[name] = {
             "Provider": cfg.get("Provider", ""),
             "Model": cfg.get("Model", ""),
@@ -449,20 +416,8 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         }
         if prompt is not None:
             prompts[name] = prompt
-        if qa_name and qa_cfg is not None:
-            agents[qa_name] = {
-                "Provider": qa_cfg.get("Provider", ""),
-                "Model": qa_cfg.get("Model", ""),
-                "Temperature": float(qa_cfg.get("Temperature", 0.0)),
-                "TopP": float(qa_cfg.get("TopP", 0.9)),
-                "Enabled": True,
-            }
-            if qa_prompt is not None:
-                prompts[qa_name] = qa_prompt
 
-    add_agent("RankAgent", rank, rank.get("Prompt"), "RankAgentQA", rank.get("QA"), rank.get("QAPrompt"))
-    qa_enabled["RankAgent"] = bool(rank.get("QAEnabled", False))
-
+    add_agent("RankAgent", rank, rank.get("Prompt"))
     add_agent("ExtractAgent", extract, None)
 
     for base in [
@@ -502,7 +457,6 @@ def ui_ordered_to_v2(ui: dict[str, Any]) -> dict[str, Any]:
         "Version": ui.get("Version", "2.0"),
         "Metadata": ui.get("Metadata", {}),
         "Thresholds": thresholds,
-        "QA": {"Enabled": qa_enabled, "MaxRetries": qas.get("MaxRetries", 5)},
         "Execution": {
             "ExtractAgentSettings": {"DisabledAgents": disabled_agents},
             "OsDetectionSelectedOs": osd.get("SelectedOs") or ["Windows"],
@@ -557,22 +511,12 @@ def _build_v2_export_ordered(dumped: dict[str, Any]) -> dict[str, Any]:
         if k not in ordered_prompts:
             ordered_prompts[k] = v
 
-    qa = dumped.get("QA") or {}
-    qa_enabled = qa.get("Enabled") or {}
-    ordered_qa_enabled: dict[str, Any] = {name: qa_enabled[name] for name in AGENTS_ORDER_UI if name in qa_enabled}
-    for k, v in qa_enabled.items():
-        if k not in ordered_qa_enabled:
-            ordered_qa_enabled[k] = v
-    ordered_qa: dict[str, Any] = {"Enabled": ordered_qa_enabled, "MaxRetries": qa.get("MaxRetries", 5)}
-
     result: dict[str, Any] = {}
     for key in V2_TOP_LEVEL_ORDER:
         if key == "Thresholds":
             result["Thresholds"] = ordered_thresholds
         elif key == "Prompts":
             result["Prompts"] = ordered_prompts
-        elif key == "QA":
-            result["QA"] = ordered_qa
         elif key in dumped:
             result[key] = dumped[key]
     for key, value in dumped.items():
@@ -608,8 +552,6 @@ def _normalize_raw_from_db(row: Any) -> dict[str, Any]:
         "junk_filter_threshold": getattr(row, "junk_filter_threshold", 0.8),
         "agent_models": getattr(row, "agent_models", None) or {},
         "agent_prompts": getattr(row, "agent_prompts", None) or {},
-        "qa_enabled": getattr(row, "qa_enabled", None) or {},
-        "qa_max_retries": getattr(row, "qa_max_retries", 5),
         "sigma_fallback_enabled": getattr(row, "sigma_fallback_enabled", False),
         "rank_agent_enabled": getattr(row, "rank_agent_enabled", True),
         "cmdline_attention_preprocessor_enabled": getattr(row, "cmdline_attention_preprocessor_enabled", True),
@@ -630,8 +572,6 @@ def _empty_v1() -> dict[str, Any]:
         "thresholds": {},
         "agent_models": {},
         "agent_prompts": {},
-        "qa_enabled": {},
-        "qa_max_retries": 5,
         "sigma_fallback_enabled": False,
         "rank_agent_enabled": True,
         "cmdline_attention_preprocessor_enabled": True,
@@ -682,8 +622,8 @@ def config_row_to_flat_agent_models(row: Any) -> dict[str, Any]:
 def export_preset_as_canonical_v2(raw: dict[str, Any] | Any) -> dict[str, Any]:
     """
     Load preset (v1 or v2), enforce metadata, re-validate, and return UI-ordered export dict.
-    Export order matches the workflow config UI: JunkFilter → QASettings → OSDetection → RankAgent
-    (settings + prompt + QA) → ExtractAgent → CmdlineExtract (settings + prompt + QA) → … → SigmaAgent.
+    Export order matches the workflow config UI: JunkFilter → OSDetection → RankAgent
+    (settings + prompt) → ExtractAgent → CmdlineExtract (settings + prompt) → … → SigmaAgent.
     - Populates Metadata.CreatedAt (UTC ISO8601) if empty
     - Populates Metadata.Description if empty (default "Exported preset")
     - Re-validates with WorkflowConfigV2 after round-trip; aborts (raises ValidationError) if invalid.

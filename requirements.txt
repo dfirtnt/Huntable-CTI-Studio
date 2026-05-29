@@ -14,7 +14,7 @@ requests==2.33.1
 httpx==0.28.1
 brotli==1.2.0  # Brotli decompression support for httpx
 beautifulsoup4==4.14.3
-lxml==6.1.0
+lxml==6.1.1
 feedparser==6.0.12
 extruct==0.18.0
 iocextract==1.16.1
@@ -32,7 +32,7 @@ alembic==1.18.4
 
 # Web framework and server
 fastapi==0.135.1
-starlette==0.52.1
+starlette==1.0.1
 uvicorn[standard]==0.41.0
 jinja2==3.1.6
 
@@ -56,13 +56,13 @@ reportlab==4.4.10  # PDF generation
 python-dateutil==2.9.0.post0  # Date parsing utilities
 
 # Security
-certifi==2026.4.22
+certifi==2026.5.20
 urllib3==2.7.0
 filelock==3.29.0  # CVE-2026-22701 fix
 pygments==2.20.0  # CVE-2026-4539 fix
 charset-normalizer==3.4.7
 python-multipart==0.0.27
-cryptography==46.0.7  # CVE-2026-34073, CVE-2026-39892 fixes
+cryptography==48.0.0  # CVE-2026-34073, CVE-2026-39892 fixes
 
 # PDF processing
 pypdf==6.10.2
@@ -75,16 +75,16 @@ GitPython==3.1.50
 torch==2.11.0  # For advanced ML models
 transformers==5.8.0  # For LLM integration
 accelerate==1.13.0  # For model optimization
-openai==2.32.0  # Official OpenAI client
+openai==2.38.0  # Official OpenAI client
 tiktoken==0.12.0  # Token counting utilities
-sentence-transformers==5.4.1  # For semantic embeddings
+sentence-transformers==5.5.1  # For semantic embeddings
 pgvector==0.4.2  # PostgreSQL vector extension support
 
 # Agentic workflow
 langgraph==1.1.8  # LangGraph for agentic workflow orchestration
-langgraph-checkpoint==4.0.3  # LangGraph checkpointing for state persistence
+langgraph-checkpoint==4.1.1  # LangGraph checkpointing for state persistence
 langgraph-checkpoint-postgres==3.0.5  # PostgreSQL checkpoint backend for LangGraph
-langgraph-cli==0.4.23  # LangGraph CLI for HTTP server
+langgraph-cli==0.4.26  # LangGraph CLI for HTTP server
 langfuse==4.5.0  # Langfuse for LLM observability and tracing
 
 # MCP server

@@ -27,12 +27,10 @@ _QUICKSTART_PRESETS = sorted(_QUICKSTART_DIR.glob("*.json"))
 
 # Unique non-default values so we can assert they survive import and export.
 FIDELITY_JUNK = 0.72
-FIDELITY_QA_RETRIES = 2
 FIDELITY_MIN_HUNT = 88.0
 FIDELITY_OS_EMBEDDING = "test/embedding-model"
 FIDELITY_OS_SELECTED = ["Linux", "Darwin"]
 FIDELITY_RANK_THRESHOLD = 7.0
-FIDELITY_RANK_QA_ENABLED = True
 FIDELITY_CMDLINE_ENABLED = True
 FIDELITY_CMDLINE_ATTENTION = False
 FIDELITY_PROCTREE_ENABLED = True
@@ -52,7 +50,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
         "Version": "2.0",
         "Metadata": {"CreatedAt": "2026-01-01T00:00:00Z", "Description": "Fidelity test"},
         "JunkFilter": {"JunkFilterThreshold": FIDELITY_JUNK},
-        "QASettings": {"MaxRetries": FIDELITY_QA_RETRIES},
         "Thresholds": {
             "MinHuntScore": FIDELITY_MIN_HUNT,
         },
@@ -68,9 +65,6 @@ def _full_ui_ordered_preset() -> dict[str, Any]:
             "TopP": 0.9,
             "RankingThreshold": FIDELITY_RANK_THRESHOLD,
             "Prompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " Rank", "instructions": ""},
-            "QAEnabled": FIDELITY_RANK_QA_ENABLED,
-            "QA": {"Provider": "anthropic", "Model": "claude-sonnet-4-5", "Temperature": 0.1, "TopP": 0.9},
-            "QAPrompt": {"prompt": FIDELITY_PROMPT_SENTINEL + " RankQA", "instructions": ""},
         },
         "ExtractAgent": {
             "Provider": "anthropic",
@@ -176,10 +170,6 @@ def test_import_enforces_all_settings():
     assert config.Thresholds.RankingThreshold == FIDELITY_RANK_THRESHOLD
     assert config.Thresholds.SimilarityThreshold == FIDELITY_SIGMA_THRESHOLD
 
-    # QA
-    assert config.QA.MaxRetries == FIDELITY_QA_RETRIES
-    assert config.QA.Enabled.get("RankAgent") is FIDELITY_RANK_QA_ENABLED
-
     # Execution
     assert config.Execution.OsDetectionSelectedOs == FIDELITY_OS_SELECTED
     assert list(config.Execution.ExtractAgentSettings.DisabledAgents) == FIDELITY_DISABLED_AGENTS
@@ -215,11 +205,8 @@ def test_import_legacy_dict_has_all_fields_for_apply_preset():
     assert legacy["junk_filter_threshold"] == FIDELITY_JUNK
     assert legacy["ranking_threshold"] == FIDELITY_RANK_THRESHOLD
     assert legacy["similarity_threshold"] == FIDELITY_SIGMA_THRESHOLD
-    assert legacy["qa_max_retries"] == FIDELITY_QA_RETRIES
-    assert legacy["qa_enabled"].get("RankAgent") is FIDELITY_RANK_QA_ENABLED
     assert legacy["sigma_fallback_enabled"] is FIDELITY_SIGMA_FULL_ARTICLE
     assert legacy["cmdline_attention_preprocessor_enabled"] is FIDELITY_CMDLINE_ATTENTION
-    assert legacy["osdetection_fallback_enabled"] is False
     # Note: schema to_legacy_response_dict does not include extract_agent_settings; the API
     # route _v2_to_legacy_preset_dict adds it. Execution.DisabledAgents is asserted in test_import_enforces_all_settings.
 
@@ -248,7 +235,6 @@ def test_export_contains_all_settings():
     assert is_ui_ordered_preset(exported)
 
     assert exported["JunkFilter"]["JunkFilterThreshold"] == FIDELITY_JUNK
-    assert exported["QASettings"]["MaxRetries"] == FIDELITY_QA_RETRIES
     assert float(exported["Thresholds"]["MinHuntScore"]) == FIDELITY_MIN_HUNT
 
     osd = exported["OSDetection"]
@@ -257,9 +243,7 @@ def test_export_contains_all_settings():
 
     rank = exported["RankAgent"]
     assert float(rank["RankingThreshold"]) == FIDELITY_RANK_THRESHOLD
-    assert rank["QAEnabled"] is FIDELITY_RANK_QA_ENABLED
     assert FIDELITY_PROMPT_SENTINEL in rank["Prompt"].get("prompt", "")
-    assert FIDELITY_PROMPT_SENTINEL in rank["QAPrompt"].get("prompt", "")
 
     cmd = exported["CmdlineExtract"]
     assert cmd["Enabled"] is FIDELITY_CMDLINE_ENABLED
@@ -299,7 +283,6 @@ def test_round_trip_export_import_export_identity():
     # Compare key sections (ignore Metadata.CreatedAt / Description that export may overwrite)
     for section in (
         "JunkFilter",
-        "QASettings",
         "Thresholds",
         "OSDetection",
         "RankAgent",
@@ -322,7 +305,7 @@ def test_round_trip_export_import_export_identity():
 def test_import_fails_when_required_section_missing():
     """Import must fail if a required top-level section is missing."""
     ui = _full_ui_ordered_preset()
-    del ui["QASettings"]
+    del ui["JunkFilter"]
     with pytest.raises(ValueError, match="missing or null"):
         load_workflow_config(ui)
 
@@ -341,27 +324,6 @@ def test_import_fails_when_required_key_null():
     ui["Thresholds"]["MinHuntScore"] = None
     with pytest.raises(ValueError, match="missing or null"):
         load_workflow_config(ui)
-
-
-def test_legacy_import_fails_when_qa_max_retries_missing():
-    """Legacy (v1) preset import must fail when qa_max_retries is missing."""
-    legacy = {
-        "version": "1.0",
-        "thresholds": {},
-        "agent_models": {},
-        "agent_prompts": {},
-        "qa_enabled": {},
-        # qa_max_retries omitted intentionally
-        "sigma_fallback_enabled": False,
-        "rank_agent_enabled": True,
-        "cmdline_attention_preprocessor_enabled": True,
-        "proc_tree_attention_preprocessor_enabled": True,
-        "extract_agent_settings": {"disabled_agents": []},
-        "description": "",
-        "created_at": "",
-    }
-    with pytest.raises(ValueError, match="missing or null"):
-        load_workflow_config(legacy)
 
 
 # --- Quickstart preset files: import → export must be lossless ---

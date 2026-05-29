@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Any
 
@@ -20,7 +21,23 @@ logger = logging.getLogger(__name__)
 class PlaywrightScraper:
     """Scraper using Playwright for JS-rendered content."""
 
-    def __init__(self, headless: bool = True, timeout: float = 30000.0, wait_until: str = "networkidle"):
+    _LAUNCH_ARGS = [
+        "--disable-blink-features=AutomationControlled",
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+    ]
+    _USER_AGENT = (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+    )
+
+    def __init__(
+        self,
+        headless: bool = True,
+        timeout: float = 30000.0,
+        wait_until: str = "networkidle",
+        user_data_dir: str | None = None,
+    ):
         """
         Initialize Playwright scraper.
 
@@ -28,10 +45,16 @@ class PlaywrightScraper:
             headless: Run browser in headless mode
             timeout: Page load timeout in milliseconds
             wait_until: When to consider navigation successful ("load", "domcontentloaded", "networkidle")
+            user_data_dir: Optional path for a persistent browser profile.  When set,
+                ``launch_persistent_context`` is used so cookies and localStorage survive
+                between collection runs.  This lets the browser pass stateful WAF
+                challenges (e.g. OVH/nginx JS cookies) on the first run and reuse the
+                resulting session token on every subsequent run.
         """
         self.headless = headless
         self.timeout = timeout
         self.wait_until = wait_until
+        self.user_data_dir = user_data_dir
         self._browser: Browser | None = None
         self._context: BrowserContext | None = None
         self._playwright = None
@@ -39,27 +62,37 @@ class PlaywrightScraper:
     async def __aenter__(self):
         """Async context manager entry."""
         self._playwright = await async_playwright().start()
-        self._browser = await self._playwright.chromium.launch(
-            headless=self.headless,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage",
-                "--no-sandbox",
-            ],
-        )
-        self._context = await self._browser.new_context(
-            viewport={"width": 1280, "height": 720},
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-            ),
-        )
+
+        if self.user_data_dir:
+            # Persistent profile: launch_persistent_context returns a BrowserContext
+            # directly — no separate Browser object.  Cookies, localStorage, and the
+            # WAF session token are written to user_data_dir and reused on the next run.
+            os.makedirs(self.user_data_dir, exist_ok=True)
+            logger.info(f"Playwright: using persistent profile at {self.user_data_dir}")
+            self._context = await self._playwright.chromium.launch_persistent_context(
+                self.user_data_dir,
+                headless=self.headless,
+                args=self._LAUNCH_ARGS,
+                user_agent=self._USER_AGENT,
+                viewport={"width": 1280, "height": 720},
+            )
+        else:
+            self._browser = await self._playwright.chromium.launch(
+                headless=self.headless,
+                args=self._LAUNCH_ARGS,
+            )
+            self._context = await self._browser.new_context(
+                viewport={"width": 1280, "height": 720},
+                user_agent=self._USER_AGENT,
+            )
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Async context manager exit."""
         if self._context:
             await self._context.close()
+        # _browser is None when using launch_persistent_context
         if self._browser:
             await self._browser.close()
         if self._playwright:
@@ -320,7 +353,7 @@ class PlaywrightScraper:
                         break
 
             if not published_at:
-                structured_data = StructuredDataExtractor.extract_structured_data(html_content)
+                structured_data = StructuredDataExtractor.extract_structured_data(html_content, url)
                 jsonld_article = StructuredDataExtractor.find_article_jsonld(structured_data)
                 if jsonld_article:
                     jsonld_extracted = StructuredDataExtractor.extract_from_jsonld(jsonld_article)

@@ -370,6 +370,22 @@ class LLMService:
         # Priority: config_models > AppSettings DB > environment variables > default
         config_models = config_models or {}
 
+        # Defensive: if a caller hands us the WorkflowConfigV2 nested form
+        # ({"CmdlineExtract": {"provider": "openai", "model": "..."}}) instead of
+        # the legacy flat keys ({"CmdlineExtract_model": "...", "CmdlineExtract_provider": "..."}),
+        # unwrap it. Without this, every flat-key lookup below misses, every
+        # provider canonicalizes to "lmstudio" via the empty-string fallback,
+        # and the workflow silently runs against the wrong backend.
+        from src.config.workflow_config_schema import agent_models_is_nested, normalize_agent_models_to_flat
+
+        if agent_models_is_nested(config_models):
+            logger.warning(
+                "config_models arrived in nested WorkflowConfigV2 format; "
+                "unwrapping to flat keys. Save path should normalize this -- "
+                "see workflow_config.update_workflow_config."
+            )
+            config_models = normalize_agent_models_to_flat(config_models)
+
         workflow_settings = self._load_workflow_provider_settings()
         lmstudio_db = self._load_lmstudio_settings()
 
@@ -421,9 +437,12 @@ class LLMService:
             "anthropic": os.getenv("WORKFLOW_ANTHROPIC_MODEL", "claude-sonnet-4-5"),
         }
 
-        self.provider_rank = self._canonicalize_provider(config_models.get("RankAgent_provider") or "")
-        self.provider_extract = self._canonicalize_provider(config_models.get("ExtractAgent_provider") or "")
-        self.provider_sigma = self._canonicalize_provider(config_models.get("SigmaAgent_provider") or "")
+        _rp = (config_models.get("RankAgent_provider") or "").strip()
+        self.provider_rank = self._canonicalize_provider(_rp) if _rp else ""
+        _ep = (config_models.get("ExtractAgent_provider") or "").strip()
+        self.provider_extract = self._canonicalize_provider(_ep) if _ep else ""
+        _sp = (config_models.get("SigmaAgent_provider") or "").strip()
+        self.provider_sigma = self._canonicalize_provider(_sp) if _sp else ""
 
         rank_override = (config_models.get("RankAgent") or "").strip()
         rank_env = (lmstudio_db.get("LMSTUDIO_MODEL_RANK") or os.getenv("LMSTUDIO_MODEL_RANK", "")).strip()
@@ -489,12 +508,33 @@ class LLMService:
             return "openai"
         if normalized in {"anthropic", "claude", "claude-sonnet-4-5"}:
             return "anthropic"
-        if normalized in {"lmstudio", "local", "local_llm", "deepseek"} or not normalized:
+        if normalized in {"lmstudio", "local", "local_llm", "deepseek", "auto"}:
+            if not self._is_lmstudio_enabled():
+                raise ValueError(
+                    f"Provider '{provider}' resolves to LMStudio, but LMStudio is not enabled on this install. "
+                    "Set WORKFLOW_LMSTUDIO_ENABLED=true (or re-run setup.sh and opt in to LMStudio), "
+                    "or configure an explicit provider (openai/anthropic) for this agent."
+                )
             return "lmstudio"
-        if normalized == "auto":
-            return "lmstudio"
-        logger.warning(f"Unknown provider '{provider}' for workflow; defaulting to LMStudio")
-        return "lmstudio"
+        if not normalized:
+            raise ValueError(
+                "No provider configured for one of the workflow agents. "
+                "Set an explicit provider (openai/anthropic) in the workflow config, "
+                "or enable LMStudio via setup.sh / WORKFLOW_LMSTUDIO_ENABLED=true."
+            )
+        raise ValueError(
+            f"Unknown provider '{provider}'. Valid providers: openai, anthropic"
+            + (", lmstudio" if self._is_lmstudio_enabled() else "")
+            + "."
+        )
+
+    def _is_lmstudio_enabled(self) -> bool:
+        # Prefer the already-resolved attribute set during __init__; fall back to env
+        # for the case where this is called before that attribute exists.
+        val = getattr(self, "workflow_lmstudio_enabled", None)
+        if val is not None:
+            return bool(val)
+        return os.getenv("WORKFLOW_LMSTUDIO_ENABLED", "").strip().lower() == "true"
 
     def _load_workflow_provider_settings(self) -> dict[str, str | None]:
         settings: dict[str, str | None] = {}
@@ -1213,9 +1253,14 @@ class LLMService:
             "Content-Type": "application/json",
         }
 
+        # Forensic instrumentation: record the payload variant that actually returned 200.
+        # If the model rejects temperature and we retry, the retry payload is the "wire truth".
+        provider_url = "https://api.openai.com/v1/chat/completions"
+        sent_payload: dict[str, Any] = payload
+
         async with httpx.AsyncClient(timeout=httpx.Timeout(timeout, connect=30.0, read=timeout)) as client:
             response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
+                provider_url,
                 headers=headers,
                 json=payload,
             )
@@ -1230,15 +1275,19 @@ class LLMService:
                 retry_payload = dict(payload)
                 retry_payload.pop("temperature", None)
                 response = await client.post(
-                    "https://api.openai.com/v1/chat/completions",
+                    provider_url,
                     headers=headers,
                     json=retry_payload,
                 )
+                sent_payload = retry_payload
 
         if response.status_code != 200:
             raise RuntimeError(f"OpenAI API error ({response.status_code}): {response.text}")
 
-        return response.json()
+        result = response.json()
+        result["_provider_payload"] = sent_payload
+        result["_provider_url"] = provider_url
+        return result
 
     async def _call_anthropic_chat(
         self, *, messages: list, model_name: str, temperature: float, max_tokens: int, timeout: float
@@ -1296,6 +1345,10 @@ class LLMService:
             normalized["stop_reason"] = result["stop_reason"]
         if isinstance(result.get("model"), str):
             normalized["model"] = result["model"]
+        # Forensic instrumentation: capture the verbatim payload sent to Anthropic.
+        # Note this differs from OpenAI shape — system is extracted as a top-level key.
+        normalized["_provider_payload"] = payload
+        normalized["_provider_url"] = anthropic_api_url
         return normalized
 
     async def _call_anthropic_with_retry(
@@ -1432,7 +1485,7 @@ class LLMService:
         if cancellation_event and cancellation_event.is_set():
             raise asyncio.CancelledError("Request cancelled by client")
 
-        async def make_request(client: httpx.AsyncClient, url: str) -> httpx.Response:
+        async def make_request(client: httpx.AsyncClient, url: str, request_payload: dict) -> httpx.Response:
             """Make the HTTP request as a cancellable task."""
             # For LM Studio, read timeout must be long enough to allow prompt processing
             # before any response data is sent.
@@ -1440,7 +1493,7 @@ class LLMService:
             return await client.post(
                 f"{url}/chat/completions",
                 headers={"Content-Type": "application/json"},
-                json=payload,
+                json=request_payload,
                 timeout=httpx.Timeout(timeout, connect=30.0, read=read_timeout),
             )
 
@@ -1481,7 +1534,7 @@ class LLMService:
 
                 try:
                     # Make request
-                    request_task = asyncio.create_task(make_request(client, lmstudio_url))
+                    request_task = asyncio.create_task(make_request(client, lmstudio_url, payload))
 
                     # Monitor for cancellation while waiting for response
                     if cancellation_event:
@@ -1533,6 +1586,9 @@ class LLMService:
                             logger.debug(f"LMStudio response content preview: {content[:500]}")
                         if "usage" in result:
                             logger.info(f"LMStudio token usage: {result['usage']}")
+                        # Forensic instrumentation: capture the payload that returned 200
+                        result["_provider_payload"] = payload
+                        result["_provider_url"] = f"{lmstudio_url}/chat/completions"
                         return result
                     # Extract error message from response
                     error_text = response.text
@@ -1593,10 +1649,13 @@ class LLMService:
                                 payload_retry = payload.copy()
                                 payload_retry["model"] = retry_model
                                 try:
-                                    response_retry = await make_request(client, lmstudio_url)
+                                    response_retry = await make_request(client, lmstudio_url, payload_retry)
                                     if response_retry.status_code == 200:
                                         result = response_retry.json()
                                         logger.info(f"LMStudio accepted model {retry_type}: {retry_model}")
+                                        # Forensic instrumentation: record the payload actually POSTed.
+                                        result["_provider_payload"] = payload_retry
+                                        result["_provider_url"] = f"{lmstudio_url}/chat/completions"
                                         return result
                                     logger.debug(f"Retry {retry_type} failed: {response_retry.status_code}")
                                 except Exception as retry_exc:
@@ -1690,7 +1749,6 @@ class LLMService:
         system_override: str | None = None,
         execution_id: int | None = None,
         article_id: int | None = None,
-        qa_feedback: str | None = None,
         ground_truth_rank: float | None = None,
         ground_truth_details: dict[str, float | None] | None = None,
     ) -> dict[str, Any]:
@@ -1855,10 +1913,6 @@ class LLMService:
 
         # Format prompt with truncated content
         prompt_text = prompt_template_str.format(title=title, source=source, url=url, content=truncated_content)
-
-        # Add QA feedback if provided
-        if qa_feedback:
-            prompt_text = f"{qa_feedback}\n\n{prompt_text}"
 
         # Final verification: estimate total prompt tokens
         total_prompt_tokens = self._estimate_tokens(prompt_text) + system_message_tokens + message_formatting_overhead
@@ -2135,6 +2189,14 @@ class LLMService:
 
             # 1. Run Extraction
             try:
+                # Forensic instrumentation: track every orchestration-injected block so the
+                # bundle can attribute "what came from the DB prompt" vs "what came from
+                # run_extraction_agent". Reset per-attempt because retries re-render the prompt.
+                orchestration_injected_sections: list[str] = []
+                provider_payload_verbatim: dict[str, Any] | None = None
+                provider_url: str | None = None
+                post_augmentation_prompt_tokens: int = 0
+
                 resolved_provider = (
                     provider if provider and isinstance(provider, str) and provider.strip() else self.provider_extract
                 )
@@ -2225,6 +2287,8 @@ class LLMService:
                     snippets_header = "=== HIGH-LIKELIHOOD COMMAND SNIPPETS ===\n"
                     full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
                     combined_prefix = snippets_header + snippets_section + full_header
+                    orchestration_injected_sections.append("cmdline_attention_snippets_section")
+                    orchestration_injected_sections.append("full_article_reference_marker")
 
                     # Reserve: snippets + static prompt overhead + output + buffer
                     snippet_tokens = self._estimate_tokens(combined_prefix)
@@ -2242,6 +2306,7 @@ class LLMService:
                         if last_boundary > max_chars * 0.8:
                             truncated_article = truncated_article[: last_boundary + 1]
                         truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
+                        orchestration_injected_sections.append("article_truncation_marker")
 
                     truncated_content = combined_prefix + truncated_article
 
@@ -2291,6 +2356,8 @@ class LLMService:
                     snippets_header = "=== HIGH-LIKELIHOOD PROCESS LINEAGE SNIPPETS ===\n"
                     full_header = "\n\n=== FULL ARTICLE (REFERENCE ONLY) ===\n"
                     combined_prefix = snippets_header + snippets_section + full_header
+                    orchestration_injected_sections.append("proc_tree_attention_snippets_section")
+                    orchestration_injected_sections.append("full_article_reference_marker")
 
                     # Reserve: snippets + static prompt overhead + output + buffer
                     snippet_tokens = self._estimate_tokens(combined_prefix)
@@ -2308,6 +2375,7 @@ class LLMService:
                         if last_boundary > max_chars * 0.8:
                             truncated_article = truncated_article[: last_boundary + 1]
                         truncated_article = truncated_article + "\n\n[Content truncated to fit context window]"
+                        orchestration_injected_sections.append("article_truncation_marker")
 
                     truncated_content = combined_prefix + truncated_article
                 else:
@@ -2345,6 +2413,8 @@ class LLMService:
                         json_example_str = (
                             f"\n\nREQUIRED JSON STRUCTURE (example):\n{json_example}{json_format_instruction}"
                         )
+                    orchestration_injected_sections.append("required_json_structure_example")
+                    orchestration_injected_sections.append("json_format_instruction")
 
                 user_prompt = f"""Title: {title}
 URL: {url}
@@ -2362,6 +2432,18 @@ CRITICAL INSTRUCTIONS: {instructions}
 IMPORTANT: Your response must end with a valid JSON object matching the structure above.
 If you include reasoning, place it BEFORE the JSON. The JSON must be parseable and complete.
 """
+                # Forensic instrumentation: scaffold sections always present in the user message.
+                # Listed in the order they appear above to mirror the wire order.
+                orchestration_injected_sections.extend(
+                    [
+                        "title_url_header",
+                        "content_block",
+                        "task_line",
+                        "output_format_specification",
+                        "critical_instructions",
+                        "important_json_reminder",
+                    ]
+                )
 
                 # Append traceability requirements for observable traceability feature.
                 # Simple extractors require a generic "value" identity field.
@@ -2390,24 +2472,36 @@ Every item in the output array MUST be an object (not a plain string)."""
                         + _traceability_common
                         + ' The object MUST have a "value" field plus source_evidence, extraction_justification, and confidence_score.\n'
                     )
+                    orchestration_injected_sections.append("traceability_common")
+                    orchestration_injected_sections.append("traceability_simple_value_footer")
                 elif user_prompt and agent_name in _STRUCTURED_EXTRACTORS:
                     user_prompt = (
                         user_prompt.rstrip()
                         + _traceability_common
                         + " The object MUST include the domain-specific identity fields defined in your json_example schema plus source_evidence, extraction_justification, and confidence_score.\n"
                     )
+                    orchestration_injected_sections.append("traceability_common")
+                    orchestration_injected_sections.append("traceability_structured_identity_footer")
 
                 logger.debug(f"{agent_name} full user prompt length: {len(user_prompt)} chars")
                 # Minimal user prefix when preset uses "user" (bulk in system, minimal in user)
                 user_prefix = (prompt_config.get("user") or "").strip()
                 if user_prefix:
                     user_prompt = f"{user_prefix}\n\n{user_prompt}"
+                    orchestration_injected_sections.append("user_prefix")
 
                 system_content = prompt_config.get("system") or prompt_config.get(
                     "role", "You are a detection engineer."
                 )
 
                 messages = [{"role": "system", "content": system_content}, {"role": "user", "content": user_prompt}]
+
+                # Forensic instrumentation: count tokens in the post-augmentation payload.
+                # Uses the existing heuristic estimator (chars/4); not as accurate as tiktoken/
+                # anthropic.count_tokens but consistent with the rest of the budgeting code.
+                post_augmentation_prompt_tokens = sum(
+                    self._estimate_tokens(m.get("content", "")) for m in messages if isinstance(m, dict)
+                )
 
                 # Fail-fast: never call model with empty/malformed request
                 content_sha256 = hashlib.sha256(content.encode("utf-8")).hexdigest()
@@ -2471,13 +2565,18 @@ Every item in the output array MUST be an object (not a plain string)."""
                             provider=effective_provider,
                             model_name=model_name,
                             messages=converted_messages,
-                            max_tokens=2000,
+                            max_tokens=8192,
                             temperature=temperature,
                             top_p=effective_top_p,
                             timeout=extraction_timeout,
                             failure_context=f"{agent_name} extraction attempt {current_try}",
                             seed=self.seed,
                         )
+                        # Forensic instrumentation: pop the wire-truth markers so they don't
+                        # leak into Langfuse output or downstream response parsing.
+                        if isinstance(response, dict):
+                            provider_payload_verbatim = response.pop("_provider_payload", None)
+                            provider_url = response.pop("_provider_url", None)
                     except Exception as e:
                         log_llm_error(
                             generation,
@@ -2497,6 +2596,13 @@ Every item in the output array MUST be an object (not a plain string)."""
                         response_text = response["choices"][0]["message"].get("reasoning_content", "")
 
                     # Log the actual response for debugging
+                    finish_reason = response["choices"][0].get("finish_reason", "")
+                    if finish_reason == "length":
+                        logger.warning(
+                            f"{agent_name} response truncated by max_tokens limit "
+                            f"(finish_reason=length). Output JSON will be incomplete. "
+                            f"Increase max_tokens in llm_service.py:extract_agent_data."
+                        )
                     logger.info(f"{agent_name} raw response length: {len(response_text)} chars")
                     logger.info(f"{agent_name} response (first 1000 chars): {response_text[:1000]}")
                     logger.debug(f"{agent_name} full response: {response_text}")
@@ -2826,6 +2932,15 @@ Every item in the output array MUST be an object (not a plain string)."""
                     last_result["_llm_messages"] = messages
                     last_result["_llm_response"] = response_text
                     last_result["_llm_attempt"] = current_try
+                    # Forensic instrumentation: surface wire-truth so bundles do not
+                    # require code archaeology to reconstruct what the provider saw.
+                    # Field names mirror the bundle-side names (no leading underscore at
+                    # bundle level); leading underscores here mark them as internal
+                    # transport state on the agent_result dict.
+                    last_result["_provider_payload_verbatim"] = provider_payload_verbatim
+                    last_result["_provider_url"] = provider_url
+                    last_result["_post_augmentation_prompt_tokens"] = post_augmentation_prompt_tokens
+                    last_result["_orchestration_injected_sections"] = orchestration_injected_sections
                     # CmdlineExtract / ProcTreeExtract: surface preprocessor info for trace UI / Langfuse
                     if agent_name == "CmdlineExtract":
                         last_result["_attention_preprocessor"] = {

@@ -39,6 +39,7 @@ from . import (
     settings,
     sigma_ab_test,
     sigma_queue,
+    sigma_similarity_test,
     sources,
     tasks,
     workflow_config,
@@ -91,4 +92,5 @@ def register_routes(app: FastAPI) -> None:
     app.include_router(evaluation_ui.router)
     app.include_router(evaluation_api.router)
     app.include_router(sigma_ab_test.router)
+    app.include_router(sigma_similarity_test.router)
     app.include_router(sigma_queue.router)

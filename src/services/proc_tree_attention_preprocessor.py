@@ -66,15 +66,19 @@ STRING_ANCHORS_EXACT = [
 # Regex patterns for process lineage (compiled once, case-insensitive)
 PROC_TREE_REGEX_PATTERNS = [
     # P1: lineage verbs binding two tokens
-    r"\b[\w\-.]+(?:\.exe)?\s+"
-    r"(?:spawn(?:s|ed|ing)?|launch(?:es|ed|ing)?|execut(?:e|es|ed|ing)|"
-    r"invok(?:e|es|ed|ing)|start(?:s|ed|ing)?|creat(?:e|es|ed|ing)|"
-    r"r(?:an|uns|unning)|call(?:s|ed|ing)?|load(?:s|ed|ing)?)\s+"
-    r"[\w\-.]+(?:\.exe)?\b",
+    (
+        r"\b[\w\-.]+(?:\.exe)?\s+"
+        r"(?:spawn(?:s|ed|ing)?|launch(?:es|ed|ing)?|execut(?:e|es|ed|ing)|"
+        r"invok(?:e|es|ed|ing)|start(?:s|ed|ing)?|creat(?:e|es|ed|ing)|"
+        r"r(?:an|uns|unning)|call(?:s|ed|ing)?|load(?:s|ed|ing)?)\s+"
+        r"[\w\-.]+(?:\.exe)?\b"
+    ),
     # P2: reverse direction "X was spawned by Y"
-    r"\b[\w\-.]+(?:\.exe)?\s+(?:was\s+)?"
-    r"(?:spawned|launched|executed|created|invoked|started|loaded)\s+by\s+"
-    r"[\w\-.]+(?:\.exe)?\b",
+    (
+        r"\b[\w\-.]+(?:\.exe)?\s+(?:was\s+)?"
+        r"(?:spawned|launched|executed|created|invoked|started|loaded)\s+by\s+"
+        r"[\w\-.]+(?:\.exe)?\b"
+    ),
     # P3: parent/child label (must be qualified)
     r"\b(?:parent|child)\s+(?:process|pid|image|id|command\s*line)\b",
     r"\b(?:parent|child)\s*[:=]\s*\S",

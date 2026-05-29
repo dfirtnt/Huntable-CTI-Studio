@@ -6,17 +6,16 @@ Workflow agent configuration uses a **normalized hierarchical schema (v2)** with
 
 ## Structural improvements
 
-- **Single casing**: PascalCase for schema keys (Version, Metadata, Thresholds, Agents, Embeddings, QA, Features, Prompts, Execution).
+- **Single casing**: PascalCase for schema keys (Version, Metadata, Thresholds, Agents, Embeddings, Features, Prompts, Execution).
 - **Nested agents**: Instead of flat keys like `RankAgent_provider`, `RankAgent_temperature`, config is structured as `Agents.RankAgent.Provider`, `Agents.RankAgent.Temperature`, etc. Each agent has required fields: Provider, Model, Temperature, TopP, Enabled.
 - **Dedicated sections**:
   - **Thresholds**: MinHuntScore, RankingThreshold, SimilarityThreshold, JunkFilterThreshold.
-  - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, sub-agents, QA agents, OSDetectionFallback).
+  - **Agents**: All LLM agents (RankAgent, ExtractAgent, SigmaAgent, and sub-agents: CmdlineExtract, ProcTreeExtract, HuntQueriesExtract, RegistryExtract, ServicesExtract, ScheduledTasksExtract).
   - **Embeddings**: OsDetection and Sigma (moved out of `agent_models`).
-  - **QA**: Enabled (per-agent) and MaxRetries.
   - **Features**: SigmaFallbackEnabled, CmdlineAttentionPreprocessorEnabled, ProcTreeAttentionPreprocessorEnabled. (Rank Agent enablement is controlled via `Agents.RankAgent.Enabled`. The `OSDetectionFallback` agent was removed; any stale `Agents.OSDetectionFallback` entries are stripped automatically by the v1→v2 migration.)
   - **Prompts**: Per-agent prompt/instructions (content unchanged; relocation only).
   - **Execution**: ExtractAgentSettings.DisabledAgents, OsDetectionSelectedOs.
-- **Naming normalization**: Deprecated per-extractor QA agent names (`CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration; the only active QA agent is `RankAgentQA`.
+- **Naming normalization**: All QA agent names (`RankAgentQA`, `CmdLineQA`, `CmdlineQA`, `ProcTreeQA`, `HuntQueriesQA`, `RegistryQA`, `ServicesQA`, `ScheduledTasksQA`) are automatically removed by the migration. The QA agent subsystem was fully removed in v7.1.0 (2026-05-22).
 - **No unknown keys**: Schema validation forbids unknown root keys; validation errors are explicit.
 
 ## Backward compatibility

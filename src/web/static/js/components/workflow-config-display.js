@@ -29,7 +29,6 @@ function orderModelsByWorkflow(models) {
     // Define workflow execution order
     const workflowOrder = [
         'Rank',
-        'RankAgentQA',
         'Extract',
         'CmdlineExtract',
         'ProcTreeExtract',
@@ -49,7 +48,6 @@ function orderModelsByWorkflow(models) {
         'RegistryExtract',
         'ServicesExtract',
         'ScheduledTasksExtract',
-        'RankAgentQA'
     ]);
 
     // No second-level sub-agents remain (extractor QA agents removed)
@@ -160,8 +158,6 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
         // Build from saved config
         const agentModels = currentConfig.agent_models;
         const modelsList = [];
-        const qaEnabled = currentConfig.qa_enabled || {};
-        
         // Helper to add agent to list
         const addAgent = (agentId, displayName, indentLevel = 0, enabled = true, fallbackModel = null, fallbackProvider = null) => {
             const model = agentModels[agentId] || agentModels[`${agentId}_model`] || fallbackModel;
@@ -176,7 +172,7 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
             });
         };
 
-        // 1. Rank Agent + QA sub-agent (always shown; model may be unconfigured)
+        // 1. Rank Agent (always shown; model may be unconfigured)
         {
             const rankModel = agentModels.RankAgent || agentModels.RankAgent_model || 'N/A';
             const rankProvider = agentModels.RankAgent_provider || '';
@@ -184,11 +180,6 @@ function renderWorkflowConfigDisplay(currentConfig, options = {}) {
                 text: `Rank: ${rankModel} (${rankProvider})`,
                 indentLevel: 0,
                 badge: makeStatusBadge(currentConfig.rank_agent_enabled !== false)
-            });
-            modelsList.push({
-                text: `RankAgentQA: ${rankModel} (${rankProvider})`,
-                indentLevel: 1,
-                badge: makeStatusBadge(qaEnabled['RankAgent'] || false)
             });
         }
         

@@ -1,5 +1,9 @@
 # RegistryExtract -- Prompt v2.0 (Standard-compliant)
 
+!!! tip "Use this outside Huntable"
+    Grab the [drop-in version](registry-extract-dropin.md) — paste it into a Claude or
+    ChatGPT Project and feed it a URL, text, or PDF.
+
 ## ROLE
 
 You extract Windows registry artifacts from threat intelligence articles.

@@ -203,36 +203,49 @@ class TestSigmaEnrichUI:
 
     def test_enrich_button_disabled_during_enrichment(self, page: Page):
         """Test that enrich button is disabled during enrichment process."""
+        # Stub loadEnrichProviderModelCatalog BEFORE the modal opens so
+        # populateEnrichProviderDropdown() never fires and never wipes our selector
+        # values.  The catalog function is a module-level JS variable and can be
+        # overwritten safely; the class-scoped page reuses the same tab but this is
+        # the last test in the class so no intra-class contamination.
+        page.evaluate("""() => { window.loadEnrichProviderModelCatalog = async function() {}; }""")
+
         self._open_preview_then_enrich(page)
 
-        # Override window.fetch in JS to:
-        #  1. Return a fake API key for /api/settings so enrichRule() passes
-        #     the key guard and reaches the "disable button" code path.
-        #  2. Return a never-resolving Promise for the enrich endpoint so the
-        #     button stays disabled indefinitely during the assertion window
-        #     (eliminates all timing sensitivity — no race between the slow
-        #     response completing and Playwright's 100 ms polling interval).
-        #
-        # JS-level override is used instead of page.route() because the
-        # class-scoped page calls unroute_all() in fixture teardown, and route
-        # matching order with accumulated handlers is fragile here.
+        # The catalog stub means the provider select still has whatever options were
+        # populated by a prior test in this class.  Ensure lmstudio is present (or add
+        # it), then select it and inject a stub model so enrichRule() can reach the
+        # enrich POST without returning early.  Override fetch so the POST never
+        # resolves, keeping the button disabled for the assertion window.
         page.evaluate(
             """() => {
+                const providerSel = document.getElementById('enrichProviderSelect');
+                if (providerSel) {
+                    if (!providerSel.querySelector('option[value="lmstudio"]')) {
+                        const opt = document.createElement('option');
+                        opt.value = 'lmstudio';
+                        opt.textContent = 'LMStudio';
+                        providerSel.appendChild(opt);
+                    }
+                    providerSel.value = 'lmstudio';
+                }
+
+                const modelSel = document.getElementById('enrichModelSelect');
+                if (modelSel) {
+                    while (modelSel.options.length) modelSel.remove(0);
+                    const opt = document.createElement('option');
+                    opt.value = 'ci-stub-model';
+                    opt.textContent = 'CI Stub Model';
+                    modelSel.appendChild(opt);
+                    modelSel.value = 'ci-stub-model';
+                }
+
                 const _orig = window.fetch.bind(window);
                 window.fetch = async function(url, opts) {
                     const u = typeof url === 'string' ? url
                               : (url && url.url ? url.url : String(url));
-                    if (u.endsWith('/api/settings')) {
-                        return new Response(
-                            JSON.stringify({
-                                success: true,
-                                settings: {WORKFLOW_OPENAI_API_KEY: 'ci-test-key'}
-                            }),
-                            {status: 200, headers: {'Content-Type': 'application/json'}}
-                        );
-                    }
                     if (u.includes('/api/sigma-queue/') && u.includes('/enrich')) {
-                        return new Promise(() => {});  // never resolves
+                        return new Promise(() => {});
                     }
                     return _orig(url, opts);
                 };

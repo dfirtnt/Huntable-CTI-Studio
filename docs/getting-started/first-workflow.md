@@ -70,7 +70,7 @@ The agentic workflow runs these stages in order:
 
 1. **OS Detection** — classifies the article as Windows/Linux/macOS/cross-platform. Non-Windows articles terminate early with reason `non_windows_os_detected`.
 2. **Junk Filter** — ML classifier + hunt score keywords determine if the article has actionable threat content. Low-scoring articles terminate early with reason `no_huntable_content`.
-3. **LLM Ranking** — LLM scores the article for relevance and huntability. Articles below the ranking threshold terminate early with reason `below_ranking_threshold`.
+3. **LLM Ranking** — LLM scores the article for relevance and huntability. Articles below the ranking threshold terminate early with reason `rank_below_threshold`.
 4. **Sub-agent Extraction** — sequential LLM agents extract observables (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks).
 5. **Aggregation** — code in the extract step merges and deduplicates sub-agent outputs.
 6. **Sigma Generation** — generates detection rules from the extracted observables.

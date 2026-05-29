@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.services.lmstudio_model_loader import auto_load_workflow_models, extract_lmstudio_models
+from src.services.lmstudio_model_loader import auto_load_workflow_models
 
 pytestmark = pytest.mark.unit
 
@@ -40,53 +40,6 @@ def _models_response(models, loaded_map=None):
 # ---------------------------------------------------------------------------
 
 
-def test_extract_lmstudio_models_skips_rank_qa_when_disabled():
-    agent_models = {
-        "RankAgent": "rank-model",
-        "RankAgent_provider": "lmstudio",
-        "RankAgentQA": "rank-qa-model",
-        "RankAgentQA_provider": "lmstudio",
-    }
-
-    models = extract_lmstudio_models(agent_models, qa_enabled={})
-
-    assert models == {"rank-model"}
-
-
-def test_extract_lmstudio_models_skips_rank_qa_when_base_agent_disabled():
-    agent_models = {
-        "RankAgent": "rank-model",
-        "RankAgent_provider": "lmstudio",
-        "RankAgentQA": "rank-qa-model",
-        "RankAgentQA_provider": "lmstudio",
-    }
-
-    models = extract_lmstudio_models(
-        agent_models,
-        qa_enabled={"RankAgent": True},
-        disabled_agents=["RankAgent"],
-    )
-
-    assert models == {"rank-model"}
-
-
-def test_extract_lmstudio_models_includes_rank_qa_when_enabled():
-    agent_models = {
-        "RankAgent": "rank-model",
-        "RankAgent_provider": "lmstudio",
-        "RankAgentQA": "rank-qa-model",
-        "RankAgentQA_provider": "lmstudio",
-    }
-
-    models = extract_lmstudio_models(
-        agent_models,
-        qa_enabled={"RankAgent": True},
-        disabled_agents=[],
-    )
-
-    assert models == {"rank-model", "rank-qa-model"}
-
-
 # ---------------------------------------------------------------------------
 # auto_load_workflow_models (REST API path)
 # ---------------------------------------------------------------------------
@@ -115,7 +68,7 @@ def test_auto_load_loads_model_via_rest_api():
 
     p_fetch, p_load = _patch_api(models_data)
     with p_fetch, p_load as mock_load:
-        result = auto_load_workflow_models(agent_models, qa_enabled={})
+        result = auto_load_workflow_models(agent_models)
 
     assert result["success"] is True
     assert result["models_loaded"] == ["cmdline-model"]
@@ -134,7 +87,7 @@ def test_auto_load_skips_already_loaded_model_with_sufficient_context():
 
     p_fetch, p_load = _patch_api(models_data)
     with p_fetch, p_load as mock_load:
-        result = auto_load_workflow_models(agent_models, qa_enabled={})
+        result = auto_load_workflow_models(agent_models)
 
     assert result["success"] is True
     assert result["models_skipped"] == ["cmdline-8b-model"]
@@ -152,7 +105,7 @@ def test_auto_load_fails_when_model_not_downloaded():
 
     p_fetch, p_load = _patch_api(models_data)
     with p_fetch, p_load as mock_load:
-        result = auto_load_workflow_models(agent_models, qa_enabled={})
+        result = auto_load_workflow_models(agent_models)
 
     assert result["success"] is False
     assert len(result["models_failed"]) == 1
@@ -167,48 +120,8 @@ def test_auto_load_returns_not_available_when_api_unreachable():
     }
 
     with patch("src.services.lmstudio_model_loader._fetch_models", return_value=None):
-        result = auto_load_workflow_models(agent_models, qa_enabled={})
+        result = auto_load_workflow_models(agent_models)
 
     assert result["success"] is False
     assert result["lmstudio_available"] is False
     assert result["lmstudio_cli_available"] is False
-
-
-def test_auto_load_skips_rank_qa_when_not_enabled():
-    agent_models = {
-        "RankAgent": "rank-model",
-        "RankAgent_provider": "lmstudio",
-        "RankAgentQA": "rank-qa-model",
-        "RankAgentQA_provider": "lmstudio",
-    }
-    models_data = _models_response(["rank-model"])
-
-    p_fetch, p_load = _patch_api(models_data)
-    with p_fetch, p_load as mock_load:
-        result = auto_load_workflow_models(agent_models, qa_enabled={})
-
-    assert result["success"] is True
-    assert result["models_loaded"] == ["rank-model"]
-    assert mock_load.call_count == 1
-
-
-def test_auto_load_skips_rank_qa_when_base_agent_disabled():
-    agent_models = {
-        "RankAgent": "rank-model",
-        "RankAgent_provider": "lmstudio",
-        "RankAgentQA": "rank-qa-model",
-        "RankAgentQA_provider": "lmstudio",
-    }
-    models_data = _models_response(["rank-model"])
-
-    p_fetch, p_load = _patch_api(models_data)
-    with p_fetch, p_load as mock_load:
-        result = auto_load_workflow_models(
-            agent_models,
-            qa_enabled={"RankAgent": True},
-            disabled_agents=["RankAgent"],
-        )
-
-    assert result["success"] is True
-    assert result["models_loaded"] == ["rank-model"]
-    assert mock_load.call_count == 1

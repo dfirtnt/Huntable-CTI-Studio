@@ -133,10 +133,10 @@ class TestRunReturnReason:
     def test_returns_already_present_when_all_urls_exist(self, tmp_path, mock_db):
         """When all article URLs already in DB, returns (0, 0, 'already_present')."""
         manager, session = mock_db
-        # _get_or_create_eval_source
+        # _get_or_create_eval_source uses .filter().first()
         session.query.return_value.filter.return_value.first.return_value = MagicMock(id=1)
-        # existing_urls query: return both URLs so to_create is empty
-        session.query.return_value.filter.return_value.all.return_value = [
+        # existing_urls query now calls .all() without a filter (cross-source dedup)
+        session.query.return_value.all.return_value = [
             ("https://a.com/1",),
             ("https://b.com/2",),
         ]
@@ -154,18 +154,28 @@ class TestRunReturnReason:
         )
 
         with patch("src.services.seed_eval_articles.DatabaseManager", return_value=manager):
-            # First call: source_id; then get_session for existing_urls (all)
-            def first_all(*args, **kwargs):
-                q = session.query.return_value.filter.return_value
-                if hasattr(q, "all"):
-                    return [("https://a.com/1",), ("https://b.com/2",)]
-                return []
+            created, errors, reason = run(project_root=tmp_path)
 
-            session.query.return_value.filter.return_value.all.return_value = [
-                ("https://a.com/1",),
-                ("https://b.com/2",),
-            ]
+        assert created == 0
+        assert errors == 0
+        assert reason == "already_present"
 
+    def test_url_under_different_source_is_deduped(self, tmp_path, mock_db):
+        """Regression: a URL already ingested from a real publisher (different source_id)
+        must block re-seeding — the cross-source dedup fix for the eval-twin vector."""
+        manager, session = mock_db
+        session.query.return_value.filter.return_value.first.return_value = MagicMock(id=99)  # eval source_id=99
+        # DB has the URL under source_id=5 (the real publisher), not under source_id=99
+        session.query.return_value.all.return_value = [("https://real-publisher.com/article",)]
+
+        data_dir = tmp_path / "config" / "eval_articles_data"
+        data_dir.mkdir(parents=True)
+        (data_dir / "cmdline").mkdir()
+        (data_dir / "cmdline" / "articles.json").write_text(
+            json.dumps([{"url": "https://real-publisher.com/article", "title": "T", "content": "c"}])
+        )
+
+        with patch("src.services.seed_eval_articles.DatabaseManager", return_value=manager):
             created, errors, reason = run(project_root=tmp_path)
 
         assert created == 0
@@ -176,7 +186,8 @@ class TestRunReturnReason:
         """When some articles created, returns (created, errors, '')."""
         manager, session = mock_db
         session.query.return_value.filter.return_value.first.return_value = MagicMock(id=1)
-        session.query.return_value.filter.return_value.all.return_value = []  # no existing URLs
+        # existing_urls queries all sources — explicitly empty so the URL is new
+        session.query.return_value.all.return_value = []
 
         data_dir = tmp_path / "config" / "eval_articles_data"
         data_dir.mkdir(parents=True)

@@ -492,14 +492,25 @@ Global `initCollapsiblePanels()` in `base.html` wires click and keyboard handler
 For non-interactive config summaries (e.g. "Current Configuration"), use native HTML:
 
 ```html
-<details style="background: var(--panel-bg-3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
-  <summary class="px-4 py-2 text-xs font-medium cursor-pointer select-none"
+<style>
+  #myPanel .panel-caret { transition: transform 0.2s; display: inline-block; }
+  #myPanel[open] .panel-caret { transform: rotate(180deg); }
+</style>
+
+<details id="myPanel" style="background: var(--panel-bg-3); border: 1px solid rgba(255,255,255,0.06); border-radius: 8px;">
+  <summary class="flex items-center justify-between px-4 py-2 text-xs font-medium cursor-pointer select-none"
            style="color: var(--text-secondary); list-style: none;">
-    &#9654; Section Title
+    <span>Section Title</span>
+    <span class="panel-caret" style="color: var(--text-muted-slate); font-size: 0.75rem;" aria-hidden="true">&#x25BC;</span>
   </summary>
   <div class="mt-1 px-4 pb-3"><!-- content --></div>
 </details>
 ```
+
+**Caret is required.** `list-style: none` removes the browser's native disclosure triangle — you must supply your own. Rules:
+- Always use `flex items-center justify-between` on `<summary>` with the `&#x25BC;` caret on the right.
+- Drive rotation via `details[open] .panel-caret { transform: rotate(180deg) }` — no JS needed.
+- Use `var(--text-muted-slate)` and `font-size: 0.75rem` to match the `data-collapsible-panel` toggle style.
 
 Do not use `<details>` for primary interactive controls. Use collapsible panels or modals instead.
 

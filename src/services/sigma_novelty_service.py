@@ -43,6 +43,7 @@ except ImportError:
 # Jaccard scores even when the proposed rule was atomized by a different version
 # of the extractor than the stored SigmaHQ atoms.
 _ATOM_FIELD_ALIAS: dict[str, str] = {
+    # Process execution — map to process.* namespace
     "commandline": "process.command_line",
     "command_line": "process.command_line",
     "processcommandline": "process.command_line",
@@ -54,6 +55,14 @@ _ATOM_FIELD_ALIAS: dict[str, str] = {
     "parent_image": "process.parent_image",
     "parentcommandline": "process.parent_command_line",
     "parent_command_line": "process.parent_command_line",
+    # Service creation — collapse multi-to-one aliases so stored atoms using
+    # either alias resolve to the same form as proposed atoms via FIELD_ALIAS_MAP.
+    "servicefilename": "serviceimagepath",
+    "servicefile_name": "serviceimagepath",
+    "imagepath": "serviceimagepath",
+    "image_path": "serviceimagepath",
+    "starttype": "servicestarttype",
+    "start_type": "servicestarttype",
 }
 
 
@@ -198,6 +207,17 @@ class SigmaNoveltyService:
         "TargetObject": "RegistryPath",
         "RegistryKey": "RegistryPath",
         "RegistryPath": "RegistryPath",
+        "RegistryValue": "RegistryValue",
+        # Service creation
+        "ServiceName": "ServiceName",
+        "ServiceFileName": "ServiceImagePath",
+        "ImagePath": "ServiceImagePath",
+        "StartType": "ServiceStartType",
+        "ServiceType": "ServiceType",
+        "ServiceStartType": "ServiceStartType",
+        # Scheduled tasks
+        "TaskName": "TaskName",
+        "TaskContent": "TaskContent",
     }
 
     # Service penalty configuration (v1.2)
@@ -568,51 +588,6 @@ class SigmaNoveltyService:
         logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}' (service: {service})")
         return logsource_key, service
 
-    def normalize_detection(self, detection: dict[str, Any], field_name: str) -> dict[str, Any]:
-        """
-        Normalize detection values with field-aware normalization.
-
-        Args:
-            detection: Detection dictionary
-            field_name: Field name being normalized
-
-        Returns:
-            Normalized detection dictionary
-        """
-        if not isinstance(detection, dict):
-            return detection
-
-        normalized = {}
-
-        for key, value in detection.items():
-            if key == "condition":
-                normalized[key] = value
-                continue
-
-            # Normalize field values
-            if isinstance(value, dict):
-                normalized[key] = {}
-                for field, field_value in value.items():
-                    base_field, modifiers = self._parse_field_with_modifiers(field)
-
-                    # Apply normalization based on field type
-                    if base_field in self.AGGRESSIVE_NORMALIZATION_FIELDS:
-                        normalized_value = self._normalize_aggressive(field_value)
-                    else:
-                        normalized_value = self._normalize_conservative(field_value)
-
-                    # Reconstruct field with modifiers
-                    if modifiers:
-                        field_key = f"{base_field}|{'|'.join(modifiers)}"
-                    else:
-                        field_key = base_field
-
-                    normalized[key][field_key] = normalized_value
-            else:
-                normalized[key] = value
-
-        return normalized
-
     def _normalize_conservative(self, value: Any) -> Any:
         """Conservative normalization: trim whitespace, normalize slashes."""
         if isinstance(value, str):
@@ -673,12 +648,16 @@ class SigmaNoveltyService:
                 base_field, modifiers = self._parse_field_with_modifiers(field_name)
 
                 # Apply field alias normalization (v1.2)
-                # Make lookup case-insensitive (map uses title case)
+                # Make lookup case-insensitive AND underscore-insensitive so that
+                # snake_case field names (LLM-generated or older Sigma rules) map to
+                # the same canonical form as their camelCase equivalents.
+                # e.g. parent_image → parentimage == ParentImage.lower() → ParentImage
                 base_field_lower = base_field.lower() if base_field else ""
-                # Find matching key in map (case-insensitive)
+                base_field_nounderscore = base_field_lower.replace("_", "")
                 canonical_field = base_field
                 for map_key, map_value in self.FIELD_ALIAS_MAP.items():
-                    if map_key.lower() == base_field_lower:
+                    map_key_lower = map_key.lower()
+                    if map_key_lower in (base_field_lower, base_field_nounderscore):
                         canonical_field = map_value
                         break
                 # If no match found, use title case version of original
@@ -1445,19 +1424,6 @@ class SigmaNoveltyService:
         if "NOT" in logic:
             return 1 + self._compute_logic_depth(logic["NOT"])
         return 0
-
-    def _count_operators(self, logic: dict[str, Any]) -> int:
-        """Count number of operators in logic tree."""
-        count = 0
-        if "AND" in logic or "OR" in logic:
-            count = 1
-            operands = logic.get("AND", logic.get("OR", []))
-            for op in operands:
-                count += self._count_operators(op)
-        elif "NOT" in logic:
-            count = 1 + self._count_operators(logic["NOT"])
-
-        return count
 
     def compute_similarity_metrics(self, rule1: CanonicalRule, rule2: CanonicalRule) -> dict[str, Any]:
         """

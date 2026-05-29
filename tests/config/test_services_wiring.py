@@ -44,7 +44,6 @@ _MINIMAL_AGENT_MODELS = {
     "HuntQueriesExtract_model": "gpt-4",
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
-    "RankAgentQA": "gpt-4",
 }
 
 _MINIMAL_AGENT_PROMPTS = {name: {"prompt": "", "instructions": ""} for name in ALL_AGENT_NAMES}
@@ -54,7 +53,6 @@ def _make_v2_with_services(**overrides):
     """Build a minimal valid v2 config dict with ServicesExtract."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         "ServicesExtract": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     }
     prompts = {k: {"prompt": "", "instructions": ""} for k in agents}
@@ -69,7 +67,6 @@ def _make_v2_with_services(**overrides):
         },
         "Agents": agents,
         "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": prompts,
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
@@ -161,7 +158,6 @@ class TestMigration:
                 "ServicesExtract_temperature": 0.2,
                 "ServicesExtract_top_p": 0.95,
             },
-            "qa_enabled": {},
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
         }
         migrated = migrate_v1_to_v2(raw)
@@ -181,7 +177,6 @@ class TestMigration:
                 "ServicesExtract_temperature": 0.3,
                 "ServicesExtract_top_p": 0.85,
             },
-            "qa_enabled": {},
             "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
         }
         migrated = migrate_v1_to_v2(raw)
@@ -237,15 +232,11 @@ class TestUIOrderedRoundTrip:
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         }
         return {
             "Version": "2.0",
             "Metadata": {},
             "JunkFilter": {"JunkFilterThreshold": 0.8},
-            "QASettings": {"MaxRetries": 3},
             "Thresholds": {"MinHuntScore": 97.0},
             "OSDetection": {
                 "Embedding": "bert",
@@ -309,15 +300,11 @@ class TestOldPresetBackwardCompat:
             "Temperature": 0,
             "TopP": 0.9,
             "Prompt": {},
-            "QAEnabled": False,
-            "QA": {},
-            "QAPrompt": {},
         }
         preset = {
             "Version": "2.0",
             "Metadata": {},
             "JunkFilter": {"JunkFilterThreshold": 0.8},
-            "QASettings": {"MaxRetries": 3},
             "Thresholds": {"MinHuntScore": 97.0},
             "OSDetection": {
                 "Embedding": "bert",

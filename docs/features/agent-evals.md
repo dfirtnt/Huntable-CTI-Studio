@@ -201,13 +201,26 @@ investigated offline or fed to the AI Diagnosis feature.
 | `article_text` | Full text of the article |
 | `agent_name` | Extractor subagent that ran (e.g. `CmdlineExtract`) |
 | `system_prompt` | System prompt the agent received |
-| `llm_request` | Full request payload sent to the LLM |
+| `llm_request` | Full request payload sent to the LLM (see "Forensic fields on `llm_request`" below) |
 | `llm_response` | Raw LLM response |
 | `extraction_results` | Parsed extraction output |
 | `expected_count` | Expected number of extractions from the eval config |
 | `actual_count` | How many the agent actually returned |
 | `eval_score` | Score (pass/fail/partial) assigned by QA |
 | `integrity` | SHA256 + any warnings flagged at export time |
+
+#### Forensic fields on `llm_request`
+
+Bundles ship five wire-truth fields alongside the headline `messages` array. These let you answer "what exactly did the provider see for this call" from the bundle alone:
+
+| Field | What it is |
+|---|---|
+| `messages` | The byte-for-byte runtime wire copy (preferred over the SSE-truncated `conversation_log` copy when both exist). In slim bundles, article body and system prompt are replaced with SHA references back to `inputs[]` to avoid duplication. |
+| `runtime_messages_verbatim` | Small attestation dict (`is_verbatim_wire_copy`, `source_field`, `source_sha256`, `message_count`). Lets consumers verify `messages` IS the wire copy by re-hashing it. Not a duplicate of the messages bytes. |
+| `provider_payload_verbatim` | The actual provider-specific envelope POSTed to the API (Anthropic extracts `system` to a top-level key; OpenAI uses `max_completion_tokens`; LM Studio uses `max_tokens`). Inner `.messages` is dehydrated to a `_ref` pointing back to `llm_request.messages` (with SHA cross-check) — the envelope shape is what differs across providers, not the messages themselves. |
+| `provider_url` | The actual endpoint URL hit (`https://api.openai.com/v1/chat/completions`, the resolved LM Studio URL candidate, etc.). |
+| `post_augmentation_prompt_tokens` | Total tokens across all final messages, measured *after* every orchestration injection. Useful for per-call prompt-bloat audits. |
+| `orchestration_injected_sections` | Ordered list of every boilerplate block `run_extraction_agent` added on top of the DB prompt (e.g. `cmdline_attention_snippets_section`, `important_json_reminder`, `traceability_simple_value_footer`, `user_prefix`). Lets you attribute "what came from the DB prompt" vs "what came from orchestration". |
 
 ### Exporting bundles
 

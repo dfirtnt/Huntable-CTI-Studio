@@ -837,7 +837,7 @@ When evaluation runs correctly, you should see:
 
 2. **Extraction Agent Start:**
    ```
-   INFO: Running extraction agent CmdlineExtract (QA enabled: False)
+   INFO: Running extraction agent CmdlineExtract (provider=lmstudio, model_name=qwen2.5-coder-7b)
    ```
 
 3. **LMStudio Request:**

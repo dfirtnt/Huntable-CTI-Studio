@@ -834,16 +834,22 @@ class ContentFilter:
                 if sentence_end is not None:
                     end = sentence_end
 
-            # Skip "overlap-only" chunks: when find_sentence_boundaries returns
-            # the same boundary that ended the previous chunk, we'd emit a chunk
-            # whose end equals chunks[-1][1] — meaning every character is already
-            # present in the previous chunk's tail (no new content). This was
-            # producing spurious 200-char chunks (== overlap size) at section
-            # boundaries that have no model value. Advance past the duplicate
-            # boundary and continue the main loop.
+            # When find_sentence_boundaries returns a boundary at or before the
+            # previous chunk's end, the sentence aligner got stuck on the same
+            # break point. Resetting start to chunks[-1][1] would skip the overlap
+            # entirely (bug: produces 0-char overlap pairs like 33195→33195).
+            # Instead, fall back to a hard character cut at start+chunk_size so
+            # the current start position (and its overlap with the previous chunk)
+            # is preserved.  Only if even the hard cut is still inside the previous
+            # chunk (truly degenerate content with no forward progress) do we
+            # advance past it.
             if chunks and end <= chunks[-1][1]:
-                start = chunks[-1][1]
-                continue
+                end = min(start + chunk_size, len(content))
+                if end <= chunks[-1][1]:
+                    # Hard cut still inside previous chunk — advance past it.
+                    start = chunks[-1][1]
+                    continue
+                # else: fall through with the hard-cut end; overlap is preserved.
 
             chunk_text = content[start:end].strip()
             if chunk_text:
@@ -915,16 +921,23 @@ class ContentFilter:
             y_pred = self.model.predict(X_test)
             accuracy = accuracy_score(y_test, y_pred)
 
-            # Calculate detailed metrics
-            precision = precision_score(y_test, y_pred, average=None, zero_division=0)
-            recall = recall_score(y_test, y_pred, average=None, zero_division=0)
-            f1 = f1_score(y_test, y_pred, average=None, zero_division=0)
+            # Calculate detailed metrics. Pass labels=[0, 1] so the returned
+            # arrays are always length-2 (index 0 = Not Huntable, 1 = Huntable)
+            # even when y_test contains only one class — which happens on
+            # brand-new installs where the seed/feedback data is single-class.
+            precision = precision_score(y_test, y_pred, labels=[0, 1], average=None, zero_division=0)
+            recall = recall_score(y_test, y_pred, labels=[0, 1], average=None, zero_division=0)
+            f1 = f1_score(y_test, y_pred, labels=[0, 1], average=None, zero_division=0)
 
             training_duration = time.time() - start_time
 
             logger.info(f"Model trained successfully. Accuracy: {accuracy:.3f}")
             logger.info("Classification Report:")
-            logger.info(classification_report(y_test, y_pred, target_names=["Not Huntable", "Huntable"]))
+            logger.info(
+                classification_report(
+                    y_test, y_pred, labels=[0, 1], target_names=["Not Huntable", "Huntable"], zero_division=0
+                )
+            )
 
             # Save model
             import joblib
@@ -946,11 +959,11 @@ class ContentFilter:
                 "training_duration_seconds": training_duration,
                 "test_set_size": len(y_test),
                 "accuracy": float(accuracy),
-                "precision_huntable": float(precision[1]) if len(precision) > 1 else 0.0,
+                "precision_huntable": float(precision[1]),
                 "precision_not_huntable": float(precision[0]),
-                "recall_huntable": float(recall[1]) if len(recall) > 1 else 0.0,
+                "recall_huntable": float(recall[1]),
                 "recall_not_huntable": float(recall[0]),
-                "f1_score_huntable": float(f1[1]) if len(f1) > 1 else 0.0,
+                "f1_score_huntable": float(f1[1]),
                 "f1_score_not_huntable": float(f1[0]),
                 "model_params": {
                     "n_estimators": 100,
@@ -961,8 +974,10 @@ class ContentFilter:
                 "classification_report": classification_report(
                     y_test,
                     y_pred,
+                    labels=[0, 1],
                     target_names=["Not Huntable", "Huntable"],
                     output_dict=True,
+                    zero_division=0,
                 ),
             }
 
@@ -1106,7 +1121,18 @@ class ContentFilter:
             return self._pattern_based_classification(text, hunt_score)
 
     def _pattern_based_classification(self, text: str, hunt_score: float | None = None) -> tuple[bool, float]:
-        """Pattern-based classification using Hunt Scoring system results."""
+        """Degraded-mode fallback when the ML model is unavailable or raises.
+
+        Called from predict_huntability in two situations:
+        1. sklearn not importable or self.model is None (e.g. test environments
+           without the trained pkl, or failed load_model() calls).
+        2. The ML prediction path raises an unexpected exception — ensures
+           the pipeline never hard-fails due to an ML bug.
+
+        Uses ThreatHuntingScorer keyword signals as a coarser substitute.
+        Accuracy is lower than the trained RandomForest; this path should
+        never fire in a normally-running production instance.
+        """
         from .content import ThreatHuntingScorer
 
         # Use Hunt Scoring system as the source of truth

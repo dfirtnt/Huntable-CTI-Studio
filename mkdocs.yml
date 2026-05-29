@@ -75,6 +75,7 @@ nav:
       - ML Feature Definitions: reference/ml-features.md
   - Development:
       - Agent Orientation: development/agent-orientation.md
+      - Add an Extractor Agent: development/add-extractor-agent.md
       - Setup: development/setup.md
       - Testing Strategy: development/testing.md
       - Manual Testing: development/manual-testing.md
@@ -91,6 +92,7 @@ nav:
       - ProcTreeExtract: contracts/proctree-extract.md
       - RegistryExtract: contracts/registry-extract.md
       - ServicesExtract: contracts/services-extract.md
+      - ScheduledTasksExtract: contracts/scheduled-tasks-extract.md
       - HuntQueriesExtract: contracts/huntquery-extract.md
       - Rank Agent: contracts/rank-agent.md
       - Sigma Generate: contracts/sigma-generate.md

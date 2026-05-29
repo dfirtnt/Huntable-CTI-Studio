@@ -87,7 +87,6 @@ def get_model_context_length(model_name: str) -> int:
 
 def extract_lmstudio_models(
     agent_models: dict[str, Any],
-    qa_enabled: dict[str, Any] | None = None,
     disabled_agents: list[str] | set[str] | None = None,
 ) -> set[str]:
     """
@@ -103,7 +102,6 @@ def extract_lmstudio_models(
         return set()
 
     models_to_load = set()
-    qa_enabled_map = qa_enabled if isinstance(qa_enabled, dict) else None
     disabled_agents_set = set(disabled_agents) if disabled_agents else set()
 
     # Main agents (model key = agent name)
@@ -127,21 +125,6 @@ def extract_lmstudio_models(
     for agent_name in sub_agents:
         model_key = f"{agent_name}_model"
         model = agent_models.get(model_key)
-        if model and isinstance(model, str) and model.strip():
-            provider = agent_models.get(f"{agent_name}_provider", "lmstudio")
-            if provider and provider.lower().strip() == "lmstudio":
-                models_to_load.add(model.strip())
-
-    # QA agents (model key = agent name, no _model suffix)
-    qa_agents = [
-        ("RankAgentQA", "RankAgent"),
-    ]
-    for agent_name, base_agent in qa_agents:
-        if base_agent in disabled_agents_set:
-            continue
-        if qa_enabled_map is not None and not qa_enabled_map.get(base_agent, False):
-            continue
-        model = agent_models.get(agent_name)
         if model and isinstance(model, str) and model.strip():
             provider = agent_models.get(f"{agent_name}_provider", "lmstudio")
             if provider and provider.lower().strip() == "lmstudio":
@@ -224,7 +207,6 @@ def _load_model_via_api(api_base: str, model_name: str, context_length: int) -> 
 
 def auto_load_workflow_models(
     agent_models: dict[str, Any],
-    qa_enabled: dict[str, Any] | None = None,
     disabled_agents: list[str] | set[str] | None = None,
 ) -> dict[str, Any]:
     """
@@ -273,7 +255,6 @@ def auto_load_workflow_models(
     # Extract LMStudio models from config
     models_to_load = extract_lmstudio_models(
         agent_models,
-        qa_enabled=qa_enabled,
         disabled_agents=disabled_agents,
     )
 

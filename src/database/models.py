@@ -517,24 +517,13 @@ class AgenticWorkflowConfigTable(Base):
     # e.g., {"RankAgent": "deepseek/deepseek-r1", "ExtractAgent": "...", "SigmaAgent": "..."}
     agent_models = Column(JSONB, nullable=True)
 
-    # QA enabled flags (JSONB: {agent_name: bool})
-    # e.g., {"OSDetectionAgent": true, "RankAgent": false, "ExtractAgent": true, "SigmaAgent": true}
-    qa_enabled = Column(JSONB, nullable=True)
-
     # SIGMA Agent content source: if True, use filtered_content (full article minus junk) instead of extracted observables
     # Default False (use extracted observables summary - SIGMA only generates from extraction_result.content)
     sigma_fallback_enabled = Column(Boolean, nullable=False, default=False)
 
-    # OS Detection fallback LLM: if True, use configured fallback model when embedding confidence is low
-    # Default False (fallback disabled until user enables and selects a model)
-    osdetection_fallback_enabled = Column(Boolean, nullable=False, default=False)
-
     # Rank Agent enabled: if False, skip ranking step and proceed directly to extraction
     # Default True (rank agent is enabled by default)
     rank_agent_enabled = Column(Boolean, nullable=False, default=True)
-
-    # QA Agent max retries: Maximum number of times QA Agent will give feedback to counterpart agent
-    qa_max_retries = Column(Integer, nullable=False, default=5)
 
     # CmdlineExtract attention preprocessor: if True, surface high-likelihood snippets before full article
     cmdline_attention_preprocessor_enabled = Column(Boolean, nullable=False, default=True)
@@ -902,7 +891,7 @@ class EnrichmentPresetTable(Base):
 
 
 class WorkflowConfigPresetTable(Base):
-    """Database table for workflow configuration presets (thresholds, agent models, QA toggles, etc.)."""
+    """Database table for workflow configuration presets (thresholds, agent models, feature flags, etc.)."""
 
     __tablename__ = "workflow_config_presets"
 

@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 from src.config.workflow_config_schema import (
     AgentConfig,
-    QAConfig,
     WorkflowConfigV2,
 )
 
@@ -26,14 +25,11 @@ def test_valid_v2_load():
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
         },
         "Embeddings": {"OsDetection": "ibm-research/CTI-BERT", "Sigma": "ibm-research/CTI-BERT"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
             "RankAgent": {"prompt": "", "instructions": ""},
-            "RankAgentQA": {"prompt": "", "instructions": ""},
         },
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
     }
@@ -50,7 +46,6 @@ def test_missing_version_fails():
         "Thresholds": {},
         "Agents": {},
         "Embeddings": {},
-        "QA": {},
         "Features": {},
         "Prompts": {},
         "Execution": {},
@@ -67,7 +62,6 @@ def test_invalid_version_fails():
         "Thresholds": {},
         "Agents": {},
         "Embeddings": {},
-        "QA": {},
         "Features": {},
         "Prompts": {},
         "Execution": {},
@@ -89,7 +83,6 @@ def test_invalid_value_types_fail():
         },
         "Agents": {},
         "Embeddings": {},
-        "QA": {},
         "Features": {},
         "Prompts": {},
         "Execution": {},
@@ -107,12 +100,6 @@ def test_agent_config_required_fields():
 
 
 @pytest.mark.regression
-def test_qa_config_max_retries_default_is_one():
-    """QAConfig.MaxRetries default is 1 (changed from 5 to reduce runaway QA loops)."""
-    assert QAConfig().MaxRetries == 1
-
-
-@pytest.mark.regression
 def test_to_legacy_response_dict_includes_extract_agent_settings():
     """Legacy response includes agent_prompts.ExtractAgentSettings.disabled_agents for UI persistence."""
     raw = {
@@ -126,7 +113,6 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "CmdlineExtract": {
                 "Provider": "openai",
                 "Model": "gpt-4",
@@ -136,11 +122,9 @@ def test_to_legacy_response_dict_includes_extract_agent_settings():
             },
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
             "RankAgent": {"prompt": "", "instructions": ""},
-            "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
         },
         "Execution": {
@@ -167,7 +151,6 @@ def test_flatten_for_llm_service_keys():
         },
         "Agents": {
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-            "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
             "CmdlineExtract": {
                 "Provider": "openai",
                 "Model": "gpt-4",
@@ -177,11 +160,9 @@ def test_flatten_for_llm_service_keys():
             },
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {
             "RankAgent": {"prompt": "", "instructions": ""},
-            "RankAgentQA": {"prompt": "", "instructions": ""},
             "CmdlineExtract": {"prompt": "", "instructions": ""},
         },
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
@@ -200,11 +181,9 @@ _MINIMAL_V2_RAW = {
     "Version": "2.0",
     "Agents": {
         "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     },
     "Prompts": {
         "RankAgent": {"prompt": "", "instructions": ""},
-        "RankAgentQA": {"prompt": "", "instructions": ""},
     },
 }
 
@@ -220,10 +199,7 @@ _LEGACY_RESPONSE_DICT_KEYS = frozenset(
         "description",
         "agent_prompts",
         "agent_models",
-        "qa_enabled",
         "sigma_fallback_enabled",
-        "osdetection_fallback_enabled",
-        "qa_max_retries",
         "rank_agent_enabled",
         "cmdline_attention_preprocessor_enabled",
         "proc_tree_attention_preprocessor_enabled",
@@ -262,30 +238,6 @@ def test_example_json_valid():
     assert len(config.Agents) >= 10
 
 
-def test_qa_enabled_orphan_fails():
-    """QA.Enabled key not in Agents raises ValidationError."""
-    raw = {
-        "Version": "2.0",
-        "Metadata": {"CreatedAt": "x", "Description": "x"},
-        "Thresholds": {
-            "MinHuntScore": 97.0,
-            "RankingThreshold": 6.0,
-            "SimilarityThreshold": 0.5,
-            "JunkFilterThreshold": 0.8,
-        },
-        "Agents": {
-            "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
-        },
-        "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
-        "QA": {"Enabled": {"UnknownAgent": True}, "MaxRetries": 5},
-        "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
-        "Prompts": {},
-        "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
-    }
-    with pytest.raises(ValidationError, match="QA.Enabled key .* not in Agents"):
-        WorkflowConfigV2.model_validate(raw)
-
-
 def test_stray_prompt_key_fails():
     """Prompts key that is not a canonical agent name raises ValidationError."""
     raw = {
@@ -301,7 +253,6 @@ def test_stray_prompt_key_fails():
             "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True}
         },
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": {"ExtractAgentSettings": {"prompt": "", "instructions": ""}},
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
@@ -323,47 +274,10 @@ def _minimal_v2(agents: dict, prompts: dict | None = None) -> dict:
         },
         "Agents": agents,
         "Embeddings": {"OsDetection": "bert", "Sigma": "bert"},
-        "QA": {"Enabled": {}, "MaxRetries": 5},
         "Features": {"SigmaFallbackEnabled": False, "CmdlineAttentionPreprocessorEnabled": True},
         "Prompts": prompts if prompts is not None else {},
         "Execution": {"ExtractAgentSettings": {"DisabledAgents": []}, "OsDetectionSelectedOs": ["Windows"]},
     }
-
-
-@pytest.mark.regression
-def test_missing_rankagentqa_prompt_raises():
-    """Missing prompt block for RankAgentQA raises ValidationError."""
-    agents = {
-        "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Missing prompt block for agent RankAgentQA"):
-        WorkflowConfigV2.model_validate(raw)
-
-
-def test_missing_required_qa_agent_raises():
-    """Missing required QA agent for RankAgent raises ValidationError."""
-    agents = {
-        "RankAgent": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Missing QA agent for RankAgent"):
-        WorkflowConfigV2.model_validate(raw)
-
-
-@pytest.mark.regression
-def test_orphan_qa_agent_raises():
-    """Orphan QA agent (RankAgentQA without RankAgent) raises ValidationError."""
-    agents = {
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {"RankAgentQA": {"prompt": "", "instructions": ""}}
-    raw = _minimal_v2(agents, prompts)
-    with pytest.raises(ValidationError, match="Orphan QA agent RankAgentQA"):
-        WorkflowConfigV2.model_validate(raw)
 
 
 def test_valid_config_passes():
@@ -376,24 +290,22 @@ def test_valid_config_passes():
         "CmdlineExtract": agent_cfg,
         "ProcTreeExtract": agent_cfg,
         "HuntQueriesExtract": agent_cfg,
-        "RankAgentQA": agent_cfg,
     }
     # ExtractAgent is a model/provider fallback key and must NOT appear in Prompts
     prompts = {name: {"prompt": "", "instructions": ""} for name in agents if name != "ExtractAgent"}
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Version == "2.0"
-    assert len(config.Agents) == 7
-    assert len(config.Prompts) == 6
+    assert len(config.Agents) == 6
+    assert len(config.Prompts) == 5
 
 
 def test_enabled_agent_missing_model_raises():
     """Enabled agent with empty Model raises ValidationError."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}}
+    prompts = {"RankAgent": {"prompt": "", "instructions": ""}}
     raw = _minimal_v2(agents, prompts)
     with pytest.raises(ValidationError, match="Agent 'RankAgent' is Enabled but missing Provider or Model"):
         WorkflowConfigV2.model_validate(raw)
@@ -403,9 +315,8 @@ def test_enabled_agent_missing_provider_raises():
     """Enabled agent with empty Provider raises ValidationError."""
     agents = {
         "RankAgent": {"Provider": "", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     }
-    prompts = {"RankAgent": {"prompt": "", "instructions": ""}, "RankAgentQA": {"prompt": "", "instructions": ""}}
+    prompts = {"RankAgent": {"prompt": "", "instructions": ""}}
     raw = _minimal_v2(agents, prompts)
     with pytest.raises(ValidationError, match="Agent 'RankAgent' is Enabled but missing Provider or Model"):
         WorkflowConfigV2.model_validate(raw)
@@ -415,19 +326,18 @@ def test_disabled_agent_allows_empty_model():
     """Disabled agent with empty Model passes validation."""
     agents = {
         "RankAgent": {"Provider": "openai", "Model": "", "Temperature": 0.0, "TopP": 0.9, "Enabled": False},
-        "RankAgentQA": {"Provider": "openai", "Model": "gpt-4", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
     }
-    prompts = {"RankAgentQA": {"prompt": "", "instructions": ""}}
+    prompts: dict = {}
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
     assert config.Agents["RankAgent"].Enabled is False
     assert config.Agents["RankAgent"].Model == ""
 
 
-# ── Regression: preset import model-key and qa_max_retries contract ───────────
+# ── Regression: preset import model-key contract ──────────────────────────────
 # These tests pin the exact backend contract that applyPreset() in the frontend
 # relies on. flatten_for_llm_service() must use "RankAgent" (not "RankAgent_model")
-# as the model key, and to_legacy_response_dict() must propagate QA.MaxRetries.
+# as the model key.
 
 
 @pytest.mark.regression
@@ -445,17 +355,9 @@ def test_flatten_for_llm_service_returns_rankagent_model_key():
             "TopP": 0.9,
             "Enabled": True,
         },
-        "RankAgentQA": {
-            "Provider": "lmstudio",
-            "Model": "qwen/qwen3-14b",
-            "Temperature": 0.3,
-            "TopP": 0.9,
-            "Enabled": True,
-        },
     }
     prompts = {
         "RankAgent": {"prompt": "test", "instructions": ""},
-        "RankAgentQA": {"prompt": "test", "instructions": ""},
     }
     raw = _minimal_v2(agents, prompts)
     config = WorkflowConfigV2.model_validate(raw)
@@ -463,32 +365,7 @@ def test_flatten_for_llm_service_returns_rankagent_model_key():
 
     assert flat["RankAgent"] == "qwen/qwen3-8b", "model key must be bare 'RankAgent', not 'RankAgent_model'"
     assert flat["RankAgent_provider"] == "lmstudio"
-    assert flat["RankAgentQA"] == "qwen/qwen3-14b"
-    assert flat["RankAgentQA_provider"] == "lmstudio"
     assert "RankAgent_model" not in flat, "sub-agent style key must not appear for main agents"
-
-
-@pytest.mark.regression
-def test_to_legacy_response_dict_qa_max_retries():
-    """to_legacy_response_dict propagates QA.MaxRetries as qa_max_retries.
-
-    The frontend applyPreset() reads preset.qa_max_retries to populate the
-    QA Max Retries input. A non-default value (3 vs. default 5) must survive.
-    """
-    agents = {
-        "RankAgent": {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-        "RankAgentQA": {"Provider": "lmstudio", "Model": "m", "Temperature": 0.0, "TopP": 0.9, "Enabled": True},
-    }
-    prompts = {
-        "RankAgent": {"prompt": "test", "instructions": ""},
-        "RankAgentQA": {"prompt": "test", "instructions": ""},
-    }
-    raw = _minimal_v2(agents, prompts)
-    raw["QA"]["MaxRetries"] = 3
-    config = WorkflowConfigV2.model_validate(raw)
-    legacy = config.to_legacy_response_dict()
-
-    assert legacy["qa_max_retries"] == 3, "non-default MaxRetries must survive to_legacy_response_dict"
 
 
 @pytest.mark.regression

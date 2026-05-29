@@ -38,7 +38,9 @@ def _load_script():
 
 @pytest.fixture(scope="module")
 def script():
-    return _load_script()
+    module = _load_script()
+    yield module
+    sys.modules.pop("prepare_eval_set", None)
 
 
 # ---------------------------------------------------------------------------

@@ -39,7 +39,9 @@ def _load_script_module():
 
 @pytest.fixture(scope="module")
 def script():
-    return _load_script_module()
+    module = _load_script_module()
+    yield module
+    sys.modules.pop("check_commit_msg", None)
 
 
 def _write_msg(tmp_path: Path, text: str) -> Path:

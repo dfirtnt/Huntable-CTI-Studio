@@ -38,6 +38,7 @@ def _make_eval_record(
     execution_id=None,
     article_id=None,
     created_at=None,
+    record_id=None,
 ):
     """Build a minimal mock SubagentEvaluationTable row."""
     from datetime import UTC, datetime
@@ -52,6 +53,10 @@ def _make_eval_record(
     r.article_id = article_id
     r.created_at = created_at or datetime.now(UTC)
     r.subagent_name = "cmdline"
+    # Primary key; the version-compare endpoint uses id DESC to break ties when
+    # replicate attempts share a created_at timestamp. Must be a real int (not a
+    # MagicMock attribute) so comparisons are stable.
+    r.id = record_id if record_id is not None else 0
     return r
 
 
@@ -345,6 +350,155 @@ async def test_compare_aggregate_perfect_matches():
     assert result["aggregate_a"]["perfect_match_percentage"] == 50.0
     assert result["aggregate_b"]["perfect_matches"] == 2
     assert result["aggregate_b"]["perfect_match_percentage"] == 100.0
+
+
+@pytest.mark.asyncio
+async def test_compare_aggregate_includes_all_replicate_attempts():
+    """Regression: aggregate MAE must include ALL replicate attempts, not just
+    the latest per article.
+
+    Pre-fix, the aggregate was computed from the per-(url, version) "latest"
+    map, which silently dropped 2/3 of attempts when articles were evaluated
+    multiple times -- causing the Version Compare panel to disagree with the
+    "MAE by Config Version" chart that aggregates over all rows. Worse, when
+    replicate attempts shared a created_at (same enqueue batch), the
+    strict-> comparator picked an arbitrary record, making the table
+    non-deterministic across page refreshes.
+    """
+    from datetime import UTC, datetime
+
+    url = "https://example.com/article"
+    # Three v10 attempts; two share a created_at (the bug-triggering case).
+    ts_early = datetime(2026, 5, 27, 20, 3, 12, 800089, tzinfo=UTC)
+    ts_tied = datetime(2026, 5, 27, 20, 8, 22, 980560, tzinfo=UTC)
+    recs = [
+        _make_eval_record(
+            url, version=10, actual_count=0, expected_count=10, execution_id=101, record_id=1, created_at=ts_early
+        ),
+        _make_eval_record(
+            url, version=10, actual_count=6, expected_count=10, execution_id=102, record_id=2, created_at=ts_tied
+        ),
+        _make_eval_record(
+            url, version=10, actual_count=6, expected_count=10, execution_id=103, record_id=3, created_at=ts_tied
+        ),
+        # Two v11 attempts; both share a created_at to verify tie-break order.
+        _make_eval_record(
+            url, version=11, actual_count=8, expected_count=10, execution_id=201, record_id=4, created_at=ts_tied
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=8, expected_count=10, execution_id=202, record_id=5, created_at=ts_tied
+        ),
+    ]
+
+    db_manager = _make_db(recs)
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api._load_preset_expected_by_url", return_value={}),
+        patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+
+    # Aggregate MAE must average ALL attempts:
+    #   v10: |0-10|, |6-10|, |6-10| -> (10 + 4 + 4) / 3 = 6.0
+    #   v11: |8-10|, |8-10|         -> 2.0
+    assert result["aggregate_a"]["raw_mae"] == 6.0
+    assert result["aggregate_b"]["raw_mae"] == 2.0
+    # `completed` count reflects all rows, not the deduped count.
+    assert result["aggregate_a"]["completed"] == 3
+    assert result["aggregate_b"]["completed"] == 2
+
+    article = result["articles"][0]
+    # Replicate count is surfaced so the UI can render n=N.
+    assert article["attempts_a"] == 3
+    assert article["attempts_b"] == 2
+    # Per-article cell still shows a single attempt, but the tie-break is now
+    # deterministic: highest record_id among rows sharing the latest created_at.
+    assert article["result_a"]["execution_id"] == 103  # id=3, tied ts
+    assert article["result_b"]["execution_id"] == 202  # id=5, tied ts
+
+    # Averaged stats per article (used by the improvement badge and tallies).
+    assert article["avg_a"]["avg_actual"] == 4.0  # (0+6+6)/3
+    assert article["avg_a"]["avg_abs_err"] == 6.0  # (10+4+4)/3
+    assert article["avg_a"]["completed_attempts"] == 3
+    assert article["avg_b"]["avg_actual"] == 8.0  # (8+8)/2
+    assert article["avg_b"]["avg_abs_err"] == 2.0  # (2+2)/2
+    # Improvement = avg_a_abs_err - avg_b_abs_err = 6.0 - 2.0 = 4.0 (B better).
+    assert article["improvement"] == 4.0
+
+    # Magnitude-weighted summary on the panel.
+    assert result["total_improvement_magnitude"] == 4.0
+    assert result["total_regression_magnitude"] == 0
+    assert result["net_change"] == 4.0
+
+
+@pytest.mark.asyncio
+async def test_compare_improvement_uses_averaged_not_latest_attempt():
+    """The improvement badge must reflect averaged abs_err across all
+    completed attempts, not the latest single attempt.
+
+    Demonstrates the bug we are fixing: with stochastic LLM output, the
+    latest-single attempt can flip the direction-of-change. Here:
+      v10 abs_errs: [6, 6, 1]  -> avg = 4.33, latest (id=3) = 1
+      v11 abs_errs: [3, 3, 3]  -> avg = 3.00, latest (id=6) = 3
+
+    Latest-single would say "v11 is worse" (1 -> 3 = regressed by 2).
+    Averaged correctly says "v11 is better" (4.33 -> 3.00 = improved by 1.33).
+    """
+    from datetime import UTC, datetime
+
+    url = "https://example.com/article"
+    ts = datetime(2026, 5, 27, 21, 0, 0, tzinfo=UTC)
+    recs = [
+        _make_eval_record(
+            url, version=10, actual_count=4, expected_count=10, execution_id=101, record_id=1, created_at=ts
+        ),
+        _make_eval_record(
+            url, version=10, actual_count=4, expected_count=10, execution_id=102, record_id=2, created_at=ts
+        ),
+        _make_eval_record(
+            url,
+            version=10,
+            actual_count=9,
+            expected_count=10,  # abs_err=1, the lucky one
+            execution_id=103,
+            record_id=3,
+            created_at=ts,
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=7, expected_count=10, execution_id=201, record_id=4, created_at=ts
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=7, expected_count=10, execution_id=202, record_id=5, created_at=ts
+        ),
+        _make_eval_record(
+            url, version=11, actual_count=7, expected_count=10, execution_id=203, record_id=6, created_at=ts
+        ),
+    ]
+
+    db_manager = _make_db(recs)
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api._load_preset_expected_by_url", return_value={}),
+        patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+
+    article = result["articles"][0]
+    # Latest-single would have said "regressed by 2" (abs_err 1 -> 3).
+    # Averaged correctly says "improved by 1.33" (abs_err 4.33 -> 3.00).
+    assert article["improvement"] == 1.33
+    # Cell still shows the latest single execution for drill-down.
+    assert article["result_a"]["execution_id"] == 103
+    assert article["result_b"]["execution_id"] == 203
+    # Net-change summary should reflect the averaged improvement.
+    assert result["total_improvement_magnitude"] == 1.33
+    assert result["net_change"] == 1.33
 
 
 @pytest.mark.asyncio

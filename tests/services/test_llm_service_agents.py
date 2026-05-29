@@ -791,7 +791,9 @@ class TestContextLimit:
     """Tests for _get_context_limit."""
 
     def test_lmstudio_returns_local_limit(self, llm_service):
-        limit = llm_service._get_context_limit("lmstudio")
+        # _canonicalize_provider("lmstudio") requires the feature to be enabled.
+        with patch.object(llm_service, "_is_lmstudio_enabled", return_value=True):
+            limit = llm_service._get_context_limit("lmstudio")
         assert limit == llm_service.assumed_lmstudio_context_tokens
 
     def test_openai_returns_cloud_limit(self, llm_service):
@@ -802,9 +804,11 @@ class TestContextLimit:
         limit = llm_service._get_context_limit("anthropic")
         assert limit == llm_service.assumed_cloud_context_tokens
 
-    def test_none_provider_defaults_to_lmstudio(self, llm_service):
-        limit = llm_service._get_context_limit(None)
-        assert limit == llm_service.assumed_lmstudio_context_tokens
+    def test_none_provider_raises_no_provider_configured(self, llm_service):
+        # Since d51ad10d, empty/None provider fails fast rather than silently defaulting
+        # to LMStudio.  _get_context_limit(None) -> _canonicalize_provider("") -> ValueError.
+        with pytest.raises(ValueError, match="No provider configured"):
+            llm_service._get_context_limit(None)
 
     def test_known_model_returns_catalog_value(self, llm_service):
         limit = llm_service._get_context_limit("openai", model_name="gpt-4o")

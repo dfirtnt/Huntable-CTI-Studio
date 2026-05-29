@@ -276,6 +276,9 @@ _ROOT = Path(__file__).parent.parent.parent.parent
 _EVAL_ARTICLES_DATA_DIR = _ROOT / "config" / "eval_articles_data"
 
 
+_SUBAGENT_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
 def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     """Load static eval article snapshots for a subagent.
 
@@ -284,14 +287,20 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
     file (if present) and is never stored in articles.json.
     """
     out: dict[str, dict] = {}
-    data_dir = (
-        _EVAL_ARTICLES_DATA_DIR / subagent_key
-    )  # codeql[py/path-injection] false positive: subagent_key is an internal enum value, not a user-supplied path component
+    # Strict allowlist on subagent_key (defense-in-depth above the resolve/startswith
+    # containment guard below). Real keys are lowercase identifiers like "cmdline",
+    # "hunt_queries", "process_lineage" — never contain "/" or ".".
+    if not isinstance(subagent_key, str) or not _SUBAGENT_KEY_RE.fullmatch(subagent_key):
+        return out
+    data_dir = (_EVAL_ARTICLES_DATA_DIR / subagent_key).resolve()
+    # Prevent path traversal: resolved path must stay within the allowed data directory.
+    if not str(data_dir).startswith(str(_EVAL_ARTICLES_DATA_DIR.resolve()) + "/"):
+        return out
     articles_path = data_dir / "articles.json"
-    if not articles_path.exists():  # codeql[py/path-injection] false positive: see above
+    if not articles_path.exists():
         return out
     try:
-        with open(articles_path) as f:  # codeql[py/path-injection] false positive: see above
+        with open(articles_path) as f:
             articles = json.load(f)
         if not isinstance(articles, list):
             return out
@@ -312,10 +321,10 @@ def _load_static_eval_articles(subagent_key: str) -> dict[str, dict]:
 
     # Merge expected_items from ground_truth.json (item-level eval ground truth).
     # This file is separate so article snapshot refreshes never clobber annotations.
-    gt_path = data_dir / "ground_truth.json"  # codeql[py/path-injection] false positive: see above
-    if gt_path.exists():  # codeql[py/path-injection] false positive: see above
+    gt_path = data_dir / "ground_truth.json"
+    if gt_path.exists():
         try:
-            with open(gt_path) as f:  # codeql[py/path-injection] false positive: see above
+            with open(gt_path) as f:
                 gt_entries = json.load(f)
             if isinstance(gt_entries, list):
                 for gt in gt_entries:
@@ -639,7 +648,6 @@ async def run_evaluation(request: Request, eval_request: EvaluationRunRequest):
                             "junk_filter_threshold": config.junk_filter_threshold,
                             "agent_models": config.agent_models or {},
                             "agent_prompts": config.agent_prompts or {},
-                            "qa_enabled": config.qa_enabled or {},
                             "rank_agent_enabled": config.rank_agent_enabled
                             if hasattr(config, "rank_agent_enabled")
                             else True,
@@ -1271,7 +1279,6 @@ async def run_subagent_eval(request: Request, eval_request: SubagentEvalRunReque
                         "junk_filter_threshold": active_config.junk_filter_threshold,
                         "agent_models": active_config.agent_models or {},
                         "agent_prompts": active_config.agent_prompts or {},
-                        "qa_enabled": active_config.qa_enabled or {},
                         "config_id": active_config.id,
                         "config_version": active_config.version,
                         "eval_run": True,
@@ -2086,18 +2093,46 @@ async def get_subagent_eval_compare(
 
             preset_expected_by_url = _load_preset_expected_by_url(subagent)
 
-            # Build per-(url, version) latest-record map (most recent by created_at)
+            # Build per-(url, version) latest-record map (most recent by
+            # created_at, tie-broken by id DESC so the choice is deterministic
+            # across page refreshes -- replicate runs queued together can share
+            # a created_at timestamp at microsecond precision).
+            # Also count attempts per (url, version) so the UI can surface
+            # replicate variance instead of silently collapsing it.
             latest: dict[tuple[str | None, int], SubagentEvaluationTable] = {}
+            attempt_counts: dict[tuple[str | None, int], int] = {}
+            # Sums for averaging across all completed replicate attempts.
+            # The per-article "improvement" badge and the IMPROVED/REGRESSED
+            # tallies derive from these averages -- single-attempt comparisons
+            # were misleading on stochastic LLM output (a lucky/unlucky latest
+            # attempt could fabricate or hide a direction-of-change).
+            sum_actual: dict[tuple[str | None, int], float] = {}
+            sum_abs_err: dict[tuple[str | None, int], float] = {}
+            completed_counts: dict[tuple[str | None, int], int] = {}
             for record in all_records:
                 if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
                     continue
                 key = (record.article_url, record.workflow_config_version)
-                if key not in latest:
+                attempt_counts[key] = attempt_counts.get(key, 0) + 1
+                # Accumulate per-key averaging stats for completed attempts only;
+                # failed/missing attempts must not bias the average toward zero.
+                if record.status == "completed" and record.actual_count is not None:
+                    expected_val = preset_expected_by_url.get(record.article_url)
+                    if expected_val is None:
+                        expected_val = record.expected_count if record.expected_count is not None else 0
+                    sum_actual[key] = sum_actual.get(key, 0.0) + float(record.actual_count)
+                    sum_abs_err[key] = sum_abs_err.get(key, 0.0) + float(abs(record.actual_count - expected_val))
+                    completed_counts[key] = completed_counts.get(key, 0) + 1
+                existing = latest.get(key)
+                if existing is None:
                     latest[key] = record
-                else:
-                    existing = latest[key]
-                    if record.created_at and (existing.created_at is None or record.created_at > existing.created_at):
-                        latest[key] = record
+                    continue
+                rec_ts = record.created_at
+                ext_ts = existing.created_at
+                rec_id = record.id or 0
+                ext_id = existing.id or 0
+                if rec_ts is not None and (ext_ts is None or rec_ts > ext_ts) or rec_ts == ext_ts and rec_id > ext_id:
+                    latest[key] = record
 
             # Collect all unique URLs seen in either version
             all_urls: dict[str | None, str] = {}  # url -> title
@@ -2151,17 +2186,29 @@ async def get_subagent_eval_compare(
                     "perfect_match_percentage": round(perfect_match_pct, 1),
                 }
 
-            # Collect per-version record lists for aggregate computation
-            records_a: list[SubagentEvaluationTable] = []
-            records_b: list[SubagentEvaluationTable] = []
-            for (url, ver), rec in latest.items():
-                if ver == version_a:
-                    records_a.append(rec)
-                elif ver == version_b:
-                    records_b.append(rec)
+            # Aggregate over ALL completed attempts per version so the MAE here
+            # matches the "MAE by Config Version" chart. Using only the latest
+            # attempt per article would silently discard replicates and inflate
+            # single-run LLM variance.
+            def _allowed(r: SubagentEvaluationTable) -> bool:
+                return r.article_id is None or r.article_id not in EXCLUDED_EVAL_ARTICLE_IDS
+
+            records_a = [r for r in all_records if r.workflow_config_version == version_a and _allowed(r)]
+            records_b = [r for r in all_records if r.workflow_config_version == version_b and _allowed(r)]
 
             aggregate_a = _compute_aggregate(records_a, version_a)
             aggregate_b = _compute_aggregate(records_b, version_b)
+
+            def _avg_for(key: tuple[str | None, int]) -> dict | None:
+                """Per-key averaged actual and abs_err across completed attempts."""
+                n = completed_counts.get(key, 0)
+                if n == 0:
+                    return None
+                return {
+                    "avg_actual": round(sum_actual[key] / n, 2),
+                    "avg_abs_err": round(sum_abs_err[key] / n, 2),
+                    "completed_attempts": n,
+                }
 
             # Build per-article rows
             articles = []
@@ -2170,6 +2217,8 @@ async def get_subagent_eval_compare(
                 rec_b = latest.get((url, version_b))
                 result_a = _make_result(rec_a)
                 result_b = _make_result(rec_b)
+                avg_a = _avg_for((url, version_a))
+                avg_b = _avg_for((url, version_b))
 
                 expected_count = preset_expected_by_url.get(url)
                 if expected_count is None:
@@ -2179,14 +2228,14 @@ async def get_subagent_eval_compare(
                 if expected_count is None:
                     expected_count = 0
 
-                improvement: int | None = None
-                if (
-                    result_a is not None
-                    and result_b is not None
-                    and result_a.get("score") is not None
-                    and result_b.get("score") is not None
-                ):
-                    improvement = abs(result_a["score"]) - abs(result_b["score"])
+                # Improvement is the reduction in averaged abs_err from A -> B.
+                # Positive means B is closer to expected on average; negative
+                # means B drifted further away. Averaging across replicate
+                # attempts smooths LLM stochasticity so the badge reflects a
+                # statistically meaningful change instead of one lucky sample.
+                improvement: float | None = None
+                if avg_a is not None and avg_b is not None:
+                    improvement = round(avg_a["avg_abs_err"] - avg_b["avg_abs_err"], 2)
 
                 articles.append(
                     {
@@ -2196,6 +2245,10 @@ async def get_subagent_eval_compare(
                         "result_a": result_a,
                         "result_b": result_b,
                         "improvement": improvement,
+                        "attempts_a": attempt_counts.get((url, version_a), 0),
+                        "attempts_b": attempt_counts.get((url, version_b), 0),
+                        "avg_a": avg_a,
+                        "avg_b": avg_b,
                     }
                 )
 
@@ -2207,6 +2260,20 @@ async def get_subagent_eval_compare(
                 )
             )
 
+            # Magnitude-weighted summary so the panel does not mislead when a
+            # single large win is offset by multiple small losses (or vice
+            # versa). Unweighted counts (1 improved vs 2 regressed) can look
+            # like a regression while the aggregate MAE actually went down.
+            total_improvement = round(
+                sum(a["improvement"] for a in articles if a["improvement"] is not None and a["improvement"] > 0),
+                2,
+            )
+            total_regression = round(
+                sum(a["improvement"] for a in articles if a["improvement"] is not None and a["improvement"] < 0),
+                2,
+            )
+            net_change = round(total_improvement + total_regression, 2)
+
             return {
                 "subagent": canonical_subagent,
                 "version_a": version_a,
@@ -2214,6 +2281,9 @@ async def get_subagent_eval_compare(
                 "aggregate_a": aggregate_a,
                 "aggregate_b": aggregate_b,
                 "articles": articles,
+                "net_change": net_change,
+                "total_improvement_magnitude": total_improvement,
+                "total_regression_magnitude": total_regression,
             }
         finally:
             db_session.close()
@@ -2249,7 +2319,6 @@ async def get_config_versions_models(
             models_by_version = {}
             for config in configs:
                 agent_models = config.agent_models or {}
-                qa_enabled = config.qa_enabled or {}
                 agent_prompts = config.agent_prompts or {}
 
                 # Get disabled extract agents (same logic as frontend)
@@ -2271,11 +2340,6 @@ async def get_config_versions_models(
                 # Build model list (same format as frontend)
                 model_list = []
 
-                # Main agents (only if QA enabled)
-                if agent_models.get("SigmaAgent") and qa_enabled.get("SigmaAgent"):
-                    provider = agent_models.get("SigmaAgent_provider") or ""
-                    model_list.append(f"SIGMA: {agent_models['SigmaAgent']} ({provider or 'not configured'})")
-
                 # Sub-agents (only if enabled and has model)
                 for agent in [
                     "CmdlineExtract",
@@ -2292,8 +2356,9 @@ async def get_config_versions_models(
 
                 models_by_version[config.version] = {
                     "agent_models": agent_models,
-                    "qa_enabled": qa_enabled,
                     "display_text": "\n".join(model_list) if model_list else "No models configured",
+                    "cmdline_attention_preprocessor_enabled": config.cmdline_attention_preprocessor_enabled,
+                    "proc_tree_attention_preprocessor_enabled": config.proc_tree_attention_preprocessor_enabled,
                 }
 
             return {"models_by_version": models_by_version}

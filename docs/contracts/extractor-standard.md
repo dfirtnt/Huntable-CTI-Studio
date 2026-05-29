@@ -4,6 +4,15 @@ Version: 1.1
 Last Updated: 2026-05-15
 Applies To: All ExtractAgent sub-agents (CmdLine, ProcTree, Registry, Services, HuntQueries, future extractors)
 
+## Jump to an agent contract
+
+- [**CmdlineExtract**](cmdline-extract.md) — Windows command-line observables
+- [**ProcTreeExtract**](proctree-extract.md) — parent → child process relationships
+- [**RegistryExtract**](registry-extract.md) — Windows registry artifacts
+- [**ServicesExtract**](services-extract.md) — Windows service artifacts
+- [**HuntQueriesExtract**](huntquery-extract.md) — EDR/SIEM queries & Sigma rules
+- [**ScheduledTasksExtract**](scheduled-tasks-extract.md) — scheduled-task identity & schedule
+
 ---
 
 ## Purpose
@@ -35,7 +44,7 @@ The Huntable pipeline code (`llm_service.py`) enforces specific prompt structure
 - The code auto-appends a traceability block to every user prompt requiring: `value`, `source_evidence`, `extraction_justification`, `confidence_score`.
 - Your `json_example` MUST already include these four fields.
 - If `json_example` omits them, the model receives conflicting schema instructions (your example says one thing, the appended block says another).
-- `source_evidence` and `extraction_justification` are not cosmetic -- the QA agent uses them for factuality checks. Without them, QA flags outputs as potentially hallucinated.
+- `source_evidence` and `extraction_justification` are not cosmetic -- they are required by the pipeline for downstream rendering and traceability. Without them, extracted items render as bare values in the UI.
 
 ### 4. json_example must match output schema
 
@@ -255,11 +264,11 @@ Required for each field:
 
 **Traceability fields (mandatory -- all extractors):**
 
-These four fields MUST appear on every extracted item. They are required by the pipeline code and consumed by the QA agent for factuality checks.
+These four fields MUST appear on every extracted item. They are required by the pipeline code for downstream rendering and traceability.
 
 - **value**: REQUIRED. The extracted artifact itself (the primary content). Map this to whatever your artifact's main field is (e.g., for CmdLine this is the command line; for Registry this is the key path). If your schema uses a different primary field name (key, query_text, etc.), ALSO include value as a duplicate or alias.
-- **source_evidence**: REQUIRED. The exact excerpt from the article that contains or directly supports the artifact. This is the QA agent's ground truth for factuality verification.
-- **extraction_justification**: REQUIRED. One sentence explaining WHY this artifact was extracted -- what makes it a valid, detection-relevant artifact rather than noise. Used by QA to assess extraction reasoning.
+- **source_evidence**: REQUIRED. The exact excerpt from the article that contains or directly supports the artifact. Rendered in the UI for human review; used for traceability.
+- **extraction_justification**: REQUIRED. One sentence explaining WHY this artifact was extracted -- what makes it a valid, detection-relevant artifact rather than noise. Rendered in the UI alongside each extracted item.
 - **confidence_score**: REQUIRED. Float between 0.0 and 1.0.
     - 1.0 = artifact is unambiguously explicit, complete, and detection-relevant
     - 0.7-0.9 = artifact is present but has minor ambiguity (e.g., operation type not stated, partial context)
@@ -401,4 +410,39 @@ Use this when reviewing any extractor prompt (new or revised):
     - Check that the fleet's combined coverage has no gaps or overlaps
     - Verify all `json_examples` still match the pipeline's traceability requirements
 
-_Last updated: 2026-05-15_
+---
+
+## Sigma novelty: canonical class coverage
+
+The deterministic novelty engine (`sigma_semantic_similarity`) classifies rules by
+canonical telemetry class before comparison. Rules whose logsource does not match a
+registered class fall through to the legacy `logsource_key + top_k=20` path, which
+loses containment/surface-score classification and caps retrieval.
+
+### Supported canonical classes (as of 2026-05-23)
+
+| Canonical class | Covered logsource / EventIDs |
+|---|---|
+| `windows.process_creation` | `category: process_creation`, Sysmon EID 1, Security EID 4688 |
+| `linux.process_creation` | `category: process_creation` (Linux) |
+| `windows.registry_event` | `category: registry_event`, Sysmon EIDs 12/13/14, Security EID 4657 |
+| `windows.service` | `category: service_creation`, System EIDs 7045/7036, Security EID 4697 |
+| `windows.scheduled_task` | `service: taskscheduler`, Security EIDs 4698/4699/4700/4702 |
+
+Source of truth: `sigma_semantic_similarity/sigma_similarity/canonical_logsource.py::CANONICAL_CLASS_REGISTRY`.
+
+### Known limitation: cross-telemetry scheduled-task rules
+
+Scheduled-task creation is observable across four telemetry sources simultaneously:
+- `process_creation` via `schtasks.exe` (classifies as `windows.process_creation`)
+- `file_event` for `\Tasks\` directory writes (unregistered class, legacy path)
+- `registry_event` for TaskCache keys (classifies as `windows.registry_event`)
+- `security` EventID 4698 (classifies as `windows.scheduled_task`)
+
+Rules targeting the same scheduled-task behavior via different telemetry sources fall
+into separate canonical class buckets and are never compared against each other.
+This can produce false-NOVEL classifications for behaviorally equivalent rules.
+This structural limitation is tracked separately and requires cross-class comparison
+support to resolve (Option B).
+
+_Last updated: 2026-05-23_

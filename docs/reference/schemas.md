@@ -104,7 +104,6 @@ Top-level sections:
 - `Thresholds`
 - `Agents`
 - `Embeddings`
-- `QA`
 - `Features`
 - `Prompts`
 - `Execution`
@@ -113,7 +112,6 @@ Important invariants enforced by the schema:
 
 - enabled agents must have provider and model values
 - prompt keys must use canonical agent names
-- QA agent definitions must align with base agents
 - prompt blocks must exist for model-backed agents
 
 ## Sigma Rules

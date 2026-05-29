@@ -1,16 +1,24 @@
 [
   {
-    "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
-    "expected_items": [
-      "PSEXESVC.exe"
-    ]
+    "url": "https://blog.talosintelligence.com/kraken-ransomware-group/",
+    "expected_items": []
+  },
+  {
+    "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
+    "expected_items": []
   },
   {
     "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
     "expected_items": []
   },
   {
-    "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
+    "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+    "expected_items": [
+      "PSEXESVC.exe"
+    ]
+  },
+  {
+    "url": "https://unit42.paloaltonetworks.com/unit42-abusing-service-control-manager-establish-persistence-non-service-applications/",
     "expected_items": []
   },
   {
@@ -30,14 +38,6 @@
   },
   {
     "url": "https://www.zscaler.com/blogs/security-research/latest-mustang-panda-arsenal-paklog-corklog-and-splatcloak-p2",
-    "expected_items": []
-  },
-  {
-    "url": "https://blog.talosintelligence.com/kraken-ransomware-group/",
-    "expected_items": []
-  },
-  {
-    "url": "https://unit42.paloaltonetworks.com/unit42-abusing-service-control-manager-establish-persistence-non-service-applications/",
     "expected_items": []
   }
 ]

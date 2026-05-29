@@ -9,12 +9,28 @@ from sigma_similarity.ast_builder import AtomNode
 # Static, versioned. Unknown field -> normalize lowercase, keep as-is.
 # Keys are stored in their canonical Sigma PascalCase form.
 FIELD_ALIAS_MAP: dict[str, str] = {
+    # Process execution (dotted canonical, legacy)
     "CommandLine": "process.command_line",
     "Image": "process.image",
     "ProcessPath": "process.image",
     "ParentImage": "process.parent_image",
     "ProcessCommandLine": "process.command_line",
     "ParentCommandLine": "process.parent_command_line",
+    # Registry events (flat lowercase canonical to match sigma_novelty_service._ATOM_FIELD_ALIAS)
+    "TargetObject": "registrypath",
+    "RegistryKey": "registrypath",
+    "RegistryPath": "registrypath",
+    "RegistryValue": "registryvalue",
+    # Service creation
+    "ServiceName": "servicename",
+    "ServiceFileName": "serviceimagepath",
+    "ImagePath": "serviceimagepath",
+    "StartType": "servicestarttype",
+    "ServiceType": "servicetype",
+    "ServiceStartType": "servicestarttype",
+    # Scheduled tasks
+    "TaskName": "taskname",
+    "TaskContent": "taskcontent",
 }
 
 # Case-insensitive lookup table built once at import time.
@@ -24,12 +40,29 @@ _FIELD_ALIAS_MAP_LOWER: dict[str, str] = {k.lower(): v for k, v in FIELD_ALIAS_M
 # Also add common snake_case variants that LLMs produce
 _FIELD_ALIAS_MAP_LOWER.update(
     {
+        # Process
         "command_line": "process.command_line",
         "image": "process.image",
         "parent_image": "process.parent_image",
         "parent_command_line": "process.parent_command_line",
         "process_path": "process.image",
         "process_command_line": "process.command_line",
+        # Registry
+        "target_object": "registrypath",
+        "registry_key": "registrypath",
+        "registry_path": "registrypath",
+        "registry_value": "registryvalue",
+        # Service
+        "service_name": "servicename",
+        "service_file_name": "serviceimagepath",
+        "servicefile_name": "serviceimagepath",
+        "image_path": "serviceimagepath",
+        "start_type": "servicestarttype",
+        "service_type": "servicetype",
+        "service_start_type": "servicestarttype",
+        # Scheduled tasks
+        "task_name": "taskname",
+        "task_content": "taskcontent",
     }
 )
 

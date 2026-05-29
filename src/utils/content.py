@@ -1254,30 +1254,12 @@ class ThreatHuntingScorer:
         # Good Discriminators: 5 points max (supporting technical content)
         good_score = geometric_score(len(good_matches), 5.0)
 
-        # Negative Penalties: Reduced penalty for educational/marketing content
-        # Use linear penalty that scales with number of matches
-        # Formula: penalty = min(12.5, matches * 6.0) for balanced impact
-        # This ensures articles with marketing/educational content are penalized
-        # without completely wiping out articles with good technical content
-        # Reduced by 50% from original (was 12.0 per match, cap 25.0)
-        negative_penalty = min(12.5, len(negative_matches) * 6.0) if negative_matches else 0.0
+        # Negative Penalties: 15 points max with 50% diminishing returns (same as positive categories)
+        negative_penalty = geometric_score(len(negative_matches), 15.0)
 
         # Calculate base score (positive contributions)
         base_score = perfect_score + good_score + lolbas_score + intelligence_score
 
-        # Apply negative penalty proportionally
-        # If there are negative indicators, reduce score proportionally
-        # This ensures high-scoring articles with marketing content get penalized appropriately
-        if negative_matches:
-            # Apply percentage reduction for stronger impact on high-scoring articles
-            # Percentage reduction: reduce by 6% per negative match (capped at 20% reduction)
-            # Reduced by 50% from original (was 12% per match, cap 40%)
-            # This prevents articles with good technical content but some marketing language
-            # from being completely wiped out, while still penalizing appropriately
-            percentage_reduction = min(0.2, len(negative_matches) * 0.06)
-            base_score = base_score * (1.0 - percentage_reduction)
-
-        # Subtract flat penalty
         threat_hunting_score = base_score - negative_penalty
 
         # Calculate final threat hunting score (0-100 range, but will never reach 100)

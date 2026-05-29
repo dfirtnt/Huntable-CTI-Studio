@@ -38,12 +38,17 @@
         // Loaded async on page load; drives button label and force flag.
         let _articleProcessedWithCurrentConfig = false;
         let _latestExecutionId = null;
+        let _configIsRunnable = true; // false when no agent models are configured
 
         async function initWorkflowButtonState(articleId) {
             try {
-                const resp = await fetch(`/api/articles/${articleId}/workflow-status`);
-                if (resp.ok) {
-                    const data = await resp.json();
+                const [statusResult, configResult] = await Promise.allSettled([
+                    fetch(`/api/articles/${articleId}/workflow-status`),
+                    fetch('/api/workflow/config'),
+                ]);
+
+                if (statusResult.status === 'fulfilled' && statusResult.value.ok) {
+                    const data = await statusResult.value.json();
                     _articleProcessedWithCurrentConfig = !!data.processed_with_current_config;
                     _latestExecutionId = data.latest_execution_id || null;
 
@@ -60,8 +65,15 @@
                         } catch (_) { /* non-fatal */ }
                     }
                 }
+
+                if (configResult.status === 'fulfilled' && configResult.value.ok) {
+                    const cfg = await configResult.value.json();
+                    const models = cfg.agent_models || {};
+                    // ExtractAgent is the core pipeline agent; no model = workflow cannot run
+                    _configIsRunnable = !!models.ExtractAgent;
+                }
             } catch (e) {
-                // Leave default (false = "Send to Workflow") on network error
+                // Leave defaults on network error
             }
             updateWorkflowButtonLabel();
         }
@@ -71,6 +83,18 @@
             const btn = document.getElementById('triggerWorkflowBtn');
             const viewLastRunLink = document.getElementById('viewLastRunLink');
             if (!btnText || !btn) return;
+
+            if (!_configIsRunnable) {
+                btn.disabled = true;
+                btn.classList.add('opacity-50', 'cursor-not-allowed');
+                btnText.textContent = 'Send to Workflow';
+                btn.title = 'No agents configured — set up models in Settings → Workflow Config first.';
+                if (viewLastRunLink) viewLastRunLink.classList.add('hidden');
+                return;
+            }
+
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
             if (_articleProcessedWithCurrentConfig) {
                 btnText.textContent = 'Reprocess';
                 btn.title = 'Reprocess: bypasses idempotency gate and runs the pipeline even if this article was already processed with the current config. Use after changing prompts or model settings to get fresh output.';

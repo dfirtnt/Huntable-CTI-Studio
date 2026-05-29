@@ -14,7 +14,7 @@ Out of the box, the application supports these:
 
 In the workflow, these are emitted by the Extract Agent sub-agents as typed **observables** (`cmdline`, `process_lineage`, `hunt_queries`) and stored in `extraction_result`. See [Observables](observables.md) for the extraction schema and API.
 
-**Where huntables are tracked:** Article metadata holds regex-based `threat_hunting_score` and ML-based `ml_hunt_score` (how “huntable” an article is); each workflow execution holds `discrete_huntables_count` and the observables in `extraction_result`.
+**Where huntables are tracked:** Article metadata holds the regex-based `threat_hunting_score` (0–100); each workflow execution holds `discrete_huntables_count` and the observables in `extraction_result`. The ML-based `ml_hunt_score` aggregate was retired in v7.1.0 (2026-05-23).
 
 ## Scoring signals
 
@@ -22,13 +22,13 @@ In the workflow, these are emitted by the Extract Agent sub-agents as typed **ob
   - Perfect discriminators: `rundll32`, `msiexec`, `lsass.exe`, `.lnk`, `MZ`, `%WINDIR%`.
   - LOLBAS executables and registry/Windows path patterns add supporting points.
   - Negative indicators (e.g. “what is”, “best practices”, marketing) reduce the score.
-- **ML hunt score** (chunk-driven; see [ML Hunt Scoring](../ml-training/hunt-scoring.md))
-  - Articles are chunked (1,000 chars, 200 overlap); each chunk is classified huntable/not.
-  - Default metric: weighted average of confidences for huntable chunks, normalized to 0–100.
+- **ML chunk scoring** (chunk-level; see [ML Hunt Scoring](../ml-training/hunt-scoring.md))
+  - Articles are chunked (1,000 chars, 200 overlap); each chunk is classified huntable/not by the ContentFilter model.
+  - Per-article `ml_hunt_score` aggregation was retired in v7.1.0 (2026-05-23); chunk predictions are stored in `chunk_analysis_results`.
 
 ## Where huntables appear
 
-- **Article page**: Hunt scores (regex + ML) and “Reprocess”; after a run, extraction results and huntable counts.
+- **Article page**: Threat hunting score (regex) and “Reprocess”; after a run, extraction results and huntable counts.
 - **Workflow executions**: `extraction_result.observables`, `discrete_huntables_count`, and `content` (used by Sigma when huntables exist).
 - **API**: `GET /api/workflow/executions/{id}` → `extraction_result` with `discrete_huntables_count`, `subresults`, and merged `observables`.
 

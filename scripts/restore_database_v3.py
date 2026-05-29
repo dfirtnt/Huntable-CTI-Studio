@@ -31,6 +31,90 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+# Allowlisted baseline for source-vs-URL host mismatches that are known-benign
+# (e.g. Symantec articles served from security.com, US-CERT from cisa.gov).
+# A restore whose mismatch count exceeds this by more than 10% indicates the
+# backup may carry corrupted source attribution from a bad upstream DB.
+_SOURCE_MISMATCH_BASELINE = 112  # non-allowlisted mismatches as of 2026-05-03 restore audit
+
+
+def check_source_attribution_integrity() -> dict:
+    """Check for unexpected source-vs-URL host mismatches after a restore.
+
+    Compares each article's canonical_url hostname against its source's url
+    hostname, excluding a curated allowlist of benign cross-domain pairs.
+    Returns a dict with mismatch count and a warning flag.
+    """
+    try:
+        env = os.environ.copy()
+        env["PGPASSWORD"] = DB_CONFIG["password"]
+
+        # Allowlisted host substring pairs (article_url_host ILIKE pattern, source_url ILIKE pattern)
+        # These are legitimate cases where an article's domain differs from the source's primary domain.
+        allowlist_sql = """
+            (a.canonical_url ILIKE '%security.com%' AND s.url ILIKE '%symantec%') OR
+            (a.canonical_url ILIKE '%cisa.gov%'     AND s.url ILIKE '%cert%') OR
+            (a.canonical_url ILIKE '%us-cert%'      AND s.url ILIKE '%cert%') OR
+            (a.canonical_url ILIKE '%broadcom%'     AND s.url ILIKE '%symantec%') OR
+            (a.canonical_url ILIKE '%microsoft%'    AND s.url ILIKE '%microsoft%') OR
+            (s.name = 'Eval Articles')
+        """
+
+        cmd = [
+            "psql",
+            f"-h{DB_CONFIG['host']}",
+            f"-p{DB_CONFIG['port']}",
+            f"-U{DB_CONFIG['user']}",
+            f"-d{DB_CONFIG['database']}",
+            "-t",
+            "-c",
+            f"""
+            SELECT COUNT(*)
+            FROM articles a
+            JOIN sources s ON a.source_id = s.id
+            WHERE a.canonical_url IS NOT NULL
+              AND s.url IS NOT NULL
+              AND a.archived_at IS NULL
+              AND LOWER(REGEXP_REPLACE(a.canonical_url, '^https?://([^/]+).*', '\\1'))
+                  != LOWER(REGEXP_REPLACE(s.url, '^https?://([^/]+).*', '\\1'))
+              AND NOT ({allowlist_sql});
+            """,
+        ]
+
+        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=30)
+
+        if result.returncode != 0:
+            logger.warning(f"Source attribution check skipped (psql error): {result.stderr.strip()}")
+            return {"skipped": True, "reason": result.stderr.strip()}
+
+        count = int(result.stdout.strip() or "0")
+        threshold = int(_SOURCE_MISMATCH_BASELINE * 1.10)
+        exceeded = count > threshold
+
+        if exceeded:
+            logger.warning(
+                "Source attribution integrity check FAILED: %d mismatches exceed baseline %d (+10%% = %d). "
+                "The restored backup may contain corrupt source attribution data. "
+                "Run scripts/repair_source_attribution.py --dry-run to audit.",
+                count,
+                _SOURCE_MISMATCH_BASELINE,
+                threshold,
+            )
+        else:
+            logger.info(
+                "Source attribution integrity check passed: %d mismatches (baseline %d, threshold %d).",
+                count,
+                _SOURCE_MISMATCH_BASELINE,
+                threshold,
+            )
+
+        return {"mismatch_count": count, "baseline": _SOURCE_MISMATCH_BASELINE, "threshold": threshold, "exceeded": exceeded}
+
+    except Exception as e:
+        logger.warning(f"Source attribution check skipped (exception): {e}")
+        return {"skipped": True, "reason": str(e)}
+
+
 def get_database_stats():
     """Get database statistics using psql"""
     try:
@@ -265,6 +349,10 @@ def restore_database(backup_path):
 
         logger.info(f"Post-restore: {post_stats['articles']} articles, {post_stats['sources']} sources")
 
+        # Source attribution integrity guardrail — warns if mismatch count exceeds the
+        # known baseline, indicating a corrupt backup was silently restored.
+        attribution_check = check_source_attribution_integrity()
+
         # Verify restoration
         success = True
         if metadata and metadata.get("statistics"):
@@ -283,6 +371,7 @@ def restore_database(backup_path):
             "pre_restore_stats": pre_stats,
             "post_restore_stats": post_stats,
             "expected_stats": expected_stats if metadata else None,
+            "source_attribution_check": attribution_check,
             "restored_at": datetime.now().isoformat(),
         }
 

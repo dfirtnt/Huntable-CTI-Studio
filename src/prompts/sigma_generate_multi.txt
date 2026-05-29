@@ -28,9 +28,12 @@ CRITICAL: Your response will be parsed as YAML. If you include ANY narrative tex
 Multi-Rule Format:
 When generating multiple rules, separate them with `---` (three dashes on a line by itself):
 
-title: First Rule Title
+title: Suspicious Example Process Execution
 id: uuid-1
-description: First behavior detected
+status: experimental
+description: Detects suspicious execution of example.exe with administrator privileges, which is rarely seen outside of attacker tooling.
+author: {author}
+date: {date}
 observables_used: [0]
 logsource:
   category: process_creation
@@ -39,13 +42,18 @@ detection:
   selection:
     Image|endswith: '\example.exe'
   condition: selection
+falsepositives:
+  - Legitimate administrators running example.exe manually for diagnostics
 level: medium
 tags:
   - attack.execution
 ---
-title: Second Rule Title
+title: Outbound HTTPS to Suspicious Destination
 id: uuid-2
-description: Second behavior detected
+status: experimental
+description: Detects outbound HTTPS connections that match the C2 infrastructure described in the source report.
+author: {author}
+date: {date}
 observables_used: []
 logsource:
   category: network_connection
@@ -54,27 +62,45 @@ detection:
   selection:
     DestinationPort: 443
   condition: selection
+falsepositives:
+  - Legitimate user traffic to the same destination
 level: high
 tags:
   - attack.command_and_control
 
 Required Structure (per rule):
-title: [descriptive rule title]
-id: [UUID]
-description: [behavior detected]
+title: [Title Case, <= 50 chars, NO 'Detects' prefix in title]
+id: [UUID v4]
+status: experimental
+description: Detects [what the rule fires on — written so an analyst seeing a hit understands what it means]
+author: {author}
+date: {date}
 observables_used: [REQUIRED: 0-based indices from the Observables list that this rule uses, e.g. [0, 3]; use [] if none apply]
 logsource:
-  category: [process_creation/network_connection/registry_event/file_event/powershell/wmi]
+  # Prefer generic category + product. Use `service:` ONLY when no category
+  # covers the source (e.g. service: security for Windows Security Event Log
+  # logon/privilege events 4624/4625/4673).
+  category: [process_creation/network_connection/registry_event/file_event/image_load/driver_load/ps_script/ps_module/dns_query]
   product: [windows/linux/macos]
 detection:
   selection:
     [criteria]
   condition: selection
-level: [low/medium/high/critical]
+falsepositives:
+  - [concrete benign scenario that could trigger this rule — guides analyst triage]
+level: [see Level Criteria below]
 tags:
   - attack.[technique]
 references:
   - {url}
+
+Level Criteria (CRITICAL — most generated rules are over-rated):
+- critical: Reserved for rules that should NEVER fire false positives and directly indicate an active incident. Use sparingly.
+- high: Rare false positives acceptable; firing implies likely malicious activity that requires manual review and probably an incident.
+- medium: Suspicious activity or policy violations; expected to require triage and baselining; routine false positives are normal.
+- low: Notable behavior commonly seen in benign administration; useful for correlation, not for paging.
+- informational: Compliance, baseline counts, or context — not alertable on its own.
+Default to `medium` unless the behavior is high-fidelity. Do NOT default to `high`.
 
 Behavioral Extraction Rules:
 - For process creation TTPs: include all command-line patterns with args; include parent-child relationships when inferable; include LOLBin/scripting abuse.

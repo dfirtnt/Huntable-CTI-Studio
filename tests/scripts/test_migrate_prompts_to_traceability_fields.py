@@ -46,7 +46,9 @@ def _load_script_module():
 
 @pytest.fixture(scope="module")
 def script():
-    return _load_script_module()
+    module = _load_script_module()
+    yield module
+    sys.modules.pop("migrate_prompts_to_traceability_fields", None)
 
 
 # ============================================================================

@@ -156,9 +156,9 @@ _CANONICAL_MATCH = re.search(
 )
 LOCKED_CANONICAL_BLOCK = _CANONICAL_MATCH.group(1) if _CANONICAL_MATCH else ""
 
-# Extract renderSinglePrompt body (up to, not including, renderQAPrompt).
+# Extract renderSinglePrompt body (up to, not including, the next function definition).
 _RENDER_SINGLE_MATCH = re.search(
-    r"function renderSinglePrompt\(.+?(?=function renderQAPrompt)",
+    r"function renderSinglePrompt\(.+?(?=function updateExtractAgentStatusBadge)",
     TEMPLATE,
     re.DOTALL,
 )

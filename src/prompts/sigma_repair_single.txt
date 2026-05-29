@@ -14,11 +14,16 @@ The previous SIGMA rule failed pySIGMA validation. You MUST fix the following is
    - **"Detection must contain a 'condition' key"** = Add `condition: selection` (or appropriate condition) under the `detection:` section.
    - **"Rule has no tags"** = Add a `tags:` section with at least one attack technique tag.
 4. **Maintain Detection Logic**: Keep the original detection intent, but fix the syntax/structure issues.
-5. **Required Structure**: Ensure your output includes ALL required fields:
-   - `title:` (required)
-   - `logsource:` with `category:` and `product:` (required)
+5. **Required Structure**: Ensure your output includes ALL required fields. Preserve any of these fields that are already present in the original rule — do not strip them when repairing:
+   - `title:` (required) — Title Case, <= 50 chars, NO 'Detects' prefix
+   - `id:` (required) — UUID v4
+   - `status:` experimental
+   - `description:` (required) — MUST start with "Detects ..."
+   - `author:`, `date:` (preserve if present)
+   - `logsource:` with `category:` and `product:` (required) — use `service:` only when no category covers the source
    - `detection:` with `selection:` and `condition:` (required)
-   - `level:` (recommended)
+   - `falsepositives:` (recommended) — at least one concrete benign scenario
+   - `level:` (recommended) — default `medium`; reserve `high`/`critical` for rules with rare/no false positives
    - `tags:` (recommended)
 
 **Output Format:**
@@ -32,7 +37,10 @@ Your response must be ONLY the corrected SIGMA rule in clean YAML format:
 **Example of CORRECT Output:**
 title: Suspicious PowerShell Execution
 id: abc123-def456-ghi789
-description: Detects PowerShell with encoded commands
+status: experimental
+description: Detects PowerShell launched with encoded command arguments, a pattern commonly used to evade command-line logging.
+author: Huntable CTI Studio
+date: 2026/05/27
 logsource:
   category: process_creation
   product: windows
@@ -41,6 +49,8 @@ detection:
     Image|endswith: '\powershell.exe'
     CommandLine|contains: '-encodedCommand'
   condition: selection
+falsepositives:
+  - Legitimate administrative scripts that use encoded commands
 level: medium
 tags:
   - attack.execution

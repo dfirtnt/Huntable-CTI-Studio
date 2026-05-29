@@ -261,8 +261,11 @@ create_env_file() {
         local embed_url="${base_url%/v1}/v1/embeddings"
         startup_set_env_key ".env" "LMSTUDIO_API_URL" "${base_url}"
         startup_set_env_key ".env" "LMSTUDIO_EMBEDDING_URL" "${embed_url}"
+        startup_set_env_key ".env" "WORKFLOW_LMSTUDIO_ENABLED" "true"
+        startup_set_env_key ".env" "PROCEED_WITHOUT_LMSTUDIO" "0"
     else
         # User chose not to use LMStudio: persist so Settings hides LMStudio UI
+        # and LLMService rejects any config that resolves to LMStudio.
         startup_disable_lmstudio ".env"
     fi
     
@@ -702,6 +705,23 @@ main() {
 
         # Align with start.sh startup path: validate pgvector index shape first.
         startup_migrate_pgvector_indexes
+
+        # Seed ML junk-filter model if not already present.
+        # models/ is bind-mounted into the container, so writing inside Docker also
+        # writes to the host's models/ directory — both see the same file.
+        print_header "ML Content Filter Model"
+        if [[ -f "models/content_filter.pkl" ]]; then
+            print_status "✅ ML model already exists — skipping seed."
+        else
+            print_status "Seeding ML junk-filter model from eval fixtures (this takes ~1 min)..."
+            if $DOCKER_CMD exec cti_web python3 scripts/seed_model.py --no-register; then
+                print_status "✅ ML model seeded successfully."
+            else
+                print_warning "⚠️  ML model seed failed. Run manually after setup:"
+                print_warning "   docker exec cti_web python3 scripts/seed_model.py"
+            fi
+        fi
+        echo ""
 
         # Sigma embeddings: required for semantic search, similarity, and MCP retrieval.
         # Prompt only in interactive mode when not already limited by environment.

@@ -103,6 +103,11 @@ class DatabaseManager:
                     "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
                     "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
                     "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
+                    # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM
+                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_enabled",
+                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
+                    # osdetection_fallback_enabled always-False since 9797f699; drop the column
+                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
                 ]:
                     conn.execute(text(col_ddl))
                 # Add primary keys to tables that pre-date PK enforcement.

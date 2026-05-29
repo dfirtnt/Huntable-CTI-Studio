@@ -7,8 +7,12 @@ to catch bad output before it surfaces to users.
 
 > **Note:** The regex + encoder + LLM-validator pipeline described here reflects
 > an earlier architecture and is archived. Current extraction runs direct LLM
-> sub-agents (CmdlineExtract, ProcTreeExtract, etc.) with QA handled per-agent.
-> The steps below are retained for historical context.
+> sub-agents (CmdlineExtract, ProcTreeExtract, HuntQueriesExtract,
+> RegistryExtract, ServicesExtract, ScheduledTasksExtract). The per-extractor QA
+> agent layer was removed in v7.0.0 (2026-05-12) and the remaining shared QA
+> subsystem (`RankAgentQA`, `qa_max_retries`) was removed in v7.1.0
+> (2026-05-22); extractor output now reaches aggregation directly. The steps
+> below are retained for historical context only.
 
 Historical pipeline steps:
 
@@ -50,17 +54,7 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 
 ## Ranking QA
 
-After `LLMService.rank_article()` produces a score, the QA agent validates it
-for consistency and compliance. If validation fails, the ranking retries up to
-`qa_max_retries` times.
-
-| Setting | Location | Default |
-|---|---|---|
-| `qa_max_retries` | `agentic_workflow_config` table / Workflow Config UI | 5 |
-
-**QA agent**: `RankAgentQA`
-**Failure behavior**: Falls back to the last valid score or terminates with
-`rank_below_threshold`.
+> **Deprecated (v7.1.0, 2026-05-22):** The `RankAgentQA` agent and the `qa_max_retries` config field were removed as part of the full QA agent subsystem removal. Ranking now proceeds directly to the threshold check without a QA validation step. The content below is retained for historical context only.
 
 ## Operational Safeguards
 

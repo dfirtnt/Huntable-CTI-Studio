@@ -41,7 +41,8 @@ def retrain_script():
     module = importlib.util.module_from_spec(spec)
     sys.modules["retrain_with_feedback"] = module
     spec.loader.exec_module(module)
-    return module
+    yield module
+    sys.modules.pop("retrain_with_feedback", None)
 
 
 # ---------------------------------------------------------------------------

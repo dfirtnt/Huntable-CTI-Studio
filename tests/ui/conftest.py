@@ -165,12 +165,9 @@ def class_page(context):
 # Override per-test with ``@pytest.mark.timeout(N)``.
 _UI_TEST_TIMEOUT_SECONDS = 60
 
-try:
-    import pytest_timeout  # noqa: F401
+from importlib.util import find_spec as _find_spec
 
-    _TIMEOUT_PLUGIN_AVAILABLE = True
-except ImportError:
-    _TIMEOUT_PLUGIN_AVAILABLE = False
+_TIMEOUT_PLUGIN_AVAILABLE = _find_spec("pytest_timeout") is not None
 
 
 def pytest_itemcollected(item):

@@ -7,6 +7,7 @@ Reusable service for generating SIGMA rules from articles using LLM.
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import yaml
@@ -17,6 +18,13 @@ from src.utils.langfuse_client import log_llm_completion, log_llm_error, trace_l
 from src.utils.llm_optimizer import optimize_article_content
 
 logger = logging.getLogger(__name__)
+
+SIGMA_RULE_AUTHOR = "Huntable CTI Studio"
+
+
+def _sigma_rule_date() -> str:
+    """Current date in SigmaHQ canonical YYYY/MM/DD format."""
+    return date.today().strftime("%Y/%m/%d")
 
 
 def _extract_message_text(payload: Any) -> str:
@@ -198,7 +206,6 @@ class SigmaGenerationService:
         min_confidence: float = 0.7,
         execution_id: int | None = None,
         article_id: int | None = None,
-        qa_feedback: str | None = None,
         sigma_prompt_template: str | None = None,
         sigma_system_prompt: str | None = None,
         sigma_repair_template: str | None = None,
@@ -251,6 +258,8 @@ class SigmaGenerationService:
                         url=url or "N/A",
                         content=content_to_analyze,
                         observables_section=observables_section,
+                        date=_sigma_rule_date(),
+                        author=SIGMA_RULE_AUTHOR,
                     )
                     logger.info(f"Using database prompt template for SIGMA generation (len={len(sigma_prompt)} chars)")
                 except (KeyError, AttributeError, ValueError) as e:
@@ -269,6 +278,8 @@ class SigmaGenerationService:
                         url=url or "N/A",
                         content=content_to_analyze,
                         observables_section=observables_section,
+                        date=_sigma_rule_date(),
+                        author=SIGMA_RULE_AUTHOR,
                     )
                     if sigma_prompt and isinstance(sigma_prompt, str):
                         logger.info(
@@ -284,6 +295,8 @@ class SigmaGenerationService:
                         url=url or "N/A",
                         content=content_to_analyze,
                         observables_section=observables_section,
+                        date=_sigma_rule_date(),
+                        author=SIGMA_RULE_AUTHOR,
                     )
                     if sigma_prompt and isinstance(sigma_prompt, str):
                         logger.info(f"Using file-based prompt for SIGMA generation (len={len(sigma_prompt)} chars)")
@@ -322,7 +335,6 @@ class SigmaGenerationService:
             logger.info("Phase 1: Multi-rule generation")
             generated_yaml = await self._generate_multi_rules(
                 sigma_prompt=sigma_prompt,
-                qa_feedback=qa_feedback,
                 sigma_system_prompt=sigma_system_prompt,
                 ai_model=ai_model,
                 execution_id=execution_id,
@@ -376,7 +388,6 @@ class SigmaGenerationService:
 
                     expansion_yaml = await self._generate_multi_rules(
                         sigma_prompt=expansion_prompt,
-                        qa_feedback=None,
                         sigma_system_prompt=sigma_system_prompt,
                         ai_model=ai_model,
                         execution_id=execution_id,
@@ -499,18 +510,12 @@ class SigmaGenerationService:
     async def _generate_multi_rules(
         self,
         sigma_prompt: str,
-        qa_feedback: str | None,
         sigma_system_prompt: str | None,
         ai_model: str,
         execution_id: int | None,
         article_id: int | None,
     ) -> str:
         """Phase 1: Generate multi-rule YAML with structural constraints."""
-        # Prepare prompt
-        current_prompt = sigma_prompt
-        if qa_feedback:
-            current_prompt = f"{qa_feedback}\n\n{current_prompt}"
-
         # Call LLM API
         sigma_provider = self.llm_service.provider_sigma
         requested_provider = self.llm_service._canonicalize_provider(ai_model)
@@ -518,7 +523,7 @@ class SigmaGenerationService:
             sigma_provider = requested_provider
 
         sigma_response = await self._call_provider_for_sigma(
-            current_prompt,
+            sigma_prompt,
             provider=sigma_provider,
             execution_id=execution_id,
             article_id=article_id,
@@ -848,6 +853,8 @@ class SigmaGenerationService:
             url=url or "N/A",
             content=content_to_analyze,
             observables_section=_build_observables_section(extraction_result),
+            date=_sigma_rule_date(),
+            author=SIGMA_RULE_AUTHOR,
         )
 
         # Add expansion context

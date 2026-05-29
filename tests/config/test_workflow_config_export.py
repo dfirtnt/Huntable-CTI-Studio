@@ -14,7 +14,6 @@ _MINIMAL_AGENT_MODELS = {
     "HuntQueriesExtract_model": "gpt-4",
     "RegistryExtract_model": "gpt-4",
     "ServicesExtract_model": "gpt-4",
-    "RankAgentQA": "gpt-4",
 }
 
 from src.config.workflow_config_loader import (
@@ -39,10 +38,7 @@ _FULL_LEGACY_V1 = {
     "thresholds": {},
     "agent_models": dict(_MINIMAL_AGENT_MODELS),
     "agent_prompts": dict(_MINIMAL_AGENT_PROMPTS),
-    "qa_enabled": {},
-    "qa_max_retries": 5,
     "sigma_fallback_enabled": False,
-    "osdetection_fallback_enabled": False,
     "rank_agent_enabled": True,
     "cmdline_attention_preprocessor_enabled": True,
     "proc_tree_attention_preprocessor_enabled": True,
@@ -121,21 +117,6 @@ def test_no_stray_prompt_keys():
     assert "Prompts" not in out
     assert "Prompt" in out.get("RankAgent", {})
     assert "ExtractAgentSettings" not in out
-
-
-def test_qa_enabled_keys_match_agents():
-    """Exported UI-ordered preset loads; config has QA.Enabled keys in Agents."""
-    raw = {
-        **_FULL_LEGACY_V1,
-        "agent_models": dict(_MINIMAL_AGENT_MODELS),
-        "qa_enabled": {},
-    }
-    out = export_preset_as_canonical_v2(raw)
-    config = load_workflow_config(out)
-    qa_enabled = config.QA.Enabled
-    agents = config.Agents
-    for key in qa_enabled:
-        assert key in agents, f"QA.Enabled key {key} must be in Agents"
 
 
 def test_metadata_not_empty():
@@ -230,7 +211,6 @@ def test_ui_ordered_export_roundtrip_preserves_values():
     raw = {
         **_FULL_LEGACY_V1,
         "agent_models": {**_MINIMAL_AGENT_MODELS, "OSDetectionAgent_selected_os": ["Linux"]},
-        "qa_enabled": {"RankAgent": True},
     }
     exported = export_preset_as_canonical_v2(raw)
     assert is_ui_ordered_preset(exported)
@@ -238,9 +218,7 @@ def test_ui_ordered_export_roundtrip_preserves_values():
     assert config.Thresholds.RankingThreshold == 6.0
     assert config.Thresholds.JunkFilterThreshold == 0.8
     assert config.Execution.OsDetectionSelectedOs == ["Linux"]
-    assert config.QA.Enabled.get("RankAgent") is True
     assert config.Agents["RankAgent"].Model
-    assert config.Agents["RankAgentQA"].Model
 
 
 def test_ui_ordered_to_legacy_includes_min_hunt_and_auto_trigger():
@@ -341,11 +319,8 @@ def test_config_row_to_preset_dict_includes_disabled_agents_from_agent_prompts()
         ranking_threshold=6.0,
         similarity_threshold=0.5,
         agent_models={"RankAgent": "gpt-4"},
-        qa_enabled={},
         sigma_fallback_enabled=False,
-        osdetection_fallback_enabled=False,
         rank_agent_enabled=True,
-        qa_max_retries=5,
         cmdline_attention_preprocessor_enabled=True,
         proc_tree_attention_preprocessor_enabled=True,
         agent_prompts={
@@ -369,10 +344,7 @@ def test_load_workflow_config_from_row_derives_disabled_agents_from_agent_prompt
             **_MINIMAL_AGENT_PROMPTS,
             "ExtractAgentSettings": {"disabled_agents": ["CmdlineExtract", "ProcTreeExtract"]},
         },
-        qa_enabled={},
-        qa_max_retries=5,
         sigma_fallback_enabled=False,
-        osdetection_fallback_enabled=False,
         rank_agent_enabled=True,
         cmdline_attention_preprocessor_enabled=True,
         proc_tree_attention_preprocessor_enabled=True,

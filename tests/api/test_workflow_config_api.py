@@ -33,21 +33,24 @@ class TestWorkflowConfigCRUD:
         new_threshold = 0.75 if original_threshold != 0.75 else 0.80
         update_payload = {"similarity_threshold": new_threshold, "description": "API test update"}
 
-        update_response = await async_client.put("/api/workflow/config", json=update_payload)
-        assert update_response.status_code == 200
-        update_data = update_response.json()
-        # PUT response returns the config object directly, not wrapped
-        assert "id" in update_data  # Verify it's a config object
+        try:
+            update_response = await async_client.put("/api/workflow/config", json=update_payload)
+            assert update_response.status_code == 200
+            update_data = update_response.json()
+            # PUT response returns the config object directly, not wrapped
+            assert "id" in update_data  # Verify it's a config object
 
-        # Verify config was updated
-        verify_response = await async_client.get("/api/workflow/config")
-        assert verify_response.status_code == 200
-        updated_config = verify_response.json()
+            # Verify config was updated
+            verify_response = await async_client.get("/api/workflow/config")
+            assert verify_response.status_code == 200
+            updated_config = verify_response.json()
 
-        # Check threshold was updated
-        assert updated_config["similarity_threshold"] == new_threshold
-        # Version should increment
-        assert updated_config["version"] > original_version
+            # Check threshold was updated
+            assert updated_config["similarity_threshold"] == new_threshold
+            # Version should increment
+            assert updated_config["version"] > original_version
+        finally:
+            await async_client.put("/api/workflow/config", json={"similarity_threshold": original_threshold})
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -64,13 +67,16 @@ class TestWorkflowConfigCRUD:
         new_threshold = 7.0 if original_threshold != 7.0 else 8.0
         update_payload = {"ranking_threshold": new_threshold}
 
-        update_response = await async_client.put("/api/workflow/config", json=update_payload)
-        assert update_response.status_code == 200
+        try:
+            update_response = await async_client.put("/api/workflow/config", json=update_payload)
+            assert update_response.status_code == 200
 
-        # Verify update
-        verify_response = await async_client.get("/api/workflow/config")
-        updated_config = verify_response.json()
-        assert updated_config["ranking_threshold"] == new_threshold
+            # Verify update
+            verify_response = await async_client.get("/api/workflow/config")
+            updated_config = verify_response.json()
+            assert updated_config["ranking_threshold"] == new_threshold
+        finally:
+            await async_client.put("/api/workflow/config", json={"ranking_threshold": original_threshold})
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -109,31 +115,36 @@ class TestWorkflowConfigDeduplication:
     @pytest.mark.api
     @pytest.mark.integration_full
     @pytest.mark.asyncio
-    async def test_changing_auto_trigger_threshold_creates_new_version(self, async_client: httpx.AsyncClient):
-        """Regression: auto_trigger_hunt_score_threshold was missing from
-        configs_identical, so changing it alone was silently ignored."""
+    async def test_auto_trigger_threshold_only_writable_via_patch(self, async_client: httpx.AsyncClient):
+        """auto_trigger_hunt_score_threshold is settings-only: PATCH updates it without
+        bumping the config version, and PUT ignores the field entirely."""
         response = await async_client.get("/api/workflow/config")
         assert response.status_code == 200
         current = response.json()
         original_version = current["version"]
         original_threshold = current.get("auto_trigger_hunt_score_threshold", 60.0)
 
-        # Pick a value that differs from the current one
         new_threshold = 55.0 if original_threshold != 55.0 else 65.0
-        update_response = await async_client.put(
-            "/api/workflow/config",
-            json={"auto_trigger_hunt_score_threshold": new_threshold},
-        )
-        assert update_response.status_code == 200
+        try:
+            patch_response = await async_client.patch(
+                "/api/workflow/config/auto-trigger-threshold",
+                json={"auto_trigger_hunt_score_threshold": new_threshold},
+            )
+            assert patch_response.status_code == 200
 
-        verify_response = await async_client.get("/api/workflow/config")
-        assert verify_response.status_code == 200
-        updated = verify_response.json()
+            verify_response = await async_client.get("/api/workflow/config")
+            assert verify_response.status_code == 200
+            updated = verify_response.json()
 
-        assert updated["auto_trigger_hunt_score_threshold"] == pytest.approx(new_threshold)
-        assert updated["version"] > original_version, (
-            "Changing auto_trigger_hunt_score_threshold must create a new config version"
-        )
+            assert updated["auto_trigger_hunt_score_threshold"] == pytest.approx(new_threshold)
+            assert updated["version"] == original_version, (
+                "Changing auto_trigger_hunt_score_threshold must NOT create a new config version"
+            )
+        finally:
+            await async_client.patch(
+                "/api/workflow/config/auto-trigger-threshold",
+                json={"auto_trigger_hunt_score_threshold": original_threshold},
+            )
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -151,7 +162,6 @@ class TestWorkflowConfigDeduplication:
             "ranking_threshold": current["ranking_threshold"],
             "similarity_threshold": current["similarity_threshold"],
             "junk_filter_threshold": current["junk_filter_threshold"],
-            "auto_trigger_hunt_score_threshold": current.get("auto_trigger_hunt_score_threshold", 60.0),
         }
         dup_response = await async_client.put("/api/workflow/config", json=same_payload)
         assert dup_response.status_code == 200
@@ -279,24 +289,29 @@ class TestWorkflowPresets:
                     "junk_filter_threshold": current_config["junk_filter_threshold"],
                 },
                 "agent_models": current_config.get("agent_models", {}),
-                "qa_enabled": current_config.get("qa_enabled", {}),
             },
         }
 
-        # Save preset
-        save_response = await async_client.post("/api/workflow/config/preset/save", json=preset_payload)
-        assert save_response.status_code == 200
-        save_data = save_response.json()
+        created_preset_id = None
+        try:
+            # Save preset
+            save_response = await async_client.post("/api/workflow/config/preset/save", json=preset_payload)
+            assert save_response.status_code == 200
+            save_data = save_response.json()
 
-        assert save_data.get("success") is True
-        assert "preset_id" in save_data or "id" in save_data
+            assert save_data.get("success") is True
+            assert "preset_id" in save_data or "id" in save_data
+            created_preset_id = save_data.get("preset_id") or save_data.get("id")
 
-        # Verify preset appears in list
-        list_response = await async_client.get("/api/workflow/config/preset/list")
-        list_data = list_response.json()
-        presets = list_data if isinstance(list_data, list) else list_data.get("presets", [])
-        preset_names = [p["name"] for p in presets]
-        assert preset_payload["name"] in preset_names
+            # Verify preset appears in list
+            list_response = await async_client.get("/api/workflow/config/preset/list")
+            list_data = list_response.json()
+            presets = list_data if isinstance(list_data, list) else list_data.get("presets", [])
+            preset_names = [p["name"] for p in presets]
+            assert preset_payload["name"] in preset_names
+        finally:
+            if created_preset_id is not None:
+                await async_client.delete(f"/api/workflow/config/preset/{created_preset_id}")
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -391,16 +406,22 @@ class TestAgentPrompts:
         updated_prompt = original_prompt + "\n# Modified by API test"
         update_payload = {"agent_name": "ExtractAgent", "prompt": updated_prompt}
 
-        update_response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
-        assert update_response.status_code == 200
-        update_data = update_response.json()
-        assert update_data.get("success") is True
+        try:
+            update_response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
+            assert update_response.status_code == 200
+            update_data = update_response.json()
+            assert update_data.get("success") is True
 
-        # Verify prompt was updated
-        verify_response = await async_client.get("/api/workflow/config/prompts/ExtractAgent")
-        assert verify_response.status_code == 200
-        verify_data = verify_response.json()
-        assert verify_data["prompt"] == updated_prompt
+            # Verify prompt was updated
+            verify_response = await async_client.get("/api/workflow/config/prompts/ExtractAgent")
+            assert verify_response.status_code == 200
+            verify_data = verify_response.json()
+            assert verify_data["prompt"] == updated_prompt
+        finally:
+            await async_client.put(
+                "/api/workflow/config/prompts",
+                json={"agent_name": "ExtractAgent", "prompt": original_prompt},
+            )
 
     @pytest.mark.api
     @pytest.mark.integration_full
@@ -409,13 +430,55 @@ class TestAgentPrompts:
         """Test updating prompt for non-existent agent succeeds (creates new prompt)."""
         update_payload = {"agent_name": "nonexistent_agent_xyz", "prompt": "Test prompt"}
 
-        # Note: The endpoint actually creates a new prompt for any agent name
-        # This is by design - no validation against a fixed list of agents
-        response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
-        # Should succeed (creates new agent prompt)
-        assert response.status_code == 200
+        # Note: The endpoint creates a new prompt for any agent name by design —
+        # there is no validation against a fixed list of agents.
+        try:
+            response = await async_client.put("/api/workflow/config/prompts", json=update_payload)
+            assert response.status_code == 200
+            data = response.json()
+            assert data.get("success") is True
+        finally:
+            # Remove the test-created prompt so it doesn't pollute subsequent runs.
+            await async_client.delete("/api/workflow/config/prompts/nonexistent_agent_xyz")
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_delete_agent_prompt_happy_path(self, async_client: httpx.AsyncClient):
+        """DELETE /config/prompts/{agent_name} removes the prompt and subsequent GET returns 404."""
+        agent_name = "test_delete_target_api"
+
+        # Ensure prompt exists (create/overwrite)
+        put_response = await async_client.put(
+            "/api/workflow/config/prompts",
+            json={"agent_name": agent_name, "prompt": "Temporary prompt for delete test"},
+        )
+        assert put_response.status_code == 200, "Setup PUT failed"
+
+        # Verify it is retrievable before deletion
+        get_before = await async_client.get(f"/api/workflow/config/prompts/{agent_name}")
+        assert get_before.status_code == 200
+
+        # Delete it
+        delete_response = await async_client.delete(f"/api/workflow/config/prompts/{agent_name}")
+        assert delete_response.status_code == 200
+        delete_data = delete_response.json()
+        assert delete_data.get("success") is True
+        assert "version" in delete_data  # new config version was created
+
+        # Verify the prompt is gone
+        get_after = await async_client.get(f"/api/workflow/config/prompts/{agent_name}")
+        assert get_after.status_code == 404
+
+    @pytest.mark.api
+    @pytest.mark.integration_full
+    @pytest.mark.asyncio
+    async def test_delete_agent_prompt_not_found(self, async_client: httpx.AsyncClient):
+        """DELETE /config/prompts/{agent_name} returns 404 when agent is not in config."""
+        response = await async_client.delete("/api/workflow/config/prompts/test_definitely_nonexistent_prompt_xyz")
+        assert response.status_code == 404
         data = response.json()
-        assert data.get("success") is True
+        assert "detail" in data
 
 
 class TestWorkflowConfigVersions:

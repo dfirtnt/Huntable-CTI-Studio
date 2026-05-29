@@ -24,7 +24,7 @@ def _is_lmstudio_enabled() -> bool:
 V2_VERSION = "2.0"
 
 # Legacy flat agent key -> (v2 agent name, model_key for flat dict)
-# Model key: "Name" for main/QA, "Name_model" for sub-agents, "OSDetectionAgent_fallback" for fallback
+# Model key: "Name" for main agents, "Name_model" for sub-agents
 _AGENT_FLAT_PREFIXES = [
     ("RankAgent", "RankAgent", "RankAgent"),
     ("ExtractAgent", "ExtractAgent", "ExtractAgent"),
@@ -32,7 +32,6 @@ _AGENT_FLAT_PREFIXES = [
     ("CmdlineExtract", "CmdlineExtract", "CmdlineExtract_model"),
     ("ProcTreeExtract", "ProcTreeExtract", "ProcTreeExtract_model"),
     ("HuntQueriesExtract", "HuntQueriesExtract", "HuntQueriesExtract_model"),
-    ("RankAgentQA", "RankAgentQA", "RankAgentQA"),
     ("RegistryExtract", "RegistryExtract", "RegistryExtract_model"),
     ("ServicesExtract", "ServicesExtract", "ServicesExtract_model"),
     ("ScheduledTasksExtract", "ScheduledTasksExtract", "ScheduledTasksExtract_model"),
@@ -66,7 +65,8 @@ def _str_val(v: Any, default: str = "") -> str:
 def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     """
     Normalize already-v2 dict to strict schema: strip legacy feature keys,
-    align QA.Enabled and Prompts keys, ensure agent Enabled from legacy flags.
+    strip all QA agents (fully deprecated 2026-05-22), align Prompts keys,
+    ensure agent Enabled from legacy flags.
     """
     from src.config.workflow_config_schema import CANONICAL_PROMPT_AGENT_NAMES
 
@@ -78,8 +78,9 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
     out["Features"] = features
 
     agents = dict(out.get("Agents") or {})
-    # Remove deprecated extractor QA agents
-    _EXTRACTOR_QA_AGENTS = {
+    # Remove all QA agents (fully deprecated 2026-05-22)
+    _ALL_QA_AGENTS = {
+        "RankAgentQA",
         "CmdLineQA",
         "CmdlineQA",
         "ProcTreeQA",
@@ -88,7 +89,7 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
         "ServicesQA",
         "ScheduledTasksQA",
     }
-    for _qa in _EXTRACTOR_QA_AGENTS:
+    for _qa in _ALL_QA_AGENTS:
         agents.pop(_qa, None)
     if "RankAgent" in agents and rank_en is not None:
         agents["RankAgent"] = dict(agents["RankAgent"])
@@ -101,25 +102,10 @@ def _normalize_v2_strict(raw: dict[str, Any]) -> dict[str, Any]:
             cfg["Enabled"] = False
     out["Agents"] = agents
 
-    # QA.Enabled: remove stale keys (OSDetection removed; extractor QA agents deprecated)
-    _STALE_QA_KEYS = {
-        "OSDetectionAgent",
-        "OSDetectionFallback",
-        "CmdlineExtract",
-        "ProcTreeExtract",
-        "HuntQueriesExtract",
-        "RegistryExtract",
-        "ServicesExtract",
-        "ScheduledTasksExtract",
-    }
-    qa = dict(out.get("QA") or {})
-    enabled = dict(qa.get("Enabled") or {})
-    for _k in _STALE_QA_KEYS:
-        enabled.pop(_k, None)
-    qa["Enabled"] = enabled
-    out["QA"] = qa
+    # QA field fully deprecated; strip it if present (schema has extra="forbid")
+    out.pop("QA", None)
 
-    # Prompts: drop non-canonical keys (extractor QA prompts are no longer canonical)
+    # Prompts: drop non-canonical keys (all QA prompts are no longer canonical)
     prompts = dict(out.get("Prompts") or {})
     prompts_clean = {
         k: {
@@ -219,30 +205,11 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         "Sigma": _str_val(sigma_emb, "ibm-research/CTI-BERT"),
     }
 
-    # QA: drop stale OSDetectionAgent/OSDetectionFallback key (feature removed)
-    qa_enabled = raw.get("qa_enabled") or {}
-    qa_max = raw.get("qa_max_retries")
-    if qa_max is not None:
+    # QA fully deprecated (2026-05-22): consume and discard qa_enabled/qa_max_retries
+    if raw.get("qa_enabled") is not None:
+        deprecated_used.append("qa_enabled")
+    if raw.get("qa_max_retries") is not None:
         deprecated_used.append("qa_max_retries")
-    _STALE_QA_ENABLED_KEYS = {
-        "OSDetectionAgent",
-        "OSDetectionFallback",
-        "CmdlineExtract",
-        "ProcTreeExtract",
-        "HuntQueriesExtract",
-        "RegistryExtract",
-        "ServicesExtract",
-        "ScheduledTasksExtract",
-    }
-    qa_enabled_normalized: dict[str, bool] = {}
-    for k, v in qa_enabled.items():
-        if k in _STALE_QA_ENABLED_KEYS:
-            continue
-        qa_enabled_normalized[k] = _bool_val(v)
-    QA = {
-        "Enabled": qa_enabled_normalized,
-        "MaxRetries": int(qa_max) if qa_max is not None else 5,
-    }
 
     # Agent execution: rank from legacy flag
     rank_en = raw.get("rank_agent_enabled")
@@ -346,7 +313,6 @@ def migrate_v1_to_v2(raw: dict[str, Any]) -> dict[str, Any]:
         "Thresholds": Thresholds,
         "Agents": Agents,
         "Embeddings": Embeddings,
-        "QA": QA,
         "Features": Features,
         "Prompts": Prompts,
         "Execution": Execution,

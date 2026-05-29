@@ -241,9 +241,6 @@ class EvalBundleService:
         # Extract article metadata
         article_metadata = self._extract_article_metadata(article, warnings)
 
-        # Extract QA results
-        qa_results = self._extract_qa_results(error_log, agent_name, warnings)
-
         # Extract execution status and errors
         execution_context = self._extract_execution_context(execution, warnings)
 
@@ -272,10 +269,6 @@ class EvalBundleService:
         # Add article metadata
         if article_metadata:
             bundle["article_metadata"] = article_metadata
-
-        # Add QA results
-        if qa_results:
-            bundle["qa_results"] = qa_results
 
         # Add execution context
         if execution_context:
@@ -478,27 +471,31 @@ class EvalBundleService:
             actual_attempt = 1  # Default for sub-agents
 
         # Extract messages
-        # Priority: 1) direct in attempt_entry, 2) in result._llm_messages (new storage), 3) in result.raw
-        messages = attempt_entry.get("messages", [])
+        # Priority: 1) result._llm_messages (verbatim wire copy, authoritative),
+        #           2) direct in attempt_entry (may be truncated copy used for SSE live view),
+        #           3) in result.raw (legacy)
+        # NOTE: attempt_entry.messages is truncated to 3000 chars/message in
+        # agentic_workflow.py for SSE bandwidth; reading it BEFORE _llm_messages
+        # caused bundle viewers to see `…`-suffixed content while the live LLM
+        # had received the full payload. Verbatim wins.
+        result = attempt_entry.get("result", {})
+        messages = []
+        if isinstance(result, dict) and "_llm_messages" in result:
+            messages = result["_llm_messages"]
         if not messages:
-            result = attempt_entry.get("result", {})
-            if isinstance(result, dict):
-                # Check new storage location first (from llm_service changes)
-                if "_llm_messages" in result:
-                    messages = result["_llm_messages"]
-                # Fallback to old locations
-                elif "raw" in result:
-                    raw_data = result.get("raw", {})
-                    if isinstance(raw_data, dict):
-                        if "messages" in raw_data:
-                            messages = raw_data["messages"]
-                        # Also check for conversation_log in raw
-                        if not messages and "conversation_log" in raw_data:
-                            conv_log = raw_data["conversation_log"]
-                            if isinstance(conv_log, list) and conv_log:
-                                last_entry = conv_log[-1]
-                                if isinstance(last_entry, dict):
-                                    messages = last_entry.get("messages", [])
+            messages = attempt_entry.get("messages", [])
+        if not messages and isinstance(result, dict) and "raw" in result:
+            raw_data = result.get("raw", {})
+            if isinstance(raw_data, dict):
+                if "messages" in raw_data:
+                    messages = raw_data["messages"]
+                # Also check for conversation_log in raw
+                if not messages and "conversation_log" in raw_data:
+                    conv_log = raw_data["conversation_log"]
+                    if isinstance(conv_log, list) and conv_log:
+                        last_entry = conv_log[-1]
+                        if isinstance(last_entry, dict):
+                            messages = last_entry.get("messages", [])
 
         # Diagnostic logging for missing messages
         if not messages:
@@ -751,6 +748,60 @@ class EvalBundleService:
             llm_request["provider"] = provider
         if model:
             llm_request["model"] = model
+
+        # Forensic instrumentation: surface wire-truth fields captured at runtime.
+        # These let bundle consumers verify exactly what reached the provider without
+        # tracing precedence chains across orchestration / dispatcher code.
+        # Source: stamped on agent_result by llm_service.run_extraction_agent.
+        #
+        # Size discipline: the messages array is large (tens of KB for typical
+        # CmdlineExtract calls). We must NOT duplicate it across multiple fields.
+        # Strategy:
+        #   - `messages` (above) IS the verbatim wire copy (via the read-order fix)
+        #   - `runtime_messages_verbatim` is a small attestation (SHA + flag), not
+        #     a second byte-for-byte copy. Consumers verify the attestation by
+        #     re-hashing `messages` and comparing to `source_sha256`.
+        #   - `provider_payload_verbatim` preserves the provider-specific envelope
+        #     (e.g. Anthropic's top-level `system` key; OpenAI's `max_completion_tokens`)
+        #     but its inner `.messages` is dehydrated to a SHA reference.
+        result_obj = attempt_entry.get("result", {}) if isinstance(attempt_entry, dict) else {}
+        if isinstance(result_obj, dict):
+            if "_llm_messages" in result_obj:
+                rmv = result_obj["_llm_messages"]
+                llm_request["runtime_messages_verbatim"] = {
+                    "is_verbatim_wire_copy": True,
+                    "source_field": "llm_request.messages",
+                    "source_sha256": compute_sha256_json(rmv),
+                    "message_count": len(rmv) if isinstance(rmv, list) else None,
+                    "note": (
+                        "llm_request.messages is the byte-for-byte runtime wire copy "
+                        "(stamped at llm_service.py: last_result['_llm_messages']). "
+                        "Verify by re-hashing messages and comparing to source_sha256."
+                    ),
+                }
+            if "_provider_payload_verbatim" in result_obj:
+                ppv = result_obj["_provider_payload_verbatim"]
+                # Dehydrate inner .messages to keep envelope evidence (model,
+                # max_tokens, system-extracted-out shape, etc.) without duplicating
+                # the messages bytes that already live in llm_request.messages.
+                if isinstance(ppv, dict) and "messages" in ppv:
+                    inner_msgs = ppv["messages"]
+                    ppv = {
+                        **ppv,
+                        "messages": {
+                            "_ref": "llm_request.messages",
+                            "_count": len(inner_msgs) if isinstance(inner_msgs, list) else None,
+                            "_sha256": compute_sha256_json(inner_msgs),
+                            "_note": "dehydrated to avoid duplicate storage; verify SHA against messages",
+                        },
+                    }
+                llm_request["provider_payload_verbatim"] = ppv
+            if "_provider_url" in result_obj:
+                llm_request["provider_url"] = result_obj["_provider_url"]
+            if "_post_augmentation_prompt_tokens" in result_obj:
+                llm_request["post_augmentation_prompt_tokens"] = result_obj["_post_augmentation_prompt_tokens"]
+            if "_orchestration_injected_sections" in result_obj:
+                llm_request["orchestration_injected_sections"] = result_obj["_orchestration_injected_sections"]
 
         # Build response
         response_payload = {
@@ -1199,14 +1250,9 @@ class EvalBundleService:
             "has_items": len(parsed_items) > 0 if isinstance(parsed_items, list) else False,
         }
 
-        # Extract raw result (includes QA corrections if available)
+        # Extract raw result
         if raw_result:
             context["raw_result"] = raw_result
-            # Check for QA corrections in raw result
-            qa_corrections = raw_result.get("qa_corrections_applied") or raw_result.get("qa_corrections")
-            if qa_corrections:
-                context["qa_corrections_applied"] = True
-                context["qa_corrections"] = qa_corrections
 
         # Note: extraction_warnings are global to the entire extraction, not agent-specific
         # We don't include them here to avoid confusion with agent-specific data
@@ -1246,52 +1292,6 @@ class EvalBundleService:
             metadata["source_id"] = article.source.id
 
         return metadata
-
-    def _extract_qa_results(
-        self, error_log: dict[str, Any], agent_name: str, warnings: list[str]
-    ) -> dict[str, Any] | None:
-        """Extract QA results for the agent."""
-        if not isinstance(error_log, dict):
-            return None
-
-        qa_results_all = error_log.get("qa_results", {})
-        if not isinstance(qa_results_all, dict):
-            return None
-
-        # Map agent names to QA agent names. Only RankAgent QA is still active.
-        qa_agent_map = {
-            "rank_article": "RankAgentQA",
-        }
-
-        qa_agent_name = qa_agent_map.get(agent_name)
-        if not qa_agent_name:
-            return None
-
-        qa_result = qa_results_all.get(qa_agent_name) or qa_results_all.get(agent_name)
-        if not qa_result:
-            return None
-
-        # Extract key QA information
-        qa_context = {
-            "verdict": qa_result.get("verdict"),
-            "summary": qa_result.get("summary"),
-            "issues": qa_result.get("issues", []),
-            "has_issues": len(qa_result.get("issues", [])) > 0,
-        }
-
-        # Surface corrections_applied and pre_filter_count at the top-level qa_context so
-        # eval dashboards can read them without spelunking into raw_result._qa_result.
-        if "corrections_applied" in qa_result:
-            qa_context["corrections_applied"] = qa_result.get("corrections_applied")
-        if "pre_filter_count" in qa_result:
-            qa_context["pre_filter_count"] = qa_result.get("pre_filter_count")
-
-        # Extract feedback if available
-        feedback = qa_result.get("feedback") or qa_result.get("qa_corrections_applied")
-        if feedback:
-            qa_context["feedback"] = feedback
-
-        return qa_context
 
     def _extract_execution_context(
         self, execution: AgenticWorkflowExecutionTable, warnings: list[str]
