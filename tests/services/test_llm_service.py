@@ -304,6 +304,63 @@ class TestLLMService:
             assert "temperature" not in payload
 
     @pytest.mark.asyncio
+    async def test_lmstudio_model_prefix_retry_sends_modified_payload(self, service):
+        """Regression: retry on 'invalid model identifier' must POST the modified model.
+
+        Previously, the inner `make_request` closure captured `payload` by name, so the
+        retry loop's `payload_retry` was built but never actually sent — every retry
+        re-sent the original payload. This test pins the wire-level contract: the second
+        POST body must carry the prefix-stripped model, and the success result's
+        forensic `_provider_payload` must match what was actually sent.
+        """
+        service.workflow_lmstudio_enabled = True
+
+        with patch("httpx.AsyncClient") as mock_client_class:
+            first_response = Mock()
+            first_response.status_code = 400
+            first_response.text = '{"error":{"message":"Invalid model identifier","type":"invalid_request_error"}}'
+            first_response.json = Mock(
+                return_value={"error": {"message": "Invalid model identifier"}}
+            )
+
+            second_response = Mock()
+            second_response.status_code = 200
+            second_response.text = '{"choices":[{"message":{"content":"ok"}}]}'
+            second_response.json = Mock(
+                return_value={"choices": [{"message": {"content": "ok"}}], "usage": {}}
+            )
+
+            mock_client = AsyncMock()
+            mock_client.post = AsyncMock(side_effect=[first_response, second_response])
+            mock_client.aclose = AsyncMock()
+            mock_client_class.return_value = mock_client
+            mock_client_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_client_class.return_value.__aexit__ = AsyncMock(return_value=None)
+
+            result = await service.request_chat(
+                provider="lmstudio",
+                model_name="myorg/test-model",
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=128,
+                temperature=0.7,
+                timeout=30.0,
+                failure_context="lmstudio-prefix-retry",
+            )
+
+            assert result["choices"][0]["message"]["content"] == "ok"
+            assert mock_client.post.await_count == 2
+
+            first_payload = mock_client.post.await_args_list[0].kwargs["json"]
+            second_payload = mock_client.post.await_args_list[1].kwargs["json"]
+
+            # Initial attempt sends the canonical (prefixed) model name.
+            assert first_payload["model"] == "myorg/test-model"
+            # Retry MUST send the prefix-stripped form — not the original.
+            assert second_payload["model"] == "test-model"
+            # Forensic instrumentation records what actually went on the wire.
+            assert result["_provider_payload"]["model"] == "test-model"
+
+    @pytest.mark.asyncio
     async def test_request_chat_empty_messages_raises_preprocess_invariant_error(self, service):
         """Circuit breaker: request_chat must never invoke LLM with empty messages."""
         with pytest.raises(PreprocessInvariantError, match="empty messages"):

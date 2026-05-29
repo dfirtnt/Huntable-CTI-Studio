@@ -432,6 +432,9 @@
     .eval-animate-in:nth-child(4) { animation-delay: 0.26s; }
     .eval-animate-in:nth-child(5) { animation-delay: 0.33s; }
 
+    #resultsLegend .legend-caret { transition: transform 0.2s; display: inline-block; }
+    #resultsLegend[open] .legend-caret { transform: rotate(180deg); }
+
 </style>
 
 <div class="eval-page">
@@ -692,7 +695,7 @@
             <details id="resultsLegend" class="mb-4" style="background: var(--panel-bg-4); border: 1px solid rgba(139, 92, 246, 0.08); border-radius: 10px;">
                 <summary class="flex items-center justify-between px-4 py-3 cursor-pointer select-none text-xs" style="list-style: none; color: var(--text-muted-slate); font-family: 'JetBrains Mono', monospace;">
                     <span style="color: var(--text-emphasis); font-weight: 600;">How to read this table</span>
-                    <span class="text-[10px]" style="opacity: 0.6;">click to expand</span>
+                    <span class="legend-caret" style="color: var(--text-muted-slate); font-size: 0.75rem;" aria-hidden="true">&#x25BC;</span>
                 </summary>
                 <div class="px-4 pb-4 pt-2 text-xs" style="color: var(--text-muted-slate);">
                     <div class="grid gap-3" style="grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));">
@@ -1578,11 +1581,11 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
     
     // Build table with horizontal scrolling wrapper
     let html = '<div id="resultsTableScrollContainer" class="overflow-x-auto">';
-    html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px;">';
+    html += '<table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700" style="min-width: 600px; border-collapse: separate; border-spacing: 0;">';
     html += '<thead class="bg-gray-50 dark:bg-gray-800">';
     html += '<tr>';
     html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase sticky left-0 bg-gray-50 dark:bg-gray-800 z-10" style="width: 280px; min-width: 280px; max-width: 360px;">Article</th>';
-    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-9" style="left: 280px; width: 90px; min-width: 90px;">Expected</th>';
+    html += '<th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase whitespace-nowrap sticky bg-gray-50 dark:bg-gray-800 z-10" style="left: 280px; width: 90px; min-width: 90px; box-shadow: 2px 0 0 0 rgba(75, 85, 99, 0.25);">Expected</th>';
     
     // Add one column per config version/run (v40a, v40b, ...) with tooltip and export button
     configVersions.forEach(version => {
@@ -1631,7 +1634,7 @@ function renderSubagentResultsPivot(articleRows, configVersions, modelsByVersion
         
         html += '<tr>';
         html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 sticky left-0 bg-white dark:bg-gray-900 z-10 overflow-hidden" style="width: 280px; min-width: 280px; max-width: 360px;"><div class="truncate">${articleIdCell}</div></td>`;
-        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-9" style="left: 280px; width: 90px; min-width: 90px;">${expectedCount}</td>`;
+        html += `<td class="px-4 py-3 text-sm text-gray-700 dark:text-gray-200 font-medium whitespace-nowrap text-center sticky bg-white dark:bg-gray-900 z-10" style="left: 280px; width: 90px; min-width: 90px; box-shadow: 2px 0 0 0 rgba(75, 85, 99, 0.25);">${expectedCount}</td>`;
         
         // Add one cell per config version
         configVersions.forEach(version => {
@@ -3398,9 +3401,25 @@ function renderCompareResult(data) {
         else maeArrow = ' <span style="color:var(--text-muted);">(same)</span>';
     }
 
-    const improved = articles.filter(a => a.improvement != null && a.improvement > 0).length;
-    const regressed = articles.filter(a => a.improvement != null && a.improvement < 0).length;
-    const unchanged = articles.filter(a => a.improvement != null && a.improvement === 0).length;
+    // Magnitude-weighted summary computed server-side from averaged abs_err
+    // across replicate attempts. Unweighted improved/regressed/unchanged
+    // counts are deliberately omitted: they hide magnitude (a single +7 win
+    // can offset two -1 regressions) and invite "1 vs 2" misreadings of the
+    // overall direction. Per-article direction is still visible in the
+    // Change column for anyone who needs it.
+    const totalImp = data.total_improvement_magnitude;
+    const totalReg = data.total_regression_magnitude;
+    const netChange = data.net_change;
+    const fmtMag = v => (v == null ? '--' : (Number.isInteger(v) ? String(v) : Number(v).toFixed(2)));
+    let netColor = 'var(--text-muted)';
+    let netSign = '';
+    if (netChange != null) {
+        if (netChange > 0) { netColor = '#34d399'; netSign = '+'; }
+        else if (netChange < 0) { netColor = '#f87171'; }
+    }
+    const netHtml = netChange == null ? '--'
+        : '<span style="color:' + netColor + ';">' + netSign + fmtMag(netChange) + '</span>'
+          + ' <span style="color:var(--text-muted); font-size:0.65rem;">(+' + fmtMag(totalImp) + ' / ' + fmtMag(totalReg) + ')</span>';
 
     const summaryHtml = [
         '<div class="flex flex-wrap gap-3 mb-4">',
@@ -3412,17 +3431,9 @@ function renderCompareResult(data) {
         '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Perfect Matches</div>',
         '    <div class="text-xs font-mono" style="color:var(--text-secondary);">v' + va + ': ' + (aggA.perfect_matches != null ? aggA.perfect_matches : '--') + ' (' + fmtPct(aggA.perfect_match_percentage) + ') &rarr; v' + vb + ': ' + (aggB.perfect_matches != null ? aggB.perfect_matches : '--') + ' (' + fmtPct(aggB.perfect_match_percentage) + ')</div>',
         '  </div>',
-        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(34,197,94,0.15);">',
-        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Improved</div>',
-        '    <div class="text-xs font-mono font-semibold" style="color:#34d399;">' + improved + '</div>',
-        '  </div>',
-        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(248,113,113,0.15);">',
-        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Regressed</div>',
-        '    <div class="text-xs font-mono font-semibold" style="color:#f87171;">' + regressed + '</div>',
-        '  </div>',
-        '  <div class="px-3 py-2 rounded" style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.1);">',
-        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Unchanged</div>',
-        '    <div class="text-xs font-mono" style="color:var(--text-muted);">' + unchanged + '</div>',
+        '  <div class="px-3 py-2 rounded" title="Sum of averaged abs-err reduction across improved articles, plus sum of regressions (negative). Positive net = aggregate improvement." style="background:var(--panel-bg-3); border:1px solid rgba(139,92,246,0.15);">',
+        '    <div class="text-[10px] font-medium uppercase tracking-wide mb-1" style="color:var(--text-muted-slate);">Net Change (abs err)</div>',
+        '    <div class="text-xs font-mono font-semibold">' + netHtml + '</div>',
         '  </div>',
         '</div>'
     ].join('\n');
@@ -3456,9 +3467,13 @@ function renderCompareResult(data) {
 
     function changeBadge(improvement) {
         if (improvement == null) return '<span style="color:var(--text-muted); font-size:0.7rem;">--</span>';
-        if (improvement > 0) return '<span class="font-mono text-xs font-semibold" style="color:var(--action-execute);">better +' + improvement + '</span>';
-        if (improvement < 0) return '<span class="font-mono text-xs font-semibold" style="color:var(--action-danger);">worse ' + improvement + '</span>';
-        return '<span class="font-mono text-xs" style="color:var(--text-muted);">same</span>';
+        // improvement is now an averaged reduction in abs_err (float) computed
+        // across all replicate attempts -- not a single-attempt delta.
+        const mag = Number.isInteger(improvement) ? String(improvement) : Number(improvement).toFixed(2);
+        const tip = 'Averaged across replicate attempts so a lucky/unlucky single sample cannot dominate the delta.';
+        if (improvement > 0) return '<span class="font-mono text-xs font-semibold" title="' + tip + '" style="color:var(--action-execute);">better +' + mag + '</span>';
+        if (improvement < 0) return '<span class="font-mono text-xs font-semibold" title="' + tip + '" style="color:var(--action-danger);">worse ' + mag + '</span>';
+        return '<span class="font-mono text-xs" title="' + tip + '" style="color:var(--text-muted);">same</span>';
     }
 
     let rowsHtml = '';

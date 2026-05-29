@@ -414,6 +414,75 @@ async def test_compare_aggregate_includes_all_replicate_attempts():
     assert article["result_a"]["execution_id"] == 103  # id=3, tied ts
     assert article["result_b"]["execution_id"] == 202  # id=5, tied ts
 
+    # Averaged stats per article (used by the improvement badge and tallies).
+    assert article["avg_a"]["avg_actual"] == 4.0  # (0+6+6)/3
+    assert article["avg_a"]["avg_abs_err"] == 6.0  # (10+4+4)/3
+    assert article["avg_a"]["completed_attempts"] == 3
+    assert article["avg_b"]["avg_actual"] == 8.0  # (8+8)/2
+    assert article["avg_b"]["avg_abs_err"] == 2.0  # (2+2)/2
+    # Improvement = avg_a_abs_err - avg_b_abs_err = 6.0 - 2.0 = 4.0 (B better).
+    assert article["improvement"] == 4.0
+
+    # Magnitude-weighted summary on the panel.
+    assert result["total_improvement_magnitude"] == 4.0
+    assert result["total_regression_magnitude"] == 0
+    assert result["net_change"] == 4.0
+
+
+@pytest.mark.asyncio
+async def test_compare_improvement_uses_averaged_not_latest_attempt():
+    """The improvement badge must reflect averaged abs_err across all
+    completed attempts, not the latest single attempt.
+
+    Demonstrates the bug we are fixing: with stochastic LLM output, the
+    latest-single attempt can flip the direction-of-change. Here:
+      v10 abs_errs: [6, 6, 1]  -> avg = 4.33, latest (id=3) = 1
+      v11 abs_errs: [3, 3, 3]  -> avg = 3.00, latest (id=6) = 3
+
+    Latest-single would say "v11 is worse" (1 -> 3 = regressed by 2).
+    Averaged correctly says "v11 is better" (4.33 -> 3.00 = improved by 1.33).
+    """
+    from datetime import UTC, datetime
+
+    url = "https://example.com/article"
+    ts = datetime(2026, 5, 27, 21, 0, 0, tzinfo=UTC)
+    recs = [
+        _make_eval_record(url, version=10, actual_count=4, expected_count=10,
+                          execution_id=101, record_id=1, created_at=ts),
+        _make_eval_record(url, version=10, actual_count=4, expected_count=10,
+                          execution_id=102, record_id=2, created_at=ts),
+        _make_eval_record(url, version=10, actual_count=9, expected_count=10,  # abs_err=1, the lucky one
+                          execution_id=103, record_id=3, created_at=ts),
+        _make_eval_record(url, version=11, actual_count=7, expected_count=10,
+                          execution_id=201, record_id=4, created_at=ts),
+        _make_eval_record(url, version=11, actual_count=7, expected_count=10,
+                          execution_id=202, record_id=5, created_at=ts),
+        _make_eval_record(url, version=11, actual_count=7, expected_count=10,
+                          execution_id=203, record_id=6, created_at=ts),
+    ]
+
+    db_manager = _make_db(recs)
+
+    with (
+        patch("src.web.routes.evaluation_api.DatabaseManager", return_value=db_manager),
+        patch("src.web.routes.evaluation_api._resolve_subagent_query", return_value=("cmdline", ["cmdline"])),
+        patch("src.web.routes.evaluation_api._load_preset_expected_by_url", return_value={}),
+        patch("src.web.routes.evaluation_api._load_static_eval_articles", return_value={}),
+        patch("src.web.routes.evaluation_api.EXCLUDED_EVAL_ARTICLE_IDS", frozenset()),
+    ):
+        result = await get_subagent_eval_compare(request=MagicMock(), subagent="cmdline", version_a=10, version_b=11)
+
+    article = result["articles"][0]
+    # Latest-single would have said "regressed by 2" (abs_err 1 -> 3).
+    # Averaged correctly says "improved by 1.33" (abs_err 4.33 -> 3.00).
+    assert article["improvement"] == 1.33
+    # Cell still shows the latest single execution for drill-down.
+    assert article["result_a"]["execution_id"] == 103
+    assert article["result_b"]["execution_id"] == 203
+    # Net-change summary should reflect the averaged improvement.
+    assert result["total_improvement_magnitude"] == 1.33
+    assert result["net_change"] == 1.33
+
 
 @pytest.mark.asyncio
 async def test_compare_preset_expected_overrides_record_expected():

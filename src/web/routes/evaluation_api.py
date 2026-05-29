@@ -2093,11 +2093,28 @@ async def get_subagent_eval_compare(
             # replicate variance instead of silently collapsing it.
             latest: dict[tuple[str | None, int], SubagentEvaluationTable] = {}
             attempt_counts: dict[tuple[str | None, int], int] = {}
+            # Sums for averaging across all completed replicate attempts.
+            # The per-article "improvement" badge and the IMPROVED/REGRESSED
+            # tallies derive from these averages -- single-attempt comparisons
+            # were misleading on stochastic LLM output (a lucky/unlucky latest
+            # attempt could fabricate or hide a direction-of-change).
+            sum_actual: dict[tuple[str | None, int], float] = {}
+            sum_abs_err: dict[tuple[str | None, int], float] = {}
+            completed_counts: dict[tuple[str | None, int], int] = {}
             for record in all_records:
                 if record.article_id is not None and record.article_id in EXCLUDED_EVAL_ARTICLE_IDS:
                     continue
                 key = (record.article_url, record.workflow_config_version)
                 attempt_counts[key] = attempt_counts.get(key, 0) + 1
+                # Accumulate per-key averaging stats for completed attempts only;
+                # failed/missing attempts must not bias the average toward zero.
+                if record.status == "completed" and record.actual_count is not None:
+                    expected_val = preset_expected_by_url.get(record.article_url)
+                    if expected_val is None:
+                        expected_val = record.expected_count if record.expected_count is not None else 0
+                    sum_actual[key] = sum_actual.get(key, 0.0) + float(record.actual_count)
+                    sum_abs_err[key] = sum_abs_err.get(key, 0.0) + float(abs(record.actual_count - expected_val))
+                    completed_counts[key] = completed_counts.get(key, 0) + 1
                 existing = latest.get(key)
                 if existing is None:
                     latest[key] = record
@@ -2176,6 +2193,17 @@ async def get_subagent_eval_compare(
             aggregate_a = _compute_aggregate(records_a, version_a)
             aggregate_b = _compute_aggregate(records_b, version_b)
 
+            def _avg_for(key: tuple[str | None, int]) -> dict | None:
+                """Per-key averaged actual and abs_err across completed attempts."""
+                n = completed_counts.get(key, 0)
+                if n == 0:
+                    return None
+                return {
+                    "avg_actual": round(sum_actual[key] / n, 2),
+                    "avg_abs_err": round(sum_abs_err[key] / n, 2),
+                    "completed_attempts": n,
+                }
+
             # Build per-article rows
             articles = []
             for url, title in all_urls.items():
@@ -2183,6 +2211,8 @@ async def get_subagent_eval_compare(
                 rec_b = latest.get((url, version_b))
                 result_a = _make_result(rec_a)
                 result_b = _make_result(rec_b)
+                avg_a = _avg_for((url, version_a))
+                avg_b = _avg_for((url, version_b))
 
                 expected_count = preset_expected_by_url.get(url)
                 if expected_count is None:
@@ -2192,14 +2222,14 @@ async def get_subagent_eval_compare(
                 if expected_count is None:
                     expected_count = 0
 
-                improvement: int | None = None
-                if (
-                    result_a is not None
-                    and result_b is not None
-                    and result_a.get("score") is not None
-                    and result_b.get("score") is not None
-                ):
-                    improvement = abs(result_a["score"]) - abs(result_b["score"])
+                # Improvement is the reduction in averaged abs_err from A -> B.
+                # Positive means B is closer to expected on average; negative
+                # means B drifted further away. Averaging across replicate
+                # attempts smooths LLM stochasticity so the badge reflects a
+                # statistically meaningful change instead of one lucky sample.
+                improvement: float | None = None
+                if avg_a is not None and avg_b is not None:
+                    improvement = round(avg_a["avg_abs_err"] - avg_b["avg_abs_err"], 2)
 
                 articles.append(
                     {
@@ -2211,6 +2241,8 @@ async def get_subagent_eval_compare(
                         "improvement": improvement,
                         "attempts_a": attempt_counts.get((url, version_a), 0),
                         "attempts_b": attempt_counts.get((url, version_b), 0),
+                        "avg_a": avg_a,
+                        "avg_b": avg_b,
                     }
                 )
 
@@ -2222,6 +2254,20 @@ async def get_subagent_eval_compare(
                 )
             )
 
+            # Magnitude-weighted summary so the panel does not mislead when a
+            # single large win is offset by multiple small losses (or vice
+            # versa). Unweighted counts (1 improved vs 2 regressed) can look
+            # like a regression while the aggregate MAE actually went down.
+            total_improvement = round(
+                sum(a["improvement"] for a in articles if a["improvement"] is not None and a["improvement"] > 0),
+                2,
+            )
+            total_regression = round(
+                sum(a["improvement"] for a in articles if a["improvement"] is not None and a["improvement"] < 0),
+                2,
+            )
+            net_change = round(total_improvement + total_regression, 2)
+
             return {
                 "subagent": canonical_subagent,
                 "version_a": version_a,
@@ -2229,6 +2275,9 @@ async def get_subagent_eval_compare(
                 "aggregate_a": aggregate_a,
                 "aggregate_b": aggregate_b,
                 "articles": articles,
+                "net_change": net_change,
+                "total_improvement_magnitude": total_improvement,
+                "total_regression_magnitude": total_regression,
             }
         finally:
             db_session.close()
