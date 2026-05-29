@@ -281,3 +281,8 @@ Workshop/.worktrees/
 /playwright/.auth/
 .setup_complete
 *.pptx
+
+# Local-only generated reports (interactive diagrams, distribution snapshots)
+create-agent-wiring-map.html
+create-agent-wiring-map.pdf
+hunt_score_distribution.html
