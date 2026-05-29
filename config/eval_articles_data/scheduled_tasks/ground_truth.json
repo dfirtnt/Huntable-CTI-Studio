@@ -1,9 +1,7 @@
 [
   {
-    "url": "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/",
-    "expected_items": [
-      "WinUpdate"
-    ]
+    "url": "https://thedfirreport.com/2021/11/01/from-zero-to-domain-admin/",
+    "expected_items": []
   },
   {
     "url": "https://thedfirreport.com/2022/02/07/qbot-likes-to-move-it-move-it/",
@@ -12,13 +10,19 @@
     ]
   },
   {
+    "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+    "expected_items": [
+      "Update2"
+    ]
+  },
+  {
     "url": "https://www.huntress.com/blog/cephalus-ransomware",
     "expected_items": []
   },
   {
-    "url": "https://thedfirreport.com/2025/01/27/cobalt-strike-and-a-pair-of-socks-lead-to-lockbit-ransomware/",
+    "url": "https://www.microsoft.com/en-us/security/blog/2022/04/12/tarrask-malware-uses-scheduled-tasks-for-defense-evasion/",
     "expected_items": [
-      "Update2"
+      "WinUpdate"
     ]
   }
 ]

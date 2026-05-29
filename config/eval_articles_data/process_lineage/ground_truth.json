@@ -1,17 +1,6 @@
 [
   {
-    "url": "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
-    "expected_items": [
-      "OneNote.exe -> cmd.exe",
-      "rundll32 (IcedID) -> regsvr32 (Cobalt Strike DLL)"
-    ]
-  },
-  {
-    "url": "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/",
-    "expected_items": []
-  },
-  {
-    "url": "https://thedfirreport.com/2021/05/02/trickbot-brief-creds-and-beacons/",
+    "url": "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/",
     "expected_items": []
   },
   {
@@ -19,14 +8,22 @@
     "expected_items": []
   },
   {
-    "url": "https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/",
+    "url": "https://thedfirreport.com/2021/05/02/trickbot-brief-creds-and-beacons/",
     "expected_items": []
   },
   {
-    "url": "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability",
+    "url": "https://thedfirreport.com/2021/06/03/weblogic-rce-leads-to-xmrig/",
+    "expected_items": []
+  },
+  {
+    "url": "https://thedfirreport.com/2021/11/29/continuing-the-bazar-ransomware-story/",
+    "expected_items": []
+  },
+  {
+    "url": "https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/",
     "expected_items": [
-      "wsusservice.exe -> cmd.exe",
-      "w3wp.exe -> cmd.exe"
+      "OneNote.exe -> cmd.exe",
+      "rundll32 (IcedID) -> regsvr32 (Cobalt Strike DLL)"
     ]
   },
   {
@@ -36,16 +33,23 @@
     ]
   },
   {
+    "url": "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/",
+    "expected_items": [
+      "EarthTime.exe -> cmd.exe",
+      "MSBuild.exe -> ccs.exe (Betruger)"
+    ]
+  },
+  {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
     "expected_items": [
       "w3wp.exe -> schtasks.exe"
     ]
   },
   {
-    "url": "https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/",
+    "url": "https://www.picussecurity.com/resource/blog/cve-2025-59287-explained-wsus-unauthenticated-rce-vulnerability",
     "expected_items": [
-      "EarthTime.exe -> cmd.exe",
-      "MSBuild.exe -> ccs.exe (Betruger)"
+      "wsusservice.exe -> cmd.exe",
+      "w3wp.exe -> cmd.exe"
     ]
   }
 ]

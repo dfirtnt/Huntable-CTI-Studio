@@ -134,7 +134,9 @@ def _load_ground_truth_counts() -> dict[str, dict[str, int]]:
         for entry in entries:
             url = entry.get("url")
             items = entry.get("expected_items")
-            if url and isinstance(items, list):
+            # Skip empty stubs (expected_items: []) — these are registered-but-uncurated
+            # placeholders that must not be treated as a declared count of 0.
+            if url and isinstance(items, list) and len(items) > 0:
                 result[subdir.name][url] = len(items)
     return dict(result)
 
