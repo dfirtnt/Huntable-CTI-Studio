@@ -38,7 +38,7 @@ dependencies = [
     "joblib==1.5.3",
     "spacy==3.8.14",
     # Utilities
-    "click==8.3.3",
+    "click==8.4.1",
     "rich==14.3.3",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.1",
