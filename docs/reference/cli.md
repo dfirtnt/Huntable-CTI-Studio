@@ -434,4 +434,4 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `stats` | DB summary (sources, articles, activity) |
 | `archive add/remove/list/cleanup` | Soft-delete, or restore, or clean up articles |
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_
