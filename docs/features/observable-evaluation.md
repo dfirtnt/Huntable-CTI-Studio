@@ -4,7 +4,7 @@
 
 ## Overview
 
-The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries). **This capability is currently unsupported.**
+The observable evaluation system validates the accuracy of observable extraction models across all six observable types (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks). **This capability is currently unsupported.**
 
 ## Implementation
 

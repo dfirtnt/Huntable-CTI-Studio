@@ -541,6 +541,14 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 > data. Version history from before the restore is preserved in the database and
 > will appear in the ML performance charts.
 
+> **Model rollback and the `backups/models/` fallback** — the `POST /api/model/rollback/{version_id}` endpoint
+> (`MLModelVersionManager._resolve_artifact_path`) checks `models/` first, then
+> automatically falls back to `backups/models/<filename>` if the primary pkl has been
+> deleted. This means rollback returns 200 (not 422) even when `models/` has been
+> wiped, as long as the artifact was mirrored to the backup location. Full system
+> backups copy model files into `backups/system_backup_.../models/`; the
+> `backups/models/` mirror is populated separately by the training pipeline.
+
 ### Recovery Testing
 
 #### Pre-Production Testing

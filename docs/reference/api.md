@@ -43,6 +43,13 @@ These endpoints control source state and manual collection.
 
 These are the main article browsing and maintenance endpoints.
 
+### Article AI Endpoints
+
+- `POST /api/articles/{article_id}/detect-os` — Detect operating system from article content using CTI-BERT + classifier. Applies the content filter before sending content to the model. Returns **HTTP 422** with `{ "error": "no_huntable_content" }` when the content filter finds no huntable chunks above the confidence threshold; the LLM is not called in that case.
+- `POST /api/articles/{article_id}/rank-with-gpt4o` — Rank article huntability using the active workflow config's RankAgent prompt and model.
+
+Route module: `src/web/routes/ai.py`.
+
 ### Search
 
 - `POST /api/search/semantic`
@@ -111,7 +118,7 @@ These endpoints manage runtime settings and provider connectivity.
 ### Models And MLOps
 
 - `GET /api/model/retrain-status` — Poll retraining progress (idle / starting / loading / complete / error)
-- `POST /api/model/retrain` — Trigger model retraining from user feedback and annotations
+- `POST /api/model/retrain` — Trigger model retraining from user feedback and annotations. The script trains to a staging path first; a quality gate (recall_huntable ≥ 0.30 **and** f1_huntable ≥ 0.30) must pass before the staged model is promoted to the live path. If the gate fails, the status file is set to `error` with message `RETRAIN REJECTED` and the live model is left untouched.
 - `GET /api/model/versions` — List model versions with metrics. Query params: `page` (optional; omit for unpaginated), `limit` (default 10, max 100), `version` (exact version number search)
 - `POST /api/model/evaluate` — Run evaluation of the current model on the annotated test set
 - `GET /api/model/eval-chunk-count` — Count of chunks in the evaluation dataset
