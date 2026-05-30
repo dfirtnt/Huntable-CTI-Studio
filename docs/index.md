@@ -64,6 +64,10 @@ ML-based classification to filter low-quality content. See [Content Filtering](f
 
 Multi-tier detection to identify Windows/Linux/macOS content. See [OS Detection](features/os-detection.md).
 
+### ProcTree Attention Preprocessor
+
+Surfaces high-likelihood parent-child process spawn regions (Sysmon fields, tree glyphs, lineage verbs, PID/PPID pairs) as focused snippets before the full article is passed to ProcTreeExtract. Parallel to the existing CmdlineExtract preprocessor. Toggle via `proc_tree_attention_preprocessor_enabled` in workflow config.
+
 ### MCP Semantic Search
 
 Semantic search across your CTI corpus using embeddings, accessed via MCP tools. See [Semantic Search](features/semantic-search.md).
@@ -76,9 +80,9 @@ Train, evaluate, and roll back the content-filtering model through the MLOps con
 
 Huntable CTI Studio works with multiple LLM providers:
 
-- OpenAI
-- Anthropic
-- LM Studio
+- **OpenAI** — gpt-4o, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3, gpt-5 (and pattern-matched successors)
+- **Anthropic** — claude-haiku-4-5, claude-sonnet-4-6, and compatible variants
+- **LM Studio** — local models (Gemma 4B, Qwen3, etc.)
 
 See [Local Model Selection Guide](llm/model-selection.md) for recommendations.
 
