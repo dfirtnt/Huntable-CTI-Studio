@@ -15,7 +15,7 @@ dependencies = [
     "extruct==0.18.0",
     "iocextract==1.16.1",
     "trafilatura==2.0.0",
-    "playwright==1.58.0",
+    "playwright==1.60.0",
     # Data processing and storage
     "pandas==2.3.3",
     "numpy==2.4.3",
