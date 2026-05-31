@@ -115,7 +115,7 @@ test = [
     # Dependabot alert #152 dismissed (tolerable_risk). Bump when upstream
     # ships a fix that lets us pin to a non-vulnerable pip.
     "pip-audit==2.10.0",
-    "safety==3.7.0",
+    "safety==3.8.1",
     "black==26.3.1",
     "isort==5.12.0",
     "mypy==1.8.0",
