@@ -65,7 +65,7 @@ python-multipart==0.0.27
 cryptography==48.0.0  # CVE-2026-34073, CVE-2026-39892 fixes
 
 # PDF processing
-pypdf==6.10.2
+pypdf==6.12.2
 
 # SIGMA rule validation and repository management
 pysigma==0.11.23
