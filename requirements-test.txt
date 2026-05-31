@@ -18,7 +18,7 @@ pytest-timeout>=2.4.0  # Per-test timeout guard to prevent hung Playwright tests
 factory-boy==3.3.3
 freezegun==1.4.0
 responses==0.24.0  # HTTP mocking
-requests-mock==1.11.0
+requests-mock==1.12.1
 
 # Database testing
 testcontainers==3.7.0  # Docker containers for integration tests
