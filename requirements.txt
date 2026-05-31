@@ -76,7 +76,7 @@ torch==2.11.0  # For advanced ML models
 transformers==5.8.0  # For LLM integration
 accelerate==1.13.0  # For model optimization
 openai==2.38.0  # Official OpenAI client
-tiktoken==0.12.0  # Token counting utilities
+tiktoken==0.13.0  # Token counting utilities
 sentence-transformers==5.5.1  # For semantic embeddings
 pgvector==0.4.2  # PostgreSQL vector extension support
 
