@@ -702,10 +702,11 @@ class SigmaNoveltyService:
 
         Mirrors the polarity logic inside `_extract_block_atoms` but without the
         per-field check — keyword atoms have no field, so only the selection-name
-        negation in the condition string matters.
+        negation in the condition string matters. A `filter`-named selection that
+        is positively referenced in the condition (Sigma allows but discourages
+        this — see rule_id 7a14080d) is positive; only an explicit `not <key>` in
+        the condition produces negative polarity.
         """
-        if key.startswith("filter"):
-            return "negative"
         condition = str(detection.get("condition", "")).lower()
         if f"not {key.lower()}" in condition:
             return "negative"

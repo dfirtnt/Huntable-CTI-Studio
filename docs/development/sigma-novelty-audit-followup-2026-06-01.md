@@ -1566,3 +1566,48 @@ This audit follow-up arc began 2026-06-01 from the May 31 Sigma novelty audit wh
 - The 3 malformed-YAML rows in `sigma_rule_queue` (ids 30, 42, 43) surfaced by the Item-11 verification replay — separate cleanup candidate.
 
 End of arc.
+
+---
+
+## Addendum 2026-06-01 — Item 12 polarity bug (post-arc follow-up fix)
+
+**Item(s) affected:** 12 (already `✓ done`); a follow-up correctness fix to the helper it introduced.
+
+**Trigger:** A "do we need to make/update tests?" review uncovered an untested branch of the `_polarity_for_selection_key` helper added in Item 12 (commit `84dc0e68`). The helper mirrored a `key.startswith("filter")` fast-path heuristic from `_extract_block_atoms` but treated it as *sufficient* for negative polarity rather than as one part of an outer-if check. The original code at `_extract_block_atoms:728-734` only flips polarity to negative when the condition contains `not <key>` (or `not <base_field>`); the `startswith("filter")` was an outer-if optimization, not a polarity decision.
+
+**Concrete bug:** SigmaHQ's "Remote File Copy" rule (`7a14080d-a048-4de8-ae58-604ce58a795b`) names a selection `filter` and references it POSITIVELY in the condition:
+
+```yaml
+detection:
+  tools: ['scp ', 'rsync ', 'sftp ']
+  filter: ['@', ':']
+  condition: tools and filter
+```
+
+The `@` and `:` are positive refinements (the rule wants events containing both a file-transfer tool AND an `@` or `:` — connection markers like `user@host:`). Under the buggy helper, both got `polarity="negative"`, breaking Jaccard math for any proposed rule that should have matched on those positive atoms.
+
+**Fix:** removed the `startswith("filter")` shortcut entirely from `_polarity_for_selection_key`. Polarity now derives purely from the condition string:
+
+```python
+condition = str(detection.get("condition", "")).lower()
+if f"not {key.lower()}" in condition:
+    return "negative"
+return "positive"
+```
+
+**Tests added (in `TestKeywordListSelectionsProduceAtoms`):**
+
+- `test_filter_keyword_list_positively_referenced_has_positive_polarity` — uses the exact Remote File Copy shape. **Failed RED on the pre-fix code** (`polarities: ['negative', 'negative']`), passes after the helper change.
+- `test_filter_keyword_list_negated_in_condition_has_negative_polarity` — companion: `tools and not filter` correctly yields negative polarity.
+
+**Operational pass:** `./run_cli.sh sigma backfill-metadata --force` refreshed all 3,728 rules. One rule re-polarized (`7a14080d`'s `@` and `:` flipped negative → positive). Collision query still returns 0 rows.
+
+**Test gates:** sigma_novelty + sigma_matching + sigma_semantic_similarity + sigma_similar_rules_api = **208/208 green**. Workflow suites = **35/35 green**. Total 243 (was 241; +2 new tests).
+
+**Discipline note:** This bug would have been caught by:
+- A coverage review of `_polarity_for_selection_key`'s three branches (filter-startswith, condition-negation, default) at the time Item 12 landed. The condition-negation and default were tested; the filter-startswith was not.
+- A grep of the live corpus for `filter:` array-valued shapes before committing. Would have surfaced `7a14080d` as the canary case.
+
+Either check would have flagged the gap pre-merge. The "do we need to update tests?" prompt one turn after Item 12 landed served as a delayed version of the same check — useful but later than ideal. Filing as a "post-arc hygiene" lesson, not a process change.
+
+End of addendum.

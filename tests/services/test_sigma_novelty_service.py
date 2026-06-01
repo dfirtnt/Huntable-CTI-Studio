@@ -455,6 +455,46 @@ class TestKeywordListSelectionsProduceAtoms:
         # And exact_hash is now real (not None per the Item-11 guard).
         assert service.generate_exact_hash(canonical) is not None
 
+    def test_filter_keyword_list_positively_referenced_has_positive_polarity(self, service):
+        """Real-world shape: SigmaHQ's "Remote File Copy" rule (`7a14080d-…`) names a
+        selection `filter` but references it POSITIVELY in the condition
+        (`condition: tools and filter`) — the @ and : scalars are refinements, not
+        exclusions. Polarity must follow the condition, not the selection's name.
+
+        Regression guard for a bug where _polarity_for_selection_key short-circuited
+        on key.startswith("filter") and stamped the atoms negative regardless of
+        the condition string.
+        """
+        detection = {
+            "tools": ["scp ", "rsync ", "sftp "],
+            "filter": ["@", ":"],
+            "condition": "tools and filter",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        filter_atoms = [a for a in atoms if a.value in ("@", ":")]
+        assert len(filter_atoms) == 2
+        assert all(a.polarity == "positive" for a in filter_atoms), (
+            f"filter atoms must be positive when condition positively references the "
+            f"selection; got polarities: {[a.polarity for a in filter_atoms]}"
+        )
+
+    def test_filter_keyword_list_negated_in_condition_has_negative_polarity(self, service):
+        """Companion to the positive-reference test above: when the condition
+        explicitly negates a filter selection (`not filter`), the polarity flips.
+        """
+        detection = {
+            "tools": ["scp ", "rsync ", "sftp "],
+            "filter": ["benign1", "benign2"],
+            "condition": "tools and not filter",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        filter_atoms = [a for a in atoms if a.value in ("benign1", "benign2")]
+        assert len(filter_atoms) == 2
+        assert all(a.polarity == "negative" for a in filter_atoms), (
+            f"filter atoms must be negative when condition explicitly negates the "
+            f"selection; got polarities: {[a.polarity for a in filter_atoms]}"
+        )
+
 
 # ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────
 # Ensures the transition shim correctly resolves field aliases and folds case
