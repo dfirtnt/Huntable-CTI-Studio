@@ -220,6 +220,103 @@ class TestSigmaNoveltyService:
         assert result["novelty_label"] == NoveltyLabel.NOVEL
 
 
+# ── Item 11: atom-less exact_hash root-cause closure (2026-06-01) ─────────────
+# generate_exact_hash returns None for atom-less canonical rules so the
+# sigma_rules.exact_hash column is NULL for keyword-only Sigma detections and
+# no SHA256 collisions can form across unrelated rules in the database. The
+# bd71d9cc assess_novelty:280 guard already handles the downstream
+# manifestation; this closes the upstream root cause so the latent pattern
+# can never become observable if that guard is later refactored.
+# Spec: docs/development/sigma-novelty-audit-followup-2026-06-01.md (Item 11)
+
+
+class TestExactHashAtomLessReturnsNone:
+    """generate_exact_hash returns None when canonical_rule has zero atoms."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    def test_atomless_keyword_only_rule_returns_none(self, service):
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"condition": "keywords", "keywords": ["foo", "bar"]},
+        }
+        canonical = service.build_canonical_rule(rule)
+        assert canonical.detection["atoms"] == []
+        assert service.generate_exact_hash(canonical) is None
+
+    def test_atom_bearing_rule_still_returns_sha256(self, service):
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"CommandLine|contains": "powershell.exe"},
+                "condition": "selection",
+            },
+        }
+        canonical = service.build_canonical_rule(rule)
+        assert canonical.detection["atoms"]
+        h = service.generate_exact_hash(canonical)
+        assert isinstance(h, str)
+        assert len(h) == 64
+
+    def test_two_distinct_atomless_rules_both_return_none(self, service):
+        """The latent collision: two unrelated keyword-only rules previously
+        hashed to the same value. After the fix both are None, and SQL
+        NULL = NULL evaluates to false, so retrieve_candidates cannot return
+        either as an exact-hash duplicate of the other.
+        """
+        rule_a = {
+            "logsource": {"product": "cisco", "category": "application"},
+            "detection": {"condition": "keywords", "keywords": ["alpha"]},
+        }
+        rule_b = {
+            "logsource": {"product": "linux", "category": "network_connection"},
+            "detection": {"condition": "keywords", "keywords": ["beta", "gamma"]},
+        }
+        assert service.generate_exact_hash(service.build_canonical_rule(rule_a)) is None
+        assert service.generate_exact_hash(service.build_canonical_rule(rule_b)) is None
+
+    def test_retrieve_candidates_skips_exact_match_when_proposed_hash_is_none(self):
+        """SQLAlchemy translates column == None to SQL IS NULL — which would
+        match every atom-less row (now NULL per the guard above) and surface
+        one as a false DUPLICATE. retrieve_candidates must skip the
+        exact-match short-circuit entirely when the proposed hash is None.
+        """
+        mock_session = Mock()
+        query_mock = mock_session.query.return_value
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.limit.return_value = query_mock
+        query_mock.all.return_value = []
+        # If the exact-hash branch IS called, .first() would return this row —
+        # the test asserts the branch is skipped so the row never surfaces.
+        atomless_row = Mock()
+        atomless_row.rule_id = "atomless-collider"
+        atomless_row.title = "Atom-less Rule"
+        atomless_row.logsource = {}
+        atomless_row.detection = {}
+        atomless_row.positive_atoms = None
+        query_mock.first.return_value = atomless_row
+
+        service = SigmaNoveltyService(db_session=mock_session)
+        result = service.retrieve_candidates(
+            exact_hash=None,
+            logsource_key="windows|process_creation",
+            top_k=20,
+        )
+
+        call_names = [c[0] for c in query_mock.method_calls]
+        assert "first" not in call_names, (
+            f"retrieve_candidates called .first() despite exact_hash=None; "
+            f"this would surface an atom-less row via SQL IS NULL. "
+            f"Call sequence: {call_names}"
+        )
+        assert not any(c.get("phase1_path") == "exact_hash" for c in result), (
+            "retrieve_candidates returned an exact-hash phase1_path match for None hash"
+        )
+
+
 # ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────
 # Ensures the transition shim correctly resolves field aliases and folds case
 # on precomputed atom identity strings from the database.

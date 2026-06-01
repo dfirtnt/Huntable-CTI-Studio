@@ -1084,8 +1084,18 @@ class SigmaNoveltyService:
 
         return convert_node(ast)
 
-    def generate_exact_hash(self, canonical_rule: CanonicalRule) -> str:
-        """Generate SHA256 hash of canonical JSON."""
+    def generate_exact_hash(self, canonical_rule: CanonicalRule) -> str | None:
+        """Generate SHA256 hash of canonical JSON, or None when the rule has no atoms.
+
+        Atom-less canonical rules (keyword-only Sigma detections the deterministic
+        extractor doesn't model) collapse to a degenerate canonical form that would
+        hash-collide across unrelated rules. Returning None keeps sigma_rules.exact_hash
+        NULL for those rows, and SQL NULL = NULL is false, so the column cannot host
+        false-DUPLICATE matches. Item 11 of the 2026-06-01 audit follow-up.
+        """
+        atoms = canonical_rule.detection.get("atoms") or []
+        if not atoms:
+            return None
         canonical_json = json.dumps(asdict(canonical_rule), sort_keys=True, separators=(",", ":"))
         hash_obj = hashlib.sha256(canonical_json.encode("utf-8"))
         return hash_obj.hexdigest()
@@ -1168,29 +1178,36 @@ class SigmaNoveltyService:
         try:
             from src.database.models import SigmaRuleTable
 
-            # First, check for exact hash match (duplicate)
-            try:
-                exact_match = (
-                    self.db_session.query(SigmaRuleTable).filter(SigmaRuleTable.exact_hash == exact_hash).first()
-                )
-                if exact_match:
-                    out = {
-                        "rule_id": exact_match.rule_id,
-                        "title": exact_match.title,
-                        "logsource": exact_match.logsource,
-                        "detection": exact_match.detection,
-                        "exact_hash_match": True,
-                        # Spec Item 6 (P2-C): tag the Phase 1 retrieval path so the downstream
-                        # gate in sigma_matching_service.py can decide whether to enforce.
-                        "phase1_path": "exact_hash",
-                    }
-                    if hasattr(exact_match, "positive_atoms") and exact_match.positive_atoms is not None:
-                        out["positive_atoms"] = exact_match.positive_atoms
-                        out["negative_atoms"] = getattr(exact_match, "negative_atoms", None) or []
-                        out["surface_score"] = getattr(exact_match, "surface_score", None) or 1
-                    return [out]
-            except Exception:
-                logger.warning("sigma_novelty: exact hash DB lookup failed, skipping duplicate check", exc_info=True)
+            # First, check for exact hash match (duplicate). Skip when the proposed
+            # hash is None: SQLAlchemy translates `column == None` to SQL `IS NULL`,
+            # which would match every atom-less row (NULL per Item 11) and return
+            # one as a false DUPLICATE. SQL NULL = NULL is false; mirror that
+            # contract in Python by short-circuiting the branch.
+            if exact_hash is not None:
+                try:
+                    exact_match = (
+                        self.db_session.query(SigmaRuleTable).filter(SigmaRuleTable.exact_hash == exact_hash).first()
+                    )
+                    if exact_match:
+                        out = {
+                            "rule_id": exact_match.rule_id,
+                            "title": exact_match.title,
+                            "logsource": exact_match.logsource,
+                            "detection": exact_match.detection,
+                            "exact_hash_match": True,
+                            # Spec Item 6 (P2-C): tag the Phase 1 retrieval path so the downstream
+                            # gate in sigma_matching_service.py can decide whether to enforce.
+                            "phase1_path": "exact_hash",
+                        }
+                        if hasattr(exact_match, "positive_atoms") and exact_match.positive_atoms is not None:
+                            out["positive_atoms"] = exact_match.positive_atoms
+                            out["negative_atoms"] = getattr(exact_match, "negative_atoms", None) or []
+                            out["surface_score"] = getattr(exact_match, "surface_score", None) or 1
+                        return [out]
+                except Exception:
+                    logger.warning(
+                        "sigma_novelty: exact hash DB lookup failed, skipping duplicate check", exc_info=True
+                    )
 
             # Build query. Track which Phase 1 path produced the candidates so the downstream
             # gate in sigma_matching_service.py can decide whether to enforce (Spec Item 6 P2-C).
