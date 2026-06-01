@@ -146,7 +146,7 @@ async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest
             "level": rule_data.get("level"),
             "status": rule_data.get("status", "experimental"),
         }
-        result = matching_service.compare_proposed_rule_to_embeddings(proposed_rule=normalized, threshold=0.0)
+        result = matching_service.assess_rule_novelty(proposed_rule=normalized, threshold=0.0)
         matches = result.get("matches", [])[:20]
         return {
             "success": True,

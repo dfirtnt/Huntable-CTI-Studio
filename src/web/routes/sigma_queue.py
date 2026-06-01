@@ -343,7 +343,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                         "level": rule_dict.get("level"),
                         "status": rule_dict.get("status", "experimental"),
                     }
-                    match_result = matching_service.compare_proposed_rule_to_embeddings(
+                    match_result = matching_service.assess_rule_novelty(
                         proposed_rule=normalized_rule,
                         threshold=0.0,
                     )
@@ -444,7 +444,7 @@ def list_queued_rules(
                             }
 
                             # Calculate similarity using algorithmic evaluator
-                            match_result = matching_service.compare_proposed_rule_to_embeddings(
+                            match_result = matching_service.assess_rule_novelty(
                                 proposed_rule=normalized_rule,
                                 threshold=0.0,  # Get all matches
                             )
@@ -1626,7 +1626,7 @@ def compare_rules_similarity(compare_request: CompareRulesRequest):
                     }
 
                     if normalized_original["title"] and normalized_original["detection"]:
-                        orig_result = matching_service.compare_proposed_rule_to_embeddings(
+                        orig_result = matching_service.assess_rule_novelty(
                             proposed_rule=normalized_original,
                             threshold=0.0,
                         )
@@ -1655,7 +1655,7 @@ def compare_rules_similarity(compare_request: CompareRulesRequest):
                     }
 
                     if normalized_enriched["title"] and normalized_enriched["detection"]:
-                        enr_result = matching_service.compare_proposed_rule_to_embeddings(
+                        enr_result = matching_service.assess_rule_novelty(
                             proposed_rule=normalized_enriched,
                             threshold=0.0,
                         )
@@ -2254,7 +2254,7 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
 
             # Use behavioral novelty assessment to find similar rules
             matching_service = SigmaMatchingService(db_session)
-            match_result = matching_service.compare_proposed_rule_to_embeddings(
+            match_result = matching_service.assess_rule_novelty(
                 proposed_rule=normalized_rule,
                 threshold=0.0,  # No threshold - get top matches
             )

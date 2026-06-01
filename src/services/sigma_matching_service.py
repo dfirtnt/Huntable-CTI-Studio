@@ -13,12 +13,13 @@ There are TWO distinct uses of embeddings here — do not conflate them:
    ``intfloat/e5-base-v2`` and runs a pgvector cosine-similarity search
    against stored rule embeddings.  This is the RAG / article-matching path.
 
-2. **Sigma → Sigma deduplication** (``assess_rule_novelty``, formerly
-   ``compare_proposed_rule_to_embeddings``): does **NOT** use embeddings or
-   pgvector at all.  Candidate retrieval is a plain SQL filter on
-   ``canonical_class`` (falling back to ``logsource_key``).  Scoring uses the
-   deterministic Jaccard × Containment − Filter formula implemented in
-   ``SigmaNoveltyService``.
+2. **Sigma → Sigma deduplication** (``assess_rule_novelty``): does **NOT** use
+   embeddings or pgvector at all.  Candidate retrieval is a plain SQL filter
+   on ``canonical_class`` (falling back to ``logsource_key``).  Scoring uses
+   the deterministic Jaccard × Containment − Filter formula implemented in
+   ``SigmaNoveltyService``. (The function was formerly named
+   ``compare_proposed_rule_to_embeddings``; the deprecated alias was removed
+   per Spec Item 10a.)
 
 A common AI-agent mistake is to read the module docstring or the
 ``sigma_embedding_client`` property and incorrectly conclude that the Sigma
@@ -528,20 +529,29 @@ class SigmaMatchingService:
             logsource_key_meta = novelty_result.get("logsource_key", "") or ""
             canonical_class_meta = novelty_result.get("canonical_class")
 
-            # Convert novelty results to backward-compatible similarity format
+            # Convert novelty results to backward-compatible similarity format.
+            # Spec Item 10b: pre-fetch all candidate rules in ONE SELECT to avoid the N+1
+            # query that previously ran .filter(rule_id==X).first() per match in the loop.
+            from src.database.models import SigmaRuleTable
+
+            top_matches = novelty_result.get("top_matches", []) or []
+            rule_ids = [m.get("rule_id", "") for m in top_matches if m.get("similarity", 0.0) >= threshold]
+            rule_ids = [rid for rid in rule_ids if rid]  # drop empty/None
+            rule_by_id: dict[str, Any] = {}
+            if rule_ids:
+                rules_batch = (
+                    self.db.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id.in_(rule_ids)).all()
+                )
+                rule_by_id = {r.rule_id: r for r in rules_batch}
+
             matches = []
-            for match in novelty_result.get("top_matches", []):
+            for match in top_matches:
                 # The 'similarity' field from novelty service is already a similarity score (0-1, higher = more similar)
                 # It's the weighted similarity: 0.70 * atom_jaccard + 0.30 * logic_shape
                 similarity = match.get("similarity", 0.0)  # Already a similarity score, no inversion needed
 
                 if similarity >= threshold:
-                    # Get full rule details from database
-                    from src.database.models import SigmaRuleTable
-
-                    rule = (
-                        self.db.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id == match.get("rule_id", "")).first()
-                    )
+                    rule = rule_by_id.get(match.get("rule_id", ""))
 
                     if rule:
                         # Safety check: verify logsource_key matches. Spec Item 6 (P2-C, Option B):
@@ -651,21 +661,6 @@ class SigmaMatchingService:
                 "logsource_key": "",
                 "canonical_class": None,
             }
-
-    def compare_proposed_rule_to_embeddings(
-        self, proposed_rule: dict[str, Any], threshold: float = 0.0
-    ) -> dict[str, Any]:
-        """Deprecated alias for ``assess_rule_novelty``.
-
-        The original name was misleading: the Sigma deduplication pipeline does
-        NOT use embeddings or pgvector.  Candidate retrieval uses SQL filtering
-        on ``canonical_class`` / ``logsource_key``; scoring uses the
-        Jaccard × Containment − Filter formula.
-
-        Kept for backward compatibility with existing call sites and tests.
-        New code should call ``assess_rule_novelty`` directly.
-        """
-        return self.assess_rule_novelty(proposed_rule=proposed_rule, threshold=threshold)
 
     def _calculate_weighted_similarity(
         self, title_sim: float, desc_sim: float, tags_sim: float, signature_sim: float

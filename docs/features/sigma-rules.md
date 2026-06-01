@@ -333,6 +333,65 @@ detecting the same binary via different Sigma fields.
 **Legacy path** (when package is not installed): Atom Jaccard 70% + Logic Shape
 Similarity 30%.
 
+#### When each engine runs
+
+Both engines coexist in `SigmaNoveltyService.assess_novelty`. Which path
+executes for a given (proposed_rule, candidate) pair depends on two
+preconditions:
+
+| Precondition | Deterministic engine | Legacy in-app engine |
+|---|---|---|
+| Proposed rule's `precompute_semantic_fields` succeeded? | Required (sets `proposed_sem`) | Not required |
+| Candidate has `positive_atoms` populated? | Required | Not required |
+| `sigma_semantic_similarity` package installed at runtime? | Required | Optional |
+
+When all three hold, the deterministic path runs. If any fails, the engine
+falls through to the legacy path. The legacy path therefore covers:
+
+- Rules whose telemetry class isn't modeled by the deterministic atom extractor
+  (e.g. registry events outside the modeled set, network events, file events
+  not in `windows.file_event` / `linux.file_event`).
+- Rules whose Sigma syntax uses features the deterministic AST builder rejects
+  (e.g. unsupported correlation patterns, nested `1 of` selection-name
+  expressions that exceed the DNF expansion limit).
+- Indexed corpus rules that pre-date a `canonical_class`-aware sync (i.e. were
+  indexed before `positive_atoms` was a column or before its resolver covered
+  their class).
+
+#### What the legacy path sacrifices
+
+- **No DNF normalization.** Two rules whose detection logic is the same boolean
+  expression in different surface forms (e.g. `(A and B) or C` vs. `(A or C) and (B or C)`)
+  do NOT collapse to the same atom set. They score below their semantic
+  equivalence.
+- **No surface_score / containment factor.** The legacy path can't distinguish
+  "narrow rule is a subset of a broad rule" (a Subset Containment bucket B=0.85
+  signal in the deterministic engine) from "unrelated rules that happen to
+  share an atom." The legacy formula is just `0.70 × atom_jaccard + 0.30 × logic_shape`.
+- **No reason flags.** Deterministic results carry `reason_flags` like
+  `no_shared_atoms`, `canonical_class_mismatch`, `dnf_expansion_limit` —
+  diagnostic signals the UI surfaces. The legacy path emits no such flags;
+  inconclusive results are indistinguishable from low-similarity results.
+- **No filter penalty asymmetry.** Negative-atom differences (Sigma `NOT` and
+  filter conditions) are scored by a different penalty function (`_compute_filter_penalty`).
+  The two engines agree at the limits but disagree in the gradient between
+  fully-matching and fully-divergent filters.
+
+#### Why both engines are kept
+
+The legacy path is the safety net that prevents the scorer from going dark
+for unmodeled rule shapes. Per the 2026-06-01 4b measurement, it fires 0% of
+the time on recent process_creation traffic (because all candidates in that
+class have `positive_atoms` populated). But it remains the only path that can
+produce ANY score for rules outside the modeled telemetry classes. Removing
+it without first expanding the canonical_class resolver (Spec Item 8) would
+silently return zero candidates for ~58% of the corpus.
+
+Per-comparison engine selection is observable: the API response carries
+`engine_used: 'deterministic' | 'legacy'` at the workflow level and
+`similarity_engine` at the per-match level. The UI's *Behavioral Similarity
+Breakdown* panel renders a different layout for each.
+
 ### Similarity Thresholds
 
 | Range | Interpretation |

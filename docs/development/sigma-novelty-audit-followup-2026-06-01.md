@@ -45,7 +45,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
 | 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ✓ done — code `0688b0ff`, rebuild + recompute verified, queue 486 went 0→13 matches and 487 went 0→16; see closing Addendum | 1, 4a |
-| 10 | P3 hygiene bundle | ○ | 6 |
+| 10 | P3 hygiene bundle | ✓ done — see Addendum (Item 10) | 6 |
 | 11 | Atom-less rule `exact_hash` collisions (latent) | ○ | 1 |
 
 ---
@@ -991,6 +991,55 @@ Alternative (dev-friendly, NOT recommended for prod): add `- ./sigma_semantic_si
 
 - Code + tests committed; Status Dashboard row for Item 9 set to `◐ code landed; ⚠ image rebuild + re-index required`.
 - The fix is dormant until both (a) the image is rebuilt AND containers recreated AND (b) the corpus is re-indexed using the new image. The earlier `./run_cli.sh sigma recompute-semantics` ran with the OLD image; that pass needs to be repeated post-rebuild.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 10 landed (hygiene bundle: rename + N+1 + docs + cli profile-trap)
+
+**Item(s) affected:** 10 (now done).
+
+**Decision / result:** All four sub-items of the hygiene bundle landed in one commit per the spec convention (`chore(sigma): hygiene bundle`). 10d was already subsumed by Item 6's structured-logging change and is not re-shipped here.
+
+**Sub-items:**
+
+- **10a — Rename `compare_proposed_rule_to_embeddings` → `assess_rule_novelty`.** Mechanical sed sweep across 11 files (5 production `src/` files, 6 test files). The deprecated wrapper at `sigma_matching_service.py:655-668` was removed entirely. The module docstring's historical note was updated to record the rename. The new name is the only one in production; old call sites in tests are migrated.
+
+- **10b — Batch the N+1 SigmaRuleTable query** in `assess_rule_novelty`. The loop at `sigma_matching_service.py:533` previously ran `db.query(...).filter(rule_id == X).first()` once per match in a tight loop (up to 20 queries per scoring call). Replaced with a single `.filter(rule_id.in_(rule_ids)).all()` pre-fetch + dict lookup. Test `test_batched_rule_lookup_no_n_plus_1` asserts exactly one `.all()` call for 10 matches.
+
+- **10c — Document the two-engine architecture** in `docs/features/sigma-rules.md` "Behavioral Novelty Scoring." Added a "When each engine runs" table listing the three preconditions (semantic precompute succeeded, candidate has positive_atoms, package installed) and a "What the legacy path sacrifices" section calling out the four observable differences (no DNF normalization, no surface_score/containment factor, no reason flags, different filter penalty asymmetry). Closes the "barely documented" gap the spec flagged.
+
+- **10d — Structured logging at sigma_matching_service.py:556-559.** Already shipped in Item 6 (commit `749f0d0e`). The gate warning is now `logger.warning("logsource_key_mismatch_on_fallback_path", extra={proposed_logsource_key, candidate_logsource_key, candidate_rule_id, phase1_path})`. Not re-shipped here per the spec's "do not double-ship" instruction.
+
+- **10e — `cli` service profile-trap guard** in `run_cli.sh`. The `cli` service has `profiles: [tools]` in docker-compose.yml (line 335-336), which means `docker compose build` (no args) silently skips it. Added a staleness check at the top of `run_cli.sh` that compares the cli image timestamp to the web image and emits a stderr warning if cli is older: *"⚠️ CLI image is older than web image — running this script may use stale code."* Discovered during Item 9 verification when a recompute silently no-op'd.
+
+**Test results:** 230 passed, 0 failed across `tests/services/test_sigma_matching_service.py + tests/services/test_sigma_novelty_service.py + tests/sigma_semantic_similarity/ + tests/api/test_sigma_similar_rules_api.py + tests/workflows/test_agentic_workflow_steps.py + tests/workflows/test_similarity_max_from_all_matches.py + tests/unit/test_agentic_workflow_novelty_summary.py`. The sweep + rename + N+1 fix did not regress any existing test.
+
+**Files touched (single hygiene commit):**
+
+| File | Change |
+|---|---|
+| `src/services/sigma_matching_service.py` | Module docstring updated; deprecated wrapper removed; N+1 query batched into one `IN` clause + dict lookup; rename sweep |
+| `src/services/sigma_novelty_service.py` | (Already updated in Items 6, 7, 9 — included here only via the rename sweep) |
+| `src/web/routes/sigma_ab_test.py` | Rename sweep |
+| `src/web/routes/ai.py` | Rename sweep (2 call sites) |
+| `src/web/routes/sigma_queue.py` | Rename sweep (5 call sites) |
+| `src/workflows/agentic_workflow.py` | Rename sweep + comment update |
+| `run_cli.sh` | cli image staleness check |
+| `docs/features/sigma-rules.md` | Two-engine architecture documentation (~50 lines) |
+| `tests/services/test_sigma_matching_service.py` | New `test_batched_rule_lookup_no_n_plus_1` + mock updates for batched query + rename sweep |
+| `tests/unit/test_agentic_workflow_novelty_summary.py` | Rename sweep (comments) |
+| `tests/integration/test_workflow_execution_integration.py` | Rename sweep (patch path) |
+| `tests/workflows/test_agentic_workflow_steps.py` | Rename sweep (mock target) |
+| `tests/workflows/test_similarity_max_from_all_matches.py` | Rename sweep (comments) |
+| `tests/api/test_sigma_similar_rules_api.py` | Rename sweep (3 mock targets) |
+| `docs/development/sigma-novelty-audit-followup-2026-06-01.md` | Status Dashboard row 10 → done; this addendum |
+
+**Action taken:**
+
+- Status Dashboard: Item 10 row flipped to `✓ done`.
+- All items in the original audit arc except Item 8 (deferred to "next quarter" per 4b) and Item 11 (latent / P3) are now closed.
 
 End of addendum.
 

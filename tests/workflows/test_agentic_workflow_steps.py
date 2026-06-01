@@ -434,7 +434,7 @@ class TestSimilaritySearchNode:
         db_session = _make_db_session(article, execution)
 
         with patch("src.workflows.agentic_workflow.SigmaMatchingService") as mock_sms:
-            mock_sms.return_value.compare_proposed_rule_to_embeddings.return_value = {
+            mock_sms.return_value.assess_rule_novelty.return_value = {
                 "matches": [
                     {"similarity": 0.3, "novelty_score": 0.7, "novelty_label": "NOVEL"},
                 ],

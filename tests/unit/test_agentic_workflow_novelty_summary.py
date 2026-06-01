@@ -81,7 +81,7 @@ def test_missing_keys_default_to_safe_zero():
 
 @pytest.mark.unit
 def test_explicit_none_values_are_coerced():
-    """The except-fallback of compare_proposed_rule_to_embeddings can yield None-ish
+    """The except-fallback of assess_rule_novelty can yield None-ish
     fields; `int(... or 0)` / `or []` must coerce, not raise."""
     r = summarize_rule_novelty(
         {"matches": None, "total_candidates_evaluated": None, "behavioral_matches_found": None},

@@ -334,7 +334,7 @@ class TestSigmaMatchingService:
 
         assert len(matches) <= 3
 
-    def test_compare_proposed_rule_to_embeddings_includes_filter_metadata(self, service):
+    def test_assess_rule_novelty_includes_filter_metadata(self, service):
         """Novelty layer passes canonical_class and logsource_key through for UI empty-state copy."""
         proposed = {
             "title": "T",
@@ -357,14 +357,14 @@ class TestSigmaMatchingService:
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
             ns_cls.return_value.assess_novelty.return_value = novelty_payload
-            out = service.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
 
         assert out["canonical_class"] == "windows.process_creation"
         assert out["logsource_key"] == "windows|process_creation"
         assert out["total_candidates_evaluated"] == 1165
         assert out["matches"] == []
 
-    def test_compare_proposed_rule_to_embeddings_on_failure_returns_empty_filter_metadata(self, service):
+    def test_assess_rule_novelty_on_failure_returns_empty_filter_metadata(self, service):
         """On failure, matching service returns null/empty filter metadata (contract for API)."""
         proposed = {
             "title": "T",
@@ -374,7 +374,7 @@ class TestSigmaMatchingService:
             "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService", side_effect=RuntimeError("init fail")):
-            out = service.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
 
         assert out["matches"] == []
         assert out.get("canonical_class") is None
@@ -393,7 +393,7 @@ class TestHardGateScopedToFallback:
 
     Each test mocks SigmaNoveltyService.assess_novelty to return a fixed top_matches
     list with a chosen phase1_path. We assert which matches survive the
-    compare_proposed_rule_to_embeddings gate.
+    assess_rule_novelty gate.
     """
 
     @pytest.fixture
@@ -438,7 +438,7 @@ class TestHardGateScopedToFallback:
         }
 
     def _make_match(self, rule_id, phase1_path, similarity=0.5):
-        """Minimal top_matches entry shape that compare_proposed_rule_to_embeddings reads."""
+        """Minimal top_matches entry shape that assess_rule_novelty reads."""
         return {
             "rule_id": rule_id,
             "atom_jaccard": 0.5,
@@ -473,14 +473,22 @@ class TestHardGateScopedToFallback:
         return rule
 
     def _run_compare(self, mock_db_session, service_fixture, proposed, top_matches, proposed_lsk, rule_lsk):
-        """Helper: wire up the mocks, set the candidate rule's logsource_key, run compare."""
+        """Helper: wire up the mocks, set the candidate rule's logsource_key, run compare.
+
+        Spec Item 10b: the matching loop now batches per-match rule lookups into a single
+        .filter(rule_id.in_(...)).all() instead of per-match .first(). The mock stubs both
+        forms so the test works whether the implementation is the batched or the legacy form.
+        """
         rule = self._make_db_rule("r1", rule_lsk)
-        mock_db_session.query.return_value.filter.return_value.first.return_value = rule
+        query_mock = mock_db_session.query.return_value
+        filter_mock = query_mock.filter.return_value
+        filter_mock.first.return_value = rule  # legacy form (defensive)
+        filter_mock.all.return_value = [rule]  # batched form (Spec Item 10b)
 
         novelty_payload = self._make_novelty_payload(top_matches, proposed_lsk)
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
             ns_cls.return_value.assess_novelty.return_value = novelty_payload
-            return service_fixture.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+            return service_fixture.assess_rule_novelty(proposed, threshold=0.0)
 
     def test_canonical_class_path_survives_logsource_mismatch(
         self, service, mock_db_session, proposed, proposed_logsource_key
@@ -556,4 +564,31 @@ class TestHardGateScopedToFallback:
         assert out["matches"] == [], (
             "When phase1_path is missing, the gate must default to the legacy "
             "(always-enforce) behavior so older novelty payloads stay safe."
+        )
+
+    def test_batched_rule_lookup_no_n_plus_1(self, service, mock_db_session, proposed, proposed_logsource_key):
+        """Spec Item 10b: per-match rule lookup must use ONE batched .all() query
+        (.filter(rule_id.in_(...)).all()), not N per-match .first() queries.
+        """
+        # 10 matches → naive impl would do 10 .first() calls + 0 .all().
+        # Batched impl should do 0 .first() + exactly 1 .all().
+        matches_in = [self._make_match(f"r{i}", phase1_path="canonical_class") for i in range(10)]
+
+        rules = [self._make_db_rule(f"r{i}", proposed_logsource_key) for i in range(10)]
+        query_mock = mock_db_session.query.return_value
+        filter_mock = query_mock.filter.return_value
+        filter_mock.first.return_value = rules[0]  # legacy fallback
+        filter_mock.all.return_value = rules  # batched form
+
+        novelty_payload = self._make_novelty_payload(matches_in, proposed_logsource_key)
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = novelty_payload
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
+
+        assert len(out["matches"]) == 10, "All 10 matches should be returned"
+        # The batched call: .all() invoked exactly once on the per-match-lookup chain.
+        # .first() should NOT be called for per-match lookup in the batched path.
+        assert filter_mock.all.call_count == 1, (
+            f"Expected exactly one batched .all() call; got {filter_mock.all.call_count}. "
+            "N+1 query was reintroduced."
         )
