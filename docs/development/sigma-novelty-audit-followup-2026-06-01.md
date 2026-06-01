@@ -37,14 +37,14 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 1 | Push `bd71d9cc` (exact_hash fix) | ✓ done — on `origin/europa-7.2.1` as of 2026-06-01 | — |
 | 2 | Review + commit eval-miner files | ✓ done — `8c7b46b7`, see Addendum | 1 |
 | 3 | Fix `generate_canonical_text` operator-drop | ⊘ skipped — spec hypothesis disproved 2026-06-01 (see Addendum) | — |
-| 4a | LLM-axis measurement | ○ | 2 |
-| 4b | Coverage-gap-usage measurement | ○ | 1 |
-| 4c | `canonical_class` fan-out measurement | ○ | 1 |
+| 4a | LLM-axis measurement | ✓ done — 14.8% all-time wildcard rate; **ship Item 9** | 2 |
+| 4b | Coverage-gap-usage measurement | ✓ done — 0% legacy-path hits in last 30d; **Item 8 demoted to "next quarter"** | 1 |
+| 4c | `canonical_class` fan-out measurement | ✓ done — 0 rows; **Item 6 = Option B** | 1 |
 | 5 | Queue rules excluded from novelty corpus | ○ | 1 |
-| 6 | P2-C: hard-gate / canonical_class contradiction | ○ | 1, 4c |
+| 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ○ | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ○ | 1 |
-| 8 | P2-D: coverage backfill beyond `process_creation` | ○ | 1, 4b |
-| 9 | P1-B: wildcard↔modifier canonicalization (conditional) | ○ | 1, 4a |
+| 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
+| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ○ | 1, 4a |
 | 10 | P3 hygiene bundle | ○ | 6 |
 | 11 | Atom-less rule `exact_hash` collisions (latent) | ○ | 1 |
 
@@ -847,6 +847,112 @@ End of addendum.
 - Status Dashboard row for Item 1 flipped to `✓ done`.
 - "Do not modify unrelated user changes" list refreshed; the four files committed in `bd71d9cc` are no longer listed as off-limits.
 - Items 2, 3, 5, 7 are now unblocked. The next operator-eligible item by the recommended execution order is **Item 3 (operator-drop)** — captured as todo `005-ready-p1-fix-canonical-text-operator-drop.md` in `.context/compound-engineering/todos/`.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Items 4a/4b/4c measurement results
+
+**Item(s) affected:** 4a, 4b, 4c (now done); downstream consequences for 6, 8, 9.
+
+**Decision / result:**
+
+| Measurement | Result | Decision |
+|---|---|---|
+| **4c** — canonical_class fan-out | 0 rows | **Item 6 = Option B** (scope hard gate to fallback path; canonical_class is de facto 1:1 with logsource_key in the live corpus) |
+| **4b** — coverage-gap usage | Static: 49.1% rules lack atoms. **Dynamic: 0% legacy-path hits across 333 recent comparisons.** | **Item 8 demoted to "next quarter"** (scorer is precise on what it sees; the gap manifests as candidate-retrieval blindness to non-process_creation classes, not as scoring degradation) |
+| **4a** — LLM-axis wildcard frequency | All-time: 65/438 = **14.8%** rules with `*`. Last 30 days: 2/66 = 3.0%. | **Ship Item 9** (all-time rate well over the 10% ship threshold; the 2 recent rules use the exact `*X*` pattern canon_atom targets) |
+
+**Detail:**
+
+*4c — `canonical_class` fan-out:*
+
+```sql
+SELECT canonical_class, COUNT(DISTINCT logsource_key) AS lk_count
+FROM sigma_rules
+WHERE canonical_class IS NOT NULL
+GROUP BY canonical_class
+HAVING COUNT(DISTINCT logsource_key) > 1
+ORDER BY lk_count DESC;
+```
+
+→ **0 rows.** No `canonical_class` value spans multiple `logsource_key` values. `canonical_class` is a redundant column today; it doesn't broaden recall. Item 6's hard gate on the canonical_class retrieval path is dead code in production. Per the spec's decision table for Item 6, this triggers **Option B**: scope the gate to the fallback path (where it's a no-op safety check that matches the SQL filter) and skip it on the canonical_class path. No `logsource_penalty` field needed.
+
+*4b — coverage-gap usage:*
+
+**Static (corpus shape, one query):**
+
+```sql
+SELECT COUNT(*) FILTER (WHERE positive_atoms IS NOT NULL AND jsonb_typeof(positive_atoms) = 'array' AND jsonb_array_length(positive_atoms) > 0) AS with_atoms,
+       COUNT(*) FILTER (WHERE positive_atoms IS NULL OR (jsonb_typeof(positive_atoms) = 'array' AND jsonb_array_length(positive_atoms) = 0)) AS without_atoms,
+       COUNT(*) AS total
+FROM sigma_rules;
+```
+
+→ `with_atoms=1545, without_atoms=1829, total=3728, pct_without=49.1`
+
+**Dynamic (no production code touched — derived from stored `similarity_scores` in `sigma_rule_queue`, last 30 days):**
+
+```sql
+SELECT engine, COUNT(*) AS hits FROM (
+  SELECT jsonb_array_elements(similarity_scores)->>'similarity_engine' AS engine
+  FROM sigma_rule_queue
+  WHERE similarity_scores IS NOT NULL AND jsonb_typeof(similarity_scores) = 'array'
+    AND created_at > NOW() - INTERVAL '30 days'
+) t GROUP BY engine;
+```
+
+→ `deterministic=333, legacy=0`
+
+**Where the 1,829 atom-less rules live:**
+
+| canonical_class | without_atoms |
+|---|---|
+| `NULL` (registry / network / file / etc. — unmodeled telemetry classes) | 1,827 |
+| `windows.process_creation` | 2 |
+
+**The two atom-less process_creation rules** (extraction edge cases — `AtomNode` couldn't model the YAML structure):
+- `71158e3f-…` — *Execution Of Non-Existing File* (`rules/windows/process_creation/proc_creation_win_susp_image_missing.yml`)
+- `c09dad97-…` — *Execution of Suspicious File Type Extension* (`rules/windows/process_creation/proc_creation_win_susp_non_exe_image.yml`)
+
+**Interpretation:** the static 49.1% gap is **not** the legacy fallback firing on half the comparisons. The candidate-retrieval SQL filters by `canonical_class`, which is NULL for the 1,827 non-process_creation rules — they're never returned as candidates at all. The scorer is precise on what it sees; the corpus gap manifests as *invisible rules*, not as imprecise scoring. Per the spec's threshold ("<5% legacy → later"), Item 8 is demoted. Promote it when expanding canonical_class coverage to registry / network / file becomes a goal in its own right.
+
+*4a — LLM-axis wildcard frequency:*
+
+The 30-day sample (66 rules) is small enough that the 3.0% rate has wide uncertainty; the 438-rule all-time sample is the more reliable signal at 14.8%. The 2 recent wildcard rules:
+
+```yaml
+# Queue id 487 — Process lineage involving conhost.exe
+detection:
+  selection:
+    ParentImage: '*mshta.exe*'
+    Image: '*conhost.exe*'
+  condition: selection
+
+# Queue id 486 — Execution of mshta.exe for malware retrieval
+detection:
+  selection:
+    CommandLine: '*mshta.exe*'
+  condition: selection
+```
+
+Both are textbook `*X*`-as-`contains` patterns that canon_atom folds to `contains|X`. As stored, their atoms are `process.image|eq||*mshta.exe*` (and similar) — they have zero intersection with SigmaHQ's canonical `process.image|endswith|endswith|/mshta.exe` atoms, so the scorer reports them as NOVEL even when near-equivalents exist in the corpus.
+
+Per the spec's "ship if >10% OR >5 rank-changes per 100" decision: 14.8% > 10% → **ship Item 9.** Signal #2 (rank-change measurement) is unnecessary; the all-time rate already triggers the decision and the recent rules are confirmation that the pattern matches Item 9's target.
+
+**Action taken:**
+
+- Status Dashboard: rows for 4a, 4b, 4c flipped to `✓ done` with one-line summaries of each decision.
+- Items 6, 8, 9 have their decisions pinned in the Status Dashboard titles for future-Claude clarity:
+  - **6** → Option B
+  - **8** → demoted to "next quarter"
+  - **9** → ship
+- No production code changed. The dynamic 4b measurement was derived from stored `similarity_scores` JSONB, not from instrumentation, so nothing needs to be backed out.
+
+**Outstanding follow-up not addressed by this measurement pass:**
+
+- The 2 process_creation rules with NULL atoms (extraction edge cases) might be worth a tiny standalone investigation — surface what made the extractor fail. Probably a single Sigma feature like `|cidr` or a complex nested condition. Not a blocker; mention in a future hygiene-bundle entry or as a follow-up todo.
 
 End of addendum.
 
