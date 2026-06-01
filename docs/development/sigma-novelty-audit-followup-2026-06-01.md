@@ -44,7 +44,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ○ | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
-| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ◐ code landed; **⚠ corpus re-index required for the fix to take effect** | 1, 4a |
+| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ◐ code landed (`0688b0ff`); **⚠ image rebuild + re-index required — see Addendum** | 1, 4a |
 | 10 | P3 hygiene bundle | ○ | 6 |
 | 11 | Atom-less rule `exact_hash` collisions (latent) | ○ | 1 |
 
@@ -880,18 +880,49 @@ This means:
 Re-index command (to be confirmed and run by the operator):
 
 ```bash
-./run_cli.sh sigma recompute-semantic-fields   # if this subcommand exists
-# OR force-rebuild via:
-./run_cli.sh sigma index-customer-repo --force
-# OR re-run the sigma sync flow that populates positive_atoms.
+./run_cli.sh sigma recompute-semantics
 ```
 
-**Acceptance criterion #4 (re-run Item 4a measurement post-fix; confirm rank-change rate drops):** *pending re-index*. Will run once the operator authorizes the re-index. Expected outcome: the 2 recent wildcard rules from the 4a measurement (`'*mshta.exe*'` etc.) should now find their canonical neighbors in the corpus.
+**⚠ IMAGE REBUILD PRECONDITION (discovered 2026-06-01 mid-execution):**
+
+`sigma_semantic_similarity/` is copied into the Docker image at build time (see [Dockerfile:71](../../Dockerfile)). It is NOT bind-mounted into `cti_web`, `cti_worker`, `cti_workflow_worker`, or `cti_scheduler` — only `./src` and `./config` are. This means **`docker restart` does NOT pick up host edits to `sigma_semantic_similarity/`**, and **the one-shot CLI container spawned by `./run_cli.sh` runs the same baked image too**.
+
+Concretely: if the operator runs `docker restart ... && ./run_cli.sh sigma recompute-semantics` after the Item 9 code lands but **before rebuilding**, the re-index touches every row using the OLD `atom_identity`. The corpus is rewritten with the SAME identity strings it already had — silent no-op.
+
+The correct operator sequence is:
+
+```bash
+# 1. Rebuild the image so sigma_semantic_similarity is repacked with the fold.
+docker compose build cti_web cti_worker cti_workflow_worker cti_scheduler
+
+# 2. Recreate containers from the new image.
+docker compose up -d
+
+# 3. Re-run the recompute against the new image.
+./run_cli.sh sigma recompute-semantics
+
+# 4. Verify the fold is live in the running web container:
+docker exec cti_web python -c \
+  "import inspect, sigma_similarity.atom_extractor as a; \
+   print('FOLD_PRESENT' if '_fold_wildcards' in inspect.getsource(a) else 'FOLD_MISSING')"
+# Expected: FOLD_PRESENT
+
+# 5. Trigger a fresh comparison for queue 486 / 487 (the two wildcard rules from 4a) to confirm the fix produces non-NOVEL results:
+curl -s 'http://127.0.0.1:8001/api/sigma-queue/486/similar-rules?force=true' | jq '.behavioral_matches_found, .max_similarity'
+curl -s 'http://127.0.0.1:8001/api/sigma-queue/487/similar-rules?force=true' | jq '.behavioral_matches_found, .max_similarity'
+# Expected: non-zero behavioral_matches_found; non-zero similarity for at least one match.
+```
+
+Alternative (dev-friendly, NOT recommended for prod): add `- ./sigma_semantic_similarity:/app/sigma_semantic_similarity` to each affected service's `volumes` in `docker-compose.yml` so future host edits propagate without rebuild. Requires the package to be `pip install -e`'d, which it is in the current Dockerfile flow. This change is out of scope for Item 9 itself; could be its own hygiene-bundle entry.
+
+**Acceptance criterion #4 (re-run Item 4a measurement post-fix; confirm rank-change rate drops):** *pending image rebuild + corpus re-index*. Will run once the operator authorizes both. Expected outcome: the 2 recent wildcard rules from the 4a measurement (`'*mshta.exe*'` etc.) should now find their canonical neighbors in the corpus.
+
+**Discovery 2026-06-01 (mid-execution):** the first restart+recompute attempt verified the fix was NOT live in the running container. `docker exec cti_web python -c "import inspect, sigma_similarity.atom_extractor as a; print('FOLD_PRESENT' if '_fold_wildcards' in inspect.getsource(a) else 'FOLD_MISSING')"` returned `FOLD_MISSING`. The package is baked into the image at build time, so a rebuild is required before the recompute does meaningful work. Step sequence updated above.
 
 **Action taken:**
 
-- Code + tests committed; Status Dashboard row for Item 9 set to `◐ code landed; ⚠ corpus re-index required`.
-- Live `cti_web` container has NOT been restarted (operator's call); the fix is dormant until both (a) the container picks up the new code AND (b) the corpus is re-indexed.
+- Code + tests committed; Status Dashboard row for Item 9 set to `◐ code landed; ⚠ image rebuild + re-index required`.
+- The fix is dormant until both (a) the image is rebuilt AND containers recreated AND (b) the corpus is re-indexed using the new image. The earlier `./run_cli.sh sigma recompute-semantics` ran with the OLD image; that pass needs to be repeated post-rebuild.
 
 End of addendum.
 
