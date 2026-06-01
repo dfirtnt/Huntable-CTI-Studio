@@ -47,6 +47,20 @@ Lower is better. Represents the average absolute difference between extracted
 count and expected count per article (e.g. "on average, off by 3 observables
 per article").
 
+### Node coloring
+
+Each datapoint is colored by the completeness of its run:
+
+- **Green** — the version evaluated the full canonical eval set (`total_articles >= eval_set_total`), every record reached `completed`, and there were no rate-limit / quota errors.
+- **Amber** — at least one signal of a degraded run:
+    - `total_articles < eval_set_total` — the user ran a subset of the eval articles.
+    - `completed < total_articles` — some records `failed` or are still `pending`.
+    - `throttled > 0` or `quota_exceeded > 0` — the LLM provider rate-limited or quota-capped one or more records. These records keep `status='completed'` because the workflow still records whatever response came back, but the resulting MAE is unreliable.
+
+Hover an amber node to see the breakdown (`Subset run: X/Y`, `Completed: X/Y (N failed, N pending)`, `Rate-limited: N/Y runs`, `Quota exceeded: N/Y runs`).
+
+The canonical eval-set size comes from `config/eval_articles.yaml` and is exposed as `eval_set_total` on the `/api/evaluations/subagent-eval-aggregate` response.
+
 ---
 
 ## Score distribution breakdown

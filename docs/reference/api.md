@@ -153,7 +153,7 @@ These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, Hu
 - `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
 - `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.
 - `POST /api/evaluations/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
-- `GET /api/evaluations/subagent-eval-aggregate` — Aggregated metrics per `config_version`. Includes count-based fields (`mean_score`, `raw_mae`, `score_distribution`) and item-level fields (`mean_precision`, `mean_recall`, `mean_f1`, `scored_articles`). Optional `?model=` query param filters to versions where the subagent used the given model (powers the SYS.04 trend chart).
+- `GET /api/evaluations/subagent-eval-aggregate` — Aggregated metrics per `config_version`. Includes count-based fields (`mean_score`, `raw_mae`, `score_distribution`) and item-level fields (`mean_precision`, `mean_recall`, `mean_f1`, `scored_articles`). Top-level `eval_set_total` returns the canonical eval-article count from `config/eval_articles.yaml` (used by the MAE chart to flag subset runs in amber). Optional `?model=` query param filters to versions where the subagent used the given model (powers the SYS.04 trend chart).
 - `GET /api/evaluations/subagent-eval-models?subagent=...` — List models that have eval data for the given subagent, sorted by usage frequency. Powers the model dropdown on the `/mlops/agent-evals2` SYS.04 chart.
 - `GET /api/evaluations/config-versions-models` — List config versions with model info for each agent.
 

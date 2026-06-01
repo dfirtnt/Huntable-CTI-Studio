@@ -1754,6 +1754,11 @@ async def get_subagent_eval_aggregate(
                 lookup_values.add("hunt_queries_edr")
                 lookup_values = list(lookup_values)
 
+            # Hoisted above the model-filter early-return so eval_set_total is
+            # always populated in the response, regardless of which return path fires.
+            preset_expected_by_url = _load_preset_expected_by_url(subagent)
+            eval_set_total = len(preset_expected_by_url)
+
             query = db_session.query(SubagentEvaluationTable)
             if lookup_values:
                 query = query.filter(SubagentEvaluationTable.subagent_name.in_(lookup_values))
@@ -1778,6 +1783,7 @@ async def get_subagent_eval_aggregate(
                         "subagent": subagent,
                         "aggregates": [],
                         "total_config_versions": 0,
+                        "eval_set_total": eval_set_total,
                     }
                 query = query.filter(SubagentEvaluationTable.workflow_config_version.in_(version_set))
 
@@ -1805,9 +1811,6 @@ async def get_subagent_eval_aggregate(
                         quota_exceeded_execution_ids.add(exec_id)
                     elif _execution_is_throttled(err_msg, err_log):
                         throttled_execution_ids.add(exec_id)
-
-            # Predetermined expected_count by article_url from eval_articles.yaml
-            preset_expected_by_url = _load_preset_expected_by_url(subagent)
 
             # Group by config version (exclude articles in EXCLUDED_EVAL_ARTICLE_IDS)
             by_config_version = {}
@@ -1940,6 +1943,7 @@ async def get_subagent_eval_aggregate(
                 "subagent": subagent,
                 "aggregates": aggregates,
                 "total_config_versions": len(aggregates),
+                "eval_set_total": eval_set_total,
             }
         finally:
             db_session.close()

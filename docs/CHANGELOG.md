@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+- **MAE chart nodes flag degraded eval runs in amber** (2026-06-01): The "MAE by Config Version" chart on `/mlops/agent-evals` now colors each datapoint by run completeness. Green = full eval set, every record `completed`, no throttled/quota. Amber = any of: `total_articles < eval_set_total` (user ran a subset), `completed < total_articles` (failed/pending records), or `throttled > 0` / `quota_exceeded > 0` (rate-limited or quota-capped runs whose `status='completed'` masks the degraded MAE). Hovering an amber node surfaces a breakdown line like `Quota exceeded: 30/32 runs`. New top-level `eval_set_total` field on `/api/evaluations/subagent-eval-aggregate` (canonical count from `config/eval_articles.yaml`) drives the subset-run check; the field is populated even on the model-filter empty-result early-return so the chart can always compute coverage. Legend on the agent_evals page updated with green/amber swatches. Contract test added in `tests/api/test_subagent_eval_metrics.py`.
 
 ## [7.2.0 "Europa"] - 2026-05-29
 ### Fixed
