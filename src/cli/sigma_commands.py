@@ -311,7 +311,7 @@ def recompute_semantics_cmd():
     "--force",
     "-f",
     is_flag=True,
-    help="Re-backfill all rules (overwrite canonical_json/exact_hash/canonical_text/logsource_key on every row, not just rules with NULL canonical_json). Use when the canonical computation logic changed and the corpus needs to be recomputed.",
+    help="Re-backfill all rules (overwrite canonical_json/exact_hash/logsource_key on every row, not just rules with NULL canonical_json). Use when the canonical computation logic changed and the corpus needs to be recomputed.",
 )
 def backfill_metadata_cmd(force: bool):
     """Backfill canonical metadata for existing rules (no file system needed)."""
@@ -346,7 +346,6 @@ def backfill_metadata_cmd(force: bool):
                 canonical_rule = novelty_service.build_canonical_rule(rule_data)
                 rule.canonical_json = asdict(canonical_rule)
                 rule.exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                rule.canonical_text = novelty_service.generate_canonical_text(canonical_rule)
                 logsource_key, _ = novelty_service.normalize_logsource(rule_data["logsource"])
                 rule.logsource_key = logsource_key
                 updated += 1

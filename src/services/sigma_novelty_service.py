@@ -1127,53 +1127,6 @@ class SigmaNoveltyService:
         hash_obj = hashlib.sha256(canonical_json.encode("utf-8"))
         return hash_obj.hexdigest()
 
-    def generate_canonical_text(self, canonical_rule: CanonicalRule) -> str:
-        """Generate deterministic text representation for hashing/embeddings."""
-        parts = []
-
-        # Logsource
-        logsource = canonical_rule.logsource
-        parts.append(f"logsource {logsource.get('product', '')}:{logsource.get('category', '')}")
-
-        # Logic
-        logic = canonical_rule.detection.get("logic", {})
-        logic_str = self._logic_to_string(logic)
-        parts.append(logic_str)
-
-        # Atoms (sorted)
-        atoms = canonical_rule.detection.get("atoms", [])
-        for atom in sorted(atoms, key=lambda x: json.dumps(x, sort_keys=True)):
-            field = atom.get("field", "")
-            ops = "|".join(atom.get("ops", []))
-            value = atom.get("value", "")
-            polarity = atom.get("polarity", "positive")
-
-            if ops:
-                atom_str = f"{field}|{ops}:{value}"
-            else:
-                atom_str = f"{field}:{value}"
-
-            if polarity == "negative":
-                atom_str = f"NOT({atom_str})"
-
-            parts.append(atom_str)
-
-        return "\n".join(parts)
-
-    def _logic_to_string(self, logic: dict[str, Any]) -> str:
-        """Convert logic dictionary to string representation."""
-        if "ATOM" in logic:
-            return f"ATOM[{logic['ATOM']}]"
-        if "AND" in logic:
-            operands = [self._logic_to_string(op) for op in logic["AND"]]
-            return f"AND({', '.join(operands)})"
-        if "OR" in logic:
-            operands = [self._logic_to_string(op) for op in logic["OR"]]
-            return f"OR({', '.join(operands)})"
-        if "NOT" in logic:
-            return f"NOT({self._logic_to_string(logic['NOT'])})"
-        return "EMPTY"
-
     def retrieve_candidates(
         self,
         exact_hash: str,

@@ -108,6 +108,9 @@ class DatabaseManager:
                     "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
                     # osdetection_fallback_enabled always-False since 9797f699; drop the column
                     "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
+                    # canonical_text was write-only dead data (no readers; operator always dropped
+                    # via an op/ops typo). Removed from the ORM 2026-06-01; drop the column.
+                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS canonical_text",
                 ]:
                     conn.execute(text(col_ddl))
                 # Add primary keys to tables that pre-date PK enforcement.

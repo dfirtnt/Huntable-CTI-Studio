@@ -408,7 +408,6 @@ class SigmaRuleTable(Base):
     # Canonical fields for behavioral novelty assessment
     canonical_json = Column(JSONB, nullable=True)
     exact_hash = Column(String(64), nullable=True, index=True)
-    canonical_text = Column(Text, nullable=True)
     logsource_key = Column(String(100), nullable=True, index=True)
     near_hash = Column(String(64), nullable=True, index=True)  # Optional for candidate retrieval
 

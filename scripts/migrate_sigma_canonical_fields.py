@@ -12,7 +12,6 @@ corpus grows.
 Adds (all nullable, idempotent):
 - canonical_json:  JSONB -- normalized rule representation (detection logic only)
 - exact_hash:      VARCHAR(64) -- SHA-256 of canonical_json; indexed for O(1) dedup
-- canonical_text:  TEXT -- flattened text form used for embedding generation
 - logsource_key:   VARCHAR(100) -- "product|category" shard key; indexed for scoped search
 - near_hash:       VARCHAR(64) -- SimHash for candidate retrieval in near-dedup pass; indexed
 
@@ -90,19 +89,6 @@ def run_migration():
                 logger.info("✅ Added exact_hash column")
             else:
                 logger.info("✅ exact_hash column already exists")
-
-            # Add canonical_text
-            if "canonical_text" not in existing_columns:
-                logger.info("Adding canonical_text column...")
-                conn.execute(
-                    text("""
-                    ALTER TABLE sigma_rules
-                    ADD COLUMN canonical_text TEXT;
-                """)
-                )
-                logger.info("✅ Added canonical_text column")
-            else:
-                logger.info("✅ canonical_text column already exists")
 
             # Add logsource_key
             if "logsource_key" not in existing_columns:

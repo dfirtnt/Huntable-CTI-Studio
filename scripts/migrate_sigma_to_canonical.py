@@ -9,7 +9,7 @@ that were indexed before the canonical columns existed need a one-time backfill
 so the novelty service can compare them against incoming rules.
 
 Computes and stores for every rule missing canonical data:
-- canonical_json, exact_hash, canonical_text, logsource_key
+- canonical_json, exact_hash, logsource_key
 
 Ordering
 --------
@@ -106,13 +106,11 @@ def migrate_rules(force: bool = False, limit: int = None, resume_from: int = 0):
 
                 canonical_json = asdict(canonical_rule)
                 exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                canonical_text = novelty_service.generate_canonical_text(canonical_rule)
                 logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
 
                 # Update rule
                 rule.canonical_json = canonical_json
                 rule.exact_hash = exact_hash
-                rule.canonical_text = canonical_text
                 rule.logsource_key = logsource_key
 
                 processed += 1

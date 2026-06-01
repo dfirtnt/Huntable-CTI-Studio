@@ -452,7 +452,7 @@ class SigmaSyncService:
         Index metadata and canonical fields for all rules — no embeddings.
 
         Parses YAML files, stores rule metadata columns, and computes canonical
-        novelty fields (canonical_json, exact_hash, canonical_text, logsource_key).
+        novelty fields (canonical_json, exact_hash, logsource_key).
         Embedding columns are left as None.
 
         Args:
@@ -541,14 +541,12 @@ class SigmaSyncService:
                 # Compute canonical fields for behavioral novelty assessment
                 canonical_json = None
                 exact_hash = None
-                canonical_text = None
                 logsource_key = None
                 if novelty_service is not None:
                     try:
                         canonical_rule = novelty_service.build_canonical_rule(rule_data)
                         canonical_json = asdict(canonical_rule)
                         exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                        canonical_text = novelty_service.generate_canonical_text(canonical_rule)
                         logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
                     except Exception as e:
                         logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
@@ -583,7 +581,6 @@ class SigmaSyncService:
                         # Update canonical fields
                         existing_rule.canonical_json = canonical_json
                         existing_rule.exact_hash = exact_hash
-                        existing_rule.canonical_text = canonical_text
                         existing_rule.logsource_key = logsource_key
                         # Deterministic semantic precompute
                         existing_rule.canonical_class = canonical_class
@@ -612,7 +609,6 @@ class SigmaSyncService:
                             # Canonical fields
                             canonical_json=canonical_json,
                             exact_hash=exact_hash,
-                            canonical_text=canonical_text,
                             logsource_key=logsource_key,
                             # Deterministic semantic precompute
                             canonical_class=canonical_class,
