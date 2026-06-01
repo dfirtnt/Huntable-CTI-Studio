@@ -36,16 +36,17 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 |---|---|---|---|
 | 1 | Push `bd71d9cc` (exact_hash fix) | ✓ done — on `origin/europa-7.2.1` as of 2026-06-01 | — |
 | 2 | Review + commit eval-miner files | ○ | 1 |
-| 3 | Fix `generate_canonical_text` operator-drop | ○ | 1 |
-| 4a | LLM-axis measurement | ○ | 2, 3 |
-| 4b | Coverage-gap-usage measurement | ○ | 3 |
-| 4c | `canonical_class` fan-out measurement | ○ | 3 |
-| 5 | Queue rules excluded from novelty corpus | ○ | 1, 3 |
-| 6 | P2-C: hard-gate / canonical_class contradiction | ○ | 1, 3, 4c |
+| 3 | Fix `generate_canonical_text` operator-drop | ⊘ skipped — spec hypothesis disproved 2026-06-01 (see Addendum) | — |
+| 4a | LLM-axis measurement | ○ | 2 |
+| 4b | Coverage-gap-usage measurement | ○ | 1 |
+| 4c | `canonical_class` fan-out measurement | ○ | 1 |
+| 5 | Queue rules excluded from novelty corpus | ○ | 1 |
+| 6 | P2-C: hard-gate / canonical_class contradiction | ○ | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ○ | 1 |
-| 8 | P2-D: coverage backfill beyond `process_creation` | ○ | 1, 3, 4b |
-| 9 | P1-B: wildcard↔modifier canonicalization (conditional) | ○ | 1, 3, 4a |
+| 8 | P2-D: coverage backfill beyond `process_creation` | ○ | 1, 4b |
+| 9 | P1-B: wildcard↔modifier canonicalization (conditional) | ○ | 1, 4a |
 | 10 | P3 hygiene bundle | ○ | 6 |
+| 11 | Atom-less rule `exact_hash` collisions (latent) | ○ | 1 |
 
 ---
 
@@ -53,8 +54,8 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 
 The goal is closed when **all** are true:
 
-1. No empty-atom rule collapses to a degenerate `exact_hash` bucket. *(Item 1 — already fixed locally.)*
-2. `generate_canonical_text` includes the operator in every atom's canonical form. *(Item 3.)*
+1. No empty-atom rule's `exact_hash` causes a false-DUPLICATE verdict. *(Item 1 — guards the short-circuit; Item 11 — eliminates the underlying collision.)*
+2. ~~`generate_canonical_text` includes the operator in every atom's canonical form.~~ *(Item 3 — `⊘ skipped 2026-06-01`: spec premise disproved; operator-drop is in dead code that doesn't affect `exact_hash`. See Addendum.)*
 3. `canonical_class` either does work the simpler `logsource_key` fallback wouldn't (broader recall across `logsource_key` values), or is documented as a no-op safety net. The hard gate at `sigma_matching_service.py` is consistent with whichever it is. *(Item 6.)*
 4. Candidate retrieval in `sigma_novelty_service.py` is ordered and reproducible. *(Item 7.)*
 5. The coverage hole (rules without `canonical_class`/`positive_atoms`) is either backfilled or exposed in operational metrics. *(Item 8.)*
@@ -74,7 +75,7 @@ target separate dimensions of correctness, recall, and coverage.
 
 | Theme | Items | What it addresses |
 |---|---|---|
-| **False-positive duplicate hash** | 1 (✓ done), 3 | Two distinct `exact_hash` failure modes — list-of-maps collapse (shipped) and operator-drop collapse (todo 005). |
+| **False-positive duplicate hash** | 1 (✓ done), 3 (⊘ skipped), 11 | List-of-maps collapse (shipped via `bd71d9cc`). Operator-drop hypothesis disproved (3, skipped). Atom-less keyword-only rules still collide on hash but are inert today thanks to bd71d9cc's guard (11 — latent). |
 | **Recall holes** | 5, 6 | Queue rules never compared against incoming candidates (5). Hard-gate at `sigma_matching_service.py:551` silently drops cross-`logsource_key` candidates that `canonical_class` was meant to surface (6). |
 | **Determinism & instrumentation** | 4b, 7 | `LIMIT 20` without `ORDER BY` makes candidate retrieval non-reproducible across runs (7). Static + dynamic measurement of how often the legacy fallback path fires (4b). |
 | **Corpus completeness** | 4c, 8 | Does `canonical_class` actually span multiple `logsource_key` values today (4c)? Only ~41% of rules have precomputed atoms — extend the canonical-class resolver and backfill (8). |
@@ -139,9 +140,15 @@ They underpin the corpus-internal measurement (456 candidate pairs / 24 missed /
 
 ---
 
-## Item 3 — Fix `generate_canonical_text` operator-drop (P0-2)
+## Item 3 — Fix `generate_canonical_text` operator-drop (P0-2) ⊘ skipped
 
-**Why:** The function appears to use a stale key (`atom.get("ops")` or similar) instead of the actual `op` field when building the canonical text fed into `exact_hash`. If true, two rules with the same field+value but **different operators** (e.g. `endswith` vs `contains` vs `eq`) collapse to the same canonical form — same failure shape as the list-of-maps bug we just fixed.
+**Status:** `⊘ skipped 2026-06-01`. The spec's premise that this bug affects `exact_hash` was disproved by direct code reading and corpus quantification — see Addendum at the end of this doc. The typo (`atom.get("ops")` vs `atom.get("op")`) is real but lives in dead code: `generate_canonical_text` writes to `sigma_rules.canonical_text`, which is **never read** anywhere in the repo. `generate_exact_hash` uses `asdict()` directly and includes the operator correctly. The latent atom-less-rule hash collision pattern that *did* surface during the investigation is tracked separately as Item 11.
+
+The original section is retained below for traceability.
+
+---
+
+**Why (original — premise disproved):** The function appears to use a stale key (`atom.get("ops")` or similar) instead of the actual `op` field when building the canonical text fed into `exact_hash`. If true, two rules with the same field+value but **different operators** (e.g. `endswith` vs `contains` vs `eq`) collapse to the same canonical form — same failure shape as the list-of-maps bug we just fixed.
 
 **Where:**
 - `src/services/sigma_novelty_service.py` — search for `generate_canonical_text` (function definition) and `generate_exact_hash` (caller).
@@ -549,25 +556,90 @@ Be conservative: only fold leading/trailing single `*`. Internal `*` patterns ar
 
 ---
 
+## Item 11 — Atom-less rule `exact_hash` collisions (latent)
+
+**Why:** `generate_exact_hash` produces identical SHA256 outputs for behaviorally distinct rules whose detection contains no atomic predicates — keyword-only `keywords:` selections common in Cisco/SSHD log-pattern rules. With `canonical_rule.detection["atoms"]` empty, the canonical JSON collapses to essentially the same string across rules sharing a logsource. Differences in `keywords:` lists are encoded in the original rule YAML but lost in the canonical representation.
+
+Today this is **inert**. The `bd71d9cc` atom-less guard at `assess_novelty` returns NOVEL before the `exact_hash` short-circuit is ever consulted. The collisions live in the database but never cause a false-DUPLICATE verdict.
+
+The risk: if the atom-less guard is later refactored, removed, or has its own bug, the latent collisions become observable false DUPLICATEs. This item closes the underlying root cause instead of relying on the downstream guard alone.
+
+**Where:**
+- `src/services/sigma_novelty_service.py:1081-1085` — `generate_exact_hash` (SHA256 of canonical JSON via `asdict`).
+- `src/services/sigma_novelty_service.py` near `assess_novelty` — the atom-less guard added in `bd71d9cc`.
+- `src/services/sigma_sync_service.py:551, 615` — where `exact_hash` and `canonical_text` are populated during indexing.
+- Affected rules today (4 known, in 2 collision groups):
+  - `2ece8816-…` — CVE-2023-20198 (Cisco IOS XE Web UI exploitation)
+  - `ef0ff092-…` — Cisco Dot1x Disabled
+  - `4c9d903d-…` — CVE-2018-15473 (SSHD)
+  - `8b244735-…` — CVE-2023-2283 (libssh)
+
+All four have `positive_atoms = null`. The deterministic extractor (`atom_extractor.py`) doesn't model keyword-only Sigma selections — `AtomNode` requires field/operator/value.
+
+**Proposed solutions (choose during subtask 1):**
+
+### Option 1: Don't compute `exact_hash` for atom-less rules (preferred)
+
+In `sigma_sync_service.py`, skip the `exact_hash` population when `canonical_rule.detection["atoms"]` is empty. Leave the column NULL. No collisions can form.
+
+- **Pros:** Simplest. Acknowledges that `exact_hash` is a tool for atom-bearing rules.
+- **Cons:** Loses any future ability to use `exact_hash` on atom-less rules (none currently).
+- **Effort:** ~1 hour.
+
+### Option 2: Hash keyword content for atom-less rules
+
+For rules with no atoms but with `keywords:`/`keyword_*:` selections, hash the keyword content explicitly so distinct keyword lists produce distinct hashes.
+
+- **Pros:** Keeps `exact_hash` population universal.
+- **Cons:** More code; ambiguous which keyword fields to include (Sigma rules use `keywords`, `keyword_event`, `keyword_user`, etc.); doesn't generalize to other atom-less detection shapes.
+- **Effort:** 2–3 hours.
+
+### Recommended approach
+
+**Option 1.** Until something actually reads `exact_hash` for atom-less rules, paying for collision-resistance is over-engineering. The downstream `assess_novelty` atom-less guard already handles the only observable consequence; making the database column NULL when meaningless is honest documentation.
+
+**Acceptance criteria:**
+
+1. In `sigma_sync_service.py` (and `sigma_commands.py` if it also populates the column), `exact_hash` is set to NULL when the canonical rule has zero atoms.
+2. Regression test in `tests/services/test_sigma_novelty_service.py`: an atom-less Sigma rule indexed via the sync code path has `exact_hash IS NULL` (or equivalent assertion against the canonical representation).
+3. Corpus re-indexed (operator-approved). Post-re-index re-running the collision query *without* the `jsonb_array_length > 0` filter returns 0 rows:
+   ```sql
+   SELECT exact_hash, COUNT(*) FROM sigma_rules
+   WHERE exact_hash IS NOT NULL
+   GROUP BY exact_hash HAVING COUNT(*) > 1;
+   ```
+4. Existing tests still green (`python run_tests.py` baseline).
+5. Status Dashboard updated: Item 11 row flipped to `✓ done`.
+
+**Dependencies:** Item 1. Independent of all other items.
+
+**Estimate:** half a day (fix + test + re-index + verification).
+
+**Priority:** P3 — **latent / inert today.** Promote to P1 if the `bd71d9cc` atom-less guard at `assess_novelty` is ever touched (refactored, removed, or has its own bug).
+
+---
+
 ## Dependency Graph (ASCII)
 
 ```
-1 (push)
+1 (push) ✓ done
  ├─► 2 (eval-miner review)
- │     ├─► 4a (LLM-axis measurement)
- │     │    └─► 9 (wildcard↔modifier canonicalization, CONDITIONAL)
- │     ├─► 4b (coverage-gap measurement)
- │     │    └─► 8 (coverage backfill, urgency from 4b)
- │     └─► 4c (canonical_class fan-out measurement)
- │          └─► 6 (gate fix — A or B chosen by 4c)
- ├─► 3 (operator-drop) ─── must finish before 4 runs
+ │     └─► 4a (LLM-axis measurement)
+ │          └─► 9 (wildcard↔modifier canonicalization, CONDITIONAL)
+ ├─► 4b (coverage-gap measurement)
+ │    └─► 8 (coverage backfill, urgency from 4b)
+ ├─► 4c (canonical_class fan-out measurement)
+ │    └─► 6 (gate fix — A or B chosen by 4c)
+ │         └─► 10 (hygiene bundle, after 6)
  ├─► 5 (queue-rules-excluded, parallelizable)
  ├─► 7 (LIMIT sort, before 8/9 if those touch fallback)
- └─► 10 (hygiene bundle, after 6)
+ └─► 11 (atom-less hash collisions, latent / parallelizable)
+
+3 (operator-drop) ⊘ skipped — hypothesis disproved; no longer in graph.
 ```
 
-**Critical path:** 1 → 3 → 4 → 6 → 10.
-**Parallelizable with critical path:** 2, 5, 7.
+**Critical path:** 1 → 4c → 6 → 10.
+**Parallelizable with critical path:** 2, 5, 7, 11.
 **Gated by 4:** 8, 9.
 
 ---
@@ -578,7 +650,7 @@ For a sequential single-operator pass:
 
 1. Push `bd71d9cc` (Item 1).
 2. Review + commit eval-miner files (Item 2).
-3. Quantify and fix `generate_canonical_text` operator-drop (Item 3).
+3. ~~Quantify and fix `generate_canonical_text` operator-drop (Item 3).~~ — `⊘ skipped 2026-06-01`. See Addendum.
 4. Fix the `LIMIT 20` sort (Item 7) — cheap, gets done before measurements.
 5. Run the three decision-gating measurements (Item 4abc) in one read-only pass.
 6. Record results in this doc as a `## Addendum 2026-MM-DD: Measurement Results` section, then branch:
@@ -586,7 +658,8 @@ For a sequential single-operator pass:
    - Item 9 (wildcard↔modifier) — ship or skip from 4a.
    - Item 8 (coverage backfill) — priority from 4b.
 7. Ship Item 5 (queue-rules-excluded) in parallel whenever convenient.
-8. Hygiene bundle (Item 10) after Item 6 lands.
+8. Item 11 (atom-less hash collisions, latent) — ship whenever convenient; doesn't block anything.
+9. Hygiene bundle (Item 10) after Item 6 lands.
 
 ---
 
@@ -693,6 +766,62 @@ These require human judgment. If Claude encounters one, stop, surface it in the 
 - Prior shipped work referenced in "Already Shipped" above.
 
 End of spec.
+
+---
+
+## Addendum 2026-06-01 — Item 3 hypothesis falsified; new Item 11 spun out
+
+**Item(s) affected:** 3, 11 (new)
+
+**Decision / result:** Item 3 marked `⊘ skipped`. The spec's premise that `generate_canonical_text`'s operator-drop bug causes false-DUPLICATE verdicts via `exact_hash` collisions was disproved by direct code reading and corpus quantification. The typo is real but lives in dead code. A genuinely latent issue surfaced during the investigation (atom-less rules collide on `exact_hash`) — captured as new Item 11 above.
+
+**Detail:**
+
+*Code reading:*
+
+- `generate_exact_hash` at `src/services/sigma_novelty_service.py:1081-1085` serializes `asdict(canonical_rule)` directly into JSON. `Atom.op` is part of the dataclass, lands in the JSON, lands in the hash. Two atoms differing only by operator DO produce different `exact_hash` values.
+- The bug exists only in `generate_canonical_text` at line 1104: `ops = "|".join(atom.get("ops", []))`. The `Atom` dataclass uses `op` (singular), so `atom.get("ops", [])` always returns `[]`, and `ops` is always `""`. The canonical text is missing the operator. But that string is written to `sigma_rules.canonical_text`.
+- Repo-wide grep for `canonical_text`: only `models.py` (column definition), `sigma_sync_service.py` (writer at lines 551, 615), `sigma_commands.py` (writer at line 340). **No readers.** The 2026-04-29 CHANGELOG noted an unused `canonical_text` local was removed elsewhere — the column has been effectively dead for ≥1 month.
+
+*Corpus quantification (live `cti_postgres`):*
+
+```sql
+WITH eligible AS (
+  SELECT exact_hash, rule_id FROM sigma_rules
+  WHERE exact_hash IS NOT NULL AND positive_atoms IS NOT NULL
+    AND jsonb_typeof(positive_atoms) = 'array'
+)
+SELECT exact_hash, COUNT(*) FILTER (WHERE jsonb_array_length(positive_atoms) > 0) AS nonempty_count
+FROM eligible JOIN sigma_rules USING (rule_id, exact_hash)
+GROUP BY exact_hash
+HAVING COUNT(*) FILTER (WHERE jsonb_array_length(positive_atoms) > 0) > 1
+ORDER BY nonempty_count DESC;
+```
+
+→ **0 rows.** Among rules with non-empty `positive_atoms`, no `exact_hash` collisions exist.
+
+*The 2 collision groups that DO exist post-`bd71d9cc`*:
+
+| Group | Rule A | Rule B | Both have `positive_atoms`? |
+|---|---|---|---|
+| 1 | CVE-2023-20198 (Cisco IOS XE Web UI) | Cisco Dot1x Disabled | No (both `null`) — keyword-only |
+| 2 | CVE-2018-15473 (SSHD) | CVE-2023-2283 (libssh) | No (both `null`) — keyword-only |
+
+All four are keyword-only Sigma rules that the deterministic extractor doesn't model. The `bd71d9cc` atom-less guard in `assess_novelty` returns NOVEL before any `exact_hash` short-circuit fires against them, so the collisions are **inert today**. Tracked as Item 11 in case the guard is later touched.
+
+**Action taken:**
+
+- Status Dashboard: Item 3 row → `⊘ skipped`; Item 11 row added as `○ pending`.
+- Definition of Done: criterion 2 (`generate_canonical_text` operator) struck through; criterion 1 reworded to acknowledge bd71d9cc as the inert-guard and Item 11 as the underlying-cause fix.
+- Themes table: Item 3 marked `⊘ skipped`, Item 11 added under "False-positive duplicate hash" theme as the latent follow-up.
+- Item 3 section header marked `⊘ skipped` with disproof note + traceability link to this addendum. Original section body retained.
+- Dependency Graph redrawn — Item 3 removed; Item 11 added as parallelizable.
+- Recommended Execution Order: Item 3 struck through, Item 11 inserted as parallelizable.
+- Local todo `005-ready-p1-fix-canonical-text-operator-drop.md` renamed `005-complete-p1-...` with work-log entry capturing the disproof. A new local todo `006-ready-p3-atom-less-rule-hash-collisions.md` was created for Item 11.
+
+**Discipline note:** This is the kind of finding the spec's "quantify first" acceptance criteria are supposed to surface. Following the systematic-debugging Phase 1 / TDD red-first protocol *before* writing any fix code prevented shipping a no-op change to dead code. The lesson: even a carefully-written spec can carry contradictory hypotheses (todo 005's "Findings" section said `op` is in the precomputed-atom path; its "Problem Statement" said `exact_hash` collides on operator drop — both can't be right) — code reading and live SQL win every time.
+
+End of addendum.
 
 ---
 
