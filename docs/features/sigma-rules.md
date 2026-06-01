@@ -214,14 +214,27 @@ Generated Rule
   5. Return top matches above threshold, sorted by similarity descending
 ```
 
-Step 1 extracts atoms from both single selection maps and Sigma's *list of maps*
-form (`selection: [{...}, {...}]`, an implicit OR of indicator sets).
+Step 1 extracts atoms from all three Sigma selection shapes:
 
-**Atom-less rules → `NOVEL`.** If no detection atoms can be extracted (keyword-only
-detections, or selection structures the extractor doesn't model), the rule has no
-behavioral fingerprint to compare. Rather than risk a false `DUPLICATE` — an empty
-canonical form hashes to one shared `exact_hash` across every such rule —
-`assess_novelty` short-circuits to `NOVEL`.
+| Shape | Example | Atom production |
+|---|---|---|
+| Single map | `selection: { Image\|endswith: '\foo.exe' }` | Field-bearing atom per field/value pair |
+| List of maps | `selection: [{...}, {...}]` | Implicit OR of indicator sets; each map produces field-bearing atoms |
+| List of scalars | `keywords: ['<script>', 'onerror=']` (or any selection name) | Field-less keyword atom per scalar — `field=""`, `op="contains"`, polarity derived from the condition (`not <key>` → negative; otherwise positive) |
+
+Mixed lists (dicts and scalars in the same list — rare but legal) split across the second and third paths.
+
+**Atom-less rules → `NOVEL`.** If no detection atoms can be extracted — i.e., truly
+degenerate cases like a selection with an empty dict (`selection: {}`) or detection
+shapes the extractor doesn't model at all — the rule has no behavioral fingerprint
+to compare. Rather than risk a false `DUPLICATE` (an empty canonical form would
+hash to one shared `exact_hash` across every such rule), `generate_exact_hash`
+returns `None` (leaving the DB column NULL so SQL `IS NULL` semantics prevent any
+match) and `assess_novelty` short-circuits to `NOVEL`. The two guards compose:
+the hash-side guard closes the upstream root cause; the assess-side guard is
+defense-in-depth. In the current live corpus, every indexed rule produces atoms
+and a distinct `exact_hash` — the atom-less population is 0 — but the guards stay
+in place for malformed or unmodeled rules that may arrive in the future.
 
 ### Behavioral Novelty Scoring
 
