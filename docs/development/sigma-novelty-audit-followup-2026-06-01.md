@@ -44,7 +44,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ○ | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
-| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ◐ code landed (`0688b0ff`); **⚠ image rebuild + re-index required — see Addendum** | 1, 4a |
+| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ✓ done — code `0688b0ff`, rebuild + recompute verified, queue 486 went 0→13 matches and 487 went 0→16; see closing Addendum | 1, 4a |
 | 10 | P3 hygiene bundle | ○ | 6 |
 | 11 | Atom-less rule `exact_hash` collisions (latent) | ○ | 1 |
 
@@ -847,6 +847,74 @@ End of addendum.
 - Status Dashboard row for Item 1 flipped to `✓ done`.
 - "Do not modify unrelated user changes" list refreshed; the four files committed in `bd71d9cc` are no longer listed as off-limits.
 - Items 2, 3, 5, 7 are now unblocked. The next operator-eligible item by the recommended execution order is **Item 3 (operator-drop)** — captured as todo `005-ready-p1-fix-canonical-text-operator-drop.md` in `.context/compound-engineering/todos/`.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 9 closed (rebuild + recompute + verified)
+
+**Item(s) affected:** 9 (now done).
+
+**Decision / result:** Image rebuilt, corpus re-indexed under the new `atom_identity`. Acceptance criterion #4 satisfied: both queue rules from the 4a measurement went from `0` behavioral matches to non-zero and correctly find the canonical SigmaHQ neighbors of their wildcard patterns. Item 9 closed.
+
+**Operator sequence that actually worked (corrected from the earlier addendum):**
+
+```bash
+# 1. Rebuild the image used by the four long-running services.
+docker compose build
+# (4 services: web, worker, workflow_worker, scheduler — all share one Dockerfile/context.)
+
+# 2. ⚠ The cli service is in the 'tools' profile and is NOT touched by `docker compose build`
+#    alone. Rebuild it explicitly, otherwise `./run_cli.sh` keeps using the stale image:
+docker compose --profile tools build cli
+
+# 3. Recreate the long-running containers from the new image.
+docker compose up -d
+
+# 4. Verify the fold is live in the running web container.
+docker exec cti_web python -c \
+  "import inspect, sigma_similarity.atom_extractor as a; \
+   print('FOLD_PRESENT' if '_fold_wildcards' in inspect.getsource(a) else 'FOLD_MISSING')"
+# Expected: FOLD_PRESENT
+
+# 5. Refresh the corpus with the new atom_identity. This MUST run after step 2 — the
+#    one-shot CLI container uses the cli image, which is what step 2 rebuilds.
+./run_cli.sh sigma recompute-semantics
+
+# 6. Verify with the live API for the two known wildcard queue rules.
+curl -s 'http://127.0.0.1:8001/api/sigma-queue/486/similar-rules?force=true' | jq '.behavioral_matches_found, .max_similarity'
+curl -s 'http://127.0.0.1:8001/api/sigma-queue/487/similar-rules?force=true' | jq '.behavioral_matches_found, .max_similarity'
+```
+
+**⚠ Sharp edge discovered mid-execution:** `docker compose build` (no args) ONLY builds services that lack a `profiles:` directive. The `cli` service has `profiles: [tools]` (compose.yml:335-336), so it gets skipped by default. Without step 2, `./run_cli.sh` runs the stale image and the recompute silently no-ops — the corpus is rewritten with the same atom strings it already had. The first verification run hit exactly this trap; an explicit `docker compose --profile tools build cli` is required.
+
+**Verification numbers (2026-06-01 post-rebuild):**
+
+| Check | Before fix | After fix |
+|---|---|---|
+| `FOLD_PRESENT` probe in cti_web | `FOLD_MISSING` | **`FOLD_PRESENT`** |
+| Corpus rules processed by recompute | 1,547 | **1,565** (+18 — the fold rescues rules whose extractor previously skipped them) |
+| Corpus rules unsupported (skipped) | 2,181 | 2,163 (−18, mirror of above) |
+| `*`-bearing atoms in corpus | 10 | 93 (more rules now produce atoms, including internal-wildcard ones that were silently skipped before; sample of 10 confirmed all internal-pattern: `7z*.exe`, `/*.lnk`, `password*.csv`, `systeminfo*\|*find`, regex `.*` quantifiers — none are edge wildcards, exactly per Item 9's conservative scope) |
+| Queue 486 (`CommandLine: '*mshta.exe*'`) `behavioral_matches_found` | 0 (NOVEL) | **13** |
+| Queue 486 `max_similarity` | null / 0 | **0.10625** |
+| Queue 486 top match | (none) | **"Suspicious JavaScript Execution Via Mshta.EXE"** at 10.62% / 12.5% Jaccard |
+| Queue 487 (`ParentImage: '*mshta.exe*', Image: '*conhost.exe*'`) `behavioral_matches_found` | 0 (NOVEL) | **16** |
+| Queue 487 `max_similarity` | null / 0 | **0.065** |
+| Queue 487 top 3 matches | (none) | Suspicious JavaScript Via Mshta, Powershell Executed From Headless ConHost, Remotely Hosted HTA File Via Mshta — all canonically equivalent to the wildcard pattern |
+
+The top match for both rules is *the actual semantic equivalent in SigmaHQ* — proving the fold isn't just producing noise, it's producing the right matches.
+
+**Action taken:**
+
+- Status Dashboard row for Item 9 flipped to `✓ done — code 0688b0ff, rebuild + recompute verified, queue 486 went 0→13 matches and 487 went 0→16`.
+- Acceptance criterion #4 (re-run Item 4a measurement post-fix; confirm the rank-change rate drops) satisfied. The "rank change" interpretation here: both rules went from a degenerate empty match-set to a populated, semantically-correct top-K.
+- The corrected operator sequence (with the `--profile tools` step) is documented above for future operations.
+
+**Potential follow-up (not in scope here):**
+
+The `cli` service's profile-membership was a real footgun — the rebuild looked successful but silently skipped one service. Worth either: (a) moving `cli` out of the `tools` profile in `docker-compose.yml` so `docker compose build` covers it by default, or (b) adding an explicit warning in `run_cli.sh` if its image is older than the other service images. Either is a hygiene-bundle candidate (Item 10).
 
 End of addendum.
 
