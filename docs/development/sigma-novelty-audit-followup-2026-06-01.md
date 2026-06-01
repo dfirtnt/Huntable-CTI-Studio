@@ -35,7 +35,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | Item | Title | Status | Depends on |
 |---|---|---|---|
 | 1 | Push `bd71d9cc` (exact_hash fix) | ✓ done — on `origin/europa-7.2.1` as of 2026-06-01 | — |
-| 2 | Review + commit eval-miner files | ○ | 1 |
+| 2 | Review + commit eval-miner files | ✓ done — `3a4f1313`, see Addendum | 1 |
 | 3 | Fix `generate_canonical_text` operator-drop | ⊘ skipped — spec hypothesis disproved 2026-06-01 (see Addendum) | — |
 | 4a | LLM-axis measurement | ○ | 2 |
 | 4b | Coverage-gap-usage measurement | ○ | 1 |
@@ -847,5 +847,49 @@ End of addendum.
 - Status Dashboard row for Item 1 flipped to `✓ done`.
 - "Do not modify unrelated user changes" list refreshed; the four files committed in `bd71d9cc` are no longer listed as off-limits.
 - Items 2, 3, 5, 7 are now unblocked. The next operator-eligible item by the recommended execution order is **Item 3 (operator-drop)** — captured as todo `005-ready-p1-fix-canonical-text-operator-drop.md` in `.context/compound-engineering/todos/`.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 2 landed (eval-miner files committed)
+
+**Item(s) affected:** 2
+
+**Decision / result:** Eval-miner script + canon_atom tests reviewed against the spec's Item 2 acceptance criteria, found methodology-sound, committed as `3a4f1313` to `origin/europa-7.2.1`.
+
+**Detail:**
+
+- Files: `scripts/mine_sigma_pair_candidates.py` (475 lines) + `tests/sigma_semantic_similarity/test_canon_atom.py` (170 lines).
+- 25/25 unit tests pass under `APP_ENV=test`. Suite covers the 6 spec worked examples (op-duplication, bare-field, `|all` token, wildcard folding for `eq *X*` / `*X` / `X*`, redundant `contains` modifier) plus edges (regex preservation, numeric ops, idempotency, malformed-input defensive cases).
+- **Methodology verification (Item 2 acceptance criterion #2):** `canon_atom` operates on the **output** of `atom_identity` (the stored `field|op|modifier_chain|value` string), not as a parallel implementation. Field aliases, case-folding for `_CASE_INSENSITIVE_OPS`, and backslash normalization are inherited from `atom_identity` and passed through unchanged. The only transformations `canon_atom` applies are (a) collapse `|all` and duplicate-operator modifier chains to a single base_op, and (b) fold leading/trailing `*` into `endswith` / `startswith` / `contains` for `eq` ops and strip redundant edge wildcards on the existing modifier ops. Both folds are the *intentional* divergence — the whole point of measuring blind spots.
+- **"Missed pair" threshold (Item 2 acceptance criterion #3):** `_tier()` defines T3 = `canon_j >= 0.5 AND gap >= 0.3` where gap = `canon_j − raw_j`. Plain English: "canon view says the pair is at least 50% similar, but the engine's raw view (the same comparison the live scorer does) ranks them at most 20% similar." Defensible, non-arbitrary cutoff.
+- **Read-only contract verified server-side:** `psycopg2.connect(...).set_session(readonly=True, autocommit=True)`. Live-tested in the agent run that produced the data: `UPDATE` rejected with `cannot execute UPDATE in a read-only transaction`. Defense in depth — even if someone adds an `INSERT` to the script tomorrow, the connection refuses it.
+- **Known imprecision flagged in canon_atom docstring AND in the commit body:**
+  - Values containing literal `|` (rare; PowerShell pipelines like `cmd | findstr`) over-split. Documented in `test_value_with_internal_pipe_is_lossy_but_does_not_raise`.
+  - The `|i` case-insensitive flag on regex atoms is dropped. Two regexes with different case-sensitivity could canonicalize to the same key. Documented in `test_regex_with_modifier_chain_i_preserves_value`. Acceptable since pairs are human-reviewed; consider tightening the docstring further on a future pass.
+
+**Numbers reproduced from the agent's mining run (2026-05-31):**
+
+| Metric | Value |
+|---|---|
+| Rules mined (canonical_class IN process_creation, positive_atoms non-empty) | 1,545 |
+| Candidate pairs after blocking (sharing ≥1 canon atom) | 32,933 |
+| Skipped giant blocks (>300 rules per atom) | (printed at runtime; check CSV) |
+| T3 (blind-spot) found | **10** |
+| T1 (near-identical) found | 25 |
+| T2 (moderate) found | 370 |
+| NEG (hard-negative) found | 28,858 |
+| After per-tier cap of 30: pairs in CSV | 95 |
+| T3 pairs hand-inspected with `related: type: similar` cross-refs | 3 of 5 |
+
+These numbers underpin the Item 9 demotion (wildcard↔modifier canonicalization is *measured-small* on the corpus-internal axis; the LLM-axis measurement in Item 4a is what gates whether it's worth shipping).
+
+**Action taken:**
+
+- Files staged and committed as `3a4f1313` with conventional-commit subject `feat(sigma): land eval-miner script + canon_atom tests (Item 2)` and a 7-paragraph body covering scope, methodology, read-only contract, test coverage, mining run, coverage caveat, and known imprecisions.
+- Status Dashboard row for Item 2 flipped to `✓ done — 3a4f1313, see Addendum`.
+- "Do not modify unrelated user changes" list will be refreshed in the next commit (mine_sigma + test_canon_atom files are no longer untracked).
+- Items 4a (LLM-axis), 4b (coverage-gap), 4c (canonical_class fan-out) are now fully unblocked. Per the Recommended Execution Order, the next operator-eligible step is to fix the `LIMIT 20` sort (Item 7, ~30 min) before running the three measurements (Item 4abc, ~half day).
 
 End of addendum.
