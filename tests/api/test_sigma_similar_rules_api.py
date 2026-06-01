@@ -213,3 +213,88 @@ class TestSigmaSimilarRulesAPI:
         assert response.get("canonical_class") is None
         assert response.get("logsource_key") == ""
         assert "diagnostic" in response
+
+    @pytest.mark.asyncio
+    async def test_similar_rules_includes_parsed_current_rule(self):
+        """Response ships the parsed current rule so the JS doesn't have to re-parse YAML.
+
+        Regression: workflow.html's hand-rolled parseYamlBlock nested siblings
+        inside the first selection and dropped CommandLine|contains|all list values,
+        producing a malformed Current Rule panel in the similarity dialog. The fix
+        is to ship the PyYAML-parsed detection directly so the JS uses an
+        authoritative tree.
+        """
+        from starlette.requests import Request
+
+        get_similar_rules_for_queued_rule = _sigma_queue_module.get_similar_rules_for_queued_rule
+
+        php_rule_yaml = """
+title: PowerShell Spawning PHP From AppData
+logsource:
+  product: windows
+  category: process_creation
+detection:
+  selection_parent:
+    ParentImage|endswith: \\powershell.exe
+  selection_image:
+    Image|endswith: \\php.exe
+  selection_cli:
+    CommandLine|contains|all:
+      - \\AppData\\Roaming\\php\\
+      - -d extension=zip
+      - .cfg
+  condition: selection_parent and selection_image and selection_cli
+level: medium
+status: experimental
+tags:
+  - attack.execution
+""".lstrip()
+
+        mock_rule = MagicMock()
+        mock_rule.id = 1
+        mock_rule.rule_yaml = php_rule_yaml
+        mock_rule.max_similarity = None
+        mock_rule.similarity_scores = None
+
+        mock_session = MagicMock()
+        queue_chain = MagicMock()
+        queue_chain.filter.return_value.first.return_value = mock_rule
+        sigma_count_chain = MagicMock()
+        sigma_count_chain.count.return_value = 0
+        sigma_filter_chain = MagicMock()
+        sigma_filter_chain.filter.return_value.count.return_value = 0
+        mock_session.query.side_effect = [queue_chain, sigma_count_chain, sigma_filter_chain]
+
+        mock_request = MagicMock(spec=Request)
+
+        with (
+            patch.object(_sigma_queue_module, "DatabaseManager") as mock_db,
+            patch.object(_sigma_queue_module, "SigmaMatchingService") as mock_matching_cls,
+        ):
+            mock_db.return_value.get_session.return_value = mock_session
+            mock_matching_cls.return_value.compare_proposed_rule_to_embeddings.return_value = {
+                "matches": [],
+                "total_candidates_evaluated": 0,
+                "behavioral_matches_found": 0,
+                "engine_used": "legacy",
+                "canonical_class": "windows.process_creation",
+                "logsource_key": "windows|process_creation",
+            }
+
+            response = get_similar_rules_for_queued_rule(mock_request, queue_id=1, force=False)
+
+        current = response.get("current_rule")
+        assert current is not None, "response must include parsed current_rule"
+        # Sibling structure: selection_image and selection_cli must NOT be nested inside selection_parent
+        det = current["detection"]
+        assert set(det.keys()) >= {"selection_parent", "selection_image", "selection_cli", "condition"}
+        assert "selection_image" not in det["selection_parent"]
+        assert "selection_cli" not in det["selection_parent"]
+        # CommandLine|contains|all must preserve list values (the legacy JS parser dropped these to "")
+        cli_values = det["selection_cli"]["CommandLine|contains|all"]
+        assert isinstance(cli_values, list)
+        assert "-d extension=zip" in cli_values
+        assert ".cfg" in cli_values
+        assert "\\AppData\\Roaming\\php\\" in cli_values
+        # Logsource passes through
+        assert current["logsource"] == {"product": "windows", "category": "process_creation"}

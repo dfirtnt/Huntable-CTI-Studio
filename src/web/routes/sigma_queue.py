@@ -2362,6 +2362,15 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
                     "total": len(similar_matches),
                 },
                 "assessment_method": "behavioral_novelty",
+                "current_rule": {
+                    "title": normalized_rule["title"],
+                    "description": normalized_rule["description"],
+                    "tags": normalized_rule["tags"],
+                    "logsource": normalized_rule["logsource"],
+                    "detection": normalized_rule["detection"],
+                    "level": normalized_rule["level"],
+                    "status": normalized_rule["status"],
+                },
             }
             if diagnostic is not None:
                 response["diagnostic"] = diagnostic

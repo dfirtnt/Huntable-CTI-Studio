@@ -213,13 +213,99 @@ Generated Rule
 
 ```
 novelty_score = 1 - similarity_score
-similarity_score = (atom_jaccard * containment) - filter_penalty
+similarity_score = (atom_jaccard × containment) − filter_penalty
 ```
 
 Where:
 - `atom_jaccard` = |atoms(A) ∩ atoms(B)| / |atoms(A) ∪ atoms(B)|
-- `containment` = |atoms(A) ∩ atoms(B)| / |atoms(A)|
+- `containment` = a categorical factor B ∈ {1.0, 0.85, 0.75, 0.65} expressing how
+  far one rule's atoms subsume the other's. It is **not** a raw ratio; it is bucketed
+  from `overlap_ratio_a`, `overlap_ratio_b`, and `surface_ratio` (see below).
 - `filter_penalty` = reduction when one rule's filters would exclude the other's detection
+
+The intermediate ratios fed into containment:
+
+```
+overlap_ratio_a = |intersection| / |atoms(A)|
+overlap_ratio_b = |intersection| / |atoms(B)|
+surface_ratio   = |surface(A) − surface(B)| / max(surface(A), surface(B))
+```
+
+The bucket (`containment_factor` shown in the UI as "Containment") is selected by:
+
+| Bucket | Condition | B |
+|---|---|---|
+| Equivalent | `overlap_a ≥ 0.9` and `overlap_b ≥ 0.9` and `surface_ratio ≤ 0.10` | **1.00** |
+| Subset (A ⊂ B) | `overlap_a ≥ 0.9` and `surface(A) < surface(B)` | **0.85** |
+| Superset (A ⊃ B) | `overlap_b ≥ 0.9` and `surface(A) > surface(B)` | **0.75** |
+| Else (no clear subset relationship) | (default) | **0.65** |
+
+So a 65% Containment in the UI means *"neither rule is a clean ≥90% subset of the other"* — the floor value, not a literal "65% of atoms overlap."
+
+#### Surface (DNF branches)
+
+`surface_score` = number of branches the detection has after being expanded to
+**Disjunctive Normal Form**. Conceptually: *how many distinct shapes of event can
+trigger this rule?*
+
+- Every `AND` keeps everything in one branch.
+- Every `OR` (explicit `or`, list of selections, `1 of selection_*`, list-valued
+  selection blocks) doubles or multiplies the branches.
+
+Code: `sigma_semantic_similarity/sigma_similarity/surface_estimator.py`.
+
+##### Worked example
+
+Two rules that both involve `php.exe`:
+
+**Rule A — PowerShell Spawning PHP** (surface = 1):
+
+```yaml
+detection:
+  selection_parent:
+    ParentImage|endswith: \powershell.exe
+  selection_image:
+    Image|endswith: \php.exe
+  selection_cli:
+    CommandLine|contains|all:
+      - \AppData\Roaming\php\
+      - -d extension=zip
+  condition: selection_parent and selection_image and selection_cli
+```
+
+Pure AND of three selections → **one** way to satisfy it → surface = 1.
+
+**Rule B — Php Inline Command Execution** (surface = 2):
+
+```yaml
+detection:
+  selection_cli:
+    CommandLine|contains: " -r"
+  selection_img:
+    - Image|endswith: \php.exe          # branch A
+    - OriginalFileName: php.exe         # branch B
+  condition: all of selection_*
+```
+
+The list under `selection_img` is implicit OR. After DNF expansion:
+`(cli ∧ Image=\php.exe) OR (cli ∧ OriginalFileName=php.exe)` → **two** ways to
+satisfy it → surface = 2.
+
+##### Why it's displayed alongside Jaccard and Containment
+
+Surface is the denominator behind the Subset / Superset buckets in containment.
+A 1-branch rule whose atoms are ≥90% inside a 2-branch rule earns *Subset*
+(B = 0.85), which is a stronger signal than the atom counts alone would suggest:
+*"every event this narrower rule fires on, the broader rule could also fire on
+via one of its branches."* High Containment + low Jaccard + asymmetric Surface
+is the classic **narrow-rule-inside-broader-rule** pattern — not a duplicate,
+but the broader rule already covers your behavior.
+
+If Surface ever looks wildly off (e.g. dozens of branches for a simple-looking
+rule), it usually means a nested `1 of` / wildcard selection-name pattern blew
+up the DNF, which feeds back into a noisy Containment score. Surface is also
+the trigger for the `dnf_expansion_limit` reason flag, which short-circuits the
+comparison to "Skipped (unsupported rule type)" in the UI.
 
 **Cross-field soft matching**: When strict atom intersection is empty, value-based
 soft matching applies across process-executable fields (`Image`, `CommandLine`,
