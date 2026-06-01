@@ -64,22 +64,47 @@ The goal is closed when **all** are true:
 
 ---
 
+## Themes (what the 10 items actually cover)
+
+The May 31 audit prompted by the exact_hash false-duplicate finding surfaced multiple
+classes of problem. Hash collisions are one theme; the rest are distinct axes that share
+the same audit lineage but not the same code paths or failure modes. Don't read the spec
+as "all hash" — the hash work is ~2 items / ~3 hours; the remaining 8 items / ~8 days
+target separate dimensions of correctness, recall, and coverage.
+
+| Theme | Items | What it addresses |
+|---|---|---|
+| **False-positive duplicate hash** | 1 (✓ done), 3 | Two distinct `exact_hash` failure modes — list-of-maps collapse (shipped) and operator-drop collapse (todo 005). |
+| **Recall holes** | 5, 6 | Queue rules never compared against incoming candidates (5). Hard-gate at `sigma_matching_service.py:551` silently drops cross-`logsource_key` candidates that `canonical_class` was meant to surface (6). |
+| **Determinism & instrumentation** | 4b, 7 | `LIMIT 20` without `ORDER BY` makes candidate retrieval non-reproducible across runs (7). Static + dynamic measurement of how often the legacy fallback path fires (4b). |
+| **Corpus completeness** | 4c, 8 | Does `canonical_class` actually span multiple `logsource_key` values today (4c)? Only ~41% of rules have precomputed atoms — extend the canonical-class resolver and backfill (8). |
+| **LLM-generation side** | 4a, 9 | Do LLM-generated rules use literal `*` in values (4a)? If so, fold wildcards into modifier-equivalent atoms so they intersect with corpus atoms properly (9 — conditional on 4a). |
+| **Process hygiene** | 2, 10 | Commit the eval-miner tooling that produced the audit numbers (2). Rename misnamed function, fix N+1 query, document the two-engine architecture (10). |
+
+Each theme is independent of the others — a fresh session can pick up any item whose
+dependencies are met without needing the full thematic picture. The grouping is for
+human readers deciding where to invest next, not for execution ordering.
+
+---
+
 ## Already Shipped (do not redo)
 
 | Commit | What | Files |
 |---|---|---|
 | `7d242dfd` (on origin) | `/similar-rules` response now ships parsed `current_rule`; queue similarity dialog uses it instead of the broken custom JS YAML parser. Regression test for sibling structure + `CommandLine\|contains\|all` list preservation. Docs updated with correct containment definition + new Surface (DNF branches) subsection. | `src/web/routes/sigma_queue.py`, `src/web/templates/workflow.html`, `tests/api/test_sigma_similar_rules_api.py`, `docs/features/sigma-rules.md` |
-| `bd71d9cc` (local, **NOT YET PUSHED**) | `exact_hash` degenerate-collision fix: list-of-maps extraction + atom-less→NOVEL guard. Corpus re-indexed; 130 collision groups went to 0. | See commit; landed via TDD with 3 tests, 111 green overall. |
+| `bd71d9cc` (on origin) | `exact_hash` degenerate-collision fix: list-of-maps extraction + atom-less→NOVEL guard. Corpus re-indexed; 130 collision groups went to 0. | See commit; landed via TDD with 3 tests, 111 green overall. |
 
-**First action:** push `bd71d9cc` to `origin/europa-7.2.1`. Then proceed.
+**First action when this spec was written:** push `bd71d9cc` to `origin/europa-7.2.1`. *Completed 2026-06-01 — see Addendum at end of doc.*
 
 ---
 
-## Item 1 — Push `bd71d9cc`
+## Item 1 — Push `bd71d9cc` ✓ done
+
+**Status:** Completed 2026-06-01. `bd71d9cc` is on `origin/europa-7.2.1`. See Addendum at end of doc for commit details. This section retained for traceability.
 
 **Why:** Close out the shipped fix. Until it's on origin, nothing downstream can build on it cleanly.
 
-**How:**
+**How (for reference):**
 ```bash
 git push origin europa-7.2.1
 ```
