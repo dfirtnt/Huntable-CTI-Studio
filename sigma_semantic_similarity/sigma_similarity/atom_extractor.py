@@ -112,6 +112,59 @@ def _resolve_field(field: str) -> str:
 # 'Delete' and 'delete' produce the same atom.
 _CASE_INSENSITIVE_OPS = frozenset({"contains", "endswith", "startswith", "eq"})
 
+# Operators whose value can carry leading/trailing '*' wildcards meaningfully.
+# Regex ('re') and numeric ops (lt, gt, lte, gte, neq) treat '*' as a literal
+# pattern character and must NEVER be folded.
+_WILDCARD_FOLDABLE_OPS = frozenset({"eq", "contains", "endswith", "startswith"})
+
+
+def _fold_wildcards(op: str, mod: str, val: str) -> tuple[str, str, str]:
+    """Spec Item 9 (P1-B): collapse leading/trailing literal '*' in value into
+    the equivalent modifier op so '*foo'-as-eq matches 'foo'-as-endswith.
+
+    Conservative by design — only edge wildcards are folded. Internal '*'
+    patterns (``foo*bar*baz``) might be literal asterisks in a path or a
+    complex pattern; we don't rewrite them.
+
+    Folding rules (mirroring scripts/mine_sigma_pair_candidates.canon_atom,
+    which is the reference policy spec for this fold):
+
+    * ``op="eq"``, val starts AND ends with ``*`` (len >= 2)
+        → ``op="contains"``, mod="contains", val with both stripped
+    * ``op="eq"``, val starts with ``*``
+        → ``op="endswith"``, mod="endswith", val with leading stripped
+    * ``op="eq"``, val ends with ``*``
+        → ``op="startswith"``, mod="startswith", val with trailing stripped
+    * ``op`` in {contains, endswith, startswith}, val has redundant edge ``*``
+        → strip the redundant ``*``; op and mod stay unchanged
+
+    When op flips from eq to a modifier op, modifier_chain is set to the new
+    op alone so the atom identity matches what an explicit-modifier rule
+    produces. When op was already a modifier, modifier_chain (which may carry
+    additional tokens like ``|all`` or case-insensitivity flags) is preserved.
+    """
+    if op not in _WILDCARD_FOLDABLE_OPS:
+        return op, mod, val
+
+    if op == "eq":
+        starts = val.startswith("*")
+        ends = val.endswith("*")
+        if starts and ends and len(val) >= 2:
+            return "contains", "contains", val[1:-1]
+        if starts:
+            return "endswith", "endswith", val[1:]
+        if ends:
+            return "startswith", "startswith", val[:-1]
+        return op, mod, val
+
+    # contains / endswith / startswith: strip redundant edge '*'. Op and mod
+    # are already aligned with the explicit-modifier form; only value changes.
+    if val.startswith("*"):
+        val = val[1:]
+    if val.endswith("*"):
+        val = val[:-1]
+    return op, mod, val
+
 
 def atom_identity(node: AtomNode) -> str:
     """Canonical atom identity: field|operator|modifier_chain|normalized_value."""
@@ -122,6 +175,10 @@ def atom_identity(node: AtomNode) -> str:
     # Only regex ('re') preserves case in its pattern.
     ci = op in _CASE_INSENSITIVE_OPS
     val = _normalize_value(node.value, case_insensitive=ci)
+    # Wildcard fold: collapse '*X*'-as-eq into 'X'-as-contains and similar
+    # (Spec Item 9 / P1-B). Must run AFTER _normalize_value so backslashes
+    # are already canonicalized and the value's edge characters are stable.
+    op, mod, val = _fold_wildcards(op, mod, val)
     return f"{field}|{op}|{mod}|{val}"
 
 

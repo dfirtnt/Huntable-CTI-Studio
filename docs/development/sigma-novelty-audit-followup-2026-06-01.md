@@ -44,7 +44,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ○ | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
-| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ○ | 1, 4a |
+| 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ◐ code landed; **⚠ corpus re-index required for the fix to take effect** | 1, 4a |
 | 10 | P3 hygiene bundle | ○ | 6 |
 | 11 | Atom-less rule `exact_hash` collisions (latent) | ○ | 1 |
 
@@ -847,6 +847,51 @@ End of addendum.
 - Status Dashboard row for Item 1 flipped to `✓ done`.
 - "Do not modify unrelated user changes" list refreshed; the four files committed in `bd71d9cc` are no longer listed as off-limits.
 - Items 2, 3, 5, 7 are now unblocked. The next operator-eligible item by the recommended execution order is **Item 3 (operator-drop)** — captured as todo `005-ready-p1-fix-canonical-text-operator-drop.md` in `.context/compound-engineering/todos/`.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 9 code landed (wildcard↔modifier canonicalization) — RE-INDEX REQUIRED
+
+**Item(s) affected:** 9 (code landed; awaiting corpus re-index for full effect).
+
+**Decision / result:** `atom_identity` in `sigma_semantic_similarity/sigma_similarity/atom_extractor.py` now folds leading/trailing literal `*` in atom values into the equivalent modifier op. `Image: '*foo.exe'` (eq) and `Image|endswith: 'foo.exe'` (endswith) produce the SAME atom identity string. The fix is operative for atoms computed AFTER this code lands, but stored corpus atoms are still in the OLD identity form — see "Re-index requirement" below.
+
+**Detail:**
+
+- File changed: `sigma_semantic_similarity/sigma_similarity/atom_extractor.py` — added `_fold_wildcards()` helper + `_WILDCARD_FOLDABLE_OPS` frozenset; called `_fold_wildcards` from `atom_identity` AFTER `_normalize_value` (so backslash normalization runs first).
+- Fold rules mirror `scripts/mine_sigma_pair_candidates.canon_atom` exactly (which has been the policy spec since Item 2 landed). The miner's canon function is the reference; the engine's fold is its production implementation:
+  - `op="eq"` + `*X*` (len ≥ 2) → `contains|contains|X`
+  - `op="eq"` + `*X` → `endswith|endswith|X`
+  - `op="eq"` + `X*` → `startswith|startswith|X`
+  - `op in {contains, endswith, startswith}` + redundant edge `*` → strip the redundant `*`; op + modifier_chain unchanged
+  - `re` / `lt` / `gt` / `lte` / `gte` / `neq` → value preserved verbatim (regex patterns and numeric comparisons treat `*` literally)
+- Test file: `tests/sigma_semantic_similarity/test_wildcard_fold.py` — 18 unit tests in 5 classes (equivalence, eq folds, redundant-stripping, internal-only-unchanged, non-foldable ops, edge cases). All went RED before the fix and GREEN after. **168/168** in the combined sigma + novelty suite.
+
+**Re-index requirement (⚠ operator approval needed):**
+
+The fix changes the output of `atom_identity` for any rule whose atoms have edge wildcards. Stored `sigma_rules.positive_atoms` and `sigma_rules.negative_atoms` were computed under the OLD identity rules — they still contain strings like `process.image|eq||*foo.exe`. New proposed rules will produce the new form `process.image|endswith|endswith|foo.exe`. **They will not intersect.**
+
+This means:
+- **Before re-index:** scoring for rules with edge wildcards is *marginally worse* than before. The proposed atom is folded to the new form; the stored atom is still old. They don't match. Behavior reverts only for the affected wildcard shape — non-wildcard rules are unaffected.
+- **After re-index:** both sides use the new identity. Behaviorally-equivalent rules (one written with `*X*`, another with `|contains: X`) match each other.
+
+Re-index command (to be confirmed and run by the operator):
+
+```bash
+./run_cli.sh sigma recompute-semantic-fields   # if this subcommand exists
+# OR force-rebuild via:
+./run_cli.sh sigma index-customer-repo --force
+# OR re-run the sigma sync flow that populates positive_atoms.
+```
+
+**Acceptance criterion #4 (re-run Item 4a measurement post-fix; confirm rank-change rate drops):** *pending re-index*. Will run once the operator authorizes the re-index. Expected outcome: the 2 recent wildcard rules from the 4a measurement (`'*mshta.exe*'` etc.) should now find their canonical neighbors in the corpus.
+
+**Action taken:**
+
+- Code + tests committed; Status Dashboard row for Item 9 set to `◐ code landed; ⚠ corpus re-index required`.
+- Live `cti_web` container has NOT been restarted (operator's call); the fix is dormant until both (a) the container picks up the new code AND (b) the corpus is re-indexed.
 
 End of addendum.
 
