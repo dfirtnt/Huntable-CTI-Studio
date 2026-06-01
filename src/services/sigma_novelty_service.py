@@ -270,6 +270,29 @@ class SigmaNoveltyService:
             use_deterministic = proposed_sem is not None
             canonical_class = proposed_sem["canonical_class"] if proposed_sem else None
 
+            # Guard (exact_hash degeneracy): a rule with no extractable behavioral
+            # atoms has no fingerprint to compare. Its canonical form is empty, so
+            # generate_exact_hash collapses every such rule onto one value — which
+            # would falsely short-circuit to DUPLICATE and suppress a novel rule.
+            # Without atoms we cannot assert duplication, so report NOVEL.
+            inapp_atoms = canonical_rule.detection.get("atoms") or []
+            sem_atoms = (proposed_sem or {}).get("positive_atoms") or []
+            if not inapp_atoms and not sem_atoms:
+                _warnings.append("no_atoms_extracted: insufficient detection content to assess novelty; treated as NOVEL")
+                return {
+                    "novelty_label": NoveltyLabel.NOVEL,
+                    "novelty_score": 1.0,
+                    "logsource_key": logsource_key,
+                    "canonical_class": canonical_class,
+                    "exact_hash": exact_hash,
+                    "top_matches": [],
+                    "canonical_rule": asdict(canonical_rule),
+                    "total_candidates_evaluated": 0,
+                    "behavioral_matches_found": 0,
+                    "engine_used": "deterministic" if use_deterministic else "legacy",
+                    "warnings": _warnings,
+                }
+
             # Step 3: Retrieve candidates (deterministic: by canonical_class, no limit; else: logsource_key + top_k)
             logger.debug(
                 f"Retrieving candidates for logsource_key: '{logsource_key}'"
@@ -635,71 +658,81 @@ class SigmaNoveltyService:
         if not isinstance(detection, dict):
             return atoms
 
-        # Process all selection blocks
+        # Process all selection blocks. A selection value is either a single map
+        # (dict) or a list of maps (Sigma "list of maps" == OR of the maps). Both
+        # forms must contribute atoms — list-valued selections were previously
+        # skipped, yielding zero atoms and a degenerate canonical form that
+        # collapsed unrelated rules onto a single exact_hash.
         for key, value in detection.items():
             if key == "condition":
                 continue
 
-            if not isinstance(value, dict):
+            if isinstance(value, dict):
+                blocks = [value]
+            elif isinstance(value, list):
+                blocks = [b for b in value if isinstance(b, dict)]
+            else:
                 continue
 
-            # Extract atoms from this selection
-            for field_name, field_value in value.items():
-                base_field, modifiers = self._parse_field_with_modifiers(field_name)
+            for block in blocks:
+                atoms.extend(self._extract_block_atoms(key, block, detection))
 
-                # Apply field alias normalization (v1.2)
-                # Make lookup case-insensitive AND underscore-insensitive so that
-                # snake_case field names (LLM-generated or older Sigma rules) map to
-                # the same canonical form as their camelCase equivalents.
-                # e.g. parent_image → parentimage == ParentImage.lower() → ParentImage
-                base_field_lower = base_field.lower() if base_field else ""
-                base_field_nounderscore = base_field_lower.replace("_", "")
-                canonical_field = base_field
-                for map_key, map_value in self.FIELD_ALIAS_MAP.items():
-                    map_key_lower = map_key.lower()
-                    if map_key_lower in (base_field_lower, base_field_nounderscore):
-                        canonical_field = map_value
-                        break
-                # If no match found, use title case version of original
-                if canonical_field == base_field and base_field:
-                    canonical_field = (
-                        base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
-                    )
+        return atoms
 
-                # Normalize `contains|all` to `contains` - semantically equivalent
-                # `contains|all: [a, b, c]` means "all of a, b, c must be present"
-                # which is equivalent to `contains: a AND contains: b AND contains: c`
-                normalized_modifiers = []
-                has_all_modifier = False
-                for mod in modifiers:
-                    if mod.lower() == "all":
-                        has_all_modifier = True
-                        # Don't add 'all' to ops - it's handled by condition logic
-                    else:
-                        normalized_modifiers.append(mod)
+    def _extract_block_atoms(self, key: str, value: dict[str, Any], detection: dict[str, Any]) -> list[Atom]:
+        """Extract atoms from a single selection map (one block of field:value pairs)."""
+        atoms: list[Atom] = []
+        for field_name, field_value in value.items():
+            base_field, modifiers = self._parse_field_with_modifiers(field_name)
 
-                # Determine primary operator and op_type (v1.2)
-                if normalized_modifiers:
-                    primary_op = normalized_modifiers[0].lower()
-                else:
-                    primary_op = "contains"  # Default operator
+            # Apply field alias normalization (v1.2)
+            # Make lookup case-insensitive AND underscore-insensitive so that
+            # snake_case field names (LLM-generated or older Sigma rules) map to
+            # the same canonical form as their camelCase equivalents.
+            # e.g. parent_image → parentimage == ParentImage.lower() → ParentImage
+            base_field_lower = base_field.lower() if base_field else ""
+            base_field_nounderscore = base_field_lower.replace("_", "")
+            canonical_field = base_field
+            for map_key, map_value in self.FIELD_ALIAS_MAP.items():
+                map_key_lower = map_key.lower()
+                if map_key_lower in (base_field_lower, base_field_nounderscore):
+                    canonical_field = map_value
+                    break
+            # If no match found, use title case version of original
+            if canonical_field == base_field and base_field:
+                canonical_field = (
+                    base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
+                )
 
-                # Determine op_type: regex if operator is 're', otherwise literal
-                op_type = "regex" if primary_op == "re" else "literal"
+            # Normalize `contains|all` to `contains` - semantically equivalent
+            # `contains|all: [a, b, c]` means "all of a, b, c must be present"
+            # which is equivalent to `contains: a AND contains: b AND contains: c`.
+            # 'all' affects condition logic, not the per-atom operator, so drop it here.
+            normalized_modifiers = [mod for mod in modifiers if mod.lower() != "all"]
 
-                # Determine polarity (check for NOT in condition or filter blocks)
-                polarity = "positive"
-                if key.startswith("filter") or "not" in str(detection.get("condition", "")).lower():
-                    # Check if this field is negated in condition
-                    condition = str(detection.get("condition", "")).lower()
-                    if f"not {key}" in condition or f"not {base_field}" in condition:
-                        polarity = "negative"
+            # Determine primary operator and op_type (v1.2)
+            if normalized_modifiers:
+                primary_op = normalized_modifiers[0].lower()
+            else:
+                primary_op = "contains"  # Default operator
 
-                # Explode lists into separate atoms
-                # For `contains|all`, each value becomes a separate atom (AND semantics)
-                if isinstance(field_value, list):
-                    for item in field_value:
-                        atom = Atom(
+            # Determine op_type: regex if operator is 're', otherwise literal
+            op_type = "regex" if primary_op == "re" else "literal"
+
+            # Determine polarity (check for NOT in condition or filter blocks)
+            polarity = "positive"
+            if key.startswith("filter") or "not" in str(detection.get("condition", "")).lower():
+                # Check if this field is negated in condition
+                condition = str(detection.get("condition", "")).lower()
+                if f"not {key}" in condition or f"not {base_field}" in condition:
+                    polarity = "negative"
+
+            # Explode lists into separate atoms
+            # For `contains|all`, each value becomes a separate atom (AND semantics)
+            if isinstance(field_value, list):
+                for item in field_value:
+                    atoms.append(
+                        Atom(
                             field=canonical_field,
                             op=primary_op,
                             op_type=op_type,
@@ -707,9 +740,10 @@ class SigmaNoveltyService:
                             value_type=self._infer_value_type(item),
                             polarity=polarity,
                         )
-                        atoms.append(atom)
-                else:
-                    atom = Atom(
+                    )
+            else:
+                atoms.append(
+                    Atom(
                         field=canonical_field,
                         op=primary_op,
                         op_type=op_type,
@@ -717,8 +751,7 @@ class SigmaNoveltyService:
                         value_type=self._infer_value_type(field_value),
                         polarity=polarity,
                     )
-                    atoms.append(atom)
-
+                )
         return atoms
 
     def _parse_field_with_modifiers(self, field_name: str) -> tuple[str, list[str]]:

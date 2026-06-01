@@ -207,6 +207,15 @@ Generated Rule
   5. Return top matches above threshold, sorted by similarity descending
 ```
 
+Step 1 extracts atoms from both single selection maps and Sigma's *list of maps*
+form (`selection: [{...}, {...}]`, an implicit OR of indicator sets).
+
+**Atom-less rules → `NOVEL`.** If no detection atoms can be extracted (keyword-only
+detections, or selection structures the extractor doesn't model), the rule has no
+behavioral fingerprint to compare. Rather than risk a false `DUPLICATE` — an empty
+canonical form hashes to one shared `exact_hash` across every such rule —
+`assess_novelty` short-circuits to `NOVEL`.
+
 ### Behavioral Novelty Scoring
 
 **Deterministic path** (when `sigma_semantic_similarity` package is installed):

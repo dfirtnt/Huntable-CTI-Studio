@@ -161,6 +161,64 @@ class TestSigmaNoveltyService:
         assert "logsource_match" in metrics
         assert 0.0 <= metrics["atom_overlap"] <= 1.0
 
+    def test_extract_atoms_from_list_of_maps_selection(self, service):
+        """List-valued selections (Sigma 'list of maps' = OR) must yield atoms from every map.
+
+        Regression: list selections were previously skipped, producing zero atoms and a
+        degenerate canonical form that collapsed unrelated rules onto one exact_hash.
+        """
+        detection = {
+            "condition": "selection",
+            "selection": [
+                {"Image|endswith": "\\curl.exe"},
+                {"CommandLine|contains": "dnscat2"},
+            ],
+        }
+
+        atoms = service.extract_atomic_predicates(detection)
+
+        assert len(atoms) >= 2
+        values = " ".join(a.value for a in atoms).lower()
+        assert "curl.exe" in values
+        assert "dnscat2" in values
+
+    def test_list_of_maps_selections_produce_distinct_exact_hashes(self, service):
+        """Two different list-selection rules must not collapse to the same exact_hash."""
+
+        def exact_hash(selection):
+            rule = {
+                "logsource": {"product": "windows", "category": "process_creation"},
+                "detection": {"condition": "selection", "selection": selection},
+            }
+            return service.generate_exact_hash(service.build_canonical_rule(rule))
+
+        h1 = exact_hash([{"CommandLine|contains": "alpha"}, {"CommandLine|contains": "beta"}])
+        h2 = exact_hash([{"Image|endswith": "\\curl.exe"}, {"Product": "curl"}])
+
+        assert h1 != h2
+
+    def test_atomless_rule_not_flagged_duplicate(self, service):
+        """A rule with no extractable atoms has no fingerprint and must never be a DUPLICATE.
+
+        Guards the exact_hash short-circuit: an empty-atom canonical hashes to a degenerate
+        value shared by unrelated rules, which previously caused false DUPLICATE suppression.
+        """
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"condition": "keywords", "keywords": ["foo", "bar"]},
+        }
+        # Precondition: a keyword-only detection yields no field atoms.
+        assert service.build_canonical_rule(rule).detection["atoms"] == []
+
+        # Even when a stored rule collides on exact_hash, an atom-less rule is not a duplicate.
+        service.retrieve_candidates = Mock(
+            return_value=[{"exact_hash": "deadbeef", "rule_id": "x", "exact_hash_match": True}]
+        )
+
+        result = service.assess_novelty(rule, threshold=0.0)
+
+        assert result["novelty_label"] == NoveltyLabel.NOVEL
+
 
 # ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────
 # Ensures the transition shim correctly resolves field aliases and folds case
