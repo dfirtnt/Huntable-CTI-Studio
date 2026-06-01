@@ -201,9 +201,16 @@ and score novelty.
 ```
 Generated Rule
   1. Extract detection atoms (or generate embedding as fallback)
-  2. Filter sigma_rules by logsource_key (hard gate)
-  3. Further filter by canonical_class when available
-  4. Compute behavioral novelty score for each candidate
+  2. Phase 1 candidate retrieval — two paths:
+       (a) canonical_class path: filter sigma_rules.canonical_class = X (no LIMIT)
+       (b) logsource_key fallback: filter sigma_rules.logsource_key = X (LIMIT 20)
+     Each candidate is tagged with the phase1_path it came from.
+  3. Phase 2 scoring — Jaccard × Containment − Filter, deterministic engine
+  4. Phase 3 safety gate (scoped) — drop logsource_key mismatches ONLY on the
+     logsource_key-fallback path. The canonical_class path's SQL filter is the
+     authoritative scoping; gating it would re-impose the narrower predicate the
+     canonical_class column was created to escape (Spec Item 6, Option B per
+     2026-06-01 4c measurement).
   5. Return top matches above threshold, sorted by similarity descending
 ```
 

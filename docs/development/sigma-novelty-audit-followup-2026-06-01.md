@@ -41,7 +41,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 4b | Coverage-gap-usage measurement | ✓ done — 0% legacy-path hits in last 30d; **Item 8 demoted to "next quarter"** | 1 |
 | 4c | `canonical_class` fan-out measurement | ✓ done — 0 rows; **Item 6 = Option B** | 1 |
 | 5 | Queue rules excluded from novelty corpus | ○ | 1 |
-| 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ○ | 1, 4c |
+| 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ✓ done — see Addendum (Item 6) | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
 | 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ✓ done — code `0688b0ff`, rebuild + recompute verified, queue 486 went 0→13 matches and 487 went 0→16; see closing Addendum | 1, 4a |
@@ -991,6 +991,39 @@ Alternative (dev-friendly, NOT recommended for prod): add `- ./sigma_semantic_si
 
 - Code + tests committed; Status Dashboard row for Item 9 set to `◐ code landed; ⚠ image rebuild + re-index required`.
 - The fix is dormant until both (a) the image is rebuilt AND containers recreated AND (b) the corpus is re-indexed using the new image. The earlier `./run_cli.sh sigma recompute-semantics` ran with the OLD image; that pass needs to be repeated post-rebuild.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 6 landed (hard-gate scoped to fallback path, Option B)
+
+**Item(s) affected:** 6 (now done); Item 10 hygiene bundle now unblocked.
+
+**Decision / result:** Per 4c measurement (canonical_class is de facto 1:1 with logsource_key, 0 cross-key fan-out rows in the live corpus), implemented Option B: scope the gate at `sigma_matching_service.py:551` to fire only on the `logsource_key`-fallback retrieval path. Threaded a new `phase1_path` field through the candidate dict so the gate can distinguish how each candidate was retrieved.
+
+**Files changed:**
+
+- `src/services/sigma_novelty_service.py`:
+  - `retrieve_candidates`: tracks a local `phase1_path` variable across the three retrieval paths (exact_hash short-circuit, canonical_class branch, logsource_key fallback). Each `_row_to_candidate` output now carries `phase1_path`.
+  - `assess_novelty`: propagates `candidate["phase1_path"]` into the match_dict (both the regular path at line 484 and the exact-hash short-circuit at line 325).
+- `src/services/sigma_matching_service.py:551`: the gate now reads `match["phase1_path"]` and enforces only when it equals `"logsource_fallback"` OR is missing (legacy default for older payloads). On canonical_class / exact_hash paths the gate is bypassed — the SQL filter or hash identity is the authoritative scoping there. The `logger.warning` is now structured (proposed/candidate logsource_keys, candidate rule_id, and the phase1_path that triggered).
+- `tests/services/test_sigma_matching_service.py`: new `TestHardGateScopedToFallback` class with 5 parametrized scenarios — canonical_class+mismatch survives, logsource_fallback+mismatch drops, logsource_fallback+match survives, exact_hash+mismatch survives, missing phase1_path defaults to legacy enforcement.
+- `docs/features/sigma-rules.md`: "How It Works" updated to reflect the new 3-path Phase 1 + scoped Phase 3 architecture.
+
+**Test results:** TDD red (2 of 5 failing on the canonical_class + exact_hash exemption cases, 3 already passing the pre-existing always-enforce behavior) → green after the gate fix (5 of 5 pass). Full sigma + novelty + semantic_similarity + sigma_similar_rules suites: **194 passed, 0 failed**.
+
+**Behavioral impact in production:** Per 4c, today `canonical_class` doesn't fan out — every candidate it surfaces has the same `logsource_key` as the proposed rule, so the previously-firing gate was always a no-op in practice. This fix makes the engine honest about that fact (the gate now visibly bypasses the canonical_class path rather than silently re-checking what the SQL filter already enforced) and unblocks any future expansion where canonical_class genuinely spans multiple logsource_keys. The `logsource_fallback` path keeps the gate as a defensive safety check.
+
+**Observability improvement:** when the gate DOES fire (only on the fallback path), it emits `logger.warning("logsource_key_mismatch_on_fallback_path", extra={...})` with structured fields. Pre-fix the warning was an f-string; post-fix it's queryable via log aggregation. Spec acceptance criterion #3 satisfied.
+
+**Action taken:**
+
+- Status Dashboard: Item 6 row flipped to `✓ done — see Addendum (Item 6)`.
+- Item 10 (hygiene bundle) is no longer blocked.
+- Live containers already on the new image post-Item-9 rebuild, so this fix is operative without an additional rebuild — `src/` is bind-mounted into all four long-running services (per the docker-compose mount layout discovered during Item 9 verification).
+
+**Note on the gate's `legacy_missing` log label:** if a match arrives without `phase1_path` (older novelty payload from before this commit), the gate falls back to the always-enforce behavior and the structured warning logs `phase1_path: "legacy_missing"`. Watching for this in production tells us when stale novelty results are still flowing through; we should see it taper to zero within one workflow cycle of the deploy. If it sticks above zero longer, a queue rule's `similarity_scores` JSONB is being read without recomputation — a separate (Item 10 hygiene candidate) concern.
 
 End of addendum.
 

@@ -379,3 +379,181 @@ class TestSigmaMatchingService:
         assert out["matches"] == []
         assert out.get("canonical_class") is None
         assert out.get("logsource_key") == ""
+
+
+class TestHardGateScopedToFallback:
+    """Spec Item 6 (P2-C) Option B (chosen per 4c measurement: canonical_class is
+    de facto 1:1 with logsource_key, so the gate is dead code on the canonical_class
+    path — scope it to the fallback path only).
+
+    The gate at sigma_matching_service.py:551 drops candidates whose logsource_key
+    differs from the proposed rule's. After Item 6 it must fire ONLY when Phase 1
+    retrieved the candidate via the logsource_key fallback (where the gate is a
+    no-op safety net) — never on the canonical_class or exact_hash paths.
+
+    Each test mocks SigmaNoveltyService.assess_novelty to return a fixed top_matches
+    list with a chosen phase1_path. We assert which matches survive the
+    compare_proposed_rule_to_embeddings gate.
+    """
+
+    @pytest.fixture
+    def mock_db_session(self):
+        session = Mock()
+        session.query = Mock()
+        return session
+
+    @pytest.fixture
+    def service(self, mock_db_session):
+        with patch("src.services.sigma_matching_service.EmbeddingService"):
+            s = SigmaMatchingService(mock_db_session)
+            s.db = mock_db_session
+            return s
+
+    @pytest.fixture
+    def proposed(self):
+        return {
+            "title": "Proposed",
+            "description": "",
+            "tags": [],
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
+        }
+
+    @pytest.fixture
+    def proposed_logsource_key(self):
+        return "windows|process_creation"
+
+    def _make_novelty_payload(self, top_matches, proposed_logsource_key):
+        return {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": proposed_logsource_key,
+            "canonical_class": "windows.process_creation",
+            "exact_hash": "abc",
+            "top_matches": top_matches,
+            "canonical_rule": {},
+            "total_candidates_evaluated": 1,
+            "behavioral_matches_found": 1,
+            "engine_used": "deterministic",
+        }
+
+    def _make_match(self, rule_id, phase1_path, similarity=0.5):
+        """Minimal top_matches entry shape that compare_proposed_rule_to_embeddings reads."""
+        return {
+            "rule_id": rule_id,
+            "atom_jaccard": 0.5,
+            "logic_shape_similarity": 0.65,
+            "similarity": similarity,
+            "service_penalty": 0.0,
+            "filter_penalty": 0.0,
+            "weighted_before_penalties": similarity,
+            "similarity_engine": "deterministic",
+            "semantic_details": None,
+            "shared_atoms": [],
+            "added_atoms": [],
+            "removed_atoms": [],
+            "filter_differences": [],
+            "phase1_path": phase1_path,
+        }
+
+    def _make_db_rule(self, rule_id, logsource_key):
+        """Mock SigmaRuleTable row returned by the matching service's per-match lookup."""
+        rule = Mock()
+        rule.id = 1
+        rule.rule_id = rule_id
+        rule.title = "t"
+        rule.description = "d"
+        rule.logsource = {"category": "process_creation", "product": "windows"}
+        rule.detection = {"selection": {}, "condition": "selection"}
+        rule.tags = []
+        rule.level = "low"
+        rule.status = "stable"
+        rule.file_path = "rules/x.yml"
+        rule.logsource_key = logsource_key
+        return rule
+
+    def _run_compare(self, mock_db_session, service_fixture, proposed, top_matches, proposed_lsk, rule_lsk):
+        """Helper: wire up the mocks, set the candidate rule's logsource_key, run compare."""
+        rule = self._make_db_rule("r1", rule_lsk)
+        mock_db_session.query.return_value.filter.return_value.first.return_value = rule
+
+        novelty_payload = self._make_novelty_payload(top_matches, proposed_lsk)
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = novelty_payload
+            return service_fixture.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+
+    def test_canonical_class_path_survives_logsource_mismatch(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='canonical_class' + mismatching logsource_key → match SURVIVES (the gate skips this path)."""
+        match = self._make_match("r1", phase1_path="canonical_class")
+        out = self._run_compare(
+            mock_db_session, service, proposed, [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH
+        )
+        assert len(out["matches"]) == 1, (
+            "canonical_class candidates must NOT be dropped by the gate; "
+            "canonical_class filter is authoritative on that path."
+        )
+        assert out["matches"][0]["rule_id"] == "r1"
+
+    def test_logsource_fallback_path_drops_mismatch(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='logsource_fallback' + mismatching logsource_key → match DROPPED (gate fires)."""
+        match = self._make_match("r1", phase1_path="logsource_fallback")
+        out = self._run_compare(
+            mock_db_session, service, proposed, [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH
+        )
+        assert out["matches"] == [], (
+            "On the fallback path the gate must still drop logsource_key mismatches "
+            "as a defensive safety net (Phase 1's SQL was supposed to enforce match, "
+            "but if a mismatch survives we don't trust the candidate)."
+        )
+
+    def test_logsource_fallback_path_keeps_matching_logsource(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='logsource_fallback' + matching logsource_key → match SURVIVES."""
+        match = self._make_match("r1", phase1_path="logsource_fallback")
+        out = self._run_compare(
+            mock_db_session, service, proposed, [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk=proposed_logsource_key,  # MATCH
+        )
+        assert len(out["matches"]) == 1
+        assert out["matches"][0]["rule_id"] == "r1"
+
+    def test_exact_hash_path_survives_logsource_mismatch(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='exact_hash' (rule hash already proved identity) → match SURVIVES regardless of logsource."""
+        match = self._make_match("r1", phase1_path="exact_hash")
+        out = self._run_compare(
+            mock_db_session, service, proposed, [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH (shouldn't even be possible in practice)
+        )
+        assert len(out["matches"]) == 1, (
+            "exact_hash matches must not be gated — hash-based identity supersedes "
+            "logsource_key surface check."
+        )
+
+    def test_missing_phase1_path_falls_back_to_legacy_gate_behavior(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """Backward compat: match without phase1_path field (older cached data) → gate fires conservatively."""
+        match = self._make_match("r1", phase1_path="canonical_class")
+        del match["phase1_path"]  # simulate older payload that pre-dates Item 6
+        out = self._run_compare(
+            mock_db_session, service, proposed, [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH
+        )
+        assert out["matches"] == [], (
+            "When phase1_path is missing, the gate must default to the legacy "
+            "(always-enforce) behavior so older novelty payloads stay safe."
+        )

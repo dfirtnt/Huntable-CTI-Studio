@@ -331,6 +331,9 @@ class SigmaNoveltyService:
                             "logic_shape_similarity": 1.0,
                             "similarity_engine": "legacy",
                             "semantic_details": None,
+                            # Spec Item 6 (P2-C): inherit phase1_path from the candidate (set to
+                            # "exact_hash" by retrieve_candidates). Downstream gate skips this path.
+                            "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
                         }
                     )
                     continue
@@ -490,6 +493,9 @@ class SigmaNoveltyService:
                         "filter_penalty": filter_penalty,
                         "weighted_before_penalties": weighted_before_penalties,
                         "similarity_engine": "deterministic" if used_deterministic else "legacy",
+                        # Spec Item 6 (P2-C): inherit Phase 1 retrieval path from the candidate so
+                        # the downstream gate at sigma_matching_service.py:551 can scope itself.
+                        "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
                         "semantic_details": (
                             {
                                 "canonical_class": deterministic_result.canonical_class,
@@ -1174,6 +1180,9 @@ class SigmaNoveltyService:
                         "logsource": exact_match.logsource,
                         "detection": exact_match.detection,
                         "exact_hash_match": True,
+                        # Spec Item 6 (P2-C): tag the Phase 1 retrieval path so the downstream
+                        # gate in sigma_matching_service.py can decide whether to enforce.
+                        "phase1_path": "exact_hash",
                     }
                     if hasattr(exact_match, "positive_atoms") and exact_match.positive_atoms is not None:
                         out["positive_atoms"] = exact_match.positive_atoms
@@ -1183,8 +1192,10 @@ class SigmaNoveltyService:
             except Exception:
                 logger.warning("sigma_novelty: exact hash DB lookup failed, skipping duplicate check", exc_info=True)
 
-            # Build query
+            # Build query. Track which Phase 1 path produced the candidates so the downstream
+            # gate in sigma_matching_service.py can decide whether to enforce (Spec Item 6 P2-C).
             candidates = []
+            phase1_path = "logsource_fallback"
             if use_deterministic and canonical_class:
                 # Deterministic mode: filter by canonical_class, no limit
                 try:
@@ -1194,6 +1205,8 @@ class SigmaNoveltyService:
                             .filter(SigmaRuleTable.canonical_class == canonical_class)
                             .all()
                         )
+                        if candidates:
+                            phase1_path = "canonical_class"
                 except Exception:
                     logger.warning(
                         "sigma_novelty: canonical_class DB query failed, falling back to logsource_key", exc_info=True
@@ -1209,6 +1222,7 @@ class SigmaNoveltyService:
                         .limit(top_k)
                         .all()
                     )
+                    phase1_path = "logsource_fallback"
             else:
                 if not logsource_key or logsource_key == "|":
                     logger.warning(f"Invalid logsource_key '{logsource_key}', returning no candidates")
@@ -1222,6 +1236,7 @@ class SigmaNoveltyService:
                         .limit(top_k)
                         .all()
                     )
+                    phase1_path = "logsource_fallback"
                 except Exception as e:
                     logger.error(f"Failed to query candidates by logsource_key '{logsource_key}': {e}")
                     return []
@@ -1236,6 +1251,7 @@ class SigmaNoveltyService:
                     "logsource": c.logsource,
                     "detection": c.detection,
                     "exact_hash": getattr(c, "exact_hash", None),
+                    "phase1_path": phase1_path,  # Spec Item 6 (P2-C): downstream gate scoping
                 }
                 if hasattr(c, "positive_atoms") and c.positive_atoms is not None:
                     out["positive_atoms"] = c.positive_atoms

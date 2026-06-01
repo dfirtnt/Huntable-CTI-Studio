@@ -544,18 +544,34 @@ class SigmaMatchingService:
                     )
 
                     if rule:
-                        # Safety check: verify logsource_key matches (hard gate)
+                        # Safety check: verify logsource_key matches. Spec Item 6 (P2-C, Option B):
+                        # scope this gate to the logsource_fallback path only. Per the 4c measurement,
+                        # canonical_class is de facto 1:1 with logsource_key in the live corpus, so
+                        # the gate is dead code on the canonical_class path — the SQL filter is the
+                        # authoritative scoping there. Same for exact_hash (hash-based identity
+                        # already proves the candidate is the proposed rule).
+                        #
+                        # Missing phase1_path falls back to legacy (always-enforce) behavior so
+                        # older novelty payloads pre-dating Item 6 keep their conservative gate.
                         proposed_logsource_key = novelty_result.get("logsource_key", "")
                         rule_logsource_key = getattr(rule, "logsource_key", None)
+                        phase1_path = match.get("phase1_path")
+                        gate_enforced = phase1_path in (None, "logsource_fallback")
 
                         if (
-                            rule_logsource_key
+                            gate_enforced
+                            and rule_logsource_key
                             and proposed_logsource_key
                             and rule_logsource_key != proposed_logsource_key
                         ):
                             logger.warning(
-                                f"Skipping rule {rule.rule_id}: logsource_key mismatch "
-                                f"({rule_logsource_key} != {proposed_logsource_key})"
+                                "logsource_key_mismatch_on_fallback_path",
+                                extra={
+                                    "proposed_logsource_key": proposed_logsource_key,
+                                    "candidate_logsource_key": rule_logsource_key,
+                                    "candidate_rule_id": rule.rule_id,
+                                    "phase1_path": phase1_path or "legacy_missing",
+                                },
                             )
                             continue
 
