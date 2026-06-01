@@ -1357,8 +1357,12 @@ class SigmaNoveltyService:
         set1 = {self._atom_to_key(a) for a in positive_atoms1}
         set2 = {self._atom_to_key(a) for a in positive_atoms2}
 
+        # Two rules with no positive atoms share no measurable behavioral signal —
+        # they are incomparable, not identical. Returning 0.0 routes them to NOVEL,
+        # consistent with the atom-less guard in assess_novelty. (Previously 1.0,
+        # which could mark unrelated atom-less / filter-only rules as a perfect match.)
         if not set1 and not set2:
-            return 1.0
+            return 0.0
 
         intersection = set1 & set2
         union = set1 | set2

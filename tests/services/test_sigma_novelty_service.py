@@ -549,6 +549,48 @@ class TestDictBlockSelectionPolarity:
         )
 
 
+# ── compute_atom_jaccard: two atom-less rules are incomparable, not identical ──
+# Two rules with no positive behavioral atoms share no measurable signal. The
+# prior `return 1.0` for two empty positive-atom sets could mark unrelated
+# atom-less / filter-only rules as a perfect match in the legacy fallback path
+# (sigma_novelty_service.py:442) and the /sigma-ab-test diagnostic
+# (sigma_ab_test.py:102). Returning 0.0 routes them to NOVEL, consistent with the
+# Item 11 atom-less guard. Closes the secondary bug noted on the "Similarity
+# System bugs" Todoist task (the primary list-selection reproduction was already
+# closed by bd71d9cc / Item 1 and Item 12).
+
+
+class TestComputeAtomJaccardEmptySets:
+    """compute_atom_jaccard must not treat two atom-less rules as identical."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    def test_two_empty_positive_atom_rules_score_zero(self, service):
+        r1 = service.build_canonical_rule(
+            {"logsource": {"product": "windows"}, "detection": {"selection": {}, "condition": "selection"}}
+        )
+        r2 = service.build_canonical_rule(
+            {"logsource": {"product": "linux"}, "detection": {"sel": {}, "condition": "sel"}}
+        )
+        # Precondition: both have empty atom sets.
+        assert r1.detection["atoms"] == []
+        assert r2.detection["atoms"] == []
+        assert service.compute_atom_jaccard(r1, r2) == 0.0
+
+    def test_identical_atom_bearing_rules_still_score_one(self, service):
+        """Regression guard: the fix touches ONLY the both-empty case. Two rules
+        with identical real atoms must still score 1.0.
+        """
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {"CommandLine|contains": "powershell.exe"}, "condition": "selection"},
+        }
+        r = service.build_canonical_rule(rule)
+        assert service.compute_atom_jaccard(r, r) == 1.0
+
+
 # ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────
 # Ensures the transition shim correctly resolves field aliases and folds case
 # on precomputed atom identity strings from the database.
