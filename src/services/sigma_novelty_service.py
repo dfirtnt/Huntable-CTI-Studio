@@ -1199,10 +1199,13 @@ class SigmaNoveltyService:
                         "sigma_novelty: canonical_class DB query failed, falling back to logsource_key", exc_info=True
                     )
                 if not candidates and logsource_key and logsource_key != "|":
-                    # Fallback to logsource_key + limit when canonical_class column missing or no matches
+                    # Fallback to logsource_key + limit when canonical_class column missing or no matches.
+                    # order_by(rule_id) gives a stable sort so the same logsource_key returns the
+                    # same top-k across runs / replicas / after VACUUM. Spec Item 7 (P1).
                     candidates = (
                         self.db_session.query(SigmaRuleTable)
                         .filter(SigmaRuleTable.logsource_key == logsource_key)
+                        .order_by(SigmaRuleTable.rule_id)
                         .limit(top_k)
                         .all()
                     )
@@ -1211,9 +1214,11 @@ class SigmaNoveltyService:
                     logger.warning(f"Invalid logsource_key '{logsource_key}', returning no candidates")
                     return []
                 try:
+                    # Same stability requirement as the canonical_class-empty fallback above.
                     candidates = (
                         self.db_session.query(SigmaRuleTable)
                         .filter(SigmaRuleTable.logsource_key == logsource_key)
+                        .order_by(SigmaRuleTable.rule_id)
                         .limit(top_k)
                         .all()
                     )

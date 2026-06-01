@@ -42,7 +42,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 4c | `canonical_class` fan-out measurement | ✓ done — 0 rows; **Item 6 = Option B** | 1 |
 | 5 | Queue rules excluded from novelty corpus | ○ | 1 |
 | 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ○ | 1, 4c |
-| 7 | P1: unordered `LIMIT 20` sort | ○ | 1 |
+| 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
 | 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ○ | 1, 4a |
 | 10 | P3 hygiene bundle | ○ | 6 |
@@ -847,6 +847,32 @@ End of addendum.
 - Status Dashboard row for Item 1 flipped to `✓ done`.
 - "Do not modify unrelated user changes" list refreshed; the four files committed in `bd71d9cc` are no longer listed as off-limits.
 - Items 2, 3, 5, 7 are now unblocked. The next operator-eligible item by the recommended execution order is **Item 3 (operator-drop)** — captured as todo `005-ready-p1-fix-canonical-text-operator-drop.md` in `.context/compound-engineering/todos/`.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 7 landed (unordered LIMIT fix)
+
+**Item(s) affected:** 7
+
+**Decision / result:** Both unordered `.limit(top_k)` calls in `retrieve_candidates` now precede `.limit()` with `.order_by(SigmaRuleTable.rule_id)`. Candidate retrieval is reproducible across runs, replicas, and after `VACUUM`.
+
+**Detail:**
+
+- Files changed:
+  - `src/services/sigma_novelty_service.py:1201-1227` — added `.order_by(SigmaRuleTable.rule_id)` to both fallback queries (the canonical_class-empty fallback inside the `if use_deterministic` branch, and the else-branch fallback used when `canonical_class` is unset or `use_deterministic=False`).
+  - `tests/services/test_sigma_novelty_service.py` — added `TestRetrieveCandidatesDeterministicOrdering` class with a parametrized test covering both code paths. Test asserts the query chain calls `.order_by()` BEFORE `.limit()` via inspection of `Mock.method_calls`.
+- TDD discipline: tests were written first, watched fail (both code paths showed call sequence `['filter', ..., 'limit', 'all']` with no `order_by`), fix applied, tests passed.
+- Regression check: full sigma novelty + sigma_semantic_similarity test suites — **150/150 pass**, no regressions.
+
+**Production impact:**
+
+Per the 4b measurement, the legacy / fallback engine path fires 0% of the time on recent traffic (because `canonical_class` is populated for all rules that reach candidate retrieval today). So the unordered-LIMIT bug was *latent* in production — non-determinism didn't manifest yet because the fallback path is unreached. The fix is preventative: it eliminates a class of "different result on different machine / after VACUUM" failures that would otherwise surface the moment Item 8 (coverage backfill) extends candidate retrieval into less-populated logsource classes, or the moment proposed rules in unmodeled telemetry classes start being scored.
+
+**Action taken:**
+
+- Status Dashboard: Item 7 row flipped to `✓ done`.
 
 End of addendum.
 

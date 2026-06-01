@@ -534,3 +534,61 @@ class TestAggressiveNormalizationSnakeCase:
         canon_a = service.build_canonical_rule(self._make_rule({"command_line|contains": value}))
         canon_b = service.build_canonical_rule(self._make_rule({"CommandLine|contains": value}))
         assert service.compute_atom_jaccard(canon_a, canon_b) == 1.0
+
+
+class TestRetrieveCandidatesDeterministicOrdering:
+    """Spec Item 7 (P1: sort LIMIT).
+
+    The two fallback candidate-retrieval queries in retrieve_candidates use
+    .limit(top_k) without a preceding .order_by(). Without a stable sort,
+    Postgres returns whichever rows it likes — different across runs, replicas,
+    after VACUUM. Both fallbacks must order before LIMIT so the same input
+    produces the same top-k every call.
+    """
+
+    @pytest.mark.parametrize(
+        "use_deterministic, canonical_class",
+        [
+            (False, None),                          # else-branch fallback
+            (True, "windows.process_creation"),     # if-branch's empty-canonical_class fallback
+        ],
+        ids=["else_branch", "canonical_class_empty_fallback"],
+    )
+    def test_fallback_path_orders_before_limit(self, use_deterministic, canonical_class):
+        """retrieve_candidates' fallback paths must call .order_by() before .limit()."""
+        mock_session = Mock()
+        # Fluent query chain: every method returns the same mock so the chain composes.
+        query_mock = mock_session.query.return_value
+        query_mock.filter.return_value = query_mock
+        query_mock.order_by.return_value = query_mock
+        query_mock.limit.return_value = query_mock
+        query_mock.all.return_value = []
+
+        # For canonical_class path: the initial .filter(canonical_class=X).all() must
+        # return [] so the code falls through to the logsource_key + LIMIT path.
+        if use_deterministic:
+            # First .all() (canonical_class branch) returns []; second .all() (fallback) returns [].
+            query_mock.all.side_effect = [[], []]
+
+        # Stub exact_hash lookup so it doesn't short-circuit before the fallback.
+        # The exact_hash query is via .filter(exact_hash=...).first() and must return None.
+        query_mock.first.return_value = None
+
+        service = SigmaNoveltyService(db_session=mock_session)
+        service.retrieve_candidates(
+            exact_hash="not-a-real-hash",
+            logsource_key="windows|process_creation",
+            top_k=20,
+            canonical_class=canonical_class,
+            use_deterministic=use_deterministic,
+        )
+
+        call_names = [c[0] for c in query_mock.method_calls]
+        assert "limit" in call_names, f"limit must be called; got: {call_names}"
+        assert "order_by" in call_names, (
+            f"order_by must be called before limit for deterministic candidate retrieval; "
+            f"got call sequence: {call_names}"
+        )
+        assert call_names.index("order_by") < call_names.index("limit"), (
+            f"order_by must come BEFORE limit; got call sequence: {call_names}"
+        )
