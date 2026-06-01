@@ -35,7 +35,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | Item | Title | Status | Depends on |
 |---|---|---|---|
 | 1 | Push `bd71d9cc` (exact_hash fix) | ✓ done — on `origin/europa-7.2.1` as of 2026-06-01 | — |
-| 2 | Review + commit eval-miner files | ✓ done — `3a4f1313`, see Addendum | 1 |
+| 2 | Review + commit eval-miner files | ✓ done — `8c7b46b7`, see Addendum | 1 |
 | 3 | Fix `generate_canonical_text` operator-drop | ⊘ skipped — spec hypothesis disproved 2026-06-01 (see Addendum) | — |
 | 4a | LLM-axis measurement | ○ | 2 |
 | 4b | Coverage-gap-usage measurement | ○ | 1 |
@@ -856,7 +856,7 @@ End of addendum.
 
 **Item(s) affected:** 2
 
-**Decision / result:** Eval-miner script + canon_atom tests reviewed against the spec's Item 2 acceptance criteria, found methodology-sound, committed as `3a4f1313` to `origin/europa-7.2.1`.
+**Decision / result:** Eval-miner script + canon_atom tests reviewed against the spec's Item 2 acceptance criteria, found methodology-sound, committed as `8c7b46b7` to `origin/europa-7.2.1`.
 
 **Detail:**
 
@@ -887,8 +887,8 @@ These numbers underpin the Item 9 demotion (wildcard↔modifier canonicalization
 
 **Action taken:**
 
-- Files staged and committed as `3a4f1313` with conventional-commit subject `feat(sigma): land eval-miner script + canon_atom tests (Item 2)` and a 7-paragraph body covering scope, methodology, read-only contract, test coverage, mining run, coverage caveat, and known imprecisions.
-- Status Dashboard row for Item 2 flipped to `✓ done — 3a4f1313, see Addendum`.
+- Files staged and committed as `8c7b46b7` with conventional-commit subject `feat(sigma): land eval-miner script + canon_atom tests (Item 2)` and a 7-paragraph body covering scope, methodology, read-only contract, test coverage, mining run, coverage caveat, and known imprecisions.
+- Status Dashboard row for Item 2 flipped to `✓ done — 8c7b46b7, see Addendum`.
 - "Do not modify unrelated user changes" list will be refreshed in the next commit (mine_sigma + test_canon_atom files are no longer untracked).
 - Items 4a (LLM-axis), 4b (coverage-gap), 4c (canonical_class fan-out) are now fully unblocked. Per the Recommended Execution Order, the next operator-eligible step is to fix the `LIMIT 20` sort (Item 7, ~30 min) before running the three measurements (Item 4abc, ~half day).
 
