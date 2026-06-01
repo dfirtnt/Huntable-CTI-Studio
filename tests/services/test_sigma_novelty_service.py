@@ -496,6 +496,59 @@ class TestKeywordListSelectionsProduceAtoms:
         )
 
 
+# ── Regression guard: _extract_block_atoms polarity for dict-valued filter ────
+# Companion to TestKeywordListSelectionsProduceAtoms's filter-polarity tests.
+# The dict-block polarity logic at sigma_novelty_service.py:755-761 is correct
+# (key.startswith("filter") is the OUTER fast-path; the INNER `f"not {key}" in
+# condition` is the actual decision). These tests lock that contract in so a
+# future refactor that extracts a polarity helper from _extract_block_atoms
+# cannot repeat the bug fixed in commit f2347bf7, where the keyword-path helper
+# treated startswith("filter") as sufficient for negative polarity.
+
+
+class TestDictBlockSelectionPolarity:
+    """_extract_block_atoms produces correct polarity for dict-valued filter blocks."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    def test_dict_filter_positively_referenced_has_positive_polarity(self, service):
+        """Dict-block analog of test_filter_keyword_list_positively_referenced_…:
+        a `filter`-named dict block that's referenced POSITIVELY in the condition
+        (`selection and filter`) yields positive polarity. Naming is not enough.
+        """
+        detection = {
+            "selection": {"CommandLine|contains": "powershell"},
+            "filter": {"Image|endswith": "\\benign.exe"},
+            "condition": "selection and filter",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        filter_atoms = [a for a in atoms if a.value == "\\benign.exe"]
+        assert len(filter_atoms) == 1
+        assert filter_atoms[0].polarity == "positive", (
+            f"dict filter block must be positive when condition positively references the "
+            f"selection; got polarity: {filter_atoms[0].polarity}"
+        )
+
+    def test_dict_filter_negated_in_condition_has_negative_polarity(self, service):
+        """Companion to the positive-reference test: explicit `not filter` in the
+        condition flips the dict-block polarity to negative.
+        """
+        detection = {
+            "selection": {"CommandLine|contains": "powershell"},
+            "filter": {"Image|endswith": "\\benign.exe"},
+            "condition": "selection and not filter",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        filter_atoms = [a for a in atoms if a.value == "\\benign.exe"]
+        assert len(filter_atoms) == 1
+        assert filter_atoms[0].polarity == "negative", (
+            f"dict filter block must be negative when condition explicitly negates the "
+            f"selection; got polarity: {filter_atoms[0].polarity}"
+        )
+
+
 # ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────
 # Ensures the transition shim correctly resolves field aliases and folds case
 # on precomputed atom identity strings from the database.
