@@ -202,12 +202,16 @@ class TestSigmaNoveltyService:
 
         Guards the exact_hash short-circuit: an empty-atom canonical hashes to a degenerate
         value shared by unrelated rules, which previously caused false DUPLICATE suppression.
+
+        Post-Item-12: keyword-list selections now produce atoms, so the truly-atom-less
+        fixture must be a selection with no field-value pairs at all (or no selection
+        block). The guard still applies as defense-in-depth for malformed rules.
         """
         rule = {
             "logsource": {"product": "windows", "category": "process_creation"},
-            "detection": {"condition": "keywords", "keywords": ["foo", "bar"]},
+            "detection": {"selection": {}, "condition": "selection"},
         }
-        # Precondition: a keyword-only detection yields no field atoms.
+        # Precondition: an empty selection yields no atoms.
         assert service.build_canonical_rule(rule).detection["atoms"] == []
 
         # Even when a stored rule collides on exact_hash, an atom-less rule is not a duplicate.
@@ -237,10 +241,14 @@ class TestExactHashAtomLessReturnsNone:
     def service(self):
         return SigmaNoveltyService()
 
-    def test_atomless_keyword_only_rule_returns_none(self, service):
+    def test_atomless_empty_selection_rule_returns_none(self, service):
+        """Truly-atom-less shape: a selection with no field-value pairs. Post-Item-12,
+        keyword-list selections produce atoms; this test migrated to use empty-dict
+        selections to keep covering the Item-11 contract.
+        """
         rule = {
             "logsource": {"product": "windows", "category": "process_creation"},
-            "detection": {"condition": "keywords", "keywords": ["foo", "bar"]},
+            "detection": {"selection": {}, "condition": "selection"},
         }
         canonical = service.build_canonical_rule(rule)
         assert canonical.detection["atoms"] == []
@@ -261,18 +269,19 @@ class TestExactHashAtomLessReturnsNone:
         assert len(h) == 64
 
     def test_two_distinct_atomless_rules_both_return_none(self, service):
-        """The latent collision: two unrelated keyword-only rules previously
-        hashed to the same value. After the fix both are None, and SQL
-        NULL = NULL evaluates to false, so retrieve_candidates cannot return
-        either as an exact-hash duplicate of the other.
+        """The latent collision: two unrelated atom-less rules previously hashed
+        to the same value. After the fix both are None, and SQL NULL = NULL
+        evaluates to false, so retrieve_candidates cannot return either as an
+        exact-hash duplicate of the other. Post-Item-12, atom-less rules are
+        empty-selection rules (keywords now produce atoms).
         """
         rule_a = {
             "logsource": {"product": "cisco", "category": "application"},
-            "detection": {"condition": "keywords", "keywords": ["alpha"]},
+            "detection": {"selection": {}, "condition": "selection"},
         }
         rule_b = {
             "logsource": {"product": "linux", "category": "network_connection"},
-            "detection": {"condition": "keywords", "keywords": ["beta", "gamma"]},
+            "detection": {"sel": {}, "condition": "sel"},
         }
         assert service.generate_exact_hash(service.build_canonical_rule(rule_a)) is None
         assert service.generate_exact_hash(service.build_canonical_rule(rule_b)) is None
@@ -315,6 +324,136 @@ class TestExactHashAtomLessReturnsNone:
         assert not any(c.get("phase1_path") == "exact_hash" for c in result), (
             "retrieve_candidates returned an exact-hash phase1_path match for None hash"
         )
+
+
+# ── Item 12: keyword-list selections produce atoms (2026-06-01) ───────────────
+# Top-level selections whose value is a list of scalars are Sigma keyword
+# selections — field-less contains-match against the raw event. The legacy
+# extractor previously dropped them entirely, collapsing rules whose unique
+# detection signal lived in keyword scalars onto identical atom sets (the
+# residual collisions surfaced by Item 11's verification). After this fix,
+# each scalar becomes an atom with field="" and op="contains", so behaviorally
+# distinct rules produce distinct atom sets and distinct exact_hash values.
+# Spec: docs/development/sigma-novelty-audit-followup-2026-06-01.md (Item 12)
+# Patzke refs: Introducing Sigma Value Modifiers / Generic Log Sources.
+
+
+class TestKeywordListSelectionsProduceAtoms:
+    """extract_atomic_predicates handles top-level list-of-scalars selections."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    def test_keyword_list_of_strings_produces_one_atom_per_scalar(self, service):
+        detection = {
+            "keywords": ["<script>", "onerror=", "javascript:"],
+            "condition": "keywords",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        values = sorted(a.value for a in atoms)
+        assert values == sorted(["<script>", "onerror=", "javascript:"])
+        for a in atoms:
+            assert a.field == ""
+            assert a.op == "contains"
+            assert a.op_type == "literal"
+            assert a.polarity == "positive"
+
+    def test_xss_vs_ssti_rules_produce_distinct_atom_sets(self, service):
+        """The actual residual collision Item 12 closes: both rules share the
+        cs-method=GET selection and sc-status=404 filter; only the keywords
+        differ. Pre-fix they hashed identically; post-fix the keyword atoms
+        differentiate them.
+        """
+        xss = {
+            "select_method": {"cs-method": "GET"},
+            "keywords": ["=<script>", "onerror=", "javascript:alert"],
+            "filter": {"sc-status": 404},
+            "condition": "select_method and keywords and not filter",
+        }
+        ssti = {
+            "select_method": {"cs-method": "GET"},
+            "keywords": ["={{", "=${", "freemarker.template.utility.Execute"],
+            "filter": {"sc-status": 404},
+            "condition": "select_method and keywords and not filter",
+        }
+        xss_keys = {(a.field, a.op, a.value, a.polarity) for a in service.extract_atomic_predicates(xss)}
+        ssti_keys = {(a.field, a.op, a.value, a.polarity) for a in service.extract_atomic_predicates(ssti)}
+        assert xss_keys != ssti_keys
+        # Both still carry the shared boilerplate
+        shared = xss_keys & ssti_keys
+        assert any(k[2] == "GET" for k in shared), "shared cs-method=GET atom should be in both"
+        # XSS has unique keyword content that SSTI lacks
+        xss_only = xss_keys - ssti_keys
+        assert any("script" in k[2].lower() for k in xss_only)
+
+    def test_keyword_list_of_ints_produces_atoms(self, service):
+        """auditd-style: initselection: [0, 6] — integer scalars."""
+        detection = {
+            "initselection": [0, 6],
+            "condition": "initselection",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        values = sorted(a.value for a in atoms)
+        assert values == ["0", "6"]
+        assert all(a.field == "" and a.op == "contains" for a in atoms)
+
+    def test_keyword_list_negated_in_condition_has_negative_polarity(self, service):
+        detection = {
+            "selection": {"EventID": 4624},
+            "keywords": ["error", "fail"],
+            "condition": "selection and not keywords",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        keyword_atoms = [a for a in atoms if a.field == ""]
+        assert len(keyword_atoms) == 2
+        assert all(a.polarity == "negative" for a in keyword_atoms)
+
+    def test_mixed_list_of_dicts_and_scalars(self, service):
+        """Edge case: a list containing both maps and scalars. Both contributors
+        should produce atoms — dicts via the block path, scalars via the keyword path.
+        """
+        detection = {
+            "mixed": [{"Image|endswith": "\\foo.exe"}, "scalar_keyword"],
+            "condition": "mixed",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        values = [a.value for a in atoms]
+        assert "\\foo.exe" in values
+        assert "scalar_keyword" in values
+        # The dict contributed a field-bearing atom; the scalar contributed a keyword atom.
+        field_atoms = [a for a in atoms if a.field != ""]
+        keyword_atoms = [a for a in atoms if a.field == ""]
+        assert len(field_atoms) == 1
+        assert len(keyword_atoms) == 1
+
+    def test_existing_dict_only_selection_unchanged(self, service):
+        """Regression guard: pure-dict selections continue to produce field-bearing
+        atoms exactly as before (no double-extraction, no keyword atoms).
+        """
+        detection = {
+            "selection": {"CommandLine|contains": "powershell.exe"},
+            "condition": "selection",
+        }
+        atoms = service.extract_atomic_predicates(detection)
+        assert len(atoms) == 1
+        assert atoms[0].field != ""
+        assert atoms[0].value == "powershell.exe"
+
+    def test_former_keyword_only_rule_no_longer_atomless(self, service):
+        """Direct assertion that Item 12 reduces the Item-11 atom-less population:
+        rules that were the canonical Item-11 bug shape now produce atoms and
+        no longer hit the atom-less guard at assess_novelty:280.
+        """
+        rule = {
+            "logsource": {"product": "windows"},
+            "detection": {"keywords": ["foo", "bar"], "condition": "keywords"},
+        }
+        canonical = service.build_canonical_rule(rule)
+        atoms = canonical.detection["atoms"]
+        assert len(atoms) == 2
+        # And exact_hash is now real (not None per the Item-11 guard).
+        assert service.generate_exact_hash(canonical) is not None
 
 
 # ── Regression: _normalize_atom_identity runtime normalizer (2026-04-08) ──────

@@ -47,7 +47,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 9 | P1-B: wildcard↔modifier canonicalization (ship per 4a) | ✓ done — code `0688b0ff`, rebuild + recompute verified, queue 486 went 0→13 matches and 487 went 0→16; see closing Addendum | 1, 4a |
 | 10 | P3 hygiene bundle | ✓ done — see Addendum (Item 10) | 6 |
 | 11 | Atom-less rule `exact_hash` collisions (latent) | ✓ done — see closing Addendum (Item 11); 64 rows NULLed, atom-count=0 collisions 9 → 0 | 1 |
-| 12 | Incomplete-atom `exact_hash` collisions (new finding from Item 11 verification) | ○ | 11 |
+| 12 | Incomplete-atom `exact_hash` collisions (new finding from Item 11 verification) | ✓ done — see closing Addendum (Item 12); extractor models keyword-list selections, 5 residual collisions → 0, corpus 3,728/3,728 distinct hashes | 11 |
 
 ---
 
@@ -76,7 +76,7 @@ target separate dimensions of correctness, recall, and coverage.
 
 | Theme | Items | What it addresses |
 |---|---|---|
-| **False-positive duplicate hash** | 1 (✓ done), 3 (⊘ skipped), 11 (✓ done), 12 | List-of-maps collapse (shipped via `bd71d9cc`). Operator-drop hypothesis disproved (3, skipped). Atom-count=0 rules collide on hash — closed via Item 11. Residual atom-count>0 incomplete-atom collisions where the extractor drops detection content (12 — new finding from Item 11 verification, reachable in production). |
+| **False-positive duplicate hash** | 1 (✓ done), 3 (⊘ skipped), 11 (✓ done), 12 (✓ done) | List-of-maps collapse (shipped via `bd71d9cc`). Operator-drop hypothesis disproved (3, skipped). Atom-count=0 rules collide on hash — closed via Item 11. Residual atom-count>0 incomplete-atom collisions surfaced during Item 11 verification — closed via Item 12 (extractor now models keyword-list selections). Corpus now 3,728/3,728 distinct hashes. |
 | **Recall holes** | 5, 6 | Queue rules never compared against incoming candidates (5). Hard-gate at `sigma_matching_service.py:551` silently drops cross-`logsource_key` candidates that `canonical_class` was meant to surface (6). |
 | **Determinism & instrumentation** | 4b, 7 | `LIMIT 20` without `ORDER BY` makes candidate retrieval non-reproducible across runs (7). Static + dynamic measurement of how often the legacy fallback path fires (4b). |
 | **Corpus completeness** | 4c, 8 | Does `canonical_class` actually span multiple `logsource_key` values today (4c)? Only ~41% of rules have precomputed atoms — extend the canonical-class resolver and backfill (8). |
@@ -620,7 +620,9 @@ For rules with no atoms but with `keywords:`/`keyword_*:` selections, hash the k
 
 ---
 
-## Item 12 — Incomplete-atom `exact_hash` collisions (new finding 2026-06-01)
+## Item 12 — Incomplete-atom `exact_hash` collisions (new finding 2026-06-01) ✓ done
+
+**Status:** Completed 2026-06-01. `extract_atomic_predicates` now models top-level list-of-scalars selections (Sigma keyword-style) as field-less `contains` atoms. The 5 residual collision rules and the 64 Item-11-NULLed rows now produce atoms backed by their keyword content; the corpus collision query returns 0 rows; all 3,728 rules have distinct `exact_hash` values. See closing Addendum at bottom for details.
 
 **Why:** Item 11's UPDATE pass closed all atom-count=0 collisions but left 2 collision groups (5 rules) where `extract_atomic_predicates` produces non-empty but *incomplete* atom sets that happen to be byte-identical across behaviorally distinct rules. The extractor models only the rules' shared boilerplate (a common filter + a common selection) and silently drops the unique detection signal that lives in `keywords:` arrays or other unmodeled selection shapes.
 
@@ -682,13 +684,13 @@ The XSS and SSTI rules differ only in their `keywords:` payload patterns (which 
  ├─► 5 (queue-rules-excluded, parallelizable)
  ├─► 7 (LIMIT sort, before 8/9 if those touch fallback)
  └─► 11 (atom-less hash collisions, ✓ done)
-      └─► 12 (incomplete-atom hash collisions — new finding from 11 verification)
+      └─► 12 (incomplete-atom hash collisions, ✓ done)
 
 3 (operator-drop) ⊘ skipped — hypothesis disproved; no longer in graph.
 ```
 
 **Critical path:** 1 → 4c → 6 → 10.
-**Parallelizable with critical path:** 2, 5, 7, 11 (✓ done), 12.
+**Parallelizable with critical path:** 2, 5, 7, 11 (✓ done), 12 (✓ done).
 **Gated by 4:** 8, 9.
 
 ---
@@ -708,7 +710,7 @@ For a sequential single-operator pass:
    - Item 8 (coverage backfill) — priority from 4b.
 7. Ship Item 5 (queue-rules-excluded) in parallel whenever convenient.
 8. Item 11 (atom-less hash collisions, latent) — ✓ done 2026-06-01.
-9. Item 12 (incomplete-atom hash collisions, reachable in production) — surfaced during Item 11 verification; ship after Item 5 or in parallel.
+9. Item 12 (incomplete-atom hash collisions) — ✓ done 2026-06-01.
 10. Hygiene bundle (Item 10) after Item 6 lands.
 
 ---
@@ -1389,5 +1391,88 @@ Item 12 is documented above. It is **reachable in production** (unlike the origi
 - The Item 12 collisions sit in `rules/web/webserver_generic/*` and `rules/linux/auditd/execve/*`. The extractor fix will likely need to handle list-of-scalars selections (`keywords: [a, b, c]`) and possibly the `keyword:` family the way `bd71d9cc` handled list-of-maps.
 - Live containers are already on the new code via the bind-mounted `src/` directory. No image rebuild was needed for Item 11.
 - The 3 HTTP 400 rows surfaced by the parallel queue replay (queue ids 30, 42, 43 — "Rule YAML did not parse to a dictionary") are unrelated to Item 11 but worth surfacing as a follow-up cleanup candidate.
+
+End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 12 closed (extractor models keyword-list selections; corpus now collision-free)
+
+**Item(s) affected:** 12 (now done). With Item 12 closed, the entire false-positive duplicate-hash theme (Items 1, 3 ⊘, 11, 12) is resolved end-to-end.
+
+**Decision / result:** `extract_atomic_predicates` was modeling only `dict` and `list-of-dict` selection shapes; Sigma's third shape — top-level `list-of-scalars` (the keyword-style selection used by HTTP webserver_generic and Linux auditd rules) — was silently dropped. Refactored to inline-dispatch on per-item type (dict → block extractor, scalar → keyword atom, nested list → ignored). Each scalar now produces a field-less atom (`field=""`, `op="contains"`, polarity derived from the selection-name's role in the condition string). Polarity logic factored into a new helper `_polarity_for_selection_key` so the keyword branch can compute it without going through `_extract_block_atoms`'s per-field check.
+
+**Code changes:**
+
+- `src/services/sigma_novelty_service.py:extract_atomic_predicates`:
+  - Replaced the `blocks = [...]` two-step (build a list, iterate it) with an in-line dispatch on each list item's type. dict items go to `_extract_block_atoms` as before; scalar items produce a field-less keyword `Atom`. Mixed lists (rare but legal) split across both paths.
+  - New helper `_polarity_for_selection_key(key, detection)` — mirrors the polarity check in `_extract_block_atoms` but skips the `base_field` check (keyword atoms have no field). Used by the keyword branch. Filter-selection naming (`key.startswith("filter")`) and `not <key>` in the condition both yield negative polarity.
+- `src/cli/sigma_commands.py:backfill_metadata_cmd`:
+  - Added a `--force / -f` flag. When set, processes all rules (not just rows with `canonical_json IS NULL`). Matches the `--force` pattern already in `sigma index`, `sigma index-metadata`, `sigma index-customer-repo`, and `sigma index-embeddings`. Required for Item 12's corpus refresh because every existing row already had a populated `canonical_json` and needed it recomputed.
+
+**Test changes (in `tests/services/test_sigma_novelty_service.py`):**
+
+- New class `TestKeywordListSelectionsProduceAtoms`, 7 tests:
+  1. `test_keyword_list_of_strings_produces_one_atom_per_scalar` — primary contract.
+  2. `test_xss_vs_ssti_rules_produce_distinct_atom_sets` — the actual residual collision pair, asserting distinct atoms post-fix and that the shared boilerplate atoms still coexist with the per-rule keyword atoms.
+  3. `test_keyword_list_of_ints_produces_atoms` — auditd-style `initselection: [0, 6]`.
+  4. `test_keyword_list_negated_in_condition_has_negative_polarity` — `condition: ... and not keywords`.
+  5. `test_mixed_list_of_dicts_and_scalars` — edge case ensuring both paths fire.
+  6. `test_existing_dict_only_selection_unchanged` — regression guard for the dict-only happy path.
+  7. `test_former_keyword_only_rule_no_longer_atomless` — direct assertion that Item 12 reduces the Item-11 atom-less population for the canonical Item-11 bug-shape rule.
+- Item-11 fixtures migrated: 3 tests in `TestExactHashAtomLessReturnsNone` (and 1 in `TestSigmaNoveltyService::test_atomless_rule_not_flagged_duplicate`) previously used `"detection": {"keywords": ["foo", "bar"], "condition": "keywords"}` as their "atom-less rule" fixture. After Item 12 that shape is no longer atom-less — the fixtures now use `{"selection": {}, "condition": "selection"}` (empty-dict selection) to preserve the original intent (the `bd71d9cc` guard handles whatever atom-less rules remain; the test rule shape just shifts).
+
+**TDD discipline:** 7 Item-12 tests written first, watched fail (6 of 7 — the dict-only regression guard passed RED, expected since the fix only adds a branch above the existing logic). Fix applied. All 7 green. Item-11 tests migrated to empty-dict fixtures and stayed green throughout. Full sigma_novelty suite: 48/48 green. Broader sigma + workflow stack (matching, semantic similarity, similar-rules API, agentic workflow, similarity-max, novelty summary): **241/241 green**.
+
+**Operational pass (operator-approved):**
+
+```bash
+./run_cli.sh sigma backfill-metadata --force
+# → Force mode: re-backfilling all 3728 rules
+# → ✓ Backfilled 3728 rules
+# → real  0m21.475s
+```
+
+**Verification — collision query returns 0:**
+
+```sql
+SELECT exact_hash, COUNT(*) FROM sigma_rules
+WHERE exact_hash IS NOT NULL
+GROUP BY exact_hash HAVING COUNT(*) > 1;
+-- → 0 rows ✓
+
+SELECT COUNT(*) FILTER (WHERE exact_hash IS NULL) AS null_hashes,
+       COUNT(*) FILTER (WHERE exact_hash IS NOT NULL) AS non_null,
+       COUNT(DISTINCT exact_hash) FILTER (WHERE exact_hash IS NOT NULL) AS distinct_non_null
+FROM sigma_rules;
+-- → null_hashes=0, non_null=3728, distinct_non_null=3728
+```
+
+| Metric | Pre-Item-12 | Post-Item-12 |
+|---|---:|---:|
+| Total collision groups | 2 | **0** |
+| Rules in collision groups | 5 | 0 |
+| Rules with NULL `exact_hash` (Item-11 atom-less population) | 64 | **0** |
+| Distinct `exact_hash` values | 3,659 (of 3,664 non-null) | **3,728 (of 3,728 non-null)** |
+| Total rules | 3,728 | 3,728 |
+
+**Interpretation of the `null_hashes` change (64 → 0):** Item 11 NULLed 64 rows whose `canonical_json->detection->atoms` was empty under the *old* extractor. Item 12's new extractor produces keyword atoms for those rows where the detection used Sigma's keyword-style shape (the same idiom used by Cisco, SSHD, web, and Linux auditd rules in the corpus). Result: every row in the corpus now produces non-empty atoms and a real (distinct) exact_hash. The Item 11 `assess_novelty:280` atom-less guard remains in place as defense-in-depth, but at present has no production rule that exercises it — Item 12 narrowed the atom-less population to zero in the live corpus.
+
+**Action taken:**
+
+- Status Dashboard: Item 12 row flipped to `✓ done`.
+- Definition of Done criterion 1 now reads as fully satisfied.
+- Themes table updated — the False-positive duplicate hash theme is closed end-to-end.
+- Dependency Graph + Recommended Execution Order updated.
+- CHANGELOG entry added under `[Unreleased] > Fixed`.
+
+**With Item 12 closed, the only remaining items in the audit follow-up arc are:**
+
+- Item 5 — queue rules excluded from novelty corpus (P1, next big spec item; baseline measurement complete via [queue-similarity-replay-2026-06-01.md](queue-similarity-replay-2026-06-01.md)).
+- Item 8 — coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b).
+
+Notable in passing:
+- The 3 queue rows with malformed YAML (ids 30, 42, 43) noted in the queue replay are unaffected by Item 12 and remain a separate cleanup candidate.
+- The 64 rows that Item 11 NULLed but Item 12 re-populated were never problematic in production (the `bd71d9cc` guard at `assess_novelty:280` handled them safely). The journey was useful even where the destination was effectively unchanged — Item 12's extractor extension was *also* needed for the 5 actually-reachable collisions among `webserver_generic` and `auditd/execve` rules.
 
 End of addendum.

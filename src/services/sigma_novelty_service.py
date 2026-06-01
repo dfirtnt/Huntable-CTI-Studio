@@ -648,6 +648,13 @@ class SigmaNoveltyService:
         """
         Extract atomic predicates from detection block.
 
+        Selection values come in three shapes that must all contribute atoms:
+          (a) a map of field:value pairs (the common case),
+          (b) a list of maps (Sigma "list of maps" — OR of the maps),
+          (c) a list of scalars (Sigma keyword-style — field-less contains-match
+              against the raw event; Item 12 of the audit follow-up).
+        Mixed lists (dicts and scalars in the same list) split across paths (b) and (c).
+
         Lists are exploded into separate atoms. Logic explicitly represents OR/AND.
 
         Normalizes `contains|all` to separate `contains` atoms (semantically equivalent
@@ -659,31 +666,50 @@ class SigmaNoveltyService:
         Returns:
             List of Atom objects
         """
-        atoms = []
+        atoms: list[Atom] = []
 
         if not isinstance(detection, dict):
             return atoms
 
-        # Process all selection blocks. A selection value is either a single map
-        # (dict) or a list of maps (Sigma "list of maps" == OR of the maps). Both
-        # forms must contribute atoms — list-valued selections were previously
-        # skipped, yielding zero atoms and a degenerate canonical form that
-        # collapsed unrelated rules onto a single exact_hash.
         for key, value in detection.items():
             if key == "condition":
                 continue
 
             if isinstance(value, dict):
-                blocks = [value]
+                atoms.extend(self._extract_block_atoms(key, value, detection))
             elif isinstance(value, list):
-                blocks = [b for b in value if isinstance(b, dict)]
-            else:
-                continue
-
-            for block in blocks:
-                atoms.extend(self._extract_block_atoms(key, block, detection))
+                keyword_polarity = self._polarity_for_selection_key(key, detection)
+                for item in value:
+                    if isinstance(item, dict):
+                        atoms.extend(self._extract_block_atoms(key, item, detection))
+                    elif not isinstance(item, list):
+                        atoms.append(
+                            Atom(
+                                field="",
+                                op="contains",
+                                op_type="literal",
+                                value=str(item),
+                                value_type=self._infer_value_type(item),
+                                polarity=keyword_polarity,
+                            )
+                        )
+            # Other value types (scalars at the top level, None, etc.) contribute no atoms.
 
         return atoms
+
+    def _polarity_for_selection_key(self, key: str, detection: dict[str, Any]) -> str:
+        """Polarity for a keyword-style (field-less) selection.
+
+        Mirrors the polarity logic inside `_extract_block_atoms` but without the
+        per-field check — keyword atoms have no field, so only the selection-name
+        negation in the condition string matters.
+        """
+        if key.startswith("filter"):
+            return "negative"
+        condition = str(detection.get("condition", "")).lower()
+        if f"not {key.lower()}" in condition:
+            return "negative"
+        return "positive"
 
     def _extract_block_atoms(self, key: str, value: dict[str, Any], detection: dict[str, Any]) -> list[Atom]:
         """Extract atoms from a single selection map (one block of field:value pairs)."""
