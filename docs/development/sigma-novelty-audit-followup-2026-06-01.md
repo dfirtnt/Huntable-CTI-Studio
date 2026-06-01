@@ -40,7 +40,7 @@ This document is the complete build spec for the follow-up arc. It is **the sour
 | 4a | LLM-axis measurement | ✓ done — 14.8% all-time wildcard rate; **ship Item 9** | 2 |
 | 4b | Coverage-gap-usage measurement | ✓ done — 0% legacy-path hits in last 30d; **Item 8 demoted to "next quarter"** | 1 |
 | 4c | `canonical_class` fan-out measurement | ✓ done — 0 rows; **Item 6 = Option B** | 1 |
-| 5 | Queue rules excluded from novelty corpus | ○ | 1 |
+| 5 | Queue rules excluded from novelty corpus | ⊘ skipped — scope clarification 2026-06-01: desired corpus = SigmaHQ + customer repo (already covered by `sigma_rules`); queue is workflow state, not corpus | 1 |
 | 6 | P2-C: hard-gate / canonical_class contradiction (Option B per 4c) | ✓ done — see Addendum (Item 6) | 1, 4c |
 | 7 | P1: unordered `LIMIT 20` sort | ✓ done — see Addendum 2026-06-01 (Item 7) | 1 |
 | 8 | P2-D: coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b) | ○ | 1, 4b |
@@ -77,7 +77,7 @@ target separate dimensions of correctness, recall, and coverage.
 | Theme | Items | What it addresses |
 |---|---|---|
 | **False-positive duplicate hash** | 1 (✓ done), 3 (⊘ skipped), 11 (✓ done), 12 (✓ done) | List-of-maps collapse (shipped via `bd71d9cc`). Operator-drop hypothesis disproved (3, skipped). Atom-count=0 rules collide on hash — closed via Item 11. Residual atom-count>0 incomplete-atom collisions surfaced during Item 11 verification — closed via Item 12 (extractor now models keyword-list selections). Corpus now 3,728/3,728 distinct hashes. |
-| **Recall holes** | 5, 6 | Queue rules never compared against incoming candidates (5). Hard-gate at `sigma_matching_service.py:551` silently drops cross-`logsource_key` candidates that `canonical_class` was meant to surface (6). |
+| **Recall holes** | 5 (⊘ skipped), 6 (✓ done) | Queue rules never compared against incoming candidates (5 — reframed and skipped: desired corpus is SigmaHQ + customer repo, which is exactly what `sigma_rules` already contains; the queue is workflow state and stays out of the scorer). Hard-gate at `sigma_matching_service.py:551` silently drops cross-`logsource_key` candidates that `canonical_class` was meant to surface (6 — closed via Option B scoping). |
 | **Determinism & instrumentation** | 4b, 7 | `LIMIT 20` without `ORDER BY` makes candidate retrieval non-reproducible across runs (7). Static + dynamic measurement of how often the legacy fallback path fires (4b). |
 | **Corpus completeness** | 4c, 8 | Does `canonical_class` actually span multiple `logsource_key` values today (4c)? Only ~41% of rules have precomputed atoms — extend the canonical-class resolver and backfill (8). |
 | **LLM-generation side** | 4a, 9 | Do LLM-generated rules use literal `*` in values (4a)? If so, fold wildcards into modifier-equivalent atoms so they intersect with corpus atoms properly (9 — conditional on 4a). |
@@ -283,9 +283,15 @@ ORDER BY lk_count DESC;
 
 ---
 
-## Item 5 — Queue rules excluded from novelty corpus
+## Item 5 — Queue rules excluded from novelty corpus ⊘ skipped
 
-**Why:** The novelty/similarity scorer reads only from `sigma_rules` (the indexed SigmaHQ + customer-repo corpus). Approved-but-unsubmitted rules in `sigma_rule_queue` are **never compared** against incoming candidates. If a user approves rule X today and an LLM generates near-duplicate rule X' tomorrow, X' will be classified NOVEL even though X is already in the queue waiting to be merged.
+**Status:** `⊘ skipped 2026-06-01`. The spec's framing (queue rules as a recall hole) was reframed during scope discussion: the desired comparison corpus is SigmaHQ + customer repo, which is *exactly* what the `sigma_rules` table already contains (populated by `./run_cli.sh sigma index` and `./run_cli.sh sigma index-customer-repo` respectively). The queue is workflow state — not yet committed via PR merge — and the user explicitly chose to keep it out of the scorer. The "rule X approved today, X' generated tomorrow" window the spec worried about is bounded operationally by `index-customer-repo` cadence after queue PRs merge. See closing Addendum at the bottom of this doc for the full rationale.
+
+The original section is retained below for traceability.
+
+---
+
+**Why (original — premise reframed):** The novelty/similarity scorer reads only from `sigma_rules` (the indexed SigmaHQ + customer-repo corpus). Approved-but-unsubmitted rules in `sigma_rule_queue` are **never compared** against incoming candidates. If a user approves rule X today and an LLM generates near-duplicate rule X' tomorrow, X' will be classified NOVEL even though X is already in the queue waiting to be merged.
 
 This is a real recall hole, independent of all other items.
 
@@ -681,7 +687,7 @@ The XSS and SSTI rules differ only in their `keywords:` payload patterns (which 
  ├─► 4c (canonical_class fan-out measurement)
  │    └─► 6 (gate fix — A or B chosen by 4c)
  │         └─► 10 (hygiene bundle, after 6)
- ├─► 5 (queue-rules-excluded, parallelizable)
+ ├─► 5 (queue-rules-excluded, ⊘ skipped — scope reframed; existing sigma_rules already covers SigmaHQ + customer repo)
  ├─► 7 (LIMIT sort, before 8/9 if those touch fallback)
  └─► 11 (atom-less hash collisions, ✓ done)
       └─► 12 (incomplete-atom hash collisions, ✓ done)
@@ -708,7 +714,7 @@ For a sequential single-operator pass:
    - Item 6 (gate fix) — A or B from 4c.
    - Item 9 (wildcard↔modifier) — ship or skip from 4a.
    - Item 8 (coverage backfill) — priority from 4b.
-7. Ship Item 5 (queue-rules-excluded) in parallel whenever convenient.
+7. ~~Ship Item 5 (queue-rules-excluded) in parallel whenever convenient.~~ — `⊘ skipped 2026-06-01`. See closing Addendum.
 8. Item 11 (atom-less hash collisions, latent) — ✓ done 2026-06-01.
 9. Item 12 (incomplete-atom hash collisions) — ✓ done 2026-06-01.
 10. Hygiene bundle (Item 10) after Item 6 lands.
@@ -1468,7 +1474,7 @@ FROM sigma_rules;
 
 **With Item 12 closed, the only remaining items in the audit follow-up arc are:**
 
-- Item 5 — queue rules excluded from novelty corpus (P1, next big spec item; baseline measurement complete via [queue-similarity-replay-2026-06-01.md](queue-similarity-replay-2026-06-01.md)).
+- Item 5 — queue rules excluded from novelty corpus (subsequently `⊘ skipped 2026-06-01` — scope reframed; see closing Addendum after Item 12).
 - Item 8 — coverage backfill beyond `process_creation` (demoted to "next quarter" per 4b).
 
 Notable in passing:
@@ -1476,3 +1482,87 @@ Notable in passing:
 - The 64 rows that Item 11 NULLed but Item 12 re-populated were never problematic in production (the `bd71d9cc` guard at `assess_novelty:280` handled them safely). The journey was useful even where the destination was effectively unchanged — Item 12's extractor extension was *also* needed for the 5 actually-reachable collisions among `webserver_generic` and `auditd/execve` rules.
 
 End of addendum.
+
+---
+
+## Addendum 2026-06-01 — Item 5 skipped (scope clarification: desired corpus is SigmaHQ + customer repo, already covered by `sigma_rules`)
+
+**Item(s) affected:** 5 (now `⊘ skipped`). With Item 5 closed the audit follow-up arc is fully resolved — all ⓘ ten substantive items landed, two ⓘ skipped (3 disproved, 5 reframed), one ⓘ deferred (8 demoted by 4b measurement).
+
+**Decision / result:** Item 5 was originally framed as "queue rules are excluded from the scorer's corpus → near-duplicate LLM proposals get false-NOVEL during the approve→merge window." A scope discussion 2026-06-01 reframed the question: the desired comparison corpus is **SigmaHQ + the customer's own Sigma rules repo**, which is *exactly* what the `sigma_rules` table already contains (populated by `./run_cli.sh sigma index` for SigmaHQ and `./run_cli.sh sigma index-customer-repo` for the customer repo, both writing to the same table). The queue is workflow state — not committed via PR merge — and the operator explicitly chose to keep it outside the scorer.
+
+**The window the spec worried about exists but is bounded operationally**, not closed by code:
+
+```
+queue rule approved
+      → PR opened against customer repo (status='submitted', pr_url set)
+      → PR merged into customer repo
+      → next `index-customer-repo` sync runs
+      → rule lands in sigma_rules, becomes a regular candidate
+```
+
+During the merge-to-sync gap, a near-duplicate LLM proposal can be classified NOVEL. The reviewer will catch it and mark it rejected/duplicate. The gap is bounded by the customer-repo sync cadence — currently manual (`./run_cli.sh sigma index-customer-repo`), no schedule.
+
+**Why this is the right call:**
+
+1. **Semantic boundary is cleaner.** The corpus represents "rules I've actually committed to via PR merge." Queue state is intent, not commitment. Mixing the two muddies the distinction.
+2. **No new schema burden.** Item 5's spec required either (a) adding 8 canonical-fields columns to `sigma_rule_queue` (canonical_json, canonical_text, canonical_class, positive_atoms, negative_atoms, surface_score, logsource_key, exact_hash) plus backfill + updating both inserter sites (`src/web/routes/sigma_queue.py:361`, `src/workflows/agentic_workflow.py:2423`), or (b) computing those fields in-Python on every scoring call. Skipping Item 5 avoids both.
+3. **The recall hole is reviewer-visible and reviewer-correctable.** A duplicate that escapes the scorer reaches a human reviewer, who has full context (queue card UI, similar-rules panel, can manually compare). The false-NOVEL costs review time, not safety.
+4. **The existing `sigma_rules` corpus already serves the actual scope.** SigmaHQ + customer repo = both paths into `sigma_rules`. Item 5 was proposing to add a *third* source (queue) that the operator doesn't actually want.
+
+**Operational follow-up (not a code change, not in this arc):**
+
+The customer-repo sync (`./run_cli.sh sigma index-customer-repo`) is currently manual. The merge→sync gap is whatever the operator's discipline produces. If the gap proves problematic over time, the lever is one of:
+
+- **Discipline:** run `index-customer-repo` after each queue PR merges.
+- **Cadence:** run it on a cron (e.g., hourly).
+- **Automation:** wire it to a GitHub webhook so it fires when a queue PR is detected as merged.
+
+Each is a separate, smaller, future-arc question — not a blocker for closing the audit follow-up arc.
+
+**Action taken:**
+
+- Status Dashboard: Item 5 row flipped to `⊘ skipped — scope clarification 2026-06-01: desired corpus = SigmaHQ + customer repo (already covered by sigma_rules); queue is workflow state, not corpus`.
+- Themes table: Item 5 marked `⊘ skipped` in the "Recall holes" row with the scope-reframing rationale; Item 6 noted as `✓ done` in the same row.
+- Item 5 section: header marked `⊘ skipped` with the scope-clarification preamble and traceability link to this addendum. Original section body retained.
+- Dependency Graph + Recommended Execution Order: Item 5 marked skipped.
+- Item 12 closing addendum's "remaining items" callout updated to reflect Item 5's skip.
+
+---
+
+## Audit follow-up arc closed (2026-06-01)
+
+This audit follow-up arc began 2026-06-01 from the May 31 Sigma novelty audit which surfaced ten distinct issues across six themes. All items are now resolved:
+
+| Item | Title | Outcome | Commits / addenda |
+|---|---|---|---|
+| 1 | Push `bd71d9cc` (exact_hash fix) | ✓ done | `bd71d9cc` (pre-existing) |
+| 2 | Eval-miner review + commit | ✓ done | `8c7b46b7` |
+| 3 | Operator-drop hypothesis | ⊘ skipped — disproved by code reading + corpus quantification | Addendum 2026-06-01 (Item 3) |
+| 4a | LLM-axis wildcard measurement | ✓ done — 14.8% all-time → ship Item 9 | Addendum 2026-06-01 (4a/b/c) |
+| 4b | Coverage-gap-usage measurement | ✓ done — 0% legacy-path hits → demote Item 8 | Addendum 2026-06-01 (4a/b/c) |
+| 4c | `canonical_class` fan-out measurement | ✓ done — 0 rows → Item 6 Option B | Addendum 2026-06-01 (4a/b/c) |
+| 5 | Queue rules in candidate pool | ⊘ skipped — scope reframed (corpus = SigmaHQ + customer repo, already covered by sigma_rules) | Addendum 2026-06-01 (Item 5) |
+| 6 | Hard-gate scoped to fallback path (Option B) | ✓ done | `749f0d0e` |
+| 7 | Unordered LIMIT sort | ✓ done | `86827bd8` |
+| 8 | Coverage backfill beyond process_creation | ⊘ deferred to next quarter per 4b measurement | Addendum 2026-06-01 (4a/b/c) |
+| 9 | Wildcard↔modifier canonicalization | ✓ done | `0688b0ff`, `4d8e2d9b` |
+| 10 | P3 hygiene bundle | ✓ done | `060bd164` |
+| 11 | Atom-less hash collisions | ✓ done | `58fb8bf6` |
+| 12 | Incomplete-atom hash collisions (new finding) | ✓ done | `84dc0e68` |
+
+**Corpus invariants now hold:**
+- 3,728 sigma rules, 3,728 distinct `exact_hash` values, 0 NULL hashes, **0 collision groups**.
+- `canonical_class` Phase 1 retrieval no longer silently undone by the Phase 3 hard gate (Item 6 Option B).
+- Candidate retrieval is deterministic across runs / replicas / after VACUUM (Item 7).
+- The atom extractor models all three Sigma selection shapes — dict, list-of-dicts, list-of-scalars (Items 1 + 12).
+- Wildcard-bearing proposed rules find their canonical neighbors instead of being false-NOVEL (Item 9).
+- The two-engine architecture is documented (Item 10c).
+- Eval-miner tooling is committed and runnable (Item 2).
+
+**What remains outside this arc:**
+- Item 8 (deferred to next quarter): extend `CANONICAL_CLASS_REGISTRY` beyond process_creation to registry/file/network/etc. Promoted to active when canonical-class coverage becomes a strategic goal.
+- Operational cadence for `index-customer-repo` after queue PRs merge (called out in the Item 5 addendum). Not a code change.
+- The 3 malformed-YAML rows in `sigma_rule_queue` (ids 30, 42, 43) surfaced by the Item-11 verification replay — separate cleanup candidate.
+
+End of arc.
