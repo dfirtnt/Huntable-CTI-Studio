@@ -1,0 +1,697 @@
+# Sigma Novelty Engine — Audit Followup & Hardening Spec
+
+**Status:** Active
+**Date:** 2026-06-01
+**Predecessor audit:** [`cmdline-eval-audit-2026-05-31.md`](cmdline-eval-audit-2026-05-31.md) (the eval-side audit) and the May 31 Sigma novelty audit (mined 1,545 rules → 10 T3 wildcard↔modifier pairs, 231 exact_hash collisions, 0% precision on hash dedup).
+**Goal:** *The Sigma novelty scorer is deterministic, honest about recall failures, and structurally complete for the indexed corpus.*
+
+This document is the complete build spec for the follow-up arc. It is **the source of truth** — no external tracker, no Todoist, no parallel issue log. A fresh Claude session should pick the next pending item, do the work, update this doc's status table, commit, and continue.
+
+---
+
+## How Claude uses this spec
+
+1. **Read this entire file before doing anything.** Items have dependencies that aren't obvious from titles alone.
+2. **Find the next item to work on** by scanning the Status Dashboard below for the first row with status `○ pending` whose dependencies are all `✓ done`.
+3. **Read that item's full section** end-to-end (Why, Where, Acceptance, Subtasks, Dependencies).
+4. **Execute the subtasks in order.** Use TDD per `AGENTS.md` (repo root) when adding behavior; quantify-before-fixing for measurement items.
+5. **Update the Status Dashboard** in this doc as the item progresses (`◐ in progress` when starting; `✓ done` on completion). Edit this file in the same commit as the work.
+6. **Commit and push** per the conventions in `## Project Conventions` below.
+7. **If blocked**: change status to `⚠ blocked: <one-line reason>`, write an `## Addendum YYYY-MM-DD` section at the bottom of this doc describing what's blocking, and stop. Do not silently park items.
+8. **If measurement output triggers a branch in the plan** (Items 4a/4b/4c gate downstream items): record the measurement in an `## Addendum YYYY-MM-DD: Measurement Results` section, then update the affected items' status to reflect the decision (e.g. `⊘ skipped per 4a: <2% wildcards`).
+
+### Status legend
+
+| Symbol | Meaning |
+|---|---|
+| `○` | pending — not started, dependencies not yet met OR not yet picked up |
+| `◐` | in progress — currently being worked on; commit message will reference the item |
+| `✓` | done — landed on `europa-7.2.1` (or `main` if released) |
+| `⊘` | skipped — explicitly decided not to ship, with reason in addendum |
+| `⚠` | blocked — see addendum for reason |
+
+### Status Dashboard
+
+| Item | Title | Status | Depends on |
+|---|---|---|---|
+| 1 | Push `bd71d9cc` (exact_hash fix) | ✓ done — on `origin/europa-7.2.1` as of 2026-06-01 | — |
+| 2 | Review + commit eval-miner files | ○ | 1 |
+| 3 | Fix `generate_canonical_text` operator-drop | ○ | 1 |
+| 4a | LLM-axis measurement | ○ | 2, 3 |
+| 4b | Coverage-gap-usage measurement | ○ | 3 |
+| 4c | `canonical_class` fan-out measurement | ○ | 3 |
+| 5 | Queue rules excluded from novelty corpus | ○ | 1, 3 |
+| 6 | P2-C: hard-gate / canonical_class contradiction | ○ | 1, 3, 4c |
+| 7 | P1: unordered `LIMIT 20` sort | ○ | 1 |
+| 8 | P2-D: coverage backfill beyond `process_creation` | ○ | 1, 3, 4b |
+| 9 | P1-B: wildcard↔modifier canonicalization (conditional) | ○ | 1, 3, 4a |
+| 10 | P3 hygiene bundle | ○ | 6 |
+
+---
+
+## Definition of Done (for the whole goal)
+
+The goal is closed when **all** are true:
+
+1. No empty-atom rule collapses to a degenerate `exact_hash` bucket. *(Item 1 — already fixed locally.)*
+2. `generate_canonical_text` includes the operator in every atom's canonical form. *(Item 3.)*
+3. `canonical_class` either does work the simpler `logsource_key` fallback wouldn't (broader recall across `logsource_key` values), or is documented as a no-op safety net. The hard gate at `sigma_matching_service.py` is consistent with whichever it is. *(Item 6.)*
+4. Candidate retrieval in `sigma_novelty_service.py` is ordered and reproducible. *(Item 7.)*
+5. The coverage hole (rules without `canonical_class`/`positive_atoms`) is either backfilled or exposed in operational metrics. *(Item 8.)*
+6. Every rule comparison surfaces either a numeric similarity or an explicit "comparator inconclusive" status — no silent fallbacks. *(Items 6, 8.)*
+7. LLM-generated rules in production are within the scorer's coverage, verified by measurement, not assumed. *(Item 4.)*
+8. Any external "three phases" architecture diagram (decks, docs) describes what the engine actually does. *(Item 6 subtask 4.)*
+
+---
+
+## Already Shipped (do not redo)
+
+| Commit | What | Files |
+|---|---|---|
+| `7d242dfd` (on origin) | `/similar-rules` response now ships parsed `current_rule`; queue similarity dialog uses it instead of the broken custom JS YAML parser. Regression test for sibling structure + `CommandLine\|contains\|all` list preservation. Docs updated with correct containment definition + new Surface (DNF branches) subsection. | `src/web/routes/sigma_queue.py`, `src/web/templates/workflow.html`, `tests/api/test_sigma_similar_rules_api.py`, `docs/features/sigma-rules.md` |
+| `bd71d9cc` (local, **NOT YET PUSHED**) | `exact_hash` degenerate-collision fix: list-of-maps extraction + atom-less→NOVEL guard. Corpus re-indexed; 130 collision groups went to 0. | See commit; landed via TDD with 3 tests, 111 green overall. |
+
+**First action:** push `bd71d9cc` to `origin/europa-7.2.1`. Then proceed.
+
+---
+
+## Item 1 — Push `bd71d9cc`
+
+**Why:** Close out the shipped fix. Until it's on origin, nothing downstream can build on it cleanly.
+
+**How:**
+```bash
+git push origin europa-7.2.1
+```
+
+**Done when:** `git log --oneline origin/europa-7.2.1 | head -1` shows `bd71d9cc`.
+
+**Dependencies:** none.
+
+**Estimate:** 5 minutes.
+
+---
+
+## Item 2 — Review and commit the uncommitted eval-miner files
+
+**Why:** Two files were produced by an agent run during the May 31 audit and are still uncommitted:
+- `scripts/mine_sigma_pair_candidates.py`
+- `tests/sigma_semantic_similarity/test_canon_atom.py`
+
+They underpin the corpus-internal measurement (456 candidate pairs / 24 missed / 10 strong) used to demote the wildcard↔modifier canonicalization item. If their methodology is wrong, the demotion is wrong, and we'll be re-litigating Item 5 in two weeks.
+
+**Acceptance criteria:**
+1. Read both files end-to-end.
+2. Verify `canon_atom` in `test_canon_atom.py` reproduces the same logic as `sigma_semantic_similarity/sigma_similarity/atom_extractor.py:atom_identity` — especially: field alias map, case-folding rules for `_CASE_INSENSITIVE_OPS`, backslash normalization. **Any divergence is a methodology bug.**
+3. Verify the definition of "missed pair" in `mine_sigma_pair_candidates.py`. Document what threshold the measurement uses (e.g. "canon says identical but scorer < 0.9" vs. "canon says SIMILAR but scorer says NOVEL"). **Different thresholds give different demotion conclusions.**
+4. Commit both files as their own focused PR — conventional commit, descriptive body, do not bundle with Item 3.
+
+**Dependencies:** Item 1.
+
+**Estimate:** 30 min review + 10 min commit.
+
+**If methodology issues are found:** stop the dependent chain (Items 4 and 9) and re-run the corpus measurement after fixing the miner.
+
+---
+
+## Item 3 — Fix `generate_canonical_text` operator-drop (P0-2)
+
+**Why:** The function appears to use a stale key (`atom.get("ops")` or similar) instead of the actual `op` field when building the canonical text fed into `exact_hash`. If true, two rules with the same field+value but **different operators** (e.g. `endswith` vs `contains` vs `eq`) collapse to the same canonical form — same failure shape as the list-of-maps bug we just fixed.
+
+**Where:**
+- `src/services/sigma_novelty_service.py` — search for `generate_canonical_text` (function definition) and `generate_exact_hash` (caller).
+- The atom dict shape comes from `extract_atomic_predicates` / `build_canonical_rule`; the `op` field is set by `Atom` dataclass at `src/services/sigma_novelty_service.py:138-148`.
+
+**Acceptance criteria:**
+1. **Quantify first** (mirrors the exact_hash quantification):
+   - Find all `exact_hash` collision groups in the live `sigma_rules` table that survive the Item 1 (list-of-maps) fix. SQL:
+     ```sql
+     SELECT exact_hash, COUNT(*) AS rule_count, array_agg(rule_id) AS rule_ids
+     FROM sigma_rules
+     WHERE exact_hash IS NOT NULL
+       AND positive_atoms IS NOT NULL          -- exclude atom-less rules (NOVEL via Item 1 guard)
+     GROUP BY exact_hash
+     HAVING COUNT(*) > 1
+     ORDER BY rule_count DESC;
+     ```
+   - For each surviving group, fetch the rules and inspect their `detection.atoms` operator-by-operator:
+     ```sql
+     SELECT rule_id, detection
+     FROM sigma_rules
+     WHERE rule_id = ANY('{<rule_ids from above>}');
+     ```
+   - If any group contains rules with **identical field+value but distinct operators**, that's a confirmed operator-drop collision. Count and report in the addendum.
+2. Fix in `generate_canonical_text` so the canonical text includes the operator for every atom. Suggested form: serialize each atom as `field|op|value` (sorted lex), join with newline. The exact wire format is not load-bearing as long as different `op` values produce different strings.
+3. TDD: add a regression test in `tests/sigma_semantic_similarity/` that constructs two atoms with same field+value but different ops, computes their `exact_hash`, asserts hashes differ. Template:
+   ```python
+   def test_exact_hash_differs_when_operators_differ():
+       a1 = {"field": "CommandLine", "op": "contains", "value": "powershell.exe"}
+       a2 = {"field": "CommandLine", "op": "endswith", "value": "powershell.exe"}
+       rule1 = make_rule([a1])
+       rule2 = make_rule([a2])
+       assert generate_exact_hash(rule1) != generate_exact_hash(rule2)
+   ```
+4. Re-index the corpus and re-run the collision query — confirm collisions drop to zero (or to the next remaining cause, which becomes a new addendum and possibly a new spec item). Re-index command:
+   ```bash
+   ./run_cli.sh sigma reindex-semantic-fields     # if this exists
+   # OR, if no CLI subcommand yet, run the recompute path inline:
+   ./run_cli.sh sigma index-customer-repo --force
+   ```
+   Confirm with operator before running — touches every row in `sigma_rules`.
+
+**Dependencies:** Item 1.
+
+**Estimate:** 1–2 hours.
+
+**Why P0:** This is a *correctness* bug, not hygiene. It also pollutes the canonical_class fan-out measurement in Item 5 if not fixed first.
+
+---
+
+## Item 4 — Decision-gating measurements
+
+**Why:** Three downstream items (Items 6, 7, 9) are gated on measurements that haven't been run. Doing them while the scorer is stochastic (no `ORDER BY` on the fallback) or while the canonical text is bug-ridden (Item 3 unfixed) would produce numbers we can't trust.
+
+**Three measurements in one read-only pass:**
+
+### 4a — LLM-axis: do generated rules use wildcards?
+
+**Population:** all rules from `sigma_rule_queue` and `agentic_workflow_executions.sigma_results` in the last 30 days. Not a synthetic sample.
+
+**Signals (compute both):**
+1. **Fraction of generated rules with literal `*` in any value.**
+2. **Rank-change rate.** For each rule with a literal `*`, find its current top-5 nearest atom-distance neighbors. Run a *hypothetical* transformation that folds `\foo\*` → `endswith \foo\` and similar (leading `*` → `endswith`, trailing `*` → `startswith`, `*…*` → `contains`). Re-rank. Count how often the top-1 changes.
+
+**Decision thresholds (pre-commit, write down before running):**
+
+| Outcome | Action |
+|---|---|
+| <2% of rules with `*` AND <1 rank-change per 100 rules | Skip Item 9 permanently. Document as "wildcard↔modifier not worth ~half day of work; corpus-internal impact tiny AND LLM-axis impact tiny." |
+| >10% OR >5 rank-changes per 100 | Ship Item 9 (P1-B wildcard↔modifier canonicalization). |
+| Anything in between | Run a small synthetic experiment: pick 20 generated rules with `*`, transform them by hand, see if any change queue outcome (NOVEL ↔ SIMILAR boundary). Re-decide. |
+
+### 4b — Coverage-gap-usage
+
+**Question:** when the live scorer falls back from the precomputed-atom path to the legacy in-app path (because the candidate has no `positive_atoms`), how often does that happen?
+
+**How:** two complementary approaches — run both:
+
+1. **Static corpus coverage** (one SQL query, ~30 seconds):
+   ```sql
+   SELECT
+     COUNT(*) FILTER (WHERE positive_atoms IS NOT NULL)                      AS with_atoms,
+     COUNT(*) FILTER (WHERE positive_atoms IS NULL)                          AS without_atoms,
+     COUNT(*)                                                                AS total,
+     ROUND(100.0 * COUNT(*) FILTER (WHERE positive_atoms IS NULL) / COUNT(*), 1) AS pct_without
+   FROM sigma_rules;
+   ```
+   This is the *upper bound* on fallback usage: every comparison touching a row without `positive_atoms` takes the fallback path.
+2. **Dynamic instrumentation** (more accurate, but invasive): add a counter in `sigma_novelty_service.py` around line 345 (the precomputed-atom branch entry) and around line 437 (the legacy fallback branch entry). Log per-comparison; aggregate per workflow run. Remove the instrumentation before committing.
+
+Report both numbers in the addendum. The static number tells you "if all rules were compared uniformly, the fallback would fire X% of the time"; the dynamic number tells you "in production, with the actual rule distribution generated rules hit, the fallback fires Y% of the time." Often Y < X because LLM-generated rules cluster in `windows.process_creation` where coverage is good.
+
+**Decision thresholds:**
+
+| Outcome | Action |
+|---|---|
+| Fallback fires <5% of comparisons | Item 8 is "later" priority. |
+| Fallback fires 5–25% | Item 8 is "next quarter" priority. |
+| Fallback fires >25% | Item 8 is urgent — most of the corpus is being scored by the legacy path, which the audit found to be less accurate. Move ahead of Item 6. |
+
+### 4c — `canonical_class` fan-out
+
+**Question:** does `canonical_class` actually span multiple `logsource_key` values in the live corpus? This determines whether the Item 6 hard-gate fix is Option A or Option B.
+
+**SQL (one query):**
+```sql
+SELECT canonical_class, COUNT(DISTINCT logsource_key) AS lk_count
+FROM sigma_rules
+WHERE canonical_class IS NOT NULL
+GROUP BY canonical_class
+HAVING COUNT(DISTINCT logsource_key) > 1
+ORDER BY lk_count DESC;
+```
+
+**Decision thresholds:**
+
+| Outcome | Action |
+|---|---|
+| Zero rows (max distinct lk per class = 1) | Item 6 = Option B (scope the gate to fallback path; canonical_class is de facto 1:1 with logsource_key). |
+| Any rows | Item 6 = Option A (penalty in scoring). Read the rows: are they meaningful semantic equivalences (sysmon↔windows for process_creation) or just normalization variants? |
+
+**Acceptance criteria:**
+1. All three measurements run.
+2. Numbers written down with absolute counts (not just percentages).
+3. The three decision thresholds applied, results recorded in the Goal's parent task or this doc as an addendum.
+4. **Do not** modify any production code paths during the measurement — instrumentation is fine but must be backed out before the next commit.
+
+**Dependencies:** Items 1, 2, 3.
+
+**Estimate:** half a day.
+
+---
+
+## Item 5 — Queue rules excluded from novelty corpus
+
+**Why:** The novelty/similarity scorer reads only from `sigma_rules` (the indexed SigmaHQ + customer-repo corpus). Approved-but-unsubmitted rules in `sigma_rule_queue` are **never compared** against incoming candidates. If a user approves rule X today and an LLM generates near-duplicate rule X' tomorrow, X' will be classified NOVEL even though X is already in the queue waiting to be merged.
+
+This is a real recall hole, independent of all other items.
+
+**Acceptance criteria:**
+1. Add `sigma_rule_queue` rows with `status IN ('approved', 'submitted')` to the candidate set in `_get_candidate_rules` at `src/services/sigma_novelty_service.py:1130-1245`. Shape:
+   ```python
+   # Existing block returns candidates from sigma_rules.
+   # Add a second query for queue rules with the same logsource/canonical_class filter:
+   if hasattr(SigmaRuleQueueTable, "canonical_class") and canonical_class:
+       queue_candidates = (
+           self.db_session.query(SigmaRuleQueueTable)
+           .filter(SigmaRuleQueueTable.canonical_class == canonical_class)
+           .filter(SigmaRuleQueueTable.status.in_(["approved", "submitted"]))
+           .all()
+       )
+       candidates.extend(_row_to_candidate(q, from_queue=True) for q in queue_candidates)
+   ```
+   `SigmaRuleQueueTable` may not have `canonical_class`/`positive_atoms` columns yet — if not, this item also requires adding those columns + a backfill (subtask below). Confirm before coding.
+2. Tag candidates with `from_queue: True` in the match dict so downstream code can distinguish queue-sourced matches from corpus-sourced matches.
+3. Tests in `tests/services/test_sigma_novelty_service.py`: generate a duplicate of an approved-but-unsubmitted queue rule; verify it's classified SIMILAR or DUPLICATE, not NOVEL. Mock the queue session as needed.
+4. UI: the queue card's "similar rules" panel (`src/web/templates/workflow.html` around line 15976 onward) shows a distinct badge for queue-sourced matches: "Already in queue (approved)" vs. the existing "Your repo" / "SigmaHQ" badges at line 15974-15975.
+
+### Subtasks (order)
+1. **Check schema.** Does `sigma_rule_queue` have `canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score`? If not, add them (Alembic migration) and backfill from `rule_yaml` for existing approved rows. This is a precondition.
+2. Extend `_get_candidate_rules` to query queue rules.
+3. Add `from_queue` tag through the matching pipeline.
+4. UI badge.
+5. Tests for the NOVEL → SIMILAR transition.
+
+**Dependencies:** Items 1, 3. (Independent of measurements; can be parallelized with Item 4.)
+
+**Estimate:** 1 day, *plus* migration if schema gap exists (another half day).
+
+**Note:** Once shipped, the inverse query also becomes useful: "list of approved queue rules whose PR never landed" — surfaces stuck PRs. Not in scope for this item; flag in the PR description as a follow-up candidate.
+
+---
+
+## Item 6 — P2-C: Hard-gate / canonical_class contradiction
+
+**Why:** The hard gate at `src/services/sigma_matching_service.py:551-560` drops any scored candidate whose `logsource_key` doesn't equal the proposed rule's. This makes the canonical_class branch of Phase 1 (`sigma_novelty_service.py:1130-1186`) effectively dead code — Phase 1's broader recall is immediately undone by Phase 3's narrow gate. The engine never returns cross-`logsource_key` matches even though the column, indexed at sync time by `sigma_sync_service.py`, exists to enable exactly that.
+
+**Where:**
+- Hard gate: `src/services/sigma_matching_service.py:551-560`
+- Phase 1 retrieval (both branches): `src/services/sigma_novelty_service.py:1130-1186`
+
+**Decision (from Item 4c measurement, made BEFORE coding):**
+
+| canonical_class fan-out | Design | Why |
+|---|---|---|
+| = 1 across the corpus | **Option B**: scope the gate to the fallback path | canonical_class is de facto 1:1 with logsource_key; the gate is dead code on the canonical_class path. Simplest fix; matches "safety check" intent. |
+| > 1 | **Option A**: penalty in scoring | Real recall is being silently dropped. Need to surface it numerically. |
+
+### Option A specifics (if chosen)
+
+**Critical:** do NOT fold the logsource-mismatch penalty into `filter_penalty`. `filter_penalty` means *"negative atoms differ"* — distinct semantics. There's already a `service_penalty` slot in the match dict at `src/services/sigma_novelty_service.py:489`; introduce a sibling **`logsource_penalty`** field. The new similarity formula:
+
+```
+similarity = (Jaccard × Containment) − filter_penalty − service_penalty − logsource_penalty
+```
+
+Default `logsource_penalty` for cross-logsource-same-canonical-class candidates: start at `0.10` (parity with `SERVICE_PENALTY`). Tune via the measurement data.
+
+**Code shape (Option A):**
+
+```python
+# In sigma_matching_service.py around line 551, REPLACE the hard-gate continue
+# with a penalty calculation:
+
+if (
+    rule_logsource_key
+    and proposed_logsource_key
+    and rule_logsource_key != proposed_logsource_key
+):
+    logger.info(
+        "logsource_mismatch_penalty_applied",
+        extra={
+            "proposed_logsource_key": proposed_logsource_key,
+            "candidate_logsource_key": rule_logsource_key,
+            "candidate_rule_id": rule.rule_id,
+            "phase1_path": match.get("phase1_path", "unknown"),
+        },
+    )
+    logsource_penalty = LOGSOURCE_PENALTY  # new module-level constant, default 0.10
+else:
+    logsource_penalty = 0.0
+
+# Then add logsource_penalty to the match dict alongside service_penalty/filter_penalty,
+# and subtract it from `similarity` in the assembly step at sigma_novelty_service.py:484-509.
+```
+
+### Option B specifics (if chosen)
+
+Thread a `phase1_path: 'canonical_class' | 'logsource_fallback'` flag through the candidate dict returned by `_get_candidate_rules` in `sigma_novelty_service.py`. The gate in `sigma_matching_service.py:551` skips when `phase1_path == 'canonical_class'` (Phase 1's SQL already enforced `canonical_class` filtering; the gate is redundant on that path). On the fallback path, the gate becomes a no-op safety check (Phase 1's SQL already enforced `logsource_key == proposed_logsource_key`).
+
+**Code shape (Option B):**
+
+```python
+# In sigma_novelty_service.py:1190 (canonical_class branch) and :1213 (fallback branch),
+# tag each candidate with how it was retrieved:
+
+def _row_to_candidate(c, phase1_path: str):
+    out = {
+        "rule_id": c.rule_id,
+        ...
+        "phase1_path": phase1_path,  # NEW
+    }
+    ...
+    return out
+
+# Then in sigma_matching_service.py:551, gate the gate:
+if (
+    match.get("phase1_path") == "logsource_fallback"   # only enforce on fallback
+    and rule_logsource_key
+    and proposed_logsource_key
+    and rule_logsource_key != proposed_logsource_key
+):
+    logger.warning(
+        "logsource_key_mismatch_on_fallback_path",  # this should be rare; investigate if it fires
+        extra={
+            "proposed_logsource_key": proposed_logsource_key,
+            "candidate_logsource_key": rule_logsource_key,
+            "candidate_rule_id": rule.rule_id,
+        },
+    )
+    continue
+```
+
+### Acceptance criteria (both options)
+
+1. When Phase 1 retrieves via `canonical_class` and surfaces a candidate with different `logsource_key`, that candidate either (A) survives scoring with the mismatch reflected, or (B) survives the gate.
+2. When Phase 1 retrieves via the `logsource_key` fallback, end-to-end behavior is unchanged.
+3. The existing `logger.warning` at `sigma_matching_service.py:556-559` becomes structured logging emitting `proposed_logsource_key`, `candidate_logsource_key`, `candidate_rule_id`, and `phase1_path`.
+4. Tests cover both Phase 1 paths under the new gate behavior. Pattern: `tests/sigma_semantic_similarity/` (follow `test_canon_atom.py`).
+5. UI: if Option A, the dialog's Behavioral Similarity Breakdown shows `Logsource penalty: X%` as its own row in the deterministic engine's expanded panel (`src/web/static/js/components/similarity-display.js`, lines 264–298). If Option B, no UI change needed.
+6. Architecture docs updated:
+   - [`docs/features/sigma-rules.md`](../features/sigma-rules.md) — the Phase 3 description in "Novelty Service Architecture."
+   - Any external deck describing the three-phase engine (search for "Phase 3" / "hard gate" in `*.pptx`). Update or remove the misleading slide content.
+
+### Subtasks (order)
+
+1. **Read measurement output from Item 4c.** Decide Option A or B in writing (1–2 paragraphs in the task / commit body). Decision drives steps 2–4.
+2. **Implement chosen approach + structured logging.**
+3. **Tests for both Phase 1 paths** (see acceptance #4).
+4. **Update docs and any decks.**
+
+**Dependencies:** Items 1, 3, 4 (specifically 4c).
+
+**Estimate:** 1 day design + 1 day code + 0.5 day docs.
+
+---
+
+## Item 7 — P1: Unordered `LIMIT 20` sort
+
+**Why:** `src/services/sigma_novelty_service.py:1180-1186` (fallback candidate retrieval):
+
+```python
+candidates = (
+    self.db_session.query(SigmaRuleTable)
+    .filter(SigmaRuleTable.logsource_key == logsource_key)
+    .limit(top_k)
+    .all()
+)
+```
+
+No `ORDER BY`. Postgres returns *whichever* 20 rows it likes — different across runs, different across replicas, different after `VACUUM`. This is the **P1: sort LIMIT** item from the May 31 audit, demoted in scope (it's only the fallback path) but not in severity (it makes the scorer non-deterministic on rules that hit the fallback).
+
+**Fix:** add `.order_by(SigmaRuleTable.rule_id)` (or another stable column) before `.limit(top_k)`.
+
+**Acceptance criteria:**
+1. Same query, same result, every time.
+2. Test: insert 30 rules with the same `logsource_key`, call `_get_candidate_rules` twice, assert both calls return the same 20 rule_ids in the same order.
+
+**Dependencies:** Item 1.
+
+**Estimate:** 30 min (fix + test).
+
+**Why P1 (not P3 hygiene):** non-determinism corrupts every measurement and every test that lands on the fallback path. Land before Items 8 and 9 if either of those exercise the fallback.
+
+---
+
+## Item 8 — P2-D: Coverage backfill beyond `process_creation`
+
+**Why:** Of 3,728 rules in the corpus, only 1,547 (41%) have `positive_atoms` / `canonical_class` populated. The remainder fall back to the legacy in-app path on every comparison. The Item 4b measurement decides urgency, but the work itself has two halves:
+
+**Code half:** the `canonical_class` resolution map (search for it in `sigma_novelty_service.py` and `sigma_semantic_similarity/sigma_similarity/`) currently covers `windows.process_creation`, `linux.process_creation`, and a few others. Add the missing classes — at minimum: `windows.network_connection`, `windows.file_event`, `windows.registry_event`, `windows.image_load`, `linux.network_connection`, `linux.file_event`. Each addition needs its own integration test.
+
+**Operational half:** for every rule already in the DB, run the canonical_class resolver and update the row. Either:
+- A new CLI subcommand `sigma recompute-semantic-fields` that iterates rules, recomputes `positive_atoms`/`negative_atoms`/`surface_score`/`canonical_class`, and writes back.
+- Or a one-off migration script.
+
+The CLI approach is preferred because it's repeatable (when new canonical classes are added, you re-run it).
+
+**Acceptance criteria:**
+1. The CLI command exists and is idempotent.
+2. After running it, the coverage measurement from Item 4b returns ≥ 95% of comparisons going through the precomputed-atom path (assuming the new canonical classes cover the existing corpus).
+3. Tests for each new canonical class (e.g. `windows.network_connection`) extracting atoms correctly from representative rules.
+4. Documentation in [`docs/features/sigma-rules.md`](../features/sigma-rules.md) updated with the new canonical class list.
+
+**Dependencies:** Items 1, 3, 4b (urgency signal). Independent of Item 6.
+
+**Estimate:** 2–3 days (depends on how many canonical classes need adding).
+
+---
+
+## Item 9 — P1-B: Wildcard↔modifier canonicalization (conditional)
+
+**Why:** Sigma allows two equivalent ways to express anchored substring matches. Rule A writes:
+
+```yaml
+CommandLine|contains|all:
+  - \AppData\Roaming\php\
+```
+
+Rule B writes the same anchor as a literal `*`:
+
+```yaml
+CommandLine|contains: \AppData\Roaming\php\*
+```
+
+The current atom extractor treats `\AppData\Roaming\php\` and `\AppData\Roaming\php\*` as two distinct literal strings — they don't intersect, Jaccard = 0, containment falls to the 0.65 floor, both rules classified NOVEL of each other.
+
+**Run only if Item 4a says yes.** If 4a returns "skip permanently," close this item without coding and document the demotion.
+
+**Where:**
+- `sigma_semantic_similarity/sigma_similarity/atom_extractor.py` — specifically `_normalize_value` (line 70) and `atom_identity` (line 116).
+
+**Approach:** canonicalize wildcards into modifiers at extraction time, *before* atom identity is computed.
+
+```
+"prefix*"    → operator stays as-is, value becomes "prefix", modifier_chain prepends "startswith"
+"*suffix"    → value becomes "suffix", modifier_chain prepends "endswith"
+"*middle*"   → value becomes "middle", modifier_chain stays as "contains"
+"left*right" → split-and-pair (only if the original operator was contains/eq); else leave alone
+```
+
+Be conservative: only fold leading/trailing single `*`. Internal `*` patterns are ambiguous (could be literal asterisks in a path) — leave them as-is to avoid false-positive collisions.
+
+**Acceptance criteria:**
+1. Two atoms that previously differed only by leading/trailing `*` vs modifier now produce identical `atom_identity` strings.
+2. Atoms with internal `*` (e.g. `foo*bar*baz`) are unchanged.
+3. TDD: at least 10 test cases in `tests/sigma_semantic_similarity/` covering: leading `*`, trailing `*`, both, neither, escaped `\*`, mixed with explicit `endswith`/`startswith`/`contains` modifiers, edge cases (empty value, just `*`).
+4. Re-run the Item 4a measurement post-fix; confirm the rank-change rate drops.
+5. Existing tests in `tests/sigma_semantic_similarity/` still green.
+
+**Dependencies:** Items 1, 3, 4a. Independent of Items 6, 7.
+
+**Estimate:** half day code + 1 hour tests, *if* Item 4a says ship.
+
+---
+
+## Item 10 — P3 hygiene bundle
+
+**Why:** A grab-bag of small cleanup items from the audit. None individually justifies a PR; together they're a focused half-day.
+
+**Items:**
+
+| # | What | Where | Notes |
+|---|---|---|---|
+| 10a | Rename `compare_proposed_rule_to_embeddings` → `assess_rule_novelty` | `src/services/sigma_matching_service.py:639-652` (already aliased — just remove the deprecated wrapper after grepping for live callers) | Misnomer: the function uses no embeddings. Already documented as deprecated. |
+| 10b | N+1 re-fetch in the matching loop | `src/services/sigma_matching_service.py:543` — `self.db.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id == match.get("rule_id", "")).first()` runs once per match in a tight loop | Replace with one `SELECT ... WHERE rule_id IN (...)` then a dict lookup. |
+| 10c | Two-engine docs | [`docs/features/sigma-rules.md`](../features/sigma-rules.md) "Behavioral Novelty Scoring" section | The legacy path is barely documented. Add: when it runs, why it's there, what it sacrifices vs deterministic. |
+| 10d | Structured logging for the warning at `sigma_matching_service.py:556-559` | (subsumed by Item 6 acceptance #3) | Mentioned here for completeness; do not duplicate the work. |
+
+**Acceptance criteria:** each sub-item has its own test (where applicable) and lands in a single hygiene PR titled "chore(sigma): hygiene bundle".
+
+**Dependencies:** Item 1 minimum. Best done after Item 6 ships (10d is part of Item 6's acceptance criteria — don't double-ship).
+
+**Estimate:** half a day total.
+
+---
+
+## Dependency Graph (ASCII)
+
+```
+1 (push)
+ ├─► 2 (eval-miner review)
+ │     ├─► 4a (LLM-axis measurement)
+ │     │    └─► 9 (wildcard↔modifier canonicalization, CONDITIONAL)
+ │     ├─► 4b (coverage-gap measurement)
+ │     │    └─► 8 (coverage backfill, urgency from 4b)
+ │     └─► 4c (canonical_class fan-out measurement)
+ │          └─► 6 (gate fix — A or B chosen by 4c)
+ ├─► 3 (operator-drop) ─── must finish before 4 runs
+ ├─► 5 (queue-rules-excluded, parallelizable)
+ ├─► 7 (LIMIT sort, before 8/9 if those touch fallback)
+ └─► 10 (hygiene bundle, after 6)
+```
+
+**Critical path:** 1 → 3 → 4 → 6 → 10.
+**Parallelizable with critical path:** 2, 5, 7.
+**Gated by 4:** 8, 9.
+
+---
+
+## Recommended Execution Order
+
+For a sequential single-operator pass:
+
+1. Push `bd71d9cc` (Item 1).
+2. Review + commit eval-miner files (Item 2).
+3. Quantify and fix `generate_canonical_text` operator-drop (Item 3).
+4. Fix the `LIMIT 20` sort (Item 7) — cheap, gets done before measurements.
+5. Run the three decision-gating measurements (Item 4abc) in one read-only pass.
+6. Record results in this doc as a `## Addendum 2026-MM-DD: Measurement Results` section, then branch:
+   - Item 6 (gate fix) — A or B from 4c.
+   - Item 9 (wildcard↔modifier) — ship or skip from 4a.
+   - Item 8 (coverage backfill) — priority from 4b.
+7. Ship Item 5 (queue-rules-excluded) in parallel whenever convenient.
+8. Hygiene bundle (Item 10) after Item 6 lands.
+
+---
+
+## Project Conventions (Critical for a fresh Claude session)
+
+### Test execution
+
+- **Canonical entrypoint:** `python run_tests.py` (per `AGENTS.md` at the repo root).
+- **Direct pytest (when you need a single test):**
+  ```bash
+  APP_ENV=test \
+    POSTGRES_PASSWORD=$(grep POSTGRES_PASSWORD .env | cut -d= -f2) \
+    POSTGRES_PORT=5433 \
+    TEST_DATABASE_URL="postgresql+asyncpg://cti_user:${POSTGRES_PASSWORD}@localhost:5433/cti_scraper_test" \
+    .venv/bin/python -m pytest <path> -v --no-header -p no:cacheprovider
+  ```
+- **Never pipe through `| tail`** — hides progress and causes long waits. Use direct output or write to a log file.
+- **Run actual unit/integration tests relevant to the changed code**, not just smoke tests.
+
+### Git discipline (from CLAUDE.md)
+
+- Never amend; create new commits.
+- Never `--no-verify` unless explicitly authorized.
+- Commit messages: conventional commits (`fix(scope): ...`, `chore(scope): ...`), HEREDOC body, end with `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`.
+- If a pre-commit hook modifies files, re-stage and retry (loop up to 3 times). After 3, surface the diff.
+- **Do not modify unrelated user changes.** Current uncommitted, not part of this arc (refreshed 2026-06-01 after `bd71d9cc` landed):
+  - `M docs/ml-training/hunt-scoring.md` (still uncommitted)
+  - `M src/web/templates/ml_hunt_comparison.html` (still uncommitted)
+  - `?? docs/development/cmdline-eval-audit-2026-05-31.md`
+  - `?? docs/development/eval-contract-audit-prompt.md`
+  - `?? scripts/mine_sigma_pair_candidates.py` (Item 2 handles)
+  - `?? tests/sigma_semantic_similarity/test_canon_atom.py` (Item 2 handles)
+  - `?? docs/development/sigma-novelty-audit-followup-2026-06-01.md` (this spec itself — commit before relying on it from another branch)
+
+  Notes: `docs/CHANGELOG.md`, `docs/features/sigma-rules.md`, `src/services/sigma_novelty_service.py`, and `tests/services/test_sigma_novelty_service.py` were committed as part of `bd71d9cc` and are no longer "don't touch" — they were updated in the exact_hash fix and are now on origin. If you edit any of them as part of this arc, you're editing on top of the landed fix.
+
+### Docs build
+
+- `mkdocs build --strict` must pass before any docs PR.
+- Internal links to source files outside `docs/` will fail strict mode — use code-fence references (`` `path/to/file.py` ``) instead of markdown links for source code outside the docs tree.
+
+### Branch
+
+- Working branch: `europa-7.2.1` (per current git state).
+- Main branch for PRs: `main`.
+
+### File creation discipline
+
+- Before `Write` on a new file, always `Read` or `Glob` first to confirm absence.
+- Edit existing files in preference to creating new ones.
+- Do **not** create new docs/markdown files unless they're explicitly requested or required by the spec.
+
+---
+
+## Work Tracking and PR Hygiene
+
+This doc is the only tracker. Do not create parallel issue lists.
+
+- **Tracking:** edit the Status Dashboard at the top in the same commit as the work for that item.
+- **One item per PR** where possible. Item 10 is the only deliberate bundle.
+- **PR titles:** `fix(sigma): <summary>`, `chore(sigma): <summary>`, `docs(sigma): <summary>`.
+- **PR descriptions:** link back to this doc and the item number (e.g. "Closes Item 6 of `docs/development/sigma-novelty-audit-followup-2026-06-01.md`").
+- **Commit messages:** conventional commits with Co-Authored-By trailer (see `## Project Conventions`).
+- **Branch:** `europa-7.2.1` for now; rebase only with operator approval.
+
+## Recording Decisions and Measurements
+
+Append (do not edit in place) an addendum at the bottom of this doc for any of:
+
+- Measurement results from Item 4a/4b/4c.
+- A/B design choice for Item 6 (with the 1–2 paragraph rationale from subtask 1).
+- Item 9 ship/skip decision derived from 4a.
+- Item 8 priority derived from 4b.
+- Any item moved to `⚠ blocked`.
+
+Addendum format:
+
+```markdown
+## Addendum YYYY-MM-DD — <short title>
+
+**Item(s) affected:** N (e.g. 4a, 9)
+**Decision / result:** <one sentence>
+**Detail:** <as long as needed; include raw counts, SQL output, sample sizes>
+**Action taken:** <Status Dashboard updated row(s) listed here>
+```
+
+---
+
+## Open Questions (operator-only — not Claude to decide)
+
+These require human judgment. If Claude encounters one, stop, surface it in the response, and wait for direction.
+
+1. **Goal deadline:** none set as of 2026-06-01. The operator may impose one.
+2. **Customer repo indexing cadence:** the coverage-gap measurement (4b) may reveal that the customer rule repo is under-indexed (`./run_cli.sh sigma index-customer-repo` not run recently). That's an operational fix, not code; flag in the 4b addendum but do not run the index command unprompted.
+3. **Should the `logsource_penalty` (if Item 6 Option A) be configurable in `workflow_config`?** Default `0.10` is a starting point. Out of scope for the initial implementation; raise in the Item 6 PR description and let the operator decide.
+4. **Re-indexing the full corpus after Item 3 lands:** required for the corpus-internal effects of the operator-drop fix to take effect. Operator should authorize before the re-index runs (it touches every row in `sigma_rules`).
+
+---
+
+## Provenance
+
+- Audit source: May 31, 2026 Sigma novelty audit (mined 1,545 rules; surfaced exact_hash degeneracy + wildcard↔modifier loss + gate/canonical_class contradiction + LIMIT sort + coverage gap).
+- Consolidation: this doc, written 2026-06-01 during a multi-thread planning session.
+- Prior shipped work referenced in "Already Shipped" above.
+
+End of spec.
+
+---
+
+## Addendum 2026-06-01 — Item 1 landed
+
+**Item(s) affected:** 1
+
+**Decision / result:** `bd71d9cc` pushed to `origin/europa-7.2.1` (range `7d242dfd..bd71d9cc`).
+
+**Detail:**
+
+- Commit subject: `fix(sigma): stop exact_hash collapsing list-of-maps rules into false duplicates`
+- Author: dfirtnt, Co-Authored-By: Claude Opus 4.8 (1M context)
+- Files changed (now on origin, no longer in the "don't touch" list):
+  - `docs/CHANGELOG.md` (+3 lines)
+  - `docs/features/sigma-rules.md` (+9 lines)
+  - `src/services/sigma_novelty_service.py` (+93 / −60 lines net) — `extract_atomic_predicates` now expands list selections via `_extract_block_atoms`; `assess_novelty` returns NOVEL for atom-less rules
+  - `tests/services/test_sigma_novelty_service.py` (+58 lines) — tests for list-of-maps yielding atoms, distinct hashes, and atom-less never-DUPLICATE guard
+- Corpus impact reported in the commit body: **provably-distinct exact_hash collisions 130 → 0** after re-index.
+
+**Action taken:**
+
+- Status Dashboard row for Item 1 flipped to `✓ done`.
+- "Do not modify unrelated user changes" list refreshed; the four files committed in `bd71d9cc` are no longer listed as off-limits.
+- Items 2, 3, 5, 7 are now unblocked. The next operator-eligible item by the recommended execution order is **Item 3 (operator-drop)** — captured as todo `005-ready-p1-fix-canonical-text-operator-drop.md` in `.context/compound-engineering/todos/`.
+
+End of addendum.
