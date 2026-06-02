@@ -115,6 +115,49 @@ class TestAtomIdentityValueCaseFolding:
 
 
 # ---------------------------------------------------------------------------
+# Regression #2b: the |cased modifier MUST preserve case
+#
+# Sigma's |cased modifier forces case-sensitive matching on an otherwise
+# case-insensitive operator. atom_identity must NOT lowercase a cased value —
+# otherwise two rules hunting different literal casings of the same token
+# (e.g. a malware family that consistently writes "Mimikatz" vs a tool that
+# writes "mimikatz") collapse into one atom and the casing tradecraft signal is
+# erased. The ci decision was based purely on the base operator, ignoring the
+# `cased` token in the modifier chain. (Raised 2026-06-01 during the
+# preserve-literal-tradecraft review.)
+# ---------------------------------------------------------------------------
+
+
+class TestCasedModifierPreservesCase:
+    """atom_identity MUST preserve case when the |cased modifier is present,
+    even though the base operator (contains/endswith/startswith/eq) is otherwise
+    case-insensitive."""
+
+    def test_cased_contains_preserves_case(self):
+        a = atom_identity(AtomNode("CommandLine", "contains", "contains|cased", "Mimikatz"))
+        b = atom_identity(AtomNode("CommandLine", "contains", "contains|cased", "mimikatz"))
+        assert a != b, f"|cased must preserve case (case-sensitive match): {a!r} == {b!r}"
+
+    def test_cased_endswith_preserves_case(self):
+        a = atom_identity(AtomNode("Image", "endswith", "endswith|cased", "\\Foo.EXE"))
+        b = atom_identity(AtomNode("Image", "endswith", "endswith|cased", "\\foo.exe"))
+        assert a != b, f"endswith|cased must preserve case: {a!r} == {b!r}"
+
+    def test_cased_eq_preserves_case(self):
+        # Bare `field|cased` parses to operator 'eq' with modifier_chain 'cased'.
+        a = atom_identity(AtomNode("OriginalFileName", "eq", "cased", "Foo"))
+        b = atom_identity(AtomNode("OriginalFileName", "eq", "cased", "foo"))
+        assert a != b, f"eq|cased must preserve case: {a!r} == {b!r}"
+
+    def test_default_contains_still_folds_case(self):
+        """Regression guard: WITHOUT cased, the default contains is case-insensitive
+        and MUST still fold (don't break the 2026-04-08 fix)."""
+        a = atom_identity(AtomNode("CommandLine", "contains", "contains", "Mimikatz"))
+        b = atom_identity(AtomNode("CommandLine", "contains", "contains", "mimikatz"))
+        assert a == b, f"default contains must still case-fold: {a!r} != {b!r}"
+
+
+# ---------------------------------------------------------------------------
 # Regression #3: end-to-end — the EXACT bug report scenario
 #
 # Queue #247: "Shadow Copy Deletion Using Vssadmin" (LLM-generated, snake_case)

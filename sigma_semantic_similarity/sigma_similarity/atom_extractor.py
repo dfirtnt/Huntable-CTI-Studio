@@ -172,8 +172,11 @@ def atom_identity(node: AtomNode) -> str:
     op = node.operator.lower()
     mod = node.modifier_chain  # order preserved
     # Sigma string matching is case-insensitive by default (contains, endswith, startswith, eq).
-    # Only regex ('re') preserves case in its pattern.
-    ci = op in _CASE_INSENSITIVE_OPS
+    # The |cased modifier forces case-sensitive matching, so a cased atom must preserve
+    # case in its identity — otherwise two rules hunting different literal casings of the
+    # same token (a real attacker-tradecraft signal) collapse into one atom. Only regex
+    # ('re') preserves case in its pattern.
+    ci = op in _CASE_INSENSITIVE_OPS and "cased" not in mod.lower().split("|")
     val = _normalize_value(node.value, case_insensitive=ci)
     # Wildcard fold: collapse '*X*'-as-eq into 'X'-as-contains and similar
     # (Spec Item 9 / P1-B). Must run AFTER _normalize_value so backslashes
