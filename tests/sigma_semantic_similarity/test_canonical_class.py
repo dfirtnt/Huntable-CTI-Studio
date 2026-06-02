@@ -65,6 +65,80 @@ def test_security_4657_resolves_registry_event():
     assert resolve_canonical_class(r) == "windows.registry_event"
 
 
+# --- windows.registry_event family consolidation (Option C) ---
+# SigmaHQ fragments registry mutations across registry_event / registry_set /
+# registry_add / registry_delete. They are one telemetry class; all must resolve
+# to windows.registry_event so a registry_set rule is compared against a
+# registry_event rule (and vice versa) instead of being false-NOVEL.
+
+
+@pytest.mark.parametrize("category", ["registry_event", "registry_set", "registry_add", "registry_delete"])
+def test_registry_family_categories_resolve_to_one_class(category):
+    r = {
+        "logsource": {"product": "windows", "category": category},
+        "detection": {"s": {"TargetObject|contains": "\\Run"}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "windows.registry_event"
+
+
+def test_registry_set_and_registry_event_are_comparable():
+    """The consolidation payoff: a registry_set rule and a registry_event rule
+    detecting the same key are the same canonical class (not false-NOVEL)."""
+    r_set = {
+        "logsource": {"product": "windows", "category": "registry_set"},
+        "detection": {"s": {"TargetObject|contains": "\\CurrentVersion\\Run"}, "condition": "s"},
+    }
+    r_event = {
+        "logsource": {"product": "windows", "category": "registry_event"},
+        "detection": {"s": {"TargetObject|contains": "\\CurrentVersion\\Run"}, "condition": "s"},
+    }
+    result = compare_rules(r_set, r_event)
+    assert result.canonical_class == "windows.registry_event"
+    assert "canonical_class_mismatch" not in result.explanation["reason_flags"]
+    assert result.similarity >= 0.8
+
+
+# --- windows.file_event family (Option C, new class) ---
+
+
+@pytest.mark.parametrize("category", ["file_event", "file_delete", "file_access", "file_rename", "file_change"])
+def test_file_family_categories_resolve_to_one_class(category):
+    r = {
+        "logsource": {"product": "windows", "category": category},
+        "detection": {"s": {"TargetFilename|endswith": "\\evil.exe"}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "windows.file_event"
+
+
+def test_file_delete_and_file_event_are_comparable():
+    r_del = {
+        "logsource": {"product": "windows", "category": "file_delete"},
+        "detection": {"s": {"TargetFilename|endswith": "\\payload.dll"}, "condition": "s"},
+    }
+    r_evt = {
+        "logsource": {"product": "windows", "category": "file_event"},
+        "detection": {"s": {"TargetFilename|endswith": "\\payload.dll"}, "condition": "s"},
+    }
+    result = compare_rules(r_del, r_evt)
+    assert result.canonical_class == "windows.file_event"
+    assert "canonical_class_mismatch" not in result.explanation["reason_flags"]
+    assert result.similarity >= 0.8
+
+
+def test_file_event_vs_registry_event_mismatch():
+    r_file = {
+        "logsource": {"product": "windows", "category": "file_event"},
+        "detection": {"s": {"TargetFilename|endswith": "\\x.exe"}, "condition": "s"},
+    }
+    r_reg = {
+        "logsource": {"product": "windows", "category": "registry_set"},
+        "detection": {"s": {"TargetObject|contains": "\\Run"}, "condition": "s"},
+    }
+    result = compare_rules(r_file, r_reg)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
 # --- windows.service resolution ---
 
 

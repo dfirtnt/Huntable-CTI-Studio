@@ -21,12 +21,36 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     "linux.process_creation": {
         ("linux", "process_creation", None, None),
     },
+    # SigmaHQ fragments registry mutations across registry_event / registry_set /
+    # registry_add / registry_delete — one telemetry class (same Sysmon EIDs 12-14,
+    # same TargetObject/Details fields). Consolidated 2026-06-01 so a registry_set rule
+    # is compared against a registry_event rule instead of being false-NOVEL (Option C).
     "windows.registry_event": {
         ("windows", "registry_event", None, None),
+        ("windows", "registry_set", None, None),
+        ("windows", "registry_add", None, None),
+        ("windows", "registry_delete", None, None),
         ("windows", None, "sysmon", 12),  # Object create/delete
         ("windows", None, "sysmon", 13),  # Value Set
         ("windows", None, "sysmon", 14),  # Key/Value Rename
         ("windows", None, "security", 4657),  # Registry value modified
+    },
+    # File telemetry: SigmaHQ uses file_event / file_delete / file_access / file_rename /
+    # file_change — one class (TargetFilename/Image fields; Sysmon EIDs 11/23/26). Added
+    # 2026-06-01 (Option C). NOTE: the *.webserver keyword-only family is deliberately NOT
+    # added here — Spike A (2026-06-01) showed the precomputed extractor yields empty atoms
+    # for keyword-list selections, so routing webserver rules to the precomputed path would
+    # regress the working on-the-fly keyword comparison. Gated on the keyword-parity work
+    # (Conditional B / collapse-the-extractors issue).
+    "windows.file_event": {
+        ("windows", "file_event", None, None),
+        ("windows", "file_delete", None, None),
+        ("windows", "file_access", None, None),
+        ("windows", "file_rename", None, None),
+        ("windows", "file_change", None, None),
+        ("windows", None, "sysmon", 11),  # FileCreate
+        ("windows", None, "sysmon", 23),  # FileDelete (archived)
+        ("windows", None, "sysmon", 26),  # FileDeleteDetected
     },
     "windows.service": {
         ("windows", "service_creation", None, None),

@@ -1611,3 +1611,19 @@ return "positive"
 Either check would have flagged the gap pre-merge. The "do we need to update tests?" prompt one turn after Item 12 landed served as a delayed version of the same check — useful but later than ideal. Filing as a "post-arc hygiene" lesson, not a process change.
 
 End of addendum.
+
+---
+
+## Addendum 2026-06-02 — Item 8 partial: registry + file consolidation landed; Spike A defers webserver
+
+**Item(s) affected:** 8 (Coverage-Chain). Partial progress — NOT closing the row.
+
+**Landed (Coverage-Chain Option C, partial):** `CANONICAL_CLASS_REGISTRY` extended — `windows.registry_event` now also matches `registry_set`/`registry_add`/`registry_delete`; new `windows.file_event` class covers `file_event`/`file_delete`/`file_access`/`file_rename`/`file_change` (+ Sysmon EIDs 11/23/26). ~442 registry+file rules become deterministic-path candidates after recompute. Field-based, verified safe by spike (registry → `registrypath`/`details`, file → `targetfilename`/`process.image`). 11 tests added; 147 sigma_semantic_similarity green.
+
+**Spike A finding (gates the webserver portion + informs the collapse-extractors issue):** ran the XSS and SSTI webserver detections through the precomputed extraction pipeline (`normalize_detection` → `build_ast` → `ast_to_dnf` → `extract_positive_atoms`). **Both produced empty atom sets** — the precomputed (pySigma) extractor does not model keyword-list selections at all (and the cs-method/sc-status field atoms also did not survive the keyword-only condition structure). Consequence: adding `*.webserver` to the registry would route webserver rules to the precomputed path and store empty atoms, **regressing** the currently-working on-the-fly keyword comparison (the on-the-fly `extract_atomic_predicates` models keywords post-Item-12; webserver rules reach it today via the `logsource_key` fallback because they have no `canonical_class`). So `*.webserver` is deferred — it must wait on keyword parity in the precomputed extractor (the "collapse the two extractors into one" / Conditional B work). This is concrete evidence for that issue: the two extractors disagree on keyword-list selections, and the precomputed one is the gap.
+
+**Still open in the Coverage-Chain (tracked in Todoist, SigmaSim-prefixed):** Option B (`image_load`, `network_connection`), the long tail (PowerShell/macOS/proxy/DNS/…), and `*.webserver` (gated on keyword parity).
+
+**Operational:** the registry/file consolidation is live only after image rebuild (`sigma_semantic_similarity` is COPY'd, not bind-mounted) + `./run_cli.sh sigma recompute-semantics`. Not run here (parallel session active; rebuild/restart is the operator's call).
+
+End of addendum.
