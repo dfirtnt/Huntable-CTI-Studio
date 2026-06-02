@@ -362,14 +362,25 @@ When all three hold, the deterministic path runs. If any fails, the engine
 falls through to the legacy path. The legacy path therefore covers:
 
 - Rules whose telemetry class isn't modeled by the canonical-class resolver.
-  As of 2026-06-02 the modeled set covers process_creation (windows/linux),
-  the registry family (`registry_event`/`registry_set`/`registry_add`/`registry_delete`),
-  the Windows file family (`file_event`/`file_delete`/`file_access`/`file_rename`/`file_change`),
-  `windows.image_load` (Sysmon EID 7), `windows.network_connection` (Sysmon EID 3),
-  service, and scheduled_task. Still unmodeled (Coverage-Chain backlog): PowerShell,
-  macOS, `linux.file_event`, and keyword-only webserver/proxy rules (the last deliberately
-  deferred — the precomputed extractor yields empty atoms for keyword-list selections, so
-  they stay on the on-the-fly path that does model keywords).
+  As of 2026-06-02 the modeled set covers: process_creation (windows/linux/macos);
+  the registry family (`registry_event`/`registry_set`/`registry_add`/`registry_delete`);
+  the Windows file family (`file_event`/`file_delete`/`file_access`/`file_rename`/`file_change`);
+  the clean Sysmon-EID categories `windows.image_load` (7), `windows.network_connection` (3),
+  `windows.process_access` (10), `windows.create_remote_thread` (8), `windows.driver_load` (6),
+  `windows.create_stream_hash` (15), `windows.pipe_created` (17/18), `windows.dns_query`
+  (Sysmon 22 + DNS-Client 3008); the three PowerShell sources `windows.ps_script` (4104),
+  `windows.ps_module` (4103), `windows.ps_classic_start` (400) — kept as distinct classes;
+  the web/network access classes `web.webserver`, `web.proxy`, and `network.dns` (generic +
+  zeek, `query` field); plus `windows.service` and `windows.scheduled_task`. Keyword-list
+  selections (XSS/SSTI/Log4j webserver rules) are now modeled on **both** the precomputed and
+  on-the-fly paths — the precomputed extractor synthesizes a field-less `contains` atom per
+  scalar (Conditional B, 2026-06-02), so webserver/proxy rules are no longer forced onto the
+  on-the-fly path. Still unmodeled (Coverage-Chain backlog): cloud/audit telemetry
+  (aws/azure/gcp/okta/m365/github), heterogeneous multi-EID services (`windows`/`security`,
+  `windows`/`system`, `linux`/`auditd`), `linux.file_event` / `linux.network_connection`,
+  `macos.file_event`, and assorted singletons (windefend, cisco, fortigate, zeek smb, the
+  `application/*` product families). `EventCode` (the Splunk/EventLog field name) is treated
+  as `EventID` during resolution.
 - Rules whose Sigma syntax uses features the deterministic AST builder rejects
   (e.g. unsupported correlation patterns, nested `1 of` selection-name
   expressions that exceed the DNF expansion limit).
