@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 _SOURCE_CHECK_LOCK_KEY = "celery:lock:check_all_sources"
 _SOURCE_CHECK_LOCK_TTL_SECONDS = int(os.getenv("SOURCE_CHECK_LOCK_TTL_SECONDS", "5400"))
 
+_CUSTOMER_INDEX_LOCK_KEY = "celery:lock:index_customer_repo"
+_CUSTOMER_INDEX_LOCK_TTL_SECONDS = int(os.getenv("CUSTOMER_INDEX_LOCK_TTL_SECONDS", "3600"))
+
 # CRITICAL: Get Redis URL from environment BEFORE any other imports
 # Check both REDIS_URL and CELERY_BROKER_URL (Celery's preferred env var name)
 redis_url = os.getenv("REDIS_URL") or os.getenv("CELERY_BROKER_URL")
@@ -207,6 +210,59 @@ def _release_redis_lock(lock_key: str, token: str | None) -> None:
         logger.warning("Could not release Redis lock %s: %s", lock_key, exc)
 
 
+@celery_app.task(bind=True, max_retries=2)
+def index_customer_repo(self):
+    """Index approved Sigma rules from the customer repo into the similarity corpus.
+
+    The SigmaSim "index-customer-repo cadence" task: keeps the dedup corpus in sync
+    with the customer's deployed detections so generated rules are judged novel
+    against what the customer actually has, not just upstream SigmaHQ. Runs the same
+    logic as the ``sigma index-customer-repo`` CLI command, reading the LOCAL repo
+    working tree at ``SIGMA_REPO_PATH`` (no git pull / remote dependency). Metadata
+    and embeddings both skip already-indexed rules, so a no-new-rules run is
+    near-free. Executes in the worker (which mounts the repo at /app/sigma-repo);
+    Redis-locked so a beat overlap or a concurrent manual run can't double-index.
+    """
+    lock_token = _acquire_redis_lock(_CUSTOMER_INDEX_LOCK_KEY, _CUSTOMER_INDEX_LOCK_TTL_SECONDS)
+    if lock_token == "":
+        logger.info("Skipping index_customer_repo because another run already holds the lock")
+        return {"status": "skipped", "message": "Another customer-repo index is already in progress"}
+
+    session = None
+    try:
+        from src.database.manager import DatabaseManager
+        from src.services.sigma_pr_service import SigmaPRService
+        from src.services.sigma_sync_service import SigmaSyncService
+
+        repo_path = SigmaPRService().repo_path
+        if not repo_path.exists():
+            logger.warning("Customer repo path does not exist: %s — skipping index", repo_path)
+            return {"status": "skipped", "message": f"Customer repo path not found: {repo_path}"}
+
+        session = DatabaseManager().get_session()
+        sync_service = SigmaSyncService(repo_path=str(repo_path))
+        metadata = sync_service.index_metadata(session, force_reindex=False, rule_id_prefix="cust-")
+        embeddings = sync_service.index_embeddings(session, force_reindex=False, rule_id_prefix="cust-")
+        logger.info(
+            "Customer-repo index complete: metadata indexed=%s skipped=%s errors=%s; "
+            "embeddings indexed=%s skipped=%s errors=%s",
+            metadata.get("metadata_indexed"),
+            metadata.get("skipped"),
+            metadata.get("errors"),
+            embeddings.get("embeddings_indexed"),
+            embeddings.get("skipped"),
+            embeddings.get("errors"),
+        )
+        return {"status": "success", "metadata": metadata, "embeddings": embeddings}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Customer-repo index task failed: %s", exc)
+        raise self.retry(exc=exc, countdown=300)
+    finally:
+        if session is not None:
+            session.close()
+        _release_redis_lock(_CUSTOMER_INDEX_LOCK_KEY, lock_token)
+
+
 @celery_app.on_after_configure.connect
 def setup_periodic_tasks(sender, **kwargs):
     """Setup periodic tasks for the CTI Scraper."""
@@ -219,6 +275,16 @@ def setup_periodic_tasks(sender, **kwargs):
     )
 
     register_configurable_periodic_tasks(sender, ScheduledJobsService().get_periodic_jobs())
+
+    # Index the customer Sigma repo daily so the dedup corpus stays in sync with the
+    # customer's deployed detections (SigmaSim index-customer-repo cadence). Reads the
+    # local repo working tree; metadata + embeddings skip already-indexed rules, so a
+    # no-new-rules run is near-free. Executes in the worker, which mounts the repo.
+    sender.add_periodic_task(
+        crontab(hour=4, minute=30),  # daily at 04:30
+        index_customer_repo.s(),
+        name="index-customer-repo-daily",
+    )
 
     # Generate annotation embeddings weekly on Sundays at 4 AM
     # sender.add_periodic_task(
