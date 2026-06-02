@@ -626,6 +626,20 @@ entry for display in the Sigma Queue UI.
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine; used when installed |
 
+### Vocabulary: "semantic", "embedding", "vector" mean three different things here
+
+The word **"semantic"** is overloaded across the Sigma code and is the single biggest source of confusion. There are **three independent similarity mechanisms**, and only two of them actually involve vectors:
+
+| Mechanism | What it is | Vectors? | Where |
+|---|---|---|---|
+| **Article / annotation semantic search** | Genuine ML embeddings (all-mpnet-base-v2), cosine nearest-neighbour over article text. Powers MCP article search, RAG, web search. | **Yes** — real `Vector(768)` + `<=>` | `ArticleTable.embedding`, `AnnotationTable.embedding` |
+| **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — but only `SigmaRuleTable.embedding` and `logsource_embedding` are actually scored. The other five rule embedding columns (`title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding`) are written but never read; `detection_structure_`/`detection_fields_` even store a *duplicate* of the logsource vector. | `sigma_matching_service.py`, `rag_service.py` |
+| **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** — Jaccard × containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**, despite the `sigma_semantic_similarity` package name, `precompute_semantic_fields`, and the `recompute-semantics` CLI all carrying the word "semantic". | **No** | `sigma_semantic_similarity` pkg, `precompute_semantic_fields` |
+
+**Both novelty engines are deterministic.** The `"deterministic"` vs `"legacy"` engine labels (in `similarity_scores`) describe *where atoms are computed* — precomputed at index time vs parsed in-app at comparison time — **not** determinism vs probability. Neither novelty engine uses embeddings; the only probabilistic/fuzzy similarity in the system is the article and article→rule vector search above.
+
+> **Cleanup tracked:** the misnamed "semantic" set-math engine and the dead/duplicate rule-embedding columns are tracked as SigmaSim issues in the backlog. Until renamed, read "semantic precompute" / "semantic similarity" as "deterministic atom set-math."
+
 ---
 
 ## CLI Commands
