@@ -197,6 +197,21 @@ class TestSigmaNoveltyService:
 
         assert h1 != h2
 
+    def test_atomless_rule_emits_no_atoms_extracted_flag(self, service):
+        """The atom-less guard must emit a machine-readable `no_atoms_extracted`
+        flag (not just a free-text warning), so downstream routing can send the
+        rule to needs_review instead of silently enqueuing it as a confident
+        novel. The free-text warning alone was dropped by summarize_rule_novelty.
+        """
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {}, "condition": "selection"},
+        }
+        service.retrieve_candidates = Mock(return_value=[])
+        result = service.assess_novelty(rule, threshold=0.0)
+        assert result["novelty_label"] == NoveltyLabel.NOVEL
+        assert result.get("no_atoms_extracted") is True
+
     def test_atomless_rule_not_flagged_duplicate(self, service):
         """A rule with no extractable atoms has no fingerprint and must never be a DUPLICATE.
 

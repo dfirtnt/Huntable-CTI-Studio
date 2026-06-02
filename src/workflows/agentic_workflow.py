@@ -152,13 +152,21 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     silently disabled novelty suppression for ~86% of the queue.
 
     Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
-    ``total==0`` (empty corpus) is NOT treated as inconclusive.
+
+    Two distinct ``total==0`` cases must NOT be conflated:
+    - **Empty corpus / nothing to compare against** (no ``no_atoms_extracted`` flag):
+      genuinely novel, NOT inconclusive — keep the ``0.0`` semantics.
+    - **Proposed rule produced no atoms** (``no_atoms_extracted`` set by the
+      assess_novelty guard): a FAILURE TO ASSESS. This IS inconclusive, so it routes
+      to needs_review and a human sees it — fail open, but never silently as a
+      confident pending novel.
     """
     matches = match_result.get("matches", []) or []
     total = int(match_result.get("total_candidates_evaluated", 0) or 0)
     behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
+    no_atoms = bool(match_result.get("no_atoms_extracted"))
     sims = [m.get("similarity", 0.0) for m in matches]
-    inconclusive = total > 0 and behavioral == 0
+    inconclusive = no_atoms or (total > 0 and behavioral == 0)
     return {
         "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
         "total_candidates_evaluated": total,

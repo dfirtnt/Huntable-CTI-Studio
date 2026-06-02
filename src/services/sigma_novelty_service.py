@@ -290,6 +290,11 @@ class SigmaNoveltyService:
                     "total_candidates_evaluated": 0,
                     "behavioral_matches_found": 0,
                     "engine_used": "deterministic" if use_deterministic else "legacy",
+                    # Machine-readable flag (not just the free-text warning, which
+                    # downstream summarize_rule_novelty drops): this rule could not be
+                    # assessed at all. Routing must treat it as inconclusive →
+                    # needs_review, NOT a confident pending novel. Fail open, not silent.
+                    "no_atoms_extracted": True,
                     "warnings": _warnings,
                 }
 

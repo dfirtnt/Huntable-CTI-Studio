@@ -646,6 +646,9 @@ class SigmaMatchingService:
                 "engine_used": engine_used,
                 "logsource_key": logsource_key_meta,
                 "canonical_class": canonical_class_meta,
+                # Pass through the atom-less signal so summarize_rule_novelty can route
+                # an unassessable rule to needs_review (fail open, not silent).
+                "no_atoms_extracted": novelty_result.get("no_atoms_extracted", False),
             }
 
         except Exception as e:

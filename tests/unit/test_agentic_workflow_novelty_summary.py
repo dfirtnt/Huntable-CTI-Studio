@@ -105,6 +105,42 @@ def test_matches_without_similarity_key_default_zero():
 
 
 @pytest.mark.unit
+def test_no_atoms_extracted_is_inconclusive_not_silent_novel():
+    """A proposed rule the extractor can't model (`no_atoms_extracted`) has
+    total==0 just like an empty corpus — but it is a FAILURE TO ASSESS, not a
+    confident novel. It must be inconclusive (so it routes to needs_review and a
+    human sees it), distinct from the empty-corpus 'genuinely novel' case.
+
+    Fail-open is fine (we keep the rule); failing SILENTLY (enqueue it as a
+    confident pending novel with max_similarity=0.0) is not. This is the guard.
+    """
+    r = summarize_rule_novelty(
+        {
+            "matches": [],
+            "total_candidates_evaluated": 0,
+            "behavioral_matches_found": 0,
+            "no_atoms_extracted": True,
+        },
+        0.5,
+    )
+    assert r["comparator_inconclusive"] is True
+    assert r["max_similarity"] is None  # unscored — NOT a confident 0.0
+
+
+@pytest.mark.unit
+def test_empty_corpus_without_no_atoms_flag_stays_genuinely_novel():
+    """Companion guard: total==0 WITHOUT the no_atoms flag is the empty-corpus /
+    nothing-to-compare case — still genuinely novel, NOT inconclusive. The
+    no_atoms flag is the only thing that distinguishes the two total==0 cases."""
+    r = summarize_rule_novelty(
+        {"matches": [], "total_candidates_evaluated": 0, "behavioral_matches_found": 0},
+        0.5,
+    )
+    assert r["comparator_inconclusive"] is False
+    assert r["max_similarity"] == 0.0
+
+
+@pytest.mark.unit
 def test_behavioral_count_is_authority_over_match_list():
     """CONTRACT: inconclusivity is decided by behavioral_matches_found==0 (with
     candidates>0), NOT by len(matches). A contradictory result (candidates>0,
