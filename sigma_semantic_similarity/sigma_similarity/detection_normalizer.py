@@ -260,14 +260,39 @@ def _selection_keys_matching(detection: dict, pattern: str) -> list[str]:
 
 
 def _resolve_selection_content(detection: dict, key: str) -> list[dict[str, Any]]:
-    """Get selection block content as list of dicts. List in YAML -> OR; |all -> AND."""
+    """Get selection block content as list of dicts. List in YAML -> OR; |all -> AND.
+
+    Sigma keyword-style selections — a list containing bare scalars (strings or
+    numbers) matched field-lessly against the raw event — are modeled by
+    synthesizing one field-less ``contains`` block (``{"|contains": value}``)
+    per scalar. ``_parse_field_spec("|contains")`` yields field="", op="contains",
+    so each scalar becomes a real ``|contains|contains|<value>`` atom downstream
+    instead of being silently dropped.
+
+    This mirrors the on-the-fly extractor
+    (``SigmaNoveltyService.extract_atomic_predicates``, audit Item 12: field="",
+    op="contains"), keeping the precomputed and on-the-fly atom sets in parity
+    for keyword rules (XSS/SSTI/webserver shapes). Without it those rules extract
+    zero atoms and are misrouted as atom-less (NOVEL / no canonical_class).
+
+    Bare non-list scalar selections (``selection: "foo"``) still yield no block,
+    matching the on-the-fly extractor, which also ignores top-level scalars.
+    Nested lists inside a list are skipped (same as on-the-fly).
+    """
     raw = detection.get(key)
     if raw is None:
         return []
     if isinstance(raw, dict):
         return [raw]
     if isinstance(raw, list):
-        return [item for item in raw if isinstance(item, dict)]
+        blocks: list[dict[str, Any]] = []
+        for item in raw:
+            if isinstance(item, dict):
+                blocks.append(item)
+            elif not isinstance(item, list):
+                # Sigma keyword scalar -> field-less contains atom.
+                blocks.append({"|contains": str(item)})
+        return blocks
     return []
 
 

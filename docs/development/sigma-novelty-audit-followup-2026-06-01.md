@@ -1627,3 +1627,19 @@ End of addendum.
 **Operational:** the registry/file consolidation is live only after image rebuild (`sigma_semantic_similarity` is COPY'd, not bind-mounted) + `./run_cli.sh sigma recompute-semantics`. Not run here (parallel session active; rebuild/restart is the operator's call).
 
 End of addendum.
+
+## Addendum 2026-06-02 — Conditional B landed: precomputed extractor now models keyword-list selections
+
+**Item(s) affected:** 8 (Coverage-Chain, unblocks `*.webserver`) + the collapse-extractors issue (`6gmgRRC44VCwQW93`).
+
+**Root cause (located, then fixed):** `detection_normalizer._resolve_selection_content` resolved a list-valued selection with `[item for item in raw if isinstance(item, dict)]` — keeping only dict (field-map) items and silently dropping bare scalars. Sigma keyword selections (a list of scalar strings/numbers matched field-lessly against the raw event) therefore extracted to nothing on the precomputed path. This is the **exact mirror** of the Item-12 bug already fixed in the on-the-fly `extract_atomic_predicates`, and is precisely what Spike A measured (XSS/SSTI → empty atom sets).
+
+**Fix:** `_resolve_selection_content` now synthesizes one field-less `contains` block (`{"|contains": str(value)}`) per scalar list item. `_parse_field_spec("|contains")` yields `(field="", op="contains", modifier_chain="contains")`, so each keyword becomes a real `|contains|contains|<value>` atom — matching the on-the-fly extractor's `Atom(field="", op="contains")` model exactly. Parity preserved on the edges: bare non-list scalar selections (`selection: "foo"`) still yield no atoms (the on-the-fly extractor also ignores top-level scalars); nested lists are skipped. Negation flows through the condition tree (`NotNode` → negative atoms) as for dict selections.
+
+**Tests:** 5 TDD regression tests in `tests/sigma_semantic_similarity/test_filter_and_atoms.py::TestKeywordListSelectionsProduceAtoms` (pure keyword list → atoms; XSS keyword rule no longer atom-less; mixed dict+scalar list keeps both; keyword value case-folded; bare-scalar still no atoms). RED confirmed (3 fail pre-fix), GREEN after; full package suite 158/158 green, no snapshot regressions.
+
+**Consequence for the Coverage-Chain:** the precomputed and on-the-fly extractors now agree on keyword-list selections, so `*.webserver`/proxy classes can be added to `CANONICAL_CLASS_REGISTRY` without regressing keyword comparison. That registry addition is the remaining webserver step (still its own follow-up); Conditional B was its prerequisite.
+
+**Operational:** same as Options B/C — `sigma_semantic_similarity` is COPY'd into the image, so live only after `docker compose build` + `docker compose --profile tools build cli` + `up -d`, then `./run_cli.sh sigma recompute-semantics`. Deploy held pending parallel session.
+
+End of addendum.
