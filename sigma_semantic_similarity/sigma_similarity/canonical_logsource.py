@@ -52,6 +52,18 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
         ("windows", None, "sysmon", 23),  # FileDelete (archived)
         ("windows", None, "sysmon", 26),  # FileDeleteDetected
     },
+    # DLL/image load telemetry (Sysmon EID 7). Added 2026-06-01 (Option B). Field-based
+    # (ImageLoaded/Signed/Signature) — verified by spike to produce comparable atoms.
+    "windows.image_load": {
+        ("windows", "image_load", None, None),
+        ("windows", None, "sysmon", 7),
+    },
+    # Network connection telemetry (Sysmon EID 3). Added 2026-06-01 (Option B). Field-based
+    # (DestinationIp/DestinationPort/Initiated/Protocol).
+    "windows.network_connection": {
+        ("windows", "network_connection", None, None),
+        ("windows", None, "sysmon", 3),
+    },
     "windows.service": {
         ("windows", "service_creation", None, None),
         ("windows", None, "system", 7045),  # Service install

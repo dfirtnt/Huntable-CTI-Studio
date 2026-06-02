@@ -139,6 +139,72 @@ def test_file_event_vs_registry_event_mismatch():
     assert "canonical_class_mismatch" in result.explanation["reason_flags"]
 
 
+# --- windows.image_load (Option B) ---
+
+
+def test_image_load_category_resolves():
+    r = {
+        "logsource": {"product": "windows", "category": "image_load"},
+        "detection": {"s": {"ImageLoaded|endswith": "\\evil.dll"}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "windows.image_load"
+
+
+def test_sysmon_eid7_resolves_image_load():
+    r = {
+        "logsource": {"product": "windows", "service": "sysmon"},
+        "detection": {"s": {"EventID": 7}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "windows.image_load"
+
+
+def test_two_image_load_rules_comparable():
+    r1 = {
+        "logsource": {"product": "windows", "category": "image_load"},
+        "detection": {"s": {"ImageLoaded|endswith": "\\amsi.dll"}, "condition": "s"},
+    }
+    r2 = {
+        "logsource": {"product": "windows", "category": "image_load"},
+        "detection": {"s": {"ImageLoaded|endswith": "\\amsi.dll"}, "condition": "s"},
+    }
+    result = compare_rules(r1, r2)
+    assert result.canonical_class == "windows.image_load"
+    assert result.similarity >= 0.8
+
+
+# --- windows.network_connection (Option B) ---
+
+
+def test_network_connection_category_resolves():
+    r = {
+        "logsource": {"product": "windows", "category": "network_connection"},
+        "detection": {"s": {"DestinationPort": 4444}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "windows.network_connection"
+
+
+def test_sysmon_eid3_resolves_network_connection():
+    r = {
+        "logsource": {"product": "windows", "service": "sysmon"},
+        "detection": {"s": {"EventID": 3}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "windows.network_connection"
+
+
+def test_image_load_vs_network_connection_mismatch():
+    r_img = {
+        "logsource": {"product": "windows", "category": "image_load"},
+        "detection": {"s": {"ImageLoaded|endswith": "\\x.dll"}, "condition": "s"},
+    }
+    r_net = {
+        "logsource": {"product": "windows", "category": "network_connection"},
+        "detection": {"s": {"DestinationPort": 4444}, "condition": "s"},
+    }
+    result = compare_rules(r_img, r_net)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
 # --- windows.service resolution ---
 
 
