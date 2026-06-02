@@ -51,9 +51,23 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
         ("windows", "create_stream_hash", None, None),
         ("windows", None, "sysmon", 15),
     },
-    "windows.dns_query": {  # Sysmon EID 22 — QueryName/QueryResults/Image
+    # Windows DNS query telemetry — Sysmon EID 22 AND the native DNS-Client
+    # channel (Microsoft-Windows-DNS-Client/Operational, EID 3008). Both use the
+    # QueryName field, so they are one class. Kept distinct from network.dns
+    # (zeek/generic, `query` field) — bridging QueryName↔query is a field-alias
+    # decision, not a mechanical merge.
+    "windows.dns_query": {
         ("windows", "dns_query", None, None),
         ("windows", None, "sysmon", 22),
+        ("windows", None, "dns-client", 3008),
+        ("windows", None, "dns-client", None),
+    },
+    # Network/generic DNS query telemetry — SigmaHQ generic `category: dns`
+    # (cross-platform) and zeek `service: dns`. Both use the `query` field, so they
+    # are field-compatible and comparable. Added 2026-06-02.
+    "network.dns": {
+        (None, "dns", None, None),
+        ("zeek", None, "dns", None),
     },
     # PowerShell telemetry — three SEPARATE logging mechanisms, kept as distinct
     # classes (different EID + field each). Added 2026-06-02. Unlike registry_*
@@ -123,6 +137,13 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     # tracked in the long-tail Coverage-Chain item, not folded in here.
     "web.webserver": {
         (None, "webserver", None, None),
+    },
+    # Web proxy access logs (SigmaHQ `category: proxy`, no product). Sibling of
+    # webserver — overlapping cs-*/c-uri/c-useragent fields + keyword lists
+    # (de-risked by Conditional B) — but DISTINCT telemetry (proxy logs ≠ origin
+    # access logs), so a separate class. Added 2026-06-02.
+    "web.proxy": {
+        (None, "proxy", None, None),
     },
     "windows.service": {
         ("windows", "service_creation", None, None),

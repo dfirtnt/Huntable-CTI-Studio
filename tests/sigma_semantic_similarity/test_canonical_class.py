@@ -388,6 +388,107 @@ def test_macos_and_windows_process_creation_are_distinct_classes():
     assert "canonical_class_mismatch" in result.explanation["reason_flags"]
 
 
+# --- web.proxy + network.dns + Windows DNS-Client fold (Coverage-Chain) ---
+# proxy is the webserver sibling (web access telemetry, cs-*/c-uri/c-useragent
+# fields + keyword lists — de-risked by Conditional B). DNS splits by FIELD schema,
+# not just source: generic `category: dns` and zeek `service: dns` both use the
+# `query` field → one class (network.dns); Windows Sysmon EID 22 and DNS-Client
+# EID 3008 both use `QueryName` → folded into windows.dns_query. The two DNS
+# families are kept apart (query vs QueryName) — bridging them is a field-alias
+# decision, not a mechanical add.
+
+
+def test_proxy_category_resolves():
+    r = {
+        "logsource": {"category": "proxy"},
+        "detection": {"selection": {"c-uri|endswith": ".class"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == "web.proxy"
+
+
+def test_two_proxy_rules_comparable():
+    r1 = {
+        "logsource": {"category": "proxy"},
+        "detection": {"selection": {"c-uri|contains": "/evil"}, "condition": "selection"},
+    }
+    r2 = {
+        "logsource": {"category": "proxy"},
+        "detection": {"selection": {"c-uri|contains": "/evil"}, "condition": "selection"},
+    }
+    result = compare_rules(r1, r2)
+    assert result.canonical_class == "web.proxy"
+    assert result.similarity >= 0.8
+
+
+def test_proxy_vs_webserver_are_distinct_classes():
+    """Proxy and webserver share cs-*/c-uri fields but are distinct telemetry."""
+    r_proxy = {
+        "logsource": {"category": "proxy"},
+        "detection": {"selection": {"c-uri|contains": "/x"}, "condition": "selection"},
+    }
+    r_web = {
+        "logsource": {"category": "webserver"},
+        "detection": {"keywords": ["/x"], "condition": "keywords"},
+    }
+    result = compare_rules(r_proxy, r_web)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
+def test_generic_dns_category_resolves():
+    r = {
+        "logsource": {"category": "dns"},
+        "detection": {"selection": {"query": "api.telegram.org"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == "network.dns"
+
+
+def test_zeek_dns_service_resolves():
+    r = {
+        "logsource": {"product": "zeek", "service": "dns"},
+        "detection": {"selection": {"query|contains": "evil"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == "network.dns"
+
+
+def test_generic_and_zeek_dns_comparable():
+    r_generic = {
+        "logsource": {"category": "dns"},
+        "detection": {"selection": {"query|contains": "evil.com"}, "condition": "selection"},
+    }
+    r_zeek = {
+        "logsource": {"product": "zeek", "service": "dns"},
+        "detection": {"selection": {"query|contains": "evil.com"}, "condition": "selection"},
+    }
+    result = compare_rules(r_generic, r_zeek)
+    assert result.canonical_class == "network.dns"
+    assert result.similarity >= 0.8
+
+
+def test_windows_dns_client_folds_into_dns_query():
+    """Windows DNS-Client (EID 3008, QueryName) joins windows.dns_query (Sysmon EID 22)."""
+    r = {
+        "logsource": {"product": "windows", "service": "dns-client"},
+        "detection": {"selection": {"EventID": 3008, "QueryName|contains": "ufile.io"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == "windows.dns_query"
+
+
+def test_network_dns_and_windows_dns_query_are_distinct_classes():
+    """Different field schemas (query vs QueryName) → separate classes, no false merge."""
+    r_net = {
+        "logsource": {"category": "dns"},
+        "detection": {"selection": {"query|contains": "evil"}, "condition": "selection"},
+    }
+    r_win = {
+        "logsource": {"product": "windows", "category": "dns_query"},
+        "detection": {"selection": {"QueryName|contains": "evil"}, "condition": "selection"},
+    }
+    result = compare_rules(r_net, r_win)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
 # --- PowerShell telemetry sources (Coverage-Chain) ---
 # Three SigmaHQ categories, three logging mechanisms, three distinct fields and
 # EIDs: ps_script (Script Block Logging, EID 4104, ScriptBlockText), ps_module

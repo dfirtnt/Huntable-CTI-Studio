@@ -1693,8 +1693,8 @@ End of addendum.
 **Tests:** 17 in `test_canonical_class.py` (parametrized category-form + Sysmon-EID-form resolution, process_access comparability ≥0.8, pipe↔driver mismatch, macOS resolution + macOS↔Windows distinctness). 180/180 package tests green.
 
 **Deliberately still deferred (need judgment, not just a tuple):**
-- ~~**PowerShell family**~~ — DONE in the next addendum (three separate classes).
-- **proxy (55) / dns category (11) / dns-client service** — web/network siblings; proxy is keyword-comparable now but distinct telemetry from webserver.
+- ~~**PowerShell family**~~ — DONE (three separate classes).
+- ~~**proxy / dns / dns-client**~~ — DONE (`web.proxy`, `network.dns`, DNS-Client folded into `windows.dns_query`).
 - **Cloud/audit** — aws cloudtrail (55), azure logs (~150 across activity/audit/signin/risk/pim), gcp, okta, m365, github, bitbucket. Different domain (audit events, not host behavioral telemetry) — a separate design conversation.
 - **Generic `windows//security` (163), `windows//system` (74), `linux//auditd` (53)** — heterogeneous multi-EID services; mapping needs per-EID logic, not a single tuple. Highest false-merge risk; left alone.
 
@@ -1725,5 +1725,31 @@ End of addendum.
 **Operational:** same held deploy — rebuild + `recompute-semantics`.
 
 **Coverage-Chain running total (this session, all deploy-gated):** webserver 82 + Sysmon/macOS ~180 + PowerShell 223 = **~485 newly-classed rules** on top of the live 2,135, before counting Option B's 189 (committed earlier, also not yet live).
+
+End of addendum.
+
+## Addendum 2026-06-02 — web.proxy + network.dns + Windows DNS-Client fold
+
+**Item(s) affected:** 8 (Coverage-Chain long tail, `6gmcfHGH9HFr4QfV`). The last clean web/network siblings.
+
+**Added / changed:**
+
+| Class | Logsource | Field | Rules |
+|---|---|---|---|
+| `web.proxy` (new) | `proxy` (no product) | cs-*/c-uri/c-useragent + keywords | 55 |
+| `network.dns` (new) | generic `dns` (no product) + `zeek`/`dns` | `query` | 11 + 5 |
+| `windows.dns_query` (extended) | + `windows`/`dns-client`/3008 | `QueryName` | +6 |
+
+77 rules into the deterministic pool.
+
+**Two design calls:**
+1. **proxy ≠ webserver.** They share `cs-*`/`c-uri` fields but are distinct telemetry (proxy logs vs origin access logs). Separate class, mismatch pinned.
+2. **DNS grouped by field schema, not by source.** Generic `category: dns` and zeek `service: dns` both use `query` → merged into `network.dns`. Windows Sysmon EID 22 and DNS-Client EID 3008 both use `QueryName` → both in `windows.dns_query`. The two families stay apart because `query` ≠ `QueryName`; bridging them is a `FIELD_ALIAS_MAP` decision (same shape as the cross-source PowerShell question), deliberately not done.
+
+**Tests:** 8 in `test_canonical_class.py`; RED (8 fail) → GREEN; 193/193 package tests green.
+
+**Remaining long tail (lower priority / needs decisions):** cloud/audit domain (aws/azure/gcp/okta/m365/github ≈ 300 — different domain, design conversation); heterogeneous multi-EID services (`windows//security` 163, `windows//system` 74, `linux//auditd` 53 — high false-merge risk); and small singletons (windefend 17, cisco aaa 13, fortigate 7, zeek smb_files 7, application/* product families, etc.).
+
+**Coverage-Chain running total (this session, all deploy-gated):** ~485 + 77 = **~562 newly-classed rules** on top of live 2,135, plus Option B's 189. Post-deploy projection ≈ **2,886 / 3,728 (~77%)**.
 
 End of addendum.
