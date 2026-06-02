@@ -163,24 +163,28 @@ class SigmaSyncService:
                 "raw_yaml": raw_yaml_text,
             }
 
-            # Convert date to datetime if present
-            if parsed["date"]:
-                try:
-                    # Handle if it's already a date object
-                    import datetime as dt
+            # Normalize date to a datetime (or None). A missing/empty `date:` MUST
+            # become NULL, never "" — an empty string fails the timestamp column on
+            # insert and, because rules are inserted in one batch, poisons the entire
+            # batch. Customer-authored rules frequently omit `date:`, so this path is
+            # routinely exercised. `datetime` is checked before `date` because the
+            # former is a subclass of the latter. Strings are tried as ISO
+            # (`%Y-%m-%d`, the customer/LLM style) then SigmaHQ's `%Y/%m/%d`.
+            import datetime as dt
 
-                    if isinstance(parsed["date"], dt.date):
-                        parsed["date"] = datetime.combine(parsed["date"], dt.time.min)
-                    elif isinstance(parsed["date"], datetime):
-                        # Already a datetime, keep it
-                        pass
-                    elif isinstance(parsed["date"], str):
-                        # Parse from string
-                        parsed["date"] = datetime.strptime(parsed["date"], "%Y/%m/%d")
-                    else:
-                        parsed["date"] = None
-                except (ValueError, AttributeError, TypeError):
-                    parsed["date"] = None
+            raw_date = parsed["date"]
+            parsed["date"] = None
+            if isinstance(raw_date, datetime):
+                parsed["date"] = raw_date
+            elif isinstance(raw_date, dt.date):
+                parsed["date"] = datetime.combine(raw_date, dt.time.min)
+            elif isinstance(raw_date, str) and raw_date.strip():
+                for _fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+                    try:
+                        parsed["date"] = datetime.strptime(raw_date.strip(), _fmt)
+                        break
+                    except ValueError:
+                        continue
 
             return parsed
 
