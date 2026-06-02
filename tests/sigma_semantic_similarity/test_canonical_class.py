@@ -388,6 +388,60 @@ def test_macos_and_windows_process_creation_are_distinct_classes():
     assert "canonical_class_mismatch" in result.explanation["reason_flags"]
 
 
+# --- PowerShell telemetry sources (Coverage-Chain) ---
+# Three SigmaHQ categories, three logging mechanisms, three distinct fields and
+# EIDs: ps_script (Script Block Logging, EID 4104, ScriptBlockText), ps_module
+# (Module Logging, EID 4103, Payload), ps_classic_start (classic log, EID 400,
+# Data). Kept as SEPARATE classes — unlike the registry_* family (one EID range /
+# one field), these are genuinely different telemetry. Whether the same tradecraft
+# expressed across these sources should compare is a separate field-alias decision.
+
+
+@pytest.mark.parametrize(
+    "category,expected_class,field",
+    [
+        ("ps_script", "windows.ps_script", "ScriptBlockText|contains"),
+        ("ps_module", "windows.ps_module", "Payload|contains"),
+        ("ps_classic_start", "windows.ps_classic_start", "Data|contains"),
+    ],
+)
+def test_powershell_category_resolves(category, expected_class, field):
+    r = {
+        "logsource": {"product": "windows", "category": category},
+        "detection": {"selection": {field: "Invoke-Mimikatz"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == expected_class
+
+
+def test_two_ps_script_rules_comparable():
+    r1 = {
+        "logsource": {"product": "windows", "category": "ps_script"},
+        "detection": {"selection": {"ScriptBlockText|contains": "IEX"}, "condition": "selection"},
+    }
+    r2 = {
+        "logsource": {"product": "windows", "category": "ps_script"},
+        "detection": {"selection": {"ScriptBlockText|contains": "IEX"}, "condition": "selection"},
+    }
+    result = compare_rules(r1, r2)
+    assert result.canonical_class == "windows.ps_script"
+    assert result.similarity >= 0.8
+
+
+def test_ps_script_vs_ps_module_are_distinct_classes():
+    """Different PowerShell telemetry sources are not compared (separate classes)."""
+    r_script = {
+        "logsource": {"product": "windows", "category": "ps_script"},
+        "detection": {"selection": {"ScriptBlockText|contains": "IEX"}, "condition": "selection"},
+    }
+    r_module = {
+        "logsource": {"product": "windows", "category": "ps_module"},
+        "detection": {"selection": {"Payload|contains": "IEX"}, "condition": "selection"},
+    }
+    result = compare_rules(r_script, r_module)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
 # --- windows.service resolution ---
 
 

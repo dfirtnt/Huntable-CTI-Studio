@@ -55,6 +55,24 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
         ("windows", "dns_query", None, None),
         ("windows", None, "sysmon", 22),
     },
+    # PowerShell telemetry — three SEPARATE logging mechanisms, kept as distinct
+    # classes (different EID + field each). Added 2026-06-02. Unlike registry_*
+    # (one EID range, one field → merged in Option C), these are genuinely different
+    # telemetry sources and different fidelity. Cross-source comparison of the same
+    # tradecraft (ScriptBlockText vs Payload vs Data) is a separate field-alias
+    # decision with false-merge risk — deliberately NOT done here.
+    "windows.ps_script": {  # Script Block Logging, EID 4104 — ScriptBlockText
+        ("windows", "ps_script", None, None),
+        ("windows", None, "powershell", 4104),
+    },
+    "windows.ps_module": {  # Module Logging, EID 4103 — Payload/ContextInfo
+        ("windows", "ps_module", None, None),
+        ("windows", None, "powershell", 4103),
+    },
+    "windows.ps_classic_start": {  # Classic PowerShell log, EID 400 — Data/HostApplication
+        ("windows", "ps_classic_start", None, None),
+        ("windows", None, "powershell-classic", 400),
+    },
     # SigmaHQ fragments registry mutations across registry_event / registry_set /
     # registry_add / registry_delete — one telemetry class (same Sysmon EIDs 12-14,
     # same TargetObject/Details fields). Consolidated 2026-06-01 so a registry_set rule

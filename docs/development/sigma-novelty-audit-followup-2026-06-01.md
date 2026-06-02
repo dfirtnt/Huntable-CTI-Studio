@@ -1693,11 +1693,37 @@ End of addendum.
 **Tests:** 17 in `test_canonical_class.py` (parametrized category-form + Sysmon-EID-form resolution, process_access comparability ≥0.8, pipe↔driver mismatch, macOS resolution + macOS↔Windows distinctness). 180/180 package tests green.
 
 **Deliberately still deferred (need judgment, not just a tuple):**
-- **PowerShell family** — `ps_script` (178!), `ps_module` (34), `ps_classic_start` (11). High impact but a consolidation question (script-block EID 4104 vs module 4103 vs classic 400 — one class or three?) and keyword-heavy (`ScriptBlockText`), so wants its own spike.
+- ~~**PowerShell family**~~ — DONE in the next addendum (three separate classes).
 - **proxy (55) / dns category (11) / dns-client service** — web/network siblings; proxy is keyword-comparable now but distinct telemetry from webserver.
 - **Cloud/audit** — aws cloudtrail (55), azure logs (~150 across activity/audit/signin/risk/pim), gcp, okta, m365, github, bitbucket. Different domain (audit events, not host behavioral telemetry) — a separate design conversation.
 - **Generic `windows//security` (163), `windows//system` (74), `linux//auditd` (53)** — heterogeneous multi-EID services; mapping needs per-EID logic, not a single tuple. Highest false-merge risk; left alone.
 
 **Operational:** same held deploy — rebuild + `recompute-semantics`.
+
+End of addendum.
+
+## Addendum 2026-06-02 — 3 PowerShell telemetry classes added (kept separate, not merged)
+
+**Item(s) affected:** 8 (Coverage-Chain long tail, `6gmcfHGH9HFr4QfV`). The single biggest remaining bucket.
+
+**Added (3 separate classes):**
+
+| Class | Logsource | Mechanism / EID | Field | Rules |
+|---|---|---|---|---|
+| `windows.ps_script` | `windows` / `ps_script` | Script Block Logging / 4104 | `ScriptBlockText` | 178 |
+| `windows.ps_module` | `windows` / `ps_module` | Module Logging / 4103 | `Payload` | 34 |
+| `windows.ps_classic_start` | `windows` / `ps_classic_start` | Classic log / 400 | `Data` | 11 |
+
+223 rules into the deterministic pool. All corpus rules are **category-only** (no `EventID` in detection — verified by query) so resolution is by category tuple; the EID tuples are forward-compat for `service: powershell` + explicit EID rules.
+
+**The design call (why three, not one):** this is the deliberate *inverse* of Option C. Option C merged `registry_set`/`add`/`delete` because they are one telemetry class — same Sysmon EID range (12–14), same `TargetObject` field. PowerShell's three categories are the opposite: three logging mechanisms, three EIDs (4104/4103/400), three fields (`ScriptBlockText`/`Payload`/`Data`), and different fidelity (4104 has the full deobfuscated script; classic 400's `Data` is truncated/limited). Merging them would be a strong semantic claim, not a mechanical consolidation. So each is its own class — a ps_script rule compares against ps_script rules, etc. Mirrors SigmaHQ's own category split and my Sysmon batch.
+
+**Explicitly NOT done — cross-source PowerShell comparability (flagged as a separate decision):** the same tradecraft (e.g. `IEX (New-Object Net.WebClient).DownloadString`) can be written against `ScriptBlockText` (4104), `Payload` (4103), or `Data` (400). Making those compare would require a field-alias decision (`ScriptBlockText`/`Payload`/`Data` → a canonical `powershell.script` in `FIELD_ALIAS_MAP`) **and** merging the three classes — which reintroduces exactly the false-merge risk Option C's "same EID/field only" rule guards against (a high-fidelity 4104 rule judged a near-duplicate of a limited classic-400 rule). This is a genuine judgment call for the operator, not a safe mechanical add; left open.
+
+**Tests:** 5 in `test_canonical_class.py` (parametrized category resolution ×3, ps_script comparability ≥0.8, ps_script↔ps_module distinctness → 0.0). RED (5 fail) → GREEN; 185/185 package tests green.
+
+**Operational:** same held deploy — rebuild + `recompute-semantics`.
+
+**Coverage-Chain running total (this session, all deploy-gated):** webserver 82 + Sysmon/macOS ~180 + PowerShell 223 = **~485 newly-classed rules** on top of the live 2,135, before counting Option B's 189 (committed earlier, also not yet live).
 
 End of addendum.
