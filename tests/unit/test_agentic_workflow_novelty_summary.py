@@ -156,3 +156,52 @@ def test_behavioral_count_is_authority_over_match_list():
     )
     assert r["max_similarity"] is None
     assert r["comparator_inconclusive"] is True
+
+
+@pytest.mark.unit
+def test_summarize_surfaces_resolved_canonical_class():
+    """SigmaSim Finding B: when the proposed rule's logsource resolves to a
+    canonical telemetry class, surface it and mark logsource_unresolved False."""
+    r = summarize_rule_novelty(
+        {
+            "matches": [{"similarity": 0.4}],
+            "total_candidates_evaluated": 10,
+            "behavioral_matches_found": 3,
+            "canonical_class": "windows.process_creation",
+        },
+        0.5,
+    )
+    assert r["canonical_class"] == "windows.process_creation"
+    assert r["logsource_unresolved"] is False
+
+
+@pytest.mark.unit
+def test_summarize_flags_unresolved_logsource_not_silently():
+    """SigmaSim Finding B: a rule whose logsource does NOT resolve to a canonical
+    class (canonical_class None — e.g. SigmaAgent emitting bare `service: sysmon`
+    with no category/EventID) must be flagged `logsource_unresolved` so the
+    degraded-dedup condition is visible (queryable + logged), not silent. The rule
+    is still kept (fail open) — this flag does not change enqueue/suppression."""
+    r = summarize_rule_novelty(
+        {
+            "matches": [],
+            "total_candidates_evaluated": 5,
+            "behavioral_matches_found": 0,
+            "canonical_class": None,
+        },
+        0.5,
+    )
+    assert r["canonical_class"] is None
+    assert r["logsource_unresolved"] is True
+
+
+@pytest.mark.unit
+def test_summarize_missing_canonical_class_key_treated_as_unresolved():
+    """Defensive: an absent canonical_class key (older callers) is treated as
+    unresolved rather than raising — same fail-open posture as the other signals."""
+    r = summarize_rule_novelty(
+        {"matches": [], "total_candidates_evaluated": 0, "behavioral_matches_found": 0},
+        0.5,
+    )
+    assert r["canonical_class"] is None
+    assert r["logsource_unresolved"] is True

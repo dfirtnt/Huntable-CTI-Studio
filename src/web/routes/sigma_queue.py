@@ -350,6 +350,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
             # Calculate similarity scores if possible
             similarity_scores = None
             max_similarity = None
+            canonical_class = None
             try:
                 matching_service = SigmaMatchingService(db_session)
                 rule_dict = yaml.safe_load(rule_yaml) if rule_yaml else {}
@@ -367,6 +368,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                         proposed_rule=normalized_rule,
                         threshold=0.0,
                     )
+                    canonical_class = match_result.get("canonical_class")
                     similar_matches = match_result.get("matches", [])
                     similarity_scores = similar_matches[:10] if similar_matches else []
                     max_similarity = (
@@ -376,6 +378,19 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                     )
             except Exception as e:
                 logger.warning(f"Failed to calculate similarity scores: {e}")
+
+            # SigmaSim Finding B: stamp logsource resolution so an unclassifiable logsource
+            # (no canonical_class → weak logsource_key fallback / degraded dedup) is queryable
+            # and logged, not silent. Fail open — the rule is still enqueued.
+            if isinstance(rule_metadata, dict):
+                rule_metadata["canonical_class"] = canonical_class
+                rule_metadata["logsource_unresolved"] = canonical_class is None
+                if canonical_class is None:
+                    logger.warning(
+                        f"Queued rule (article_id={add_request.article_id}) has an unclassifiable "
+                        f"logsource — no canonical_class, dedup degraded to logsource_key fallback "
+                        f"(SigmaSim Finding B). Prefer a SigmaHQ `category:` over bare `service:`."
+                    )
 
             # Create queue entry
             queue_entry = SigmaRuleQueueTable(

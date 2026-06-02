@@ -167,11 +167,19 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     no_atoms = bool(match_result.get("no_atoms_extracted"))
     sims = [m.get("similarity", 0.0) for m in matches]
     inconclusive = no_atoms or (total > 0 and behavioral == 0)
+    # SigmaSim Finding B: surface whether the proposed rule's logsource resolved to a
+    # canonical telemetry class. None => the rule fell to the weak logsource_key fallback
+    # (e.g. SigmaAgent emitting bare `service: sysmon` with no category/EventID for a
+    # process_creation-shaped rule). We keep the rule (fail open) but flag the degraded-dedup
+    # condition so it is visible — logged + queryable via rule_metadata — instead of silent.
+    canonical_class = match_result.get("canonical_class")
     return {
         "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
         "total_candidates_evaluated": total,
         "behavioral_matches_found": behavioral,
         "comparator_inconclusive": inconclusive,
+        "canonical_class": canonical_class,
+        "logsource_unresolved": canonical_class is None,
     }
 
 
@@ -2269,6 +2277,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "total_candidates_evaluated": rule_summary["total_candidates_evaluated"],
                         "behavioral_matches_found": rule_summary["behavioral_matches_found"],
                         "comparator_inconclusive": rule_summary["comparator_inconclusive"],
+                        "canonical_class": rule_summary["canonical_class"],
+                        "logsource_unresolved": rule_summary["logsource_unresolved"],
                         "novelty_label": rule_novelty_label,
                         "novelty_score": rule_min_novelty,
                         "top_matches": filtered_rules[:5] if filtered_rules else similar_rules[:5],
@@ -2439,6 +2449,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             }
                             if rule.get("observables_used") is not None:
                                 rule_meta["observables_used"] = rule["observables_used"]
+
+                            # SigmaSim Finding B: stamp the logsource-resolution result so a rule
+                            # whose logsource does not map to a canonical class (degraded dedup) is
+                            # queryable (rule_metadata->>'logsource_unresolved') and logged — not
+                            # silent. Fail open: the rule is still enqueued either way.
+                            rule_meta["canonical_class"] = rule_similarity.get("canonical_class")
+                            rule_meta["logsource_unresolved"] = rule_similarity.get("logsource_unresolved", True)
+                            if rule_meta["logsource_unresolved"]:
+                                logger.warning(
+                                    f"[Workflow {state['execution_id']}] Generated rule idx={idx} "
+                                    f"({rule.get('title')!r}) has an unclassifiable logsource "
+                                    f"{rule.get('logsource')} — no canonical_class, dedup degraded to "
+                                    f"logsource_key fallback (SigmaSim Finding B). Prefer a SigmaHQ "
+                                    f"`category:` (e.g. process_creation) over bare `service:`."
+                                )
 
                             # Create queue entry
                             queue_entry = SigmaRuleQueueTable(
