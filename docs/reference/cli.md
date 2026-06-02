@@ -311,7 +311,8 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma index-metadata --force
 ./run_cli.sh sigma index-embeddings
 ./run_cli.sh sigma index-customer-repo   # Include customer repo rules in similarity search
-./run_cli.sh sigma backfill-metadata
+./run_cli.sh sigma backfill-metadata          # Backfill canonical_json/exact_hash/logsource_key for rules missing them
+./run_cli.sh sigma backfill-metadata --force  # Recompute those fields for ALL rules (use when the canonical logic changed)
 ./run_cli.sh sigma recompute-semantics   # Backfill canonical_class, atoms, surface_score (requires sigma_similarity)
 ./run_cli.sh sigma match 123 --threshold 0.7 --save
 ./run_cli.sh sigma stats

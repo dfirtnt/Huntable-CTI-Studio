@@ -362,13 +362,14 @@ When all three hold, the deterministic path runs. If any fails, the engine
 falls through to the legacy path. The legacy path therefore covers:
 
 - Rules whose telemetry class isn't modeled by the canonical-class resolver.
-  As of 2026-06-01 the modeled set covers process_creation (windows/linux),
+  As of 2026-06-02 the modeled set covers process_creation (windows/linux),
   the registry family (`registry_event`/`registry_set`/`registry_add`/`registry_delete`),
   the Windows file family (`file_event`/`file_delete`/`file_access`/`file_rename`/`file_change`),
-  service, and scheduled_task. Still unmodeled (Coverage-Chain backlog): network_connection,
-  image_load, PowerShell, macOS, `linux.file_event`, and keyword-only webserver/proxy rules
-  (the last deliberately deferred — the precomputed extractor yields empty atoms for
-  keyword-list selections, so they stay on the on-the-fly path that does model keywords).
+  `windows.image_load` (Sysmon EID 7), `windows.network_connection` (Sysmon EID 3),
+  service, and scheduled_task. Still unmodeled (Coverage-Chain backlog): PowerShell,
+  macOS, `linux.file_event`, and keyword-only webserver/proxy rules (the last deliberately
+  deferred — the precomputed extractor yields empty atoms for keyword-list selections, so
+  they stay on the on-the-fly path that does model keywords).
 - Rules whose Sigma syntax uses features the deterministic AST builder rejects
   (e.g. unsupported correlation patterns, nested `1 of` selection-name
   expressions that exceed the DNF expansion limit).

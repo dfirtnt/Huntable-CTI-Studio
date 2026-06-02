@@ -364,6 +364,62 @@ class TestSigmaMatchingService:
         assert out["total_candidates_evaluated"] == 1165
         assert out["matches"] == []
 
+    def test_assess_rule_novelty_passes_through_no_atoms_extracted(self, service):
+        """Bridge-layer guard for the fail-open-not-silent chain: assess_rule_novelty must
+        propagate the `no_atoms_extracted` flag from assess_novelty so summarize_rule_novelty
+        can route the unassessable rule to needs_review. Without this passthrough the flag is
+        lost between the two ends that ARE unit-tested, and the routing silently regresses.
+        """
+        proposed = {
+            "title": "T",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {}, "condition": "selection"},
+        }
+        atomless_payload = {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": "windows|process_creation",
+            "canonical_class": None,
+            "exact_hash": None,
+            "top_matches": [],
+            "canonical_rule": {},
+            "total_candidates_evaluated": 0,
+            "behavioral_matches_found": 0,
+            "engine_used": "legacy",
+            "no_atoms_extracted": True,
+        }
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = atomless_payload
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
+
+        assert out.get("no_atoms_extracted") is True, "assess_rule_novelty dropped the no_atoms_extracted flag"
+
+    def test_assess_rule_novelty_no_atoms_extracted_defaults_false(self, service):
+        """When the novelty layer does not flag atom-less, the passthrough defaults to False
+        (not missing), so summarize_rule_novelty's bool() read is well-defined."""
+        proposed = {
+            "title": "T",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
+        }
+        normal_payload = {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": "windows|process_creation",
+            "canonical_class": "windows.process_creation",
+            "exact_hash": "abc",
+            "top_matches": [],
+            "canonical_rule": {},
+            "total_candidates_evaluated": 10,
+            "behavioral_matches_found": 0,
+            "engine_used": "deterministic",
+        }
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = normal_payload
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
+
+        assert out.get("no_atoms_extracted") is False
+
     def test_assess_rule_novelty_on_failure_returns_empty_filter_metadata(self, service):
         """On failure, matching service returns null/empty filter metadata (contract for API)."""
         proposed = {
