@@ -291,6 +291,103 @@ def test_webserver_vs_process_creation_mismatch():
     assert "canonical_class_mismatch" in result.explanation["reason_flags"]
 
 
+# --- Sysmon host-telemetry categories + macOS process_creation (Coverage-Chain) ---
+# Clean field-based categories, 1:1 with a Sysmon EID — the same risk profile as
+# image_load/network_connection (Option B). No keyword ambiguity: every rule uses
+# dict field selections the extractor has always modeled. macOS process_creation
+# is the windows/linux sibling (no Sysmon; category-only).
+
+
+@pytest.mark.parametrize(
+    "category,expected_class,field",
+    [
+        ("process_access", "windows.process_access", "CallTrace|contains"),
+        ("pipe_created", "windows.pipe_created", "PipeName"),
+        ("create_remote_thread", "windows.create_remote_thread", "TargetImage|endswith"),
+        ("driver_load", "windows.driver_load", "ImageLoaded|contains"),
+        ("create_stream_hash", "windows.create_stream_hash", "Image|endswith"),
+        ("dns_query", "windows.dns_query", "QueryName|contains"),
+    ],
+)
+def test_sysmon_category_resolves(category, expected_class, field):
+    r = {
+        "logsource": {"product": "windows", "category": category},
+        "detection": {"s": {field: "x"}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == expected_class
+
+
+@pytest.mark.parametrize(
+    "event_id,expected_class",
+    [
+        (6, "windows.driver_load"),
+        (8, "windows.create_remote_thread"),
+        (10, "windows.process_access"),
+        (15, "windows.create_stream_hash"),
+        (17, "windows.pipe_created"),
+        (18, "windows.pipe_created"),
+        (22, "windows.dns_query"),
+    ],
+)
+def test_sysmon_event_ids_resolve(event_id, expected_class):
+    r = {
+        "logsource": {"product": "windows", "service": "sysmon"},
+        "detection": {"s": {"EventID": event_id}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == expected_class
+
+
+def test_two_process_access_rules_comparable():
+    r1 = {
+        "logsource": {"product": "windows", "category": "process_access"},
+        "detection": {"s": {"TargetImage|endswith": "\\lsass.exe"}, "condition": "s"},
+    }
+    r2 = {
+        "logsource": {"product": "windows", "category": "process_access"},
+        "detection": {"s": {"TargetImage|endswith": "\\lsass.exe"}, "condition": "s"},
+    }
+    result = compare_rules(r1, r2)
+    assert result.canonical_class == "windows.process_access"
+    assert result.similarity >= 0.8
+
+
+def test_pipe_created_vs_driver_load_mismatch():
+    r_pipe = {
+        "logsource": {"product": "windows", "category": "pipe_created"},
+        "detection": {"s": {"PipeName": "\\evil"}, "condition": "s"},
+    }
+    r_drv = {
+        "logsource": {"product": "windows", "category": "driver_load"},
+        "detection": {"s": {"ImageLoaded|endswith": "\\evil.sys"}, "condition": "s"},
+    }
+    result = compare_rules(r_pipe, r_drv)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
+def test_macos_process_creation_resolves():
+    r = {
+        "logsource": {"product": "macos", "category": "process_creation"},
+        "detection": {"s": {"CommandLine|contains": "osascript"}, "condition": "s"},
+    }
+    assert resolve_canonical_class(r) == "macos.process_creation"
+
+
+def test_macos_and_windows_process_creation_are_distinct_classes():
+    """Same category, different product → different telemetry, must not compare."""
+    r_mac = {
+        "logsource": {"product": "macos", "category": "process_creation"},
+        "detection": {"s": {"Image|endswith": "/bash"}, "condition": "s"},
+    }
+    r_win = {
+        "logsource": {"product": "windows", "category": "process_creation"},
+        "detection": {"s": {"Image|endswith": "\\cmd.exe"}, "condition": "s"},
+    }
+    result = compare_rules(r_mac, r_win)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
 # --- windows.service resolution ---
 
 

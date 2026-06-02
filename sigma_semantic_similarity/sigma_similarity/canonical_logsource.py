@@ -21,6 +21,40 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     "linux.process_creation": {
         ("linux", "process_creation", None, None),
     },
+    # macOS process telemetry — sibling of windows/linux. Category-only (no Sysmon).
+    # Added 2026-06-02. Kept distinct from windows/linux: same category, different OS
+    # telemetry; cross-OS comparison would be false-similar.
+    "macos.process_creation": {
+        ("macos", "process_creation", None, None),
+    },
+    # Clean Sysmon host-telemetry categories — each 1:1 with a Sysmon EID, all
+    # field-based (no keyword ambiguity). Added 2026-06-02; same risk profile as
+    # image_load (EID 7) / network_connection (EID 3).
+    "windows.process_access": {  # Sysmon EID 10 — SourceImage/TargetImage/GrantedAccess/CallTrace
+        ("windows", "process_access", None, None),
+        ("windows", None, "sysmon", 10),
+    },
+    "windows.pipe_created": {  # Sysmon EID 17 (create) + 18 (connect) — PipeName
+        ("windows", "pipe_created", None, None),
+        ("windows", None, "sysmon", 17),
+        ("windows", None, "sysmon", 18),
+    },
+    "windows.create_remote_thread": {  # Sysmon EID 8 — SourceImage/TargetImage/StartModule
+        ("windows", "create_remote_thread", None, None),
+        ("windows", None, "sysmon", 8),
+    },
+    "windows.driver_load": {  # Sysmon EID 6 — ImageLoaded/Signature/Signed
+        ("windows", "driver_load", None, None),
+        ("windows", None, "sysmon", 6),
+    },
+    "windows.create_stream_hash": {  # Sysmon EID 15 — ADS write; TargetFilename/Contents
+        ("windows", "create_stream_hash", None, None),
+        ("windows", None, "sysmon", 15),
+    },
+    "windows.dns_query": {  # Sysmon EID 22 — QueryName/QueryResults/Image
+        ("windows", "dns_query", None, None),
+        ("windows", None, "sysmon", 22),
+    },
     # SigmaHQ fragments registry mutations across registry_event / registry_set /
     # registry_add / registry_delete — one telemetry class (same Sysmon EIDs 12-14,
     # same TargetObject/Details fields). Consolidated 2026-06-01 so a registry_set rule

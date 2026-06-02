@@ -1667,3 +1667,37 @@ So webserver rules no longer extract empty atoms; routing them to the determinis
 **Operational:** same held deploy — rebuild + `recompute-semantics` repopulates `canonical_class`/`positive_atoms` for the 82 webserver rules.
 
 End of addendum.
+
+## Addendum 2026-06-02 — 7 clean Sysmon + macOS canonical classes added
+
+**Item(s) affected:** 8 (Coverage-Chain long tail, `6gmcfHGH9HFr4QfV`). Knocked out the unambiguous field-based categories.
+
+**Method:** pulled the full logsource distribution (`GROUP BY product, category, service`) and resolved it against the current registry to separate "already covered, needs recompute" from genuinely unclassed. Then pulled one real detection per candidate category to confirm shape (spike discipline). All six Sysmon categories are dict field selections — never the keyword problem — so atom extraction was not in doubt; the comparability tests double as the spike (no atoms → no similarity).
+
+**Added:**
+
+| Class | Logsource | Sysmon EID | Rules (category form) |
+|---|---|---|---|
+| `macos.process_creation` | `macos` / `process_creation` | — | 70 |
+| `windows.process_access` | `windows` / `process_access` | 10 | 29 |
+| `windows.dns_query` | `windows` / `dns_query` | 22 | 27 |
+| `windows.pipe_created` | `windows` / `pipe_created` | 17, 18 | 20 |
+| `windows.create_remote_thread` | `windows` / `create_remote_thread` | 8 | 15 |
+| `windows.driver_load` | `windows` / `driver_load` | 6 | 10 |
+| `windows.create_stream_hash` | `windows` / `create_stream_hash` | 15 | 9 |
+
+~180 rules into the deterministic pool (plus any Sysmon-EID-form rules carrying those EIDs in the `windows//sysmon` bucket).
+
+**Design call — macOS kept distinct:** `macos.process_creation` is NOT folded into `windows`/`linux` process_creation. Same category name, different OS telemetry — a macOS `osascript` rule and a Windows `cmd.exe` rule should never be judged similar. Test `test_macos_and_windows_process_creation_are_distinct_classes` pins this (similarity 0.0, `canonical_class_mismatch`).
+
+**Tests:** 17 in `test_canonical_class.py` (parametrized category-form + Sysmon-EID-form resolution, process_access comparability ≥0.8, pipe↔driver mismatch, macOS resolution + macOS↔Windows distinctness). 180/180 package tests green.
+
+**Deliberately still deferred (need judgment, not just a tuple):**
+- **PowerShell family** — `ps_script` (178!), `ps_module` (34), `ps_classic_start` (11). High impact but a consolidation question (script-block EID 4104 vs module 4103 vs classic 400 — one class or three?) and keyword-heavy (`ScriptBlockText`), so wants its own spike.
+- **proxy (55) / dns category (11) / dns-client service** — web/network siblings; proxy is keyword-comparable now but distinct telemetry from webserver.
+- **Cloud/audit** — aws cloudtrail (55), azure logs (~150 across activity/audit/signin/risk/pim), gcp, okta, m365, github, bitbucket. Different domain (audit events, not host behavioral telemetry) — a separate design conversation.
+- **Generic `windows//security` (163), `windows//system` (74), `linux//auditd` (53)** — heterogeneous multi-EID services; mapping needs per-EID logic, not a single tuple. Highest false-merge risk; left alone.
+
+**Operational:** same held deploy — rebuild + `recompute-semantics`.
+
+End of addendum.
