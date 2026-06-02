@@ -141,13 +141,12 @@ class TestOnDiskCatalog:
         assert "openai" in data
         assert isinstance(data["openai"], list)
 
-    def test_gpt5_4_family_in_catalog(self):
-        """gpt-5.4 and its mini/nano/pro variants must be in the on-disk catalog."""
+    def test_opus_4_8_in_catalog(self):
+        """claude-opus-4-8 must be in the on-disk catalog (latest Opus generation, 1M context default)."""
 
         path = Path(__file__).resolve().parents[2] / "config" / "provider_model_catalog.json"
-        models = json.loads(path.read_text())["openai"]
-        for m in ["gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano", "gpt-5.4-pro"]:
-            assert m in models, f"{m} missing from catalog"
+        models = json.loads(path.read_text())["anthropic"]
+        assert "claude-opus-4-8" in models, "claude-opus-4-8 missing from catalog"
 
     def test_codex_models_not_in_catalog(self):
         """gpt-5.1-codex-max and gpt-5.1-codex-mini must not be in the committed catalog.
