@@ -617,33 +617,6 @@ class SigmaNoveltyService:
         logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}' (service: {service})")
         return logsource_key, service
 
-    def _normalize_conservative(self, value: Any) -> Any:
-        """Conservative normalization: trim whitespace, normalize slashes."""
-        if isinstance(value, str):
-            # Trim whitespace
-            normalized = value.strip()
-            # Normalize path separators (Windows <-> Unix)
-            normalized = normalized.replace("\\", "/")
-            return normalized
-        if isinstance(value, list):
-            return [self._normalize_conservative(v) for v in value]
-        return value
-
-    def _normalize_aggressive(self, value: Any) -> Any:
-        """Aggressive normalization for CommandLine fields."""
-        if isinstance(value, str):
-            # Collapse repeated whitespace
-            normalized = re.sub(r"\s+", " ", value.strip())
-            # Normalize quoting
-            normalized = normalized.replace('"', "'")
-            # Normalize path separators
-            normalized = normalized.replace("\\", "/")
-            # TODO: Normalize argument ordering when semantics imply sets
-            return normalized
-        if isinstance(value, list):
-            return [self._normalize_aggressive(v) for v in value]
-        return value
-
     def extract_atomic_predicates(self, detection: dict[str, Any]) -> list[Atom]:
         """
         Extract atomic predicates from detection block.
