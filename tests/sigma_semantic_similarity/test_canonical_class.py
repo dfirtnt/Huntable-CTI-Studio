@@ -205,6 +205,92 @@ def test_image_load_vs_network_connection_mismatch():
     assert "canonical_class_mismatch" in result.explanation["reason_flags"]
 
 
+# --- web.webserver (Coverage-Chain, unblocked by Conditional B / keyword parity) ---
+# Webserver rules are predominantly keyword-list selections (XSS/SSTI/Log4j/path
+# traversal). Spike A (2026-06-01) deferred this class because the precomputed
+# extractor produced *empty* atoms for keyword lists; Conditional B (5514381b)
+# fixed that, so webserver rules now extract real |contains| atoms and can join
+# the deterministic candidate pool without regressing keyword comparison.
+
+
+def test_webserver_category_resolves():
+    r = {
+        "logsource": {"category": "webserver"},
+        "detection": {"keywords": [".git/"], "condition": "keywords"},
+    }
+    assert resolve_canonical_class(r) == "web.webserver"
+
+
+def test_webserver_keyword_rule_not_atom_less():
+    """Spike A regression guard: a pure-keyword webserver rule must extract
+    non-empty positive atoms via the precomputed pipeline (else it would be
+    misrouted as atom-less / false-NOVEL)."""
+    from sigma_similarity.ast_builder import build_ast
+    from sigma_similarity.atom_extractor import extract_positive_atoms
+    from sigma_similarity.detection_normalizer import normalize_detection
+    from sigma_similarity.dnf_normalizer import ast_to_dnf
+
+    # "Java Payload Strings" shape (real corpus rule).
+    detection = {
+        "keywords": ["getRuntime().exec(", "new+java.", "${@java"],
+        "condition": "keywords",
+    }
+    pos = extract_positive_atoms(ast_to_dnf(build_ast(normalize_detection(detection))))
+    assert pos, "webserver keyword rule extracted zero atoms (Spike A regression)"
+    assert "|contains|contains|getruntime().exec(" in pos
+
+
+def test_two_webserver_keyword_rules_comparable():
+    """Two webserver keyword rules sharing keywords are comparable (high
+    similarity), not false-NOVEL — the behavior Spike A blocked."""
+    r1 = {
+        "logsource": {"category": "webserver"},
+        "detection": {"keywords": ["${jndi:ldap:/", "${jndi:rmi:/"], "condition": "keywords"},
+    }
+    r2 = {
+        "logsource": {"category": "webserver"},
+        "detection": {"keywords": ["${jndi:ldap:/", "${jndi:rmi:/"], "condition": "keywords"},
+    }
+    result = compare_rules(r1, r2)
+    assert result.canonical_class == "web.webserver"
+    assert result.similarity >= 0.8
+
+
+def test_webserver_mixed_field_and_keyword_rule_resolves():
+    """The Kemp CVE shape: dict field selection + keyword selection both
+    contribute atoms and the rule still resolves to web.webserver."""
+    from sigma_similarity.ast_builder import build_ast
+    from sigma_similarity.atom_extractor import extract_positive_atoms
+    from sigma_similarity.detection_normalizer import normalize_detection
+    from sigma_similarity.dnf_normalizer import ast_to_dnf
+
+    detection = {
+        "condition": "all of selection_*",
+        "selection_path": {"cs-method": "GET", "cs-uri-stem|contains|all": ["/access/set", "param=enableapi"]},
+        "selection_keywords": ["Basic Jz", "Basic c7"],
+    }
+    r = {"logsource": {"category": "webserver"}, "detection": detection}
+    assert resolve_canonical_class(r) == "web.webserver"
+    pos = extract_positive_atoms(ast_to_dnf(build_ast(normalize_detection(detection))))
+    # Both the field atoms and the keyword atoms are present.
+    assert any(a.startswith("cs-method|") for a in pos)
+    assert "|contains|contains|basic jz" in pos
+
+
+def test_webserver_vs_process_creation_mismatch():
+    r_web = {
+        "logsource": {"category": "webserver"},
+        "detection": {"keywords": [".git/"], "condition": "keywords"},
+    }
+    r_proc = {
+        "logsource": {"product": "windows", "category": "process_creation"},
+        "detection": {"s": {"Image|endswith": "\\cmd.exe"}, "condition": "s"},
+    }
+    result = compare_rules(r_web, r_proc)
+    assert result.similarity == 0.0
+    assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
 # --- windows.service resolution ---
 
 

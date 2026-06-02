@@ -1643,3 +1643,27 @@ End of addendum.
 **Operational:** same as Options B/C — `sigma_semantic_similarity` is COPY'd into the image, so live only after `docker compose build` + `docker compose --profile tools build cli` + `up -d`, then `./run_cli.sh sigma recompute-semantics`. Deploy held pending parallel session.
 
 End of addendum.
+
+## Addendum 2026-06-02 — `web.webserver` canonical class added (Spike A deferral retired)
+
+**Item(s) affected:** 8 (Coverage-Chain). The webserver portion Spike A deferred is now landed.
+
+**What changed:** added `web.webserver` → `{(None, "webserver", None, None)}` to `CANONICAL_CLASS_REGISTRY`. SigmaHQ webserver rules carry `category: webserver` with no `product`, so the tuple's first slot is `None`.
+
+**Why it's now safe (was the explicit Spike A blocker):** Conditional B (commit `5514381b`) gave the precomputed extractor keyword-list parity. Re-ran the real corpus shapes through `normalize_detection → build_ast → ast_to_dnf → extract_positive_atoms`:
+
+- pure keyword (`{"keywords": [".git/"], "condition": "keywords"}`) → `|contains|contains|.git/` ✓ (was `[]` pre-Conditional-B)
+- keyword + `not filter` (Log4j) → positive `${jndi:ldap:/` etc. **and** negative `w.nessus.org/nessus` — negation flows correctly through the condition tree ✓
+- mixed field + keyword (Kemp CVE-2024-1212) → `cs-method|eq||get`, `cs-uri-stem|contains|contains|all|…` **and** `|contains|contains|basic jz` ✓
+
+So webserver rules no longer extract empty atoms; routing them to the deterministic path no longer regresses keyword comparison.
+
+**Coverage:** 82 previously-classless `webserver` rules now resolve to `web.webserver`.
+
+**Scope held deliberately:** `proxy` (55 rules) is a sibling web category — overlapping `cs-*`/`c-uri` fields but distinct telemetry (proxy logs ≠ access logs). Not folded in; it remains in the long-tail Coverage-Chain item (`6gmcfHGH9HFr4QfV`). `cs-*` fields were **not** added to `FIELD_ALIAS_MAP` — they resolve as-is (lowercased) and stay comparable because both sides use identical SigmaHQ field names; adding aliases would only matter for cross-naming, which webserver rules don't exhibit.
+
+**Tests:** 5 in `tests/sigma_semantic_similarity/test_canonical_class.py` (resolution; Spike-A atom-less regression guard; two-keyword-rule comparability ≥0.8; mixed field+keyword resolves + both atom kinds present; webserver↔process_creation mismatch → 0.0). RED confirmed (4 resolution tests failed pre-add, the atom-extraction guard already green from Conditional B); 163/163 package tests green.
+
+**Operational:** same held deploy — rebuild + `recompute-semantics` repopulates `canonical_class`/`positive_atoms` for the 82 webserver rules.
+
+End of addendum.

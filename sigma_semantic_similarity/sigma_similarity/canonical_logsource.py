@@ -37,11 +37,7 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     },
     # File telemetry: SigmaHQ uses file_event / file_delete / file_access / file_rename /
     # file_change — one class (TargetFilename/Image fields; Sysmon EIDs 11/23/26). Added
-    # 2026-06-01 (Option C). NOTE: the *.webserver keyword-only family is deliberately NOT
-    # added here — Spike A (2026-06-01) showed the precomputed extractor yields empty atoms
-    # for keyword-list selections, so routing webserver rules to the precomputed path would
-    # regress the working on-the-fly keyword comparison. Gated on the keyword-parity work
-    # (Conditional B / collapse-the-extractors issue).
+    # 2026-06-01 (Option C).
     "windows.file_event": {
         ("windows", "file_event", None, None),
         ("windows", "file_delete", None, None),
@@ -63,6 +59,18 @@ CANONICAL_CLASS_REGISTRY: dict[str, set[tuple[str | None, str | None, str | None
     "windows.network_connection": {
         ("windows", "network_connection", None, None),
         ("windows", None, "sysmon", 3),
+    },
+    # Web access-log telemetry (SigmaHQ `category: webserver`, no product). Added
+    # 2026-06-02 once Conditional B (commit 5514381b) gave the precomputed extractor
+    # keyword-list parity — webserver rules are predominantly keyword selections
+    # (XSS/SSTI/Log4j/path-traversal) that Spike A (2026-06-01) showed extracted to
+    # empty atoms before that fix. The cs-* fields (cs-method/cs-uri-stem/cs-uri-query/
+    # sc-status) are not in FIELD_ALIAS_MAP, so they resolve as-is (lowercased) — still
+    # comparable rule-to-rule since both sides use the same SigmaHQ field names. `proxy`
+    # is a sibling web category with overlapping fields but distinct telemetry; it is
+    # tracked in the long-tail Coverage-Chain item, not folded in here.
+    "web.webserver": {
+        (None, "webserver", None, None),
     },
     "windows.service": {
         ("windows", "service_creation", None, None),
