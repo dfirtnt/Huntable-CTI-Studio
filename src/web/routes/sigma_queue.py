@@ -297,11 +297,6 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
         db_session = db_manager.get_session()
 
         try:
-            # Verify article exists
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail="Article not found")
-
             # Get rule YAML - either from rule_yaml or convert from rule_json
             rule_yaml = add_request.rule_yaml
             if not rule_yaml and add_request.rule_json:
@@ -310,6 +305,31 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
 
             if not rule_yaml:
                 raise HTTPException(status_code=400, detail="Either rule_yaml or rule_json must be provided")
+
+            # Validate rule_yaml is a Sigma-shaped dict before touching the DB
+            try:
+                _parsed = yaml.safe_load(rule_yaml)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rule_yaml is not valid YAML: {exc}. Preview: {rule_yaml[:120]!r}",
+                ) from exc
+            if not isinstance(_parsed, dict):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rule_yaml must parse to a YAML mapping (dict), got {type(_parsed).__name__}. Preview: {rule_yaml[:120]!r}",
+                )
+            _missing = [k for k in ("title", "logsource", "detection") if k not in _parsed]
+            if _missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rule_yaml is missing required Sigma keys: {_missing}. Preview: {rule_yaml[:120]!r}",
+                )
+
+            # Verify article exists
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail="Article not found")
 
             # Parse rule YAML to extract metadata if not provided
             rule_metadata = add_request.rule_metadata

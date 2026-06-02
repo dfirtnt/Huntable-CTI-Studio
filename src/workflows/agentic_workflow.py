@@ -2409,6 +2409,19 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             rule_for_yaml = {k: v for k, v in rule.items() if k != "observables_used"}
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
 
+                            # Guard: confirm the generated YAML round-trips to a dict with required keys.
+                            # yaml.dump(dict) should always satisfy this, but catch regressions early.
+                            _parsed_back = yaml.safe_load(rule_yaml)
+                            _missing_keys = [k for k in ("title", "logsource", "detection") if k not in (_parsed_back or {})]
+                            if not isinstance(_parsed_back, dict) or _missing_keys:
+                                logger.warning(
+                                    f"[Workflow {state['execution_id']}] Skipping rule idx={idx}: "
+                                    f"rule_yaml failed Sigma dict validation "
+                                    f"(type={type(_parsed_back).__name__}, missing={_missing_keys}). "
+                                    f"Preview: {rule_yaml[:120]!r}"
+                                )
+                                continue
+
                             rule_meta = {
                                 "title": rule.get("title"),
                                 "description": rule.get("description"),
