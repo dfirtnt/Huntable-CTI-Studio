@@ -13069,12 +13069,14 @@ function renderRulePreview(rule, observablesData) {
     if (similarityScores.length > 0) {
         similarRulesHtml = `
             <div class="mt-4">
-                <h4 class="font-semibold mb-2 text-gray-600 dark:text-gray-300">Similar Existing Rules:</h4>
-                <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
-                    ${similarityScores.slice(0, 5).map(s => `
-                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
-                    `).join('')}
-                </ul>
+                <details class="border border-gray-600 rounded-lg">
+                    <summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Similar Existing Rules (${similarityScores.length})</summary>
+                    <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300 px-3 pb-3 mt-2">
+                        ${similarityScores.slice(0, 5).map(s => `
+                            <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                        `).join('')}
+                    </ul>
+                </details>
             </div>
         `;
     }
