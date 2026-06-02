@@ -636,9 +636,16 @@ The word **"semantic"** is overloaded across the Sigma code and is the single bi
 | **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — but only `SigmaRuleTable.embedding` and `logsource_embedding` are actually scored. The other five rule embedding columns (`title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding`) are written but never read; `detection_structure_`/`detection_fields_` even store a *duplicate* of the logsource vector. | `sigma_matching_service.py`, `rag_service.py` |
 | **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** — Jaccard × containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**, despite the `sigma_semantic_similarity` package name, `precompute_semantic_fields`, and the `recompute-semantics` CLI all carrying the word "semantic". | **No** | `sigma_semantic_similarity` pkg, `precompute_semantic_fields` |
 
-**Both novelty engines are deterministic.** The `"deterministic"` vs `"legacy"` engine labels (in `similarity_scores`) describe *where atoms are computed* — precomputed at index time vs parsed in-app at comparison time — **not** determinism vs probability. Neither novelty engine uses embeddings; the only probabilistic/fuzzy similarity in the system is the article and article→rule vector search above.
+**The atom set-math engine runs in one of two paths — and both are deterministic.** The distinction is *when the atoms are computed*, not determinism vs probability:
 
-> **Cleanup tracked:** the misnamed "semantic" set-math engine and the dead/duplicate rule-embedding columns are tracked as SigmaSim issues in the backlog. Until renamed, read "semantic precompute" / "semantic similarity" as "deterministic atom set-math."
+| Canonical term (use this) | Code label today (`similarity_scores`) | What it is |
+|---|---|---|
+| **precomputed atom set-math** | `"deterministic"` | Atoms built once at index time, stored in `positive_atoms`/etc. columns; comparison reads the stored strings. |
+| **on-the-fly atom set-math** | `"legacy"` | No stored atoms, so the rule YAML is parsed and atoms derived at comparison time. Same set math, recomputed each call. |
+
+Neither path uses embeddings. The only probabilistic/fuzzy similarity in the system is the article and article→rule vector search (first two rows above). Avoid the words "semantic" (implies vectors — it isn't), "deterministic vs legacy" (both are deterministic), and "in-app" (everything is in the app — the real axis is precompute-time vs comparison-time).
+
+> **Cleanup tracked:** the misnamed "semantic" set-math engine (rename to atom/precomputed terms, incl. the `"deterministic"`/`"legacy"` → `"precomputed"`/`"on-the-fly"` labels) and the dead/duplicate rule-embedding columns are tracked as SigmaSim issues in the backlog. Until the code is renamed, read "semantic precompute" / "semantic similarity" as **precomputed atom set-math**, and map `deterministic → precomputed`, `legacy → on-the-fly`.
 
 ---
 
