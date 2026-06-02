@@ -370,6 +370,20 @@ def main():
 
     args = parser.parse_args()
 
+    # DEPRECATED (2026-06-01): superseded by `./run_cli.sh sigma index-embeddings`, which uses
+    # the current EmbeddingService (e5-base-v2) and the live 2-vector model (whole-rule
+    # `embedding` + combined `logsource_embedding`). This script targets the removed
+    # per-section embedding columns (title/description/tags/detection_structure/detection_fields,
+    # dropped from sigma_rules 2026-06-01) and the deprecated LMStudio client, and reads
+    # section keys that create_section_embeddings_text no longer returns — i.e. it is
+    # non-functional. Guard kept so the file imports cleanly; remove the script in a future pass.
+    print(
+        "DEPRECATED: scripts/migrate_sigma_embeddings.py is superseded and non-functional "
+        "(targets removed per-section embedding columns). Use: ./run_cli.sh sigma index-embeddings",
+        file=sys.stderr,
+    )
+    raise SystemExit(2)
+
     if args.compare_only:
         compare_similarity_methods(rank_diff_threshold=args.rank_diff_threshold)
     else:

@@ -633,7 +633,7 @@ The word **"semantic"** is overloaded across the Sigma code and is the single bi
 | Mechanism | What it is | Vectors? | Where |
 |---|---|---|---|
 | **Article / annotation semantic search** | Genuine ML embeddings (all-mpnet-base-v2), cosine nearest-neighbour over article text. Powers MCP article search, RAG, web search. | **Yes** — real `Vector(768)` + `<=>` | `ArticleTable.embedding`, `AnnotationTable.embedding` |
-| **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — but only `SigmaRuleTable.embedding` and `logsource_embedding` are actually scored. The other five rule embedding columns (`title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding`) are written but never read; `detection_structure_`/`detection_fields_` even store a *duplicate* of the logsource vector. | `sigma_matching_service.py`, `rag_service.py` |
+| **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — two vectors per rule: `SigmaRuleTable.embedding` (whole-rule text) and `logsource_embedding` (the combined "signature" text: logsource + detection structure + detection fields). Both are scored via `<=>`. *(Five former per-section columns — `title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding` — were write-only and were dropped 2026-06-01; `detection_structure_`/`detection_fields_` had stored a duplicate of the signature vector.)* | `sigma_matching_service.py`, `rag_service.py` |
 | **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** — Jaccard × containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**, despite the `sigma_semantic_similarity` package name, `precompute_semantic_fields`, and the `recompute-semantics` CLI all carrying the word "semantic". | **No** | `sigma_semantic_similarity` pkg, `precompute_semantic_fields` |
 
 **The atom set-math engine runs in one of two paths — and both are deterministic.** The distinction is *when the atoms are computed*, not determinism vs probability:
@@ -810,6 +810,14 @@ required). Run `sigma index-metadata` first, then `sigma index-embeddings` to
 enable similarity search. The `LMSTUDIO_EMBEDDING_MODEL` env var or
 `SigmaEmbeddingModel` workflow config key overrides the model when using LM
 Studio as the embedding backend.
+
+Each rule stores **two** `Vector(768)` embeddings: `embedding` (whole-rule text)
+and `logsource_embedding` (the combined "signature" — logsource + detection
+structure + detection fields, built by `create_signature_embedding_text`). Only
+these two are scored by the article→rule matching path. `index-embeddings`
+therefore encodes two texts per rule. (The deprecated
+`scripts/migrate_sigma_embeddings.py` predates this and is non-functional — use
+`sigma index-embeddings`.)
 
 ---
 

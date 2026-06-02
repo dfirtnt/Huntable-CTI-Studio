@@ -39,14 +39,22 @@ class TestIndexEmbeddings:
         mock_db_session.query.return_value.filter.return_value.all.return_value = [mock_rule]
 
         mock_emb_instance = MagicMock()
-        # Batched path: 5 texts per rule (full + title, description, tags, signature)
-        mock_emb_instance.generate_embeddings_batch.return_value = [[0.1] * 768] * 5
+        # Batched path: 2 texts per rule (whole-rule + combined signature). The former
+        # per-section vectors (title/description/tags + duplicate detection_*) were dropped
+        # 2026-06-01; only `embedding` and `logsource_embedding` are scored downstream.
+        mock_emb_instance.generate_embeddings_batch.return_value = [[0.1] * 768] * 2
         mock_emb_cls.return_value = mock_emb_instance
 
         result = sync_service.index_embeddings(mock_db_session)
 
         assert result["embeddings_indexed"] >= 1
         assert mock_emb_instance.generate_embeddings_batch.called
+        # Contract: exactly 2 texts encoded per rule (1 rule here).
+        flat_texts = mock_emb_instance.generate_embeddings_batch.call_args.args[0]
+        assert len(flat_texts) == 2, f"expected 2 texts/rule, got {len(flat_texts)}"
+        # Only the two live vectors are assigned; dropped columns are not set.
+        assert mock_rule.embedding is not None
+        assert mock_rule.logsource_embedding is not None
 
     @patch("src.services.embedding_service.EmbeddingService")
     def test_result_has_expected_keys(self, mock_emb_cls, sync_service, mock_db_session):
