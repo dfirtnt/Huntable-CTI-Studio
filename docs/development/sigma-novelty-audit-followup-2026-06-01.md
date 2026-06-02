@@ -1753,3 +1753,25 @@ End of addendum.
 **Coverage-Chain running total (this session, all deploy-gated):** ~485 + 77 = **~562 newly-classed rules** on top of live 2,135, plus Option B's 189. Post-deploy projection ≈ **2,886 / 3,728 (~77%)**.
 
 End of addendum.
+
+## Addendum 2026-06-02 — extractor-alignment review: breadth is ahead of need; Finding A (EventCode) fixed
+
+**Reframe:** the canonical-class push above mostly serves the *imported SigmaHQ corpus*. The question that matters for our own pipeline is **alignment** — do the telemetry domains our 6 extractor agents emit have coverage? Answered empirically from the 438-row `sigma_rule_queue` (what we actually generate):
+
+| Logsource (generated) | Rules | Canonical class | Aligned? |
+|---|---|---|---|
+| `process_creation` (win/linux) | ~393 (~90%) | windows/linux.process_creation | ✓ always |
+| `network_connection` windows | 18 | windows.network_connection | ✓ (Option B) |
+| `registry` / `file_access` | ~5 | registry_event / file_event | ✓ |
+| `powershell` | 2 | windows.ps_* | ✓ (this session) |
+| unparsed / malformed | ~15 | — | see findings |
+
+**Verdict:** alignment with the existing extractors (CmdlineExtract + ProcTreeExtract → process_creation; RegistryExtract → registry_event; ServicesExtract → windows.service; ScheduledTasksExtract → windows.scheduled_task; HuntQueriesExtract → not Sigma telemetry) is **in good shape**. Output is ~90% process_creation, long covered. Further canonical classes (cloud/audit/singletons) are low-value for *our* output; the leverage has moved to depth (process_creation dedup quality) + output hygiene.
+
+**Finding A (FIXED):** `_extract_event_id_from_detection` didn't recognize `EventCode` (Windows EventLog / Splunk CIM name for EventID). SigmaAgent emits it (queue id 23: `service: sysmon` + `EventCode: 22`), so those rules resolved to no canonical class. Fixed by adding `EventCode`/`eventcode`/`event_code` to the recognized field names. Corpus uses `EventID` exclusively (0 affected); preventative there, corrective for generated/Splunk-targeted rules. 10 tests; 203/203 package green.
+
+**Finding B (FILED, not fixed):** a few generated rules emit unclassifiable logsources — `service: security`/`service: sysmon` with no parseable EID or category (queue ids 193, 198) → can't be classed. This is a SigmaAgent *generation-hygiene* issue (the rule template should emit `category: process_creation` or include the EID), not a registry gap. Tracked in Todoist.
+
+**Structural caveat (not new):** ScheduledTasksExtract rules that hunt `schtasks.exe` land in `process_creation`, not `scheduled_task` — documented cross-telemetry limitation, inherent to Sigma logsource modeling.
+
+End of addendum.

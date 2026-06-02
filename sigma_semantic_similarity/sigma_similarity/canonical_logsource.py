@@ -178,7 +178,11 @@ def _extract_event_id_from_detection(detection: dict) -> int | None:
             continue
         for field_name, field_value in value.items():
             base = field_name.split("|")[0] if "|" in field_name else field_name
-            if base in ("EventID", "EventId", "eventid", "event_id"):
+            # EventCode is the Windows EventLog / Splunk CIM field name for what
+            # Sysmon/SigmaHQ call EventID — same semantics. SigmaAgent emits it for
+            # Splunk-backend rules (e.g. queue id 23: `EventCode: 22`), so treat the
+            # two as identical or those rules resolve to no canonical class.
+            if base in ("EventID", "EventId", "eventid", "event_id", "EventCode", "eventcode", "event_code"):
                 if isinstance(field_value, int):
                     return field_value
                 if isinstance(field_value, list) and len(field_value) == 1 and isinstance(field_value[0], int):

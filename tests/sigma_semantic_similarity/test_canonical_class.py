@@ -1,7 +1,10 @@
 """Canonical class: same class comparable; different class similarity 0; unknown class raises."""
 
 import pytest
-from sigma_similarity.canonical_logsource import resolve_canonical_class
+from sigma_similarity.canonical_logsource import (
+    _extract_event_id_from_detection,
+    resolve_canonical_class,
+)
 from sigma_similarity.errors import UnknownTelemetryClassError
 from sigma_similarity.similarity_engine import compare_rules
 
@@ -541,6 +544,48 @@ def test_ps_script_vs_ps_module_are_distinct_classes():
     result = compare_rules(r_script, r_module)
     assert result.similarity == 0.0
     assert "canonical_class_mismatch" in result.explanation["reason_flags"]
+
+
+# --- EventCode recognized as EventID (Splunk / Windows EventLog field alias) ---
+# SigmaAgent and Splunk-backend rules use `EventCode` (the Windows EventLog / Splunk
+# CIM field name) for what Sysmon/SigmaHQ call `EventID`. The canonical-class resolver
+# must treat them identically — otherwise a `service: sysmon` + `EventCode: N` rule
+# resolves to no class and gets degraded dedup. Queue id 23 is exactly this shape
+# (EventCode: 22 → Sysmon DNS query). Finding A of the extractor-alignment review.
+
+
+@pytest.mark.parametrize("field", ["EventCode", "eventcode", "event_code", "EventID", "EventId", "event_id"])
+def test_event_id_extracted_from_eventcode_and_eventid_aliases(field):
+    detection = {"selection": {field: 22, "Image|endswith": "\\vbc.exe"}, "condition": "selection"}
+    assert _extract_event_id_from_detection(detection) == 22
+
+
+def test_eventcode_single_item_list_resolves():
+    detection = {"selection": {"EventCode": [7]}, "condition": "selection"}
+    assert _extract_event_id_from_detection(detection) == 7
+
+
+def test_eventcode_multiple_values_no_single_id():
+    """Mirror EventID behavior: a multi-value list yields no single event_id."""
+    detection = {"selection": {"EventCode": [1, 22]}, "condition": "selection"}
+    assert _extract_event_id_from_detection(detection) is None
+
+
+def test_sysmon_eventcode_22_resolves_dns_query():
+    """Queue id 23 shape: service:sysmon + EventCode:22 → windows.dns_query."""
+    r = {
+        "logsource": {"product": "windows", "service": "sysmon"},
+        "detection": {"selection": {"EventCode": 22, "Image|endswith": "\\vbc.exe"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == "windows.dns_query"
+
+
+def test_sysmon_eventcode_1_resolves_process_creation():
+    r = {
+        "logsource": {"product": "windows", "service": "sysmon"},
+        "detection": {"selection": {"EventCode": 1, "Image|endswith": "\\x.exe"}, "condition": "selection"},
+    }
+    assert resolve_canonical_class(r) == "windows.process_creation"
 
 
 # --- windows.service resolution ---
