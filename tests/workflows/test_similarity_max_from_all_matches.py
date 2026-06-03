@@ -19,7 +19,7 @@ pytestmark = pytest.mark.unit
 
 
 def _match(similarity: float, novelty_score: float | None = None, title: str = "Existing Rule") -> dict:
-    """Build a fake match dict as returned by compare_proposed_rule_to_embeddings."""
+    """Build a fake match dict as returned by assess_rule_novelty."""
     return {
         "rule_id": 1,
         "title": title,
@@ -116,7 +116,7 @@ class TestSimilarityMaxFromAllMatches:
 class TestZeroSimilarityFilter:
     """Regression: zero-similarity matches must be stripped from similar_rules.
 
-    compare_proposed_rule_to_embeddings returns ALL candidates (threshold=0.0) so
+    assess_rule_novelty returns ALL candidates (threshold=0.0) so
     the workflow can compute max_similarity from the full set. Before this fix,
     similarity=0.0 entries (no semantic overlap at all) were stored in similar_rules
     and surfaced in the queue UI as spurious matches.

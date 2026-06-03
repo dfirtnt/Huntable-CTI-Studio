@@ -107,8 +107,9 @@ The article UI renders the LLM ↔ pySigma conversation:
 
 - AI model configured (OpenAI API key, or LMStudio local server)
 - pySigma installed (bundled in requirements)
-- For similarity search: Sigma rules indexed (`sigma index-metadata` then
-  `sigma index-embeddings`)
+- For article-to-rule matching (pgvector path): Sigma rules indexed (`sigma index-metadata` then
+  `sigma index-embeddings`). Note: the rule novelty/deduplication path uses Jaccard×Containment
+  scoring and does not require embeddings — only `sigma index-metadata` is needed for it.
 - Threat hunting score < 65 shows a warning but does not block generation
 
 ---
@@ -200,11 +201,40 @@ and score novelty.
 ```
 Generated Rule
   1. Extract detection atoms (or generate embedding as fallback)
-  2. Filter sigma_rules by logsource_key (hard gate)
-  3. Further filter by canonical_class when available
-  4. Compute behavioral novelty score for each candidate
+  2. Phase 1 candidate retrieval — two paths:
+       (a) canonical_class path: filter sigma_rules.canonical_class = X (no LIMIT)
+       (b) logsource_key fallback: filter sigma_rules.logsource_key = X (LIMIT 20)
+     Each candidate is tagged with the phase1_path it came from.
+  3. Phase 2 scoring — Jaccard × Containment − Filter, deterministic engine
+  4. Phase 3 safety gate (scoped) — drop logsource_key mismatches ONLY on the
+     logsource_key-fallback path. The canonical_class path's SQL filter is the
+     authoritative scoping; gating it would re-impose the narrower predicate the
+     canonical_class column was created to escape (Spec Item 6, Option B per
+     2026-06-01 4c measurement).
   5. Return top matches above threshold, sorted by similarity descending
 ```
+
+Step 1 extracts atoms from all three Sigma selection shapes:
+
+| Shape | Example | Atom production |
+|---|---|---|
+| Single map | `selection: { Image\|endswith: '\foo.exe' }` | Field-bearing atom per field/value pair |
+| List of maps | `selection: [{...}, {...}]` | Implicit OR of indicator sets; each map produces field-bearing atoms |
+| List of scalars | `keywords: ['<script>', 'onerror=']` (or any selection name) | Field-less keyword atom per scalar — `field=""`, `op="contains"`, polarity derived from the condition (`not <key>` → negative; otherwise positive) |
+
+Mixed lists (dicts and scalars in the same list — rare but legal) split across the second and third paths.
+
+**Atom-less rules → `NOVEL`.** If no detection atoms can be extracted — i.e., truly
+degenerate cases like a selection with an empty dict (`selection: {}`) or detection
+shapes the extractor doesn't model at all — the rule has no behavioral fingerprint
+to compare. Rather than risk a false `DUPLICATE` (an empty canonical form would
+hash to one shared `exact_hash` across every such rule), `generate_exact_hash`
+returns `None` (leaving the DB column NULL so SQL `IS NULL` semantics prevent any
+match) and `assess_novelty` short-circuits to `NOVEL`. The two guards compose:
+the hash-side guard closes the upstream root cause; the assess-side guard is
+defense-in-depth. In the current live corpus, every indexed rule produces atoms
+and a distinct `exact_hash` — the atom-less population is 0 — but the guards stay
+in place for malformed or unmodeled rules that may arrive in the future.
 
 ### Behavioral Novelty Scoring
 
@@ -212,13 +242,99 @@ Generated Rule
 
 ```
 novelty_score = 1 - similarity_score
-similarity_score = (atom_jaccard * containment) - filter_penalty
+similarity_score = (atom_jaccard × containment) − filter_penalty
 ```
 
 Where:
 - `atom_jaccard` = |atoms(A) ∩ atoms(B)| / |atoms(A) ∪ atoms(B)|
-- `containment` = |atoms(A) ∩ atoms(B)| / |atoms(A)|
+- `containment` = a categorical factor B ∈ {1.0, 0.85, 0.75, 0.65} expressing how
+  far one rule's atoms subsume the other's. It is **not** a raw ratio; it is bucketed
+  from `overlap_ratio_a`, `overlap_ratio_b`, and `surface_ratio` (see below).
 - `filter_penalty` = reduction when one rule's filters would exclude the other's detection
+
+The intermediate ratios fed into containment:
+
+```
+overlap_ratio_a = |intersection| / |atoms(A)|
+overlap_ratio_b = |intersection| / |atoms(B)|
+surface_ratio   = |surface(A) − surface(B)| / max(surface(A), surface(B))
+```
+
+The bucket (`containment_factor` shown in the UI as "Containment") is selected by:
+
+| Bucket | Condition | B |
+|---|---|---|
+| Equivalent | `overlap_a ≥ 0.9` and `overlap_b ≥ 0.9` and `surface_ratio ≤ 0.10` | **1.00** |
+| Subset (A ⊂ B) | `overlap_a ≥ 0.9` and `surface(A) < surface(B)` | **0.85** |
+| Superset (A ⊃ B) | `overlap_b ≥ 0.9` and `surface(A) > surface(B)` | **0.75** |
+| Else (no clear subset relationship) | (default) | **0.65** |
+
+So a 65% Containment in the UI means *"neither rule is a clean ≥90% subset of the other"* — the floor value, not a literal "65% of atoms overlap."
+
+#### Surface (DNF branches)
+
+`surface_score` = number of branches the detection has after being expanded to
+**Disjunctive Normal Form**. Conceptually: *how many distinct shapes of event can
+trigger this rule?*
+
+- Every `AND` keeps everything in one branch.
+- Every `OR` (explicit `or`, list of selections, `1 of selection_*`, list-valued
+  selection blocks) doubles or multiplies the branches.
+
+Code: `sigma_semantic_similarity/sigma_similarity/surface_estimator.py`.
+
+##### Worked example
+
+Two rules that both involve `php.exe`:
+
+**Rule A — PowerShell Spawning PHP** (surface = 1):
+
+```yaml
+detection:
+  selection_parent:
+    ParentImage|endswith: \powershell.exe
+  selection_image:
+    Image|endswith: \php.exe
+  selection_cli:
+    CommandLine|contains|all:
+      - \AppData\Roaming\php\
+      - -d extension=zip
+  condition: selection_parent and selection_image and selection_cli
+```
+
+Pure AND of three selections → **one** way to satisfy it → surface = 1.
+
+**Rule B — Php Inline Command Execution** (surface = 2):
+
+```yaml
+detection:
+  selection_cli:
+    CommandLine|contains: " -r"
+  selection_img:
+    - Image|endswith: \php.exe          # branch A
+    - OriginalFileName: php.exe         # branch B
+  condition: all of selection_*
+```
+
+The list under `selection_img` is implicit OR. After DNF expansion:
+`(cli ∧ Image=\php.exe) OR (cli ∧ OriginalFileName=php.exe)` → **two** ways to
+satisfy it → surface = 2.
+
+##### Why it's displayed alongside Jaccard and Containment
+
+Surface is the denominator behind the Subset / Superset buckets in containment.
+A 1-branch rule whose atoms are ≥90% inside a 2-branch rule earns *Subset*
+(B = 0.85), which is a stronger signal than the atom counts alone would suggest:
+*"every event this narrower rule fires on, the broader rule could also fire on
+via one of its branches."* High Containment + low Jaccard + asymmetric Surface
+is the classic **narrow-rule-inside-broader-rule** pattern — not a duplicate,
+but the broader rule already covers your behavior.
+
+If Surface ever looks wildly off (e.g. dozens of branches for a simple-looking
+rule), it usually means a nested `1 of` / wildcard selection-name pattern blew
+up the DNF, which feeds back into a noisy Containment score. Surface is also
+the trigger for the `dnf_expansion_limit` reason flag, which short-circuits the
+comparison to "Skipped (unsupported rule type)" in the UI.
 
 **Cross-field soft matching**: When strict atom intersection is empty, value-based
 soft matching applies across process-executable fields (`Image`, `CommandLine`,
@@ -230,6 +346,82 @@ detecting the same binary via different Sigma fields.
 **Legacy path** (when package is not installed): Atom Jaccard 70% + Logic Shape
 Similarity 30%.
 
+#### When each engine runs
+
+Both engines coexist in `SigmaNoveltyService.assess_novelty`. Which path
+executes for a given (proposed_rule, candidate) pair depends on two
+preconditions:
+
+| Precondition | Deterministic engine | Legacy in-app engine |
+|---|---|---|
+| Proposed rule's `precompute_semantic_fields` succeeded? | Required (sets `proposed_sem`) | Not required |
+| Candidate has `positive_atoms` populated? | Required | Not required |
+| `sigma_semantic_similarity` package installed at runtime? | Required | Optional |
+
+When all three hold, the deterministic path runs. If any fails, the engine
+falls through to the legacy path. The legacy path therefore covers:
+
+- Rules whose telemetry class isn't modeled by the canonical-class resolver.
+  As of 2026-06-02 the modeled set covers: process_creation (windows/linux/macos);
+  the registry family (`registry_event`/`registry_set`/`registry_add`/`registry_delete`);
+  the Windows file family (`file_event`/`file_delete`/`file_access`/`file_rename`/`file_change`);
+  the clean Sysmon-EID categories `windows.image_load` (7), `windows.network_connection` (3),
+  `windows.process_access` (10), `windows.create_remote_thread` (8), `windows.driver_load` (6),
+  `windows.create_stream_hash` (15), `windows.pipe_created` (17/18), `windows.dns_query`
+  (Sysmon 22 + DNS-Client 3008); the three PowerShell sources `windows.ps_script` (4104),
+  `windows.ps_module` (4103), `windows.ps_classic_start` (400) — kept as distinct classes;
+  the web/network access classes `web.webserver`, `web.proxy`, and `network.dns` (generic +
+  zeek, `query` field); plus `windows.service` and `windows.scheduled_task`. Keyword-list
+  selections (XSS/SSTI/Log4j webserver rules) are now modeled on **both** the precomputed and
+  on-the-fly paths — the precomputed extractor synthesizes a field-less `contains` atom per
+  scalar (Conditional B, 2026-06-02), so webserver/proxy rules are no longer forced onto the
+  on-the-fly path. Still unmodeled (Coverage-Chain backlog): cloud/audit telemetry
+  (aws/azure/gcp/okta/m365/github), heterogeneous multi-EID services (`windows`/`security`,
+  `windows`/`system`, `linux`/`auditd`), `linux.file_event` / `linux.network_connection`,
+  `macos.file_event`, and assorted singletons (windefend, cisco, fortigate, zeek smb, the
+  `application/*` product families). `EventCode` (the Splunk/EventLog field name) is treated
+  as `EventID` during resolution.
+- Rules whose Sigma syntax uses features the deterministic AST builder rejects
+  (e.g. unsupported correlation patterns, nested `1 of` selection-name
+  expressions that exceed the DNF expansion limit).
+- Indexed corpus rules that pre-date a `canonical_class`-aware sync (i.e. were
+  indexed before `positive_atoms` was a column or before its resolver covered
+  their class).
+
+#### What the legacy path sacrifices
+
+- **No DNF normalization.** Two rules whose detection logic is the same boolean
+  expression in different surface forms (e.g. `(A and B) or C` vs. `(A or C) and (B or C)`)
+  do NOT collapse to the same atom set. They score below their semantic
+  equivalence.
+- **No surface_score / containment factor.** The legacy path can't distinguish
+  "narrow rule is a subset of a broad rule" (a Subset Containment bucket B=0.85
+  signal in the deterministic engine) from "unrelated rules that happen to
+  share an atom." The legacy formula is just `0.70 × atom_jaccard + 0.30 × logic_shape`.
+- **No reason flags.** Deterministic results carry `reason_flags` like
+  `no_shared_atoms`, `canonical_class_mismatch`, `dnf_expansion_limit` —
+  diagnostic signals the UI surfaces. The legacy path emits no such flags;
+  inconclusive results are indistinguishable from low-similarity results.
+- **No filter penalty asymmetry.** Negative-atom differences (Sigma `NOT` and
+  filter conditions) are scored by a different penalty function (`_compute_filter_penalty`).
+  The two engines agree at the limits but disagree in the gradient between
+  fully-matching and fully-divergent filters.
+
+#### Why both engines are kept
+
+The legacy path is the safety net that prevents the scorer from going dark
+for unmodeled rule shapes. Per the 2026-06-01 4b measurement, it fires 0% of
+the time on recent process_creation traffic (because all candidates in that
+class have `positive_atoms` populated). But it remains the only path that can
+produce ANY score for rules outside the modeled telemetry classes. Removing
+it without first expanding the canonical_class resolver (Spec Item 8) would
+silently return zero candidates for ~58% of the corpus.
+
+Per-comparison engine selection is observable: the API response carries
+`engine_used: 'deterministic' | 'legacy'` at the workflow level and
+`similarity_engine` at the per-match level. The UI's *Behavioral Similarity
+Breakdown* panel renders a different layout for each.
+
 ### Similarity Thresholds
 
 | Range | Interpretation |
@@ -237,6 +429,22 @@ Similarity 30%.
 | > 0.9 | Consider using existing rule instead |
 | 0.7 – 0.9 | Review for potential extension |
 | < 0.7 | Novel detection opportunity |
+
+### Queue Status: `needs_review`
+
+When candidates are evaluated but zero behavioral matches are found (i.e., the Jaccard×Containment
+scorer returned no non-zero results), the outcome is **inconclusive** — not confidently novel.
+Previously this was collapsed into `max_similarity=0.0` and treated as novel; it is now a
+distinct queue state.
+
+- **`needs_review`** (yellow badge): candidates were evaluated, none produced a behavioral match.
+  `max_similarity` is stored as `NULL`; `behavioral_matches_found=0` with
+  `total_candidates_evaluated > 0`. Queue actions: Approve or Reject.
+- **`pending`** (standard): a scored similarity result exists (possibly 0.0 from an empty corpus
+  or a genuinely low score). `max_similarity` is a numeric value.
+
+Two DB columns on `sigma_rule_queue` support this: `behavioral_matches_found` and
+`total_candidates_evaluated`.
 
 ### Candidate Retrieval
 
@@ -431,9 +639,30 @@ entry for display in the Sigma Queue UI.
 | Precompute | `sigma_semantic_precompute.py` | Materializes canonical atom sets and logsource keys at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
-| Semantic scorer | `sigma_semantic_scorer.py` | Embedding-based similarity scoring (cosine similarity via local sentence-transformers) |
+| Semantic scorer | `sigma_semantic_scorer.py` | Fallback scoring path (not used by the primary Jaccard×Containment pipeline) |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine; used when installed |
+
+### Vocabulary: "semantic", "embedding", "vector" mean three different things here
+
+The word **"semantic"** is overloaded across the Sigma code and is the single biggest source of confusion. There are **three independent similarity mechanisms**, and only two of them actually involve vectors:
+
+| Mechanism | What it is | Vectors? | Where |
+|---|---|---|---|
+| **Article / annotation semantic search** | Genuine ML embeddings (all-mpnet-base-v2), cosine nearest-neighbour over article text. Powers MCP article search, RAG, web search. | **Yes** — real `Vector(768)` + `<=>` | `ArticleTable.embedding`, `AnnotationTable.embedding` |
+| **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — two vectors per rule: `SigmaRuleTable.embedding` (whole-rule text) and `logsource_embedding` (the combined "signature" text: logsource + detection structure + detection fields). Both are scored via `<=>`. *(Five former per-section columns — `title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding` — were write-only and were dropped 2026-06-01; `detection_structure_`/`detection_fields_` had stored a duplicate of the signature vector.)* | `sigma_matching_service.py`, `rag_service.py` |
+| **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** — Jaccard × containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**, despite the `sigma_semantic_similarity` package name, `precompute_semantic_fields`, and the `recompute-semantics` CLI all carrying the word "semantic". | **No** | `sigma_semantic_similarity` pkg, `precompute_semantic_fields` |
+
+**The atom set-math engine runs in one of two paths — and both are deterministic.** The distinction is *when the atoms are computed*, not determinism vs probability:
+
+| Canonical term (use this) | Code label today (`similarity_scores`) | What it is |
+|---|---|---|
+| **precomputed atom set-math** | `"deterministic"` | Atoms built once at index time, stored in `positive_atoms`/etc. columns; comparison reads the stored strings. |
+| **on-the-fly atom set-math** | `"legacy"` | No stored atoms, so the rule YAML is parsed and atoms derived at comparison time. Same set math, recomputed each call. |
+
+Neither path uses embeddings. The only probabilistic/fuzzy similarity in the system is the article and article→rule vector search (first two rows above). Avoid the words "semantic" (implies vectors — it isn't), "deterministic vs legacy" (both are deterministic), and "in-app" (everything is in the app — the real axis is precompute-time vs comparison-time).
+
+> **Cleanup tracked:** the misnamed "semantic" set-math engine (rename to atom/precomputed terms, incl. the `"deterministic"`/`"legacy"` → `"precomputed"`/`"on-the-fly"` labels) and the dead/duplicate rule-embedding columns are tracked as SigmaSim issues in the backlog. Until the code is renamed, read "semantic precompute" / "semantic similarity" as **precomputed atom set-math**, and map `deterministic → precomputed`, `legacy → on-the-fly`.
 
 ---
 
@@ -467,6 +696,22 @@ entry for display in the Sigma Queue UI.
 # Index approved rules from customer repo
 ./run_cli.sh sigma index-customer-repo [--no-embeddings] [--force]
 ```
+
+---
+
+## Queue Statuses
+
+Rules generated by the agentic workflow are placed in `sigma_rule_queue` with one of these statuses:
+
+| Status | Meaning |
+|---|---|
+| `pending` | Novelty scored; awaiting human Approve or Reject |
+| `needs_review` | Novelty comparison was inconclusive (candidates evaluated, 0 behavioral matches found); requires manual inspection before promoting |
+| `approved` | Operator approved; ready for PR submission |
+| `rejected` | Operator rejected; excluded from submission |
+| `submitted` | PR created in customer Sigma repo |
+
+**`needs_review` detail**: When `summarize_rule_novelty()` in `agentic_workflow.py` finds candidates were evaluated but none produced behavioral matches, `max_similarity` is set to `None` (unscored) and the queue entry is routed to `needs_review` instead of `pending`. The queue UI shows a yellow "Needs Review" badge and allows Approve/Reject actions. Evidence columns `behavioral_matches_found` and `total_candidates_evaluated` are stored on the `sigma_rule_queue` row for audit purposes.
 
 ---
 
@@ -582,6 +827,14 @@ required). Run `sigma index-metadata` first, then `sigma index-embeddings` to
 enable similarity search. The `LMSTUDIO_EMBEDDING_MODEL` env var or
 `SigmaEmbeddingModel` workflow config key overrides the model when using LM
 Studio as the embedding backend.
+
+Each rule stores **two** `Vector(768)` embeddings: `embedding` (whole-rule text)
+and `logsource_embedding` (the combined "signature" — logsource + detection
+structure + detection fields, built by `create_signature_embedding_text`). Only
+these two are scored by the article→rule matching path. `index-embeddings`
+therefore encodes two texts per rule. (The deprecated
+`scripts/migrate_sigma_embeddings.py` predates this and is non-functional — use
+`sigma index-embeddings`.)
 
 ---
 

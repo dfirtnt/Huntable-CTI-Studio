@@ -138,6 +138,74 @@ def test_negative_atoms_only_under_and_not():
     assert len(neg) >= 1 or len(neg) == 0  # implementation may vary; just no crash
 
 
+# ── Conditional B: keyword-style (list-of-scalar) selections produce atoms ────
+# The precomputed extractor (normalize_detection → build_ast → atom_extractor)
+# must model Sigma keyword selections — a list of bare scalars matched
+# field-lessly against the raw event — instead of silently dropping them.
+# Root cause: detection_normalizer._resolve_selection_content kept only dict
+# items of a list. This mirrors the on-the-fly extractor's Item-12 fix
+# (SigmaNoveltyService.extract_atomic_predicates: field="", op="contains").
+# Without parity, webserver/XSS/SSTI keyword rules extract zero atoms and are
+# misrouted as atom-less (NOVEL / no canonical_class).
+
+
+def _positive_atoms_for(detection: dict) -> set[str]:
+    norm = normalize_detection(detection)
+    ast = build_ast(norm)
+    dnf = ast_to_dnf(ast)
+    return extract_positive_atoms(dnf)
+
+
+class TestKeywordListSelectionsProduceAtoms:
+    """List-of-scalar (keyword) selections must yield field-less contains atoms."""
+
+    def test_pure_keyword_list_yields_atoms(self):
+        detection = {
+            "keywords": ["whoami", "net user"],
+            "condition": "keywords",
+        }
+        pos = _positive_atoms_for(detection)
+        assert "|contains|contains|whoami" in pos
+        assert "|contains|contains|net user" in pos
+
+    def test_xss_keyword_rule_not_atom_less(self):
+        """The Spike A shape: a webserver XSS keyword rule extracts atoms."""
+        detection = {
+            "keywords": ["<script>", "alert(", "onerror="],
+            "condition": "keywords",
+        }
+        pos = _positive_atoms_for(detection)
+        # Case-folded contains; value backslashes/case normalized.
+        assert "|contains|contains|<script>" in pos
+        assert "|contains|contains|alert(" in pos
+        assert "|contains|contains|onerror=" in pos
+
+    def test_mixed_list_keeps_both_dict_and_scalar_atoms(self):
+        """A list mixing a field map and a bare keyword yields both kinds."""
+        detection = {
+            "selection": [
+                {"CommandLine|contains": "rundll32"},
+                "suspiciousKeyword",
+            ],
+            "condition": "selection",
+        }
+        pos = _positive_atoms_for(detection)
+        assert any(a.startswith("process.command_line|contains") for a in pos)
+        assert "|contains|contains|suspiciouskeyword" in pos
+
+    def test_keyword_value_case_folded(self):
+        """Keyword scalars use case-insensitive contains, so case folds."""
+        upper = _positive_atoms_for({"k": ["WhoAmI"], "condition": "k"})
+        lower = _positive_atoms_for({"k": ["whoami"], "condition": "k"})
+        assert upper == lower
+
+    def test_bare_scalar_selection_still_yields_no_atoms(self):
+        """A non-list scalar selection contributes no atoms — parity with the
+        on-the-fly extractor, which also ignores top-level scalar values."""
+        pos = _positive_atoms_for({"selection": "justastring", "condition": "selection"})
+        assert pos == set()
+
+
 def test_rejected_grammar_count():
     r = {"detection": {"selection": {"Image": "x"}, "condition": "count(selection) > 5"}}
     with pytest.raises(UnsupportedSigmaFeatureError):

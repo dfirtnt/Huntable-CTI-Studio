@@ -55,7 +55,7 @@ config:
 **Database backup is sufficient for preserving user settings:**
 ```bash
 # Database backup includes all source configurations
-./scripts/backup_database.py
+./scripts/backup_database_v3.py
 
 # Full system backup (includes database + config files)
 ./scripts/backup_restore.sh create
@@ -156,4 +156,4 @@ Use `status` to detect "is this source reachable right now?" and `error_rate` to
 3. **After restore**: Decide whether to sync from YAML or use database values
 4. **Version control**: Keep `config/sources.yaml` in git for tracking changes
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

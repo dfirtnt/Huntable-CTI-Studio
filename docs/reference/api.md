@@ -43,6 +43,13 @@ These endpoints control source state and manual collection.
 
 These are the main article browsing and maintenance endpoints.
 
+### Article AI Endpoints
+
+- `POST /api/articles/{article_id}/detect-os` — Detect operating system from article content using CTI-BERT + classifier. Applies the content filter before sending content to the model. Returns **HTTP 422** with `{ "error": "no_huntable_content" }` when the content filter finds no huntable chunks above the confidence threshold; the LLM is not called in that case.
+- `POST /api/articles/{article_id}/rank-with-gpt4o` — Rank article huntability using the active workflow config's RankAgent prompt and model.
+
+Route module: `src/web/routes/ai.py`.
+
 ### Search
 
 - `POST /api/search/semantic`
@@ -111,7 +118,7 @@ These endpoints manage runtime settings and provider connectivity.
 ### Models And MLOps
 
 - `GET /api/model/retrain-status` — Poll retraining progress (idle / starting / loading / complete / error)
-- `POST /api/model/retrain` — Trigger model retraining from user feedback and annotations
+- `POST /api/model/retrain` — Trigger model retraining from user feedback and annotations. The script trains to a staging path first; a quality gate (recall_huntable ≥ 0.30 **and** f1_huntable ≥ 0.30) must pass before the staged model is promoted to the live path. If the gate fails, the status file is set to `error` with message `RETRAIN REJECTED` and the live model is left untouched.
 - `GET /api/model/versions` — List model versions with metrics. Query params: `page` (optional; omit for unpaginated), `limit` (default 10, max 100), `version` (exact version number search)
 - `POST /api/model/evaluate` — Run evaluation of the current model on the annotated test set
 - `GET /api/model/eval-chunk-count` — Count of chunks in the evaluation dataset
@@ -123,10 +130,14 @@ These endpoints manage runtime settings and provider connectivity.
 
 Route module: `src/web/routes/models.py`. Version data is stored in the `ml_model_versions` table (see `src/database/models.py`).
 
+### AI / Inline LLM Endpoints
+
+- `POST /api/articles/{article_id}/detect-os` — Run OS detection on a single article. Returns OS label, confidence, and method. **HTTP 422** when content filter finds no huntable chunks (`{ "error": "no_huntable_content" }`); client should check `is_huntable` before calling if this matters.
+
 ### Sigma Queue And Evaluation
 
-- `GET /sigma-queue` — HTML page for the standalone Sigma queue (same console as Workflow -> Queue; uses `/api/sigma-queue/*` for data).
-- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
+- `GET /workflow/queue` — HTML page for the Sigma queue console (redirects to `/workflow#queue`; uses `/api/sigma-queue/*` for data).
+- `GET /api/sigma-queue/list` — List queued Sigma rules with pagination. Query params: `status` (optional, values: `pending`, `needs_review`, `approved`, `rejected`, `submitted`), `limit` (default 50, max 500), `offset` (default 0). Response: `{ "items": [...], "total": N, "limit": L, "offset": O }`.
 - `POST /api/sigma-queue/{queue_id}/validate` — Validate and optionally LLM-enrich a queued rule. Returns `{ "validated_yaml": ... }`.
 - `GET /api/sigma-queue/*` (other endpoints)
 - `GET /api/eval/*` — Hallucination/relevance ratings, metrics, history, comparison, agent benchmarks (route module: `src/web/routes/evaluation.py`)
@@ -142,7 +153,7 @@ These support per-subagent extraction evals (CmdlineExtract, ProcTreeExtract, Hu
 - `GET /api/evaluations/subagent-eval-status/{eval_record_id}` — Poll status of a single eval record.
 - `DELETE /api/evaluations/subagent-eval-clear-pending` — Clear pending/stuck eval records.
 - `POST /api/evaluations/subagent-eval-backfill` — Backfill eval records from existing workflow executions.
-- `GET /api/evaluations/subagent-eval-aggregate` — Aggregated metrics per `config_version`. Includes count-based fields (`mean_score`, `raw_mae`, `score_distribution`) and item-level fields (`mean_precision`, `mean_recall`, `mean_f1`, `scored_articles`). Optional `?model=` query param filters to versions where the subagent used the given model (powers the SYS.04 trend chart).
+- `GET /api/evaluations/subagent-eval-aggregate` — Aggregated metrics per `config_version`. Includes count-based fields (`mean_score`, `raw_mae`, `score_distribution`) and item-level fields (`mean_precision`, `mean_recall`, `mean_f1`, `scored_articles`). Top-level `eval_set_total` returns the canonical eval-article count from `config/eval_articles.yaml` (used by the MAE chart to flag subset runs in amber). Optional `?model=` query param filters to versions where the subagent used the given model (powers the SYS.04 trend chart).
 - `GET /api/evaluations/subagent-eval-models?subagent=...` — List models that have eval data for the given subagent, sorted by usage frequency. Powers the model dropdown on the `/mlops/agent-evals2` SYS.04 chart.
 - `GET /api/evaluations/config-versions-models` — List config versions with model info for each agent.
 
@@ -167,4 +178,4 @@ Start in `src/web/routes/__init__.py`, then open the matching module:
 - Workflow API changes: run `python3 run_tests.py integration`
 - UI flows that call the API: run `python3 run_tests.py ui` or `python3 run_tests.py e2e`
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

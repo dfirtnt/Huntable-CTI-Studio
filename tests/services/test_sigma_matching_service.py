@@ -334,7 +334,7 @@ class TestSigmaMatchingService:
 
         assert len(matches) <= 3
 
-    def test_compare_proposed_rule_to_embeddings_includes_filter_metadata(self, service):
+    def test_assess_rule_novelty_includes_filter_metadata(self, service):
         """Novelty layer passes canonical_class and logsource_key through for UI empty-state copy."""
         proposed = {
             "title": "T",
@@ -357,14 +357,70 @@ class TestSigmaMatchingService:
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
             ns_cls.return_value.assess_novelty.return_value = novelty_payload
-            out = service.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
 
         assert out["canonical_class"] == "windows.process_creation"
         assert out["logsource_key"] == "windows|process_creation"
         assert out["total_candidates_evaluated"] == 1165
         assert out["matches"] == []
 
-    def test_compare_proposed_rule_to_embeddings_on_failure_returns_empty_filter_metadata(self, service):
+    def test_assess_rule_novelty_passes_through_no_atoms_extracted(self, service):
+        """Bridge-layer guard for the fail-open-not-silent chain: assess_rule_novelty must
+        propagate the `no_atoms_extracted` flag from assess_novelty so summarize_rule_novelty
+        can route the unassessable rule to needs_review. Without this passthrough the flag is
+        lost between the two ends that ARE unit-tested, and the routing silently regresses.
+        """
+        proposed = {
+            "title": "T",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {}, "condition": "selection"},
+        }
+        atomless_payload = {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": "windows|process_creation",
+            "canonical_class": None,
+            "exact_hash": None,
+            "top_matches": [],
+            "canonical_rule": {},
+            "total_candidates_evaluated": 0,
+            "behavioral_matches_found": 0,
+            "engine_used": "legacy",
+            "no_atoms_extracted": True,
+        }
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = atomless_payload
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
+
+        assert out.get("no_atoms_extracted") is True, "assess_rule_novelty dropped the no_atoms_extracted flag"
+
+    def test_assess_rule_novelty_no_atoms_extracted_defaults_false(self, service):
+        """When the novelty layer does not flag atom-less, the passthrough defaults to False
+        (not missing), so summarize_rule_novelty's bool() read is well-defined."""
+        proposed = {
+            "title": "T",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
+        }
+        normal_payload = {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": "windows|process_creation",
+            "canonical_class": "windows.process_creation",
+            "exact_hash": "abc",
+            "top_matches": [],
+            "canonical_rule": {},
+            "total_candidates_evaluated": 10,
+            "behavioral_matches_found": 0,
+            "engine_used": "deterministic",
+        }
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = normal_payload
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
+
+        assert out.get("no_atoms_extracted") is False
+
+    def test_assess_rule_novelty_on_failure_returns_empty_filter_metadata(self, service):
         """On failure, matching service returns null/empty filter metadata (contract for API)."""
         proposed = {
             "title": "T",
@@ -374,8 +430,232 @@ class TestSigmaMatchingService:
             "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
         }
         with patch("src.services.sigma_novelty_service.SigmaNoveltyService", side_effect=RuntimeError("init fail")):
-            out = service.compare_proposed_rule_to_embeddings(proposed, threshold=0.0)
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
 
         assert out["matches"] == []
         assert out.get("canonical_class") is None
         assert out.get("logsource_key") == ""
+
+
+class TestHardGateScopedToFallback:
+    """Spec Item 6 (P2-C) Option B (chosen per 4c measurement: canonical_class is
+    de facto 1:1 with logsource_key, so the gate is dead code on the canonical_class
+    path — scope it to the fallback path only).
+
+    The gate at sigma_matching_service.py:551 drops candidates whose logsource_key
+    differs from the proposed rule's. After Item 6 it must fire ONLY when Phase 1
+    retrieved the candidate via the logsource_key fallback (where the gate is a
+    no-op safety net) — never on the canonical_class or exact_hash paths.
+
+    Each test mocks SigmaNoveltyService.assess_novelty to return a fixed top_matches
+    list with a chosen phase1_path. We assert which matches survive the
+    assess_rule_novelty gate.
+    """
+
+    @pytest.fixture
+    def mock_db_session(self):
+        session = Mock()
+        session.query = Mock()
+        return session
+
+    @pytest.fixture
+    def service(self, mock_db_session):
+        with patch("src.services.sigma_matching_service.EmbeddingService"):
+            s = SigmaMatchingService(mock_db_session)
+            s.db = mock_db_session
+            return s
+
+    @pytest.fixture
+    def proposed(self):
+        return {
+            "title": "Proposed",
+            "description": "",
+            "tags": [],
+            "logsource": {"category": "process_creation", "product": "windows"},
+            "detection": {"selection": {"CommandLine": "x"}, "condition": "selection"},
+        }
+
+    @pytest.fixture
+    def proposed_logsource_key(self):
+        return "windows|process_creation"
+
+    def _make_novelty_payload(self, top_matches, proposed_logsource_key):
+        return {
+            "novelty_label": NoveltyLabel.NOVEL,
+            "novelty_score": 1.0,
+            "logsource_key": proposed_logsource_key,
+            "canonical_class": "windows.process_creation",
+            "exact_hash": "abc",
+            "top_matches": top_matches,
+            "canonical_rule": {},
+            "total_candidates_evaluated": 1,
+            "behavioral_matches_found": 1,
+            "engine_used": "deterministic",
+        }
+
+    def _make_match(self, rule_id, phase1_path, similarity=0.5):
+        """Minimal top_matches entry shape that assess_rule_novelty reads."""
+        return {
+            "rule_id": rule_id,
+            "atom_jaccard": 0.5,
+            "logic_shape_similarity": 0.65,
+            "similarity": similarity,
+            "service_penalty": 0.0,
+            "filter_penalty": 0.0,
+            "weighted_before_penalties": similarity,
+            "similarity_engine": "deterministic",
+            "semantic_details": None,
+            "shared_atoms": [],
+            "added_atoms": [],
+            "removed_atoms": [],
+            "filter_differences": [],
+            "phase1_path": phase1_path,
+        }
+
+    def _make_db_rule(self, rule_id, logsource_key):
+        """Mock SigmaRuleTable row returned by the matching service's per-match lookup."""
+        rule = Mock()
+        rule.id = 1
+        rule.rule_id = rule_id
+        rule.title = "t"
+        rule.description = "d"
+        rule.logsource = {"category": "process_creation", "product": "windows"}
+        rule.detection = {"selection": {}, "condition": "selection"}
+        rule.tags = []
+        rule.level = "low"
+        rule.status = "stable"
+        rule.file_path = "rules/x.yml"
+        rule.logsource_key = logsource_key
+        return rule
+
+    def _run_compare(self, mock_db_session, service_fixture, proposed, top_matches, proposed_lsk, rule_lsk):
+        """Helper: wire up the mocks, set the candidate rule's logsource_key, run compare.
+
+        Spec Item 10b: the matching loop now batches per-match rule lookups into a single
+        .filter(rule_id.in_(...)).all() instead of per-match .first(). The mock stubs both
+        forms so the test works whether the implementation is the batched or the legacy form.
+        """
+        rule = self._make_db_rule("r1", rule_lsk)
+        query_mock = mock_db_session.query.return_value
+        filter_mock = query_mock.filter.return_value
+        filter_mock.first.return_value = rule  # legacy form (defensive)
+        filter_mock.all.return_value = [rule]  # batched form (Spec Item 10b)
+
+        novelty_payload = self._make_novelty_payload(top_matches, proposed_lsk)
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = novelty_payload
+            return service_fixture.assess_rule_novelty(proposed, threshold=0.0)
+
+    def test_canonical_class_path_survives_logsource_mismatch(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='canonical_class' + mismatching logsource_key → match SURVIVES (the gate skips this path)."""
+        match = self._make_match("r1", phase1_path="canonical_class")
+        out = self._run_compare(
+            mock_db_session,
+            service,
+            proposed,
+            [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH
+        )
+        assert len(out["matches"]) == 1, (
+            "canonical_class candidates must NOT be dropped by the gate; "
+            "canonical_class filter is authoritative on that path."
+        )
+        assert out["matches"][0]["rule_id"] == "r1"
+
+    def test_logsource_fallback_path_drops_mismatch(self, service, mock_db_session, proposed, proposed_logsource_key):
+        """phase1_path='logsource_fallback' + mismatching logsource_key → match DROPPED (gate fires)."""
+        match = self._make_match("r1", phase1_path="logsource_fallback")
+        out = self._run_compare(
+            mock_db_session,
+            service,
+            proposed,
+            [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH
+        )
+        assert out["matches"] == [], (
+            "On the fallback path the gate must still drop logsource_key mismatches "
+            "as a defensive safety net (Phase 1's SQL was supposed to enforce match, "
+            "but if a mismatch survives we don't trust the candidate)."
+        )
+
+    def test_logsource_fallback_path_keeps_matching_logsource(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='logsource_fallback' + matching logsource_key → match SURVIVES."""
+        match = self._make_match("r1", phase1_path="logsource_fallback")
+        out = self._run_compare(
+            mock_db_session,
+            service,
+            proposed,
+            [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk=proposed_logsource_key,  # MATCH
+        )
+        assert len(out["matches"]) == 1
+        assert out["matches"][0]["rule_id"] == "r1"
+
+    def test_exact_hash_path_survives_logsource_mismatch(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """phase1_path='exact_hash' (rule hash already proved identity) → match SURVIVES regardless of logsource."""
+        match = self._make_match("r1", phase1_path="exact_hash")
+        out = self._run_compare(
+            mock_db_session,
+            service,
+            proposed,
+            [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH (shouldn't even be possible in practice)
+        )
+        assert len(out["matches"]) == 1, (
+            "exact_hash matches must not be gated — hash-based identity supersedes logsource_key surface check."
+        )
+
+    def test_missing_phase1_path_falls_back_to_legacy_gate_behavior(
+        self, service, mock_db_session, proposed, proposed_logsource_key
+    ):
+        """Backward compat: match without phase1_path field (older cached data) → gate fires conservatively."""
+        match = self._make_match("r1", phase1_path="canonical_class")
+        del match["phase1_path"]  # simulate older payload that pre-dates Item 6
+        out = self._run_compare(
+            mock_db_session,
+            service,
+            proposed,
+            [match],
+            proposed_lsk=proposed_logsource_key,
+            rule_lsk="linux|process_creation",  # MISMATCH
+        )
+        assert out["matches"] == [], (
+            "When phase1_path is missing, the gate must default to the legacy "
+            "(always-enforce) behavior so older novelty payloads stay safe."
+        )
+
+    def test_batched_rule_lookup_no_n_plus_1(self, service, mock_db_session, proposed, proposed_logsource_key):
+        """Spec Item 10b: per-match rule lookup must use ONE batched .all() query
+        (.filter(rule_id.in_(...)).all()), not N per-match .first() queries.
+        """
+        # 10 matches → naive impl would do 10 .first() calls + 0 .all().
+        # Batched impl should do 0 .first() + exactly 1 .all().
+        matches_in = [self._make_match(f"r{i}", phase1_path="canonical_class") for i in range(10)]
+
+        rules = [self._make_db_rule(f"r{i}", proposed_logsource_key) for i in range(10)]
+        query_mock = mock_db_session.query.return_value
+        filter_mock = query_mock.filter.return_value
+        filter_mock.first.return_value = rules[0]  # legacy fallback
+        filter_mock.all.return_value = rules  # batched form
+
+        novelty_payload = self._make_novelty_payload(matches_in, proposed_logsource_key)
+        with patch("src.services.sigma_novelty_service.SigmaNoveltyService") as ns_cls:
+            ns_cls.return_value.assess_novelty.return_value = novelty_payload
+            out = service.assess_rule_novelty(proposed, threshold=0.0)
+
+        assert len(out["matches"]) == 10, "All 10 matches should be returned"
+        # The batched call: .all() invoked exactly once on the per-match-lookup chain.
+        # .first() should NOT be called for per-match lookup in the batched path.
+        assert filter_mock.all.call_count == 1, (
+            f"Expected exactly one batched .all() call; got {filter_mock.all.call_count}. N+1 query was reintroduced."
+        )

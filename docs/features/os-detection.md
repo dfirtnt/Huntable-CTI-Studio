@@ -63,6 +63,21 @@ Results are persisted in `agentic_workflow_executions`:
 | `os_detection_result` | JSONB | Full detection result with confidence and method |
 | `detected_os` | string | Normalized OS label |
 
+## API Endpoint
+
+`POST /api/articles/{article_id}/detect-os` runs OS detection on a single article.
+
+**Error responses:**
+
+| Code | Condition |
+|---|---|
+| `422 no_huntable_content` | Content filter found no huntable chunks; LLM is not called |
+| `422 article_not_found` | Article ID does not exist |
+
+When all chunks are filtered out by the junk filter, the endpoint returns HTTP 422 with `{ "error": "no_huntable_content" }` rather than passing empty content to the embedding model.
+
+---
+
 ## Programmatic Usage
 
 ```python
@@ -169,7 +184,7 @@ overfitting, handles imbalanced classes via `class_weight='balanced'`.
 - `scripts/eval_os_detection_manual.py` — manual OS detection evaluation
 - `scripts/train_huntable_windows_workflow.sh` — automated Windows binary classifier training
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_
 <!--stackedit_data:
 eyJoaXN0b3J5IjpbOTg5ODcwOTY1XX0=
 -->

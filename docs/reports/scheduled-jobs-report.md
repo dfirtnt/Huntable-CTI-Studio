@@ -16,6 +16,7 @@ All scheduled/periodic jobs (Celery Beat + host crontab).
 | 3 | `embed-new-articles-daily` | `embed_new_articles` | `0 15 * * *` | Daily 15:00 UTC | `default` |
 | 4 | `sync-sigma-rules-weekly` | `sync_sigma_rules` | `0 4 * * 0` | Sunday 04:00 UTC | `maintenance` |
 | 5 | `update-provider-model-catalogs-daily` | `update_provider_model_catalogs` | `0 4 * * *` | Daily 04:00 UTC | `maintenance` — refreshes **OpenAI** (project allowlist only), **Anthropic** model lists → `config/provider_model_catalog.json` |
+| 6 | `index-customer-repo-daily` | `index_customer_repo` | `30 4 * * *` | Daily 04:30 UTC | `default` — indexes the local customer Sigma repo (`SIGMA_REPO_PATH`) into the dedup corpus; Redis-locked, skips already-indexed rules |
 
 **Disabled (commented in code):**
 
@@ -50,7 +51,7 @@ All scheduled/periodic jobs (Celery Beat + host crontab).
 |-------|---------------------------|
 | `source_checks` | check_all_sources (every 30 min) |
 | `maintenance` | cleanup_old_data, sync_sigma_rules, update_provider_model_catalogs |
-| `default` | embed_new_articles |
+| `default` | embed_new_articles, index_customer_repo |
 
 ---
 
@@ -60,4 +61,4 @@ All scheduled/periodic jobs (Celery Beat + host crontab).
 - **Backup cron:** `src/services/backup_cron_service.py`, `config/backup.yaml`, `src/cli/commands/backup.py` (`backup cron`), `src/web/routes/backup.py` (`/api/backup/cron`).
 - **Generic crontab:** `src/cli/commands/cron.py` (`cron show` / `cron set`), `src/web/routes/cron.py` (`/api/cron`).
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

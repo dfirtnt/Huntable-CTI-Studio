@@ -297,11 +297,6 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
         db_session = db_manager.get_session()
 
         try:
-            # Verify article exists
-            article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
-            if not article:
-                raise HTTPException(status_code=404, detail="Article not found")
-
             # Get rule YAML - either from rule_yaml or convert from rule_json
             rule_yaml = add_request.rule_yaml
             if not rule_yaml and add_request.rule_json:
@@ -310,6 +305,31 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
 
             if not rule_yaml:
                 raise HTTPException(status_code=400, detail="Either rule_yaml or rule_json must be provided")
+
+            # Validate rule_yaml is a Sigma-shaped dict before touching the DB
+            try:
+                _parsed = yaml.safe_load(rule_yaml)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rule_yaml is not valid YAML: {exc}. Preview: {rule_yaml[:120]!r}",
+                ) from exc
+            if not isinstance(_parsed, dict):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rule_yaml must parse to a YAML mapping (dict), got {type(_parsed).__name__}. Preview: {rule_yaml[:120]!r}",
+                )
+            _missing = [k for k in ("title", "logsource", "detection") if k not in _parsed]
+            if _missing:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"rule_yaml is missing required Sigma keys: {_missing}. Preview: {rule_yaml[:120]!r}",
+                )
+
+            # Verify article exists
+            article = db_session.query(ArticleTable).filter(ArticleTable.id == add_request.article_id).first()
+            if not article:
+                raise HTTPException(status_code=404, detail="Article not found")
 
             # Parse rule YAML to extract metadata if not provided
             rule_metadata = add_request.rule_metadata
@@ -330,6 +350,7 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
             # Calculate similarity scores if possible
             similarity_scores = None
             max_similarity = None
+            canonical_class = None
             try:
                 matching_service = SigmaMatchingService(db_session)
                 rule_dict = yaml.safe_load(rule_yaml) if rule_yaml else {}
@@ -343,10 +364,11 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                         "level": rule_dict.get("level"),
                         "status": rule_dict.get("status", "experimental"),
                     }
-                    match_result = matching_service.compare_proposed_rule_to_embeddings(
+                    match_result = matching_service.assess_rule_novelty(
                         proposed_rule=normalized_rule,
                         threshold=0.0,
                     )
+                    canonical_class = match_result.get("canonical_class")
                     similar_matches = match_result.get("matches", [])
                     similarity_scores = similar_matches[:10] if similar_matches else []
                     max_similarity = (
@@ -356,6 +378,19 @@ def add_rule_to_queue(request: Request, add_request: AddRuleToQueueRequest):
                     )
             except Exception as e:
                 logger.warning(f"Failed to calculate similarity scores: {e}")
+
+            # SigmaSim Finding B: stamp logsource resolution so an unclassifiable logsource
+            # (no canonical_class → weak logsource_key fallback / degraded dedup) is queryable
+            # and logged, not silent. Fail open — the rule is still enqueued.
+            if isinstance(rule_metadata, dict):
+                rule_metadata["canonical_class"] = canonical_class
+                rule_metadata["logsource_unresolved"] = canonical_class is None
+                if canonical_class is None:
+                    logger.warning(
+                        f"Queued rule (article_id={add_request.article_id}) has an unclassifiable "
+                        f"logsource — no canonical_class, dedup degraded to logsource_key fallback "
+                        f"(SigmaSim Finding B). Prefer a SigmaHQ `category:` over bare `service:`."
+                    )
 
             # Create queue entry
             queue_entry = SigmaRuleQueueTable(
@@ -444,7 +479,7 @@ def list_queued_rules(
                             }
 
                             # Calculate similarity using algorithmic evaluator
-                            match_result = matching_service.compare_proposed_rule_to_embeddings(
+                            match_result = matching_service.assess_rule_novelty(
                                 proposed_rule=normalized_rule,
                                 threshold=0.0,  # Get all matches
                             )
@@ -1626,7 +1661,7 @@ def compare_rules_similarity(compare_request: CompareRulesRequest):
                     }
 
                     if normalized_original["title"] and normalized_original["detection"]:
-                        orig_result = matching_service.compare_proposed_rule_to_embeddings(
+                        orig_result = matching_service.assess_rule_novelty(
                             proposed_rule=normalized_original,
                             threshold=0.0,
                         )
@@ -1655,7 +1690,7 @@ def compare_rules_similarity(compare_request: CompareRulesRequest):
                     }
 
                     if normalized_enriched["title"] and normalized_enriched["detection"]:
-                        enr_result = matching_service.compare_proposed_rule_to_embeddings(
+                        enr_result = matching_service.assess_rule_novelty(
                             proposed_rule=normalized_enriched,
                             threshold=0.0,
                         )
@@ -2254,7 +2289,7 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
 
             # Use behavioral novelty assessment to find similar rules
             matching_service = SigmaMatchingService(db_session)
-            match_result = matching_service.compare_proposed_rule_to_embeddings(
+            match_result = matching_service.assess_rule_novelty(
                 proposed_rule=normalized_rule,
                 threshold=0.0,  # No threshold - get top matches
             )
@@ -2362,6 +2397,15 @@ def get_similar_rules_for_queued_rule(request: Request, queue_id: int, force: bo
                     "total": len(similar_matches),
                 },
                 "assessment_method": "behavioral_novelty",
+                "current_rule": {
+                    "title": normalized_rule["title"],
+                    "description": normalized_rule["description"],
+                    "tags": normalized_rule["tags"],
+                    "logsource": normalized_rule["logsource"],
+                    "detection": normalized_rule["detection"],
+                    "level": normalized_rule["level"],
+                    "status": normalized_rule["status"],
+                },
             }
             if diagnostic is not None:
                 response["diagnostic"] = diagnostic

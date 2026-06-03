@@ -152,18 +152,34 @@ def summarize_rule_novelty(match_result: dict, threshold: float = 0.5) -> dict:
     silently disabled novelty suppression for ~86% of the queue.
 
     Inconclusive => ``max_similarity=None`` (unscored), never a confident ``0.0``.
-    ``total==0`` (empty corpus) is NOT treated as inconclusive.
+
+    Two distinct ``total==0`` cases must NOT be conflated:
+    - **Empty corpus / nothing to compare against** (no ``no_atoms_extracted`` flag):
+      genuinely novel, NOT inconclusive — keep the ``0.0`` semantics.
+    - **Proposed rule produced no atoms** (``no_atoms_extracted`` set by the
+      assess_novelty guard): a FAILURE TO ASSESS. This IS inconclusive, so it routes
+      to needs_review and a human sees it — fail open, but never silently as a
+      confident pending novel.
     """
     matches = match_result.get("matches", []) or []
     total = int(match_result.get("total_candidates_evaluated", 0) or 0)
     behavioral = int(match_result.get("behavioral_matches_found", 0) or 0)
+    no_atoms = bool(match_result.get("no_atoms_extracted"))
     sims = [m.get("similarity", 0.0) for m in matches]
-    inconclusive = total > 0 and behavioral == 0
+    inconclusive = no_atoms or (total > 0 and behavioral == 0)
+    # SigmaSim Finding B: surface whether the proposed rule's logsource resolved to a
+    # canonical telemetry class. None => the rule fell to the weak logsource_key fallback
+    # (e.g. SigmaAgent emitting bare `service: sysmon` with no category/EventID for a
+    # process_creation-shaped rule). We keep the rule (fail open) but flag the degraded-dedup
+    # condition so it is visible — logged + queryable via rule_metadata — instead of silent.
+    canonical_class = match_result.get("canonical_class")
     return {
         "max_similarity": None if inconclusive else (max(sims) if sims else 0.0),
         "total_candidates_evaluated": total,
         "behavioral_matches_found": behavioral,
         "comparator_inconclusive": inconclusive,
+        "canonical_class": canonical_class,
+        "logsource_unresolved": canonical_class is None,
     }
 
 
@@ -344,18 +360,13 @@ def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: in
             query_count = len(queries) if isinstance(queries, list) else 0
         return query_count
 
-    # hunt_queries: prefer count (current contract), then query_count (legacy alias),
-    # then len(queries/items). The query_count alias is deprecated and will be removed
-    # after one release; reads remain tolerant for cached/in-flight subresults.
+    # hunt_queries: prefer count (current contract), then len(queries/items).
     if subagent_name == "hunt_queries":
         hq = subresults.get("hunt_queries", {})
         if not isinstance(hq, dict):
             logger.warning(f"No hunt_queries result in subresults for execution {execution_id}")
             return None
         n = hq.get("count")
-        if n is not None:
-            return int(n)
-        n = hq.get("query_count")
         if n is not None:
             return int(n)
         q = hq.get("queries") or hq.get("items", [])
@@ -568,10 +579,6 @@ def _parse_agent_result(agent_name: str, result_key: str, agent_result: dict) ->
     if agent_name == "HuntQueriesExtract":
         # Extract query-envelope items. Sigma rules are represented as type="sigma".
         edr_queries = agent_result.get("queries", [])
-        # Prefer `count` (current contract); `query_count` is a deprecated alias kept for one release.
-        query_count = agent_result.get("count")
-        if query_count is None:
-            query_count = agent_result.get("query_count", len(edr_queries))
 
         # Normalize field names for UI compatibility
         # LLM may return: platform, query_text, source_context
@@ -596,7 +603,6 @@ def _parse_agent_result(agent_name: str, result_key: str, agent_result: dict) ->
         subresult_entry = {
             "items": items,
             "count": len(items),
-            "query_count": query_count,
             "queries": items,
             "raw": agent_result,
         }
@@ -2242,8 +2248,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
 
             # Assess novelty for each generated rule using behavioral novelty assessment
             for rule in sigma_rules:
-                # compare_proposed_rule_to_embeddings now uses novelty assessment internally
-                match_result = sigma_matching_service.compare_proposed_rule_to_embeddings(
+                # assess_rule_novelty now uses novelty assessment internally
+                match_result = sigma_matching_service.assess_rule_novelty(
                     proposed_rule=rule,
                     threshold=0.0,  # Get all results, filter by threshold below
                 )
@@ -2271,6 +2277,8 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         "total_candidates_evaluated": rule_summary["total_candidates_evaluated"],
                         "behavioral_matches_found": rule_summary["behavioral_matches_found"],
                         "comparator_inconclusive": rule_summary["comparator_inconclusive"],
+                        "canonical_class": rule_summary["canonical_class"],
+                        "logsource_unresolved": rule_summary["logsource_unresolved"],
                         "novelty_label": rule_novelty_label,
                         "novelty_score": rule_min_novelty,
                         "top_matches": filtered_rules[:5] if filtered_rules else similar_rules[:5],
@@ -2419,6 +2427,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             rule_for_yaml = {k: v for k, v in rule.items() if k != "observables_used"}
                             rule_yaml = yaml.dump(rule_for_yaml, default_flow_style=False, sort_keys=False)
 
+                            # Guard: confirm the generated YAML round-trips to a dict with required keys.
+                            # yaml.dump(dict) should always satisfy this, but catch regressions early.
+                            _parsed_back = yaml.safe_load(rule_yaml)
+                            _missing_keys = [
+                                k for k in ("title", "logsource", "detection") if k not in (_parsed_back or {})
+                            ]
+                            if not isinstance(_parsed_back, dict) or _missing_keys:
+                                logger.warning(
+                                    f"[Workflow {state['execution_id']}] Skipping rule idx={idx}: "
+                                    f"rule_yaml failed Sigma dict validation "
+                                    f"(type={type(_parsed_back).__name__}, missing={_missing_keys}). "
+                                    f"Preview: {rule_yaml[:120]!r}"
+                                )
+                                continue
+
                             rule_meta = {
                                 "title": rule.get("title"),
                                 "description": rule.get("description"),
@@ -2428,6 +2451,21 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             }
                             if rule.get("observables_used") is not None:
                                 rule_meta["observables_used"] = rule["observables_used"]
+
+                            # SigmaSim Finding B: stamp the logsource-resolution result so a rule
+                            # whose logsource does not map to a canonical class (degraded dedup) is
+                            # queryable (rule_metadata->>'logsource_unresolved') and logged — not
+                            # silent. Fail open: the rule is still enqueued either way.
+                            rule_meta["canonical_class"] = rule_similarity.get("canonical_class")
+                            rule_meta["logsource_unresolved"] = rule_similarity.get("logsource_unresolved", True)
+                            if rule_meta["logsource_unresolved"]:
+                                logger.warning(
+                                    f"[Workflow {state['execution_id']}] Generated rule idx={idx} "
+                                    f"({rule.get('title')!r}) has an unclassifiable logsource "
+                                    f"{rule.get('logsource')} — no canonical_class, dedup degraded to "
+                                    f"logsource_key fallback (SigmaSim Finding B). Prefer a SigmaHQ "
+                                    f"`category:` (e.g. process_creation) over bare `service:`."
+                                )
 
                             # Create queue entry
                             queue_entry = SigmaRuleQueueTable(

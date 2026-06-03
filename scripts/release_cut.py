@@ -84,8 +84,10 @@ def _run(cmd: list[str], capture: bool = True) -> str:
 
 def _preflight() -> None:
     branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-    if not branch.startswith("dev-europa"):
-        _die(f"must be on a dev-europa branch (currently on {branch!r})")
+    # Release source is a codename-prefixed branch: the historical `dev-europa*`
+    # or the version-named `europa-*` line (e.g. europa-7.2.1) that supersedes it.
+    if not (branch.startswith("dev-europa") or branch.startswith("europa-")):
+        _die(f"must be on a dev-europa or europa-* release branch (currently on {branch!r})")
 
     status = _run(["git", "status", "--porcelain"])
     if status:

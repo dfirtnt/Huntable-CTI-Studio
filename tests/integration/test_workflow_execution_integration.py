@@ -157,7 +157,7 @@ def test_workflow_execution_with_real_db_mocked_llm():
                     return_value={"rules": [], "conversation_log": []},
                 ),
                 patch(
-                    "src.services.sigma_matching_service.SigmaMatchingService.compare_proposed_rule_to_embeddings",
+                    "src.services.sigma_matching_service.SigmaMatchingService.assess_rule_novelty",
                     side_effect=mock_compare_proposed,
                 ),
             ):

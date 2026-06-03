@@ -119,27 +119,6 @@ def _infer_value_type(value: Any) -> str:
     return "string"
 
 
-def _normalize_conservative(value: Any) -> Any:
-    """Conservative normalization: trim whitespace, normalize slashes."""
-    if isinstance(value, str):
-        normalized = value.strip().replace("\\", "/")
-        return normalized
-    if isinstance(value, list):
-        return [_normalize_conservative(v) for v in value]
-    return value
-
-
-def _normalize_aggressive(value: Any) -> Any:
-    """Aggressive normalization for CommandLine fields."""
-    if isinstance(value, str):
-        normalized = re.sub(r"\s+", " ", value.strip())
-        normalized = normalized.replace('"', "'").replace("\\", "/")
-        return normalized
-    if isinstance(value, list):
-        return [_normalize_aggressive(v) for v in value]
-    return value
-
-
 def normalize_logsource(logsource: dict[str, Any]) -> tuple[str, str | None]:
     """Normalize logsource to product|category key and extract service."""
     if not isinstance(logsource, dict):

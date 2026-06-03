@@ -219,7 +219,7 @@ See [Source Configuration Precedence](../guides/source-config.md) for details.
 
 ## Celery and Scheduled Jobs
 
-Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh), and host backup cron are documented in [Scheduled Jobs](../reports/scheduled-jobs-report.md). The provider model catalog is also refreshed at **setup** (`./setup.sh`) and **start** (`./start.sh`) so workflow model dropdowns show the current list immediately.
+Task queues, Celery Beat periodic tasks (source checks, cleanup, reports, embeddings, Sigma sync, provider model catalog refresh, customer-repo index), and host backup cron are documented in [Scheduled Jobs](../reports/scheduled-jobs-report.md). The provider model catalog is also refreshed at **setup** (`./setup.sh`) and **start** (`./start.sh`) so workflow model dropdowns show the current list immediately.
 
 ## Health Checks and Diagnostics
 
@@ -273,5 +273,5 @@ After modifying configuration:
 
 ---
 
-_Last updated: 2026-05-15_
-_Last reviewed: 2026-05-04_
+_Last updated: 2026-05-23_
+_Last reviewed: 2026-05-23_

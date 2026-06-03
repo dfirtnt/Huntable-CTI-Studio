@@ -392,23 +392,22 @@ class SigmaRuleTable(Base):
     false_positives = Column(ARRAY(Text), nullable=False, default=list)
     fields = Column(ARRAY(String), nullable=False, default=list)
 
-    # Embedding fields (index via scripts/migrate_pgvector_indexes.py — HNSW, not B-tree)
+    # Embedding fields (index via scripts/migrate_pgvector_indexes.py — HNSW, not B-tree).
+    # Only two vectors are scored by the article→rule matching path (sigma_matching_service /
+    # rag_service): `embedding` (whole-rule text) and `logsource_embedding` (the combined
+    # "signature" text — logsource + detection structure + detection fields, per
+    # create_signature_embedding_text). The former per-section columns (title/description/
+    # tags/detection_structure/detection_fields) were write-only — never read for similarity,
+    # and detection_structure/detection_fields held a duplicate of the signature vector.
+    # Removed 2026-06-01; dropped via startup ALTER in manager.py / async_manager.py.
     embedding = Column(Vector(768), nullable=True)
     embedding_model = Column(String(100), nullable=True, default="intfloat/e5-base-v2")
     embedded_at = Column(DateTime, nullable=True)
-
-    # Section-based embedding fields for enhanced similarity
-    title_embedding = Column(Vector(768), nullable=True)
-    description_embedding = Column(Vector(768), nullable=True)
-    tags_embedding = Column(Vector(768), nullable=True)
-    logsource_embedding = Column(Vector(768), nullable=True)
-    detection_structure_embedding = Column(Vector(768), nullable=True)
-    detection_fields_embedding = Column(Vector(768), nullable=True)
+    logsource_embedding = Column(Vector(768), nullable=True)  # combined "signature" vector (see above)
 
     # Canonical fields for behavioral novelty assessment
     canonical_json = Column(JSONB, nullable=True)
     exact_hash = Column(String(64), nullable=True, index=True)
-    canonical_text = Column(Text, nullable=True)
     logsource_key = Column(String(100), nullable=True, index=True)
     near_hash = Column(String(64), nullable=True, index=True)  # Optional for candidate retrieval
 

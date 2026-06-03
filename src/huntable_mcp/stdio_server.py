@@ -16,9 +16,11 @@ from src.database.async_manager import AsyncDatabaseManager
 from src.huntable_mcp.tools import articles, query, sigma, sources, workflow
 from src.services.rag_service import RAGService
 
-# Load .env from the project root so POSTGRES_PASSWORD (and other vars) are available
+# .env is the single source of truth for credentials. override=True ensures .env
+# wins even if a client (e.g. Claude Desktop) injects a stale POSTGRES_PASSWORD
+# into the process environment, preventing silent drift between two config files.
 _project_root = Path(__file__).resolve().parent.parent.parent
-load_dotenv(_project_root / ".env", override=False)
+load_dotenv(_project_root / ".env", override=True)
 
 # MCP should use the runtime app DB by default, not test DB.
 # Prevent accidental test-environment bleed-through from client processes.
@@ -28,10 +30,12 @@ if os.environ.get("APP_ENV") == "test":
     os.environ["APP_ENV"] = "development"
 
 # Build DATABASE_URL from POSTGRES_PASSWORD if not already set explicitly.
+_url_built_from_pw = False
 if not os.environ.get("DATABASE_URL"):
     _pw = os.environ.get("POSTGRES_PASSWORD", "")
     if _pw:
         os.environ["DATABASE_URL"] = f"postgresql+asyncpg://cti_user:{_pw}@localhost:5432/cti_scraper"
+        _url_built_from_pw = True
 
 # Stdio MCP: logs must go to stderr only — stdout is reserved for JSON-RPC.
 logging.basicConfig(
@@ -41,6 +45,11 @@ logging.basicConfig(
     force=True,
 )
 logger = logging.getLogger(__name__)
+
+if _url_built_from_pw:
+    logger.info(
+        "DATABASE_URL assembled from POSTGRES_PASSWORD: postgresql+asyncpg://cti_user:***@localhost:5432/cti_scraper"
+    )
 
 mcp = FastMCP(
     "huntable-cti-studio",

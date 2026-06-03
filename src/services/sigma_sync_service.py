@@ -163,24 +163,28 @@ class SigmaSyncService:
                 "raw_yaml": raw_yaml_text,
             }
 
-            # Convert date to datetime if present
-            if parsed["date"]:
-                try:
-                    # Handle if it's already a date object
-                    import datetime as dt
+            # Normalize date to a datetime (or None). A missing/empty `date:` MUST
+            # become NULL, never "" — an empty string fails the timestamp column on
+            # insert and, because rules are inserted in one batch, poisons the entire
+            # batch. Customer-authored rules frequently omit `date:`, so this path is
+            # routinely exercised. `datetime` is checked before `date` because the
+            # former is a subclass of the latter. Strings are tried as ISO
+            # (`%Y-%m-%d`, the customer/LLM style) then SigmaHQ's `%Y/%m/%d`.
+            import datetime as dt
 
-                    if isinstance(parsed["date"], dt.date):
-                        parsed["date"] = datetime.combine(parsed["date"], dt.time.min)
-                    elif isinstance(parsed["date"], datetime):
-                        # Already a datetime, keep it
-                        pass
-                    elif isinstance(parsed["date"], str):
-                        # Parse from string
-                        parsed["date"] = datetime.strptime(parsed["date"], "%Y/%m/%d")
-                    else:
-                        parsed["date"] = None
-                except (ValueError, AttributeError, TypeError):
-                    parsed["date"] = None
+            raw_date = parsed["date"]
+            parsed["date"] = None
+            if isinstance(raw_date, datetime):
+                parsed["date"] = raw_date
+            elif isinstance(raw_date, dt.date):
+                parsed["date"] = datetime.combine(raw_date, dt.time.min)
+            elif isinstance(raw_date, str) and raw_date.strip():
+                for _fmt in ("%Y-%m-%d", "%Y/%m/%d"):
+                    try:
+                        parsed["date"] = datetime.strptime(raw_date.strip(), _fmt)
+                        break
+                    except ValueError:
+                        continue
 
             return parsed
 
@@ -452,7 +456,7 @@ class SigmaSyncService:
         Index metadata and canonical fields for all rules — no embeddings.
 
         Parses YAML files, stores rule metadata columns, and computes canonical
-        novelty fields (canonical_json, exact_hash, canonical_text, logsource_key).
+        novelty fields (canonical_json, exact_hash, logsource_key).
         Embedding columns are left as None.
 
         Args:
@@ -541,14 +545,12 @@ class SigmaSyncService:
                 # Compute canonical fields for behavioral novelty assessment
                 canonical_json = None
                 exact_hash = None
-                canonical_text = None
                 logsource_key = None
                 if novelty_service is not None:
                     try:
                         canonical_rule = novelty_service.build_canonical_rule(rule_data)
                         canonical_json = asdict(canonical_rule)
                         exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                        canonical_text = novelty_service.generate_canonical_text(canonical_rule)
                         logsource_key, _ = novelty_service.normalize_logsource(rule_data.get("logsource", {}))
                     except Exception as e:
                         logger.warning(f"Failed to compute canonical fields for rule {rule_id}: {e}")
@@ -583,7 +585,6 @@ class SigmaSyncService:
                         # Update canonical fields
                         existing_rule.canonical_json = canonical_json
                         existing_rule.exact_hash = exact_hash
-                        existing_rule.canonical_text = canonical_text
                         existing_rule.logsource_key = logsource_key
                         # Deterministic semantic precompute
                         existing_rule.canonical_class = canonical_class
@@ -612,7 +613,6 @@ class SigmaSyncService:
                             # Canonical fields
                             canonical_json=canonical_json,
                             exact_hash=exact_hash,
-                            canonical_text=canonical_text,
                             logsource_key=logsource_key,
                             # Deterministic semantic precompute
                             canonical_class=canonical_class,
@@ -705,15 +705,13 @@ class SigmaSyncService:
                     "logsource": rule.logsource or {},
                     "detection": rule.detection or {},
                 }
+                # Only two vectors are scored downstream: the whole-rule embedding and the
+                # combined "signature" embedding (logsource + detection structure + fields).
+                # The former per-section vectors (title/description/tags) were write-only and
+                # their columns have been dropped, so we no longer encode them.
                 full_text = self.create_rule_embedding_text(rule_data)
-                section_texts = self.create_section_embeddings_text(rule_data)
-                texts = [
-                    full_text,
-                    section_texts["title"],
-                    section_texts["description"],
-                    section_texts["tags"],
-                    section_texts["signature"],
-                ]
+                signature_text = self.create_signature_embedding_text(rule_data)
+                texts = [full_text, signature_text]
                 payload_list.append((rule.rule_id, texts))
                 rule_by_id[rule.rule_id] = rule
             except Exception as e:
@@ -758,7 +756,7 @@ class SigmaSyncService:
                 if progress_callback:
                     progress_callback(embeddings_indexed + error_count, len(rules))
                 continue
-            dim = 5
+            dim = 2  # texts per rule: [whole-rule, signature]
             for i, (rule_id, _) in enumerate(chunk_payloads):
                 start = i * dim
                 slice_emb = all_embeddings[start : start + dim]
@@ -768,13 +766,7 @@ class SigmaSyncService:
                 rule.embedding = slice_emb[0]
                 rule.embedding_model = embedding_model_name
                 rule.embedded_at = now
-                rule.title_embedding = _valid(slice_emb[1])
-                rule.description_embedding = _valid(slice_emb[2])
-                rule.tags_embedding = _valid(slice_emb[3])
-                sig_emb = _valid(slice_emb[4])
-                rule.logsource_embedding = sig_emb
-                rule.detection_structure_embedding = sig_emb
-                rule.detection_fields_embedding = sig_emb
+                rule.logsource_embedding = _valid(slice_emb[1])  # combined "signature" vector
                 embeddings_indexed += 1
             if progress_callback:
                 progress_callback(embeddings_indexed + error_count, len(rules))

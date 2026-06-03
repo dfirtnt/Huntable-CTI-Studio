@@ -40,6 +40,20 @@ if [ $# -eq 0 ]; then
     exit 1
 fi
 
+# CLI image staleness check (Spec Item 10e). The cli service lives in the
+# 'tools' compose profile, so `docker compose build` (no args) silently skips
+# it. Catch the foot-gun: if cli is older than the web image, the user is
+# almost certainly running stale code via this script.
+CLI_IMG_TS=$(docker images --filter "reference=huntable*cli" --format "{{.CreatedAt}}" 2>/dev/null | head -1)
+WEB_IMG_TS=$(docker images --filter "reference=huntable*web" --format "{{.CreatedAt}}" 2>/dev/null | head -1)
+if [ -n "$CLI_IMG_TS" ] && [ -n "$WEB_IMG_TS" ] && [[ "$CLI_IMG_TS" < "$WEB_IMG_TS" ]]; then
+    echo "⚠️  CLI image is older than web image — running this script may use stale code." >&2
+    echo "    cli created: $CLI_IMG_TS" >&2
+    echo "    web created: $WEB_IMG_TS" >&2
+    echo "    Fix: docker compose --profile tools build cli" >&2
+    echo "" >&2
+fi
+
 echo "🚀 Running CLI command in Docker: python -m src.cli.main $*"
 echo ""
 

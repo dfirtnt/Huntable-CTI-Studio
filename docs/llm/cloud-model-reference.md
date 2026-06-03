@@ -1,5 +1,26 @@
 # Cloud Model Reference
 
+## Anthropic Claude Models
+
+Source: docs.anthropic.com (2026-06-02). All models support `max_tokens` + `temperature` (0.0–1.0).
+
+| Model | Context Window | Max Output Tokens | Notes |
+|-------|----------------|-------------------|-------|
+| claude-opus-4-8 | 1,000,000 | 128,000 | 1M default — no beta header required |
+| claude-opus-4-7 | 1,000,000 | 64,000 | 1M default |
+| claude-opus-4-6 | 1,000,000 | 64,000 | 1M default |
+| claude-opus-4-5-20251101 | 200,000 | 64,000 | Dated snapshot |
+| claude-opus-4-1-20250805 | 200,000 | 32,000 | Dated snapshot |
+| claude-opus-4-20250514 | 200,000 | 32,000 | Dated snapshot |
+| claude-sonnet-4-6 | 1,000,000 | 64,000 | 1M default |
+| claude-sonnet-4-5-20250929 | 200,000 | 64,000 | Dated snapshot |
+| claude-sonnet-4-20250514 | 200,000 | 64,000 | Dated snapshot |
+| claude-haiku-4-5-20251001 | 200,000 | 64,000 | Dated snapshot |
+
+Older Claude 3.x / 4.0-4.5 models cap at 200K by default; they can be extended to 1M via the `context-1m-2025-08-07` beta header. Opus 4.6+ and Sonnet 4.6+ no longer require it.
+
+---
+
 ## OpenAI Chat Models
 
 Source: platform.openai.com/docs/models (Jan 2025)
@@ -9,12 +30,13 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
 | **GPT-5 series** | | | |
-| gpt-5.2 | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
-| gpt-5.2-pro | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.1 | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.1-chat-latest | 128,000 | 16,384 | `max_completion_tokens`, no `temperature` |
 | gpt-5 | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5-mini | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5-nano | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5-pro | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5-chat-latest | 128,000 | 16,384 | `max_completion_tokens`, no `temperature` |
 | **GPT-4.1 series** | | | |
 | gpt-4.1 | 1,047,576 | 32,768 | `max_tokens`, `temperature` |
 | gpt-4.1-mini | 1,047,576 | 32,768 | `max_tokens`, `temperature` |
@@ -44,7 +66,7 @@ Source: platform.openai.com/docs/models (Jan 2025)
 ### Specialized (not Chat Completions)
 
 - **Deep research**: o3-deep-research, o4-mini-deep-research
-- **Codex**: gpt-5.2-codex, gpt-5.1-codex, gpt-5-codex
+- **Codex**: gpt-5.1-codex, gpt-5-codex
 - **Realtime/Audio**: gpt-realtime, gpt-audio, gpt-4o-audio-preview
 - **Image**: gpt-image-1.5, gpt-image-1
 - **TTS/Transcribe**: gpt-4o-mini-tts, gpt-4o-transcribe
@@ -166,4 +188,4 @@ improving the prompt in a model-agnostic way.
 4. Maintain model-specific prompt variants in presets if the optimal prompts for the two
    tiers diverge significantly.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

@@ -11,14 +11,14 @@ pytest-xdist==3.8.0  # Parallel test execution
 
 # Browser automation testing
 pytest-playwright>=0.4.0
-playwright==1.58.0
+playwright==1.60.0
 pytest-timeout>=2.4.0  # Per-test timeout guard to prevent hung Playwright tests blocking the serial UI run
 
 # Test utilities
 factory-boy==3.3.3
 freezegun==1.4.0
 responses==0.24.0  # HTTP mocking
-requests-mock==1.11.0
+requests-mock==1.12.1
 
 # Database testing
 testcontainers==3.7.0  # Docker containers for integration tests

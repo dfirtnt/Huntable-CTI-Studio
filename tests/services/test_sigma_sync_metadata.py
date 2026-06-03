@@ -174,6 +174,70 @@ class TestParseRuleFileRawYaml:
         assert parsed["raw_yaml"].strip() != ""
 
 
+class TestParseRuleFileDateNormalization:
+    """parse_rule_file must normalize `date` to a datetime or None — NEVER "".
+
+    Regression: customer-authored rules frequently omit `date:`. The old code
+    defaulted a missing date to "" and the conversion guard (`if parsed["date"]`)
+    skipped the empty string, leaving "" — which fails the timestamp column on
+    insert and (because rules insert in one batch) poisons the whole batch. This
+    blocked `sigma index-customer-repo` entirely for any rule set lacking dates.
+    """
+
+    from datetime import datetime as _dt
+    from pathlib import Path as _Path
+
+    def _service_for(self, tmp_path, date_line: str):
+        rules_dir = tmp_path / "rules"
+        rules_dir.mkdir()
+        f = rules_dir / "r.yml"
+        f.write_text(
+            "title: R\n"
+            "id: aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\n"
+            "status: experimental\n"
+            "description: d\n"
+            f"{date_line}"
+            "logsource:\n    category: process_creation\n    product: windows\n"
+            "detection:\n    selection:\n        Image|endswith: '\\\\calc.exe'\n    condition: selection\n"
+            "level: low\n",
+            encoding="utf-8",
+        )
+        return SigmaSyncService(repo_path=str(tmp_path)), f
+
+    def test_missing_date_is_none_not_empty_string(self, tmp_path):
+        """The crash-fix: no `date:` line → None (NOT "", which breaks the insert)."""
+        service, f = self._service_for(tmp_path, date_line="")
+        parsed = service.parse_rule_file(f)
+        assert parsed["date"] is None
+
+    def test_empty_date_is_none(self, tmp_path):
+        service, f = self._service_for(tmp_path, date_line="date: ''\n")
+        parsed = service.parse_rule_file(f)
+        assert parsed["date"] is None
+
+    def test_iso_string_date_parsed(self, tmp_path):
+        """Customer/LLM style ISO date as a quoted string → datetime."""
+        service, f = self._service_for(tmp_path, date_line="date: '2026-05-29'\n")
+        parsed = service.parse_rule_file(f)
+        assert parsed["date"] == self._dt(2026, 5, 29)
+
+    def test_sigmahq_slash_date_parsed(self, tmp_path):
+        service, f = self._service_for(tmp_path, date_line="date: '2024/01/15'\n")
+        parsed = service.parse_rule_file(f)
+        assert parsed["date"] == self._dt(2024, 1, 15)
+
+    def test_yaml_native_date_parsed(self, tmp_path):
+        """Unquoted `date: 2024-01-15` → PyYAML date object → datetime."""
+        service, f = self._service_for(tmp_path, date_line="date: 2024-01-15\n")
+        parsed = service.parse_rule_file(f)
+        assert parsed["date"] == self._dt(2024, 1, 15)
+
+    def test_unparseable_date_string_falls_back_to_none(self, tmp_path):
+        service, f = self._service_for(tmp_path, date_line="date: 'not-a-date'\n")
+        parsed = service.parse_rule_file(f)
+        assert parsed["date"] is None
+
+
 class TestFindRuleFilesMultiDir:
     """find_rule_files must scan rules/, rules-emerging-threats/, and rules-threat-hunting/."""
 

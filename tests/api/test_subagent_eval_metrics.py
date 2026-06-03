@@ -37,6 +37,33 @@ async def test_aggregate_response_includes_item_level_fields(async_client: httpx
 
 @pytest.mark.api
 @pytest.mark.asyncio
+async def test_aggregate_exposes_eval_set_total(async_client: httpx.AsyncClient):
+    """eval_set_total is the canonical count of articles in config/eval_articles.yaml
+    for the subagent. The MAE chart (agent_evals.html renderMAEChart) compares it to
+    per-version total_articles to flag versions where the user ran a subset.
+
+    Contract: present, non-negative int. Present even when the model-filter early-return
+    triggers and aggregates is empty, since the canonical count doesn't depend on data.
+    """
+    response = await async_client.get("/api/evaluations/subagent-eval-aggregate?subagent=cmdline")
+    assert response.status_code == 200
+    data = response.json()
+    assert "eval_set_total" in data, "Aggregate response missing eval_set_total"
+    assert isinstance(data["eval_set_total"], int)
+    assert data["eval_set_total"] >= 0
+
+    # Also present on the unknown-model early-return path
+    empty = await async_client.get(
+        "/api/evaluations/subagent-eval-aggregate?subagent=cmdline&model=this-model-does-not-exist-anywhere"
+    )
+    assert empty.status_code == 200
+    empty_data = empty.json()
+    assert "eval_set_total" in empty_data
+    assert isinstance(empty_data["eval_set_total"], int)
+
+
+@pytest.mark.api
+@pytest.mark.asyncio
 async def test_aggregate_accepts_model_filter(async_client: httpx.AsyncClient):
     """The ?model= filter is accepted without 4xx and returns the same response
     shape (filtered to versions where the subagent used that model)."""

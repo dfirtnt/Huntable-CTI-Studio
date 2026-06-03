@@ -724,6 +724,8 @@
                             <p class="font-semibold mb-1" style="color: var(--text-emphasis);">MAE chart metrics</p>
                             <ul class="space-y-1" style="line-height: 1.6;">
                                 <li><strong>MAE</strong> &mdash; avg(|actual&minus;expected|) in observable units; lower is better</li>
+                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #10b981; vertical-align: middle;" aria-hidden="true"></span> <strong>Green node</strong> &mdash; full eval set completed (every scheduled article reached <code>completed</code>)</li>
+                                <li><span style="display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: #f59e0b; vertical-align: middle;" aria-hidden="true"></span> <strong>Amber node</strong> &mdash; degraded run: subset of eval articles selected, OR records failed/pending, OR any run was rate-limited or quota-exceeded (those keep <code>completed</code> status but the MAE is unreliable). Hover for the breakdown.</li>
                             </ul>
                         </div>
                     </div>
@@ -1875,12 +1877,12 @@ let currentWindowVersions = [];
 const CHART_WINDOW_SIZE = 25; // Show 25 versions at a time
 
 // Render MAE line chart with windowing support
-function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
+function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false, evalSetTotal = 0) {
     if (!window.Chart) {
         console.warn('Chart.js not loaded');
         return;
     }
-    
+
     // Filter aggregates that have MAE data and exclude specified versions
     const validAggregates = aggregates.filter(agg => {
         const hasRawMAE = agg.raw_mae != null && !isNaN(agg.raw_mae);
@@ -1889,17 +1891,17 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
 
         return hasRawMAE && hasConfigVersion && notExcluded;
     });
-    
+
     if (validAggregates.length === 0) {
         document.getElementById('maeChartContainer').classList.add('hidden');
         allChartData = null;
         currentWindowVersions = [];
         return;
     }
-    
+
     // Sort by config version
     validAggregates.sort((a, b) => parseInt(a.config_version) - parseInt(b.config_version));
-    
+
     // Coerce to numbers so Chart.js always gets numerics (handles API string values; fixes cmdline MAE line not showing)
     const toNum = (v) => { if (v == null) return null; const n = Number(v); return (n !== n) ? null : n; };
     const maeNums = validAggregates.map(agg => toNum(agg.raw_mae));
@@ -1908,7 +1910,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
         modelsByVersion: modelsByVersion,
         labels: validAggregates.map(agg => `v${agg.config_version}`),
         maeData: maeNums,
-        versions: validAggregates.map(agg => agg.config_version)
+        versions: validAggregates.map(agg => agg.config_version),
+        evalSetTotal: evalSetTotal
     };
     
     // Reset window to show most recent versions; Prev disabled when at start
@@ -1924,33 +1927,52 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
     const windowLabels = allChartData.labels.slice(chartWindowStart, windowEnd);
     const windowMaeData = allChartData.maeData.slice(chartWindowStart, windowEnd);
     const windowVersions = allChartData.versions.slice(chartWindowStart, windowEnd);
+    const windowAggregates = allChartData.aggregates.slice(chartWindowStart, windowEnd);
     currentWindowVersions = windowVersions;
-    
+
     // Update navigation buttons
     updateChartNavigation();
-    
+
     const chartContainer = document.getElementById('maeChartContainer');
     chartContainer.classList.remove('hidden');
-    
+
     const canvas = document.getElementById('maeChart');
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const chartInner = canvas.parentElement;
     if (chartInner) {
         const minWidth = Math.max(900, windowLabels.length * 60);
         chartInner.style.width = `${minWidth}px`;
     }
-    
+
     // Destroy existing chart if it exists
     if (maeChart) {
         maeChart.destroy();
     }
-    
+
     const themeMuted = getThemeColor('--text-muted') || '#9ca3af';
     const themeSuccess = getThemeColor('--action-execute') || '#10b981';
     const themeSuccessFill = getThemeColor('--action-execute-fill') || 'rgba(16, 185, 129, 0.1)';
     const themeChartMuted = getThemeColor('--chart-grid-muted') || 'rgba(156, 163, 175, 0.1)';
+    // Amber matches the existing 'ctx↗' orange warning badge in the results-legend.
+    const incompleteColor = '#f59e0b';
+
+    // throttled/quota are checked explicitly because the aggregate API keeps those
+    // records at status='completed' -- they would not show up under `completed < total`.
+    const isIncomplete = (agg) => {
+        if (!agg) return false;
+        const total = Number(agg.total_articles) || 0;
+        const completed = Number(agg.completed) || 0;
+        const setTotal = Number(allChartData.evalSetTotal) || 0;
+        const throttled = Number(agg.throttled) || 0;
+        const quota = Number(agg.quota_exceeded) || 0;
+        if (setTotal > 0 && total < setTotal) return true;
+        if (total > 0 && completed < total) return true;
+        if (throttled > 0 || quota > 0) return true;
+        return false;
+    };
+    const pointColors = windowAggregates.map(agg => isIncomplete(agg) ? incompleteColor : themeSuccess);
 
     maeChart = new Chart(ctx, {
         type: 'line',
@@ -1963,8 +1985,8 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                 backgroundColor: themeSuccessFill,
                 borderWidth: 2,
                 pointRadius: 5,
-                pointBackgroundColor: themeSuccess,
-                pointBorderColor: themeSuccess,
+                pointBackgroundColor: pointColors,
+                pointBorderColor: pointColors,
                 pointHoverRadius: 7,
                 tension: 0.1,
                 fill: true,
@@ -2001,6 +2023,35 @@ function renderMAEChart(aggregates, modelsByVersion = {}, resetWindow = false) {
                         label: function(context) {
                             const value = context.parsed.y;
                             return `MAE: ${value !== null ? value.toFixed(4) : 'N/A'}`;
+                        },
+                        afterLabel: function(context) {
+                            const agg = windowAggregates[context.dataIndex];
+                            if (!agg) return '';
+                            // Only annotate incomplete nodes -- a fully-green point doesn't need a "10/10" line.
+                            if (!isIncomplete(agg)) return '';
+                            const total = Number(agg.total_articles) || 0;
+                            const completed = Number(agg.completed) || 0;
+                            const setTotal = Number(allChartData.evalSetTotal) || 0;
+                            const throttled = Number(agg.throttled) || 0;
+                            const quota = Number(agg.quota_exceeded) || 0;
+                            const lines = [];
+                            if (setTotal > 0 && total < setTotal) {
+                                lines.push(`Subset run: ${total}/${setTotal} eval articles`);
+                            }
+                            if (total > 0 && completed < total) {
+                                const parts = [];
+                                if ((agg.failed || 0) > 0) parts.push(`${agg.failed} failed`);
+                                if ((agg.pending || 0) > 0) parts.push(`${agg.pending} pending`);
+                                const detail = parts.length ? ` (${parts.join(', ')})` : '';
+                                lines.push(`Completed: ${completed}/${total}${detail}`);
+                            }
+                            if (throttled > 0) {
+                                lines.push(`Rate-limited: ${throttled}/${total} run${throttled === 1 ? '' : 's'} throttled`);
+                            }
+                            if (quota > 0) {
+                                lines.push(`Quota exceeded: ${quota}/${total} run${quota === 1 ? '' : 's'}`);
+                            }
+                            return lines;
                         }
                     }
                 }
@@ -2100,7 +2151,7 @@ function navigateChartWindow(direction) {
     }
     
     // Re-render chart with new window
-    renderMAEChart(allChartData.aggregates, allChartData.modelsByVersion, false);
+    renderMAEChart(allChartData.aggregates, allChartData.modelsByVersion, false, allChartData.evalSetTotal);
 }
 
 // Setup synchronized scrolling between chart and table
@@ -2229,9 +2280,10 @@ async function loadAggregateScores() {
         
         const data = await response.json();
         const aggregates = data.aggregates || [];
-        
+        const evalSetTotal = Number(data.eval_set_total) || 0;
+
         // Filter out excluded versions
-        const filteredAggregates = aggregates.filter(agg => 
+        const filteredAggregates = aggregates.filter(agg =>
             agg.config_version && !excludedVersions.includes(parseInt(agg.config_version))
         );
         
@@ -2301,7 +2353,7 @@ async function loadAggregateScores() {
             : filteredAggregates;
 
         // Render MAE chart
-        renderMAEChart(chartAggregates, configParamsByVersion, true); // Reset window to show latest
+        renderMAEChart(chartAggregates, configParamsByVersion, true, evalSetTotal); // Reset window to show latest
         populateCompareVersionSelects(chartAggregates);
         document.getElementById('versionComparePanel').classList.remove('hidden');
         

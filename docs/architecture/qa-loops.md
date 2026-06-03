@@ -63,4 +63,4 @@ From [Sigma Detection Rules](../features/sigma-rules.md):
 - Health endpoints (`/health`, `/api/health/*`) surface ingestion and service
   readiness so QA runs against a healthy stack.
 
-_Last updated: 2026-05-17_
+_Last updated: 2026-05-23_

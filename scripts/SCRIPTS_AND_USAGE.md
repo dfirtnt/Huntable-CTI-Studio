@@ -525,11 +525,14 @@ python3 scripts/migrate_enrichment_presets.py
 python3 scripts/migrate_enrichment_prompt_versions.py
 ```
 
-### `migrate_sigma_embeddings.py`
-**Purpose**: Migrate Sigma rule embeddings  
-**Usage**:
+### `migrate_sigma_embeddings.py` — ⚠️ DEPRECATED / non-functional
+**Purpose**: (Historical) backfill per-section Sigma embeddings. **Superseded** by
+`./run_cli.sh sigma index-embeddings`, which uses the current e5-base-v2 model and the
+live 2-vector layout (`embedding` + `logsource_embedding`). This script targets the
+per-section embedding columns dropped from `sigma_rules` on 2026-06-01 and the deprecated
+LMStudio client; it exits immediately with a deprecation notice. Use the CLI instead:
 ```bash
-python3 scripts/migrate_sigma_embeddings.py
+./run_cli.sh sigma index-embeddings
 ```
 
 ### `migrate_app_settings.py`

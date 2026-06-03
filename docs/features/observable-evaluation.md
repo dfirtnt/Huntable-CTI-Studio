@@ -4,7 +4,7 @@
 
 ## Overview
 
-The observable evaluation system validates the accuracy of observable extraction models across different observable types (command lines, process trees, hunt queries). **This capability is currently unsupported.**
+The observable evaluation system validates the accuracy of observable extraction models across all six observable types (command lines, process trees, hunt queries, registry artifacts, Windows services, scheduled tasks). **This capability is currently unsupported.**
 
 ## Implementation
 
@@ -32,4 +32,4 @@ The evaluation pipeline is implemented in `src/services/observable_evaluation/`:
 - [Observable Training Dashboard](http://localhost:8001/observables-training) — in-app page (when the app is running)
 - [Extract Observables How-To](../guides/extract-observables.md) — Usage guide
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

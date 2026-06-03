@@ -701,4 +701,4 @@ Manual backups via CLI: ./run_cli.sh backup create
 └─────────────────┘
 ```
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

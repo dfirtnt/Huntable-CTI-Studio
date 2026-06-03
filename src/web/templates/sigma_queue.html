@@ -472,19 +472,23 @@ function renderRulePreview(rule, observablesData) {
         const chipConfig = mapSimilarityResponseFromCache(similarityScores, rule);
         similarRulesHtml = `
             <div class="mt-4">
-                <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
-                <div id="similarityChips" class="flex flex-col gap-1.5 mt-2">
-                </div>
+                <details class="border border-gray-600 rounded-lg">
+                    <summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Similar Existing Rules (${similarityScores.length})</summary>
+                    <div id="similarityChips" class="flex flex-col gap-1.5 px-3 pb-3 mt-2">
+                    </div>
+                </details>
             </div>
         `;
         window.__pendingSimilarityChipConfig = chipConfig;
     } else {
         similarRulesHtml = `
             <div class="mt-4">
-                <h4 class="font-semibold mb-2">Similar Existing Rules:</h4>
-                <div id="similarityChips" class="flex flex-col gap-1.5 mt-2">
-                    <p class="text-xs text-gray-500">No similar rules found. Run Similarity Search to check.</p>
-                </div>
+                <details class="border border-gray-600 rounded-lg">
+                    <summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Similar Existing Rules</summary>
+                    <div id="similarityChips" class="px-3 pb-3">
+                        <p class="text-xs text-gray-500">No similar rules found. Run Similarity Search to check.</p>
+                    </div>
+                </details>
             </div>
         `;
     }

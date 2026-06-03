@@ -703,3 +703,48 @@ the minimal e2e fans out to all extractors, slowing it and adding failure surfac
 ### 30. `tests/workflows/test_conversation_log_truncation.py` (NO CHANGE)
 
 Truncation logic is agent-agnostic — no per-agent updates needed.
+
+## Layer 8 (Conditional): Sigma `canonical_class`
+
+**Only if the new extractor's telemetry produces Sigma rules** — skip for hunt-query-style
+extractors (HuntQueriesExtract has no canonical class). The link is not 1:1: CmdlineExtract
+and ProcTreeExtract both map to `process_creation`. This layer wires a NEW telemetry family
+into the novelty/dedup engine so generated rules are compared within their class instead of
+the weak `logsource_key` fallback.
+
+### 31. `sigma_semantic_similarity/sigma_similarity/canonical_logsource.py`
+
+Add a `CANONICAL_CLASS_REGISTRY` entry — a set of `(product, category, service, event_id)`
+tuples (`None` = "any"). **Group by field schema, not just logsource label** (two sources
+logging the same observable under different field names belong in separate classes).
+
+```python
+"family.name": {
+    ("windows", "your_category", None, None),
+    ("windows", None, "sysmon", 22),   # if Sysmon-backed, pin the EID
+},
+```
+
+### 32. `sigma_semantic_similarity/sigma_similarity/atom_extractor.py` + `src/services/sigma_novelty_service.py`
+
+Add the family's field names to **both** `FIELD_ALIAS_MAP`s (precomputed *and* on-the-fly) so
+equivalent fields normalize to one atom identity. They must stay in sync — a divergence is a
+recurring bug class. `EventCode` is already aliased to `EventID`; keyword-list selections are
+already modeled on both paths (Conditional B).
+
+### 33. `tests/sigma_semantic_similarity/test_canonical_class.py` (UPDATE)
+
+Add resolution + comparability + mismatch tests:
+
+```python
+def test_<family>_category_resolves():
+    r = {"logsource": {"product": "windows", "category": "your_category"},
+         "detection": {"s": {"YourField|contains": "x"}, "condition": "s"}}
+    assert resolve_canonical_class(r) == "family.name"
+```
+
+**Operational (NOT a restart):** `sigma_semantic_similarity` is COPY'd into the image, not
+bind-mounted. After editing:
+`docker compose build && docker compose --profile tools build cli && docker compose up -d`,
+then `./run_cli.sh sigma recompute-semantics`. Verify `canonical_class IS NOT NULL` count
+rises. See `docs/features/sigma-rules.md` for the live modeled-class list.

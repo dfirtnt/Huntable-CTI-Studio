@@ -152,7 +152,7 @@ step controls `#junkFilterThreshold`, `#similarityThreshold`, `#sigma-fallback-e
 # 2. Sync without removing existing rows:
 ./run_cli.sh sync-sources --config config/sources.yaml --no-remove --new-only
 # 3. Verify:
-curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {name, total, active}'
+curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {source_name, articles_count}'
 ```
 
 Use the `add-source` Claude Code skill (`.claude/skills/add-source/SKILL.md`) for guided

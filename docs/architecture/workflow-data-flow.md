@@ -50,7 +50,7 @@ subresults = {
     "cmdline": {
         "items": [...],      # Extracted command lines
         "count": 4,
-        "raw": {...}         # Full CmdlineExtract output including qa_corrections
+        "raw": {...}         # Full CmdlineExtract output
     },
     "process_lineage": {...},
     "hunt_queries": {...},
@@ -147,8 +147,7 @@ if execution:
       "count": 4,
       "raw": {
         "cmdline_items": [...],
-        "count": 4,
-        "qa_corrections": {...}
+        "count": 4
       }
     },
     ...
@@ -509,4 +508,4 @@ Test button → test_sub_agent() endpoint → llm_service.run_extraction_agent()
 - **Direct test trigger**: `src/web/routes/workflow_config.py` — `test_sub_agent()`
 - **Database model**: `src/database/models.py` — `AgenticWorkflowExecutionTable`
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

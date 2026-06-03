@@ -131,6 +131,9 @@ backups/system_backup_20251010_103000/
 ### Commands
 
 #### Create Backup
+
+<!-- TODO: verify: `scripts/backup_database.py` no longer exists — it was renamed to `scripts/backup_database_v3.py`, which takes NO CLI flags (backup directory is set via the `BACKUP_DIR` env var; `--backup-dir`, `--no-compress`, and `--list` are not supported by v3 and would be silently ignored). Rewrite the python examples below against the v3 interface, or point users to the valid `./scripts/backup_restore.sh db-create`/`db-list` helper or `./run_cli.sh backup create/list`. -->
+
 ```bash
 # Basic backup
 python3 scripts/backup_database.py
@@ -540,6 +543,14 @@ print('Model loaded' if cf.load_model() else 'Model missing')
 > Then annotate articles and retrain via MLOps → Retrain to incorporate your
 > data. Version history from before the restore is preserved in the database and
 > will appear in the ML performance charts.
+
+> **Model rollback and the `backups/models/` fallback** — the `POST /api/model/rollback/{version_id}` endpoint
+> (`MLModelVersionManager._resolve_artifact_path`) checks `models/` first, then
+> automatically falls back to `backups/models/<filename>` if the primary pkl has been
+> deleted. This means rollback returns 200 (not 422) even when `models/` has been
+> wiped, as long as the artifact was mirrored to the backup location. Full system
+> backups copy model files into `backups/system_backup_.../models/`; the
+> `backups/models/` mirror is populated separately by the training pipeline.
 
 ### Recovery Testing
 
@@ -1053,5 +1064,5 @@ The only requirement is that Docker containers are running with the expected nam
 
 ---
 
-_Last updated: 2026-05-15_
-_Last reviewed: 2026-05-03_
+_Last updated: 2026-05-23_
+_Last reviewed: 2026-05-23_

@@ -13069,12 +13069,14 @@ function renderRulePreview(rule, observablesData) {
     if (similarityScores.length > 0) {
         similarRulesHtml = `
             <div class="mt-4">
-                <h4 class="font-semibold mb-2 text-gray-600 dark:text-gray-300">Similar Existing Rules:</h4>
-                <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
-                    ${similarityScores.slice(0, 5).map(s => `
-                        <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
-                    `).join('')}
-                </ul>
+                <details class="border border-gray-600 rounded-lg">
+                    <summary class="cursor-pointer px-3 py-2 font-semibold text-gray-300">Similar Existing Rules (${similarityScores.length})</summary>
+                    <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300 px-3 pb-3 mt-2">
+                        ${similarityScores.slice(0, 5).map(s => `
+                            <li>${s.title || s.rule_id} (${(s.similarity * 100).toFixed(1)}% similar)</li>
+                        `).join('')}
+                    </ul>
+                </details>
             </div>
         `;
     }
@@ -15633,7 +15635,24 @@ async function checkSimilarRulesForQueue() {
         if (data.success) {
             // Parse current rule YAML to extract rule structure
             let currentRuleParsed = null;
+            // Server ships the already-parsed current rule (PyYAML-parsed dict).
+            // Trust it when present; fall back to the legacy JS YAML parser only
+            // for older responses that didn't include this field.
+            if (data.current_rule && typeof data.current_rule === 'object') {
+                currentRuleParsed = {
+                    title: data.current_rule.title || '',
+                    description: data.current_rule.description || '',
+                    tags: Array.isArray(data.current_rule.tags) ? data.current_rule.tags : [],
+                    logsource: data.current_rule.logsource || {},
+                    detection: data.current_rule.detection || {},
+                    level: data.current_rule.level || '',
+                    status: data.current_rule.status || ''
+                };
+            }
             try {
+                if (currentRuleParsed) {
+                    // Server-parsed current_rule is authoritative; skip the legacy JS YAML parser.
+                } else {
                 const yaml = rule.rule_yaml || '';
                 const metadata = rule.rule_metadata || {};
                 
@@ -15809,19 +15828,22 @@ async function checkSimilarRulesForQueue() {
                         status: metadata.status || ''
                     };
                 }
+                }
             } catch (e) {
                 console.warn('Could not parse rule structure:', e);
-                // Fallback to metadata
-                const metadata = rule.rule_metadata || {};
-                currentRuleParsed = {
-                    title: metadata.title || '',
-                    description: metadata.description || '',
-                    tags: metadata.tags || [],
-                    logsource: metadata.logsource || {},
-                    detection: metadata.detection || {},
-                    level: metadata.level || '',
-                    status: metadata.status || ''
-                };
+                if (!currentRuleParsed) {
+                    // Fallback to metadata only when server didn't ship current_rule.
+                    const metadata = rule.rule_metadata || {};
+                    currentRuleParsed = {
+                        title: metadata.title || '',
+                        description: metadata.description || '',
+                        tags: metadata.tags || [],
+                        logsource: metadata.logsource || {},
+                        detection: metadata.detection || {},
+                        level: metadata.level || '',
+                        status: metadata.status || ''
+                    };
+                }
             }
             
             // Use parsed rule or create from metadata

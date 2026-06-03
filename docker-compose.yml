@@ -322,6 +322,10 @@ services:
       - ./logs:/app/logs
       - ./tests:/app/tests
       - ./data:/app/data
+      # Customer Sigma repo — same mount as web/worker so `run_cli.sh sigma
+      # index-customer-repo` resolves SIGMA_REPO_PATH (/app/sigma-repo) instead of
+      # silently no-op'ing on a missing path.
+      - ${HOME}/Huntable-SIGMA-Rules:/app/sigma-repo
       - ./backups:/app/backups
       - hf_cache:/root/.cache/huggingface
     depends_on:

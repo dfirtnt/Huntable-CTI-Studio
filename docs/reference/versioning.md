@@ -13,9 +13,9 @@ Huntable CTI Studio uses a combination of semantic versioning and planetary moon
 
 ## Current Version
 
-**v7.2.0 "Europa"** - Current stable release
-**v7.1.0 "Europa"** - Previous stable release
-**v7.0.0 "Europa"** - Earlier stable release
+**v7.3.0 "Europa"** - Current stable release
+**v7.2.0 "Europa"** - Previous stable release
+**v7.1.0 "Europa"** - Earlier stable release
 
 ## Planetary Moon Naming System
 
@@ -46,15 +46,27 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Callisto (v5.0 - v5.3)
 - Ganymede (v5.2)
 - Io (v6.0 - v6.2)
-- Europa (v7.0)
+- Europa (v7.0 - v7.2)
 
 ## Version History
 
-### v7.2.0 "Europa" (2026-05-29)
-<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.2.0] section. -->
+### v7.3.0 "Europa" (2026-06-03)
+<!-- TODO: fill Significance and Features before merging to main; pull content from docs/CHANGELOG.md [7.3.0] section. -->
 - **Named After**: <fill>
 - **Significance**: <fill>
 - **Features**: <fill>
+
+### v7.2.0 "Europa" (2026-05-29)
+- **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename established in v7.0.0
+- **Significance**: Forensic wire-truth observability across every LLM extract call (verbatim provider payload, endpoint URL, post-augmentation token count, and ordered orchestration-injection list now stamped on every `last_result`); drop-in extractor prompts that let the six extraction contracts run outside the Huntable pipeline; `cmdline_attention_preprocessor` precision overhaul (11 over-broad anchors removed, 15+ ATT&CK anchors added covering T1218.010 Squiblydoo, T1003.001 credential-access, .NET download cradles, and cmd.exe caret-escape obfuscation, plus 15 narrative-verb FP suppressors); and full removal of the per-extractor QA agent subsystem
+- **Features**:
+    - Drop-in extractor prompts under `docs/contracts/*-dropin.md` for all six extractors (cmdline, proctree, registry, services, scheduled-tasks, huntquery) — flexible URL/text/PDF input, Markdown-table output by default, single-block copy-button friendly, linked from each contract page via a `!!! tip` admonition
+    - Wire-truth forensic instrumentation: every `run_extraction_agent` invocation stamps `_provider_payload_verbatim`, `_provider_url`, `_post_augmentation_prompt_tokens`, and `_orchestration_injected_sections` on `last_result`; eval bundle `llm_request` envelope dehydrated via SHA cross-references (~197 KB → ~1.7 KB per bundle)
+    - MCP `execute_sql` and `list_tables` tools: read-only `SELECT`-only enforcement (comment-stripping, multi-statement rejection, session-level `SET TRANSACTION READ ONLY`), 200-row × 300-char/cell cap, 42 unit tests
+    - Playwright persistent browser profiles for JS-WAF-gated sources: `PlaywrightScraper` accepts `user_data_dir`, `ContentFetcher` resolves `/app/logs/playwright-profiles/<source_identifier>` when `playwright_profile: true` is set — cookies and localStorage (e.g. OVH/nginx JS-challenge tokens) survive between collection runs
+    - Sigma novelty canonical-class coverage extended to `windows.registry_event` (Sysmon 12/13/14 + Security 4657), `windows.service` (System 7045/7036 + Security 4697), and `windows.scheduled_task` (Security 4698/4699/4700/4702), with matching `FIELD_ALIAS_MAP` expansions in `sigma_novelty_service.py` and `atom_extractor.py`
+    - Hunt score negative-indicator penalty simplified to a single `geometric_score(n, 15.0)` call, replacing the dual hard-cap-plus-geometric mechanism and matching the documented intent
+    - Path-traversal hardening on eval API: strict regex allowlist on `subagent_key` plus `resolve()` + prefix guard in `_load_static_eval_articles` (closes CodeQL path-traversal alert)
 
 ### v7.1.0 "Europa" (2026-05-22)
 - **Named After**: Europa, one of Jupiter's four Galilean moons; minor release continues the Europa codename established in v7.0.0

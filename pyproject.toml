@@ -1,6 +1,6 @@
 [project]
 name = "cti-scraper"
-version = "7.2.0"
+version = "7.3.0"
 description = "CTI Scraper - Threat intelligence aggregator"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,7 +15,7 @@ dependencies = [
     "extruct==0.18.0",
     "iocextract==1.16.1",
     "trafilatura==2.0.0",
-    "playwright==1.58.0",
+    "playwright==1.60.0",
     # Data processing and storage
     "pandas==2.3.3",
     "numpy==2.4.3",
@@ -25,9 +25,9 @@ dependencies = [
     "psycopg2-binary==2.9.11",
     "alembic==1.18.4",
     # Web framework and server
-    "fastapi==0.135.1",
+    "fastapi==0.136.3",
     "starlette==1.0.1",
-    "uvicorn[standard]==0.47.0",
+    "uvicorn[standard]==0.48.0",
     "jinja2==3.1.6",
     # Background task processing
     "celery==5.6.2",
@@ -38,7 +38,7 @@ dependencies = [
     "joblib==1.5.3",
     "spacy==3.8.14",
     # Utilities
-    "click==8.3.3",
+    "click==8.4.1",
     "rich==14.3.3",
     "pydantic==2.13.4",
     "pydantic-settings==2.14.1",
@@ -51,7 +51,7 @@ dependencies = [
     "python-multipart==0.0.27",
     "cryptography==48.0.0",
     # PDF processing
-    "pypdf==6.11.0",
+    "pypdf==6.12.2",
     # SIGMA rule validation
     "pysigma==0.11.23",
     "GitPython==3.1.50",
@@ -60,7 +60,7 @@ dependencies = [
     "transformers==5.8.0",
     "accelerate==1.13.0",
     "openai==2.38.0",
-    "tiktoken==0.12.0",
+    "tiktoken==0.13.0",
     "sentence-transformers==5.5.1",
     "pgvector==0.4.2",
     # Agentic workflow
@@ -79,6 +79,7 @@ dependencies = [
     "Mako==1.3.12", # path traversal + CVE-2026-44307 fixes
     "idna==3.16", # CVE-2026-45409 fix; exact pin closes supply-chain window on uv lock re-runs
     "pymdown-extensions==10.21.3", # CVE-2026-46338 fix; exact pin closes supply-chain window on uv lock re-runs
+    "PyJWT==2.13.0", # CVE PYSEC-2026-175/177/178/179; transitive via mcp[cli] (sole parent), exact pin per single-parent convention
     # Documentation
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.6",
@@ -104,7 +105,7 @@ test = [
     "factory-boy==3.3.3",
     "freezegun==1.5.5",
     "responses==0.24.0",
-    "requests-mock==1.11.0",
+    "requests-mock==1.12.1",
     "testcontainers==3.7.0",
     "psutil==7.2.2",
     "memory-profiler==0.61.0",
@@ -115,7 +116,7 @@ test = [
     # Dependabot alert #152 dismissed (tolerable_risk). Bump when upstream
     # ships a fix that lets us pin to a non-vulnerable pip.
     "pip-audit==2.10.0",
-    "safety==3.7.0",
+    "safety==3.8.1",
     "black==26.3.1",
     "isort==5.12.0",
     "mypy==1.8.0",

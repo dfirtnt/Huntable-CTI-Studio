@@ -270,6 +270,36 @@ class SigmaNoveltyService:
             use_deterministic = proposed_sem is not None
             canonical_class = proposed_sem["canonical_class"] if proposed_sem else None
 
+            # Guard (exact_hash degeneracy): a rule with no extractable behavioral
+            # atoms has no fingerprint to compare. Its canonical form is empty, so
+            # generate_exact_hash collapses every such rule onto one value — which
+            # would falsely short-circuit to DUPLICATE and suppress a novel rule.
+            # Without atoms we cannot assert duplication, so report NOVEL.
+            inapp_atoms = canonical_rule.detection.get("atoms") or []
+            sem_atoms = (proposed_sem or {}).get("positive_atoms") or []
+            if not inapp_atoms and not sem_atoms:
+                _warnings.append(
+                    "no_atoms_extracted: insufficient detection content to assess novelty; treated as NOVEL"
+                )
+                return {
+                    "novelty_label": NoveltyLabel.NOVEL,
+                    "novelty_score": 1.0,
+                    "logsource_key": logsource_key,
+                    "canonical_class": canonical_class,
+                    "exact_hash": exact_hash,
+                    "top_matches": [],
+                    "canonical_rule": asdict(canonical_rule),
+                    "total_candidates_evaluated": 0,
+                    "behavioral_matches_found": 0,
+                    "engine_used": "deterministic" if use_deterministic else "legacy",
+                    # Machine-readable flag (not just the free-text warning, which
+                    # downstream summarize_rule_novelty drops): this rule could not be
+                    # assessed at all. Routing must treat it as inconclusive →
+                    # needs_review, NOT a confident pending novel. Fail open, not silent.
+                    "no_atoms_extracted": True,
+                    "warnings": _warnings,
+                }
+
             # Step 3: Retrieve candidates (deterministic: by canonical_class, no limit; else: logsource_key + top_k)
             logger.debug(
                 f"Retrieving candidates for logsource_key: '{logsource_key}'"
@@ -308,6 +338,9 @@ class SigmaNoveltyService:
                             "logic_shape_similarity": 1.0,
                             "similarity_engine": "legacy",
                             "semantic_details": None,
+                            # Spec Item 6 (P2-C): inherit phase1_path from the candidate (set to
+                            # "exact_hash" by retrieve_candidates). Downstream gate skips this path.
+                            "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
                         }
                     )
                     continue
@@ -467,6 +500,9 @@ class SigmaNoveltyService:
                         "filter_penalty": filter_penalty,
                         "weighted_before_penalties": weighted_before_penalties,
                         "similarity_engine": "deterministic" if used_deterministic else "legacy",
+                        # Spec Item 6 (P2-C): inherit Phase 1 retrieval path from the candidate so
+                        # the downstream gate at sigma_matching_service.py:551 can scope itself.
+                        "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
                         "semantic_details": (
                             {
                                 "canonical_class": deterministic_result.canonical_class,
@@ -588,36 +624,16 @@ class SigmaNoveltyService:
         logger.debug(f"Normalized logsource: {logsource} -> '{logsource_key}' (service: {service})")
         return logsource_key, service
 
-    def _normalize_conservative(self, value: Any) -> Any:
-        """Conservative normalization: trim whitespace, normalize slashes."""
-        if isinstance(value, str):
-            # Trim whitespace
-            normalized = value.strip()
-            # Normalize path separators (Windows <-> Unix)
-            normalized = normalized.replace("\\", "/")
-            return normalized
-        if isinstance(value, list):
-            return [self._normalize_conservative(v) for v in value]
-        return value
-
-    def _normalize_aggressive(self, value: Any) -> Any:
-        """Aggressive normalization for CommandLine fields."""
-        if isinstance(value, str):
-            # Collapse repeated whitespace
-            normalized = re.sub(r"\s+", " ", value.strip())
-            # Normalize quoting
-            normalized = normalized.replace('"', "'")
-            # Normalize path separators
-            normalized = normalized.replace("\\", "/")
-            # TODO: Normalize argument ordering when semantics imply sets
-            return normalized
-        if isinstance(value, list):
-            return [self._normalize_aggressive(v) for v in value]
-        return value
-
     def extract_atomic_predicates(self, detection: dict[str, Any]) -> list[Atom]:
         """
         Extract atomic predicates from detection block.
+
+        Selection values come in three shapes that must all contribute atoms:
+          (a) a map of field:value pairs (the common case),
+          (b) a list of maps (Sigma "list of maps" — OR of the maps),
+          (c) a list of scalars (Sigma keyword-style — field-less contains-match
+              against the raw event; Item 12 of the audit follow-up).
+        Mixed lists (dicts and scalars in the same list) split across paths (b) and (c).
 
         Lists are exploded into separate atoms. Logic explicitly represents OR/AND.
 
@@ -630,76 +646,104 @@ class SigmaNoveltyService:
         Returns:
             List of Atom objects
         """
-        atoms = []
+        atoms: list[Atom] = []
 
         if not isinstance(detection, dict):
             return atoms
 
-        # Process all selection blocks
         for key, value in detection.items():
             if key == "condition":
                 continue
 
-            if not isinstance(value, dict):
-                continue
+            if isinstance(value, dict):
+                atoms.extend(self._extract_block_atoms(key, value, detection))
+            elif isinstance(value, list):
+                keyword_polarity = self._polarity_for_selection_key(key, detection)
+                for item in value:
+                    if isinstance(item, dict):
+                        atoms.extend(self._extract_block_atoms(key, item, detection))
+                    elif not isinstance(item, list):
+                        atoms.append(
+                            Atom(
+                                field="",
+                                op="contains",
+                                op_type="literal",
+                                value=str(item),
+                                value_type=self._infer_value_type(item),
+                                polarity=keyword_polarity,
+                            )
+                        )
+            # Other value types (scalars at the top level, None, etc.) contribute no atoms.
 
-            # Extract atoms from this selection
-            for field_name, field_value in value.items():
-                base_field, modifiers = self._parse_field_with_modifiers(field_name)
+        return atoms
 
-                # Apply field alias normalization (v1.2)
-                # Make lookup case-insensitive AND underscore-insensitive so that
-                # snake_case field names (LLM-generated or older Sigma rules) map to
-                # the same canonical form as their camelCase equivalents.
-                # e.g. parent_image → parentimage == ParentImage.lower() → ParentImage
-                base_field_lower = base_field.lower() if base_field else ""
-                base_field_nounderscore = base_field_lower.replace("_", "")
-                canonical_field = base_field
-                for map_key, map_value in self.FIELD_ALIAS_MAP.items():
-                    map_key_lower = map_key.lower()
-                    if map_key_lower in (base_field_lower, base_field_nounderscore):
-                        canonical_field = map_value
-                        break
-                # If no match found, use title case version of original
-                if canonical_field == base_field and base_field:
-                    canonical_field = (
-                        base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
-                    )
+    def _polarity_for_selection_key(self, key: str, detection: dict[str, Any]) -> str:
+        """Polarity for a keyword-style (field-less) selection.
 
-                # Normalize `contains|all` to `contains` - semantically equivalent
-                # `contains|all: [a, b, c]` means "all of a, b, c must be present"
-                # which is equivalent to `contains: a AND contains: b AND contains: c`
-                normalized_modifiers = []
-                has_all_modifier = False
-                for mod in modifiers:
-                    if mod.lower() == "all":
-                        has_all_modifier = True
-                        # Don't add 'all' to ops - it's handled by condition logic
-                    else:
-                        normalized_modifiers.append(mod)
+        Mirrors the polarity logic inside `_extract_block_atoms` but without the
+        per-field check — keyword atoms have no field, so only the selection-name
+        negation in the condition string matters. A `filter`-named selection that
+        is positively referenced in the condition (Sigma allows but discourages
+        this — see rule_id 7a14080d) is positive; only an explicit `not <key>` in
+        the condition produces negative polarity.
+        """
+        condition = str(detection.get("condition", "")).lower()
+        if f"not {key.lower()}" in condition:
+            return "negative"
+        return "positive"
 
-                # Determine primary operator and op_type (v1.2)
-                if normalized_modifiers:
-                    primary_op = normalized_modifiers[0].lower()
-                else:
-                    primary_op = "contains"  # Default operator
+    def _extract_block_atoms(self, key: str, value: dict[str, Any], detection: dict[str, Any]) -> list[Atom]:
+        """Extract atoms from a single selection map (one block of field:value pairs)."""
+        atoms: list[Atom] = []
+        for field_name, field_value in value.items():
+            base_field, modifiers = self._parse_field_with_modifiers(field_name)
 
-                # Determine op_type: regex if operator is 're', otherwise literal
-                op_type = "regex" if primary_op == "re" else "literal"
+            # Apply field alias normalization (v1.2)
+            # Make lookup case-insensitive AND underscore-insensitive so that
+            # snake_case field names (LLM-generated or older Sigma rules) map to
+            # the same canonical form as their camelCase equivalents.
+            # e.g. parent_image → parentimage == ParentImage.lower() → ParentImage
+            base_field_lower = base_field.lower() if base_field else ""
+            base_field_nounderscore = base_field_lower.replace("_", "")
+            canonical_field = base_field
+            for map_key, map_value in self.FIELD_ALIAS_MAP.items():
+                map_key_lower = map_key.lower()
+                if map_key_lower in (base_field_lower, base_field_nounderscore):
+                    canonical_field = map_value
+                    break
+            # If no match found, use title case version of original
+            if canonical_field == base_field and base_field:
+                canonical_field = base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
 
-                # Determine polarity (check for NOT in condition or filter blocks)
-                polarity = "positive"
-                if key.startswith("filter") or "not" in str(detection.get("condition", "")).lower():
-                    # Check if this field is negated in condition
-                    condition = str(detection.get("condition", "")).lower()
-                    if f"not {key}" in condition or f"not {base_field}" in condition:
-                        polarity = "negative"
+            # Normalize `contains|all` to `contains` - semantically equivalent
+            # `contains|all: [a, b, c]` means "all of a, b, c must be present"
+            # which is equivalent to `contains: a AND contains: b AND contains: c`.
+            # 'all' affects condition logic, not the per-atom operator, so drop it here.
+            normalized_modifiers = [mod for mod in modifiers if mod.lower() != "all"]
 
-                # Explode lists into separate atoms
-                # For `contains|all`, each value becomes a separate atom (AND semantics)
-                if isinstance(field_value, list):
-                    for item in field_value:
-                        atom = Atom(
+            # Determine primary operator and op_type (v1.2)
+            if normalized_modifiers:
+                primary_op = normalized_modifiers[0].lower()
+            else:
+                primary_op = "contains"  # Default operator
+
+            # Determine op_type: regex if operator is 're', otherwise literal
+            op_type = "regex" if primary_op == "re" else "literal"
+
+            # Determine polarity (check for NOT in condition or filter blocks)
+            polarity = "positive"
+            if key.startswith("filter") or "not" in str(detection.get("condition", "")).lower():
+                # Check if this field is negated in condition
+                condition = str(detection.get("condition", "")).lower()
+                if f"not {key}" in condition or f"not {base_field}" in condition:
+                    polarity = "negative"
+
+            # Explode lists into separate atoms
+            # For `contains|all`, each value becomes a separate atom (AND semantics)
+            if isinstance(field_value, list):
+                for item in field_value:
+                    atoms.append(
+                        Atom(
                             field=canonical_field,
                             op=primary_op,
                             op_type=op_type,
@@ -707,9 +751,10 @@ class SigmaNoveltyService:
                             value_type=self._infer_value_type(item),
                             polarity=polarity,
                         )
-                        atoms.append(atom)
-                else:
-                    atom = Atom(
+                    )
+            else:
+                atoms.append(
+                    Atom(
                         field=canonical_field,
                         op=primary_op,
                         op_type=op_type,
@@ -717,8 +762,7 @@ class SigmaNoveltyService:
                         value_type=self._infer_value_type(field_value),
                         polarity=polarity,
                     )
-                    atoms.append(atom)
-
+                )
         return atoms
 
     def _parse_field_with_modifiers(self, field_name: str) -> tuple[str, list[str]]:
@@ -1045,58 +1089,21 @@ class SigmaNoveltyService:
 
         return convert_node(ast)
 
-    def generate_exact_hash(self, canonical_rule: CanonicalRule) -> str:
-        """Generate SHA256 hash of canonical JSON."""
+    def generate_exact_hash(self, canonical_rule: CanonicalRule) -> str | None:
+        """Generate SHA256 hash of canonical JSON, or None when the rule has no atoms.
+
+        Atom-less canonical rules (keyword-only Sigma detections the deterministic
+        extractor doesn't model) collapse to a degenerate canonical form that would
+        hash-collide across unrelated rules. Returning None keeps sigma_rules.exact_hash
+        NULL for those rows, and SQL NULL = NULL is false, so the column cannot host
+        false-DUPLICATE matches. Item 11 of the 2026-06-01 audit follow-up.
+        """
+        atoms = canonical_rule.detection.get("atoms") or []
+        if not atoms:
+            return None
         canonical_json = json.dumps(asdict(canonical_rule), sort_keys=True, separators=(",", ":"))
         hash_obj = hashlib.sha256(canonical_json.encode("utf-8"))
         return hash_obj.hexdigest()
-
-    def generate_canonical_text(self, canonical_rule: CanonicalRule) -> str:
-        """Generate deterministic text representation for hashing/embeddings."""
-        parts = []
-
-        # Logsource
-        logsource = canonical_rule.logsource
-        parts.append(f"logsource {logsource.get('product', '')}:{logsource.get('category', '')}")
-
-        # Logic
-        logic = canonical_rule.detection.get("logic", {})
-        logic_str = self._logic_to_string(logic)
-        parts.append(logic_str)
-
-        # Atoms (sorted)
-        atoms = canonical_rule.detection.get("atoms", [])
-        for atom in sorted(atoms, key=lambda x: json.dumps(x, sort_keys=True)):
-            field = atom.get("field", "")
-            ops = "|".join(atom.get("ops", []))
-            value = atom.get("value", "")
-            polarity = atom.get("polarity", "positive")
-
-            if ops:
-                atom_str = f"{field}|{ops}:{value}"
-            else:
-                atom_str = f"{field}:{value}"
-
-            if polarity == "negative":
-                atom_str = f"NOT({atom_str})"
-
-            parts.append(atom_str)
-
-        return "\n".join(parts)
-
-    def _logic_to_string(self, logic: dict[str, Any]) -> str:
-        """Convert logic dictionary to string representation."""
-        if "ATOM" in logic:
-            return f"ATOM[{logic['ATOM']}]"
-        if "AND" in logic:
-            operands = [self._logic_to_string(op) for op in logic["AND"]]
-            return f"AND({', '.join(operands)})"
-        if "OR" in logic:
-            operands = [self._logic_to_string(op) for op in logic["OR"]]
-            return f"OR({', '.join(operands)})"
-        if "NOT" in logic:
-            return f"NOT({self._logic_to_string(logic['NOT'])})"
-        return "EMPTY"
 
     def retrieve_candidates(
         self,
@@ -1129,29 +1136,41 @@ class SigmaNoveltyService:
         try:
             from src.database.models import SigmaRuleTable
 
-            # First, check for exact hash match (duplicate)
-            try:
-                exact_match = (
-                    self.db_session.query(SigmaRuleTable).filter(SigmaRuleTable.exact_hash == exact_hash).first()
-                )
-                if exact_match:
-                    out = {
-                        "rule_id": exact_match.rule_id,
-                        "title": exact_match.title,
-                        "logsource": exact_match.logsource,
-                        "detection": exact_match.detection,
-                        "exact_hash_match": True,
-                    }
-                    if hasattr(exact_match, "positive_atoms") and exact_match.positive_atoms is not None:
-                        out["positive_atoms"] = exact_match.positive_atoms
-                        out["negative_atoms"] = getattr(exact_match, "negative_atoms", None) or []
-                        out["surface_score"] = getattr(exact_match, "surface_score", None) or 1
-                    return [out]
-            except Exception:
-                logger.warning("sigma_novelty: exact hash DB lookup failed, skipping duplicate check", exc_info=True)
+            # First, check for exact hash match (duplicate). Skip when the proposed
+            # hash is None: SQLAlchemy translates `column == None` to SQL `IS NULL`,
+            # which would match every atom-less row (NULL per Item 11) and return
+            # one as a false DUPLICATE. SQL NULL = NULL is false; mirror that
+            # contract in Python by short-circuiting the branch.
+            if exact_hash is not None:
+                try:
+                    exact_match = (
+                        self.db_session.query(SigmaRuleTable).filter(SigmaRuleTable.exact_hash == exact_hash).first()
+                    )
+                    if exact_match:
+                        out = {
+                            "rule_id": exact_match.rule_id,
+                            "title": exact_match.title,
+                            "logsource": exact_match.logsource,
+                            "detection": exact_match.detection,
+                            "exact_hash_match": True,
+                            # Spec Item 6 (P2-C): tag the Phase 1 retrieval path so the downstream
+                            # gate in sigma_matching_service.py can decide whether to enforce.
+                            "phase1_path": "exact_hash",
+                        }
+                        if hasattr(exact_match, "positive_atoms") and exact_match.positive_atoms is not None:
+                            out["positive_atoms"] = exact_match.positive_atoms
+                            out["negative_atoms"] = getattr(exact_match, "negative_atoms", None) or []
+                            out["surface_score"] = getattr(exact_match, "surface_score", None) or 1
+                        return [out]
+                except Exception:
+                    logger.warning(
+                        "sigma_novelty: exact hash DB lookup failed, skipping duplicate check", exc_info=True
+                    )
 
-            # Build query
+            # Build query. Track which Phase 1 path produced the candidates so the downstream
+            # gate in sigma_matching_service.py can decide whether to enforce (Spec Item 6 P2-C).
             candidates = []
+            phase1_path = "logsource_fallback"
             if use_deterministic and canonical_class:
                 # Deterministic mode: filter by canonical_class, no limit
                 try:
@@ -1161,29 +1180,38 @@ class SigmaNoveltyService:
                             .filter(SigmaRuleTable.canonical_class == canonical_class)
                             .all()
                         )
+                        if candidates:
+                            phase1_path = "canonical_class"
                 except Exception:
                     logger.warning(
                         "sigma_novelty: canonical_class DB query failed, falling back to logsource_key", exc_info=True
                     )
                 if not candidates and logsource_key and logsource_key != "|":
-                    # Fallback to logsource_key + limit when canonical_class column missing or no matches
+                    # Fallback to logsource_key + limit when canonical_class column missing or no matches.
+                    # order_by(rule_id) gives a stable sort so the same logsource_key returns the
+                    # same top-k across runs / replicas / after VACUUM. Spec Item 7 (P1).
                     candidates = (
                         self.db_session.query(SigmaRuleTable)
                         .filter(SigmaRuleTable.logsource_key == logsource_key)
+                        .order_by(SigmaRuleTable.rule_id)
                         .limit(top_k)
                         .all()
                     )
+                    phase1_path = "logsource_fallback"
             else:
                 if not logsource_key or logsource_key == "|":
                     logger.warning(f"Invalid logsource_key '{logsource_key}', returning no candidates")
                     return []
                 try:
+                    # Same stability requirement as the canonical_class-empty fallback above.
                     candidates = (
                         self.db_session.query(SigmaRuleTable)
                         .filter(SigmaRuleTable.logsource_key == logsource_key)
+                        .order_by(SigmaRuleTable.rule_id)
                         .limit(top_k)
                         .all()
                     )
+                    phase1_path = "logsource_fallback"
                 except Exception as e:
                     logger.error(f"Failed to query candidates by logsource_key '{logsource_key}': {e}")
                     return []
@@ -1198,6 +1226,7 @@ class SigmaNoveltyService:
                     "logsource": c.logsource,
                     "detection": c.detection,
                     "exact_hash": getattr(c, "exact_hash", None),
+                    "phase1_path": phase1_path,  # Spec Item 6 (P2-C): downstream gate scoping
                 }
                 if hasattr(c, "positive_atoms") and c.positive_atoms is not None:
                     out["positive_atoms"] = c.positive_atoms
@@ -1259,8 +1288,12 @@ class SigmaNoveltyService:
         set1 = {self._atom_to_key(a) for a in positive_atoms1}
         set2 = {self._atom_to_key(a) for a in positive_atoms2}
 
+        # Two rules with no positive atoms share no measurable behavioral signal —
+        # they are incomparable, not identical. Returning 0.0 routes them to NOVEL,
+        # consistent with the atom-less guard in assess_novelty. (Previously 1.0,
+        # which could mark unrelated atom-less / filter-only rules as a perfect match.)
         if not set1 and not set2:
-            return 1.0
+            return 0.0
 
         intersection = set1 & set2
         union = set1 | set2

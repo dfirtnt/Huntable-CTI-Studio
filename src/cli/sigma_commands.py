@@ -307,7 +307,13 @@ def recompute_semantics_cmd():
 
 
 @sigma_group.command("backfill-metadata")
-def backfill_metadata_cmd():
+@click.option(
+    "--force",
+    "-f",
+    is_flag=True,
+    help="Re-backfill all rules (overwrite canonical_json/exact_hash/logsource_key on every row, not just rules with NULL canonical_json). Use when the canonical computation logic changed and the corpus needs to be recomputed.",
+)
+def backfill_metadata_cmd(force: bool):
     """Backfill canonical metadata for existing rules (no file system needed)."""
     console.print("[bold blue]Backfilling canonical metadata...[/bold blue]")
 
@@ -317,9 +323,12 @@ def backfill_metadata_cmd():
         db_manager = DatabaseManager()
         session = db_manager.get_session()
 
-        rules = session.query(SigmaRuleTable).filter(SigmaRuleTable.canonical_json.is_(None)).all()
-
-        console.print(f"Found {len(rules)} rules needing canonical metadata")
+        if force:
+            rules = session.query(SigmaRuleTable).all()
+            console.print(f"[yellow]Force mode: re-backfilling all {len(rules)} rules[/yellow]")
+        else:
+            rules = session.query(SigmaRuleTable).filter(SigmaRuleTable.canonical_json.is_(None)).all()
+            console.print(f"Found {len(rules)} rules needing canonical metadata")
 
         from dataclasses import asdict
 
@@ -337,7 +346,6 @@ def backfill_metadata_cmd():
                 canonical_rule = novelty_service.build_canonical_rule(rule_data)
                 rule.canonical_json = asdict(canonical_rule)
                 rule.exact_hash = novelty_service.generate_exact_hash(canonical_rule)
-                rule.canonical_text = novelty_service.generate_canonical_text(canonical_rule)
                 logsource_key, _ = novelty_service.normalize_logsource(rule_data["logsource"])
                 rule.logsource_key = logsource_key
                 updated += 1

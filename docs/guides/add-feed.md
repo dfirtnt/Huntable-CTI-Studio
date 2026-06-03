@@ -34,7 +34,7 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 3. Verify the source is active:
    ```bash
    # quick breakdown via health endpoint
-   curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {name, total: .total_articles, active: .active}'
+   curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {source_name, articles_count}'
    ```
    The Sources page in the UI also reflects the new entry and its enablement state.
 
@@ -44,4 +44,4 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 - Scheduler cadence is controlled by `check_frequency` (seconds) and the Celery Beat schedule defined in `docker-compose.yml`. The default is 14400 (4 hours); add an explicit `check_frequency` in YAML only when a faster cadence is needed.
 - If a new source starts failing repeatedly, check the Sources page in the UI for error details and manually update the source config as needed.
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

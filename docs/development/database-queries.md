@@ -400,4 +400,4 @@ WHERE NOT EXISTS (
 - Regularly rotate database passwords
 - Monitor database access logs
 
-_Last updated: 2026-05-15_
+_Last updated: 2026-05-23_

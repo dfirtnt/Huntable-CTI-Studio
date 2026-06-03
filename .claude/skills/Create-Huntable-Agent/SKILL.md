@@ -134,6 +134,62 @@ These establish the agent's existence in the system. If these are wrong, nothing
 29. **`tests/integration/test_lmstudio_minimal_e2e.py`** — Append new agent to the `disabled_agents` list (around line 189) so the minimal e2e stays minimal (see Pitfall #14)
 30. **`tests/workflows/test_conversation_log_truncation.py`** — Already exists; no per-agent changes needed (truncation is agent-agnostic)
 
+### Layer 8 (Conditional): Sigma `canonical_class` — only if the extractor's telemetry generates Sigma rules
+
+**Skip this layer if your extractor does not produce artifacts that SigmaAgent turns into
+Sigma rules.** The extractor → canonical_class link is **not 1:1**: `CmdlineExtract` and
+`ProcTreeExtract` both map to `process_creation` (many-to-one), and `HuntQueriesExtract`
+maps to **nothing** (it emits hunt queries, not detections). Gate this layer on the
+question *"does this telemetry generate Sigma rules?"* — it is conditional, not mandatory.
+
+The Sigma novelty/dedup engine groups rules into **canonical telemetry classes**
+(`CANONICAL_CLASS_REGISTRY` in `sigma_semantic_similarity/sigma_similarity/canonical_logsource.py`)
+so a proposed rule is only compared against rules in the same class. A rule whose `logsource`
+matches no registered class falls to the weaker `logsource_key` fallback and dedups poorly.
+Current mappings:
+
+| Extractor | Sigma telemetry / canonical_class |
+|-----------|-----------------------------------|
+| CmdlineExtract, ProcTreeExtract | `windows`/`linux`/`macos.process_creation` |
+| RegistryExtract | `windows.registry_event` |
+| ServicesExtract | `windows.service` |
+| ScheduledTasksExtract | `windows.scheduled_task` |
+| HuntQueriesExtract | none (produces hunt queries, not Sigma rules) |
+
+If your extractor introduces a NEW telemetry family (e.g. a hypothetical `DnsExtract`
+→ `*.dns_query`), wire it:
+
+1. **Registry tuple** — add a `(product, category, service, event_id)` entry to
+   `CANONICAL_CLASS_REGISTRY` (`None` = "any" for a slot). **Group by field *schema*, not
+   by logsource label**: two sources that log the same observable under *different* field
+   names (e.g. DNS `query` vs `QueryName`) are not comparable and belong in separate classes
+   until a field alias bridges them.
+2. **Field aliases** — add the family's field names to `FIELD_ALIAS_MAP` in
+   `sigma_semantic_similarity/sigma_similarity/atom_extractor.py` so equivalent fields
+   normalize to one atom identity. **Keep it in sync with the on-the-fly map** in
+   `src/services/sigma_novelty_service.py` (`FIELD_ALIAS_MAP`) — there are currently two
+   extractors that must agree, and a silent divergence between them is a recurring bug class
+   (the "collapse the two extractors" work will eventually unify them; until then, edit both).
+3. **Keyword selections already work on both paths** — if the family's rules use keyword-list
+   selections (`keywords: [...]`, webserver/XSS/Log4j-style), both extractors model them as
+   field-less `contains` atoms (Conditional B, commit `5514381b`), so there is no empty-atom
+   trap. `EventCode` is treated as `EventID` during resolution (the Splunk/EventLog field name).
+4. **Test** — add resolution + comparability + mismatch tests to
+   `tests/sigma_semantic_similarity/test_canonical_class.py` (the new logsource resolves to the
+   class; two same-class rules score comparable; a different-class rule scores `0` with
+   `canonical_class_mismatch`).
+5. **Operational — NOT just a restart** — `sigma_semantic_similarity` is **COPY'd into the
+   Docker image at build time, not bind-mounted**. A registry/alias change is live only after
+   `docker compose build && docker compose --profile tools build cli && docker compose up -d`,
+   then `./run_cli.sh sigma recompute-semantics` to repopulate `canonical_class`/`positive_atoms`.
+   Verify the per-class count rises post-recompute. (Contrast: `src/` IS bind-mounted, so the
+   on-the-fly `FIELD_ALIAS_MAP` edit there takes effect on a plain restart — land both map edits
+   together and rebuild so the two paths never drift in production.)
+
+See `docs/features/sigma-rules.md` (modeled-class list) and the Coverage-Chain addenda in
+`docs/development/sigma-novelty-audit-followup-2026-06-01.md` for the live registry and the
+field-schema-grouping rationale.
+
 ## Common Pitfalls
 
 These are real bugs encountered during the RegistryExtract and ScheduledTasksExtract implementations:
