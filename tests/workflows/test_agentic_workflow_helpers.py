@@ -115,7 +115,6 @@ def test_hunt_queries_envelope_canonical_count_wins_over_legacy_alias():
     assert _extract_actual_count("hunt_queries", subresults, execution_id=1) == 2
 
 
-
 def test_hunt_queries_prompt_envelope_uses_count_not_query_count():
     """Regression: the prompt's json_example must declare `count`, not `query_count`.
     The runtime envelope builder mirrors the prompt schema; if the prompt drifts back

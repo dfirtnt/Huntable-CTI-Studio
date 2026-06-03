@@ -539,9 +539,7 @@ class SigmaMatchingService:
             rule_ids = [rid for rid in rule_ids if rid]  # drop empty/None
             rule_by_id: dict[str, Any] = {}
             if rule_ids:
-                rules_batch = (
-                    self.db.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id.in_(rule_ids)).all()
-                )
+                rules_batch = self.db.query(SigmaRuleTable).filter(SigmaRuleTable.rule_id.in_(rule_ids)).all()
                 rule_by_id = {r.rule_id: r for r in rules_batch}
 
             matches = []

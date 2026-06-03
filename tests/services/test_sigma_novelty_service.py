@@ -935,8 +935,8 @@ class TestRetrieveCandidatesDeterministicOrdering:
     @pytest.mark.parametrize(
         "use_deterministic, canonical_class",
         [
-            (False, None),                          # else-branch fallback
-            (True, "windows.process_creation"),     # if-branch's empty-canonical_class fallback
+            (False, None),  # else-branch fallback
+            (True, "windows.process_creation"),  # if-branch's empty-canonical_class fallback
         ],
         ids=["else_branch", "canonical_class_empty_fallback"],
     )

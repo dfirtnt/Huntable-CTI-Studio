@@ -7,7 +7,6 @@ ids 30/42/43 during the 2026-06-01 queue replay.
 
 import pytest
 
-
 BAD_YAML_CASES = [
     (
         "raw_commandline_string",

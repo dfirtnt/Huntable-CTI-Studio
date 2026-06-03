@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # All tests patch load_dotenv to prevent the real .env file from overriding
 # monkeypatched env vars. The module uses override=True so .env wins over the
 # process environment — correct for production, but we stub it in tests.

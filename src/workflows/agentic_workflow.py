@@ -2430,7 +2430,9 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                             # Guard: confirm the generated YAML round-trips to a dict with required keys.
                             # yaml.dump(dict) should always satisfy this, but catch regressions early.
                             _parsed_back = yaml.safe_load(rule_yaml)
-                            _missing_keys = [k for k in ("title", "logsource", "detection") if k not in (_parsed_back or {})]
+                            _missing_keys = [
+                                k for k in ("title", "logsource", "detection") if k not in (_parsed_back or {})
+                            ]
                             if not isinstance(_parsed_back, dict) or _missing_keys:
                                 logger.warning(
                                     f"[Workflow {state['execution_id']}] Skipping rule idx={idx}: "

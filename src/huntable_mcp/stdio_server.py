@@ -48,8 +48,7 @@ logger = logging.getLogger(__name__)
 
 if _url_built_from_pw:
     logger.info(
-        "DATABASE_URL assembled from POSTGRES_PASSWORD: "
-        "postgresql+asyncpg://cti_user:***@localhost:5432/cti_scraper"
+        "DATABASE_URL assembled from POSTGRES_PASSWORD: postgresql+asyncpg://cti_user:***@localhost:5432/cti_scraper"
     )
 
 mcp = FastMCP(

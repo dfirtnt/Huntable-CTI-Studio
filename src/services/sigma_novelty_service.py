@@ -278,7 +278,9 @@ class SigmaNoveltyService:
             inapp_atoms = canonical_rule.detection.get("atoms") or []
             sem_atoms = (proposed_sem or {}).get("positive_atoms") or []
             if not inapp_atoms and not sem_atoms:
-                _warnings.append("no_atoms_extracted: insufficient detection content to assess novelty; treated as NOVEL")
+                _warnings.append(
+                    "no_atoms_extracted: insufficient detection content to assess novelty; treated as NOVEL"
+                )
                 return {
                     "novelty_label": NoveltyLabel.NOVEL,
                     "novelty_score": 1.0,
@@ -711,9 +713,7 @@ class SigmaNoveltyService:
                     break
             # If no match found, use title case version of original
             if canonical_field == base_field and base_field:
-                canonical_field = (
-                    base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
-                )
+                canonical_field = base_field[0].upper() + base_field[1:] if len(base_field) > 1 else base_field.upper()
 
             # Normalize `contains|all` to `contains` - semantically equivalent
             # `contains|all: [a, b, c]` means "all of a, b, c must be present"

@@ -552,7 +552,10 @@ class TestHardGateScopedToFallback:
         """phase1_path='canonical_class' + mismatching logsource_key → match SURVIVES (the gate skips this path)."""
         match = self._make_match("r1", phase1_path="canonical_class")
         out = self._run_compare(
-            mock_db_session, service, proposed, [match],
+            mock_db_session,
+            service,
+            proposed,
+            [match],
             proposed_lsk=proposed_logsource_key,
             rule_lsk="linux|process_creation",  # MISMATCH
         )
@@ -562,13 +565,14 @@ class TestHardGateScopedToFallback:
         )
         assert out["matches"][0]["rule_id"] == "r1"
 
-    def test_logsource_fallback_path_drops_mismatch(
-        self, service, mock_db_session, proposed, proposed_logsource_key
-    ):
+    def test_logsource_fallback_path_drops_mismatch(self, service, mock_db_session, proposed, proposed_logsource_key):
         """phase1_path='logsource_fallback' + mismatching logsource_key → match DROPPED (gate fires)."""
         match = self._make_match("r1", phase1_path="logsource_fallback")
         out = self._run_compare(
-            mock_db_session, service, proposed, [match],
+            mock_db_session,
+            service,
+            proposed,
+            [match],
             proposed_lsk=proposed_logsource_key,
             rule_lsk="linux|process_creation",  # MISMATCH
         )
@@ -584,7 +588,10 @@ class TestHardGateScopedToFallback:
         """phase1_path='logsource_fallback' + matching logsource_key → match SURVIVES."""
         match = self._make_match("r1", phase1_path="logsource_fallback")
         out = self._run_compare(
-            mock_db_session, service, proposed, [match],
+            mock_db_session,
+            service,
+            proposed,
+            [match],
             proposed_lsk=proposed_logsource_key,
             rule_lsk=proposed_logsource_key,  # MATCH
         )
@@ -597,13 +604,15 @@ class TestHardGateScopedToFallback:
         """phase1_path='exact_hash' (rule hash already proved identity) → match SURVIVES regardless of logsource."""
         match = self._make_match("r1", phase1_path="exact_hash")
         out = self._run_compare(
-            mock_db_session, service, proposed, [match],
+            mock_db_session,
+            service,
+            proposed,
+            [match],
             proposed_lsk=proposed_logsource_key,
             rule_lsk="linux|process_creation",  # MISMATCH (shouldn't even be possible in practice)
         )
         assert len(out["matches"]) == 1, (
-            "exact_hash matches must not be gated — hash-based identity supersedes "
-            "logsource_key surface check."
+            "exact_hash matches must not be gated — hash-based identity supersedes logsource_key surface check."
         )
 
     def test_missing_phase1_path_falls_back_to_legacy_gate_behavior(
@@ -613,7 +622,10 @@ class TestHardGateScopedToFallback:
         match = self._make_match("r1", phase1_path="canonical_class")
         del match["phase1_path"]  # simulate older payload that pre-dates Item 6
         out = self._run_compare(
-            mock_db_session, service, proposed, [match],
+            mock_db_session,
+            service,
+            proposed,
+            [match],
             proposed_lsk=proposed_logsource_key,
             rule_lsk="linux|process_creation",  # MISMATCH
         )
@@ -645,6 +657,5 @@ class TestHardGateScopedToFallback:
         # The batched call: .all() invoked exactly once on the per-match-lookup chain.
         # .first() should NOT be called for per-match lookup in the batched path.
         assert filter_mock.all.call_count == 1, (
-            f"Expected exactly one batched .all() call; got {filter_mock.all.call_count}. "
-            "N+1 query was reintroduced."
+            f"Expected exactly one batched .all() call; got {filter_mock.all.call_count}. N+1 query was reintroduced."
         )

@@ -21,7 +21,6 @@ These tests are RED before the fix lands in
 from __future__ import annotations
 
 import pytest
-
 from sigma_similarity.ast_builder import AtomNode
 from sigma_similarity.atom_extractor import atom_identity
 
@@ -59,18 +58,14 @@ class TestWildcardModifierEquivalence:
         """Realistic example: '*\\AppData\\Roaming\\php\\*' canonicalizes to the contains form."""
         # Note: \\ in Sigma YAML normalizes to / in atom_identity (single backslash).
         wild = atom_identity(AtomNode("CommandLine", "eq", "", "*\\AppData\\Roaming\\php\\*"))
-        modifier = atom_identity(
-            AtomNode("CommandLine", "contains", "contains|all", "\\AppData\\Roaming\\php\\")
-        )
+        modifier = atom_identity(AtomNode("CommandLine", "contains", "contains|all", "\\AppData\\Roaming\\php\\"))
         # The folded `eq` form should produce `contains|contains|...` — equivalence is on the
         # behavioral predicate, not on modifier_chain length. Compare the field/op/value parts.
         wild_parts = wild.split("|")
         mod_parts = modifier.split("|")
         assert wild_parts[0] == mod_parts[0], "field mismatch"
         assert wild_parts[1] == mod_parts[1] == "contains", "op should be contains on both sides"
-        assert wild_parts[-1] == mod_parts[-1], (
-            f"value mismatch: {wild_parts[-1]!r} != {mod_parts[-1]!r}"
-        )
+        assert wild_parts[-1] == mod_parts[-1], f"value mismatch: {wild_parts[-1]!r} != {mod_parts[-1]!r}"
 
 
 # ---------------------------------------------------------------------------
