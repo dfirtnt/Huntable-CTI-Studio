@@ -219,22 +219,26 @@ class SigmaPRService:
 
             current_url = stdout.strip()
 
-            # Check if URL already contains token
-            if self.github_token in current_url:
-                logger.debug("Remote URL already contains token")
+            # Check if URL already contains token in the correct x-access-token format
+            if f"x-access-token:{self.github_token}@" in current_url:
+                logger.debug("Remote URL already contains token in correct format")
                 return
 
             # Parse current URL and rebuild with token
+            # Use x-access-token: prefix — required for fine-grained PATs (github_pat_...) and
+            # recommended for classic PATs (ghp_...) as well.
             # Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
             if current_url.startswith("https://"):
                 # HTTPS URL - insert token
                 if "@github.com" in current_url:
                     # Already has credentials, replace them
                     url_parts = current_url.split("@")
-                    new_url = f"https://{self.github_token}@{url_parts[-1]}"
+                    new_url = f"https://x-access-token:{self.github_token}@{url_parts[-1]}"
                 else:
                     # No credentials, add token
-                    new_url = current_url.replace("https://github.com", f"https://{self.github_token}@github.com")
+                    new_url = current_url.replace(
+                        "https://github.com", f"https://x-access-token:{self.github_token}@github.com"
+                    )
 
                 logger.info("Configuring remote URL with GitHub token for authentication")
                 self._run_git_command(["remote", "set-url", "origin", new_url], check=False)
@@ -509,7 +513,18 @@ class SigmaPRService:
             except (subprocess.SubprocessError, OSError):
                 pass
 
-            return {"success": False, "error": str(e)}
+            error_msg = str(e)
+            # Surface actionable guidance for token permission errors
+            if "403" in error_msg or "Permission" in error_msg and "denied" in error_msg:
+                error_msg += (
+                    "\n\n⚠️ Token permission error. To fix:\n"
+                    "1. Go to github.com → Settings → Developer settings → Personal access tokens\n"
+                    "2. Classic PAT: ensure the 'repo' scope is checked (full repo control)\n"
+                    "3. Fine-grained PAT: ensure 'Contents: Read and Write' is enabled for "
+                    f"{self.github_repo}\n"
+                    "4. Update the GITHUB_TOKEN in CTI Studio Settings and retry"
+                )
+            return {"success": False, "error": error_msg}
 
     def _generate_pr_body(self, files_added: list[dict], rules: list[dict]) -> str:
         """Generate PR description body."""

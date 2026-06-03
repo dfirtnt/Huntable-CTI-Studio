@@ -107,11 +107,18 @@ async def update_setting(update: SettingUpdate):
             result = await session.execute(select(AppSettingsTable).where(AppSettingsTable.key == update.key))
             setting = result.scalar_one_or_none()
 
+            _SENSITIVE_KEYS = {"GITHUB_TOKEN", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "HUGGINGFACE_API_TOKEN"}
+
+            def _safe_log_value(key: str, value: str) -> str:
+                if key in _SENSITIVE_KEYS and value:
+                    return f"{value[:8]}...({len(value)} chars)"
+                return value
+
             if setting:
                 # Update existing setting
                 setting.value = update.value
                 setting.updated_at = datetime.now()
-                logger.info(f"Updated setting: {update.key} = {update.value}")
+                logger.info(f"Updated setting: {update.key} = {_safe_log_value(update.key, update.value)}")
             else:
                 # Create new setting
                 setting = AppSettingsTable(
@@ -120,7 +127,7 @@ async def update_setting(update: SettingUpdate):
                     category="user",  # User-created settings
                 )
                 session.add(setting)
-                logger.info(f"Created new setting: {update.key} = {update.value}")
+                logger.info(f"Created new setting: {update.key} = {_safe_log_value(update.key, update.value)}")
 
             await session.commit()
 
