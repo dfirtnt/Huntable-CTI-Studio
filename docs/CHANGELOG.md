@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [7.3.0 "Europa"] - 2026-06-03
 ### Security
 - **pyjwt 2.12.1 -> 2.13.0 (PYSEC-2026-175/177/178/179)** (2026-06-02): `pip-audit` flagged four known vulnerabilities in `pyjwt` 2.12.1, all fixed in 2.13.0. Transitive dep via `mcp[cli]` (sole parent — Authlib ships its own JOSE impl). Pinned `PyJWT==2.13.0` in the `pyproject.toml` security-floor block and `requirements.txt` "Security pins" mirror (`==` per single-parent convention; `>=` reserved for multi-parent solver-conflict cases per AGENTS.md). `uv.lock` updated surgically (pyjwt stanza only), validated with `uv lock --dry-run`. Post-bump: `pip check` clean, `pip-audit` no known vulnerabilities, 160 MCP + auth tests pass.
 
