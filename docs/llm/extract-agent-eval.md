@@ -45,7 +45,7 @@ Evaluation framework for measuring Extract Agent performance. The active eval sy
 
 ## Eval Articles and Rehydration
 
-Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **static files** as the source of eval data. Article snapshots are **committed** in `config/eval_articles_data/{subagent}/articles.json` so evals work without any network fetch. Setup seeds these files into the DB at startup; the API and Agent Evals UI load from the committed JSON. See [Installation -> Agent evals](../getting-started/installation.md#agent-evals) [VERIFY LINK] and `config/eval_articles_data/README.md`. Maintainers: when adding URLs to `config/eval_articles.yaml`, run `scripts/fetch_eval_articles_static.py` (or `dump_eval_articles_static.py`) and commit the updated JSON.
+Extractor subagent evals (cmdline, process_lineage, hunt_queries, etc.) use **static files** as the source of eval data. Article snapshots are **committed** in `config/eval_articles_data/{subagent}/articles.json` so evals work without any network fetch. Setup seeds these files into the DB at startup; the API and Agent Evals UI load from the committed JSON. See [Installation -> Agent evals](../getting-started/installation.md#agent-evals) and `config/eval_articles_data/README.md`. Maintainers: when adding URLs to `config/eval_articles.yaml`, run `scripts/fetch_eval_articles_static.py` (or `dump_eval_articles_static.py`) and commit the updated JSON.
 
 ## Running Evaluations
 

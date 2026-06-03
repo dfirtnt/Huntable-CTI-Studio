@@ -55,7 +55,7 @@ config:
 **Database backup is sufficient for preserving user settings:**
 ```bash
 # Database backup includes all source configurations
-./scripts/backup_database.py
+./scripts/backup_database_v3.py
 
 # Full system backup (includes database + config files)
 ./scripts/backup_restore.sh create

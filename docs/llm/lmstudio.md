@@ -151,10 +151,10 @@ Use `POST /api/test-lmstudio` from the web UI to validate LMStudio connectivity.
 
 ```bash
 # Test LM Studio performance
-python scripts/benchmark_llm_providers.py --provider lmstudio
+python3 scripts/benchmark_llm_providers.py --provider lmstudio
 
 # Quick test (fewer prompts)
-python scripts/benchmark_llm_providers.py --quick
+python3 scripts/benchmark_llm_providers.py --quick
 ```
 
 Results are written to `logs/llm_benchmark_results_TIMESTAMP.json`.

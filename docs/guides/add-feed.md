@@ -34,7 +34,7 @@ Sources are defined in `config/sources.yaml`, seeded into PostgreSQL, and used b
 3. Verify the source is active:
    ```bash
    # quick breakdown via health endpoint
-   curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {name, total: .total_articles, active: .active}'
+   curl -s http://localhost:8001/api/health/ingestion | jq '.ingestion.source_breakdown[] | {source_name, articles_count}'
    ```
    The Sources page in the UI also reflects the new entry and its enablement state.
 

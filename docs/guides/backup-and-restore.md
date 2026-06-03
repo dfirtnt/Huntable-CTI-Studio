@@ -131,6 +131,9 @@ backups/system_backup_20251010_103000/
 ### Commands
 
 #### Create Backup
+
+<!-- TODO: verify: `scripts/backup_database.py` no longer exists — it was renamed to `scripts/backup_database_v3.py`, which takes NO CLI flags (backup directory is set via the `BACKUP_DIR` env var; `--backup-dir`, `--no-compress`, and `--list` are not supported by v3 and would be silently ignored). Rewrite the python examples below against the v3 interface, or point users to the valid `./scripts/backup_restore.sh db-create`/`db-list` helper or `./run_cli.sh backup create/list`. -->
+
 ```bash
 # Basic backup
 python3 scripts/backup_database.py

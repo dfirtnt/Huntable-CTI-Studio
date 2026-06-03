@@ -50,7 +50,7 @@ subresults = {
     "cmdline": {
         "items": [...],      # Extracted command lines
         "count": 4,
-        "raw": {...}         # Full CmdlineExtract output including qa_corrections
+        "raw": {...}         # Full CmdlineExtract output
     },
     "process_lineage": {...},
     "hunt_queries": {...},
@@ -147,8 +147,7 @@ if execution:
       "count": 4,
       "raw": {
         "cmdline_items": [...],
-        "count": 4,
-        "qa_corrections": {...}
+        "count": 4
       }
     },
     ...

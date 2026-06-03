@@ -46,7 +46,7 @@ Triton, Titan, Enceladus, Phobos, Deimos, Oberon, Titania, Miranda, Ariel, Umbri
 - Callisto (v5.0 - v5.3)
 - Ganymede (v5.2)
 - Io (v6.0 - v6.2)
-- Europa (v7.0)
+- Europa (v7.0 - v7.2)
 
 ## Version History
 
