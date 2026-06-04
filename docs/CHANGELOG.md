@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Changed
+- **CmdlineExtract eval audit + contract relaxation** (2026-06-04): Audited all 10 CmdlineExtract eval articles against the live contract and corrected counts plus item-level ground truth across every sink — `config/eval_articles.yaml`, `config/eval_articles_data/cmdline/{articles,ground_truth}.json`, the DB `subagent_evaluations` rows, and the OneDrive canonical xlsx. Populated two previously-empty placeholders (Bitter End → 31, RONINGLOADER → 2); notable corrections include Commented Kill Chain 22 → 56 (full Defender-kill appendix; PowerShell `Set-MpPreference` cmdlets excluded as out of `process_creation` scope) and Bitter End reconciled to 31 with curated handling of corrupted/obfuscated command blocks. Relaxed the CmdlineExtract contract (`src/prompts/CmdlineExtract`, deployed to `agentic_workflow_config` v4280): (1) removed the blanket *defensive-guidance / hardening* source prohibition so literal command lines in Monitor/Hunt/Recommendations prose are eligible if they pass positive scope; (2) widened the allowed-redaction list to analyst labels (`[Username]`, `[IP Address]`, `[Hostname]`, `<redacted>`) with a disambiguation rule vs generic template slots. The *detection-logic* (Sigma/KQL/YARA) prohibition is retained. Regenerated the 9 quickstart presets so their embedded prompt matches the seed, and synced `docs/contracts/cmdline-extract.md` + `cmdline-extract-dropin.md`. Fixture + prompt-contract suites green (eval-sync, ground-truth, traceability/preset-sync).
 
 ## [7.3.0 "Europa"] - 2026-06-03
 ### Security

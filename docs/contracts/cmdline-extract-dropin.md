@@ -82,8 +82,12 @@ A command is VALID only if ALL conditions hold.
 
 ## NEGATIVE EXTRACTION SCOPE
 Do NOT extract:
-- Placeholders: <command>, {payload}, $(...). (Allowed: [REDACTED], defanged indicators
-  hxxp://, [.] )
+- Placeholders: generic template slots <command>, {payload}, $(...) -> REJECT. (Allowed,
+  preserve verbatim: [REDACTED] and analyst redaction labels that mask a real observed value,
+  e.g. [Username], [IP Address], [Hostname], <redacted>; defanged indicators hxxp://, [.].)
+  A bracketed/braced token is an allowed redaction when the command is otherwise
+  literal/observed and the token conceals a real value; it is a rejected placeholder when it
+  is a generic slot in a template or hypothetical command.
 - Bare commands with no arguments/syntax: whoami, ipconfig, hostname.
 - Chains with zero non-trivial components: whoami & hostname.
 - Single-token commands (no spaces).
@@ -98,7 +102,6 @@ Do NOT extract:
 - Commands that appear ONLY inside a YARA rule.
 - Truncated commands (containing literal "..." to mark truncation).
 - ARGV array representations: ARGV: ["cmd.exe","/c","whoami"].
-- Defensive guidance or hardening recommendations.
 
 ## DETECTION RELEVANCE GATE
 Every extracted command must be observable via at least one of:
@@ -175,7 +178,7 @@ Apply to EVERY candidate before including it:
 - [ ] If wrapped, wrapper was correctly stripped (cmd.exe or %COMSPEC% only) and post-wrapper
       still valid?
 - [ ] Preserves exact casing, spacing, quoting, punctuation?
-- [ ] Source is valid (not source code, detection logic, YARA, or defensive guidance)?
+- [ ] Source is valid (not source code, detection logic, or YARA)?
 - [ ] Has detection-engineering value (Sysmon 1, Security 4688, EDR CommandLine)?
 
 ## OUTPUT (default: readable Markdown table)
@@ -210,6 +213,6 @@ Precision over recall. EDR observability overrides completeness.
 - If the command is bare (no arguments), SKIP.
 - If the command is multi-line or visually wrapped, SKIP.
 - If a cmd.exe wrapper strips down to a trivial command, SKIP.
-- If the source is malware source code, detection logic, or defensive guidance, SKIP.
+- If the source is malware source code or detection logic, SKIP.
 - When in doubt, OMIT.
 ```
