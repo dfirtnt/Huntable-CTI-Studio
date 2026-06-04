@@ -1,7 +1,3 @@
-# Evaluation Articles for Extractor Subagents
-# Stores full URLs and expected observable counts for each subagent
-# URLs are used instead of article IDs to survive database rehydration
-
 subagents:
   cmdline:
   - url: https://cloud.google.com/blog/topics/threat-intelligence/analysis-of-unc1549-ttps-targeting-aerospace-defense
@@ -9,21 +5,21 @@ subagents:
   - url: https://levelblue.com/blogs/spiderlabs-blog/malicious-screen-connect-campaign-abuses-ai-themed-lures-for-xworm-delivery
     expected_count: 1
   - url: https://thedfirreport.com/2024/04/01/from-onenote-to-ransomnote-an-ice-cold-intrusion/
-    expected_count: 23
+    expected_count: 22
   - url: https://thedfirreport.com/2025/09/08/blurring-the-lines-intrusion-shows-connection-with-three-major-ransomware-gangs/
-    expected_count: 6
+    expected_count: 7
   - url: https://thedfirreport.com/2025/11/04/from-bing-search-to-ransomware-bumblebee-and-adaptixc2-deliver-akira-2/
-    expected_count: 8
+    expected_count: 14
   - url: https://www.elastic.co/security-labs/roningloader
     expected_count: 2
   - url: https://www.fortinet.com/blog/threat-research/teamcity-intrusion-saga-apt29-suspected-exploiting-cve-2023-42793
-    expected_count: 12
+    expected_count: 14
   - url: https://www.fortinet.com/blog/threat-research/unveiling-a-new-variant-of-the-darkcloud-campaign
-    expected_count: 2
+    expected_count: 1
   - url: https://www.huntress.com/blog/why-old-ransomware-playbooks-never-die
-    expected_count: 22
+    expected_count: 56
   - url: https://www.proofpoint.com/us/blog/threat-insight/bitter-end-unraveling-eight-years-espionage-antics-part-one
-    expected_count: 4
+    expected_count: 31
   process_lineage:
   - url: https://thedfirreport.com/2021/03/08/bazar-drops-the-anchor/
     expected_count: 0
