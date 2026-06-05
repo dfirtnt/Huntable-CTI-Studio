@@ -43,6 +43,39 @@ class ProviderConfig:
     headers_builder: Callable[[str], dict[str, str]]
     filter_fn: Callable[[list[str]], list[str]]
     params_builder: Callable[[str], dict[str, str]] = lambda _: {}
+    # AppSettings (DB) key where the Settings page persists this provider's key.
+    # The live key lives here, NOT in the env var, so the DB must be checked first.
+    app_settings_key: str = ""
+
+
+def _load_app_settings_key(setting_key: str) -> str | None:
+    """Read a provider API key from AppSettings (DB), matching how the app resolves keys.
+
+    The Settings page persists keys to the `app_settings` table (e.g.
+    WORKFLOW_OPENAI_API_KEY); the bare env vars (OPENAI_API_KEY) are usually empty.
+    Without this, the daily refresh silently fetches nothing and the catalog goes stale.
+    """
+    if not setting_key:
+        return None
+    try:
+        from src.database.manager import DatabaseManager
+        from src.database.models import AppSettingsTable
+
+        db = DatabaseManager()
+        session = db.get_session()
+        try:
+            row = session.query(AppSettingsTable).filter(AppSettingsTable.key == setting_key).one_or_none()
+            return row.value if row and row.value else None
+        finally:
+            session.close()
+    except Exception as exc:  # pragma: no cover - DB optional in some contexts
+        print(f"⚠️  could not read {setting_key} from AppSettings: {exc}", file=sys.stderr)
+        return None
+
+
+def resolve_api_key(provider: ProviderConfig) -> str | None:
+    """Resolve a provider's key: AppSettings (DB) first, then env var fallback."""
+    return _load_app_settings_key(provider.app_settings_key) or os.getenv(provider.env_var)
 
 
 def default_headers(api_key: str) -> dict[str, str]:
@@ -65,6 +98,7 @@ PROVIDERS = [
     ProviderConfig(
         name="openai",
         env_var="OPENAI_API_KEY",
+        app_settings_key="WORKFLOW_OPENAI_API_KEY",
         url="https://api.openai.com/v1/models",
         headers_builder=default_headers,
         filter_fn=openai_filter,
@@ -72,6 +106,7 @@ PROVIDERS = [
     ProviderConfig(
         name="anthropic",
         env_var="ANTHROPIC_API_KEY",
+        app_settings_key="WORKFLOW_ANTHROPIC_API_KEY",
         url="https://api.anthropic.com/v1/models?limit=200",
         headers_builder=lambda api_key: {
             "x-api-key": api_key,
@@ -84,9 +119,13 @@ PROVIDERS = [
 
 
 def fetch_models(provider: ProviderConfig) -> list[str]:
-    api_key = os.getenv(provider.env_var)
+    api_key = resolve_api_key(provider)
     if not api_key:
-        print(f"⚠️  {provider.name}: missing {provider.env_var}; retaining existing list.", file=sys.stderr)
+        print(
+            f"⚠️  {provider.name}: no key in AppSettings ({provider.app_settings_key}) "
+            f"or env ({provider.env_var}); retaining existing list.",
+            file=sys.stderr,
+        )
         return []
 
     try:

@@ -30,6 +30,16 @@ Source: platform.openai.com/docs/models (Jan 2025)
 | Model | Context Window | Max Output Tokens | API Params |
 |-------|----------------|-------------------|------------|
 | **GPT-5 series** | | | |
+| gpt-5.5 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.5-pro | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.4 | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.4-mini | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.4-nano | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.4-pro | 1,050,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.3-chat-latest | 128,000 | 16,384 | `max_completion_tokens`, no `temperature` |
+| gpt-5.2 | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.2-pro | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
+| gpt-5.2-chat-latest | 128,000 | 16,384 | `max_completion_tokens`, no `temperature` |
 | gpt-5.1 | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |
 | gpt-5.1-chat-latest | 128,000 | 16,384 | `max_completion_tokens`, no `temperature` |
 | gpt-5 | 400,000 | 128,000 | `max_completion_tokens`, no `temperature` |

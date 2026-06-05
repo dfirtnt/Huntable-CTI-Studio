@@ -4283,12 +4283,24 @@ const defaultCommercialModelCatalog = {
         'claude-instant-1.2'
     ]
 };
+// Cached catalog is only trusted for this long. The server re-renders the live
+// catalog inline on every page load (window.initialCommercialModelCatalog) and
+// refreshes the persisted file daily, so a stale localStorage copy must expire —
+// otherwise newly-added models never surface until the user clears storage.
+const PROVIDER_CATALOG_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
 function getCachedProviderCatalog() {
     if (typeof localStorage === 'undefined') return null;
     try {
         const cached = localStorage.getItem('providerModelCatalog');
         if (!cached) return null;
         const parsed = JSON.parse(cached);
+        // Honor the stored TTL: ignore (and clear) a cache older than the window.
+        if (parsed && typeof parsed.updatedAt === 'number' &&
+            Date.now() - parsed.updatedAt > PROVIDER_CATALOG_CACHE_TTL_MS) {
+            localStorage.removeItem('providerModelCatalog');
+            return null;
+        }
         if (parsed && typeof parsed.data === 'object') {
             return parsed.data;
         }
@@ -4330,14 +4342,21 @@ async function refreshCommercialModelCatalog() {
 }
 
 const cachedProviderCatalog = getCachedProviderCatalog();
-let commercialModelCatalog = cachedProviderCatalog || window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
-// If cached catalog is present but empty, fall back to server/default catalogs
-if (
-    !commercialModelCatalog ||
-    (Array.isArray(commercialModelCatalog.openai) && commercialModelCatalog.openai.length === 0 &&
-     Array.isArray(commercialModelCatalog.anthropic) && commercialModelCatalog.anthropic.length === 0)
-) {
-    commercialModelCatalog = window.initialCommercialModelCatalog || defaultCommercialModelCatalog;
+// Prefer the server-rendered catalog (always current as of this page load) over the
+// localStorage cache, so freshly-added models appear immediately. The cache is only a
+// fallback for when the server didn't inline a catalog. Empty lists fall through too.
+function _catalogHasModels(c) {
+    return !!c && ((Array.isArray(c.openai) && c.openai.length > 0) ||
+                   (Array.isArray(c.anthropic) && c.anthropic.length > 0));
+}
+let commercialModelCatalog =
+    (_catalogHasModels(window.initialCommercialModelCatalog) && window.initialCommercialModelCatalog) ||
+    (_catalogHasModels(cachedProviderCatalog) && cachedProviderCatalog) ||
+    window.initialCommercialModelCatalog ||
+    defaultCommercialModelCatalog;
+// Keep the cache in sync with the fresh server catalog we just chose.
+if (_catalogHasModels(window.initialCommercialModelCatalog)) {
+    cacheProviderCatalog(window.initialCommercialModelCatalog);
 }
 
 // ============================================================================
@@ -13897,75 +13916,58 @@ function resetQualityReviewCard() {
     // Quality review card removed; keep stub in case preview logic still calls it.
 }
 
-let enrichProviderCatalog = {};
 let enrichmentPresetRestoredThisSession = false;
 
 async function loadEnrichProviderModelCatalog() {
-    try {
-        const response = await fetch('/api/provider-model-catalog');
-        if (response.ok) {
-            const data = await response.json();
-            if (data.catalog) {
-                enrichProviderCatalog = data.catalog;
-                populateEnrichProviderDropdown();
-                
-                // Try to get default provider from settings
-                const settingsResponse = await fetch('/api/settings');
-                if (settingsResponse.ok) {
-                    const settingsData = await settingsResponse.json();
-                    const settings = settingsData.settings || {};
-                    
-                    let defaultProvider = null;
-                    // Check for LMStudio first (no API key needed)
-                    if (settings.LMSTUDIO_ENABLED === 'true' || settings.LMSTUDIO_URL) {
-                        defaultProvider = 'lmstudio';
-                    } else if (settings.WORKFLOW_OPENAI_ENABLED === 'true' && settings.WORKFLOW_OPENAI_API_KEY && enrichProviderCatalog.openai) {
-                        defaultProvider = 'openai';
-                    } else if (settings.WORKFLOW_ANTHROPIC_ENABLED === 'true' && settings.WORKFLOW_ANTHROPIC_API_KEY && enrichProviderCatalog.anthropic) {
-                        defaultProvider = 'anthropic';
-                    }
-                    
-                    if (defaultProvider) {
-                        const providerSelect = document.getElementById('enrichProviderSelect');
-                        if (providerSelect) {
-                            providerSelect.value = defaultProvider;
-                            await populateEnrichModelDropdown(defaultProvider);
-                        }
-                    }
-                }
-            }
+    // Use the already-loaded commercialModelCatalog (populated at page load by
+    // loadEnabledProviders) so the enrich modal always shows the same model list
+    // as every other picker on the page — no separate fetch needed.
+    populateEnrichProviderDropdown();
+
+    // Derive the default provider from the enabledProviders map (same source the
+    // rest of the workflow UI uses).
+    let defaultProvider = null;
+    if (enabledProviders.lmstudio) {
+        defaultProvider = 'lmstudio';
+    } else if (enabledProviders.openai && commercialModelCatalog.openai) {
+        defaultProvider = 'openai';
+    } else if (enabledProviders.anthropic && commercialModelCatalog.anthropic) {
+        defaultProvider = 'anthropic';
+    }
+
+    if (defaultProvider) {
+        const providerSelect = document.getElementById('enrichProviderSelect');
+        if (providerSelect) {
+            providerSelect.value = defaultProvider;
+            await populateEnrichModelDropdown(defaultProvider);
         }
-    } catch (error) {
-        console.error('Error loading provider catalog:', error);
     }
 }
 
 function populateEnrichProviderDropdown() {
     const providerSelect = document.getElementById('enrichProviderSelect');
     if (!providerSelect) return;
-    
+
     providerSelect.innerHTML = '<option value="">Select provider...</option>';
-    
+
     const providers = ['lmstudio', 'openai', 'anthropic'];
     providers.forEach(provider => {
-        // Always show LMStudio, for others check if catalog has models
         if (provider === 'lmstudio') {
             const option = document.createElement('option');
             option.value = provider;
             option.textContent = 'LMStudio';
             providerSelect.appendChild(option);
-        } else if (enrichProviderCatalog[provider] && enrichProviderCatalog[provider].length > 0) {
+        } else if (commercialModelCatalog[provider] && commercialModelCatalog[provider].length > 0) {
             const option = document.createElement('option');
             option.value = provider;
             option.textContent = provider.charAt(0).toUpperCase() + provider.slice(1);
             providerSelect.appendChild(option);
         }
     });
-    
+
     // Add event listener for provider change
     providerSelect.addEventListener('change', async function() {
-        const selectedProvider = this.value;
-        await populateEnrichModelDropdown(selectedProvider);
+        await populateEnrichModelDropdown(this.value);
     });
 }
 
@@ -14014,17 +14016,16 @@ async function populateEnrichModelDropdown(provider) {
             option.disabled = true;
             modelSelect.appendChild(option);
         }
-    } else if (provider && enrichProviderCatalog[provider]) {
-        enrichProviderCatalog[provider].forEach(model => {
+    } else if (provider && commercialModelCatalog[provider]) {
+        const models = getCommercialProviderModels(provider) || commercialModelCatalog[provider];
+        models.forEach(model => {
             const option = document.createElement('option');
             option.value = model;
             option.textContent = model;
             modelSelect.appendChild(option);
         });
-        
-        // Select first model by default
-        if (enrichProviderCatalog[provider].length > 0) {
-            modelSelect.value = enrichProviderCatalog[provider][0];
+        if (models.length > 0) {
+            modelSelect.value = models[0];
         }
     }
 }
