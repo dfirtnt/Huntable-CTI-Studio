@@ -215,7 +215,7 @@ function renderSimilarityDisplay(data, options = {}) {
                 <div class="flex items-center justify-between mb-2">
                     <span class="text-lg font-semibold text-gray-700 dark:text-gray-300">${engine === 'deterministic' ? 'Behavioral Similarity' : 'Weighted Similarity'}</span>
                     <div class="flex items-center space-x-4 flex-wrap gap-y-1">
-                        <span id="${prefix}overallSimilarity" class="${scoreClass}" ${jaccardZeroDeterministic ? `title="Similarity: ${similarityPercent}% | Jaccard: 0% | Containment: ${normalized.semantic_details && normalized.semantic_details.containment_factor != null ? (normalized.semantic_details.containment_factor * 100).toFixed(1) : '—'}% | Filter penalty: ${normalized.semantic_details && normalized.semantic_details.filter_penalty != null ? (normalized.semantic_details.filter_penalty * 100).toFixed(1) : '0'}%"` : ''}>${escapeHtml(scoreDisplay)}</span>
+                        <span id="${prefix}overallSimilarity" class="${scoreClass}" ${jaccardZeroDeterministic ? `title="Similarity: ${similarityPercent}% | Jaccard: 0% | Logic Shape: ${normalized.semantic_details && normalized.semantic_details.containment_factor != null ? (normalized.semantic_details.containment_factor * 100).toFixed(1) : '—'}% | Filter penalty: ${normalized.semantic_details && normalized.semantic_details.filter_penalty != null ? (normalized.semantic_details.filter_penalty * 100).toFixed(1) : '0'}%"` : ''}>${escapeHtml(scoreDisplay)}</span>
                         <span id="${prefix}engineBadge">${engineBadge}</span>
                         <span id="${prefix}noveltyLabel" class="${getNoveltyLabelClasses(noveltyLabel, engine)}">${noveltyLabel}</span>
                     </div>
@@ -279,8 +279,8 @@ function renderSimilarityDisplay(data, options = {}) {
             <div class="mb-6">
                 <details class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg" open>
                     <summary class="px-4 py-3 cursor-pointer text-md font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                        🔍 Behavioral Similarity (Jaccard × Containment − Filter)
-                        <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs cursor-help" title="Similarity = (Jaccard × Containment) − Filter Penalty">ℹ</span>
+                        🔍 Behavioral Similarity (Jaccard × Logic Shape − Filter)
+                        <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-xs cursor-help" title="Similarity = (Jaccard × Logic Shape) − Filter Penalty">ℹ</span>
                     </summary>
                     <div class="px-4 pb-4 grid grid-cols-1 gap-2 text-sm">
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Canonical class</span><span class="font-mono text-gray-800 dark:text-slate-100">${cc}</span></div>
@@ -289,9 +289,10 @@ function renderSimilarityDisplay(data, options = {}) {
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Surface (Candidate)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_b} branches</span></div>
                         ` : ''}
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Jaccard</span><span class="text-gray-800 dark:text-slate-100">${j}</span></div>
-                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Containment factor</span><span class="text-gray-800 dark:text-slate-100">${c}</span></div>` : ''}
+                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Containment</span><span class="text-gray-800 dark:text-slate-100">${oa}</span></div>` : ''}
+                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Reverse containment</span><span class="text-gray-800 dark:text-slate-100">${ob}</span></div>` : ''}
+                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400 cursor-help" title="Bucketed logic shape factor: 1.0 Equivalent / 0.85 Subset / 0.75 Superset / 0.65 Partial">Logic Shape</span><span class="text-gray-800 dark:text-slate-100">${c}</span></div>` : ''}
                         <div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Filter penalty</span><span class="text-gray-800 dark:text-slate-100">${fp}</span></div>
-                        ${!jIsZero ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Overlap ratio A/B</span><span class="text-gray-800 dark:text-slate-100">${oa} / ${ob}</span></div>` : ''}
                         ${rf !== '—' ? `<div class="flex justify-between"><span class="text-gray-600 dark:text-gray-400">Reason flags</span><span class="text-xs font-mono text-gray-800 dark:text-slate-100">${escapeHtml(rf)}</span></div>` : ''}
                     </div>
                 </details>
@@ -341,19 +342,21 @@ function renderSimilarityDisplay(data, options = {}) {
             const jIsZero = jVal === 0;
             const j = (sd.jaccard != null ? (sd.jaccard * 100).toFixed(1) : '—') + '%';
             const c = sd.containment_factor != null ? (sd.containment_factor * 100).toFixed(1) + '%' : '—';
+            const oa = sd.overlap_ratio_a != null ? (sd.overlap_ratio_a * 100).toFixed(1) + '%' : '—';
             const cc = escapeHtml(sd.canonical_class || '—');
             const compactScoreDisplay = jaccardZeroDeterministic ? 'No Shared Behavioral Atoms' : similarityPercent + '%';
-            const compactScoreTitle = jaccardZeroDeterministic ? `Similarity: ${similarityPercent}% | Jaccard: 0% | Filter penalty: ${sd.filter_penalty != null ? (sd.filter_penalty * 100).toFixed(1) + '%' : '0%'}` : 'Similarity = (Jaccard × Containment) − Filter Penalty';
+            const compactScoreTitle = jaccardZeroDeterministic ? `Similarity: ${similarityPercent}% | Jaccard: 0% | Filter penalty: ${sd.filter_penalty != null ? (sd.filter_penalty * 100).toFixed(1) + '%' : '0%'}` : 'Similarity = (Jaccard × Logic Shape) − Filter Penalty';
             const surfaceRows = !jIsZero && sd.surface_score_a != null && sd.surface_score_b != null ? `
                     <span class="text-gray-600 dark:text-gray-400">Surface (Current)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_a} branches</span>
                     <span class="text-gray-600 dark:text-gray-400">Surface (Candidate)</span><span class="text-gray-800 dark:text-slate-100">${sd.surface_score_b} branches</span>
                 ` : '';
-            const containmentRow = !jIsZero ? `<span class="text-gray-600 dark:text-gray-400">Containment</span><span class="text-gray-800 dark:text-slate-100">${c}</span>` : '';
+            const containmentRow = !jIsZero ? `<span class="text-gray-600 dark:text-gray-400">Containment</span><span class="text-gray-800 dark:text-slate-100">${oa}</span>` : '';
+            const logicShapeRow = !jIsZero ? `<span class="text-gray-600 dark:text-gray-400" title="Bucketed: 1.0 Equivalent / 0.85 Subset / 0.75 Superset / 0.65 Partial">Logic Shape</span><span class="text-gray-800 dark:text-slate-100">${c}</span>` : '';
             return `
             <div class="p-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded text-xs">
                 <div class="font-bold text-slate-900 dark:text-slate-100 mb-2 flex items-center gap-1">
                     🔍 Behavioral Similarity
-                    <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-[10px] cursor-help" title="Similarity = (Jaccard × Containment) − Filter Penalty">ℹ</span>
+                    <span class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-slate-300 dark:bg-slate-600 text-slate-600 dark:text-slate-300 text-[10px] cursor-help" title="Similarity = (Jaccard × Logic Shape) − Filter Penalty">ℹ</span>
                 </div>
                 <div class="grid grid-cols-2 gap-1">
                     <span class="text-gray-600 dark:text-gray-400">Similarity</span><span class="font-medium text-blue-700 dark:text-blue-300" title="${escapeHtml(compactScoreTitle)}">${escapeHtml(compactScoreDisplay)}</span>
@@ -361,6 +364,7 @@ function renderSimilarityDisplay(data, options = {}) {
                     ${surfaceRows}
                     <span class="text-gray-600 dark:text-gray-400">Jaccard</span><span class="text-gray-800 dark:text-slate-100">${j}</span>
                     ${containmentRow}
+                    ${logicShapeRow}
                 </div>
             </div>`;
         })() : '';

@@ -71,7 +71,7 @@
 
     <!-- Queue Table -->
     <div class="card-elevated overflow-x-auto">
-        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <table class="w-full min-w-[900px] divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-900">
                 <tr>
                     <th class="px-4 py-3 w-10">
@@ -618,6 +618,7 @@ function buildSimilarityDetailHtml(m) {
     const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
     const jaccard = m.jaccard != null ? (typeof m.jaccard === 'number' ? m.jaccard : m.jaccard * 100) : 0;
     const contain = m.containment != null ? (typeof m.containment === 'number' ? m.containment : m.containment * 100) : 0;
+    const logicShape = m.logic_shape != null ? (typeof m.logic_shape === 'number' ? m.logic_shape : m.logic_shape * 100) : null;
     const showFlag = contain >= 50 && simVal < 30;
     const surfCur = m.surface_cur != null ? m.surface_cur : (m.semantic_details?.surface_score_a ?? '—');
     const surfCand = m.surface_cand != null ? m.surface_cand : (m.semantic_details?.surface_score_b ?? '—');
@@ -639,7 +640,7 @@ function buildSimilarityDetailHtml(m) {
       <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">similarity</div><div class="text-lg font-medium text-purple-400">${simVal.toFixed(1)}%</div></div>
       <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">jaccard</div><div class="text-lg font-medium text-gray-100">${jaccard.toFixed(1)}%</div></div>
       <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">containment</div><div class="text-lg font-medium text-gray-100">${contain.toFixed(1)}%</div>${showFlag ? '<div class="text-xs mt-1 px-1.5 py-0.5 rounded inline-block bg-amber-950 text-amber-400">high — may be subset</div>' : ''}</div>
-      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">surface</div><div class="text-lg font-medium text-gray-100">${surfCur}b / ${surfCand}b</div><div class="text-xs text-gray-500 mt-0.5">cur / candidate</div></div>
+      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5 cursor-help" title="Bucketed logic shape factor: 1.0 Equivalent / 0.85 Subset / 0.75 Superset / 0.65 Partial">logic shape</div><div class="text-lg font-medium text-gray-100">${logicShape != null ? logicShape.toFixed(1) + '%' : '—'}</div><div class="text-xs text-gray-500 mt-0.5">surface ${surfCur}b / ${surfCand}b</div></div>
     </div>
     <div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">atom diff</div>
     <div class="flex flex-col gap-1.5">${atomBlock('shared', m.shared_atoms || [], 'green')}${atomBlock('current only', m.unique_to_current || m.removed_atoms || [], 'amber')}${atomBlock('candidate only', m.unique_to_candidate || m.added_atoms || [], 'red')}</div>
@@ -677,7 +678,8 @@ function mapSimilarityResponse(data, currentRuleInfo) {
         matches: rawMatches.map(m => {
             const sd = m.semantic_details || {};
             const jaccard = sd.jaccard ?? m.atom_jaccard ?? 0;
-            const containment = sd.containment_factor ?? 0;
+            const containment = sd.overlap_ratio_a ?? 0;
+            const logic_shape = sd.containment_factor ?? null;
             const sim = (m.similarity ?? m.similarity_score ?? 0) * 100;
             const detectionCand = m.detection != null ? (typeof m.detection === 'string' ? m.detection : JSON.stringify(m.detection, null, 2)) : '';
             return {
@@ -686,6 +688,7 @@ function mapSimilarityResponse(data, currentRuleInfo) {
                 similarity: m.similarity ?? m.similarity_score,
                 jaccard: jaccard * 100,
                 containment: containment * 100,
+                logic_shape: logic_shape != null ? logic_shape * 100 : null,
                 surface_cur: sd.surface_score_a,
                 surface_cand: sd.surface_score_b,
                 semantic_details: m.semantic_details,
@@ -722,7 +725,8 @@ function mapSimilarityResponseFromCache(similarityScores, rule) {
         }).map(s => {
             const sd = s.semantic_details || {};
             const jaccard = (sd.jaccard ?? s.atom_jaccard ?? 0) * 100;
-            const containment = (sd.containment_factor ?? 0) * 100;
+            const containment = (sd.overlap_ratio_a ?? 0) * 100;
+            const logic_shape = sd.containment_factor != null ? sd.containment_factor * 100 : null;
             const sim = (s.similarity ?? 0) * 100;
             return {
                 title: s.title || s.rule_id,
@@ -730,6 +734,7 @@ function mapSimilarityResponseFromCache(similarityScores, rule) {
                 similarity: s.similarity,
                 jaccard: jaccard,
                 containment: containment,
+                logic_shape: logic_shape,
                 surface_cur: sd.surface_score_a,
                 surface_cand: sd.surface_score_b,
                 semantic_details: s.semantic_details,
