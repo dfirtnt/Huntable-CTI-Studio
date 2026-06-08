@@ -2432,6 +2432,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         from src.database.async_manager import AsyncDatabaseManager
         from src.database.manager import DatabaseManager
         from src.services.sigma_matching_service import SigmaMatchingService
+        from src.services.similarity_serialization import serialize_similarity_match
 
         # Get article with generated rules
         async_db_manager = AsyncDatabaseManager()
@@ -2604,7 +2605,12 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
             # Note: Using pure behavioral novelty assessment (no LLM reranking per spec)
             result = {
                 "success": True,
-                "matches": matches,
+                # Project onto the unified canonical contract (Phase 1), preserving
+                # the article-specific coverage_status. (The local novelty
+                # re-classification above is removed in Phase 2.)
+                "matches": [
+                    {**serialize_similarity_match(m), "coverage_status": m.get("coverage_status")} for m in matches
+                ],
                 "coverage_summary": {
                     "covered": len([m for m in matches if m.get("coverage_status") == "covered"]),
                     "extend": len([m for m in matches if m.get("coverage_status") == "extend"]),

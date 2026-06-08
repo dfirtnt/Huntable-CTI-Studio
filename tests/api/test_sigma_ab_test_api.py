@@ -51,6 +51,34 @@ class TestSigmaAbTestCompareAPI:
         assert "added_atoms" in data
         assert "removed_atoms" in data
 
+    def test_compare_response_includes_canonical_contract_fields(self):
+        """Phase 1: /compare emits the unified canonical contract via the shared
+        serializer, including the top-level `containment` field, alongside the
+        legacy keys existing frontends still read (additive)."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(_sigma_ab_test_router)
+        client = TestClient(app)
+
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": MINIMAL_RULE, "rule_b": MINIMAL_RULE},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        # canonical contract
+        assert "containment" in data
+        assert "similarity_engine" in data
+        # legacy aliases still present (additive, removed in Phase 5)
+        assert data["similarity_score"] == data["similarity"]
+        assert "atom_jaccard" in data["similarity_breakdown"]
+        # behavior unchanged
+        assert data["similarity"] == 1.0
+        assert data["novelty_label"] == "DUPLICATE"
+
     def test_compare_accepts_markdown_wrapped_yaml(self):
         """Rule content wrapped in ```yaml ... ``` is extracted and parsed."""
         from fastapi import FastAPI
@@ -69,6 +97,46 @@ class TestSigmaAbTestCompareAPI:
         assert response.status_code == 200
         assert response.json()["success"] is True
         assert response.json()["similarity"] == 1.0
+
+    def test_compare_accepts_json_fenced_rule_b(self):
+        """rule_b wrapped in ```json ... ``` is extracted and compared (LLM enrichment regression)."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(_sigma_ab_test_router)
+        client = TestClient(app)
+
+        wrapped_b = "```json\n" + MINIMAL_RULE.strip() + "\n```"
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": MINIMAL_RULE, "rule_b": wrapped_b},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["similarity"] == 1.0
+
+    def test_compare_accepts_json_fenced_rule_b_with_leading_prose(self):
+        """rule_b with prose then ```json fence (exact LLM enrichment output pattern) parses correctly."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(_sigma_ab_test_router)
+        client = TestClient(app)
+
+        wrapped_b = "Here is the enriched rule:\n\n```json\n" + MINIMAL_RULE.strip() + "\n```"
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": MINIMAL_RULE, "rule_b": wrapped_b},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["similarity"] == 1.0
 
     def test_compare_accepts_crlf_markdown_wrapped_yaml(self):
         """CRLF fenced YAML with trailing prose still extracts and parses."""

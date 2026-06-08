@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from src.database.manager import DatabaseManager
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_novelty_service import NoveltyLabel, SigmaNoveltyService
+from src.services.similarity_serialization import serialize_similarity_match
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ def _extract_yaml_block(text: str) -> str:
     text = text.strip()
     # Handle markdown code fences with optional "yaml" and support CRLF/newline variants.
     # Use plain string search (no backtracking) to avoid ReDoS on crafted input.
-    fence_open = re.match(r"```(?:yaml)?[ \t]*\r?\n", text, re.IGNORECASE)
+    fence_open = re.match(r"```(?:[a-z0-9]+)?[ \t]*\r?\n", text, re.IGNORECASE)
     if fence_open:
         content_start = fence_open.end()
         fence_close = text.find("\n```", content_start)
@@ -114,16 +115,23 @@ async def compare_rules(compare_request: CompareRequest):
 
     novelty_label = _classify_pairwise_novelty(weighted_sim)
 
-    return {
-        "success": True,
-        "similarity": round(weighted_sim, 4),
-        "novelty_label": novelty_label,
-        "atom_jaccard": round(atom_jaccard, 4),
-        "logic_shape_similarity": round(logic_similarity, 4),
-        "shared_atoms": explainability["shared_atoms"],
-        "added_atoms": explainability["added_atoms"],
-        "removed_atoms": explainability["removed_atoms"],
-    }
+    # Project onto the unified canonical contract (Phase 1). /compare computes
+    # metrics directly rather than via assess_rule_novelty, so assemble a match
+    # dict and serialize it for a shape consistent with every other surface.
+    serialized = serialize_similarity_match(
+        {
+            "similarity": weighted_sim,
+            "novelty_label": novelty_label,
+            "atom_jaccard": atom_jaccard,
+            "logic_shape_similarity": logic_similarity,
+            "shared_atoms": explainability["shared_atoms"],
+            "added_atoms": explainability["added_atoms"],
+            "removed_atoms": explainability["removed_atoms"],
+            "service_penalty": service_penalty,
+            "filter_penalty": filter_penalty,
+        }
+    )
+    return {"success": True, **serialized}
 
 
 @router.post("/compare-to-repository")
@@ -150,16 +158,7 @@ async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest
         matches = result.get("matches", [])[:20]
         return {
             "success": True,
-            "matches": [
-                {
-                    "rule_id": m.get("rule_id", ""),
-                    "title": m.get("title", ""),
-                    "similarity": m.get("similarity", 0.0),
-                    "atom_jaccard": m.get("atom_jaccard"),
-                    "logic_shape_similarity": m.get("logic_shape_similarity"),
-                }
-                for m in matches
-            ],
+            "matches": [serialize_similarity_match(m) for m in matches],
         }
     finally:
         db_session.close()
