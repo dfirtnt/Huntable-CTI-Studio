@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [7.3.1 "Europa"] - 2026-06-08
 ### Fixed
 - **Intel Mac (macosx_x86_64) dependency resolution** (2026-06-08): `torch==2.11.0` dropped Intel Mac wheels; `uv sync --frozen` failed entirely on macOS 15 x86_64, blocking all test runs. Added PEP 508 platform markers (`sys_platform != 'darwin' or platform_machine != 'x86_64'`) to `torch`, `accelerate`, and `sentence-transformers` in `pyproject.toml` and regenerated `uv.lock`. These packages are not needed for local dev or test runs on Intel Mac.
 - **`embedding_service` / `os_detection_service` hard import of `torch`** (2026-06-08): Both services imported `torch` at module top-level, causing `ModuleNotFoundError` on Intel Mac and blocking pytest collection of 35 test files. Wrapped imports in `try/except ImportError` with `_TORCH_AVAILABLE` guards; `cuda.is_available()` calls now short-circuit when torch is absent. Runtime inference paths are unaffected on platforms where torch is installed.
