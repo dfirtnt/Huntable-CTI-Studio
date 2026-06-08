@@ -2432,6 +2432,7 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
         from src.database.async_manager import AsyncDatabaseManager
         from src.database.manager import DatabaseManager
         from src.services.sigma_matching_service import SigmaMatchingService
+        from src.services.sigma_novelty_service import classify_match_novelty
         from src.services.similarity_serialization import serialize_similarity_match
 
         # Get article with generated rules
@@ -2538,53 +2539,15 @@ async def api_get_sigma_matches(article_id: int, force: bool = False):
             # Sort by similarity (descending) and return top matches
             matches = sorted(all_matches.values(), key=lambda x: x.get("similarity", 0), reverse=True)[:20]
 
-            # Classify each match using behavioral novelty assessment (per spec)
-            # Use novelty_label directly from behavioral metrics
+            # Classify each match using the shared per-match novelty classifier
+            # (single source of truth for the legacy thresholds + exact-hash override;
+            # Phase 2 of the sigma-similarity unification). Per-match semantics are
+            # preserved: each candidate is judged on its own metrics.
             for match in matches:
-                # Get behavioral metrics from novelty assessment
-                behavioral_similarity = match.get("similarity", 0)
-                atom_jaccard = match.get("atom_jaccard", 0.0)
-                logic_shape_raw = match.get("logic_shape_similarity")
-                # Handle None (early exit case) - treat as perfect match for classification
-                logic_shape = 1.0 if logic_shape_raw is None else logic_shape_raw
-
-                # Debug logging
-                logic_shape_display = "N/A" if match.get("logic_shape_similarity") is None else f"{logic_shape:.3f}"
-                logger.debug(
-                    f"Classifying match '{match.get('rule_id', 'unknown')}': "
-                    f"atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display}"
-                )
-
-                # Check for exact hash match (duplicate)
-                is_exact_match = match.get("exact_hash_match", False)
-
-                # Classify using behavioral novelty thresholds (per spec)
-                # DUPLICATE: atom_jaccard > 0.95 AND logic_similarity > 0.95
-                # SIMILAR: atom_jaccard > 0.80
-                # NOVEL: Everything else
-                if is_exact_match:
-                    novelty_label = "DUPLICATE"
-                    logger.debug(f"Match '{match.get('rule_id')}' classified as DUPLICATE (exact hash match)")
-                elif atom_jaccard > 0.95 and logic_shape > 0.95:
-                    novelty_label = "DUPLICATE"
-                    logger.debug(
-                        f"Match '{match.get('rule_id')}' classified as DUPLICATE (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})"
-                    )
-                elif atom_jaccard > 0.80:
-                    novelty_label = "SIMILAR"
-                    logger.debug(
-                        f"Match '{match.get('rule_id')}' classified as SIMILAR (atom_jaccard={atom_jaccard:.3f})"
-                    )
-                else:
-                    novelty_label = "NOVEL"
-                    logger.debug(
-                        f"Match '{match.get('rule_id')}' classified as NOVEL (atom_jaccard={atom_jaccard:.3f}, logic_shape={logic_shape_display})"
-                    )
-
-                # Store novelty classification
+                novelty_label = str(classify_match_novelty(match))
                 match["novelty_label"] = novelty_label
 
-                # Map novelty_label to coverage_status for UI display
+                # Map novelty_label to coverage_status for UI display (article-specific)
                 # DUPLICATE → covered, SIMILAR → extend, NOVEL → new
                 if novelty_label == "DUPLICATE":
                     match["coverage_status"] = "covered"

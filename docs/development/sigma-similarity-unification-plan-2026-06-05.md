@@ -100,12 +100,15 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 **Verify:** extend `tests/api/test_sigma_ab_test_api.py`, `tests/api/test_sigma_similar_rules_api.py`. Run via `run_tests.py`.
 **Depends on:** Phase 0.
 
-### Phase 2 — Backend: delete duplicated novelty logic in `ai.py`
+### Phase 2 — Backend: dedup the novelty classifier ✅ DONE (2026-06-05)
 **Goal:** one classifier.
-**Do:** `ai.py /sigma-matches` (~lines 2567–2581) re-derives `novelty_label` from raw thresholds. Replace with the engine's `novelty_label`. Keep only the article-specific `novelty_label → coverage_status` mapping (DUPLICATE→covered, SIMILAR→extend, NOVEL→new).
-**Risk:** low.
-**Verify:** snapshot novelty labels on a sample of rules before/after; confirm identical.
-**Depends on:** Phase 1.
+**Plan-vs-reality correction:** the original plan said "delete ai.py's loop and trust the engine's `novelty_label`." On inspection that would have **regressed** behavior: `SigmaNoveltyService.classify_novelty` returns a *single* verdict from `matches[0]`, and `assess_rule_novelty` broadcasts that one label to *every* match (sigma_matching_service.py ~line 587/607). ai.py classifies **per match** — which is what the article coverage view (covered/extend/new per existing rule) needs. So the faithful "one classifier" fix was **extraction, not deletion**.
+**What was done:**
+- Added `classify_match_novelty(match) -> NoveltyLabel` to `sigma_novelty_service.py` — single source of truth for the legacy atom/logic thresholds + exact-hash override + None-logic handling.
+- Refactored `SigmaNoveltyService.classify_novelty` to delegate its label to it (kept its score semantics: exact→0.0, else 1.0−weighted_sim).
+- Replaced ai.py's inline ~25-line classifier with `classify_match_novelty(match)`, preserving per-match semantics and the article-specific `novelty_label → coverage_status` mapping.
+**Tests:** `tests/services/test_classify_match_novelty.py` (7, incl. a per-match regression guard). Existing novelty (55) + matching (20) suites green — proves `classify_novelty` behavior unchanged.
+**Risk:** low. **Depends on:** Phase 1.
 
 ### Phase 3 — Frontend: single ingress through `normalizeSimilarityData()`
 **Goal:** no surface reads raw response fields directly.

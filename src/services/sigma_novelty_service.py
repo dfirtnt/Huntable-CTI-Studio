@@ -118,7 +118,8 @@ def _soft_exe_jaccard_from_atom_strings(A1: set[str], A2: set[str], union: set[s
 def _normalize_atom_identity(atom_id: str) -> str:
     """Normalize a precomputed atom identity string: resolve field aliases + lowercase."""
     lowered = atom_id.lower()
-    # Atom format: field|operator|modifier_chain|value
+    # Atom format: field|modifier_chain|value (operator = modifier_chain.split("|")[0]).
+    # We only need the leading field segment here, so split count is irrelevant.
     parts = lowered.split("|", 1)
     if len(parts) < 2:
         return lowered
@@ -127,12 +128,63 @@ def _normalize_atom_identity(atom_id: str) -> str:
     return f"{resolved}|{rest}"
 
 
+def _atom_identity_to_display(atom_id: str) -> str:
+    """Render a 3-slot atom identity (``field|modifier_chain|value``) the same way
+    the full-parse path's ``_atom_to_string`` renders parsed atoms: ``field|op:value``
+    (or ``field:value`` when the modifier chain is empty, i.e. a default ``eq``).
+
+    The precomputed path stores raw identity strings; without this the UI rendered
+    them verbatim — diverging from the full-parse explainability surface. ``op`` is
+    the first modifier token (``modifier_chain.split("|")[0]``). ``value`` is always
+    the final ``|`` segment, mirroring ``_extract_exe_value``.
+    """
+    segments = atom_id.split("|")
+    if len(segments) < 2:
+        return atom_id
+    field = segments[0]
+    value = segments[-1]
+    mod_tokens = segments[1:-1]
+    op = mod_tokens[0] if mod_tokens and mod_tokens[0] else ""
+    return f"{field}|{op}:{value}" if op else f"{field}:{value}"
+
+
 class NoveltyLabel(StrEnum):
     """Novelty classification labels."""
 
     DUPLICATE = "DUPLICATE"
     SIMILAR = "SIMILAR"
     NOVEL = "NOVEL"
+
+
+def classify_match_novelty(match: dict[str, Any]) -> NoveltyLabel:
+    """Classify a single candidate match's novelty relative to the proposed rule.
+
+    Single source of truth for the legacy atom/logic-shape thresholds and the
+    exact-hash override (Phase 2 of the sigma-similarity unification). Operates on
+    ONE candidate match — callers that classify many candidates (e.g. the article
+    coverage view) get a per-match verdict, not a single broadcast label.
+
+    Thresholds (per spec):
+    - exact_hash_match            -> DUPLICATE
+    - atom_jaccard > 0.95 AND logic_shape > 0.95 -> DUPLICATE
+    - atom_jaccard > 0.80         -> SIMILAR
+    - otherwise                   -> NOVEL
+
+    logic_shape_similarity of None is the early-exit perfect-match signal and is
+    treated as 1.0.
+    """
+    if match.get("exact_hash_match"):
+        return NoveltyLabel.DUPLICATE
+
+    atom_jaccard = match.get("atom_jaccard", 0.0) or 0.0
+    logic_shape = match.get("logic_shape_similarity")
+    logic_shape = 1.0 if logic_shape is None else logic_shape
+
+    if atom_jaccard > 0.95 and logic_shape > 0.95:
+        return NoveltyLabel.DUPLICATE
+    if atom_jaccard > 0.80:
+        return NoveltyLabel.SIMILAR
+    return NoveltyLabel.NOVEL
 
 
 @dataclass
@@ -482,11 +534,14 @@ class SigmaNoveltyService:
                         added = A2 - A1
                         removed = A1 - A2
                         filter_diff = (F1 | F2) - (F1 & F2)
+                        # Render to the same human-readable form as the full-parse
+                        # path (_atom_to_string) so both explainability surfaces match.
+                        # Set ops run on raw identities first; display-format only at emit.
                         explainability = {
-                            "shared_atoms": sorted(shared),
-                            "added_atoms": sorted(added),
-                            "removed_atoms": sorted(removed),
-                            "filter_differences": sorted(filter_diff),
+                            "shared_atoms": [_atom_identity_to_display(a) for a in sorted(shared)],
+                            "added_atoms": [_atom_identity_to_display(a) for a in sorted(added)],
+                            "removed_atoms": [_atom_identity_to_display(a) for a in sorted(removed)],
+                            "filter_differences": [_atom_identity_to_display(a) for a in sorted(filter_diff)],
                         }
                     else:
                         explainability = self.generate_explainability(canonical_rule, candidate_canonical, candidate)
@@ -1513,28 +1568,19 @@ class SigmaNoveltyService:
         Returns:
             Tuple of (novelty_label, novelty_score)
         """
-        # Check for exact hash match (duplicate)
-        if matches and matches[0].get("exact_hash_match"):
-            return (NoveltyLabel.DUPLICATE, 0.0)
-
         if not matches:
             return (NoveltyLabel.NOVEL, 1.0)
 
         top_match = matches[0]
-        atom_jaccard = top_match.get("atom_jaccard", 0.0)
-        logic_similarity = top_match.get("logic_shape_similarity", 0.0)
+        # Exact-hash duplicates score 0.0 (definitionally identical); every other
+        # label uses the complement of weighted similarity as the novelty score.
+        if top_match.get("exact_hash_match"):
+            return (NoveltyLabel.DUPLICATE, 0.0)
+
+        # Single source of truth for the legacy thresholds (shared with ai.py).
+        label = classify_match_novelty(top_match)
         weighted_sim = top_match.get("similarity", 0.0)
-
-        # Classification thresholds (per spec)
-        # Handle None for logic_similarity (early exit case)
-        if logic_similarity is None:
-            logic_similarity = 1.0  # Early exit means perfect match
-
-        if atom_jaccard > 0.95 and logic_similarity > 0.95:
-            return (NoveltyLabel.DUPLICATE, 1.0 - weighted_sim)
-        if atom_jaccard > 0.80:
-            return (NoveltyLabel.SIMILAR, 1.0 - weighted_sim)
-        return (NoveltyLabel.NOVEL, 1.0 - weighted_sim)
+        return (label, 1.0 - weighted_sim)
 
     def generate_explainability(
         self, proposed: CanonicalRule, candidate: CanonicalRule, _candidate_metadata: dict[str, Any]
