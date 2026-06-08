@@ -52,13 +52,19 @@ class TestRAGService:
     @pytest.fixture
     def service(self, mock_embedding_service, mock_db_manager):
         """Create RAGService instance with mocked dependencies."""
+        # generate_query_embedding is called at runtime (not just __init__), so
+        # the patch must outlive the construction block — keep it active for the
+        # full test by starting it here and stopping in a finalizer.
+        patcher = patch("src.services.rag_service.generate_query_embedding", return_value=[0.1] * 768)
+        patcher.start()
         with (
             patch("src.services.rag_service.get_embedding_service", return_value=mock_embedding_service),
             patch("src.services.rag_service.EmbeddingService", return_value=mock_embedding_service),
             patch("src.services.rag_service.AsyncDatabaseManager", return_value=mock_db_manager),
-            patch("src.services.rag_service.generate_query_embedding", return_value=[0.1] * 768),
         ):
-            return RAGService()
+            svc = RAGService()
+        yield svc
+        patcher.stop()
 
     @pytest.fixture
     def sample_chunk(self):
