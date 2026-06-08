@@ -10,8 +10,20 @@ import os
 from typing import Any
 
 import numpy as np
-import torch
-from sentence_transformers import SentenceTransformer
+
+try:
+    import torch
+    import torch as _torch_module
+
+    _TORCH_AVAILABLE = True
+except ImportError:
+    torch = None  # type: ignore[assignment]
+    _TORCH_AVAILABLE = False
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None  # type: ignore[assignment,misc]
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +50,7 @@ class EmbeddingService:
         self.model_name = model_name
         self.cache_dir = cache_dir
         self.model: SentenceTransformer | None = None
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.device = "cuda" if _TORCH_AVAILABLE and torch.cuda.is_available() else "cpu"
         self._model_loaded = False
 
         logger.info(f"Initialized EmbeddingService with model '{model_name}' on device '{self.device}'")

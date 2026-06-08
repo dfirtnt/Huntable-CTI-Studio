@@ -92,9 +92,12 @@ async def test_get_sigma_rule_by_id_returns_dict_for_existing_rule():
 
     from sqlalchemy import text as sa_text
 
-    async with mgr.get_session() as session:
-        row = await session.execute(sa_text("SELECT rule_id FROM sigma_rules ORDER BY id LIMIT 1"))
-        first = row.scalar_one_or_none()
+    try:
+        async with mgr.get_session() as session:
+            row = await session.execute(sa_text("SELECT rule_id FROM sigma_rules ORDER BY id LIMIT 1"))
+            first = row.scalar_one_or_none()
+    except Exception:
+        pytest.skip("sigma_rules table not available -- run migrations")
 
     if first is None:
         pytest.skip("sigma_rules table is empty")

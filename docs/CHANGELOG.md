@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Intel Mac (macosx_x86_64) dependency resolution** (2026-06-08): `torch==2.11.0` dropped Intel Mac wheels; `uv sync --frozen` failed entirely on macOS 15 x86_64, blocking all test runs. Added PEP 508 platform markers (`sys_platform != 'darwin' or platform_machine != 'x86_64'`) to `torch`, `accelerate`, and `sentence-transformers` in `pyproject.toml` and regenerated `uv.lock`. These packages are not needed for local dev or test runs on Intel Mac.
+- **`embedding_service` / `os_detection_service` hard import of `torch`** (2026-06-08): Both services imported `torch` at module top-level, causing `ModuleNotFoundError` on Intel Mac and blocking pytest collection of 35 test files. Wrapped imports in `try/except ImportError` with `_TORCH_AVAILABLE` guards; `cuda.is_available()` calls now short-circuit when torch is absent. Runtime inference paths are unaffected on platforms where torch is installed.
+- **`test_get_sigma_rule_by_id_returns_dict_for_existing_rule` hard-fails on unmigrated DB** (2026-06-08): Query against `sigma_rules` raised `UndefinedTableError` instead of skipping gracefully when the table did not exist. Wrapped the query in `try/except` so a missing table skips with a clear message rather than failing.
+- **`test_find_similar_content_with_chunks` returns empty results** (2026-06-08): The `service` pytest fixture patched `generate_query_embedding` only inside the `RAGService()` construction block; at test runtime the patch had expired, causing `find_similar_chunks` to raise silently and return `[]`. Fixed by keeping the patcher alive for the full test via `patcher.start()`/`yield`/`patcher.stop()`.
+
 ## [7.3.0 "Europa"] - 2026-06-03
 ### Security
 - **pyjwt 2.12.1 -> 2.13.0 (PYSEC-2026-175/177/178/179)** (2026-06-02): `pip-audit` flagged four known vulnerabilities in `pyjwt` 2.12.1, all fixed in 2.13.0. Transitive dep via `mcp[cli]` (sole parent — Authlib ships its own JOSE impl). Pinned `PyJWT==2.13.0` in the `pyproject.toml` security-floor block and `requirements.txt` "Security pins" mirror (`==` per single-parent convention; `>=` reserved for multi-parent solver-conflict cases per AGENTS.md). `uv.lock` updated surgically (pyjwt stanza only), validated with `uv lock --dry-run`. Post-bump: `pip check` clean, `pip-audit` no known vulnerabilities, 160 MCP + auth tests pass.
