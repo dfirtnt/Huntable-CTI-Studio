@@ -13,7 +13,6 @@ import numpy as np
 
 try:
     import torch
-    import torch as _torch_module
 
     _TORCH_AVAILABLE = True
 except ImportError:
