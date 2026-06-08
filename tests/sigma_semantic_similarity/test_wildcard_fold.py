@@ -27,6 +27,18 @@ from sigma_similarity.atom_extractor import atom_identity
 pytestmark = pytest.mark.unit
 
 
+def _op_of(ident: str) -> str:
+    """Recover the operator from a 3-slot atom identity ``field|modifier_chain|value``.
+
+    The operator is the first modifier token; an empty modifier chain (the
+    ``field||value`` shape) denotes the default ``eq``. This mirrors the
+    documented recovery rule ``modifier_chain.split("|")[0]``.
+    """
+    segments = ident.split("|")
+    mods = segments[1:-1]
+    return mods[0] if mods and mods[0] else "eq"
+
+
 # ---------------------------------------------------------------------------
 # Equivalence: the two forms MUST produce the same identity. This is the
 # load-bearing property — every other test in this file is a consequence.
@@ -59,12 +71,12 @@ class TestWildcardModifierEquivalence:
         # Note: \\ in Sigma YAML normalizes to / in atom_identity (single backslash).
         wild = atom_identity(AtomNode("CommandLine", "eq", "", "*\\AppData\\Roaming\\php\\*"))
         modifier = atom_identity(AtomNode("CommandLine", "contains", "contains|all", "\\AppData\\Roaming\\php\\"))
-        # The folded `eq` form should produce `contains|contains|...` — equivalence is on the
+        # The folded `eq` form should produce `<field>|contains|...` — equivalence is on the
         # behavioral predicate, not on modifier_chain length. Compare the field/op/value parts.
         wild_parts = wild.split("|")
         mod_parts = modifier.split("|")
         assert wild_parts[0] == mod_parts[0], "field mismatch"
-        assert wild_parts[1] == mod_parts[1] == "contains", "op should be contains on both sides"
+        assert _op_of(wild) == _op_of(modifier) == "contains", "op should be contains on both sides"
         assert wild_parts[-1] == mod_parts[-1], f"value mismatch: {wild_parts[-1]!r} != {mod_parts[-1]!r}"
 
 
@@ -80,25 +92,25 @@ class TestEqWildcardFolds:
         """No '*' anywhere → eq stays eq, value verbatim."""
         out = atom_identity(AtomNode("OriginalFileName", "eq", "", "powershell.exe"))
         parts = out.split("|")
-        assert parts[1] == "eq"
+        assert _op_of(out) == "eq"
         assert parts[-1] == "powershell.exe"
 
     def test_eq_leading_star_becomes_endswith(self):
         out = atom_identity(AtomNode("Image", "eq", "", "*foo.exe"))
         parts = out.split("|")
-        assert parts[1] == "endswith", f"op should be endswith; got {parts[1]!r}"
+        assert _op_of(out) == "endswith", f"op should be endswith; got {_op_of(out)!r}"
         assert parts[-1] == "foo.exe", f"value should be stripped; got {parts[-1]!r}"
 
     def test_eq_trailing_star_becomes_startswith(self):
         out = atom_identity(AtomNode("Image", "eq", "", "C:/Users/x/foo*"))
         parts = out.split("|")
-        assert parts[1] == "startswith"
+        assert _op_of(out) == "startswith"
         assert parts[-1] == "c:/users/x/foo"
 
     def test_eq_both_stars_becomes_contains(self):
         out = atom_identity(AtomNode("CommandLine", "eq", "", "*malware*"))
         parts = out.split("|")
-        assert parts[1] == "contains"
+        assert _op_of(out) == "contains"
         assert parts[-1] == "malware"
 
 
@@ -114,19 +126,19 @@ class TestRedundantWildcardStripping:
         # CommandLine|contains: '*foo*' is redundant — the modifier already implies wraparound.
         out = atom_identity(AtomNode("CommandLine", "contains", "contains", "*foo*"))
         parts = out.split("|")
-        assert parts[1] == "contains"
+        assert _op_of(out) == "contains"
         assert parts[-1] == "foo"
 
     def test_endswith_with_redundant_leading_star_strips_it(self):
         out = atom_identity(AtomNode("Image", "endswith", "endswith", "*defrag.exe"))
         parts = out.split("|")
-        assert parts[1] == "endswith"
+        assert _op_of(out) == "endswith"
         assert parts[-1] == "defrag.exe"
 
     def test_startswith_with_redundant_trailing_star_strips_it(self):
         out = atom_identity(AtomNode("Image", "startswith", "startswith", "svchost*"))
         parts = out.split("|")
-        assert parts[1] == "startswith"
+        assert _op_of(out) == "startswith"
         assert parts[-1] == "svchost"
 
 
@@ -142,13 +154,13 @@ class TestInternalWildcardsLeftAlone:
         # 'foo*bar' has no leading or trailing * → no fold, op stays eq.
         out = atom_identity(AtomNode("CommandLine", "eq", "", "foo*bar"))
         parts = out.split("|")
-        assert parts[1] == "eq"
+        assert _op_of(out) == "eq"
         assert parts[-1] == "foo*bar"
 
     def test_multiple_internal_stars_unchanged(self):
         out = atom_identity(AtomNode("CommandLine", "eq", "", "foo*bar*baz"))
         parts = out.split("|")
-        assert parts[1] == "eq"
+        assert _op_of(out) == "eq"
         assert parts[-1] == "foo*bar*baz"
 
 
@@ -165,7 +177,7 @@ class TestNonFoldableOpsPreserveValue:
         pattern = r"^.*foo.*$"
         out = atom_identity(AtomNode("CommandLine", "re", "re", pattern))
         parts = out.split("|")
-        assert parts[1] == "re"
+        assert _op_of(out) == "re"
         # Regex values are NOT case-folded, NOT wildcard-folded.
         assert parts[-1] == pattern
 
@@ -173,7 +185,7 @@ class TestNonFoldableOpsPreserveValue:
         # neq is numeric/exact-non-match; the * is literal.
         out = atom_identity(AtomNode("EventID", "neq", "neq", "4624*"))
         parts = out.split("|")
-        assert parts[1] == "neq"
+        assert _op_of(out) == "neq"
         assert parts[-1] == "4624*"
 
 
@@ -188,7 +200,7 @@ class TestEdgeCases:
     def test_empty_value_unchanged(self):
         out = atom_identity(AtomNode("Image", "eq", "", ""))
         parts = out.split("|")
-        assert parts[1] == "eq"
+        assert _op_of(out) == "eq"
         assert parts[-1] == ""
 
     def test_single_star_value_yields_endswith_empty(self):

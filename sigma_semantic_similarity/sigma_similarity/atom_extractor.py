@@ -1,6 +1,8 @@
 """
 Extract positive and negative atoms from DNF.
-Atom identity: field|operator|modifier_chain|normalized_value.
+Atom identity: field|modifier_chain|normalized_value.
+The operator is the first token of modifier_chain (an empty chain ⟺ default ``eq``),
+so a separate operator slot would be redundant and is not emitted.
 Modifier order preserved; backslash normalization deterministic; FIELD_ALIAS_MAP static.
 """
 
@@ -167,7 +169,13 @@ def _fold_wildcards(op: str, mod: str, val: str) -> tuple[str, str, str]:
 
 
 def atom_identity(node: AtomNode) -> str:
-    """Canonical atom identity: field|operator|modifier_chain|normalized_value."""
+    """Canonical atom identity: ``field|modifier_chain|normalized_value``.
+
+    The operator is *not* stored as a separate slot — it is always the first
+    token of ``modifier_chain`` (``modifier_chain.split("|")[0]``), and an empty
+    chain denotes the default ``eq``. ``op`` is still computed locally below to
+    drive case-folding and the wildcard fold; it just isn't emitted verbatim.
+    """
     field = _resolve_field(node.field)
     op = node.operator.lower()
     mod = node.modifier_chain  # order preserved
@@ -182,7 +190,10 @@ def atom_identity(node: AtomNode) -> str:
     # (Spec Item 9 / P1-B). Must run AFTER _normalize_value so backslashes
     # are already canonicalized and the value's edge characters are stable.
     op, mod, val = _fold_wildcards(op, mod, val)
-    return f"{field}|{op}|{mod}|{val}"
+    # 3-slot identity: the operator is recoverable as mod.split("|")[0] (empty ⟺ eq),
+    # so emitting it separately would duplicate the modifier (the old "endswith|endswith"
+    # display bug). Wildcard folds already realign mod to the folded op above.
+    return f"{field}|{mod}|{val}"
 
 
 def extract_positive_atoms(dnf_branches: list[list[tuple[bool, AtomNode]]]) -> set[str]:

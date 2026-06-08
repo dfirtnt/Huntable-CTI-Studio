@@ -165,8 +165,8 @@ class TestKeywordListSelectionsProduceAtoms:
             "condition": "keywords",
         }
         pos = _positive_atoms_for(detection)
-        assert "|contains|contains|whoami" in pos
-        assert "|contains|contains|net user" in pos
+        assert "|contains|whoami" in pos
+        assert "|contains|net user" in pos
 
     def test_xss_keyword_rule_not_atom_less(self):
         """The Spike A shape: a webserver XSS keyword rule extracts atoms."""
@@ -176,9 +176,9 @@ class TestKeywordListSelectionsProduceAtoms:
         }
         pos = _positive_atoms_for(detection)
         # Case-folded contains; value backslashes/case normalized.
-        assert "|contains|contains|<script>" in pos
-        assert "|contains|contains|alert(" in pos
-        assert "|contains|contains|onerror=" in pos
+        assert "|contains|<script>" in pos
+        assert "|contains|alert(" in pos
+        assert "|contains|onerror=" in pos
 
     def test_mixed_list_keeps_both_dict_and_scalar_atoms(self):
         """A list mixing a field map and a bare keyword yields both kinds."""
@@ -191,7 +191,7 @@ class TestKeywordListSelectionsProduceAtoms:
         }
         pos = _positive_atoms_for(detection)
         assert any(a.startswith("process.command_line|contains") for a in pos)
-        assert "|contains|contains|suspiciouskeyword" in pos
+        assert "|contains|suspiciouskeyword" in pos
 
     def test_keyword_value_case_folded(self):
         """Keyword scalars use case-insensitive contains, so case folds."""
@@ -204,6 +204,38 @@ class TestKeywordListSelectionsProduceAtoms:
         on-the-fly extractor, which also ignores top-level scalar values."""
         pos = _positive_atoms_for({"selection": "justastring", "condition": "selection"})
         assert pos == set()
+
+
+class TestThreeSlotIdentityFormat:
+    """Contract: atom_identity emits `field|modifier_chain|value` (no separate op slot).
+
+    The operator is recoverable as `modifier_chain.split("|")[0]` (empty ⟺ eq),
+    so a dedicated op slot would just duplicate the modifier — the old
+    `endswith|endswith` double-modifier display bug.
+    """
+
+    def test_explicit_modifier_atom_has_no_duplicated_op(self):
+        # 4-slot used to render `process.image|endswith|endswith|/php.exe`.
+        ident = atom_identity(AtomNode("Image", "endswith", "endswith", "/php.exe"))
+        assert ident == "process.image|endswith|/php.exe"
+        # Exactly one `endswith` token, not two.
+        assert ident.count("endswith") == 1
+
+    def test_eq_atom_collapses_to_empty_modifier_chain(self):
+        # Default eq with no modifier ⟹ empty middle slot (`field||value`).
+        ident = atom_identity(AtomNode("OriginalFileName", "eq", "", "powershell.exe"))
+        assert ident == "originalfilename||powershell.exe"
+
+    def test_all_modifier_chain_is_preserved(self):
+        # The full modifier_chain (including the `all` token) is kept verbatim;
+        # only the redundant leading op slot is dropped.
+        ident = atom_identity(AtomNode("CommandLine", "contains", "contains|all", "delete"))
+        assert ident == "process.command_line|contains|all|delete"
+
+    def test_keyword_atom_is_field_less_single_contains(self):
+        detection = {"keywords": ["whoami"], "condition": "keywords"}
+        pos = extract_positive_atoms(ast_to_dnf(build_ast(normalize_detection(detection))))
+        assert pos == {"|contains|whoami"}
 
 
 def test_rejected_grammar_count():

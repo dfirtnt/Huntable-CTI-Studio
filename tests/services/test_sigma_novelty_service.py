@@ -7,6 +7,7 @@ import pytest
 from src.services.sigma_novelty_service import (
     NoveltyLabel,
     SigmaNoveltyService,
+    _atom_identity_to_display,
     _normalize_atom_identity,
 )
 
@@ -670,6 +671,41 @@ class TestNormalizeAtomIdentity:
         """Edge cases: empty string, no pipe separator."""
         assert _normalize_atom_identity("") == ""
         assert _normalize_atom_identity("justafieldname") == "justafieldname"
+
+
+# ── Precomputed-path explainability display format (3-slot → human-readable) ──
+# The precomputed (deterministic) path stores raw `field|modifier_chain|value`
+# identities; _atom_identity_to_display renders them in the same `field|op:value`
+# shape as the full-parse path's _atom_to_string so both surfaces match.
+
+
+class TestAtomIdentityToDisplay:
+    """`_atom_identity_to_display` mirrors the full-parse `_atom_to_string` format."""
+
+    def test_modifier_atom_renders_field_op_value(self):
+        assert _atom_identity_to_display("process.image|endswith|/php.exe") == "process.image|endswith:/php.exe"
+
+    def test_no_double_modifier_in_output(self):
+        # The old 4-slot bug surfaced `process.image|endswith|endswith|/php.exe`.
+        out = _atom_identity_to_display("process.image|endswith|/php.exe")
+        assert out.count("endswith") == 1
+
+    def test_eq_atom_empty_chain_renders_field_value(self):
+        # Empty modifier chain (`field||value`) ⟹ default eq ⟹ `field:value`.
+        assert _atom_identity_to_display("originalfilename||powershell.exe") == "originalfilename:powershell.exe"
+
+    def test_all_modifier_chain_uses_leading_op(self):
+        # `contains|all` ⟹ op is the leading token `contains`.
+        assert (
+            _atom_identity_to_display("process.command_line|contains|all|delete")
+            == "process.command_line|contains:delete"
+        )
+
+    def test_keyword_atom_field_less(self):
+        assert _atom_identity_to_display("|contains|whoami") == "|contains:whoami"
+
+    def test_malformed_passes_through(self):
+        assert _atom_identity_to_display("justafield") == "justafield"
 
 
 # ── Regression: silent-pass degradation warnings (2026-04-30) ─────────────────

@@ -240,7 +240,7 @@ def test_webserver_keyword_rule_not_atom_less():
     }
     pos = extract_positive_atoms(ast_to_dnf(build_ast(normalize_detection(detection))))
     assert pos, "webserver keyword rule extracted zero atoms (Spike A regression)"
-    assert "|contains|contains|getruntime().exec(" in pos
+    assert "|contains|getruntime().exec(" in pos
 
 
 def test_two_webserver_keyword_rules_comparable():
@@ -277,7 +277,7 @@ def test_webserver_mixed_field_and_keyword_rule_resolves():
     pos = extract_positive_atoms(ast_to_dnf(build_ast(normalize_detection(detection))))
     # Both the field atoms and the keyword atoms are present.
     assert any(a.startswith("cs-method|") for a in pos)
-    assert "|contains|contains|basic jz" in pos
+    assert "|contains|basic jz" in pos
 
 
 def test_webserver_vs_process_creation_mismatch():
