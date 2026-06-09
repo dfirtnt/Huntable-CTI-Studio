@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Fixed
+- **`run_cli.sh` / `manage_allure.sh` hardcoded the missing `docker-compose` v1 binary** (2026-06-08): both scripts invoked `docker-compose` (the legacy standalone binary), which isn't installed on modern Docker Desktop setups that ship only the `docker compose` v2 plugin — so `./run_cli.sh …` failed immediately with `docker-compose: command not found`, making the entire CLI unusable on those machines. Both now detect the available form (v2 plugin preferred, legacy fallback) the same way `scripts/startup_common.sh` and `scripts/run_mcp_server.sh` already do, erroring clearly only if neither exists.
 
 ## [7.4.0 "Europa"] - 2026-06-11
 ### Added

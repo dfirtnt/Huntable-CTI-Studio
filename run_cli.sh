@@ -17,6 +17,16 @@ if [ ! -f "docker-compose.yml" ]; then
     exit 1
 fi
 
+# Pick the available compose invocation (v2 plugin preferred, legacy v1 fallback).
+if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+else
+    echo "❌ Neither 'docker compose' nor 'docker-compose' is available. Install Docker Compose."
+    exit 1
+fi
+
 # Function to show usage
 show_usage() {
     echo "Usage: $0 <cli args>"
@@ -58,4 +68,4 @@ echo "🚀 Running CLI command in Docker: python -m src.cli.main $*"
 echo ""
 
 # Run the command in the CLI container (pass args directly to click CLI)
-docker-compose run --rm cli python -m src.cli.main "$@"
+$DOCKER_COMPOSE_CMD run --rm cli python -m src.cli.main "$@"

@@ -4,25 +4,35 @@
 
 set -e
 
+# Pick the available compose invocation (v2 plugin preferred, legacy v1 fallback).
+if docker compose version >/dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker compose"
+elif command -v docker-compose >/dev/null 2>&1; then
+    DOCKER_COMPOSE_CMD="docker-compose"
+else
+    echo "❌ Neither 'docker compose' nor 'docker-compose' is available. Install Docker Compose."
+    exit 1
+fi
+
 case "${1:-help}" in
     "start")
         echo "🚀 Starting Allure Reports container..."
-        docker-compose -f docker-compose.allure.yml up -d
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml up -d
         echo "✅ Allure Reports available at: http://localhost:8080"
         ;;
     "stop")
         echo "🛑 Stopping Allure Reports container..."
-        docker-compose -f docker-compose.allure.yml down
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml down
         echo "✅ Allure Reports container stopped"
         ;;
     "restart")
         echo "🔄 Restarting Allure Reports container..."
-        docker-compose -f docker-compose.allure.yml restart
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml restart
         echo "✅ Allure Reports container restarted"
         ;;
     "logs")
         echo "📋 Showing Allure Reports container logs..."
-        docker-compose -f docker-compose.allure.yml logs -f
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml logs -f
         ;;
     "status")
         echo "📊 Allure Reports container status:"
@@ -30,9 +40,9 @@ case "${1:-help}" in
         ;;
     "rebuild")
         echo "🔨 Rebuilding Allure Reports container..."
-        docker-compose -f docker-compose.allure.yml down
-        docker-compose -f docker-compose.allure.yml build --no-cache
-        docker-compose -f docker-compose.allure.yml up -d
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml down
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml build --no-cache
+        $DOCKER_COMPOSE_CMD -f docker-compose.allure.yml up -d
         echo "✅ Allure Reports container rebuilt and started"
         ;;
     "help"|*)
