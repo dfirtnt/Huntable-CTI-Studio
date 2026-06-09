@@ -115,11 +115,10 @@ For external LLM clients (Claude Desktop, IDE MCP, etc.), a **read-only** MCP se
 
 The repo ships a committed `.mcp.json` registering the server via `scripts/run_mcp_server.sh`; clients that read project `.mcp.json` (Claude Code in this repo) need no setup — just approve the `huntable-cti-studio` server when prompted. For other clients, register `bash scripts/run_mcp_server.sh` as the command.
 
-To run it by hand, use the **project venv** — MCP clients do not inherit an activated venv, so bare `python3 run_mcp.py` fails with `ModuleNotFoundError: No module named 'mcp'`:
+The launcher runs the server inside the Docker `cli` container (so the Linux container's torch / sentence-transformers back the embedding model — semantic search works on every platform, including Intel Mac). **Docker must be running.** To run it by hand:
 
 ```bash
-.venv/bin/python run_mcp.py        # or: source .venv/bin/activate first
-bash scripts/run_mcp_server.sh     # same launcher the .mcp.json uses
+bash scripts/run_mcp_server.sh     # runs the server in the Docker cli container
 ```
 
 Stack shutdown (optional):
