@@ -223,9 +223,7 @@ class TestNoveltyLabelsDeriveFromConstants:
         [(0.96, 0.96, "DUPLICATE"), (0.96, 0.5, "SIMILAR"), (0.81, 0.2, "SIMILAR"), (0.5, 1.0, "NOVEL")],
     )
     def test_legacy_row_when_no_label_provided(self, jaccard, logic, expected):
-        n = _normalize(
-            {"similarity": 0.6, "atom_jaccard": jaccard, "logic_shape_similarity": logic}
-        )
+        n = _normalize({"similarity": 0.6, "atom_jaccard": jaccard, "logic_shape_similarity": logic})
         assert n["novelty_label"] == expected
 
 

@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
 from src.services.sigma_matching_service import SigmaMatchingService
-from src.services.sigma_novelty_service import NoveltyLabel, SigmaNoveltyService, classify_match_novelty
+from src.services.sigma_novelty_service import SigmaNoveltyService, classify_match_novelty
 from src.services.sigma_semantic_precompute import precompute_semantic_fields
 from src.services.similarity_serialization import serialize_similarity_match
 
@@ -126,24 +126,24 @@ async def compare_rules(compare_request: CompareRequest):
 
     explainability = service.generate_explainability(canonical_a, canonical_b, {})
 
-    novelty_label = _classify_pairwise_novelty(weighted_sim)
-
     # Project onto the unified canonical contract (Phase 1). /compare computes
     # metrics directly rather than via assess_rule_novelty, so assemble a match
     # dict and serialize it for a shape consistent with every other surface.
-    serialized = serialize_similarity_match(
-        {
-            "similarity": weighted_sim,
-            "novelty_label": novelty_label,
-            "atom_jaccard": atom_jaccard,
-            "logic_shape_similarity": logic_similarity,
-            "shared_atoms": explainability["shared_atoms"],
-            "added_atoms": explainability["added_atoms"],
-            "removed_atoms": explainability["removed_atoms"],
-            "service_penalty": service_penalty,
-            "filter_penalty": filter_penalty,
-        }
-    )
+    fallback_match = {
+        "similarity": weighted_sim,
+        "atom_jaccard": atom_jaccard,
+        "logic_shape_similarity": logic_similarity,
+        "shared_atoms": explainability["shared_atoms"],
+        "added_atoms": explainability["added_atoms"],
+        "removed_atoms": explainability["removed_atoms"],
+        "service_penalty": service_penalty,
+        "filter_penalty": filter_penalty,
+    }
+    # Phase-3 fold: the legacy fallback classifies via the same single source
+    # of truth as every other surface (classify_match_novelty / legacy
+    # threshold row), retiring the old weighted-similarity pairwise classifier.
+    fallback_match["novelty_label"] = classify_match_novelty(fallback_match)
+    serialized = serialize_similarity_match(fallback_match)
     return {"success": True, **serialized}
 
 
