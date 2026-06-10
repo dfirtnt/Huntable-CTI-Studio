@@ -3284,6 +3284,10 @@ tr.q-row-selected td {
                     </div>
                 </div>
                 <div class="space-y-4 max-h-[70vh] overflow-y-auto">
+                    <div class="flex items-center gap-2 text-xs px-1">
+                        <span class="text-gray-500 dark:text-gray-400">Active config:</span>
+                        <span id="enrichPresetState" class="font-medium px-2 py-0.5 rounded bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300">Unsaved config</span>
+                    </div>
                     <div class="flex items-center space-x-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-md">
                         <input type="checkbox" id="includeArticleContent" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600">
                         <label for="includeArticleContent" class="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
@@ -14244,6 +14248,11 @@ END SYSTEM PROMPT`;
     }
     _syncEnrichDisplay();
     _enrichSPViewMode();
+    // A fresh open starts from the latest saved prompt, not a named preset.
+    _wireEnrichDriftListeners();
+    enrichLoadedPreset = null;
+    _captureEnrichBaseline();
+    updateEnrichPresetState();
     const _vr = document.getElementById('enrichValidateResult');
     if (_vr) { _vr.style.display = 'none'; _vr.textContent = ''; }
 
@@ -14361,6 +14370,7 @@ async function cancelEnrichSystemPrompt() {
     } catch (e) { /* keep current value on network error */ }
     _syncEnrichDisplay();
     _enrichSPViewMode();
+    updateEnrichPresetState();
 }
 
 async function saveEnrichSystemPromptEdit() {
@@ -14433,6 +14443,7 @@ async function saveEnrichExpanded() {
     }
     document.getElementById('enrichSystemPrompt').value = sp;
     _syncEnrichDisplay();
+    updateEnrichPresetState();
     closeEnrichExpanded();
     await saveEnrichmentPrompt();
 }
@@ -14594,28 +14605,88 @@ async function loadPromptVersion(versionId) {
     }
 }
 
+// --- Enrich preset active-config state tracking ---
+// Mirrors the "what's active / what's saved / what's drifted" model used by the
+// agent-config prompt editors. enrichLoadedPreset is the preset currently loaded
+// into the modal (null = none); enrichBaseline is the config snapshot it was
+// loaded/saved at, so edits made on top of a preset surface as "modified".
+let enrichLoadedPreset = null;   // { id, name } or null
+let enrichBaseline = null;       // { provider, model, systemPrompt, userInstruction }
+let _enrichDriftWired = false;
+
+function _enrichCurrentConfig() {
+    return {
+        provider: document.getElementById('enrichProviderSelect')?.value || '',
+        model: document.getElementById('enrichModelSelect')?.value || '',
+        systemPrompt: (document.getElementById('enrichSystemPrompt')?.value || '').trim(),
+        userInstruction: (document.getElementById('enrichInstruction')?.value || '').trim(),
+    };
+}
+
+function _captureEnrichBaseline() {
+    enrichBaseline = _enrichCurrentConfig();
+}
+
+function _enrichConfigDrifted() {
+    if (!enrichBaseline) return false;
+    const cur = _enrichCurrentConfig();
+    return cur.provider !== enrichBaseline.provider
+        || cur.model !== enrichBaseline.model
+        || cur.systemPrompt !== enrichBaseline.systemPrompt
+        || cur.userInstruction !== enrichBaseline.userInstruction;
+}
+
+function updateEnrichPresetState() {
+    const el = document.getElementById('enrichPresetState');
+    if (!el) return;
+    const base = 'font-medium px-2 py-0.5 rounded';
+    if (!enrichLoadedPreset) {
+        el.textContent = 'Unsaved config';
+        el.className = base + ' bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+    } else if (_enrichConfigDrifted()) {
+        el.textContent = `Preset: ${enrichLoadedPreset.name} · modified`;
+        el.className = base + ' bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300';
+    } else {
+        el.textContent = `Preset: ${enrichLoadedPreset.name} · clean`;
+        el.className = base + ' bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+    }
+}
+
+function _wireEnrichDriftListeners() {
+    if (_enrichDriftWired) return;
+    ['enrichProviderSelect', 'enrichModelSelect'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', updateEnrichPresetState);
+    });
+    ['enrichInstruction', 'enrichSystemPrompt'].forEach(id => {
+        document.getElementById(id)?.addEventListener('input', updateEnrichPresetState);
+    });
+    _enrichDriftWired = true;
+}
+
 async function saveEnrichmentPreset() {
     const provider = document.getElementById('enrichProviderSelect').value;
     const model = document.getElementById('enrichModelSelect').value;
     const systemPrompt = document.getElementById('enrichSystemPrompt').value.trim();
     const userInstruction = document.getElementById('enrichInstruction').value.trim();
-    
+
     if (!provider || !model) {
         showNotification('Please select both a provider and model', 'error');
         return;
     }
-    
+
     if (!systemPrompt) {
         showNotification('System prompt cannot be empty', 'error');
         return;
     }
-    
-    // Prompt for preset name and description
-    const name = prompt('Enter a name for this preset:');
+
+    // Prompt for preset name and description. When a preset is already loaded,
+    // default to its name so the save updates it in place (the backend upserts
+    // by name); clearing the name and entering a new one saves-as-new.
+    const name = prompt('Enter a name for this preset:', enrichLoadedPreset ? enrichLoadedPreset.name : '');
     if (!name || !name.trim()) {
         return; // User cancelled
     }
-    
+
     const description = prompt('Enter a description (optional):') || null;
     
     try {
@@ -14640,6 +14711,11 @@ async function saveEnrichmentPreset() {
             throw new Error(data.detail || 'Failed to save preset');
         }
         
+        // The just-saved config is now the clean baseline for this preset.
+        enrichLoadedPreset = { id: data.id, name: name.trim() };
+        _captureEnrichBaseline();
+        updateEnrichPresetState();
+
         showNotification('Preset "' + name + '" ' + data.message, 'success');
     } catch (error) {
         console.error('Error saving preset:', error);
@@ -14762,8 +14838,13 @@ async function loadPresetById(presetId, opts = {}) {
         _syncEnrichDisplay();
         _enrichSPViewMode();
 
+        // Record the loaded preset + its config snapshot so later edits read as drift.
+        enrichLoadedPreset = { id, name: data.name };
+        _captureEnrichBaseline();
+        updateEnrichPresetState();
+
         localStorage.setItem('enrichmentLastPresetId', String(id));
-        
+
         if (!silent) {
             closePresetListModal();
             showNotification('Preset "' + data.name + '" loaded', 'success');
