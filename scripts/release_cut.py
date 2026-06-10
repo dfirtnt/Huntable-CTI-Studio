@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Atomically cut a release on dev-europa.
+"""Atomically cut a release on the release branch (the europa-* line).
 
 Performs every repo-local step of a release in a single commit, then creates
 the annotated tag. Does NOT push. Deliberate: the operator must still run
@@ -9,9 +9,10 @@ main and relock the branch.
 Pipeline (all-or-nothing: either every file is updated or none are):
 
 1. Preflight checks
-   - Currently on the `dev-europa` branch.
+   - Currently on a release branch (`europa-*`, e.g. europa-7.2.1, or the
+     historical `dev-europa*`).
    - Working tree clean (no staged or unstaged changes).
-   - `dev-europa` is up to date with origin (no unpushed/unpulled commits).
+   - That branch is up to date with origin (no unpushed/unpulled commits).
    - `git` and `python3` available.
 
 2. Compute edits (in memory, no writes yet)
@@ -46,8 +47,8 @@ Example output (success):
     release-cut: committed as <sha> and tagged v5.4.0
     release-cut: DONE. Next steps:
       scripts/release_unlock.sh
-      git push origin dev-europa
-      # open PR: dev-europa -> main; merge after CI green
+      git push origin europa-7.2.1
+      # open PR: europa-7.2.1 -> main; merge after CI green
       git push origin v5.4.0
       scripts/release_lock.sh
 """
@@ -96,7 +97,7 @@ def _preflight() -> None:
             f"changes before cutting a release. Current status:\n{status}"
         )
 
-    # Fetch the current dev-europa branch so we can compare without side effects on refs.
+    # Fetch the current release branch so we can compare without side effects on refs.
     _run(["git", "fetch", "origin", branch])
     local = _run(["git", "rev-parse", "HEAD"])
     remote = _run(["git", "rev-parse", "FETCH_HEAD"])
@@ -268,7 +269,7 @@ def main() -> int:
     if not DATE_RE.match(args.date):
         _die(f"invalid --date {args.date!r}; expected YYYY-MM-DD")
 
-    current_branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]) if not args.skip_git else "dev-europa"
+    current_branch = _run(["git", "rev-parse", "--abbrev-ref", "HEAD"]) if not args.skip_git else "europa-7.2.1"
     if not args.skip_git:
         _preflight()
 

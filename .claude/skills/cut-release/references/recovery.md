@@ -22,7 +22,7 @@ script failed before the commit:
 Common root causes:
 
 - **`[Unreleased]` empty** -- nothing to release. Check you are on the
-  right branch and the intended work has actually merged to dev-io.
+  right branch and the intended work has actually merged to the release branch.
 - **`versioning.md` Current Version block does not match the regex** --
   the file has drifted from the canonical three-line shape
   (`**vX.Y.Z "Codename"** - Current stable release`,
@@ -38,11 +38,11 @@ workflow shows a red X on the `verify` or `release` job.
 
 1. Read the failed step's log on GitHub Actions.
 2. The typical cause is a `pyproject.toml` / CHANGELOG / tag mismatch.
-   Fix the offending file on dev-io (do NOT amend the release commit;
+   Fix the offending file on the release branch (do NOT amend the release commit;
    create a follow-up commit).
 3. If `main` is already relocked, run `scripts/release_unlock.sh` before
    attempting to push fixes through.
-4. Push dev-io, open a small fixup PR to main, merge it.
+4. Push the release branch, open a small fixup PR to main, merge it.
 5. Delete the bad tag locally and on origin:
 
    ```bash
@@ -76,13 +76,14 @@ confirmation -- it is outside the Autonomy Envelope.
    git log --oneline origin/main ^"$LATEST_TAG"
    ```
 
-2. Cherry-pick it to dev-io so the work is not lost:
+2. Cherry-pick it to the release branch so the work is not lost:
 
    ```bash
-   git checkout dev-io
-   git pull origin dev-io
+   BRANCH=europa-7.2.1   # current release branch (europa-* line; was dev-io/dev-europa historically)
+   git checkout "$BRANCH"
+   git pull origin "$BRANCH"
    git cherry-pick <sha>
-   git push origin dev-io
+   git push origin "$BRANCH"
    ```
 
 3. **Confirm with operator explicitly** before the destructive step.

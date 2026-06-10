@@ -185,14 +185,14 @@ Default: read-only (SELECT with LIMIT). No INSERT/UPDATE/DELETE without explicit
 ## Release Flow
 
 `main` is read-only between releases (GitHub branch protection locked by scripts).
-Feature work lands on `dev-io`.
+Feature work lands on the release branch — the `europa-*` line (currently `europa-7.2.1`).
 
 ```bash
-# On dev-io, working tree clean:
+# On the release branch (europa-*, e.g. europa-7.2.1), working tree clean:
 scripts/release_cut.py 7.1.0 "Codename" --summary "<one-line>"
 
 scripts/release_unlock.sh              # remove protection
-git push origin dev-io                 # create PR dev-io -> main
+git push origin europa-7.2.1           # push release branch; open PR -> main
 git push origin v7.1.0                 # triggers release.yml
 scripts/release_lock.sh                # restore read-only lock
 ```

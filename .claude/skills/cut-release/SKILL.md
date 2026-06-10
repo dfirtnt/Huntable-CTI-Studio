@@ -5,7 +5,7 @@ description: >
   Use this skill whenever the user says "cut a release", "ship a release",
   "tag a version", "bump the version", "new release", "do the release",
   "release vX.Y.Z", "ship v5.4.0", "time to release", or otherwise signals
-  they want to move code from dev-europa to main and publish a tagged GitHub
+  they want to move code from the release branch to main and publish a tagged GitHub
   Release. Drives scripts/release_cut.py plus the branch unlock/lock dance
   and the tag push that triggers .github/workflows/release.yml, pausing at
   every irreversible step so the operator can confirm.
@@ -24,14 +24,17 @@ Hold these in mind throughout:
 
 - **`main` is read-only between releases** via GitHub branch protection
   (`lock_branch`, `enforce_admins`, no force push, no deletions). Feature
-  work lives on `dev-europa`. `main` only moves during release cuts.
+  work lives on the release branch — the codename/version-named line,
+  currently `europa-7.2.1` (`scripts/release_cut.py` accepts any branch
+  matching `europa-*` or the historical `dev-europa*`, and rejects anything
+  else). `main` only moves during release cuts.
 - **Canonical tag format is `vMAJOR.MINOR.PATCH` only.** The codename lives
   in the annotated tag *message* and the CHANGELOG heading, never in the
   tag name.
 - **`pyproject.toml` `[project].version` is the single source of truth.**
   Everything else mirrors it.
 - **Never push silently.** Every network-side-effect step (unlock, push
-  dev-europa, push tag, relock) gets an explicit operator confirm.
+  the release branch, push tag, relock) gets an explicit operator confirm.
 
 ## Phase 1: Gather release parameters
 
@@ -68,9 +71,9 @@ Run these checks via Bash. Halt with a clear diagnostic on the first
 failure.
 
 ```bash
-git rev-parse --abbrev-ref HEAD          # must equal: dev-europa
+git rev-parse --abbrev-ref HEAD          # must match europa-* or dev-europa* (e.g. europa-7.2.1)
 git status --porcelain                    # must be empty
-git fetch origin dev-europa
+git fetch origin "$(git rev-parse --abbrev-ref HEAD)"
 git rev-parse HEAD                        # must equal the FETCH_HEAD sha
 git rev-parse FETCH_HEAD
 ```
@@ -91,11 +94,11 @@ Before touching the repo, invoke the built-in security review skill:
 /security-review
 ```
 
-This scans the diff between `dev-europa` and `main` for common vulnerability
+This scans the diff between the release branch and `main` for common vulnerability
 classes (injection, auth gaps, exposed secrets, insecure deserialization,
 etc.). Review every finding. You have two options:
 
-- **Fix and commit on dev-europa**, then loop back to Phase 2 preflight to
+- **Fix and commit on the release branch**, then loop back to Phase 2 preflight to
   re-confirm the branch is clean and up-to-date.
 - **Accept the risk** with an explicit operator decision. Document the
   accepted risk in a follow-up commit or the CHANGELOG before proceeding.
@@ -173,20 +176,20 @@ Removes branch protection on `main`. From this point on, `main` is
 write-enabled and you should move through the remaining phases without
 long pauses. Do not leave `main` unlocked overnight.
 
-## Phase 6: Push dev-europa and open PR
+## Phase 6: Push the release branch and open PR
 
 ```bash
-git push origin dev-europa
+git push origin "$(git rev-parse --abbrev-ref HEAD)"   # the release branch; release_cut.py prints this exact command too
 ```
 
 Direct the operator to open a PR manually on GitHub:
 
 - Base: `main`
-- Compare: `dev-europa`
+- Compare: the release branch (e.g. `europa-7.2.1`)
 - Title: `release: vX.Y.Z "Codename"` (match the commit subject)
 
 Wait for the operator to report the PR is open. Then wait for all CI
-checks to go green. If CI fails, stop -- fix on dev-europa, push a follow-up
+checks to go green. If CI fails, stop -- fix on the release branch, push a follow-up
 commit, re-check. Do not merge with red CI.
 
 ## Phase 7: Merge the PR
