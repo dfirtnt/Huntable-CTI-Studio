@@ -341,8 +341,11 @@ def _update_subagent_eval_on_completion(
 
     except Exception as e:
         logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
-        # Don't fail the workflow if eval update fails
-        pass
+        # Don't fail the workflow if eval update fails. Per-record terminal state is
+        # handled inside _update_single_eval_record; here we just keep the session clean
+        # so a partial transaction can't poison later commits.
+        with contextlib.suppress(Exception):
+            db_session.rollback()
 
 
 def _extract_actual_count(subagent_name: str, subresults: dict, execution_id: int) -> int | None:
@@ -489,8 +492,18 @@ def _update_single_eval_record(
         )
     except Exception as e:
         logger.error(f"Error updating SubagentEvaluation for execution {execution.id}: {e}", exc_info=True)
-        # Don't fail the workflow if eval update fails
-        pass
+        # Don't fail the workflow if eval update fails -- but never leave the record
+        # stranded in 'pending', or the poll loop shows it as permanently "stuck".
+        # Roll back the partial transaction, then write a terminal 'failed' state.
+        try:
+            db_session.rollback()
+            eval_record.status = "failed"
+            db_session.commit()
+        except Exception:
+            logger.error(
+                f"Failed to mark SubagentEvaluation {eval_record.id} as failed after update error",
+                exc_info=True,
+            )
 
 
 # CamelCase-keyed map used by the supervisor loop to resolve agent names to subagent aliases.
@@ -1071,16 +1084,23 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                         f"system_len={len(rank_system_prompt or '')} chars)"
                     )
 
+            # Materialize article fields, then release the DB connection before the long
+            # LLM call so it doesn't sit 'idle in transaction' for the call duration.
+            rank_title = article.title
+            rank_url = article.canonical_url or ""
+            rank_article_id = article.id
+            db_session.commit()
+
             # Rank article using LLM
             ranking_result = await llm_service.rank_article(
-                title=article.title,
+                title=rank_title,
                 content=filtered_content,
                 source=source_name,
-                url=article.canonical_url or "",
+                url=rank_url,
                 prompt_template=rank_prompt_template,
                 system_override=rank_system_prompt,
                 execution_id=state["execution_id"],
-                article_id=article.id,
+                article_id=rank_article_id,
                 ground_truth_rank=ground_truth_rank,
                 ground_truth_details=ground_truth_details,
             )
@@ -1214,6 +1234,14 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             if not article:
                 raise ValueError(f"Article {state['article_id']} not found in database")
             filtered_content = state.get("filtered_content") or article.content if article else ""
+            # Materialize article fields into plain locals while the read transaction is
+            # legitimately open. The per-subagent LLM calls below then use these locals
+            # instead of touching the ORM object -- otherwise accessing article.title after
+            # a commit (expire_on_commit=True) lazily re-SELECTs and reopens a transaction
+            # that sits 'idle in transaction' holding a pooled connection for the entire
+            # multi-second extraction. See also create_tables() lock_timeout note.
+            article_title = article.title if article else ""
+            article_url = (article.canonical_url or "") if article else ""
 
             # Update execution record BEFORE calling LLM
             execution = (
@@ -1615,11 +1643,16 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
                     logger.info(
                         f"[Workflow {state['execution_id']}] 🚀 About to call LLM for {agent_name} (provider={agent_provider}, model={agent_model})"
                     )
+                    # Release the DB connection before the long LLM call so it doesn't sit
+                    # 'idle in transaction' (blocking pool slots / DDL) for the call duration.
+                    # Args use materialized locals (article_title/article_url) so building the
+                    # call below cannot lazily reopen a transaction.
+                    db_session.commit()
                     agent_result = await llm_service.run_extraction_agent(
                         agent_name=agent_name,
                         content=filtered_content,
-                        title=article.title,
-                        url=article.canonical_url or "",
+                        title=article_title,
+                        url=article_url,
                         prompt_config=prompt_config,
                         max_extraction_retries=max_extraction_retries,
                         execution_id=state["execution_id"],
