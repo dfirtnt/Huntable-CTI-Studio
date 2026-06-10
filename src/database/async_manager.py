@@ -639,9 +639,6 @@ class AsyncDatabaseManager:
                 else:
                     db_source.consecutive_failures += 1
 
-                new_failure_count = db_source.consecutive_failures
-                source_name = db_source.name
-
                 db_source.last_check = datetime.now()
 
                 # Update average response time

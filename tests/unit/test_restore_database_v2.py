@@ -56,7 +56,7 @@ def _make_err():
 
 def test_stop_calls_docker_stop_for_each_container(restore):
     with patch("subprocess.run", return_value=_make_ok()) as mock_run:
-        stopped = restore._stop_app_containers()
+        restore._stop_app_containers()
 
     calls = [c.args[0] for c in mock_run.call_args_list]
     for name in restore.APP_CONTAINERS:

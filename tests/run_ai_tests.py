@@ -17,9 +17,6 @@ def run_ai_tests(test_type="all", verbose=False, coverage=False):
     project_root = Path(__file__).parent.parent
     sys.path.insert(0, str(project_root))
 
-    # Base pytest command
-    cmd = ["python3", "-m", "pytest"]
-
     # DEPRECATED: AI Assistant UI tests removed
     print("WARNING: AI Assistant tests are deprecated. The AI Assistant modal has been removed.")
     print("   This test runner is kept for reference only.")

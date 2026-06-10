@@ -555,8 +555,6 @@ class TestForensicInstrumentation:
         content = "x" * (MIN_USER_CONTENT_CHARS + 100)
         fake_payload = {"model": "test-model", "messages": [], "max_tokens": 8192}
 
-        captured: dict = {}
-
         async def fake_request_chat(**kwargs):
             return {
                 "choices": [{"message": {"content": '{"items":[],"count":0}'}}],

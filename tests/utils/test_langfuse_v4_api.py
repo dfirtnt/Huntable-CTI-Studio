@@ -45,7 +45,7 @@ class TestTraceLlmCallUsesV4Api:
                 model="gpt-4",
                 execution_id=1,
                 article_id=42,
-            ) as observation:
+            ):
                 mock_client.start_observation.assert_called_once()
                 call_kwargs = mock_client.start_observation.call_args.kwargs
                 assert call_kwargs["name"] == "test_gen"

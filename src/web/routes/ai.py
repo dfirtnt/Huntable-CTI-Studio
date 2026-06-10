@@ -1484,7 +1484,6 @@ async def api_gpt4o_rank(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
         # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
         api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)
@@ -1591,7 +1590,6 @@ async def api_gpt4o_rank_optimized(article_id: int, request: Request):
 
         # Get request body
         body = await request.json()
-        article_url = body.get("url")
         # Try header first (prevents corruption with large payloads), fallback to body for backward compatibility
         api_key_raw = request.headers.get("X-OpenAI-API-Key") or body.get("api_key")
         # Strip whitespace from API key (common issue when copying/pasting)

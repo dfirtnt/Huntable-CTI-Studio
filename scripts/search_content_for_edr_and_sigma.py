@@ -109,30 +109,6 @@ def has_sigma_patterns(content: str) -> bool:
     """Check if content contains SIGMA rule patterns."""
     content_lower = content.lower()
 
-    # SIGMA rule indicators
-    sigma_patterns = [
-        r"title:\s*[^\n]+",
-        r"id:\s*[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}",
-        r"logsource:\s*",
-        r"detection:\s*",
-        r"selection:\s*",
-        r"condition:\s*",
-        r"falsepositives:\s*",
-        r"level:\s*(low|medium|high|critical)",
-        r"description:\s*",
-        r"author:\s*",
-        r"references:\s*",
-        r"tags:\s*",
-        r"status:\s*(experimental|test|stable|deprecated)",
-        r"fields:\s*",
-        r"keywords:\s*",
-        r"\| sigma",
-        r"sigma rule",
-        r"sigma detection",
-        r"yaml.*sigma",
-        r"---\s*\n.*title:.*\n.*id:.*\n.*logsource:",
-    ]
-
     # Check for YAML-like structure that looks like SIGMA
     has_sigma_structure = False
     if "title:" in content_lower and "logsource:" in content_lower:

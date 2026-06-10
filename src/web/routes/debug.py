@@ -180,7 +180,7 @@ async def api_chunk_debug(
                                 },
                                 "feature_contribution": feature_contribution,
                             }
-                        except Exception as exc:  # noqa: BLE001
+                        except Exception:  # noqa: BLE001
                             ml_details = {"error": "ML processing failed"}
 
                     # Check for keywords and patterns using threat hunting scorer

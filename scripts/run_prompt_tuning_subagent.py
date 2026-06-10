@@ -182,7 +182,6 @@ def main() -> int:
         cfg = get_config(base_url)
         models = (cfg.get("agent_models") or {}).copy()
         key_temp = "CmdlineExtract_temperature"
-        key_provider = "CmdlineExtract_provider"
         current_temp = models.get(key_temp)
         if current_temp is None:
             current_temp = 0.0

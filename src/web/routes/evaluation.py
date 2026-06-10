@@ -218,15 +218,9 @@ def api_os_detection_manual_results():
         from scripts.eval_os_detection_manual import MANUAL_TEST_DATA, normalize_os_label
 
         # Try to load evaluation results
-        manual_eval_path = Path("outputs/evaluations/os_detection_manual_eval.json")
         multi_model_eval_path = Path("outputs/evaluations/os_detection_multi_model_eval.json")
 
-        manual_results = {}
         multi_model_results = {}
-
-        if manual_eval_path.exists():
-            with open(manual_eval_path) as f:
-                manual_results = json.load(f)
 
         if multi_model_eval_path.exists():
             with open(multi_model_eval_path) as f:

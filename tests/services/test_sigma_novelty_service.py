@@ -124,8 +124,6 @@ class TestSigmaNoveltyService:
             },
             "level": "medium",
         }
-        canonical = service.build_canonical_rule(sample_rule)
-        exact_hash = service.generate_exact_hash(canonical)
         # Candidate without exact_hash_match so we go through similarity computation
         service.retrieve_candidates = Mock(
             return_value=[

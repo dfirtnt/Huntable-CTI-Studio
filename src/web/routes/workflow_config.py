@@ -1855,22 +1855,9 @@ def bootstrap_prompts_from_files(request: Request):
                 raise HTTPException(status_code=404, detail="No active workflow configuration found")
 
             # Load prompts from files
-            import os
             from pathlib import Path
 
             prompts_dir = Path(__file__).parent.parent.parent / "prompts"
-
-            default_model = os.getenv("LMSTUDIO_MODEL", "mistralai/mistral-7b-instruct-v0.3")
-            rank_model_env = os.getenv("LMSTUDIO_MODEL_RANK", "").strip()
-            extract_model_env = os.getenv("LMSTUDIO_MODEL_EXTRACT", "").strip()
-            sigma_model_env = os.getenv("LMSTUDIO_MODEL_SIGMA", "").strip()
-
-            agent_models = current_config.agent_models if current_config.agent_models is not None else {}
-            rank_model = (
-                agent_models.get("RankAgent") or rank_model_env or "[Not configured - requires LMSTUDIO_MODEL_RANK]"
-            )
-            extract_model = agent_models.get("ExtractAgent") or extract_model_env or default_model
-            sigma_model = agent_models.get("SigmaAgent") or sigma_model_env or default_model
 
             loaded_prompts = {}
 

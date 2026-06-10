@@ -160,7 +160,7 @@ class TestDatabaseManager:
             patch("src.database.manager.create_engine", return_value=mock_engine),
             patch("src.database.manager.Base.metadata.create_all"),
         ):
-            manager = DatabaseManager(database_url="postgresql://u:p@h/db")
+            DatabaseManager(database_url="postgresql://u:p@h/db")
 
         # Collect all SQL text strings passed to conn.execute
         executed_sql = " ".join(str(call.args[0]) for call in mock_conn.execute.call_args_list)

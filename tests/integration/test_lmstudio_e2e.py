@@ -449,7 +449,7 @@ def test_full_workflow_with_lmstudio(db_session, lmstudio_active_config, test_ar
 
     with patch("src.workflows.agentic_workflow.trace_workflow_execution", _noop_trace):
         # Generous timeout: full pipeline with 8B+14B can take ~8 minutes on Apple Silicon
-        result = asyncio.run(
+        asyncio.run(
             asyncio.wait_for(
                 run_workflow(test_article.id, db_session, execution_id=execution_id),
                 timeout=600,

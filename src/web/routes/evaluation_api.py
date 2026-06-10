@@ -2081,17 +2081,6 @@ async def get_subagent_eval_compare(
                     return (id_to_title.get(rec.article_id) or "").strip()
                 return ""
 
-            # Batch-fetch executions
-            execution_ids = [r.workflow_execution_id for r in all_records if r.workflow_execution_id]
-            executions_by_id: dict[int, AgenticWorkflowExecutionTable] = {}
-            if execution_ids:
-                exec_rows = (
-                    db_session.query(AgenticWorkflowExecutionTable)
-                    .filter(AgenticWorkflowExecutionTable.id.in_(execution_ids))
-                    .all()
-                )
-                executions_by_id = {e.id: e for e in exec_rows}
-
             preset_expected_by_url = _load_preset_expected_by_url(subagent)
 
             # Build per-(url, version) latest-record map (most recent by

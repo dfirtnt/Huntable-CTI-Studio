@@ -121,8 +121,6 @@ def filter_dump_lines(
     copy_seen_ids: set[str] = set()         # id values emitted so far for this COPY block
 
     for line in lines:
-        upper = line.upper()
-
         # --- primary-key dedup state machine ---
         if dedup_primary_keys:
             alter_m = _ALTER_TABLE_RE.match(line)

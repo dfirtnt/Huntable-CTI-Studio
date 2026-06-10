@@ -265,11 +265,6 @@ def test_pinned_versions_toml_key_value_not_flagged() -> None:
     """TOML-style key = value lines (from pyproject.toml) must not be flagged."""
     # The old grep-based check matched '=' in TOML lines like 'name = "cti-scraper"'
     # The Python logic is scoped to requirements.txt lines only and checks for '>='
-    toml_like_lines = [
-        'name = "cti-scraper"',
-        'version = "6.0.0"',
-        'requires-python = ">=3.11"',  # This DOES have >= but also has " around it
-    ]
     # TOML line with >= in quotes — the check does match '>=', flagging this.
     # The fix was scoping the check to requirements.txt only (which has no TOML).
     # Here we just verify the logic itself correctly handles requirements.txt format.

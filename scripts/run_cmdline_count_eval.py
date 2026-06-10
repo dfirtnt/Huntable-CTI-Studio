@@ -132,7 +132,7 @@ def cmdline_extraction_task(
 
     # Run async code - handle event loop gracefully
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
         # Event loop is running, use thread executor
         extractor_result = _run_async_in_thread(coro)
     except RuntimeError:
