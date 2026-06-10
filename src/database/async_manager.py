@@ -140,38 +140,45 @@ class AsyncDatabaseManager:
             async with self.engine.begin() as conn:
                 await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
                 await conn.run_sync(Base.metadata.create_all)
-                # Incremental column additions for existing installations
-                await conn.execute(
-                    text(
-                        "ALTER TABLE ml_model_versions "
-                        "ADD COLUMN IF NOT EXISTS is_current BOOLEAN NOT NULL DEFAULT FALSE"
-                    )
-                )
-                for col_ddl in [
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
-                    "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
-                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
-                    "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
-                    # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM
-                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_enabled",
-                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
-                    # osdetection_fallback_enabled always-False since 9797f699; drop the column
-                    "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
-                    # canonical_text was write-only dead data (no readers; operator always dropped
-                    # via an op/ops typo). Removed from the ORM 2026-06-01; drop the column.
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS canonical_text",
-                    # Per-section sigma embedding columns were write-only (never scored; only
-                    # `embedding` + `logsource_embedding` are read). Removed from the ORM 2026-06-01.
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS title_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS description_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
-                    "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
-                ]:
-                    await conn.execute(text(col_ddl))
+
+            # Incremental, idempotent column ensures. These are no-ops on a healthy DB but
+            # each needs ACCESS EXCLUSIVE briefly; if a worker holds the target table open
+            # (e.g. an eval run mid-LLM-call), an unbounded ALTER queues for the lock and the
+            # pending request then blocks ALL readers, freezing the app. Bound each with a
+            # short lock_timeout and run it in its own transaction so it skips fast instead.
+            col_ddls = [
+                "ALTER TABLE ml_model_versions ADD COLUMN IF NOT EXISTS is_current BOOLEAN NOT NULL DEFAULT FALSE",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS expected_items JSONB",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS actual_items JSONB",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS matched_count INTEGER",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS missed_count INTEGER",
+                "ALTER TABLE subagent_evaluations ADD COLUMN IF NOT EXISTS extra_count INTEGER",
+                "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS behavioral_matches_found INTEGER",
+                "ALTER TABLE sigma_rule_queue ADD COLUMN IF NOT EXISTS total_candidates_evaluated INTEGER",
+                # QA deprecation (2026-05-22): drop legacy columns no longer in the ORM
+                "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_enabled",
+                "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS qa_max_retries",
+                # osdetection_fallback_enabled always-False since 9797f699; drop the column
+                "ALTER TABLE agentic_workflow_config DROP COLUMN IF EXISTS osdetection_fallback_enabled",
+                # canonical_text was write-only dead data (no readers; operator always dropped
+                # via an op/ops typo). Removed from the ORM 2026-06-01; drop the column.
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS canonical_text",
+                # Per-section sigma embedding columns were write-only (never scored; only
+                # `embedding` + `logsource_embedding` are read). Removed from the ORM 2026-06-01.
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS title_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS description_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS tags_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_structure_embedding",
+                "ALTER TABLE sigma_rules DROP COLUMN IF EXISTS detection_fields_embedding",
+            ]
+            for col_ddl in col_ddls:
+                try:
+                    async with self.engine.begin() as conn:
+                        await conn.execute(text("SET LOCAL lock_timeout = '3s'"))
+                        await conn.execute(text(col_ddl))
+                except Exception as ddl_err:
+                    logger.warning("Skipping schema-ensure DDL (lock contention or non-fatal): %s", ddl_err)
+
             logger.info("Database tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
