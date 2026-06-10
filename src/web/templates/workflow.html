@@ -927,6 +927,7 @@
 
 .q-table {
   width: 100%;
+  min-width: 1100px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -7687,7 +7688,16 @@ async function pollTestStatus(taskId, agentName, articleId) {
                     if (!displayText) {
                         displayText = JSON.stringify(payload, null, 2);
                     }
-                    
+
+                    // Pretty-print for readability: extractors return compact, single-line
+                    // JSON strings in llm_response/raw_response. Re-indent if it parses as JSON;
+                    // leave non-JSON responses (e.g. SigmaAgent YAML/prose) untouched.
+                    try {
+                        displayText = JSON.stringify(JSON.parse(displayText), null, 2);
+                    } catch (e) {
+                        // Not JSON — keep the original text as-is.
+                    }
+
                     resultsContent.textContent = displayText;
                     resultsContent.className = 'bg-green-50 dark:bg-green-900/20 p-3 rounded border border-green-200 dark:border-green-800 text-xs overflow-x-auto text-gray-500 dark:text-gray-400';
                 } else {
