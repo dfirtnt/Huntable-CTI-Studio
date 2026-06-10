@@ -38,13 +38,16 @@ def _extract_yaml_block(text: str) -> str:
             fence_close = text.find("```", content_start)
         content = text[content_start:fence_close].strip() if fence_close != -1 else text[content_start:].strip()
         return content
-    for start in ("title:", "id:", "logsource:", "detection:"):
-        idx = text.find(start)
-        if idx != -1:
-            # If the YAML is followed by another code fence / prose, truncate at the next fence.
-            candidate = text[idx:].strip()
-            candidate = re.split(r"```", candidate, maxsplit=1)[0].strip()
-            return candidate
+    # Earliest line-anchored marker in TEXT order. Priority-order find() used to
+    # truncate everything before `title:` when title was not the first key
+    # (e.g. alphabetically-sorted yaml.safe_dump output starts with detection:),
+    # and bare substring search matched mid-word (e.g. "rapid:").
+    marker = re.search(r"^(?:title|id|logsource|detection):", text, re.MULTILINE)
+    if marker:
+        # If the YAML is followed by another code fence / prose, truncate at the next fence.
+        candidate = text[marker.start() :].strip()
+        candidate = re.split(r"```", candidate, maxsplit=1)[0].strip()
+        return candidate
     # No obvious YAML boundary markers; fall back to raw content.
     return text.strip()
 

@@ -206,6 +206,33 @@ detection:
         assert response.status_code == 200
         assert response.json()["success"] is True
 
+    def test_compare_accepts_yaml_with_title_not_first(self):
+        """YAML whose keys are alphabetically sorted (detection before title --
+        the default yaml.safe_dump layout for LLM-shaped output) must keep its
+        detection section: marker scanning is text-order, not priority-order."""
+        import yaml as _yaml
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        app = FastAPI()
+        app.include_router(_sigma_ab_test_router)
+        client = TestClient(app)
+
+        # sort_keys=True puts detection: first and title: last; the old
+        # priority-order scan truncated everything before title:.
+        sorted_dump = _yaml.safe_dump(_yaml.safe_load(MINIMAL_RULE), sort_keys=True)
+        assert sorted_dump.startswith("detection:")  # fixture sanity
+
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": sorted_dump, "rule_b": MINIMAL_RULE},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["similarity"] == 1.0
+
     def test_compare_400_when_rule_empty(self):
         """Empty rule_a or rule_b returns 400."""
         from fastapi import FastAPI
