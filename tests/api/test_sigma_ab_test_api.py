@@ -498,3 +498,76 @@ detection:
         assert data["similarity_engine"] == "legacy"
         assert data["similarity"] == 1.0
         assert data["novelty_label"] == "DUPLICATE"
+
+    def test_compare_uses_single_match_classifier_for_both_engines(self):
+        """Phase 3 fold: both /compare paths classify via
+        classify_match_novelty (the Phase-2 single source of truth);
+        the weighted-similarity pairwise classifier is retired."""
+        import inspect
+
+        from src.web.routes import sigma_ab_test as route_module
+
+        source = inspect.getsource(route_module)
+        assert "_classify_pairwise_novelty" not in source, (
+            "weighted pairwise classifier must be retired in favor of classify_match_novelty"
+        )
+        assert "classify_match_novelty" in source
+
+    def test_compare_legacy_fallback_label_conforms_to_match_classifier_table(self):
+        """The fallback path's verdict must follow the legacy threshold row
+        (atom_jaccard/logic_shape), recomputed here from the response itself
+        so the pin holds for any pair."""
+        client = self._client()
+
+        rule_a = """
+title: Unclassifiable A
+logsource:
+  product: windows
+  service: someunknownservice123
+detection:
+  selection:
+    FieldOne: alpha
+    FieldTwo: beta
+    FieldThree: gamma
+    FieldFour: delta
+    FieldFive: epsilon
+  condition: selection
+"""
+        rule_b = """
+title: Unclassifiable B
+logsource:
+  product: windows
+  service: someunknownservice123
+detection:
+  selection_one:
+    FieldOne: alpha
+    FieldTwo: beta
+    FieldThree: gamma
+    FieldFour: delta
+    FieldFive: epsilon
+  selection_two:
+    FieldSix: zeta
+  condition: selection_one or selection_two
+"""
+        response = client.post(
+            "/api/sigma-ab-test/compare",
+            json={"rule_a": rule_a, "rule_b": rule_b},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["similarity_engine"] == "legacy"
+
+        atom_jaccard = data["atom_jaccard"]
+        logic_shape = data["logic_shape_similarity"]
+        logic_shape = 1.0 if logic_shape is None else logic_shape
+        if atom_jaccard > 0.95 and logic_shape > 0.95:
+            expected = "DUPLICATE"
+        elif atom_jaccard > 0.80:
+            expected = "SIMILAR"
+        else:
+            expected = "NOVEL"
+        assert data["novelty_label"] == expected, (
+            f"fallback label {data['novelty_label']} does not follow the legacy "
+            f"table for jaccard={atom_jaccard}, logic_shape={logic_shape}"
+        )

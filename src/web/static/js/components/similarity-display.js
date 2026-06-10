@@ -1,14 +1,56 @@
 /**
  * Standardized Similarity Display Component
- * 
+ *
  * Provides consistent rendering of similarity search results across all pages.
  * Handles data normalization and supports multiple display modes.
  */
 
 /**
+ * Phase-0 threshold table -- the SINGLE source of similarity cutoffs for the
+ * frontend (docs/development/sigma-similarity-unification-plan-2026-06-05.md,
+ * section 5). No template or component may hardcode these numbers.
+ *
+ * Backend linkage: the `legacy` row mirrors
+ * src/services/sigma_novelty_service.py::classify_match_novelty -- if either
+ * side changes, change both (values are defined once per language by design).
+ */
+const SIMILARITY_THRESHOLDS = Object.freeze({
+    // Legacy engine row: label from atom_jaccard + logic_shape.
+    legacy: Object.freeze({
+        duplicateAtomJaccard: 0.95,
+        duplicateLogicShape: 0.95,
+        similarAtomJaccard: 0.80,
+    }),
+    // Deterministic engine row: label from weighted similarity.
+    deterministic: Object.freeze({
+        duplicateSimilarity: 0.75,
+        similarSimilarity: 0.50,
+    }),
+    // Display color bands for raw similarity scores in match lists.
+    display: Object.freeze({
+        strongMatch: 0.90,
+        moderateMatch: 0.75,
+    }),
+});
+
+/**
+ * Canonical display names for the similarity metrics (one vocabulary across
+ * every surface; renderers adopt these as they migrate in Phase 4).
+ */
+const METRIC_LABELS = Object.freeze({
+    similarity: 'Similarity',
+    atom_jaccard: 'Atom Jaccard',
+    logic_shape_similarity: 'Logic Shape',
+    containment: 'Containment',
+    filter_penalty: 'Filter Penalty',
+    service_penalty: 'Service Penalty',
+    novelty_score: 'Novelty Score',
+});
+
+/**
  * Normalizes similarity data structure to a consistent format.
  * Handles both direct properties and nested similarity_breakdown.
- * 
+ *
  * @param {Object} match - Raw similarity match data
  * @returns {Object} Normalized similarity data
  */
@@ -23,8 +65,11 @@ function normalizeSimilarityData(match) {
         ? match.logic_shape_similarity
         : match.similarity_breakdown?.logic_shape_similarity;
     
-    // Extract weighted similarity (may be called 'similarity')
-    const similarity = match.similarity !== undefined ? match.similarity : 0;
+    // Extract weighted similarity (canonical 'similarity', or the Phase-1
+    // legacy alias 'similarity_score')
+    const similarity = match.similarity !== undefined
+        ? match.similarity
+        : (match.similarity_score !== undefined ? match.similarity_score : 0);
     
     // Calculate novelty score if not provided
     const noveltyScore = match.novelty_score !== undefined 
@@ -48,12 +93,24 @@ function normalizeSimilarityData(match) {
     const semanticDetails = match.semantic_details || null;
     const reasonFlags = Array.isArray(semanticDetails?.reason_flags) ? semanticDetails.reason_flags : [];
 
-    // For deterministic engine, derive novelty label from similarity thresholds when not special-case
+    // Canonical containment: top-level field (serializer output) first, then
+    // the deterministic engine's overlap_ratio_a, else null.
+    const containment = match.containment !== undefined && match.containment !== null
+        ? match.containment
+        : (semanticDetails?.overlap_ratio_a ?? null);
+
+    // Surface scores (deterministic engine branch-count estimates).
+    const surfaceScoreA = semanticDetails?.surface_score_a ?? null;
+    const surfaceScoreB = semanticDetails?.surface_score_b ?? null;
+
+    // For deterministic engine, derive novelty label from the deterministic
+    // threshold row when not special-case
     let resolvedNoveltyLabel = noveltyLabel;
     if (similarityEngine === 'deterministic' && !reasonFlags.includes('canonical_class_mismatch') &&
         !reasonFlags.includes('unsupported_sigma_feature') && !reasonFlags.includes('dnf_expansion_limit')) {
-        if (similarity >= 0.75) resolvedNoveltyLabel = 'DUPLICATE';
-        else if (similarity >= 0.50) resolvedNoveltyLabel = 'SIMILAR';
+        const det = SIMILARITY_THRESHOLDS.deterministic;
+        if (similarity >= det.duplicateSimilarity) resolvedNoveltyLabel = 'DUPLICATE';
+        else if (similarity >= det.similarSimilarity) resolvedNoveltyLabel = 'SIMILAR';
         else resolvedNoveltyLabel = 'NOVEL';
     }
 
@@ -61,6 +118,7 @@ function normalizeSimilarityData(match) {
         similarity: similarity,
         atom_jaccard: atomJaccard,
         logic_shape_similarity: logicShape,
+        containment: containment,
         novelty_label: resolvedNoveltyLabel,
         novelty_score: noveltyScore,
         similarity_breakdown: {
@@ -72,6 +130,8 @@ function normalizeSimilarityData(match) {
         filter_penalty: filterPenalty,
         similarity_engine: similarityEngine,
         semantic_details: semanticDetails,
+        surface_score_a: surfaceScoreA,
+        surface_score_b: surfaceScoreB,
         reason_flags: reasonFlags,
         shared_atoms: [...new Set(match.shared_atoms || [])],
         added_atoms: [...new Set(match.added_atoms || [])],
@@ -90,12 +150,14 @@ function normalizeSimilarityData(match) {
  * @returns {string} Novelty label: DUPLICATE, SIMILAR, or NOVEL
  */
 function calculateNoveltyLabel(similarity, atomJaccard, logicShape) {
-    // DUPLICATE: atom_jaccard > 0.95 AND logic_similarity > 0.95
-    if (atomJaccard > 0.95 && logicShape !== null && logicShape !== undefined && logicShape > 0.95) {
+    const legacy = SIMILARITY_THRESHOLDS.legacy;
+    // DUPLICATE: atom_jaccard AND logic_similarity above the duplicate cutoffs
+    if (atomJaccard > legacy.duplicateAtomJaccard &&
+        logicShape !== null && logicShape !== undefined && logicShape > legacy.duplicateLogicShape) {
         return 'DUPLICATE';
     }
-    // SIMILAR: atom_jaccard > 0.80
-    if (atomJaccard > 0.80) {
+    // SIMILAR: atom_jaccard above the similar cutoff
+    if (atomJaccard > legacy.similarAtomJaccard) {
         return 'SIMILAR';
     }
     // NOVEL: everything else
@@ -609,6 +671,8 @@ function updateSimilarityDisplay(data, options = {}) {
 // Export functions for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
+        SIMILARITY_THRESHOLDS,
+        METRIC_LABELS,
         normalizeSimilarityData,
         calculateNoveltyLabel,
         renderSimilarityDisplay,

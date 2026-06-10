@@ -102,6 +102,7 @@
     </div>
 </div>
 
+<script src="/static/js/components/similarity-display.js"></script>
 <script>
     // Example rule for testing
     const exampleRule = `title: Suspicious PowerShell Execution
@@ -259,13 +260,14 @@ tags:
             const matchDiv = document.createElement('div');
             matchDiv.className = 'border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors';
             
-            // Determine status color based on similarity
+            // Determine status color based on similarity (bands come from the
+            // shared Phase-0 constants in similarity-display.js)
             let statusColor = 'blue';
             let statusIcon = '🔍';
-            if (match.similarity >= 0.90) {
+            if (match.similarity >= SIMILARITY_THRESHOLDS.display.strongMatch) {
                 statusColor = 'green';
                 statusIcon = '✅';
-            } else if (match.similarity >= 0.75) {
+            } else if (match.similarity >= SIMILARITY_THRESHOLDS.display.moderateMatch) {
                 statusColor = 'yellow';
                 statusIcon = '⚠️';
             }

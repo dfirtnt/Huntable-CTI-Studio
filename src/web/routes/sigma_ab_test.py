@@ -81,15 +81,6 @@ def _parse_and_validate_rule(raw: str, field: str) -> dict[str, Any]:
     return data
 
 
-def _classify_pairwise_novelty(weighted_sim: float) -> str:
-    """Classify novelty from pairwise similarity (0-1)."""
-    if weighted_sim >= 0.95:
-        return NoveltyLabel.DUPLICATE
-    if weighted_sim >= 0.80:
-        return NoveltyLabel.SIMILAR
-    return NoveltyLabel.NOVEL
-
-
 @router.post("/compare")
 async def compare_rules(compare_request: CompareRequest):
     """
