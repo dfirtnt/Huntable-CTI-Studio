@@ -400,84 +400,32 @@ class SigmaNoveltyService:
                 # Prefer precomputed-atom path when both sides have atoms; else full compare
                 used_deterministic = False
                 deterministic_result = None
+                det_match = None
                 candidate_pos = candidate.get("positive_atoms") if isinstance(candidate, dict) else None
                 candidate_neg = candidate.get("negative_atoms") if isinstance(candidate, dict) else []
                 candidate_surface = candidate.get("surface_score", 1) if isinstance(candidate, dict) else 1
 
-                if (
-                    proposed_sem is not None
-                    and candidate_pos is not None
-                    and compute_containment is not None
-                    and _sigma_filter_penalty is not None
-                ):
-                    # Pure set math: no YAML parsing
-                    # Normalize atom identities: lowercase values AND resolve field aliases.
-                    # Proposed atoms may use snake_case fields (LLM-generated) while stored
-                    # SigmaHQ atoms use canonical process.* namespace. Both sides need
-                    # normalization for correct comparison.
-                    A1 = {_normalize_atom_identity(a) for a in proposed_sem["positive_atoms"]}
-                    A2 = {_normalize_atom_identity(a) for a in candidate_pos}
-                    F1 = {_normalize_atom_identity(a) for a in proposed_sem["negative_atoms"]}
-                    F2 = {_normalize_atom_identity(a) for a in candidate_neg} if candidate_neg else set()
-                    surface_a = float(proposed_sem["surface_score"])
-                    surface_b = float(candidate_surface)
-
-                    intersection = A1 & A2
-                    union = A1 | A2
-                    if len(union) == 0:
-                        atom_jaccard = 0.0
-                        logic_similarity = 0.65
-                        filter_penalty = 0.0
-                        weighted_sim = 0.0
-                        weighted_before_penalties = 0.0
-                        overlap_ratio_a, overlap_ratio_b = 0.0, 0.0
-                        reason_flags = ["no_shared_atoms"]
-                    else:
-                        atom_jaccard = len(intersection) / len(union)
-
-                        # Value-based soft matching: when strict atoms don't overlap,
-                        # check if the same executable value appears in process-exe
-                        # fields on both sides (e.g. process.image vs process.command_line).
-                        if atom_jaccard == 0.0:
-                            soft = _soft_exe_jaccard_from_atom_strings(A1, A2, union)
-                            if soft > 0.0:
-                                atom_jaccard = soft
-
-                        # For containment, use actual intersection size (0 for soft matches)
-                        # but ensure soft matches still get reasonable containment
-                        effective_intersection = len(intersection)
-                        if effective_intersection == 0 and atom_jaccard > 0:
-                            # Soft match: estimate intersection from jaccard
-                            effective_intersection = max(1, round(atom_jaccard * len(union)))
-
-                        B, overlap_ratio_a, overlap_ratio_b = compute_containment(
-                            effective_intersection, len(A1), len(A2), surface_a, surface_b
-                        )
-                        logic_similarity = B
-                        filter_penalty = _sigma_filter_penalty(F1, F2, len(A1), len(A2))
-                        weighted_sim = max(0.0, min(1.0, (atom_jaccard * B) - filter_penalty))
-                        weighted_before_penalties = weighted_sim + filter_penalty
-                        reason_flags = [] if atom_jaccard > 0 else ["no_shared_atoms"]
-
-                    used_deterministic = True
-                    service_penalty = 0.0
-                    deterministic_result = type(
-                        "Result",
-                        (),
+                if proposed_sem is not None and candidate_pos is not None:
+                    # Pure set math via the single precomputed-atom scorer
+                    # (shared with /sigma-ab-test /compare). Returns None when
+                    # the sigma_similarity primitives are unavailable.
+                    det_match = self.compare_precomputed_semantics(
+                        proposed_sem,
                         {
-                            "jaccard": atom_jaccard,
-                            "containment_factor": logic_similarity,
-                            "filter_penalty": filter_penalty,
-                            "surface_score_a": surface_a,
-                            "surface_score_b": surface_b,
-                            "canonical_class": proposed_sem["canonical_class"],
-                            "explanation": {
-                                "overlap_ratio_a": overlap_ratio_a,
-                                "overlap_ratio_b": overlap_ratio_b,
-                                "reason_flags": reason_flags,
-                            },
+                            "positive_atoms": candidate_pos,
+                            "negative_atoms": candidate_neg or [],
+                            "surface_score": candidate_surface,
                         },
-                    )()
+                    )
+
+                if det_match is not None:
+                    used_deterministic = True
+                    atom_jaccard = det_match["atom_jaccard"]
+                    logic_similarity = det_match["logic_shape_similarity"]
+                    service_penalty = det_match["service_penalty"]
+                    filter_penalty = det_match["filter_penalty"]
+                    weighted_sim = det_match["similarity"]
+                    weighted_before_penalties = det_match["weighted_before_penalties"]
 
                 elif _sigma_compare_rules is not None and isinstance(candidate, dict):
                     try:
@@ -523,25 +471,15 @@ class SigmaNoveltyService:
                         weighted_before_penalties = 0.70 * atom_jaccard + 0.30 * logic_val
 
                 if weighted_sim >= threshold:
-                    if used_deterministic and candidate_pos is not None and proposed_sem is not None:
-                        # Explainability from precomputed atom sets (no parsing)
-                        # Apply same normalization as the comparison above
-                        A1 = {_normalize_atom_identity(a) for a in proposed_sem["positive_atoms"]}
-                        A2 = {_normalize_atom_identity(a) for a in candidate_pos}
-                        F1 = {_normalize_atom_identity(a) for a in proposed_sem["negative_atoms"]}
-                        F2 = {_normalize_atom_identity(a) for a in candidate_neg} if candidate_neg else set()
-                        shared = A1 & A2
-                        added = A2 - A1
-                        removed = A1 - A2
-                        filter_diff = (F1 | F2) - (F1 & F2)
-                        # Render to the same human-readable form as the full-parse
-                        # path (_atom_to_string) so both explainability surfaces match.
-                        # Set ops run on raw identities first; display-format only at emit.
+                    if det_match is not None:
+                        # Explainability from precomputed atom sets (no parsing),
+                        # emitted by the shared scorer in the same display form
+                        # as the full-parse path's _atom_to_string.
                         explainability = {
-                            "shared_atoms": [_atom_identity_to_display(a) for a in sorted(shared)],
-                            "added_atoms": [_atom_identity_to_display(a) for a in sorted(added)],
-                            "removed_atoms": [_atom_identity_to_display(a) for a in sorted(removed)],
-                            "filter_differences": [_atom_identity_to_display(a) for a in sorted(filter_diff)],
+                            "shared_atoms": det_match["shared_atoms"],
+                            "added_atoms": det_match["added_atoms"],
+                            "removed_atoms": det_match["removed_atoms"],
+                            "filter_differences": det_match["filter_differences"],
                         }
                     else:
                         explainability = self.generate_explainability(canonical_rule, candidate_canonical, candidate)
@@ -559,7 +497,9 @@ class SigmaNoveltyService:
                         # the downstream gate at sigma_matching_service.py:551 can scope itself.
                         "phase1_path": candidate.get("phase1_path") if isinstance(candidate, dict) else None,
                         "semantic_details": (
-                            {
+                            det_match["semantic_details"]
+                            if det_match is not None
+                            else {
                                 "canonical_class": deterministic_result.canonical_class,
                                 "jaccard": deterministic_result.jaccard,
                                 "containment_factor": deterministic_result.containment_factor,
@@ -624,6 +564,104 @@ class SigmaNoveltyService:
                 "behavioral_matches_found": 0,
                 "engine_used": "legacy",
             }
+
+    def compare_precomputed_semantics(self, sem_a: dict[str, Any], sem_b: dict[str, Any]) -> dict[str, Any] | None:
+        """Pairwise comparison of two precomputed semantic-field dicts (pure set math).
+
+        Single scorer for the precomputed-atom path: assess_novelty's stored-atom
+        branch and /sigma-ab-test /compare both call this, so live-parse and
+        precomputed scoring cannot diverge (the two-extractor polarity bug).
+
+        Inputs are dicts shaped like precompute_semantic_fields() output /
+        SigmaRuleTable semantic columns: canonical_class, positive_atoms,
+        negative_atoms, surface_score. Returns None when the sigma_similarity
+        primitives are unavailable (callers fall back to the in-src parse path).
+
+        Filter (negative) atoms are counted exactly once: they never enter the
+        positive jaccard; their entire effect is the filter_penalty term
+        (similarity = jaccard * containment - filter_penalty).
+        """
+        if compute_containment is None or _sigma_filter_penalty is None:
+            return None
+
+        # Normalize atom identities: lowercase values AND resolve field aliases.
+        # Proposed atoms may use snake_case fields (LLM-generated) while stored
+        # SigmaHQ atoms use canonical process.* namespace. Both sides need
+        # normalization for correct comparison.
+        a1 = {_normalize_atom_identity(a) for a in (sem_a.get("positive_atoms") or [])}
+        a2 = {_normalize_atom_identity(a) for a in (sem_b.get("positive_atoms") or [])}
+        f1 = {_normalize_atom_identity(a) for a in (sem_a.get("negative_atoms") or [])}
+        f2 = {_normalize_atom_identity(a) for a in (sem_b.get("negative_atoms") or [])}
+        surface_a = float(sem_a.get("surface_score") or 0)
+        surface_b = float(sem_b.get("surface_score") or 0)
+
+        intersection = a1 & a2
+        union = a1 | a2
+        if len(union) == 0:
+            atom_jaccard = 0.0
+            logic_similarity = 0.65
+            filter_penalty = 0.0
+            weighted_sim = 0.0
+            weighted_before_penalties = 0.0
+            overlap_ratio_a, overlap_ratio_b = 0.0, 0.0
+            reason_flags = ["no_shared_atoms"]
+        else:
+            atom_jaccard = len(intersection) / len(union)
+
+            # Value-based soft matching: when strict atoms don't overlap,
+            # check if the same executable value appears in process-exe
+            # fields on both sides (e.g. process.image vs process.command_line).
+            if atom_jaccard == 0.0:
+                soft = _soft_exe_jaccard_from_atom_strings(a1, a2, union)
+                if soft > 0.0:
+                    atom_jaccard = soft
+
+            # For containment, use actual intersection size (0 for soft matches)
+            # but ensure soft matches still get reasonable containment
+            effective_intersection = len(intersection)
+            if effective_intersection == 0 and atom_jaccard > 0:
+                effective_intersection = max(1, round(atom_jaccard * len(union)))
+
+            containment_factor, overlap_ratio_a, overlap_ratio_b = compute_containment(
+                effective_intersection, len(a1), len(a2), surface_a, surface_b
+            )
+            logic_similarity = containment_factor
+            filter_penalty = _sigma_filter_penalty(f1, f2, len(a1), len(a2))
+            weighted_sim = max(0.0, min(1.0, (atom_jaccard * containment_factor) - filter_penalty))
+            weighted_before_penalties = weighted_sim + filter_penalty
+            reason_flags = [] if atom_jaccard > 0 else ["no_shared_atoms"]
+
+        # Explainability from the same normalized sets; set ops run on raw
+        # identities first, display-format only at emit (matches the
+        # full-parse path's _atom_to_string rendering).
+        added = a2 - a1
+        removed = a1 - a2
+        filter_diff = (f1 | f2) - (f1 & f2)
+
+        return {
+            "atom_jaccard": atom_jaccard,
+            "logic_shape_similarity": logic_similarity,
+            "similarity": weighted_sim,
+            "service_penalty": 0.0,
+            "filter_penalty": filter_penalty,
+            "weighted_before_penalties": weighted_before_penalties,
+            "similarity_engine": "deterministic",
+            "semantic_details": {
+                "canonical_class": sem_a.get("canonical_class"),
+                "jaccard": atom_jaccard,
+                "containment_factor": logic_similarity,
+                "filter_penalty": filter_penalty,
+                "surface_score_a": surface_a,
+                "surface_score_b": surface_b,
+                "overlap_ratio_a": overlap_ratio_a,
+                "overlap_ratio_b": overlap_ratio_b,
+                "reason_flags": reason_flags,
+            },
+            "shared_atoms": [_atom_identity_to_display(a) for a in sorted(intersection)],
+            "added_atoms": [_atom_identity_to_display(a) for a in sorted(added)],
+            "removed_atoms": [_atom_identity_to_display(a) for a in sorted(removed)],
+            "filter_differences": [_atom_identity_to_display(a) for a in sorted(filter_diff)],
+        }
 
     def build_canonical_rule(self, rule_data: dict[str, Any]) -> CanonicalRule:
         """

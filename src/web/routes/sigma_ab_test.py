@@ -14,7 +14,8 @@ from pydantic import BaseModel
 
 from src.database.manager import DatabaseManager
 from src.services.sigma_matching_service import SigmaMatchingService
-from src.services.sigma_novelty_service import NoveltyLabel, SigmaNoveltyService
+from src.services.sigma_novelty_service import NoveltyLabel, SigmaNoveltyService, classify_match_novelty
+from src.services.sigma_semantic_precompute import precompute_semantic_fields
 from src.services.similarity_serialization import serialize_similarity_match
 
 logger = logging.getLogger(__name__)
@@ -97,6 +98,24 @@ async def compare_rules(compare_request: CompareRequest):
     rule_b_data = _parse_and_validate_rule(compare_request.rule_b, "rule_b")
 
     service = SigmaNoveltyService(db_session=None)
+
+    # Deterministic-first: extract BOTH rules with the same precompute
+    # (sigma_similarity package) extractor used at index time, then score via
+    # the shared precomputed-atom scorer. One extractor, two timings -- the
+    # in-src parse below is only a fallback for rules the package cannot
+    # classify, so /compare cannot diverge from stored-atom scoring
+    # (filter-polarity bug: `not N of filter_*` atoms leaked into the
+    # positive jaccard and produced false-NOVEL verdicts).
+    sem_a = precompute_semantic_fields(rule_a_data)
+    sem_b = precompute_semantic_fields(rule_b_data)
+    if sem_a is not None and sem_b is not None:
+        det_match = service.compare_precomputed_semantics(sem_a, sem_b)
+        if det_match is not None:
+            # Phase-2 single source of truth for novelty thresholds, same as
+            # every stored-atom surface.
+            det_match["novelty_label"] = classify_match_novelty(det_match)
+            return {"success": True, **serialize_similarity_match(det_match)}
+
     canonical_a = service.build_canonical_rule(rule_a_data)
     canonical_b = service.build_canonical_rule(rule_b_data)
 
@@ -137,7 +156,9 @@ async def compare_rules(compare_request: CompareRequest):
 @router.post("/compare-to-repository")
 async def compare_rule_to_repository(compare_request: CompareToRepositoryRequest):
     """
-    Compare a SIGMA rule against the repository (embedding-based similarity).
+    Compare a SIGMA rule against the repository (behavioral atom set-math via
+    assess_rule_novelty; proposed-rule atoms come from the same precompute
+    extractor used at index time).
     """
     rule_data = _parse_and_validate_rule(compare_request.rule, "rule")
 

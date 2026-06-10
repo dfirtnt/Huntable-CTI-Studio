@@ -1012,3 +1012,249 @@ class TestRetrieveCandidatesDeterministicOrdering:
         assert call_names.index("order_by") < call_names.index("limit"), (
             f"order_by must come BEFORE limit; got call sequence: {call_names}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Extractor convergence (/compare slice of the extractor-collapse task).
+# Bug: `not N of filter_*` atoms mis-polarized as positive by the in-src
+# extractor polluted atom_jaccard on /sigma-ab-test (Todoist 6gqhWHxjgpWGHGP3).
+# Fix direction (b): pairwise comparison converges onto the precompute
+# (sigma_similarity package) extractor via compare_precomputed_semantics.
+# ---------------------------------------------------------------------------
+
+
+class TestComparePrecomputedSemantics:
+    """Unit tests for SigmaNoveltyService.compare_precomputed_semantics.
+
+    The single scorer for the precomputed-atom path: assess_novelty's
+    stored-atom branch and /sigma-ab-test /compare both call this.
+    Pure set math over semantic-field dicts; no YAML parsing.
+    """
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    @staticmethod
+    def _sem(positive, negative, surface=4, canonical_class="windows.process_creation"):
+        return {
+            "canonical_class": canonical_class,
+            "positive_atoms": list(positive),
+            "negative_atoms": list(negative),
+            "surface_score": surface,
+        }
+
+    def test_filter_only_difference_penalized_once_not_jaccard_polluted(self, service):
+        """Filter atoms affect the score through exactly ONE mechanism (the
+        filter penalty). They must not leak into the positive jaccard set:
+        identical positives + divergent filters => jaccard stays 1.0 and the
+        whole difference lands in filter_penalty (no double-count)."""
+        positives = ["fielda|contains|x", "fieldb|endswith|y", "fieldc||z"]
+        sem_a = self._sem(positives, ["neg1|contains|f1", "neg2|contains|f2"])
+        sem_b = self._sem(positives, [])
+
+        result = service.compare_precomputed_semantics(sem_a, sem_b)
+
+        assert result is not None
+        assert result["atom_jaccard"] == 1.0
+        assert result["logic_shape_similarity"] == 1.0
+        assert result["filter_penalty"] == pytest.approx(0.5)  # min(0.5, 2/3)
+        assert result["service_penalty"] == 0.0
+        # similarity = jaccard * containment - filter_penalty: the ONLY place
+        # the filter difference is counted.
+        assert result["similarity"] == pytest.approx(0.5)
+        assert result["weighted_before_penalties"] == pytest.approx(1.0)
+        assert result["similarity_engine"] == "deterministic"
+
+    def test_explainability_sets_and_display_formatting(self, service):
+        """shared/added/removed come from positive sets only; filter
+        differences from negative sets; all rendered via the shared
+        3-slot display format (field|op:value)."""
+        sem_a = self._sem(["fielda|contains|x", "shared||v"], ["neg1|contains|f"])
+        sem_b = self._sem(["fieldb|endswith|y", "shared||v"], [])
+
+        result = service.compare_precomputed_semantics(sem_a, sem_b)
+
+        assert result["shared_atoms"] == ["shared:v"]
+        assert result["added_atoms"] == ["fieldb|endswith:y"]
+        assert result["removed_atoms"] == ["fielda|contains:x"]
+        assert result["filter_differences"] == ["neg1|contains:f"]
+
+    def test_semantic_details_carry_containment_and_class(self, service):
+        positives = ["fielda|contains|x"]
+        sem_a = self._sem(positives, [], surface=3)
+        sem_b = self._sem(positives, [], surface=3)
+
+        result = service.compare_precomputed_semantics(sem_a, sem_b)
+
+        details = result["semantic_details"]
+        assert details["canonical_class"] == "windows.process_creation"
+        assert details["jaccard"] == 1.0
+        assert details["containment_factor"] == 1.0
+        assert details["overlap_ratio_a"] == 1.0
+        assert details["overlap_ratio_b"] == 1.0
+        assert details["surface_score_a"] == 3.0
+        assert details["surface_score_b"] == 3.0
+        assert details["reason_flags"] == []
+
+    def test_disjoint_positive_sets_flag_no_shared_atoms(self, service):
+        """Non-exe disjoint positives: jaccard 0, containment floor 0.65,
+        similarity 0, reason flag set."""
+        sem_a = self._sem(["regkey|contains|run"], [])
+        sem_b = self._sem(["svc.name||foo"], [])
+
+        result = service.compare_precomputed_semantics(sem_a, sem_b)
+
+        assert result["atom_jaccard"] == 0.0
+        assert result["logic_shape_similarity"] == 0.65
+        assert result["similarity"] == 0.0
+        assert result["semantic_details"]["reason_flags"] == ["no_shared_atoms"]
+
+    def test_empty_positive_sets_score_zero(self, service):
+        sem_a = self._sem([], ["neg1|contains|f"])
+        sem_b = self._sem([], [])
+
+        result = service.compare_precomputed_semantics(sem_a, sem_b)
+
+        assert result["atom_jaccard"] == 0.0
+        assert result["similarity"] == 0.0
+        assert result["filter_penalty"] == 0.0
+        assert result["semantic_details"]["reason_flags"] == ["no_shared_atoms"]
+
+    def test_returns_none_when_package_primitives_unavailable(self, service, monkeypatch):
+        """Callers fall back to the legacy in-src path when the
+        sigma_similarity package is not importable."""
+        monkeypatch.setattr("src.services.sigma_novelty_service.compute_containment", None)
+        sem = self._sem(["fielda|contains|x"], [])
+
+        assert service.compare_precomputed_semantics(sem, sem) is None
+
+    def test_field_alias_normalization_applies_to_both_sides(self, service):
+        """LLM-style snake_case fields and stored canonical fields must
+        resolve to the same atom identity (regression for the runtime
+        alias safety net)."""
+        sem_a = self._sem(["command_line|contains|whoami"], [])
+        sem_b = self._sem(["process.command_line|contains|WHOAMI"], [])
+
+        result = service.compare_precomputed_semantics(sem_a, sem_b)
+
+        assert result["atom_jaccard"] == 1.0
+
+
+class TestPackageExtractorConvergence:
+    """AC pins for the convergence: the package extractor (the single
+    extractor /compare now uses) classifies `not N of filter_*` polarity
+    correctly, and live extraction matches the stored DB atom snapshot."""
+
+    # DB snapshot 2026-06-10 (sigma_rules.id=2002, SigmaHQ 178e615d-...,
+    # "Suspicious Command Patterns In Scheduled Task Creation" family pair).
+    # If the package's atom identity logic changes intentionally, update this
+    # snapshot AND run recompute-semantics so stored atoms stay in lockstep.
+    RULE_2002_LOGSOURCE = {"product": "windows", "category": "process_creation"}
+    RULE_2002_DETECTION = {
+        "condition": "all of selection_* and not 1 of filter_main_* and not 1 of filter_optional_*",
+        "selection_user": {"LogonId": "0x3e7", "User|contains": ["AUTHORI", "AUTORI"]},
+        "selection_shell": [
+            {"Image|endswith": ["\\powershell.exe", "\\powershell_ise.exe", "\\pwsh.exe", "\\cmd.exe"]},
+            {"OriginalFileName": ["PowerShell.EXE", "powershell_ise.EXE", "pwsh.dll", "Cmd.Exe"]},
+        ],
+        "filter_main_generic": {
+            "ParentImage|contains": [
+                ":\\Program Files (x86)\\",
+                ":\\Program Files\\",
+                ":\\ProgramData\\",
+                ":\\Windows\\System32\\",
+                ":\\Windows\\SysWOW64\\",
+                ":\\Windows\\Temp\\",
+                ":\\Windows\\WinSxS\\",
+            ]
+        },
+        "filter_optional_asgard": {
+            "CommandLine|contains": ':\\WINDOWS\\system32\\cmd.exe /c "',
+            "CurrentDirectory|contains": ":\\WINDOWS\\Temp\\asgard2-agent\\",
+        },
+        "filter_main_parent_null": {"ParentImage": None},
+        "filter_main_parent_empty": {"ParentImage": ["", "-"]},
+        "filter_optional_manageengine": {
+            "Image|endswith": "\\cmd.exe",
+            "ParentImage|endswith": ":\\ManageEngine\\ADManager Plus\\pgsql\\bin\\postgres.exe",
+        },
+        "filter_optional_ibm_spectrumprotect": {
+            "CommandLine|contains": ":\\IBM\\SpectrumProtect\\webserver\\scripts\\",
+            "ParentImage|contains": ":\\IBM\\SpectrumProtect\\webserver\\scripts\\",
+        },
+    }
+    RULE_2002_STORED_POS = [
+        "logonid||0x3e7",
+        "originalfilename||cmd.exe",
+        "originalfilename||powershell.exe",
+        "originalfilename||powershell_ise.exe",
+        "originalfilename||pwsh.dll",
+        "process.image|endswith|/cmd.exe",
+        "process.image|endswith|/powershell.exe",
+        "process.image|endswith|/powershell_ise.exe",
+        "process.image|endswith|/pwsh.exe",
+        "user|contains|authori",
+        "user|contains|autori",
+    ]
+    RULE_2002_STORED_NEG = [
+        "currentdirectory|contains|:/windows/temp/asgard2-agent/",
+        "process.command_line|contains|:/ibm/spectrumprotect/webserver/scripts/",
+        'process.command_line|contains|:/windows/system32/cmd.exe /c "',
+        "process.image|endswith|/cmd.exe",
+        "process.parent_image|contains|:/ibm/spectrumprotect/webserver/scripts/",
+        "process.parent_image|contains|:/program files (x86)/",
+        "process.parent_image|contains|:/program files/",
+        "process.parent_image|contains|:/programdata/",
+        "process.parent_image|contains|:/windows/system32/",
+        "process.parent_image|contains|:/windows/syswow64/",
+        "process.parent_image|contains|:/windows/temp/",
+        "process.parent_image|contains|:/windows/winsxs/",
+        "process.parent_image|endswith|:/manageengine/admanager plus/pgsql/bin/postgres.exe",
+        "process.parent_image||",
+        "process.parent_image||-",
+    ]
+
+    def test_not_n_of_filter_wildcard_atoms_classified_negative(self):
+        """Regression (Todoist 6gqhWHxjgpWGHGP3): atoms under selections
+        negated via `not N of <prefix>_*` wildcard-quantified references are
+        polarity=negative and therefore excluded from the positive jaccard set."""
+        pytest.importorskip("sigma_similarity")
+        from src.services.sigma_semantic_precompute import precompute_semantic_fields
+
+        rule = {
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"Image|endswith": "\\evil.exe"},
+                "filter_main_legit": {"ParentImage|contains": ":\\Program Files\\"},
+                "filter_optional_tool": {"CommandLine|contains": "safedeploy"},
+                "condition": "selection and not 1 of filter_main_* and not 1 of filter_optional_*",
+            },
+        }
+
+        sem = precompute_semantic_fields(rule)
+
+        assert sem is not None
+        positives = sem["positive_atoms"]
+        negatives = sem["negative_atoms"]
+        assert len(positives) == 1
+        assert "evil.exe" in positives[0]
+        assert len(negatives) == 2
+        assert any("program files" in a for a in negatives)
+        assert any("safedeploy" in a for a in negatives)
+        assert not any("program files" in a or "safedeploy" in a for a in positives)
+
+    def test_package_extraction_parity_with_db_snapshot_rule_2002(self):
+        """Live package extraction of the repro rule equals its stored DB
+        atoms (11 positive / 15 negative) -- the extractor-agreement proof
+        that live-parse and precomputed scoring use one extractor."""
+        pytest.importorskip("sigma_similarity")
+        from src.services.sigma_semantic_precompute import precompute_semantic_fields
+
+        sem = precompute_semantic_fields({"logsource": self.RULE_2002_LOGSOURCE, "detection": self.RULE_2002_DETECTION})
+
+        assert sem is not None
+        assert sem["canonical_class"] == "windows.process_creation"
+        assert sem["surface_score"] == 16
+        assert sem["positive_atoms"] == self.RULE_2002_STORED_POS
+        assert sem["negative_atoms"] == self.RULE_2002_STORED_NEG
