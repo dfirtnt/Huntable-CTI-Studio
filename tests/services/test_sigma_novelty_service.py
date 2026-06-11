@@ -15,6 +15,14 @@ from src.services.sigma_novelty_service import (
 pytestmark = pytest.mark.unit
 
 
+def _service_atoms(service: SigmaNoveltyService, detection: dict, logsource: dict | None = None) -> list[dict]:
+    rule = {
+        "logsource": logsource or {"product": "windows", "category": "process_creation"},
+        "detection": detection,
+    }
+    return service.build_canonical_rule(rule).detection["atoms"]
+
+
 class TestSigmaNoveltyService:
     """Test SigmaNoveltyService functionality."""
 
@@ -174,10 +182,10 @@ class TestSigmaNoveltyService:
             ],
         }
 
-        atoms = service.extract_atomic_predicates(detection)
+        atoms = _service_atoms(service, detection)
 
         assert len(atoms) >= 2
-        values = " ".join(a.value for a in atoms).lower()
+        values = " ".join(a["value"] for a in atoms).lower()
         assert "curl.exe" in values
         assert "dnscat2" in values
 
@@ -353,7 +361,7 @@ class TestExactHashAtomLessReturnsNone:
 
 
 class TestKeywordListSelectionsProduceAtoms:
-    """extract_atomic_predicates handles top-level list-of-scalars selections."""
+    """The service canonical path handles top-level list-of-scalars selections."""
 
     @pytest.fixture
     def service(self):
@@ -364,14 +372,14 @@ class TestKeywordListSelectionsProduceAtoms:
             "keywords": ["<script>", "onerror=", "javascript:"],
             "condition": "keywords",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        values = sorted(a.value for a in atoms)
+        atoms = _service_atoms(service, detection)
+        values = sorted(a["value"] for a in atoms)
         assert values == sorted(["<script>", "onerror=", "javascript:"])
         for a in atoms:
-            assert a.field == ""
-            assert a.op == "contains"
-            assert a.op_type == "literal"
-            assert a.polarity == "positive"
+            assert a["field"] == ""
+            assert a["op"] == "contains"
+            assert a["op_type"] == "literal"
+            assert a["polarity"] == "positive"
 
     def test_xss_vs_ssti_rules_produce_distinct_atom_sets(self, service):
         """The actual residual collision Item 12 closes: both rules share the
@@ -391,12 +399,12 @@ class TestKeywordListSelectionsProduceAtoms:
             "filter": {"sc-status": 404},
             "condition": "select_method and keywords and not filter",
         }
-        xss_keys = {(a.field, a.op, a.value, a.polarity) for a in service.extract_atomic_predicates(xss)}
-        ssti_keys = {(a.field, a.op, a.value, a.polarity) for a in service.extract_atomic_predicates(ssti)}
+        xss_keys = {(a["field"], a["op"], a["value"], a["polarity"]) for a in _service_atoms(service, xss)}
+        ssti_keys = {(a["field"], a["op"], a["value"], a["polarity"]) for a in _service_atoms(service, ssti)}
         assert xss_keys != ssti_keys
         # Both still carry the shared boilerplate
         shared = xss_keys & ssti_keys
-        assert any(k[2] == "GET" for k in shared), "shared cs-method=GET atom should be in both"
+        assert any(k[2] == "get" for k in shared), "shared cs-method=GET atom should be in both"
         # XSS has unique keyword content that SSTI lacks
         xss_only = xss_keys - ssti_keys
         assert any("script" in k[2].lower() for k in xss_only)
@@ -407,10 +415,10 @@ class TestKeywordListSelectionsProduceAtoms:
             "initselection": [0, 6],
             "condition": "initselection",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        values = sorted(a.value for a in atoms)
+        atoms = _service_atoms(service, detection)
+        values = sorted(a["value"] for a in atoms)
         assert values == ["0", "6"]
-        assert all(a.field == "" and a.op == "contains" for a in atoms)
+        assert all(a["field"] == "" and a["op"] == "contains" for a in atoms)
 
     def test_keyword_list_negated_in_condition_has_negative_polarity(self, service):
         detection = {
@@ -418,10 +426,10 @@ class TestKeywordListSelectionsProduceAtoms:
             "keywords": ["error", "fail"],
             "condition": "selection and not keywords",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        keyword_atoms = [a for a in atoms if a.field == ""]
+        atoms = _service_atoms(service, detection)
+        keyword_atoms = [a for a in atoms if a["field"] == ""]
         assert len(keyword_atoms) == 2
-        assert all(a.polarity == "negative" for a in keyword_atoms)
+        assert all(a["polarity"] == "negative" for a in keyword_atoms)
 
     def test_mixed_list_of_dicts_and_scalars(self, service):
         """Edge case: a list containing both maps and scalars. Both contributors
@@ -431,13 +439,13 @@ class TestKeywordListSelectionsProduceAtoms:
             "mixed": [{"Image|endswith": "\\foo.exe"}, "scalar_keyword"],
             "condition": "mixed",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        values = [a.value for a in atoms]
-        assert "\\foo.exe" in values
+        atoms = _service_atoms(service, detection)
+        values = [a["value"] for a in atoms]
+        assert "/foo.exe" in values
         assert "scalar_keyword" in values
         # The dict contributed a field-bearing atom; the scalar contributed a keyword atom.
-        field_atoms = [a for a in atoms if a.field != ""]
-        keyword_atoms = [a for a in atoms if a.field == ""]
+        field_atoms = [a for a in atoms if a["field"] != ""]
+        keyword_atoms = [a for a in atoms if a["field"] == ""]
         assert len(field_atoms) == 1
         assert len(keyword_atoms) == 1
 
@@ -449,10 +457,10 @@ class TestKeywordListSelectionsProduceAtoms:
             "selection": {"CommandLine|contains": "powershell.exe"},
             "condition": "selection",
         }
-        atoms = service.extract_atomic_predicates(detection)
+        atoms = _service_atoms(service, detection)
         assert len(atoms) == 1
-        assert atoms[0].field != ""
-        assert atoms[0].value == "powershell.exe"
+        assert atoms[0]["field"] != ""
+        assert atoms[0]["value"] == "powershell.exe"
 
     def test_former_keyword_only_rule_no_longer_atomless(self, service):
         """Direct assertion that Item 12 reduces the Item-11 atom-less population:
@@ -484,12 +492,12 @@ class TestKeywordListSelectionsProduceAtoms:
             "filter": ["@", ":"],
             "condition": "tools and filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value in ("@", ":")]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] in ("@", ":")]
         assert len(filter_atoms) == 2
-        assert all(a.polarity == "positive" for a in filter_atoms), (
+        assert all(a["polarity"] == "positive" for a in filter_atoms), (
             f"filter atoms must be positive when condition positively references the "
-            f"selection; got polarities: {[a.polarity for a in filter_atoms]}"
+            f"selection; got polarities: {[a['polarity'] for a in filter_atoms]}"
         )
 
     def test_filter_keyword_list_negated_in_condition_has_negative_polarity(self, service):
@@ -501,12 +509,12 @@ class TestKeywordListSelectionsProduceAtoms:
             "filter": ["benign1", "benign2"],
             "condition": "tools and not filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value in ("benign1", "benign2")]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] in ("benign1", "benign2")]
         assert len(filter_atoms) == 2
-        assert all(a.polarity == "negative" for a in filter_atoms), (
+        assert all(a["polarity"] == "negative" for a in filter_atoms), (
             f"filter atoms must be negative when condition explicitly negates the "
-            f"selection; got polarities: {[a.polarity for a in filter_atoms]}"
+            f"selection; got polarities: {[a['polarity'] for a in filter_atoms]}"
         )
 
 
@@ -537,12 +545,12 @@ class TestDictBlockSelectionPolarity:
             "filter": {"Image|endswith": "\\benign.exe"},
             "condition": "selection and filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value == "\\benign.exe"]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] == "/benign.exe"]
         assert len(filter_atoms) == 1
-        assert filter_atoms[0].polarity == "positive", (
+        assert filter_atoms[0]["polarity"] == "positive", (
             f"dict filter block must be positive when condition positively references the "
-            f"selection; got polarity: {filter_atoms[0].polarity}"
+            f"selection; got polarity: {filter_atoms[0]['polarity']}"
         )
 
     def test_dict_filter_negated_in_condition_has_negative_polarity(self, service):
@@ -554,12 +562,12 @@ class TestDictBlockSelectionPolarity:
             "filter": {"Image|endswith": "\\benign.exe"},
             "condition": "selection and not filter",
         }
-        atoms = service.extract_atomic_predicates(detection)
-        filter_atoms = [a for a in atoms if a.value == "\\benign.exe"]
+        atoms = _service_atoms(service, detection)
+        filter_atoms = [a for a in atoms if a["value"] == "/benign.exe"]
         assert len(filter_atoms) == 1
-        assert filter_atoms[0].polarity == "negative", (
+        assert filter_atoms[0]["polarity"] == "negative", (
             f"dict filter block must be negative when condition explicitly negates the "
-            f"selection; got polarity: {filter_atoms[0].polarity}"
+            f"selection; got polarity: {filter_atoms[0]['polarity']}"
         )
 
 
@@ -748,7 +756,7 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                "src.services.sigma_semantic_precompute.extract_semantic_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
         ):
@@ -768,7 +776,7 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                "src.services.sigma_semantic_precompute.extract_semantic_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
         ):
@@ -788,14 +796,14 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+                "src.services.sigma_semantic_precompute.extract_semantic_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
             caplog.at_level(logging.WARNING, logger="src.services.sigma_novelty_service"),
         ):
             service.assess_novelty(sample_rule, threshold=0.7)
 
-        assert any("semantic precompute" in r.message for r in caplog.records)
+        assert any("semantic atom extraction" in r.message for r in caplog.records)
 
     def test_assess_novelty_with_snake_case_fields(self):
         """End-to-end: assess_novelty with snake_case fields finds matches against PascalCase candidates."""
@@ -1258,3 +1266,84 @@ class TestPackageExtractorConvergence:
         assert sem["surface_score"] == 16
         assert sem["positive_atoms"] == self.RULE_2002_STORED_POS
         assert sem["negative_atoms"] == self.RULE_2002_STORED_NEG
+
+
+class TestSingleExtractorTimingConsolidation:
+    """Precomputed and live fallback timings must use the same package extractor."""
+
+    @pytest.fixture
+    def service(self):
+        return SigmaNoveltyService()
+
+    def test_legacy_extract_atomic_predicates_entrypoint_removed(self, service):
+        assert not hasattr(service, "extract_atomic_predicates")
+
+    def test_candidate_with_null_atoms_scores_same_as_precomputed_candidate(self, service):
+        from src.services.sigma_semantic_precompute import extract_semantic_fields
+
+        proposed = {
+            "title": "Proposed Cmd",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"CommandLine|contains": "whoami", "Image|endswith": "\\cmd.exe"},
+                "condition": "selection",
+            },
+        }
+        candidate = {
+            "title": "Candidate Cmd",
+            "rule_id": "candidate-cmd",
+            "logsource": {"product": "windows", "category": "process_creation"},
+            "detection": {
+                "selection": {"CommandLine|contains": "whoami", "Image|endswith": "\\cmd.exe"},
+                "condition": "selection",
+            },
+            "exact_hash": "different",
+            "exact_hash_match": False,
+        }
+        sem = extract_semantic_fields(candidate, require_canonical_class=False)
+        assert sem is not None
+
+        service.retrieve_candidates = Mock(
+            return_value=[
+                {
+                    **candidate,
+                    "positive_atoms": sem["positive_atoms"],
+                    "negative_atoms": sem["negative_atoms"],
+                    "surface_score": sem["surface_score"],
+                }
+            ]
+        )
+        precomputed_result = service.assess_novelty(proposed, threshold=0.0)
+
+        service.retrieve_candidates = Mock(return_value=[candidate])
+        live_result = service.assess_novelty(proposed, threshold=0.0)
+
+        precomputed_match = precomputed_result["top_matches"][0]
+        live_match = live_result["top_matches"][0]
+        assert live_match["similarity_engine"] == "deterministic"
+        assert live_match["atom_jaccard"] == precomputed_match["atom_jaccard"]
+        assert live_match["similarity"] == precomputed_match["similarity"]
+        assert live_match["shared_atoms"] == precomputed_match["shared_atoms"]
+
+    def test_unknown_canonical_class_still_scores_with_live_package_atoms(self, service):
+        proposed = {
+            "title": "Unknown Telemetry Proposed",
+            "logsource": {"product": "custom", "category": "application"},
+            "detection": {"keywords": ["suspicious-token"], "condition": "keywords"},
+        }
+        candidate = {
+            "title": "Unknown Telemetry Candidate",
+            "rule_id": "custom-candidate",
+            "logsource": {"product": "custom", "category": "application"},
+            "detection": {"keywords": ["suspicious-token"], "condition": "keywords"},
+            "exact_hash": "different",
+            "exact_hash_match": False,
+        }
+
+        service.retrieve_candidates = Mock(return_value=[candidate])
+        result = service.assess_novelty(proposed, threshold=0.0)
+
+        assert result["canonical_class"] is None
+        assert result["engine_used"] == "deterministic"
+        assert result["top_matches"][0]["atom_jaccard"] == 1.0
+        assert result["top_matches"][0]["semantic_details"]["canonical_class"] is None

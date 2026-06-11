@@ -24,12 +24,13 @@ except ImportError:
     _SIGMA_SIMILARITY_AVAILABLE = False
 
 
-def precompute_semantic_fields(rule_data: dict[str, Any]) -> dict[str, Any] | None:
+def extract_semantic_fields(rule_data: dict[str, Any], *, require_canonical_class: bool = True) -> dict[str, Any] | None:
     """
-    Precompute canonical_class, positive_atoms, negative_atoms, surface_score for a rule.
+    Extract canonical_class, positive_atoms, negative_atoms, surface_score for a rule.
 
-    Uses sigma_similarity (no logic duplication). Returns None if package unavailable
-    or rule raises UnknownTelemetryClassError / UnsupportedSigmaFeatureError / DeterministicExpansionLimitError.
+    Uses sigma_similarity (no logic duplication). When require_canonical_class is
+    False, unresolved telemetry classes still return live atom extraction results
+    with canonical_class=None so comparison fallback differs only by timing.
 
     Returns:
         Dict with keys: canonical_class, positive_atoms, negative_atoms, surface_score
@@ -48,7 +49,14 @@ def precompute_semantic_fields(rule_data: dict[str, Any]) -> dict[str, Any] | No
         return None
 
     try:
-        canonical_class = resolve_canonical_class(rule_data)
+        canonical_class = None
+        try:
+            canonical_class = resolve_canonical_class(rule_data)
+        except UnknownTelemetryClassError as e:
+            if require_canonical_class:
+                logger.debug("Semantic precompute skipped for rule: %s", e)
+                return None
+
         norm = normalize_detection(rule_data.get("detection") or {})
         ast = build_ast(norm)
         dnf = ast_to_dnf(ast)
@@ -69,6 +77,16 @@ def precompute_semantic_fields(rule_data: dict[str, Any]) -> dict[str, Any] | No
     except Exception as e:
         logger.warning("Semantic precompute failed: %s", e)
         return None
+
+
+def precompute_semantic_fields(rule_data: dict[str, Any]) -> dict[str, Any] | None:
+    """
+    Precompute canonical_class, positive_atoms, negative_atoms, surface_score for a rule.
+
+    Index-time precompute keeps the strict canonical-class gate so stored semantic
+    rows remain tied to an explicitly modeled telemetry class.
+    """
+    return extract_semantic_fields(rule_data, require_canonical_class=True)
 
 
 def is_sigma_similarity_available() -> bool:
