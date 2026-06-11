@@ -59,14 +59,14 @@ class** instead of the weak `logsource_key` fallback. The link is not 1:1: `Cmdl
 This is **Layer 8** in the skill's integration checklist — *conditional*, not part of the
 mandatory 7-layer wiring. It touches:
 
-- `sigma_semantic_similarity/sigma_similarity/canonical_logsource.py` — a
+- `sigma_atom_similarity/sigma_similarity/canonical_logsource.py` - a
   `(product, category, service, event_id)` registry tuple, grouped by **field schema** (sources
   logging the same observable under different field names need separate classes).
 - The two `FIELD_ALIAS_MAP`s — `atom_extractor.py` (precomputed) and `sigma_novelty_service.py`
   (on-the-fly) — kept in sync so the two extractors agree.
-- `tests/sigma_semantic_similarity/test_canonical_class.py` — resolution + comparability + mismatch.
+- `tests/sigma_atom_similarity/test_canonical_class.py` - resolution + comparability + mismatch.
 
-Because `sigma_semantic_similarity` is **COPY'd into the image, not bind-mounted**, a change is
+Because `sigma_atom_similarity` is **COPY'd into the image, not bind-mounted**, a change is
 live only after an image rebuild + `./run_cli.sh sigma recompute-semantics` — not a plain
 restart. See [Sigma rules](../features/sigma-rules.md) for the live modeled-class list.
 

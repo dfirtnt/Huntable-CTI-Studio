@@ -43,13 +43,13 @@ The extension can extract text from images on the page using three modes:
 | **Vision LLM** | Uses GPT-4o Vision or Claude via your app's API key | LLM provider configured in Settings |
 | **Hybrid** | Vision LLM first, falls back to OCR on failure | Both of the above |
 
-Vision LLM providers (`openai` or `anthropic`) are selected in the extension popup. The API key is resolved server-side by the backend proxy — the extension never stores or transmits API keys.
+Vision LLM providers (`openai` or `anthropic`) are selected in the extension popup. The API key is resolved server-side by the backend proxy -- the extension never stores or transmits API keys.
 
-Extracted image text is appended to the article content as `[Image OCR: <alt text>]` blocks before sending.
+Article extraction inserts `[IMAGE:<src>]` markers where qualifying page images appear. When you OCR or run Vision LLM extraction for those images, the extension replaces the matching marker with a `[Image OCR: <alt text>]` block before sending, so extracted image text stays inline with the surrounding article context. If an extracted image is not present in the article text, its OCR block is appended as a fallback.
 
 ## How It Works
 
-The extension calls `POST /api/scrape-url` on your instance with the page title, URL, and extracted content (including any OCR text). The backend processes the article through the standard ingestion pipeline — threat hunting scoring and all.
+The extension calls `POST /api/scrape-url` on your instance with the page title, URL, and extracted content (including any inline OCR text). The backend processes the article through the standard ingestion pipeline -- threat hunting scoring and all.
 
 ## Non-Routable IP Protection
 

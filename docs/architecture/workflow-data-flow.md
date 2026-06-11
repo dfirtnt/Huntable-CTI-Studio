@@ -209,11 +209,11 @@ if content_to_use is None:
 ```
 
 **Content Selection Priority:**
-1. **Filtered article content** (if `sigma_fallback_enabled = True`) - always used when enabled
-2. **Extracted content** (if `discrete_huntables_count > 0`, content length > 100, and toggle is disabled)
+1. **Junk-filtered full article content** (if `sigma_fallback_enabled = True`) - used as the Sigma main content block when enabled
+2. **Extracted-artifact summary** (if `discrete_huntables_count > 0`, content length > 100, and toggle is disabled)
 3. **Skip SIGMA generation** (if fallback disabled and no extraction results)
 
-_Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag._
+_Note: `sigma_fallback_enabled` defaults to `False`, so Sigma generation normally requires usable extraction content unless the active workflow configuration explicitly overrides the flag. Extracted observables, when present, are still included in the Sigma prompt either way; the toggle changes the main article-content block._
 
 **Why memory?**
 - Faster access (no database query)

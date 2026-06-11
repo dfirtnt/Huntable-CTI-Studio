@@ -414,7 +414,7 @@ Use this when reviewing any extractor prompt (new or revised):
 
 ## Sigma novelty: canonical class coverage
 
-The deterministic novelty engine (`sigma_semantic_similarity`) classifies rules by
+The deterministic novelty engine (`sigma_atom_similarity`, imported as `sigma_similarity`) classifies rules by
 canonical telemetry class before comparison. Rules whose logsource does not match a
 registered class fall through to the legacy `logsource_key + top_k=20` path, which
 loses containment/surface-score classification and caps retrieval.
@@ -429,7 +429,7 @@ loses containment/surface-score classification and caps retrieval.
 | `windows.service` | `category: service_creation`, System EIDs 7045/7036, Security EID 4697 |
 | `windows.scheduled_task` | `service: taskscheduler`, Security EIDs 4698/4699/4700/4702 |
 
-Source of truth: `sigma_semantic_similarity/sigma_similarity/canonical_logsource.py::CANONICAL_CLASS_REGISTRY`.
+Source of truth: `sigma_atom_similarity/sigma_similarity/canonical_logsource.py::CANONICAL_CLASS_REGISTRY`.
 
 ### Known limitation: cross-telemetry scheduled-task rules
 

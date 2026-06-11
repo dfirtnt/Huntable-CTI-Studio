@@ -26,7 +26,7 @@ The previous in-app RAG Chat UI was removed in v6.0.0 and the in-app `/search` p
      - Agentic workflow (`src/workflows/agentic_workflow.py`)
 
 4. **Sigma similarity / novelty**
-   - Workflow duplicate detection uses the behavioral novelty engine (Jaccard x Containment - Filter when `sigma_semantic_similarity` is installed; legacy Atom/Logic-shape scoring otherwise).
+   - Workflow duplicate detection uses the behavioral novelty engine (Jaccard x Containment - Filter when `sigma_atom_similarity` is installed; exact-hash short-circuits are the only retained legacy label).
    - Cosine similarity is used for **rule retrieval**, not workflow duplicate ranking.
 
 ## Using MCP for retrieval

@@ -238,7 +238,7 @@ in place for malformed or unmodeled rules that may arrive in the future.
 
 ### Behavioral Novelty Scoring
 
-**Deterministic path** (when `sigma_semantic_similarity` package is installed):
+**Deterministic path** (when `sigma_atom_similarity` package is installed):
 
 ```
 novelty_score = 1 - similarity_score
@@ -281,7 +281,7 @@ trigger this rule?*
 - Every `OR` (explicit `or`, list of selections, `1 of selection_*`, list-valued
   selection blocks) doubles or multiplies the branches.
 
-Code: `sigma_semantic_similarity/sigma_similarity/surface_estimator.py`.
+Code: `sigma_atom_similarity/sigma_similarity/surface_estimator.py`.
 
 ##### Worked example
 
@@ -351,18 +351,18 @@ over atom sets from the `sigma_similarity` package. The in-app YAML re-parse sco
 
 | Stage | Function | `require_canonical_class` | Purpose |
 |---|---|---|---|
-| Index / backfill | `precompute_semantic_fields()` | `True` (strict) | Store `canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score` only for explicitly modeled telemetry classes |
-| Comparison (proposed rule) | `extract_semantic_fields()` | `False` | Live atom extraction even when `canonical_class` is unresolved |
-| Comparison (candidate w/o stored atoms) | `extract_semantic_fields()` | `False` | Same live extraction for corpus rows missing precomputed columns |
+| Index / backfill | `precompute_atom_fields()` | `True` (strict) | Store `canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score` only for explicitly modeled telemetry classes |
+| Comparison (proposed rule) | `extract_atom_fields()` | `False` | Live atom extraction even when `canonical_class` is unresolved |
+| Comparison (candidate w/o stored atoms) | `extract_atom_fields()` | `False` | Same live extraction for corpus rows missing precomputed columns |
 
 For each (proposed, candidate) pair:
 
-1. Proposed rule atoms come from `extract_semantic_fields(proposed_rule, require_canonical_class=False)`.
+1. Proposed rule atoms come from `extract_atom_fields(proposed_rule, require_canonical_class=False)`.
 2. If the candidate has stored `positive_atoms`, compare against those.
 3. Else, live-extract the candidate the same way.
 4. If either side cannot produce atoms, the candidate is **skipped** (no second-engine fallback).
 
-`sigma_semantic_similarity` must be installed at runtime (Docker image includes it). Without it, novelty assessment cannot score behavioral similarity.
+`sigma_atom_similarity` must be installed at runtime (Docker image includes it). Without it, novelty assessment cannot score behavioral similarity.
 
 **Canonical-class coverage** (index-time gate; comparison-time extraction may still produce atoms with `canonical_class=None`):
 
@@ -588,12 +588,12 @@ entry for display in the Sigma Queue UI.
 |---|---|---|
 | Entry point | `sigma_matching_service.py` | Calls `SigmaNoveltyService.assess_novelty()` |
 | Orchestrator | `sigma_novelty_service.py` | Retrieves candidates, computes Jaccard/containment/filter scores |
-| Precompute | `sigma_semantic_precompute.py` | `extract_semantic_fields()` / `precompute_semantic_fields()` — materializes atom sets at index time |
+| Precompute | `sigma_atom_precompute.py` | `extract_atom_fields()` / `precompute_atom_fields()` - materializes atom sets at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
 | Semantic scorer | `sigma_semantic_scorer.py` | Fallback scoring path (not used by the primary Jaccard×Containment pipeline) |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
-| External engine | `sigma_semantic_similarity` pkg | Optional deterministic engine; used when installed |
+| External engine | `sigma_atom_similarity` pkg | Optional deterministic engine; used when installed |
 
 ### Vocabulary: "semantic", "embedding", "vector" mean three different things here
 
@@ -603,17 +603,17 @@ The word **"semantic"** is overloaded across the Sigma code and is the single bi
 |---|---|---|---|
 | **Article / annotation semantic search** | Genuine ML embeddings (all-mpnet-base-v2), cosine nearest-neighbour over article text. Powers MCP article search, RAG, web search. | **Yes** — real `Vector(768)` + `<=>` | `ArticleTable.embedding`, `AnnotationTable.embedding` |
 | **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — two vectors per rule: `SigmaRuleTable.embedding` (whole-rule text) and `logsource_embedding` (the combined "signature" text: logsource + detection structure + detection fields). Both are scored via `<=>`. *(Five former per-section columns — `title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding` — were write-only and were dropped 2026-06-01; `detection_structure_`/`detection_fields_` had stored a duplicate of the signature vector.)* | `sigma_matching_service.py`, `rag_service.py` |
-| **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** — Jaccard × containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**, despite the `sigma_semantic_similarity` package name, `precompute_semantic_fields`, and the `recompute-semantics` CLI all carrying the word "semantic". | **No** | `sigma_semantic_similarity` pkg, `precompute_semantic_fields` |
+| **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** - Jaccard x containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**. The distribution is named `sigma_atom_similarity`; the import package remains `sigma_similarity`. | **No** | `sigma_atom_similarity` pkg, `precompute_atom_fields` |
 
 **The atom set-math engine is deterministic.** The distinction is *when atoms are computed*:
 
 | Canonical term | Code label (`similarity_scores`) | What it is |
 |---|---|---|
 | **index-time atoms** | `"deterministic"` | Atoms stored in `positive_atoms`/etc.; comparison reads stored strings |
-| **live extraction** | `"deterministic"` | `extract_semantic_fields()` at comparison time when stored atoms are absent |
+| **live extraction** | `"deterministic"` | `extract_atom_fields()` at comparison time when stored atoms are absent |
 | **exact-hash duplicate** | `"legacy"` | Short-circuit only; no set-math scoring |
 
-Neither path uses embeddings. The only probabilistic/fuzzy similarity is article and article→rule vector search (first two rows above). Avoid "semantic" (implies vectors) and read `precompute_semantic_fields` / `extract_semantic_fields` as **atom extraction**, not embedding work.
+Neither path uses embeddings. The only probabilistic/fuzzy similarity is article and article→rule vector search (first two rows above). The active service names are `precompute_atom_fields` / `extract_atom_fields` because this path is atom extraction, not embedding work.
 
 > **Cleanup tracked:** rename `"deterministic"`/`"legacy"` code labels to `"precomputed"`/`"live"`/`"exact_hash"` in a future pass. Dead rule-embedding columns were dropped 2026-06-01.
 
@@ -640,7 +640,7 @@ Neither path uses embeddings. The only probabilistic/fuzzy similarity is article
 # Show index statistics
 ./run_cli.sh sigma stats
 
-# Recompute semantic fields (needed after atom identity normalization changes)
+# Recompute stored atom fields (needed after atom identity normalization changes)
 ./run_cli.sh sigma recompute-semantics
 
 # Backfill canonical fields for rules already in DB
