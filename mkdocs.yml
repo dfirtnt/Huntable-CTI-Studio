@@ -36,6 +36,7 @@ nav:
       - Extract Observables: guides/extract-observables.md
       - Edit Agent Prompts: guides/edit-prompts.md
       - Langfuse Setup: guides/langfuse-setup.md
+      - Browser Extension: guides/browser-extension.md
       - Generate Sigma Rules: guides/generate-sigma.md
       - Evaluate Models: guides/evaluate-models.md
       - Backup & Restore: guides/backup-and-restore.md
