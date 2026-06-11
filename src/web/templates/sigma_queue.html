@@ -469,7 +469,7 @@ function renderRulePreview(rule, observablesData) {
     
     let similarRulesHtml = '';
     if (similarityScores.length > 0) {
-        const chipConfig = mapSimilarityResponseFromCache(similarityScores, rule);
+        const chipConfig = buildSimilarityConfigFromCache(similarityScores, rule);
         similarRulesHtml = `
             <div class="mt-4">
                 <details class="border border-gray-600 rounded-lg">
@@ -613,40 +613,26 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function buildSimilarityDetailHtml(m) {
-    if (!m) return '<p class="text-sm text-gray-500 py-8 text-center">No data available.</p>';
-    const simVal = typeof m.sim === 'number' ? m.sim : (m.similarity != null ? m.similarity * 100 : 0);
-    const jaccard = m.jaccard != null ? (typeof m.jaccard === 'number' ? m.jaccard : m.jaccard * 100) : 0;
-    const contain = m.containment != null ? (typeof m.containment === 'number' ? m.containment : m.containment * 100) : 0;
-    const logicShape = m.logic_shape != null ? (typeof m.logic_shape === 'number' ? m.logic_shape : m.logic_shape * 100) : null;
-    const showFlag = contain >= 50 && simVal < 30;
-    const surfCur = m.surface_cur != null ? m.surface_cur : (m.semantic_details?.surface_score_a ?? '—');
-    const surfCand = m.surface_cand != null ? m.surface_cand : (m.semantic_details?.surface_score_b ?? '—');
-    const atomBlock = (label, atoms, color) => {
-        if (!atoms || !atoms.length) return '';
-        const pal = { green: ['bg-green-950 text-green-400','bg-green-950/40 text-green-300'], amber: ['bg-amber-950 text-amber-300','bg-amber-950/40 text-amber-200'], red: ['bg-red-950 text-red-300','bg-red-950/40 text-red-200'] };
-        const [h, r] = pal[color] || pal.green;
-        return `<div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 ${h}">${label} (${atoms.length})</div>${atoms.map(a => `<div class="text-xs font-mono px-2 py-1 ${r} border-t border-black/20 break-all">${_escHtml(a)}</div>`).join('')}</div>`;
-    };
-    const detCur = m.detection_cur != null ? m.detection_cur : 'not available';
-    const detCand = m.detection_cand != null ? m.detection_cand : 'not available';
-    const sourceFromRepo = (m.rule_id && String(m.rule_id).startsWith('cust-')) || (m.file_path && String(m.file_path).startsWith('customer/'));
+function buildQueueSimilarityDetail(match, detectionCur) {
+    if (!match) return '<p class="text-sm text-gray-500 py-8 text-center">No data available.</p>';
+    // Metrics (score summary) + atom diff via the shared component, fed the
+    // canonical match directly. Retires the hand-rolled score-summary + atom-diff
+    // that duplicated the renderer (and where the 2026-06-05 containment bug lived).
+    const metricsHtml = renderSimilarityDisplay(match, { mode: 'compact', includeExplainability: true });
+    // Queue-specific chrome the shared component does not render: the
+    // logsource/detection YAML comparison toggle and the source-badge footer.
+    const detCur = detectionCur != null ? (typeof detectionCur === 'string' ? detectionCur : JSON.stringify(detectionCur, null, 2)) : 'not available';
+    const candDet = match.detection;
+    const detCand = candDet != null ? (typeof candDet === 'string' ? candDet : JSON.stringify(candDet, null, 2)) : 'not available';
+    const sourceFromRepo = (match.rule_id && String(match.rule_id).startsWith('cust-')) || (match.file_path && String(match.file_path).startsWith('customer/'));
     const sourceLabel = sourceFromRepo ? 'Your repo' : 'SigmaHQ';
     const sourceBadgeCls = sourceFromRepo
         ? 'bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200'
         : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
-    return `<div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">score summary</div>
-    <div class="grid grid-cols-4 gap-2">
-      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">similarity</div><div class="text-lg font-medium text-purple-400">${simVal.toFixed(1)}%</div></div>
-      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">jaccard</div><div class="text-lg font-medium text-gray-100">${jaccard.toFixed(1)}%</div></div>
-      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5">containment</div><div class="text-lg font-medium text-gray-100">${contain.toFixed(1)}%</div>${showFlag ? '<div class="text-xs mt-1 px-1.5 py-0.5 rounded inline-block bg-amber-950 text-amber-400">high — may be subset</div>' : ''}</div>
-      <div class="bg-gray-800 rounded-lg p-2.5"><div class="text-xs text-gray-400 mb-0.5 cursor-help" title="Bucketed logic shape factor: 1.0 Equivalent / 0.85 Subset / 0.75 Superset / 0.65 Partial">logic shape</div><div class="text-lg font-medium text-gray-100">${logicShape != null ? logicShape.toFixed(1) + '%' : '—'}</div><div class="text-xs text-gray-500 mt-0.5">surface ${surfCur}b / ${surfCand}b</div></div>
-    </div>
-    <div class="text-xs font-medium text-gray-500 uppercase tracking-wide -mb-2">atom diff</div>
-    <div class="flex flex-col gap-1.5">${atomBlock('shared', m.shared_atoms || [], 'green')}${atomBlock('current only', m.unique_to_current || m.removed_atoms || [], 'amber')}${atomBlock('candidate only', m.unique_to_candidate || m.added_atoms || [], 'red')}</div>
+    return `${metricsHtml}
     <div><div class="simYamlToggle flex items-center gap-2 cursor-pointer py-2 border-t border-gray-700 hover:opacity-80"><span class="simYamlArrow text-gray-500 text-xs">▶</span><span class="text-xs text-gray-400">logsource &amp; detection comparison</span></div>
     <div class="simYamlBlock hidden"><div class="grid grid-cols-2 gap-2 mt-1"><div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 bg-amber-950 text-amber-300">current rule</div><pre class="text-xs font-mono p-2 bg-gray-800 text-gray-400 overflow-x-auto leading-relaxed whitespace-pre">${_escHtml(detCur)}</pre></div><div class="rounded overflow-hidden"><div class="text-xs font-medium px-2 py-1 bg-green-950 text-green-400">candidate</div><pre class="text-xs font-mono p-2 bg-gray-800 text-gray-400 overflow-x-auto leading-relaxed whitespace-pre">${_escHtml(detCand)}</pre></div></div></div></div>
-    <div class="flex flex-col gap-2 pb-2"><div class="flex flex-wrap items-center gap-2 text-xs font-mono text-gray-500"><span>${_escHtml(m.rule_id)}</span><span>·</span><span>status: ${_escHtml(m.status)}</span><span class="text-xs px-2 py-0.5 rounded ${sourceBadgeCls}">${_escHtml(sourceLabel)}</span></div><div class="flex flex-wrap gap-1.5">${(m.tags || []).map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">${_escHtml(t)}</span>`).join('')}</div></div>`;
+    <div class="flex flex-col gap-2 pb-2"><div class="flex flex-wrap items-center gap-2 text-xs font-mono text-gray-500"><span>${_escHtml(match.rule_id)}</span><span>·</span><span>status: ${_escHtml(match.status)}</span><span class="text-xs px-2 py-0.5 rounded ${sourceBadgeCls}">${_escHtml(sourceLabel)}</span></div><div class="flex flex-wrap gap-1.5">${(match.tags || []).map(t => `<span class="text-xs px-2 py-0.5 rounded-full bg-purple-950 text-purple-300 border border-purple-800">${_escHtml(t)}</span>`).join('')}</div></div>`;
 }
 
 function _escHtml(str) {
@@ -658,96 +644,38 @@ function _escHtml(str) {
         .replace(/"/g, '&quot;');
 }
 
-function mapSimilarityResponse(data, currentRuleInfo) {
-    const curDet = currentRuleInfo?.detection;
-    const curDetStr = curDet != null ? (typeof curDet === 'string' ? curDet : JSON.stringify(curDet, null, 2)) : '';
-    const rawMatches = (data.matches || []).filter(m => {
+// Keep only matches with behavioral overlap (positive jaccard). Operates on
+// CANONICAL matches (serializer output / cached similarity_scores) -- no remap;
+// the shared component normalizes fields at render time.
+function _filterBehavioralMatches(matches) {
+    return (matches || []).filter(m => {
         const j = m.semantic_details?.jaccard ?? m.atom_jaccard ?? 0;
         return j > 0;
     });
-    const canonical =
-        (data.canonical_class && String(data.canonical_class)) ||
-        rawMatches[0]?.semantic_details?.canonical_class ||
-        '—';
+}
+
+function buildSimilarityConfigFromResponse(data, currentRuleInfo) {
+    const curDet = currentRuleInfo?.detection;
+    const curDetStr = curDet != null ? (typeof curDet === 'string' ? curDet : JSON.stringify(curDet, null, 2)) : '';
     return {
         rule_id: currentRuleInfo?.queueId ?? data.rule_id ?? null,
         rule_title: currentRuleInfo?.title ?? data.rule_title ?? '',
-        canonical_class: canonical,
-        logsource_key: data.logsource_key || '',
         candidates_evaluated: data.total_candidates_evaluated ?? 0,
-        matches: rawMatches.map(m => {
-            const sd = m.semantic_details || {};
-            const jaccard = sd.jaccard ?? m.atom_jaccard ?? 0;
-            const containment = sd.overlap_ratio_a ?? 0;
-            const logic_shape = sd.containment_factor ?? null;
-            const sim = (m.similarity ?? m.similarity_score ?? 0) * 100;
-            const detectionCand = m.detection != null ? (typeof m.detection === 'string' ? m.detection : JSON.stringify(m.detection, null, 2)) : '';
-            return {
-                title: m.title,
-                sim: sim,
-                similarity: m.similarity ?? m.similarity_score,
-                jaccard: jaccard * 100,
-                containment: containment * 100,
-                logic_shape: logic_shape != null ? logic_shape * 100 : null,
-                surface_cur: sd.surface_score_a,
-                surface_cand: sd.surface_score_b,
-                semantic_details: m.semantic_details,
-                shared_atoms: m.shared_atoms || [],
-                unique_to_current: m.removed_atoms || [],
-                unique_to_candidate: m.added_atoms || [],
-                rule_id: m.rule_id,
-                status: m.status,
-                tags: m.tags || [],
-                detection_cur: curDetStr,
-                detection_cand: detectionCand,
-            };
-        })
+        detection_cur: curDetStr,
+        matches: _filterBehavioralMatches(data.matches),
     };
 }
 
-function mapSimilarityResponseFromCache(similarityScores, rule) {
+function buildSimilarityConfigFromCache(similarityScores, rule) {
     const metadata = rule.rule_metadata || {};
-    const first = similarityScores[0];
-    const sd = first?.semantic_details;
-    const canonical = sd?.canonical_class || '—';
     const curDet = metadata.detection;
     const curDetStr = curDet != null ? JSON.stringify(curDet, null, 2) : '';
     return {
         rule_id: rule.id,
         rule_title: metadata.title || 'Untitled',
-        canonical_class: canonical,
-        logsource_key: '',
         candidates_evaluated: -1,
-        matches: similarityScores.filter(s => {
-            const sd = s.semantic_details || {};
-            const j = sd.jaccard ?? s.atom_jaccard ?? 0;
-            return j > 0;
-        }).map(s => {
-            const sd = s.semantic_details || {};
-            const jaccard = (sd.jaccard ?? s.atom_jaccard ?? 0) * 100;
-            const containment = (sd.overlap_ratio_a ?? 0) * 100;
-            const logic_shape = sd.containment_factor != null ? sd.containment_factor * 100 : null;
-            const sim = (s.similarity ?? 0) * 100;
-            return {
-                title: s.title || s.rule_id,
-                sim: sim,
-                similarity: s.similarity,
-                jaccard: jaccard,
-                containment: containment,
-                logic_shape: logic_shape,
-                surface_cur: sd.surface_score_a,
-                surface_cand: sd.surface_score_b,
-                semantic_details: s.semantic_details,
-                shared_atoms: s.shared_atoms || [],
-                unique_to_current: s.removed_atoms || [],
-                unique_to_candidate: s.added_atoms || [],
-                rule_id: s.rule_id,
-                status: s.status,
-                tags: s.tags || [],
-                detection_cur: curDetStr,
-                detection_cand: '',
-            };
-        })
+        detection_cur: curDetStr,
+        matches: _filterBehavioralMatches(similarityScores),
     };
 }
 
@@ -2164,7 +2092,7 @@ async function checkSimilarRulesForQueue() {
                 title: (rule.rule_metadata && rule.rule_metadata.title) || (currentRuleParsed && currentRuleParsed.title) || 'Untitled',
                 detection: currentRuleParsed && currentRuleParsed.detection
             };
-            const config = mapSimilarityResponse(data, currentRuleInfo);
+            const config = buildSimilarityConfigFromResponse(data, currentRuleInfo);
             renderSimilarityChips(config);
             showSimilarRulesModal(config, 0);
         } else {
@@ -2277,7 +2205,7 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
             </div>
             <div class="flex flex-1 overflow-hidden min-h-0">
                 <div id="simMatchList" class="w-64 flex-shrink-0 border-r border-gray-700 overflow-y-auto">${matchesHtml}</div>
-                <div id="simDetailPane" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">${matches.length ? buildSimilarityDetailHtml(matches[selectedIndex]) : '<p class="text-sm text-gray-500 py-8 text-center">No data available.</p>'}</div>
+                <div id="simDetailPane" class="flex-1 overflow-y-auto p-4 flex flex-col gap-4">${matches.length ? buildQueueSimilarityDetail(matches[selectedIndex], config.detection_cur) : '<p class="text-sm text-gray-500 py-8 text-center">No data available.</p>'}</div>
             </div>
             <div class="px-4 py-3 border-t border-gray-700 flex items-center justify-between flex-shrink-0">
                 <span class="text-xs text-gray-500 truncate mr-4">Reviewing rule #${config.rule_id} — ${(config.rule_title || '').slice(0, 50)}${(config.rule_title || '').length > 50 ? '…' : ''}</span>
@@ -2312,7 +2240,7 @@ async function showSimilarRulesModal(config, initialIndex = 0) {
             });
             const pane = modal.querySelector('#simDetailPane');
             if (pane) {
-                pane.innerHTML = buildSimilarityDetailHtml(matches[selectedIndex]);
+                pane.innerHTML = buildQueueSimilarityDetail(matches[selectedIndex], config.detection_cur);
                 pane.scrollTop = 0;
                 bindYamlToggles(pane);
             }
