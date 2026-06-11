@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session
 
 from src.database.models import ArticleSigmaMatchTable, ArticleTable, ChunkAnalysisResultTable, SigmaRuleTable
 from src.services.embedding_service import EmbeddingService
+from src.services.similarity_serialization import alias_engine_label
 
 logger = logging.getLogger(__name__)
 
@@ -641,7 +642,10 @@ class SigmaMatchingService:
                 "matches": matches,
                 "total_candidates_evaluated": total_candidates_evaluated,
                 "behavioral_matches_found": behavioral_matches_found,
-                "engine_used": engine_used,
+                # Symmetric with the per-match similarity_engine alias: normalize the
+                # aggregate engine_used to current vocabulary so no surface (incl. any
+                # re-surfaced pre-rename value) leaks "deterministic"/"legacy".
+                "engine_used": alias_engine_label(engine_used),
                 "logsource_key": logsource_key_meta,
                 "canonical_class": canonical_class_meta,
                 # Pass through the atom-less signal so summarize_rule_novelty can route
