@@ -1236,7 +1236,7 @@ class SigmaNoveltyService:
 
     def compute_atom_jaccard(self, rule1: CanonicalRule, rule2: CanonicalRule) -> float:
         """
-        Compute Jaccard similarity over positive atoms only using semantic atom identities.
+        Compute Jaccard similarity over positive atoms only using atom identities.
 
         Args:
             rule1: First canonical rule
@@ -1382,12 +1382,12 @@ class SigmaNoveltyService:
         Returns:
             Dictionary with similarity metrics
         """
-        semantic_result = self.compare_precomputed_atoms(
+        atom_result = self.compare_precomputed_atoms(
             self._atom_fields_from_canonical(rule1),
             self._atom_fields_from_canonical(rule2),
         )
-        atom_jaccard = semantic_result["atom_jaccard"] if semantic_result else 0.0
-        logic_similarity = semantic_result["logic_shape_similarity"] if semantic_result else 0.0
+        atom_jaccard = atom_result["atom_jaccard"] if atom_result else 0.0
+        logic_similarity = atom_result["logic_shape_similarity"] if atom_result else 0.0
 
         # Check logsource match
         logsource_match = rule1.logsource.get("product") == rule2.logsource.get("product") and rule1.logsource.get(

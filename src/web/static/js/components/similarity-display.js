@@ -203,13 +203,13 @@ function getNoveltyLabelClasses(noveltyLabel, similarityEngine) {
 }
 
 /**
- * Returns human-readable scoring mode label for semantic comparison (e.g. evaluator).
+ * Returns human-readable scoring mode label for atom comparison (e.g. evaluator).
  *
- * @param {Object} semanticComparison - semantic_comparison object (may have similarity_engine)
+ * @param {Object} atomComparison - atom comparison object (may have similarity_engine)
  * @returns {string} "Deterministic (No LLM)" | "LLM / Embedding"
  */
-function getScoringModeLabel(semanticComparison) {
-    if (semanticComparison && aliasEngineLabel(semanticComparison.similarity_engine) === 'precomputed') {
+function getScoringModeLabel(atomComparison) {
+    if (atomComparison && aliasEngineLabel(atomComparison.similarity_engine) === 'precomputed') {
         return 'Precomputed (No LLM)';
     }
     return 'LLM / Embedding';
@@ -266,8 +266,8 @@ function renderSimilarityDisplay(data, options = {}) {
     const unsupportedOrDnf = reasonFlags.includes('unsupported_sigma_feature') || reasonFlags.includes('dnf_expansion_limit');
     const showNumericScore = !canonicalMismatch && !unsupportedOrDnf;
     const engineBadge = engine === 'precomputed'
-        ? '<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">Deterministic Semantic Engine</span>'
-        : '<span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">Legacy Heuristic Engine</span>';
+        ? '<span class="px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200">Precomputed Atom Set-Math</span>'
+        : '<span class="px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">On-the-Fly Atom Set-Math</span>';
     const jaccardVal = engine === 'precomputed' && normalized.atom_details && normalized.atom_details.jaccard != null
         ? normalized.atom_details.jaccard
         : atomJaccard;
@@ -348,7 +348,7 @@ function renderSimilarityDisplay(data, options = {}) {
                 const cc = escapeHtml(sd.canonical_class || '—');
                 const rf = Array.isArray(sd.reason_flags) ? sd.reason_flags.join(', ') : '—';
                 return `
-            <!-- Semantic Breakdown (Deterministic Engine) - primary breakdown when deterministic -->
+            <!-- Atom Breakdown (Deterministic Engine) - primary breakdown when deterministic -->
             <div class="mb-6">
                 <details class="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg" open>
                     <summary class="px-4 py-3 cursor-pointer text-md font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
@@ -404,10 +404,10 @@ function renderSimilarityDisplay(data, options = {}) {
             </div>
         `;
     } else if (mode === 'compact') {
-        // Compact mode: Engine badge, similarity %, breakdown grid, optionally semantic breakdown (deterministic), explainability
+        // Compact mode: Engine badge, similarity %, breakdown grid, optionally atom breakdown (deterministic), explainability
         const compactEngineBadge = engine === 'precomputed'
-            ? '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-2">Deterministic Semantic Engine</span>'
-            : '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 mb-2">Legacy Heuristic Engine</span>';
+            ? '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 mb-2">Precomputed Atom Set-Math</span>'
+            : '<span class="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 mb-2">On-the-Fly Atom Set-Math</span>';
         const showCompactDeterministic = engine === 'precomputed' && normalized.atom_details && !canonicalMismatch && !unsupportedOrDnf;
         const compactDeterministicBlock = showCompactDeterministic ? (() => {
             const sd = normalized.atom_details;
