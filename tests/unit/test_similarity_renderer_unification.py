@@ -53,3 +53,55 @@ class TestSigmaSimilarityTestPageRenderer:
         html = _read(SIGMA_SIMILARITY_TEST)
         assert "similarity-display.js" in html
         assert "renderSimilarityDisplay(" in html
+
+
+SIMILAR_RULE_MODAL_JS = STATIC_JS_DIR / "similar-rule-modal.js"
+
+
+class TestWorkflowModalRendererCollapsed:
+    """The 'Similar Rule Details' modal -- which had drifted into two copies in
+    workflow.html and workflow_executions.html and showed only a bare
+    'Similarity: X%' -- is now one shared component that renders the full
+    breakdown via renderSimilarityDisplay()."""
+
+    def test_modal_functions_absent_from_both_templates(self):
+        for tpl in (WORKFLOW, WORKFLOW_EXECUTIONS):
+            html = _read(tpl)
+            assert "function showSimilarRuleDetails" not in html, tpl
+            assert "function closeSimilarRuleModal" not in html, tpl
+
+    def test_both_templates_load_shared_modal_component(self):
+        for tpl in (WORKFLOW, WORKFLOW_EXECUTIONS):
+            html = _read(tpl)
+            assert "similar-rule-modal.js" in html, tpl
+            # callers (onclick handlers) still reference the now-shared function
+            assert "showSimilarRuleDetails(" in html, tpl
+
+    def test_shared_modal_renders_breakdown_via_component(self):
+        js = _read(SIMILAR_RULE_MODAL_JS)
+        assert "renderSimilarityDisplay(ruleData" in js
+        # one definition each, in the shared file
+        assert js.count("function showSimilarRuleDetails(") == 1
+        assert js.count("function closeSimilarRuleModal(") == 1
+
+    def test_shared_modal_guards_pushmodal_fallback(self):
+        # workflow_executions.html has no pushModal; the unified function must
+        # guard the fallback so it does not ReferenceError there.
+        js = _read(SIMILAR_RULE_MODAL_JS)
+        assert "typeof pushModal === 'function'" in js
+
+    def test_shared_modal_escapes_interpolated_rule_fields(self):
+        # workflow.html's copy interpolated rule fields without escaping; the
+        # unified version hardens this.
+        js = _read(SIMILAR_RULE_MODAL_JS)
+        assert "escapeHtml(ruleData.title" in js
+        assert "escapeHtml(ruleData.description)" in js
+
+
+class TestAbTestUsesSharedComponent:
+    """A/B test already routed through the shared component; lock that contract."""
+
+    def test_ab_test_uses_update_similarity_display(self):
+        html = _read(SIGMA_AB_TEST)
+        assert "similarity-display.js" in html
+        assert "updateSimilarityDisplay(" in html
