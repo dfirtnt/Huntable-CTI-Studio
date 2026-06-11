@@ -37,7 +37,9 @@ from src.services.workflow_provider_options import _probe_lmstudio
 from src.services.workflow_trigger_service import WorkflowTriggerService
 from src.utils.content_filter import ContentFilter
 from src.utils.langfuse_client import (
+    get_active_trace_id,
     log_workflow_step,
+    score_langfuse_trace,
     trace_workflow_execution,
 )
 from src.utils.subagent_utils import build_subagent_lookup_values, normalize_subagent_name
@@ -2084,6 +2086,18 @@ def create_agentic_workflow(db_session: Session) -> StateGraph:
             sigma_rules = generation_result.get("rules", []) if generation_result else []
             sigma_errors = generation_result.get("errors")
             sigma_metadata = generation_result.get("metadata", {}) if generation_result else {}
+
+            # Log repair-attempt count as a Langfuse score so it's queryable over time
+            total_attempts = sigma_metadata.get("total_attempts")
+            if total_attempts is not None:
+                active_tid = get_active_trace_id()
+                if active_tid:
+                    score_langfuse_trace(
+                        trace_id=active_tid,
+                        name="sigma_repair_attempts",
+                        value=float(total_attempts),
+                        comment=f"execution_id={state.get('execution_id')} rules={len(sigma_rules)}",
+                    )
 
             # Treat Langfuse generator cleanup errors as non-fatal: skip rules, continue workflow
             if sigma_errors and isinstance(sigma_errors, str):

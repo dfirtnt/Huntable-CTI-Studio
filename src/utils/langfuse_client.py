@@ -652,6 +652,42 @@ def log_llm_error(generation, error: Exception, metadata: dict[str, Any] | None 
             logger.error(f"Error logging LLM error to LangFuse: {e}")
 
 
+def get_active_trace_id() -> str | None:
+    """Return the trace ID currently set by an active trace_workflow_execution context manager."""
+    return _active_trace_id
+
+
+def score_langfuse_trace(
+    trace_id: str,
+    name: str,
+    value: float,
+    comment: str | None = None,
+) -> None:
+    """Attach a numeric score to a Langfuse trace by its trace_id.
+
+    Silently no-ops when Langfuse is disabled or the call fails, so callers
+    never need to guard against tracing errors.
+    """
+    if not trace_id or not is_langfuse_enabled():
+        return
+    try:
+        client = get_langfuse_client()
+        if client is None:
+            return
+        kwargs: dict[str, Any] = {
+            "trace_id": trace_id,
+            "name": name,
+            "value": float(value),
+            "data_type": "NUMERIC",
+        }
+        if comment:
+            kwargs["comment"] = comment
+        client.score(**kwargs)
+        client.flush()
+    except Exception as e:
+        logger.debug("Failed to score Langfuse trace %s (%s=%s): %s", trace_id, name, value, e)
+
+
 def log_workflow_step(
     trace,
     step_name: str,
