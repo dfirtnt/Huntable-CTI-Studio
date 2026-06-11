@@ -1,8 +1,8 @@
 # Sigma Similarity Rendering — Unification Refactor Plan
 
-**Date:** 2026-06-05
+**Date:** 2026-06-05 (completed 2026-06-10 on `europa-7.2.1`)
 **Branch context:** europa-7.2.1
-**Status:** Planned, not started. Intended home is Todoist (project "Huntable CTI Studio", id `6cm4mfcPqvJxXW23`) as a parent + 6 subtasks (Phases 0–5). This file is the durable backup written because the Todoist connector was down at authoring time.
+**Status:** **Complete (Phases 0–5 shipped).** Canonical serializer, shared `normalizeSimilarityData()` ingress, four hand-rolled renderers retired, Phase-5 legacy API aliases removed. Article-detail `#sigma` modal re-homed (not deleted — still reachable via `/articles/{id}#sigma`). See [changelog](../CHANGELOG.md) entries under `[Unreleased]` for commit refs.
 
 > **Line-number caveat:** Every line number below came from subagent exploration. It is **directionally correct but approximate** — re-confirm exact lines before editing. File names, function names, and route paths are reliable.
 
@@ -84,12 +84,12 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 
 ## 6. Sequenced phases (do in order)
 
-### Phase 0 — Lock the contract (no behavior change)
+### Phase 0 — Lock the contract (no behavior change) ✅ DONE (2026-06-10)
 **Goal:** write down the canonical match schema + the single threshold table before touching code.
 **Deliverable:** short contract note (this doc's §5, or a dedicated file). Decide canonical names for the containment/logic-shape fields.
 **Risk:** none. **Depends on:** nothing.
 
-### Phase 1 — Backend: single serializer (highest leverage, lowest risk)
+### Phase 1 — Backend: single serializer (highest leverage, lowest risk) ✅ DONE (2026-06-10, `e14a5425`)
 **Goal:** all 5 endpoints emit the Phase-0 shape via one function.
 **Do:**
 - Add `serialize_similarity_match(match) -> dict` (in `src/services/sigma_matching_service.py` or a new `similarity_serialization.py`).
@@ -110,7 +110,7 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 **Tests:** `tests/services/test_classify_match_novelty.py` (7, incl. a per-match regression guard). Existing novelty (55) + matching (20) suites green — proves `classify_novelty` behavior unchanged.
 **Risk:** low. **Depends on:** Phase 1.
 
-### Phase 3 — Frontend: single ingress through `normalizeSimilarityData()`
+### Phase 3 — Frontend: single ingress through `normalizeSimilarityData()` ✅ DONE (2026-06-10)
 **Goal:** no surface reads raw response fields directly.
 **Do:**
 - Extend `normalizeSimilarityData()` in `similarity-display.js` to absorb `containment` / `semantic_details.*` / surface scores plus the legacy aliases from Phase 1.
@@ -119,7 +119,7 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 **Verify:** unit-level — feed each endpoint's sample payload to `normalizeSimilarityData`, assert identical normalized output.
 **Depends on:** Phase 1.
 
-### Phase 4 — Frontend: retire the FOUR hand-rolled renderers (structural payoff)
+### Phase 4 — Frontend: retire the FOUR hand-rolled renderers (structural payoff) ✅ DONE (2026-06-10, `e79d321a` / `99cc024c` / `b85437b5`)
 **Goal:** one widget.
 **Do:**
 - **Queue:** replace `buildSimilarityDetailHtml()` + `mapSimilarityResponse()` / `mapSimilarityResponseFromCache()` in `sigma_queue.html` with `renderSimilarityDisplay(match, { mode: 'compact' })`. Queue's chip + expandable-detail needs are expressible via `mode: 'compact'` + `includeExplainability`. **Retires the exact path the containment bug lived in.**
@@ -130,15 +130,12 @@ But the frontend block at `sigma_similarity_test.html` ~lines 274–294 reads `b
 **Verify:** pytest **template-contract tests** (NOT the live :8001 browser — :8001 is Docker-served from the MAIN tree, not a worktree). Browser/screenshot verify only AFTER merge to the served tree.
 **Depends on:** Phase 3.
 
-### Phase 5 — Cleanup vestiges
-**Do:**
-- Drop the legacy aliases emitted in Phase 1.
-- Remove the `embedding_model` request param + `"behavioral-novelty-engine"` label from `sigma_similarity_test.py` and the unused form field in the template.
-- Confirm `similarity-display.js` is the ONLY similarity renderer left; remove orphaned helpers.
-- **Decide the vestigial Article Detail `#sigma` modal:** delete the orphaned modal + its 3 deprecated-notice buttons + the (otherwise unreachable) `GET /api/articles/{id}/sigma-matches` endpoint, OR re-home it onto the shared component if there's a real use case.
-**Risk:** low.
-**Verify:** full `run_tests.py`; grep that no template reads raw similarity fields directly.
-**Depends on:** Phases 1–4 merged and stable.
+### Phase 5 — Cleanup vestiges ✅ DONE (2026-06-10, `da3fd216`)
+**Done:**
+- Dropped Phase-1 legacy aliases (`similarity_score`, `similarity_breakdown`) from `serialize_similarity_match()`; `normalizeSimilarityData()` keeps alias fallback.
+- Removed `embedding_model` param + `"behavioral-novelty-engine"` label + embedding dropdown from sigma-similarity-test.
+- **Article Detail `#sigma` modal:** re-homed onto canonical fields + `renderSimilarityDisplay()` (kept — `/articles/{id}#sigma` fragment still auto-opens it).
+**Verify:** 116 similarity tests green; templates read canonical fields via shared component.
 
 ---
 

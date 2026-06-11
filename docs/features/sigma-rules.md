@@ -200,7 +200,7 @@ and score novelty.
 
 ```
 Generated Rule
-  1. Extract detection atoms (or generate embedding as fallback)
+  1. Extract detection atoms via sigma_similarity (live or index-time precompute)
   2. Phase 1 candidate retrieval — two paths:
        (a) canonical_class path: filter sigma_rules.canonical_class = X (no LIMIT)
        (b) logsource_key fallback: filter sigma_rules.logsource_key = X (LIMIT 20)
@@ -343,84 +343,36 @@ soft matching applies across process-executable fields (`Image`, `CommandLine`,
 50%-dampened partial Jaccard credit, preventing 0% similarity between rules
 detecting the same binary via different Sigma fields.
 
-**Legacy path** (when package is not installed): Atom Jaccard 70% + Logic Shape
-Similarity 30%.
+#### When atom extraction runs
 
-#### When each engine runs
+`SigmaNoveltyService.assess_novelty` uses a **single scorer** (`compare_precomputed_semantics`)
+over atom sets from the `sigma_similarity` package. The in-app YAML re-parse scorer
+(atom Jaccard 70% + logic shape 30%) was retired in 2026-06-10.
 
-Both engines coexist in `SigmaNoveltyService.assess_novelty`. Which path
-executes for a given (proposed_rule, candidate) pair depends on two
-preconditions:
+| Stage | Function | `require_canonical_class` | Purpose |
+|---|---|---|---|
+| Index / backfill | `precompute_semantic_fields()` | `True` (strict) | Store `canonical_class`, `positive_atoms`, `negative_atoms`, `surface_score` only for explicitly modeled telemetry classes |
+| Comparison (proposed rule) | `extract_semantic_fields()` | `False` | Live atom extraction even when `canonical_class` is unresolved |
+| Comparison (candidate w/o stored atoms) | `extract_semantic_fields()` | `False` | Same live extraction for corpus rows missing precomputed columns |
 
-| Precondition | Deterministic engine | Legacy in-app engine |
-|---|---|---|
-| Proposed rule's `precompute_semantic_fields` succeeded? | Required (sets `proposed_sem`) | Not required |
-| Candidate has `positive_atoms` populated? | Required | Not required |
-| `sigma_semantic_similarity` package installed at runtime? | Required | Optional |
+For each (proposed, candidate) pair:
 
-When all three hold, the deterministic path runs. If any fails, the engine
-falls through to the legacy path. The legacy path therefore covers:
+1. Proposed rule atoms come from `extract_semantic_fields(proposed_rule, require_canonical_class=False)`.
+2. If the candidate has stored `positive_atoms`, compare against those.
+3. Else, live-extract the candidate the same way.
+4. If either side cannot produce atoms, the candidate is **skipped** (no second-engine fallback).
 
-- Rules whose telemetry class isn't modeled by the canonical-class resolver.
-  As of 2026-06-02 the modeled set covers: process_creation (windows/linux/macos);
-  the registry family (`registry_event`/`registry_set`/`registry_add`/`registry_delete`);
-  the Windows file family (`file_event`/`file_delete`/`file_access`/`file_rename`/`file_change`);
-  the clean Sysmon-EID categories `windows.image_load` (7), `windows.network_connection` (3),
-  `windows.process_access` (10), `windows.create_remote_thread` (8), `windows.driver_load` (6),
-  `windows.create_stream_hash` (15), `windows.pipe_created` (17/18), `windows.dns_query`
-  (Sysmon 22 + DNS-Client 3008); the three PowerShell sources `windows.ps_script` (4104),
-  `windows.ps_module` (4103), `windows.ps_classic_start` (400) — kept as distinct classes;
-  the web/network access classes `web.webserver`, `web.proxy`, and `network.dns` (generic +
-  zeek, `query` field); plus `windows.service` and `windows.scheduled_task`. Keyword-list
-  selections (XSS/SSTI/Log4j webserver rules) are now modeled on **both** the precomputed and
-  on-the-fly paths — the precomputed extractor synthesizes a field-less `contains` atom per
-  scalar (Conditional B, 2026-06-02), so webserver/proxy rules are no longer forced onto the
-  on-the-fly path. Still unmodeled (Coverage-Chain backlog): cloud/audit telemetry
-  (aws/azure/gcp/okta/m365/github), heterogeneous multi-EID services (`windows`/`security`,
-  `windows`/`system`, `linux`/`auditd`), `linux.file_event` / `linux.network_connection`,
-  `macos.file_event`, and assorted singletons (windefend, cisco, fortigate, zeek smb, the
-  `application/*` product families). `EventCode` (the Splunk/EventLog field name) is treated
-  as `EventID` during resolution.
-- Rules whose Sigma syntax uses features the deterministic AST builder rejects
-  (e.g. unsupported correlation patterns, nested `1 of` selection-name
-  expressions that exceed the DNF expansion limit).
-- Indexed corpus rules that pre-date a `canonical_class`-aware sync (i.e. were
-  indexed before `positive_atoms` was a column or before its resolver covered
-  their class).
+`sigma_semantic_similarity` must be installed at runtime (Docker image includes it). Without it, novelty assessment cannot score behavioral similarity.
 
-#### What the legacy path sacrifices
+**Canonical-class coverage** (index-time gate; comparison-time extraction may still produce atoms with `canonical_class=None`):
 
-- **No DNF normalization.** Two rules whose detection logic is the same boolean
-  expression in different surface forms (e.g. `(A and B) or C` vs. `(A or C) and (B or C)`)
-  do NOT collapse to the same atom set. They score below their semantic
-  equivalence.
-- **No surface_score / containment factor.** The legacy path can't distinguish
-  "narrow rule is a subset of a broad rule" (a Subset Containment bucket B=0.85
-  signal in the deterministic engine) from "unrelated rules that happen to
-  share an atom." The legacy formula is just `0.70 × atom_jaccard + 0.30 × logic_shape`.
-- **No reason flags.** Deterministic results carry `reason_flags` like
-  `no_shared_atoms`, `canonical_class_mismatch`, `dnf_expansion_limit` —
-  diagnostic signals the UI surfaces. The legacy path emits no such flags;
-  inconclusive results are indistinguishable from low-similarity results.
-- **No filter penalty asymmetry.** Negative-atom differences (Sigma `NOT` and
-  filter conditions) are scored by a different penalty function (`_compute_filter_penalty`).
-  The two engines agree at the limits but disagree in the gradient between
-  fully-matching and fully-divergent filters.
+- Modeled: `process_creation` (windows/linux/macos); registry family; Windows file family; Sysmon-EID categories (`image_load`, `network_connection`, `process_access`, `create_remote_thread`, `driver_load`, `create_stream_hash`, `pipe_created`, `dns_query`); PowerShell (`ps_script`, `ps_module`, `ps_classic_start`); `web.webserver`, `web.proxy`, `network.dns`; `windows.service`, `windows.scheduled_task`.
+- Keyword-list selections (XSS/SSTI/Log4j webserver rules) are modeled on both index and live paths (Conditional B, 2026-06-02).
+- Still unmodeled (Coverage-Chain backlog): cloud/audit telemetry, heterogeneous multi-EID services, `linux.file_event`, `macos.file_event`, assorted singletons. `EventCode` is treated as `EventID`.
 
-#### Why both engines are kept
+Rules whose Sigma syntax exceeds the AST builder (unsupported correlation, DNF expansion limit) return `None` from extraction and are skipped.
 
-The legacy path is the safety net that prevents the scorer from going dark
-for unmodeled rule shapes. Per the 2026-06-01 4b measurement, it fires 0% of
-the time on recent process_creation traffic (because all candidates in that
-class have `positive_atoms` populated). But it remains the only path that can
-produce ANY score for rules outside the modeled telemetry classes. Removing
-it without first expanding the canonical_class resolver (Spec Item 8) would
-silently return zero candidates for ~58% of the corpus.
-
-Per-comparison engine selection is observable: the API response carries
-`engine_used: 'deterministic' | 'legacy'` at the workflow level and
-`similarity_engine` at the per-match level. The UI's *Behavioral Similarity
-Breakdown* panel renders a different layout for each.
+**Code labels:** `similarity_engine: "deterministic"` means the precomputed-atom scorer ran; `"legacy"` is retained only for exact-hash duplicate short-circuits. Both use the same set-math engine when scoring.
 
 ### Similarity Thresholds
 
@@ -636,7 +588,7 @@ entry for display in the Sigma Queue UI.
 |---|---|---|
 | Entry point | `sigma_matching_service.py` | Calls `SigmaNoveltyService.assess_novelty()` |
 | Orchestrator | `sigma_novelty_service.py` | Retrieves candidates, computes Jaccard/containment/filter scores |
-| Precompute | `sigma_semantic_precompute.py` | Materializes canonical atom sets and logsource keys at index time |
+| Precompute | `sigma_semantic_precompute.py` | `extract_semantic_fields()` / `precompute_semantic_fields()` — materializes atom sets at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
 | Semantic scorer | `sigma_semantic_scorer.py` | Fallback scoring path (not used by the primary Jaccard×Containment pipeline) |
@@ -653,16 +605,17 @@ The word **"semantic"** is overloaded across the Sigma code and is the single bi
 | **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — two vectors per rule: `SigmaRuleTable.embedding` (whole-rule text) and `logsource_embedding` (the combined "signature" text: logsource + detection structure + detection fields). Both are scored via `<=>`. *(Five former per-section columns — `title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding` — were write-only and were dropped 2026-06-01; `detection_structure_`/`detection_fields_` had stored a duplicate of the signature vector.)* | `sigma_matching_service.py`, `rag_service.py` |
 | **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** — Jaccard × containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**, despite the `sigma_semantic_similarity` package name, `precompute_semantic_fields`, and the `recompute-semantics` CLI all carrying the word "semantic". | **No** | `sigma_semantic_similarity` pkg, `precompute_semantic_fields` |
 
-**The atom set-math engine runs in one of two paths — and both are deterministic.** The distinction is *when the atoms are computed*, not determinism vs probability:
+**The atom set-math engine is deterministic.** The distinction is *when atoms are computed*:
 
-| Canonical term (use this) | Code label today (`similarity_scores`) | What it is |
+| Canonical term | Code label (`similarity_scores`) | What it is |
 |---|---|---|
-| **precomputed atom set-math** | `"deterministic"` | Atoms built once at index time, stored in `positive_atoms`/etc. columns; comparison reads the stored strings. |
-| **on-the-fly atom set-math** | `"legacy"` | No stored atoms, so the rule YAML is parsed and atoms derived at comparison time. Same set math, recomputed each call. |
+| **index-time atoms** | `"deterministic"` | Atoms stored in `positive_atoms`/etc.; comparison reads stored strings |
+| **live extraction** | `"deterministic"` | `extract_semantic_fields()` at comparison time when stored atoms are absent |
+| **exact-hash duplicate** | `"legacy"` | Short-circuit only; no set-math scoring |
 
-Neither path uses embeddings. The only probabilistic/fuzzy similarity in the system is the article and article→rule vector search (first two rows above). Avoid the words "semantic" (implies vectors — it isn't), "deterministic vs legacy" (both are deterministic), and "in-app" (everything is in the app — the real axis is precompute-time vs comparison-time).
+Neither path uses embeddings. The only probabilistic/fuzzy similarity is article and article→rule vector search (first two rows above). Avoid "semantic" (implies vectors) and read `precompute_semantic_fields` / `extract_semantic_fields` as **atom extraction**, not embedding work.
 
-> **Cleanup tracked:** the misnamed "semantic" set-math engine (rename to atom/precomputed terms, incl. the `"deterministic"`/`"legacy"` → `"precomputed"`/`"on-the-fly"` labels) and the dead/duplicate rule-embedding columns are tracked as SigmaSim issues in the backlog. Until the code is renamed, read "semantic precompute" / "semantic similarity" as **precomputed atom set-math**, and map `deterministic → precomputed`, `legacy → on-the-fly`.
+> **Cleanup tracked:** rename `"deterministic"`/`"legacy"` code labels to `"precomputed"`/`"live"`/`"exact_hash"` in a future pass. Dead rule-embedding columns were dropped 2026-06-01.
 
 ---
 
@@ -776,7 +729,9 @@ Rules generated by the agentic workflow are placed in `sigma_rule_queue` with on
     {
       "rule_id": "a1b2c3d4-...",
       "title": "PowerShell Suspicious Script Execution",
-      "similarity_score": 0.875,
+      "similarity": 0.875,
+      "atom_jaccard": 0.82,
+      "containment": 0.85,
       "coverage_status": "covered",
       "matched_discriminators": ["powershell.exe", "EncodedCommand"],
       "matched_lolbas": ["powershell.exe", "cmd.exe"],
