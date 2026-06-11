@@ -33,12 +33,12 @@ const CANONICAL_MATCH = {
   logic_shape_similarity: 1.0,
   containment: 1.0,
   novelty_label: 'SIMILAR',
-  similarity_engine: 'deterministic',
+  similarity_engine: 'precomputed',
   shared_atoms: ['process.image|endswith:/cmd.exe'],
   added_atoms: [],
   removed_atoms: [],
   filter_differences: [],
-  semantic_details: {
+  atom_details: {
     canonical_class: 'windows.process_creation',
     jaccard: 1.0,
     containment_factor: 1.0,
