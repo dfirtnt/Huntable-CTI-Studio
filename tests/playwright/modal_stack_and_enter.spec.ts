@@ -6,7 +6,13 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = process.env.CTI_SCRAPER_URL || 'http://localhost:8001';
-const TEST_ARTICLE_ID = process.env.TEST_ARTICLE_ID || '68';
+// Sentinel (non-existent) article ID. The Enter-key test below submits the
+// trigger-workflow modal against the LIVE server (prod DB); a real ID would run
+// the full workflow and mint a spurious execution row on every Playwright run
+// (this is how article 68 "Intelligence Center" kept reappearing in
+// /workflow#executions). 999999 makes the trigger return 404 — the modal still
+// shows its message, so the keybinding assertion holds, but no execution is created.
+const TEST_ARTICLE_ID = process.env.TEST_ARTICLE_ID || '999999';
 
 test.describe('Modal stack and Enter key', () => {
   test('ESC with nested modals closes only topmost and restores previous', async ({ page }) => {
