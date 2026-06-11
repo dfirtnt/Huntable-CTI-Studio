@@ -127,9 +127,10 @@ def test_identity_and_metadata_fields_passed_through():
     assert result["file_path"] == "rules/x.yml"
 
 
-def test_legacy_aliases_are_additive():
-    """Existing frontends read similarity_score and similarity_breakdown.* . Until
-    Phase 4/5 the serializer must keep emitting these alongside canonical keys."""
+def test_legacy_aliases_removed_responses_are_canonical_only():
+    """Phase 5: the Phase-1 legacy aliases (similarity_score, similarity_breakdown)
+    are retired now that every surface reads canonical fields. Responses are
+    canonical-only; the canonical metrics remain."""
     match = {
         "rule_id": "x",
         "similarity": 0.42,
@@ -139,9 +140,12 @@ def test_legacy_aliases_are_additive():
 
     result = serialize_similarity_match(match)
 
-    assert result["similarity_score"] == result["similarity"] == 0.42
-    assert result["similarity_breakdown"]["atom_jaccard"] == 0.5
-    assert result["similarity_breakdown"]["logic_shape_similarity"] == 0.3
+    assert "similarity_score" not in result
+    assert "similarity_breakdown" not in result
+    # canonical metrics still present
+    assert result["similarity"] == 0.42
+    assert result["atom_jaccard"] == 0.5
+    assert result["logic_shape_similarity"] == 0.3
 
 
 def test_semantic_details_preserved_for_deterministic_surfaces():

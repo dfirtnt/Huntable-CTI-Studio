@@ -47,7 +47,6 @@ def _extract_yaml_block(text: str) -> str:
 class SimilaritySearchRequest(BaseModel):
     rule_yaml: str
     use_llm_rerank: bool = False
-    embedding_model: str = ""
     llm_model: str = ""
     top_k: int = Field(default=10, ge=1, le=50)
 
@@ -111,7 +110,6 @@ async def search_similar_rules(request: SimilaritySearchRequest):
             "matches": formatted,
             "total_candidates_evaluated": result.get("total_candidates_evaluated", 0),
             "models_used": {
-                "embedding_model": request.embedding_model or "behavioral-novelty-engine",
                 "llm_model": "not used" if not request.use_llm_rerank else (request.llm_model or "none"),
             },
             "input_rule": {

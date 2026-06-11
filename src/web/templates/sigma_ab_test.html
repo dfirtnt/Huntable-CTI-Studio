@@ -479,7 +479,7 @@ tags:
     function displayRepositoryResults(data) {
         const matches = data.matches || [];
         const matchesHtml = matches.length > 0 ? matches.map((match, index) => {
-            const similarity = ((match.similarity || match.similarity_score || 0) * 100).toFixed(1);
+            const similarity = ((match.similarity || 0) * 100).toFixed(1);
             const atomJaccard = ((match.atom_jaccard || 0) * 100).toFixed(1);
             const logicShape = match.logic_shape_similarity !== null && match.logic_shape_similarity !== undefined 
                 ? ((match.logic_shape_similarity * 100).toFixed(1)) + '%' 

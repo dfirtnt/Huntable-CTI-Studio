@@ -197,8 +197,10 @@ class TestSigmaSimilarRulesAPI:
         served = response["matches"][0]
         assert served["containment"] == 0.65
         assert served["similarity_engine"] == "deterministic"
-        # legacy alias still present (additive)
-        assert served["similarity_score"] == served["similarity"] == 0.42
+        # Phase 5: canonical-only -- the legacy aliases are retired.
+        assert served["similarity"] == 0.42
+        assert "similarity_score" not in served
+        assert "similarity_breakdown" not in served
 
     @pytest.mark.asyncio
     async def test_similar_rules_404_when_queue_rule_missing(self):

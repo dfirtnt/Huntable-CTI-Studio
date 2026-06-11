@@ -16095,7 +16095,7 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
         }
         
         matchesHtml = matches.map((match, index) => {
-            const similarityPercent = ((match.similarity_score || match.similarity || 0) * 100).toFixed(1);
+            const similarityPercent = ((match.similarity || 0) * 100).toFixed(1);
             const coverageStatus = match.coverage_status || 'unknown';
             const statusIcon = coverageStatus === 'covered' ? '✓' : 
                               coverageStatus === 'extend' ? '⚡' : '✨';
@@ -16147,8 +16147,8 @@ async function showSimilarRulesModal(matches, coverageSummary, generatedRules = 
                         </div>
                     ` : ''}
                     
-                    ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { 
-                        mode: 'compact', 
+                    ${match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, {
+                        mode: 'compact',
                         includeExplainability: true,
                         ruleALabel: 'Current Rule',
                         ruleBLabel: 'Similar Rule'

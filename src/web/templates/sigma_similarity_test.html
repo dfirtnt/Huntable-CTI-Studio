@@ -49,12 +49,6 @@
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <label class="flex flex-col">
-                    <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">Embedding Model (for similarity search):</span>
-                    <select id="embeddingModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
-                        <option value="">Loading models...</option>
-                    </select>
-                </label>
-                <label class="flex flex-col">
                     <span class="text-gray-700 dark:text-gray-300 mb-1 text-sm font-medium">LLM Model (for reranking):</span>
                     <select id="llmModel" class="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-white">
                         <option value="">Loading models...</option>
@@ -74,10 +68,6 @@
                 <h4 class="text-md font-semibold text-gray-700 dark:text-gray-300 mb-3">Models Used</h4>
                 <div class="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                        <div>
-                            <span class="text-gray-600 dark:text-gray-400">Embedding Model:</span>
-                            <span id="usedEmbeddingModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
-                        </div>
                         <div>
                             <span class="text-gray-600 dark:text-gray-400">LLM Model:</span>
                             <span id="usedLLMModel" class="ml-2 font-mono text-gray-900 dark:text-white"></span>
@@ -182,7 +172,6 @@ tags:
             
             const ruleYaml = document.getElementById('ruleInput').value.trim();
             const useLLMRerank = document.getElementById('useLLMRerank').checked;
-            const embeddingModel = document.getElementById('embeddingModel').value;
             const llmModel = document.getElementById('llmModel').value;
             const topK = parseInt(document.getElementById('topK').value) || 10;
             
@@ -198,7 +187,6 @@ tags:
                 body: JSON.stringify({
                     rule_yaml: ruleYaml,
                     use_llm_rerank: useLLMRerank,
-                    embedding_model: embeddingModel,
                     llm_model: llmModel,
                     top_k: topK
                 })
@@ -235,7 +223,6 @@ tags:
         if (data.models_used) {
             const modelsSection = document.getElementById('modelsUsedSection');
             modelsSection.classList.remove('hidden');
-            document.getElementById('usedEmbeddingModel').textContent = data.models_used.embedding_model || 'Default';
             document.getElementById('usedLLMModel').textContent = data.models_used.llm_model || 'Not used';
         }
         
@@ -465,69 +452,35 @@ tags:
 
     // Load LMStudio models on page load
     async function loadLMStudioModels() {
+        // Populates the LLM reranking dropdown only. The similarity search itself
+        // is behavioral atom set-math (no embeddings), so there is no embedding
+        // model picker -- isEmbeddingModel() is used purely to exclude embedding
+        // models from the LLM (chat) list.
         try {
             const response = await fetch('/api/lmstudio-models');
             const data = await response.json();
-            
-            const embeddingSelect = document.getElementById('embeddingModel');
+
             const llmSelect = document.getElementById('llmModel');
-            
-            if (!embeddingSelect || !llmSelect) return;
-            
-            embeddingSelect.innerHTML = '';
+            if (!llmSelect) return;
+
             llmSelect.innerHTML = '';
-            
+
             if (data.success && data.all_models && data.all_models.length > 0) {
-                // Get current models from Settings
-                let currentEmbeddingModel = null;
+                // Current chat model from Settings (embedding models are not chat models)
                 let currentLLMModel = null;
                 try {
                     const settingsResponse = await fetch('/api/settings/lmstudio_model');
                     const settingsData = await settingsResponse.json();
-                    if (settingsData.success && settingsData.exists) {
-                        const savedModel = settingsData.value;
-                        if (isEmbeddingModel(savedModel)) {
-                            currentEmbeddingModel = savedModel;
-                        } else {
-                            currentLLMModel = savedModel;
-                        }
+                    if (settingsData.success && settingsData.exists && !isEmbeddingModel(settingsData.value)) {
+                        currentLLMModel = settingsData.value;
                     }
                 } catch (e) {
                     console.log('Could not fetch saved models:', e);
                 }
-                
-                // Separate embedding and chat models
-                const embeddingModels = [];
-                const chatModels = [];
-                
-                data.all_models.forEach(model => {
-                    if (isEmbeddingModel(model)) {
-                        embeddingModels.push(model);
-                    } else {
-                        chatModels.push(model);
-                    }
-                });
-                
-                // Populate embedding model dropdown
-                if (embeddingModels.length > 0) {
-                    // Sort embedding models alphabetically
-                    embeddingModels.sort();
-                    embeddingModels.forEach((model, index) => {
-                        const option = document.createElement('option');
-                        option.value = model;
-                        option.textContent = model;
-                        if ((currentEmbeddingModel && model === currentEmbeddingModel) || (!currentEmbeddingModel && index === 0)) {
-                            option.selected = true;
-                        }
-                        embeddingSelect.appendChild(option);
-                    });
-                } else {
-                    embeddingSelect.innerHTML = '<option value="">No embedding models available</option>';
-                }
-                
-                // Populate LLM model dropdown
+
+                // LLM reranking uses chat models only (exclude embedding models)
+                const chatModels = data.all_models.filter(model => !isEmbeddingModel(model));
                 if (chatModels.length > 0) {
-                    // Sort chat models alphabetically
                     chatModels.sort();
                     chatModels.forEach((model, index) => {
                         const option = document.createElement('option');
@@ -542,16 +495,11 @@ tags:
                     llmSelect.innerHTML = '<option value="">No chat models available</option>';
                 }
             } else {
-                embeddingSelect.innerHTML = '<option value="">No models available</option>';
                 llmSelect.innerHTML = '<option value="">No models available</option>';
             }
         } catch (error) {
             console.error('Error loading LMStudio models:', error);
-            const embeddingSelect = document.getElementById('embeddingModel');
             const llmSelect = document.getElementById('llmModel');
-            if (embeddingSelect) {
-                embeddingSelect.innerHTML = '<option value="">Error loading models</option>';
-            }
             if (llmSelect) {
                 llmSelect.innerHTML = '<option value="">Error loading models</option>';
             }

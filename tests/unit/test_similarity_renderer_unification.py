@@ -120,6 +120,56 @@ class TestSigmaQueueRendererRetired:
         assert "buildQueueSimilarityDetail(" in html
 
 
+ARTICLE_DETAIL = TEMPLATES_DIR / "article_detail.html"
+SIGMA_SIMILARITY_TEST_ROUTE = Path("src/web/routes/sigma_similarity_test.py")
+SERIALIZER = Path("src/services/similarity_serialization.py")
+
+
+class TestPhase5CleanupVestiges:
+    """Phase 5: legacy aliases retired, embedding vestiges removed, the #sigma
+    similarity render re-homed onto the shared component (kept, not deleted --
+    the modal is still reachable via the #sigma URL fragment)."""
+
+    # Surfaces that previously read the raw singular aliases.
+    _ALIAS_SURFACES = (SIGMA_AB_TEST, WORKFLOW, ARTICLE_DETAIL, SIGMA_SIMILARITY_TEST)
+
+    def test_no_surface_template_reads_singular_legacy_aliases(self):
+        # The DB cache column is `similarity_scores` (plural) -- not an alias.
+        # The defensive adapter in similarity-display.js may keep reading them,
+        # but no surface template may.
+        for tpl in self._ALIAS_SURFACES:
+            html = _read(tpl)
+            assert "match.similarity_score" not in html, tpl
+            assert "match.similarity_breakdown" not in html, tpl
+
+    def test_serializer_emits_canonical_only(self):
+        src = _read(SERIALIZER)
+        # No emitted alias keys (docstring mention is fine; the dict literal is not).
+        assert '"similarity_score": similarity' not in src
+        assert '"similarity_breakdown":' not in src
+
+    def test_embedding_model_param_and_label_removed(self):
+        route = _read(SIGMA_SIMILARITY_TEST_ROUTE)
+        assert "embedding_model" not in route
+        assert "behavioral-novelty-engine" not in route
+        html = _read(SIGMA_SIMILARITY_TEST)
+        assert "embedding_model" not in html
+        assert 'id="embeddingModel"' not in html
+
+    def test_sigma_similarity_test_still_renders_via_shared_component(self):
+        # Re-home sanity: the page still uses the shared renderer (Phase 4) and
+        # the LLM rerank dropdown survives the embedding-picker removal.
+        html = _read(SIGMA_SIMILARITY_TEST)
+        assert "renderSimilarityDisplay(" in html
+        assert 'id="llmModel"' in html
+
+    def test_article_detail_sigma_render_uses_canonical_fields(self):
+        # #sigma modal kept (reachable via fragment) but its similarity render
+        # is re-homed: reads canonical match.similarity / atom_jaccard, not aliases.
+        html = _read(ARTICLE_DETAIL)
+        assert "match.atom_jaccard !== undefined ? renderSimilarityDisplay" in html
+
+
 # ---------------------------------------------------------------------------
 # Behavioral verification: actually RUN the new queue functions in Node with a
 # canonical match, proving the detail pane and config builders produce correct

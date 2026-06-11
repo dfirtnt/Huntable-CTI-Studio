@@ -93,14 +93,14 @@ _CORE = {
     "semantic_details": _SEMANTIC_DETAILS,
 }
 
-# (a) Canonical serializer output (every route post-Phase-1): canonical keys
-#     + containment lifted to top level + additive legacy aliases.
+# (a) Canonical serializer output (every route): canonical keys + containment
+#     lifted to top level. Phase 5 retired the legacy aliases, so the serializer
+#     emits canonical-only (PAYLOAD_ALIAS_ONLY below still exercises the
+#     component's defensive alias adapter).
 PAYLOAD_SERIALIZED = {
     **_CORE,
     "containment": 1.0,
     "novelty_score": 0.5,
-    "similarity_score": 0.5,
-    "similarity_breakdown": {"atom_jaccard": 1.0, "logic_shape_similarity": 1.0},
 }
 
 # (b) Raw persisted engine match (queue similarity_scores cache + workflow

@@ -9,10 +9,11 @@ field pruning, renaming). That divergence is why a fix in one surface does not
 propagate to the others. ``serialize_similarity_match`` projects a raw match
 onto a single canonical contract so all endpoints emit the same shape.
 
-The serializer is intentionally additive: alongside the canonical keys it keeps
-the legacy aliases (`similarity_score`, `similarity_breakdown`) that existing
-frontends still read, so it can be wired into every route without a flag day.
-Those aliases are removed in Phase 5 once the frontends migrate.
+Responses are canonical-only. The serializer originally also emitted additive
+legacy aliases (`similarity_score`, `similarity_breakdown`) so it could be wired
+into every route without a flag day; those were retired in Phase 5 once all
+surfaces moved onto the shared similarity-display.js component. (The component's
+``normalizeSimilarityData`` keeps reading those aliases as a defensive adapter.)
 """
 
 from __future__ import annotations
@@ -79,10 +80,4 @@ def serialize_similarity_match(match: dict[str, Any]) -> dict[str, Any]:
         "filter_differences": match.get("filter_differences") or [],
         # --- deterministic engine detail (preserved for surfaces that read it) ---
         "semantic_details": semantic_details,
-        # --- additive legacy aliases (removed in Phase 5) ---
-        "similarity_score": similarity,
-        "similarity_breakdown": {
-            "atom_jaccard": atom_jaccard,
-            "logic_shape_similarity": logic_shape,
-        },
     }

@@ -7442,7 +7442,7 @@ Please provide a detailed analysis based on the article content and the user's s
             }
             
             matchesHtml = matches.map((match, index) => {
-                const similarityPercent = (match.similarity_score * 100).toFixed(1);
+                const similarityPercent = ((match.similarity || 0) * 100).toFixed(1);
                 const coverageStatus = match.coverage_status || 'unknown';
                 const statusColor = coverageStatus === 'covered' ? 'green' : 
                                    coverageStatus === 'extend' ? 'yellow' : 'purple';
@@ -7487,8 +7487,8 @@ Please provide a detailed analysis based on the article content and the user's s
                             </div>
                         ` : ''}
                         
-                        ${match.similarity_breakdown || match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, { 
-                            mode: 'compact', 
+                        ${match.atom_jaccard !== undefined ? renderSimilarityDisplay(match, {
+                            mode: 'compact',
                             includeExplainability: true,
                             ruleALabel: 'Current Rule',
                             ruleBLabel: 'Similar Rule'

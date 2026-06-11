@@ -53,9 +53,9 @@ class TestSigmaAbTestCompareAPI:
         assert "removed_atoms" in data
 
     def test_compare_response_includes_canonical_contract_fields(self):
-        """Phase 1: /compare emits the unified canonical contract via the shared
-        serializer, including the top-level `containment` field, alongside the
-        legacy keys existing frontends still read (additive)."""
+        """/compare emits the unified canonical contract via the shared
+        serializer (top-level `containment` etc.). Phase 5: canonical-only --
+        the Phase-1 legacy aliases are retired."""
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
@@ -73,9 +73,9 @@ class TestSigmaAbTestCompareAPI:
         # canonical contract
         assert "containment" in data
         assert "similarity_engine" in data
-        # legacy aliases still present (additive, removed in Phase 5)
-        assert data["similarity_score"] == data["similarity"]
-        assert "atom_jaccard" in data["similarity_breakdown"]
+        # Phase 5: legacy aliases retired -- responses are canonical-only
+        assert "similarity_score" not in data
+        assert "similarity_breakdown" not in data
         # behavior unchanged
         assert data["similarity"] == 1.0
         assert data["novelty_label"] == "DUPLICATE"
