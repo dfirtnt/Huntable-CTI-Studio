@@ -8614,6 +8614,30 @@ function getCurrentModelForAgent(agentName) {
     return null;
 }
 
+// Render the parsed fields of a Standard Extractor Contract prompt as readable,
+// line-broken labeled blocks for the read-only System Prompt view. The templateData
+// values are the PARSED strings (real newlines), unlike the raw config JSON stored in
+// promptParts.system where newlines are escaped (\n) and never break under
+// whitespace-pre-wrap. Each field is escaped; empty fields are omitted.
+function renderExtractorConfigFields(templateData) {
+    const td = templateData || {};
+    const sections = [
+        ['Role', td.role],
+        ['Task', td.task],
+        ['JSON Example', td.json_example],
+        ['Instructions', td.instructions],
+    ];
+    const blocks = sections
+        .filter(([, value]) => value && String(value).trim())
+        .map(([label, value]) => `
+            <div>
+                <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">${escapeHtml(label)}</div>
+                <div class="font-mono whitespace-pre-wrap break-words text-gray-800 dark:text-gray-200">${escapeHtml(String(value))}</div>
+            </div>
+        `);
+    return blocks.length ? blocks.join('') : '<span class="text-gray-400 italic">(empty)</span>';
+}
+
 function renderSinglePrompt(agentName, promptData, prefix) {
     const prompt = promptData.prompt || '';
     const instructions = promptData.instructions || '';
@@ -8667,7 +8691,19 @@ function renderSinglePrompt(agentName, promptData, prefix) {
     // Check if this is one of the locked extractor prompts
     const isExtractionAgent = isLockedExtractorPrompt(agentName);
     const isLockedScaffoldAgent = isExtractionAgent || isLockedCanonicalPrompt(agentName);
-    
+
+    // Standard Extractor Contract prompts (CmdlineExtract, ProcTreeExtract, ...) store the
+    // raw config JSON in promptParts.system so Save round-trips it verbatim. Rendering that
+    // raw JSON read-only produces a wall of text (escaped \n never break under
+    // whitespace-pre-wrap). When viewing (not editing) such a prompt, render the parsed
+    // templateData fields instead. The edit textarea and save path are untouched.
+    const systemIsConfigJson = typeof promptParts.system === 'string'
+        && promptParts.system.trim().startsWith('{');
+    const showReadableExtractorConfig = !isEditing && isTemplateFormat && systemIsConfigJson;
+    const systemDisplayHtml = showReadableExtractorConfig
+        ? `<div id="${agentId}-prompt-system-display-2" class="text-sm space-y-4 bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md max-h-96 overflow-y-auto leading-relaxed text-gray-800 dark:text-gray-200">${renderExtractorConfigFields(templateData)}</div>`
+        : `<div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>`;
+
     return `
         <div id="${panelId}-root" class="border border-gray-200 dark:border-gray-700 rounded-lg">
             <div data-collapsible-panel="${panelId}" class="w-full flex items-center justify-between p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg transition-colors cursor-pointer" style="background-color: var(--panel-header);">
@@ -8746,9 +8782,7 @@ function renderSinglePrompt(agentName, promptData, prefix) {
                                               data-derived-binding-kind="prompt-system"
                                               placeholder="Enter system prompt (agent role, behavior, constraints)..."
                                               class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white font-mono text-sm">${escapeHtml(promptParts.system)}</textarea>
-                                ` : `
-                                    <div id="${agentId}-prompt-system-display-2" class="text-sm font-mono bg-gray-50 dark:bg-gray-900 border-l-4 border-blue-500 border border-gray-200 dark:border-gray-700 pl-4 p-3 rounded-md whitespace-pre-wrap break-words max-h-96 overflow-y-auto leading-relaxed ${!promptParts.system ? 'text-gray-400 italic' : 'text-gray-800 dark:text-gray-200'}">${escapeHtml(promptParts.system || '(empty)')}</div>
-                                `}
+                                ` : systemDisplayHtml}
                                 <div id="${agentId}-validate-result-2" class="hidden mt-2"></div>
                             </div>
                         ${isLockedScaffoldAgent ? `
