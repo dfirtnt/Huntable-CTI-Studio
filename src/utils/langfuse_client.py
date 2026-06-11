@@ -24,6 +24,25 @@ _active_trace_id: str | None = None
 _session_trace_cache: dict[str, str] = {}
 
 
+def _build_langfuse_tags(
+    *,
+    execution_id: int | str | None = None,
+    article_id: int | str | None = None,
+    model: str | None = None,
+    extra_tags: list[str] | None = None,
+) -> list[str]:
+    tags: list[str] = []
+    if execution_id is not None:
+        tags.append(f"execution_id:{execution_id}")
+    if article_id is not None:
+        tags.append(f"article_id:{article_id}")
+    if model:
+        tags.append(f"model:{model}")
+    if extra_tags:
+        tags.extend(tag for tag in extra_tags if tag)
+    return tags
+
+
 def _get_langfuse_setting(key: str, env_key: str, default: str | None = None) -> str | None:
     """Get Langfuse setting from database first, then fall back to environment variable.
 
@@ -181,6 +200,7 @@ class _LangfuseWorkflowTrace(AbstractContextManager):
                 session_id=session_id,
                 user_id=self.user_id or f"article_{self.article_id}",
                 trace_name=f"agentic_workflow_execution_{self.execution_id}",
+                tags=_build_langfuse_tags(execution_id=self.execution_id, article_id=self.article_id),
             )
             self._attributes_cm.__enter__()
 
@@ -464,6 +484,7 @@ def trace_llm_call(
                 session_id=resolved_session_id,
                 user_id=f"article_{article_id}" if article_id else None,
                 trace_name=name,
+                tags=_build_langfuse_tags(execution_id=execution_id, article_id=article_id, model=model),
             ):
                 generation = client.start_observation(**generation_kwargs)
         else:

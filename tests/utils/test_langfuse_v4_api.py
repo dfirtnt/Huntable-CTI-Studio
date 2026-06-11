@@ -55,7 +55,10 @@ class TestTraceLlmCallUsesV4Api:
                 assert "trace_context" not in call_kwargs
                 # session_id must travel via propagate_attributes; trace_name labels standalone traces
                 mock_propagate.assert_called_once_with(
-                    session_id="workflow_exec_1", user_id="article_42", trace_name="test_gen"
+                    session_id="workflow_exec_1",
+                    user_id="article_42",
+                    trace_name="test_gen",
+                    tags=["execution_id:1", "article_id:42", "model:gpt-4"],
                 )
                 # v3 method should NOT have been called
                 mock_client.start_generation.assert_not_called()
@@ -147,7 +150,10 @@ class TestTraceLlmCallUsesV4Api:
                 assert "session_id" not in call_kwargs["trace_context"]
                 # session must still travel via propagate_attributes; trace_name labels standalone traces
                 mock_propagate.assert_called_once_with(
-                    session_id="workflow_exec_7", user_id="article_10", trace_name="linked_gen"
+                    session_id="workflow_exec_7",
+                    user_id="article_10",
+                    trace_name="linked_gen",
+                    tags=["execution_id:7", "article_id:10", "model:gpt-4"],
                 )
 
     def test_no_propagate_attributes_when_no_session(self):
@@ -272,6 +278,7 @@ class TestWorkflowTraceUsesV4Api:
                 session_id="workflow_exec_1",
                 user_id="article_42",
                 trace_name="agentic_workflow_execution_1",
+                tags=["execution_id:1", "article_id:42"],
             )
             mock_attributes_cm.__enter__.assert_called_once()
             mock_client.start_as_current_observation.assert_called_once()
@@ -310,6 +317,7 @@ class TestWorkflowTraceUsesV4Api:
                 session_id="custom-session-abc",
                 user_id="article_10",
                 trace_name="agentic_workflow_execution_99",
+                tags=["execution_id:99", "article_id:10"],
             )
             trace.__exit__(None, None, None)
 
