@@ -38,9 +38,9 @@ def test_recompute_semantics_clears_stale_fields_for_unsupported_rules():
 
     with (
         patch("src.cli.sigma_commands.DatabaseManager") as db_manager,
-        patch("src.services.sigma_semantic_precompute.is_sigma_similarity_available", return_value=True),
+        patch("src.services.sigma_atom_precompute.is_sigma_similarity_available", return_value=True),
         patch(
-            "src.services.sigma_semantic_precompute.precompute_semantic_fields",
+            "src.services.sigma_atom_precompute.precompute_atom_fields",
             side_effect=[None, semantic_fields],
         ),
     ):

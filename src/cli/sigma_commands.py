@@ -253,7 +253,7 @@ def recompute_semantics_cmd():
     console.print("[bold blue]Recomputing Sigma semantic precompute fields...[/bold blue]")
 
     try:
-        from src.services.sigma_semantic_precompute import is_sigma_similarity_available, precompute_semantic_fields
+        from src.services.sigma_atom_precompute import is_sigma_similarity_available, precompute_atom_fields
 
         if not is_sigma_similarity_available():
             console.print(
@@ -280,7 +280,7 @@ def recompute_semantics_cmd():
                     "logsource": rule.logsource or {},
                     "detection": rule.detection or {},
                 }
-                sem = precompute_semantic_fields(rule_data)
+                sem = precompute_atom_fields(rule_data)
                 if sem is None:
                     unsupported += 1
                     had_semantic_fields = any(

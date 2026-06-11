@@ -309,9 +309,9 @@ class SigmaNoveltyService:
             proposed_sem = None
             if _sigma_compare_rules_available:
                 try:
-                    from src.services.sigma_semantic_precompute import extract_semantic_fields
+                    from src.services.sigma_atom_precompute import extract_atom_fields
 
-                    proposed_sem = extract_semantic_fields(proposed_rule, require_canonical_class=False)
+                    proposed_sem = extract_atom_fields(proposed_rule, require_canonical_class=False)
                 except Exception:
                     semantic_extraction_failed = True
                     logger.warning(
@@ -514,7 +514,7 @@ class SigmaNoveltyService:
         branch and /sigma-ab-test /compare both call this, so live-parse and
         precomputed scoring cannot diverge (the two-extractor polarity bug).
 
-        Inputs are dicts shaped like precompute_semantic_fields() output /
+        Inputs are dicts shaped like precompute_atom_fields() output /
         SigmaRuleTable semantic columns: canonical_class, positive_atoms,
         negative_atoms, surface_score. Returns None when the sigma_similarity
         primitives are unavailable.
@@ -609,9 +609,9 @@ class SigmaNoveltyService:
     ) -> dict[str, Any] | None:
         """Live semantic extraction through the sigma_similarity package."""
         try:
-            from src.services.sigma_semantic_precompute import extract_semantic_fields
+            from src.services.sigma_atom_precompute import extract_atom_fields
 
-            return extract_semantic_fields(rule_data, require_canonical_class=require_canonical_class)
+            return extract_atom_fields(rule_data, require_canonical_class=require_canonical_class)
         except Exception:
             logger.debug("sigma_novelty: live semantic extraction failed", exc_info=True)
             return None

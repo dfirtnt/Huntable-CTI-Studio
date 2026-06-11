@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from src.database.manager import DatabaseManager
 from src.services.sigma_matching_service import SigmaMatchingService
 from src.services.sigma_novelty_service import SigmaNoveltyService, classify_match_novelty
-from src.services.sigma_semantic_precompute import precompute_semantic_fields
+from src.services.sigma_atom_precompute import precompute_atom_fields
 from src.services.similarity_serialization import serialize_similarity_match
 
 logger = logging.getLogger(__name__)
@@ -100,8 +100,8 @@ async def compare_rules(compare_request: CompareRequest):
     # classify, so /compare cannot diverge from stored-atom scoring
     # (filter-polarity bug: `not N of filter_*` atoms leaked into the
     # positive jaccard and produced false-NOVEL verdicts).
-    sem_a = precompute_semantic_fields(rule_a_data)
-    sem_b = precompute_semantic_fields(rule_b_data)
+    sem_a = precompute_atom_fields(rule_a_data)
+    sem_b = precompute_atom_fields(rule_b_data)
     if sem_a is not None and sem_b is not None:
         det_match = service.compare_precomputed_semantics(sem_a, sem_b)
         if det_match is not None:

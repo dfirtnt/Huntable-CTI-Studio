@@ -1,5 +1,5 @@
 """
-Precompute deterministic semantic fields for Sigma rules using sigma_similarity.
+Precompute deterministic atom fields for Sigma rules using sigma_similarity.
 
 Used during indexing and backfill. Produces canonical_class, positive_atoms,
 negative_atoms, surface_score for storage — eliminates recomputation during novelty comparison.
@@ -24,7 +24,7 @@ except ImportError:
     _SIGMA_SIMILARITY_AVAILABLE = False
 
 
-def extract_semantic_fields(rule_data: dict[str, Any], *, require_canonical_class: bool = True) -> dict[str, Any] | None:
+def extract_atom_fields(rule_data: dict[str, Any], *, require_canonical_class: bool = True) -> dict[str, Any] | None:
     """
     Extract canonical_class, positive_atoms, negative_atoms, surface_score for a rule.
 
@@ -54,7 +54,7 @@ def extract_semantic_fields(rule_data: dict[str, Any], *, require_canonical_clas
             canonical_class = resolve_canonical_class(rule_data)
         except UnknownTelemetryClassError as e:
             if require_canonical_class:
-                logger.debug("Semantic precompute skipped for rule: %s", e)
+                logger.debug("Atom precompute skipped for rule: %s", e)
                 return None
 
         norm = normalize_detection(rule_data.get("detection") or {})
@@ -72,21 +72,21 @@ def extract_semantic_fields(rule_data: dict[str, Any], *, require_canonical_clas
             "surface_score": int(surface),
         }
     except (UnknownTelemetryClassError, UnsupportedSigmaFeatureError, DeterministicExpansionLimitError) as e:
-        logger.debug("Semantic precompute skipped for rule: %s", e)
+        logger.debug("Atom precompute skipped for rule: %s", e)
         return None
     except Exception as e:
-        logger.warning("Semantic precompute failed: %s", e)
+        logger.warning("Atom precompute failed: %s", e)
         return None
 
 
-def precompute_semantic_fields(rule_data: dict[str, Any]) -> dict[str, Any] | None:
+def precompute_atom_fields(rule_data: dict[str, Any]) -> dict[str, Any] | None:
     """
     Precompute canonical_class, positive_atoms, negative_atoms, surface_score for a rule.
 
-    Index-time precompute keeps the strict canonical-class gate so stored semantic
+    Index-time precompute keeps the strict canonical-class gate so stored atom
     rows remain tied to an explicitly modeled telemetry class.
     """
-    return extract_semantic_fields(rule_data, require_canonical_class=True)
+    return extract_atom_fields(rule_data, require_canonical_class=True)
 
 
 def is_sigma_similarity_available() -> bool:

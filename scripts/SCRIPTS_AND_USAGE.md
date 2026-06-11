@@ -489,13 +489,13 @@ python3 scripts/migrate_sigma_to_canonical.py
 python3 scripts/migrate_sigma_canonical_fields.py
 ```
 
-### `migrate_sigma_semantic_precompute.py`
-**Purpose**: Add deterministic semantic precompute columns to sigma_rules (canonical_class, positive_atoms, negative_atoms, surface_score)
+### `migrate_sigma_atom_precompute.py`
+**Purpose**: Add deterministic atom precompute columns to sigma_rules (canonical_class, positive_atoms, negative_atoms, surface_score)
 **Usage**:
 ```bash
-DATABASE_URL=postgresql://... python3 scripts/migrate_sigma_semantic_precompute.py
+DATABASE_URL=postgresql://... python3 scripts/migrate_sigma_atom_precompute.py
 ```
-**Note**: Run before `sigma recompute-semantics`. Requires sigma_semantic_similarity package for backfill.
+**Note**: Run before `sigma recompute-semantics`. Requires sigma_atom_similarity package for backfill.
 
 ### `migrate_subagent_evaluation_table.py`
 **Purpose**: Migrate subagent evaluation table  

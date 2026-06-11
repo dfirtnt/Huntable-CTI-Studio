@@ -10,7 +10,7 @@ The ``op`` slot was always redundant — it equals ``modifier_chain.split("|")[0
 
 Commit f7ad0813 changed the extractor to emit the 3-slot form
 ``field|modifier_chain|value``. New rules indexed through
-``precompute_semantic_fields()`` already store the 3-slot form, but rows
+``precompute_atom_fields()`` already store the 3-slot form, but rows
 written before that commit still hold the legacy 4-slot strings in their
 ``positive_atoms`` / ``negative_atoms`` JSONB columns. This leaves a mixed
 corpus. This script rewrites the stored strings in place so storage is

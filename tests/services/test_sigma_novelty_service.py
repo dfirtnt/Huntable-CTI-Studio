@@ -756,7 +756,7 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.extract_semantic_fields",
+                "src.services.sigma_atom_precompute.extract_atom_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
         ):
@@ -776,7 +776,7 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.extract_semantic_fields",
+                "src.services.sigma_atom_precompute.extract_atom_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
         ):
@@ -796,7 +796,7 @@ class TestAssessNoveltyDegradationWarnings:
                 True,
             ),
             patch(
-                "src.services.sigma_semantic_precompute.extract_semantic_fields",
+                "src.services.sigma_atom_precompute.extract_atom_fields",
                 side_effect=RuntimeError("precompute boom"),
             ),
             caplog.at_level(logging.WARNING, logger="src.services.sigma_novelty_service"),
@@ -1228,7 +1228,7 @@ class TestPackageExtractorConvergence:
         negated via `not N of <prefix>_*` wildcard-quantified references are
         polarity=negative and therefore excluded from the positive jaccard set."""
         pytest.importorskip("sigma_similarity")
-        from src.services.sigma_semantic_precompute import precompute_semantic_fields
+        from src.services.sigma_atom_precompute import precompute_atom_fields
 
         rule = {
             "logsource": {"product": "windows", "category": "process_creation"},
@@ -1240,7 +1240,7 @@ class TestPackageExtractorConvergence:
             },
         }
 
-        sem = precompute_semantic_fields(rule)
+        sem = precompute_atom_fields(rule)
 
         assert sem is not None
         positives = sem["positive_atoms"]
@@ -1257,9 +1257,9 @@ class TestPackageExtractorConvergence:
         atoms (11 positive / 15 negative) -- the extractor-agreement proof
         that live-parse and precomputed scoring use one extractor."""
         pytest.importorskip("sigma_similarity")
-        from src.services.sigma_semantic_precompute import precompute_semantic_fields
+        from src.services.sigma_atom_precompute import precompute_atom_fields
 
-        sem = precompute_semantic_fields({"logsource": self.RULE_2002_LOGSOURCE, "detection": self.RULE_2002_DETECTION})
+        sem = precompute_atom_fields({"logsource": self.RULE_2002_LOGSOURCE, "detection": self.RULE_2002_DETECTION})
 
         assert sem is not None
         assert sem["canonical_class"] == "windows.process_creation"
@@ -1279,7 +1279,7 @@ class TestSingleExtractorTimingConsolidation:
         assert not hasattr(service, "extract_atomic_predicates")
 
     def test_candidate_with_null_atoms_scores_same_as_precomputed_candidate(self, service):
-        from src.services.sigma_semantic_precompute import extract_semantic_fields
+        from src.services.sigma_atom_precompute import extract_atom_fields
 
         proposed = {
             "title": "Proposed Cmd",
@@ -1300,7 +1300,7 @@ class TestSingleExtractorTimingConsolidation:
             "exact_hash": "different",
             "exact_hash_match": False,
         }
-        sem = extract_semantic_fields(candidate, require_canonical_class=False)
+        sem = extract_atom_fields(candidate, require_canonical_class=False)
         assert sem is not None
 
         service.retrieve_candidates = Mock(
