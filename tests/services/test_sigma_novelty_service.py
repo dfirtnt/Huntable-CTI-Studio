@@ -1157,7 +1157,7 @@ class TestPackageExtractorConvergence:
     # DB snapshot 2026-06-10 (sigma_rules.id=2002, SigmaHQ 178e615d-...,
     # "Suspicious Command Patterns In Scheduled Task Creation" family pair).
     # If the package's atom identity logic changes intentionally, update this
-    # snapshot AND run recompute-semantics so stored atoms stay in lockstep.
+    # snapshot AND run recompute-atoms so stored atoms stay in lockstep.
     RULE_2002_LOGSOURCE = {"product": "windows", "category": "process_creation"}
     RULE_2002_DETECTION = {
         "condition": "all of selection_* and not 1 of filter_main_* and not 1 of filter_optional_*",

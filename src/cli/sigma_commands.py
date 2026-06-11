@@ -247,10 +247,10 @@ def index_embeddings_cmd(force: bool):
         logger.error(f"Embedding generation failed: {e}")
 
 
-@sigma_group.command("recompute-semantics")
-def recompute_semantics_cmd():
-    """Recompute deterministic semantic fields (canonical_class, atoms, surface_score) for all indexed SigmaHQ rules."""
-    console.print("[bold blue]Recomputing Sigma semantic precompute fields...[/bold blue]")
+@sigma_group.command("recompute-atoms")
+def recompute_atoms_cmd():
+    """Recompute deterministic atom fields (canonical_class, atoms, surface_score) for all indexed SigmaHQ rules."""
+    console.print("[bold blue]Recomputing Sigma atom precompute fields...[/bold blue]")
 
     try:
         from src.services.sigma_atom_precompute import is_sigma_similarity_available, precompute_atom_fields
@@ -283,7 +283,7 @@ def recompute_semantics_cmd():
                 sem = precompute_atom_fields(rule_data)
                 if sem is None:
                     unsupported += 1
-                    had_semantic_fields = any(
+                    had_atom_fields = any(
                         field is not None
                         for field in (
                             rule.canonical_class,
@@ -296,7 +296,7 @@ def recompute_semantics_cmd():
                     rule.positive_atoms = None
                     rule.negative_atoms = None
                     rule.surface_score = None
-                    if had_semantic_fields:
+                    if had_atom_fields:
                         cleared += 1
                         touched += 1
                     continue
@@ -314,7 +314,7 @@ def recompute_semantics_cmd():
                 logger.warning("Failed to update rule %s: %s", rule.rule_id, e)
                 failures += 1
 
-        json_null_cleaned = _clean_json_null_semantic_atoms(session)
+        json_null_cleaned = _clean_json_null_atoms(session)
 
         session.commit()
         session.close()
@@ -322,7 +322,7 @@ def recompute_semantics_cmd():
         console.print(f"[bold green]✓[/bold green] Total processed: {processed}")
         console.print(f"[yellow]  Unsupported (skipped): {unsupported}[/yellow]")
         if cleared > 0:
-            console.print(f"[yellow]  Cleared stale semantic fields: {cleared}[/yellow]")
+            console.print(f"[yellow]  Cleared stale atom fields: {cleared}[/yellow]")
         if json_null_cleaned > 0:
             console.print(f"[yellow]  Cleaned JSON null atom rows: {json_null_cleaned}[/yellow]")
         if failures > 0:
@@ -330,10 +330,10 @@ def recompute_semantics_cmd():
 
     except Exception as e:
         console.print(f"[bold red]✗[/bold red] Error: {e}")
-        logger.error("Recompute semantics failed: %s", e)
+        logger.error("Recompute atoms failed: %s", e)
 
 
-def _clean_json_null_semantic_atoms(session) -> int:
+def _clean_json_null_atoms(session) -> int:
     """Normalize JSON null atom fields to SQL NULL for accurate counts."""
     bind = session.get_bind()
     if bind.dialect.name != "postgresql":

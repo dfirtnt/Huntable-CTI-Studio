@@ -495,7 +495,7 @@ python3 scripts/migrate_sigma_canonical_fields.py
 ```bash
 DATABASE_URL=postgresql://... python3 scripts/migrate_sigma_atom_precompute.py
 ```
-**Note**: Run before `sigma recompute-semantics`. Requires sigma_atom_similarity package for backfill.
+**Note**: Run before `sigma recompute-atoms`. Requires sigma_atom_similarity package for backfill.
 
 ### `migrate_subagent_evaluation_table.py`
 **Purpose**: Migrate subagent evaluation table  
