@@ -73,6 +73,23 @@ Dead code: `uv run vulture src scripts vulture_whitelist.py --min-confidence 80`
 
 ---
 
+## Runtime
+
+The live dev app is Docker Compose at http://localhost:8001 (single environment -- there is
+no separate "served from main" deployment).
+
+- `cti_web` bind-mounts `./src`, `./config`, `./scripts`, `./tests` into the container.
+  Template (`.html`) edits are live per-request. **`.py` edits require a container restart**:
+  `docker restart cti_web` for web code; also restart `cti_worker` / `cti_workflow_worker` /
+  `cti_scheduler` for Celery task code.
+- **`sigma_semantic_similarity/` is NOT bind-mounted** -- it is COPY'd into the image at build
+  time (`Dockerfile:71`). Edits there require `docker compose build` plus an explicit
+  `docker compose --profile tools build cli`; a restart is not enough.
+- Containers: `cti_postgres` (5432), `cti_redis`, `cti_web` (8001), `cti_worker`,
+  `cti_workflow_worker`, `cti_scheduler`, `cti_cli` (tools profile).
+
+---
+
 ## Common Traps
 
 - **Source config precedence**: `config/sources.yaml` seeds new installs only. Existing
