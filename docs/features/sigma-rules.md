@@ -591,7 +591,6 @@ entry for display in the Sigma Queue UI.
 | Precompute | `sigma_atom_precompute.py` | `extract_atom_fields()` / `precompute_atom_fields()` - materializes atom sets at index time |
 | Normalizer | `sigma_behavioral_normalizer.py` | Resolves field aliases (PascalCase / snake_case / lowercase) to canonical identities |
 | Novelty detector | `sigma_novelty_detector.py` | Near-duplicate heuristics before full scoring |
-| Semantic scorer | `sigma_semantic_scorer.py` | Fallback scoring path (not used by the primary Jaccard×Containment pipeline) |
 | Huntability scorer | `sigma_huntability_scorer.py` | Post-generation quality assessment (coverage, specificity) |
 | External engine | `sigma_atom_similarity` pkg | Optional deterministic engine; used when installed |
 
@@ -603,19 +602,19 @@ The word **"semantic"** is overloaded across the Sigma code and is the single bi
 |---|---|---|---|
 | **Article / annotation semantic search** | Genuine ML embeddings (all-mpnet-base-v2), cosine nearest-neighbour over article text. Powers MCP article search, RAG, web search. | **Yes** — real `Vector(768)` + `<=>` | `ArticleTable.embedding`, `AnnotationTable.embedding` |
 | **Article→rule matching (RAG)** | Given an article, find candidate rules by cosine over rule embeddings. | **Yes** — two vectors per rule: `SigmaRuleTable.embedding` (whole-rule text) and `logsource_embedding` (the combined "signature" text: logsource + detection structure + detection fields). Both are scored via `<=>`. *(Five former per-section columns — `title_`/`description_`/`tags_`/`detection_structure_`/`detection_fields_embedding` — were write-only and were dropped 2026-06-01; `detection_structure_`/`detection_fields_` had stored a duplicate of the signature vector.)* | `sigma_matching_service.py`, `rag_service.py` |
-| **Behavioural novelty / dedup** (the `"deterministic"` engine) | **Exact atom set-math** - Jaccard x containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**. The distribution is named `sigma_atom_similarity`; the import package remains `sigma_similarity`. | **No** | `sigma_atom_similarity` pkg, `precompute_atom_fields` |
+| **Behavioural novelty / dedup** (the `"precomputed"` atom engine) | **Exact atom set-math** - Jaccard x containment over canonical atom-identity strings. **No vectors, no ML, no embeddings**. The distribution is named `sigma_atom_similarity`; the import package remains `sigma_similarity`. | **No** | `sigma_atom_similarity` pkg, `precompute_atom_fields` |
 
 **The atom set-math engine is deterministic.** The distinction is *when atoms are computed*:
 
 | Canonical term | Code label (`similarity_scores`) | What it is |
 |---|---|---|
-| **index-time atoms** | `"deterministic"` | Atoms stored in `positive_atoms`/etc.; comparison reads stored strings |
-| **live extraction** | `"deterministic"` | `extract_atom_fields()` at comparison time when stored atoms are absent |
-| **exact-hash duplicate** | `"legacy"` | Short-circuit only; no set-math scoring |
+| **index-time atoms** | `"precomputed"` | Atoms stored in `positive_atoms`/etc.; comparison reads stored strings |
+| **live extraction** | `"precomputed"` | `extract_atom_fields()` at comparison time when stored atoms are absent |
+| **exact-hash duplicate** | `"on-the-fly"` | Short-circuit only; no set-math scoring |
 
 Neither path uses embeddings. The only probabilistic/fuzzy similarity is article and article→rule vector search (first two rows above). The active service names are `precompute_atom_fields` / `extract_atom_fields` because this path is atom extraction, not embedding work.
 
-> **Cleanup tracked:** rename `"deterministic"`/`"legacy"` code labels to `"precomputed"`/`"live"`/`"exact_hash"` in a future pass. Dead rule-embedding columns were dropped 2026-06-01.
+> **Label rename done (2026-06-11):** the `similarity_scores` engine labels were renamed `"deterministic"` → `"precomputed"` and `"legacy"` → `"on-the-fly"` across the producers (`sigma_novelty_service.py`, `sigma_matching_service.py`), the shared serializer, and `similarity-display.js`. Rows persisted *before* the rename still carry the old values and are mapped on read by `similarity_serialization.alias_engine_label()` (mirrored in JS as `aliasEngineLabel`), so no destructive `similarity_scores` JSONB backfill was needed. Dead rule-embedding columns were dropped 2026-06-01.
 
 ---
 
@@ -641,7 +640,7 @@ Neither path uses embeddings. The only probabilistic/fuzzy similarity is article
 ./run_cli.sh sigma stats
 
 # Recompute stored atom fields (needed after atom identity normalization changes)
-./run_cli.sh sigma recompute-semantics
+./run_cli.sh sigma recompute-atoms
 
 # Backfill canonical fields for rules already in DB
 ./run_cli.sh sigma backfill-metadata
@@ -814,7 +813,7 @@ therefore encodes two texts per rule. (The deprecated
    LLM-generated rules may use lowercase/snake_case field names that don't
    match PascalCase atoms in SigmaHQ rules. Recompute:
    ```bash
-   ./run_cli.sh sigma recompute-semantics
+   ./run_cli.sh sigma recompute-atoms
    ```
    See [Sigma Similarity Case-Sensitive Atom Matching](../solutions/logic-errors/sigma-similarity-case-sensitive-atom-matching-2026-04-08.md).
 

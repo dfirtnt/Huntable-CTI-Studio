@@ -291,7 +291,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `index-embeddings` | Generate embeddings for rules (uses local intfloat/e5-base-v2) |
 | `index-customer-repo` | Index approved rules from customer repo (SIGMA_REPO_PATH) for similarity search |
 | `backfill-metadata` | Recompute canonical fields for existing rules (no repo access needed) |
-| `recompute-semantics` | Backfill `canonical_class`, `atoms`, `surface_score` for all indexed rules (requires `sigma_similarity` package) |
+| `recompute-atoms` | Backfill `canonical_class`, `atoms`, `surface_score` for all indexed rules (requires `sigma_similarity` package) |
 | `match ARTICLE_ID` | Match one article to Sigma rules; `--save` to persist |
 | `stats` | Show Sigma rule and match statistics |
 
@@ -313,7 +313,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 ./run_cli.sh sigma index-customer-repo   # Include customer repo rules in similarity search
 ./run_cli.sh sigma backfill-metadata          # Backfill canonical_json/exact_hash/logsource_key for rules missing them
 ./run_cli.sh sigma backfill-metadata --force  # Recompute those fields for ALL rules (use when the canonical logic changed)
-./run_cli.sh sigma recompute-semantics   # Backfill canonical_class, atoms, surface_score (requires sigma_similarity)
+./run_cli.sh sigma recompute-atoms   # Backfill canonical_class, atoms, surface_score (requires sigma_similarity)
 ./run_cli.sh sigma match 123 --threshold 0.7 --save
 ./run_cli.sh sigma stats
 ```
@@ -429,7 +429,7 @@ All CLI commands run inside Docker via `./run_cli.sh`. Arguments are passed to `
 | `backup create/list/restore/verify/prune/stats` | Full backup workflow |
 | `rescore` | Recompute keyword-based threat hunting scores |
 | `embed embed` / `embed stats` / `embed search` | Embedding coverage, generation, coverage stats, semantic search |
-| `sigma sync/index/index-metadata/index-embeddings/index-customer-repo/backfill-metadata/recompute-semantics/match/stats` | Sigma rules: sync, index, semantic backfill, matching |
+| `sigma sync/index/index-metadata/index-embeddings/index-customer-repo/backfill-metadata/recompute-atoms/match/stats` | Sigma rules: sync, index, semantic backfill, matching |
 | `capabilities check` | Runtime feature capability status |
 | `export` | Dump articles to JSON/CSV |
 | `stats` | DB summary (sources, articles, activity) |

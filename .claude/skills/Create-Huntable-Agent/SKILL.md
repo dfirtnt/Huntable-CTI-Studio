@@ -181,7 +181,7 @@ If your extractor introduces a NEW telemetry family (e.g. a hypothetical `DnsExt
 5. **Operational — NOT just a restart** — `sigma_semantic_similarity` is **COPY'd into the
    Docker image at build time, not bind-mounted**. A registry/alias change is live only after
    `docker compose build && docker compose --profile tools build cli && docker compose up -d`,
-   then `./run_cli.sh sigma recompute-semantics` to repopulate `canonical_class`/`positive_atoms`.
+   then `./run_cli.sh sigma recompute-atoms` to repopulate `canonical_class`/`positive_atoms`.
    Verify the per-class count rises post-recompute. (Contrast: `src/` IS bind-mounted, so the
    on-the-fly `FIELD_ALIAS_MAP` edit there takes effect on a plain restart — land both map edits
    together and rebuild so the two paths never drift in production.)
